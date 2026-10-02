@@ -110,3 +110,50 @@ describe('Provider settlement eligible rows cross-slice invalidation', () => {
     sub.unsubscribe()
   })
 })
+
+/**
+ * #1335: the picker's Payment Method options are derived from the same eligible
+ * rows, so a sales payment that makes a method eligible for the first time must
+ * refresh them too — otherwise the new rows are listed but cannot be filtered to.
+ */
+describe('Provider settlement eligible methods', () => {
+  const METHODS_URL = '/accounting/provider-settlements/eligible-methods'
+  const METHOD_ARGS = { settlementDate: '2026-09-26', settlementId: 'ps-1' }
+  const ATOME = { id: 'pm-atome', name: 'Atome', isActive: true, deleted: false }
+  const methodGets = () =>
+    vi.mocked(api).mock.calls.filter(([config]: any[]) => config.url === METHODS_URL)
+
+  it('requests the options for the settlement date and draft, as a plain array', async () => {
+    vi.mocked(api).mockImplementation(async () => ({ data: [ATOME] }))
+    const store = makeStore()
+
+    const sub = store.dispatch(accountingApiSlice.endpoints.getEligibleSettlementMethods.initiate(METHOD_ARGS))
+    const result = await sub
+
+    expect(methodGets()).toHaveLength(1)
+    expect(methodGets()[0][0]).toMatchObject({ url: METHODS_URL, params: METHOD_ARGS })
+    expect(result.data).toEqual([ATOME])
+    sub.unsubscribe()
+  })
+
+  it('re-fetches the options after a sales payment', async () => {
+    let methods: unknown[] = []
+    vi.mocked(api).mockImplementation(async (config: any) => (
+      config.url === METHODS_URL ? { data: methods } : { data: { id: 'so-1' } }
+    ))
+    const store = makeStore()
+
+    const sub = store.dispatch(accountingApiSlice.endpoints.getEligibleSettlementMethods.initiate(METHOD_ARGS))
+    await sub
+    expect(methodGets()).toHaveLength(1)
+
+    methods = [ATOME]
+    await store.dispatch(MUTATIONS.recordOrderPayments())
+
+    await vi.waitFor(() => expect(methodGets()).toHaveLength(2))
+    await vi.waitFor(() => expect(
+      accountingApiSlice.endpoints.getEligibleSettlementMethods.select(METHOD_ARGS)(store.getState() as any).data,
+    ).toEqual([ATOME]))
+    sub.unsubscribe()
+  })
+})

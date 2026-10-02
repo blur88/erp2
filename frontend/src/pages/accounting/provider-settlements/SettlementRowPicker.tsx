@@ -16,8 +16,12 @@ import {
 
 import PagePagination from '@/components/common/PagePagination'
 import { TableCard } from '@/components/common/TableCard'
+import { FilterSelect } from '@/components/filters/FilterSelect'
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { useGetEligibleSettlementRowsQuery } from '@/store/api/accountingApi'
+import {
+  useGetEligibleSettlementMethodsQuery,
+  useGetEligibleSettlementRowsQuery,
+} from '@/store/api/accountingApi'
 import type { EligibleSettlementRow } from '@/types'
 import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
 import { formatCurrency } from '@/utils/formatters'
@@ -76,13 +80,18 @@ export default function SettlementRowPicker({
   const [limit, setLimit] = useState(25)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
+  // #1335: a DISPLAY filter. It narrows what the table lists and nothing else:
+  // `selected` is owned by the form and is never rewritten from here, so rows
+  // the filter hides stay selected, totalled and validated. The label is kept
+  // with the id so the choice can still be shown after its option is gone.
+  const [methodFilter, setMethodFilter] = useState<{ id: string; label: string } | null>(null)
 
   // Every input that redefines the result set invalidates the current page:
   // staying on page 4 of the PREVIOUS query could land past the new last page
   // and render an empty table with no way for the user to tell why.
   useEffect(() => {
     setPage(1)
-  }, [settlementDate, debouncedSearch])
+  }, [settlementDate, debouncedSearch, methodFilter?.id])
 
   // Refetch on mount: a reopened form with identical arguments would otherwise
   // serve RTK's cached rows, hiding payments recorded in another tab or by
@@ -90,8 +99,36 @@ export default function SettlementRowPicker({
   // covered by cross-slice tag invalidation instead.
   const { data, isLoading, isError } = useGetEligibleSettlementRowsQuery({
     settlementDate, ...(settlementId ? { settlementId } : {}),
-    search: debouncedSearch || undefined, page, limit,
+    search: debouncedSearch || undefined,
+    ...(methodFilter ? { paymentMethodId: methodFilter.id } : {}),
+    page, limit,
   }, { refetchOnMountOrArgChange: true })
+
+  // The methods that have eligible rows for this date (and this draft) —
+  // deliberately not narrowed by Search. Refetched on mount for the same reason
+  // as the rows (#1296).
+  const { data: methodsData, isLoading: methodsLoading } = useGetEligibleSettlementMethodsQuery({
+    settlementDate, ...(settlementId ? { settlementId } : {}),
+  }, { refetchOnMountOrArgChange: true })
+  const methodOptions = useMemo(() => {
+    const options = (methodsData ?? []).map((m) => ({
+      value: m.id,
+      label: m.deleted ? `${m.name} (deleted)` : m.isActive ? m.name : `${m.name} (inactive)`,
+    }))
+    // A date change can leave the chosen method with no eligible rows, dropping
+    // it from the options. The choice is the user's: it stays selected and
+    // listed, the table says nothing matches, and All Payment Methods is one
+    // click away. It is never reset behind their back.
+    if (methodFilter && !options.some((o) => o.value === methodFilter.id)) {
+      options.push({ value: methodFilter.id, label: methodFilter.label })
+    }
+    return options
+  }, [methodsData, methodFilter])
+
+  function changeMethodFilter(value: string | null) {
+    const option = methodOptions.find((o) => o.value === value)
+    setMethodFilter(option ? { id: option.value, label: option.label } : null)
+  }
 
   const selectedKeys = useMemo(() => new Set(selected.map(groupKey)), [selected])
   const blocked = useMemo(() => new Set(attentionKeys), [attentionKeys])
@@ -131,21 +168,39 @@ export default function SettlementRowPicker({
     : isError
       ? stateRow('Failed to load payments.')
       : rows.length === 0
-        ? stateRow(debouncedSearch
-          ? 'No payments match your search.'
-          : 'No eligible payments for this settlement date.')
+        ? stateRow(methodFilter
+          ? 'No eligible payments match the current filters.'
+          : debouncedSearch
+            ? 'No payments match your search.'
+            : 'No eligible payments for this settlement date.')
         : null
 
   return (
     <Box>
-      <TextField
-        label="Search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        size="small"
-        fullWidth
-        sx={{ mb: 2, maxWidth: { sm: 360 } }}
-      />
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        sx={{ mb: 2, alignItems: { sm: 'center' } }}
+      >
+        <TextField
+          label="Search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          size="small"
+          fullWidth
+          sx={{ maxWidth: { sm: 360 } }}
+        />
+        <FilterSelect
+          field="settlement-payment-method"
+          label="Payment Method"
+          value={methodFilter?.id ?? null}
+          options={methodOptions}
+          onChange={changeMethodFilter}
+          emptyLabel="All Payment Methods"
+          minWidth={220}
+          optionsLoading={methodsLoading}
+        />
+      </Stack>
 
       {methods.length > 1 && (
         <Alert severity="warning" sx={{ mb: 2 }} data-testid="mixed-methods-warning">

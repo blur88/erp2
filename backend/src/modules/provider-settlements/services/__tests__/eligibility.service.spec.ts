@@ -222,3 +222,104 @@ describe('listClaimedRows — provider clearing (#1285)', () => {
     expect(derivation.deriveClearingAccountId).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('payment method filter and options (#1335)', () => {
+  // SQL SHAPE only, like the block above: the behaviour is proven against real
+  // Postgres in test/provider-settlements.e2e-spec.ts.
+  function harness(queryResult: (sql: string) => any[] = () => []) {
+    const qb: any = {};
+    for (const m of ['innerJoin', 'where', 'andWhere', 'select', 'orderBy', 'addOrderBy']) qb[m] = jest.fn().mockReturnValue(qb);
+    qb.getQueryAndParameters = jest.fn().mockReturnValue(['SELECT 1', ['2026-09-20']]);
+    qb.getRawMany = (jest.fn() as any).mockResolvedValue([]);
+    const calls: Array<{ sql: string; args: unknown[] }> = [];
+    const tx: any = {
+      getRepository: () => ({
+        createQueryBuilder: () => qb,
+        findOne: (jest.fn() as any).mockResolvedValue({ id: 'ps-1', status: 'DRAFT' }),
+      }),
+      query: (jest.fn() as any).mockImplementation(async (sql: string, args: unknown[]) => {
+        calls.push({ sql, args });
+        if (sql.includes('AS total')) return [{ total: 0 }];
+        return queryResult(sql);
+      }),
+    };
+    const outside = () => { throw new Error('read outside the snapshot'); };
+    const defaultManager: any = {
+      transaction: jest.fn(async (_iso: string, cb: any) => cb(tx)),
+      query: jest.fn(outside), getRepository: jest.fn(outside),
+    };
+    const service = new ProviderSettlementEligibilityService(
+      defaultManager,
+      { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
+      { deriveClearingAccountId: jest.fn() } as any,
+    );
+    return { service, calls, defaultManager, qb };
+  }
+
+  /** The `$n` a predicate was bound to, resolved against the call's own args. */
+  const boundValue = (call: { sql: string; args: unknown[] }, predicate: RegExp) => {
+    const match = call.sql.match(predicate);
+    return match ? call.args[Number(match[1]) - 1] : undefined;
+  };
+  const METHOD_FILTER = /g\."paymentMethodId" = \$(\d+)/;
+
+  it('filters GROUP keys by paymentMethodId in both the count and the page query', async () => {
+    const { service, calls } = harness();
+    await service.listEligibleRows({ settlementDate: '2026-09-20', paymentMethodId: 'pm-tt', page: 1, limit: 25 });
+    expect(calls).toHaveLength(2);
+    for (const call of calls) expect(boundValue(call, METHOD_FILTER)).toBe('pm-tt');
+  });
+
+  it('applies no method predicate when paymentMethodId is absent', async () => {
+    const { service, calls } = harness();
+    await service.listEligibleRows({ settlementDate: '2026-09-20', page: 1, limit: 25 });
+    for (const call of calls) expect(call.sql).not.toMatch(METHOD_FILTER);
+  });
+
+  it('combines the method filter with search', async () => {
+    const { service, calls } = harness();
+    await service.listEligibleRows({ settlementDate: '2026-09-20', paymentMethodId: 'pm-tt', search: 'SO-26' });
+    expect(boundValue(calls[0], METHOD_FILTER)).toBe('pm-tt');
+    expect(boundValue(calls[0], /so\."orderNumber" ILIKE \$(\d+)/)).toBe('%SO-26%');
+  });
+
+  it('lists the methods of the listable groups in ONE repeatable-read snapshot, behind the same gate', async () => {
+    const { service, calls, defaultManager } = harness(() => [
+      { id: 'pm-tt', name: 'TikTok', isActive: true, deleted: false },
+      { id: 'pm-old', name: 'Old', isActive: false, deleted: true },
+    ]);
+    const methods = await service.listEligibleMethods({ settlementDate: '2026-09-20' });
+    expect(defaultManager.transaction.mock.calls[0][0]).toBe('REPEATABLE READ');
+    expect(methods).toEqual([
+      { id: 'pm-tt', name: 'TikTok', isActive: true, deleted: false },
+      { id: 'pm-old', name: 'Old', isActive: false, deleted: true },
+    ]);
+    expect(calls).toHaveLength(1);
+    const { sql } = calls[0];
+    // The picker's own group rules: net-zero hidden, journal gate applied.
+    expect(sql).toContain('HAVING SUM(e.amount) <> 0');
+    expect(sql).toContain('bool_and(a."isProviderClearing" IS TRUE)');
+    expect(sql).toContain('count(DISTINCT d."clearingAccountId") = 1');
+    // Soft-deleted and inactive methods are offered, flagged — never filtered out.
+    expect(sql).toContain('pm."deletedAt" IS NOT NULL AS deleted');
+    expect(sql).not.toMatch(/pm\."deletedAt" IS NULL|pm\."isActive" (=|IS) true/i);
+    // Options ignore Search and the method filter itself.
+    expect(sql).not.toMatch(/ILIKE/);
+    expect(sql).not.toMatch(METHOD_FILTER);
+  });
+
+  it('validates a settlementId as its own draft before listing methods', async () => {
+    const { service } = harness();
+    const assertOwnDraft = jest.spyOn(service, 'assertOwnDraft');
+    await service.listEligibleMethods({ settlementDate: '2026-09-20', settlementId: 'ps-1' });
+    expect(assertOwnDraft).toHaveBeenCalledTimes(1);
+    expect(assertOwnDraft.mock.calls[0][0]).toBe('ps-1');
+  });
+
+  it('skips the draft check when no settlementId is given', async () => {
+    const { service } = harness();
+    const assertOwnDraft = jest.spyOn(service, 'assertOwnDraft');
+    await service.listEligibleMethods({ settlementDate: '2026-09-20' });
+    expect(assertOwnDraft).not.toHaveBeenCalled();
+  });
+});

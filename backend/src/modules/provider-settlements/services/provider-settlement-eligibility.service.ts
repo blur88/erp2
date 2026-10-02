@@ -28,6 +28,12 @@ export interface EligibleSettlementRow {
 }
 export interface EligibleRowsParams extends EligibilityScope {
   search?: string; page?: number; limit?: number; salesOrderIds?: string[];
+  /** Display filter over the listed groups (#1335). */
+  paymentMethodId?: string;
+}
+/** A picker filter option (#1335): a method with at least one listable group. */
+export interface EligibleSettlementMethod {
+  id: string; name: string; isActive: boolean; deleted: boolean;
 }
 export interface ClaimedSettlementRow {
   salesOrderId: string; orderNumber: string;
@@ -145,6 +151,68 @@ export class ProviderSettlementEligibilityService {
   }
 
   /**
+   * The `grouped` CTE: every listable Sales Order + Payment Method group. ONE
+   * builder for the picker rows and for its Payment Method options (#1335), so
+   * the options can never offer a method the picker would not list.
+   *
+   * `search`, when given, comes back as its bound placeholder: the per-group
+   * reference match has to be aggregated inside the CTE, but the predicate that
+   * uses it belongs to the caller.
+   */
+  private async groupedCte(m: EntityManager, scope: EligibilityScope, searchTerm?: string): Promise<{
+    cteSql: string; args: unknown[]; bind: (v: unknown) => string; search: string | null;
+  }> {
+    // Embed the shared builder as a CTE so grouping sits ON TOP of it, never
+    // inside it. TypeORM emits $1..$n; our own parameters continue from n+1.
+    const [eligibleSql, eligibleParams] = this.paymentEligibilityQuery(m, scope)
+      .select(ProviderSettlementEligibilityService.PAYMENT_COLUMNS)
+      .getQueryAndParameters();
+    const args: unknown[] = [...eligibleParams];
+    const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
+
+    const deposit = await this.lookup.resolveAccount('customerDeposit', m);
+    const derivedSql = derivedClearingAccountSql('eligible', bind, deposit.id);
+
+    // Search selects whole GROUPS (spec §4.2): the predicate filters group keys,
+    // never the payment rows being summed, so a non-matching refund still
+    // counts toward a matching group's net. The per-group reference match is an
+    // aggregate below, never a correlated subquery.
+    const search = searchTerm ? bind(`%${searchTerm}%`) : null;
+    const refMatch = search ? `bool_or(e."referenceNumber" ILIKE ${search})` : 'false';
+
+    // Journal gate (spec §6): EVERY eligible payment of the group derives (by the
+    // SQL mirror of the TS derivation) to ONE flagged, live account. This gate
+    // alone decides which methods appear. The method's live mapping is deliberately
+    // not consulted (#1288), so payments recorded to a clearing account stay listed
+    // after their provider is remapped, unmapped or made invalid. It already
+    // excludes cash and bank payments, which derive to unflagged accounts.
+    //
+    // Evaluated as ONE aggregate per group (#1288): correlated subqueries over the
+    // CTEs rescanned them once per group, which is quadratic. Both joins are LEFT
+    // on purpose, so every payment row stays in its group: a payment with no
+    // derivation (d is NULL), or one deriving to a soft-deleted or unflagged
+    // account (a is NULL or unflagged), makes bool_and FALSE and rejects the whole
+    // group. An inner join would drop that row and let the remainder qualify.
+    // `derived` holds at most one row per payment, so the joins never duplicate
+    // amounts in the SUM.
+    const cteSql = `
+      WITH eligible AS (${eligibleSql}),
+      derived AS (${derivedSql}),
+      grouped AS (
+        SELECT e."salesOrderId", e."paymentMethodId", SUM(e.amount) AS "netAmount",
+               ${refMatch} AS "refMatch"
+          FROM eligible e
+          LEFT JOIN derived d ON d."paymentId" = e.id
+          LEFT JOIN chart_of_account a ON a.id = d."clearingAccountId" AND a."deletedAt" IS NULL
+         GROUP BY e."salesOrderId", e."paymentMethodId"
+        HAVING SUM(e.amount) <> 0
+           AND bool_and(a."isProviderClearing" IS TRUE)
+           AND count(DISTINCT d."clearingAccountId") = 1
+      )`;
+    return { cteSql, args, bind, search };
+  }
+
+  /**
    * Count, group keys and payment details are read inside ONE REPEATABLE READ
    * snapshot. Separate autocommit reads could straddle a refund commit and
    * return a group whose net (read first) disagrees with its details (read
@@ -165,61 +233,20 @@ export class ProviderSettlementEligibilityService {
   }> {
     if (params.settlementId) await this.assertOwnDraft(params.settlementId, m);
 
-    // Embed the shared builder as a CTE so grouping sits ON TOP of it, never
-    // inside it. TypeORM emits $1..$n; our own parameters continue from n+1.
-    const [eligibleSql, eligibleParams] = this.paymentEligibilityQuery(m, params)
-      .select(ProviderSettlementEligibilityService.PAYMENT_COLUMNS)
-      .getQueryAndParameters();
-    const args: unknown[] = [...eligibleParams];
-    const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
-
-    const deposit = await this.lookup.resolveAccount('customerDeposit', m);
-    const derivedSql = derivedClearingAccountSql('eligible', bind, deposit.id);
+    const { cteSql, args, bind, search } = await this.groupedCte(m, params, params.search);
 
     const filters: string[] = [];
     if (params.salesOrderIds?.length) {
       filters.push(`g."salesOrderId" = ANY(${bind(params.salesOrderIds)}::uuid[])`);
     }
-    // Search selects whole GROUPS (spec §4.2): the predicate filters group keys,
-    // never the payment rows being summed, so a non-matching refund still
-    // counts toward a matching group's net. The per-group reference match is an
-    // aggregate below, never a correlated subquery.
-    let refMatch = 'false';
-    if (params.search) {
-      const q = bind(`%${params.search}%`);
-      refMatch = `bool_or(e."referenceNumber" ILIKE ${q})`;
-      filters.push(`(so."orderNumber" ILIKE ${q} OR g."refMatch")`);
+    if (search) filters.push(`(so."orderNumber" ILIKE ${search} OR g."refMatch")`);
+    // #1335: a filter on the group KEY, like search — never on the payment rows
+    // being summed, so the group's net and its journal gate are unaffected.
+    if (params.paymentMethodId) {
+      filters.push(`g."paymentMethodId" = ${bind(params.paymentMethodId)}`);
     }
 
-    // Journal gate (spec §6): EVERY eligible payment of the group derives (by the
-    // SQL mirror of the TS derivation) to ONE flagged, live account. This gate
-    // alone decides which methods appear. The method's live mapping is deliberately
-    // not consulted (#1288), so payments recorded to a clearing account stay listed
-    // after their provider is remapped, unmapped or made invalid. It already
-    // excludes cash and bank payments, which derive to unflagged accounts.
-    //
-    // Evaluated as ONE aggregate per group (#1288): correlated subqueries over the
-    // CTEs rescanned them once per group, which is quadratic. Both joins are LEFT
-    // on purpose, so every payment row stays in its group: a payment with no
-    // derivation (d is NULL), or one deriving to a soft-deleted or unflagged
-    // account (a is NULL or unflagged), makes bool_and FALSE and rejects the whole
-    // group. An inner join would drop that row and let the remainder qualify.
-    // `derived` holds at most one row per payment, so the joins never duplicate
-    // amounts in the SUM.
-    const groupsSql = `
-      WITH eligible AS (${eligibleSql}),
-      derived AS (${derivedSql}),
-      grouped AS (
-        SELECT e."salesOrderId", e."paymentMethodId", SUM(e.amount) AS "netAmount",
-               ${refMatch} AS "refMatch"
-          FROM eligible e
-          LEFT JOIN derived d ON d."paymentId" = e.id
-          LEFT JOIN chart_of_account a ON a.id = d."clearingAccountId" AND a."deletedAt" IS NULL
-         GROUP BY e."salesOrderId", e."paymentMethodId"
-        HAVING SUM(e.amount) <> 0
-           AND bool_and(a."isProviderClearing" IS TRUE)
-           AND count(DISTINCT d."clearingAccountId") = 1
-      )
+    const groupsSql = `${cteSql}
       SELECT g."salesOrderId", g."paymentMethodId", g."netAmount"::text AS "netAmount",
              so."orderNumber", pm.name AS "paymentMethodName"
         FROM grouped g
@@ -264,6 +291,31 @@ export class ProviderSettlementEligibilityService {
         limit: unpaginated ? total : params.limit!,
       },
     };
+  }
+
+  /**
+   * The Payment Method options of the picker filter (#1335): every method that
+   * owns at least one listable group for this date (and this draft), whatever
+   * has happened to the method since. Inactive and soft-deleted methods are
+   * returned flagged, never dropped — their payments are still settleable, and
+   * an option that vanished would hide them. Search is deliberately not part of
+   * the scope: options that shrank as the user typed could not be used to
+   * broaden the view again.
+   */
+  async listEligibleMethods(scope: EligibilityScope): Promise<EligibleSettlementMethod[]> {
+    return this.defaultManager.transaction('REPEATABLE READ', async (m) => {
+      if (scope.settlementId) await this.assertOwnDraft(scope.settlementId, m);
+      const { cteSql, args } = await this.groupedCte(m, scope);
+      const rows: EligibleSettlementMethod[] = await m.query(
+        `${cteSql}
+         SELECT pm.id, pm.name, pm."isActive", pm."deletedAt" IS NOT NULL AS deleted
+           FROM payment_methods pm
+          WHERE pm.id IN (SELECT g."paymentMethodId" FROM grouped g)
+          ORDER BY pm."sortOrder" ASC, pm.name ASC, pm.id ASC`,
+        args,
+      );
+      return rows.map((r) => ({ id: r.id, name: r.name, isActive: r.isActive, deleted: r.deleted }));
+    });
   }
 
   /**

@@ -9,6 +9,7 @@ import type {
   BalanceSheetResponse,
   ClaimedSettlementRow,
   CreateOwnerEquityRequest,
+  EligibleSettlementMethod,
   EligibleSettlementRow,
   Expense,
   FormBCategory,
@@ -94,6 +95,8 @@ export interface EligibleRowsParams {
   page?: number
   limit?: number
   salesOrderIds?: string[]
+  /** Display filter (#1335). Never the settlement's provider, which is inferred from the rows. */
+  paymentMethodId?: string
 }
 
 export const accountingApiSlice = createApi({
@@ -460,6 +463,15 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
         }),
         providesTags: ['ProviderSettlement'],
       }),
+      // A plain array, like the providers endpoint. Tagged like the rows it
+      // describes, so a sales payment or a saved settlement refreshes both.
+      getEligibleSettlementMethods: builder.query<
+        EligibleSettlementMethod[],
+        { settlementDate: string; settlementId?: string }
+      >({
+        query: (params) => ({ url: '/accounting/provider-settlements/eligible-methods', params }),
+        providesTags: ['ProviderSettlement'],
+      }),
       getClaimedSettlementRows: builder.query<
         { data: ClaimedSettlementRow[] },
         { settlementId: string; settlementDate: string }
@@ -562,6 +574,7 @@ export const {
   useGetProviderSettlementQuery,
   useGetEligibleSettlementRowsQuery,
   useLazyGetEligibleSettlementRowsQuery,
+  useGetEligibleSettlementMethodsQuery,
   useGetClaimedSettlementRowsQuery,
   useLazyGetClaimedSettlementRowsQuery,
   useCreateProviderSettlementMutation,
