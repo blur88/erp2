@@ -63,4 +63,21 @@ describe('buildSourceLink', () => {
   it('returns null when the reference is missing', () => {
     expect(buildSourceLink('OWNER_EQUITY', 'uuid-1', null)).toBeNull()
   })
+
+  it('links PROVIDER_SETTLEMENT by sourceDocumentId (UUID), never by Settlement No', () => {
+    expect(buildSourceLink('PROVIDER_SETTLEMENT', 'ps-uuid-10', 'PS-26-010')).toBe(
+      '/accounting/provider-settlements/ps-uuid-10/view',
+    )
+  })
+
+  it('returns null for PROVIDER_SETTLEMENT when sourceDocumentId is missing', () => {
+    // The detail route is id-based: a Settlement No must not be routed to it.
+    expect(buildSourceLink('PROVIDER_SETTLEMENT', null, 'PS-26-010')).toBeNull()
+  })
+
+  it('links PROVIDER_SETTLEMENT when the id exists but sourceRef is null', () => {
+    expect(buildSourceLink('PROVIDER_SETTLEMENT', 'ps-uuid-10', null)).toBe(
+      '/accounting/provider-settlements/ps-uuid-10/view',
+    )
+  })
 })

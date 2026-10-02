@@ -104,4 +104,40 @@ describe('SourceLink', () => {
     expect(link).toHaveAccessibleDescription('Owner Equity')
     expect(link).toHaveAttribute('title', 'Owner Equity')
   })
+
+  it('links a PROVIDER_SETTLEMENT by document id, showing the Settlement No', async () => {
+    const user = userEvent.setup()
+    renderLink(
+      <SourceLink
+        sourceType="PROVIDER_SETTLEMENT"
+        sourceDocumentId="ps-uuid-10"
+        sourceRef="PS-26-010"
+      />,
+    )
+    const link = screen.getByRole('link', { name: 'PS-26-010' })
+    expect(link).toHaveAttribute('href', '/accounting/provider-settlements/ps-uuid-10/view')
+    expect(link).toHaveAccessibleDescription('Provider Settlement')
+    await user.hover(link)
+    expect(
+      await screen.findByRole('tooltip', { name: 'Provider Settlement' }),
+    ).toBeInTheDocument()
+  })
+
+  it('renders a PROVIDER_SETTLEMENT ref as plain text when the document id is missing', () => {
+    renderLink(
+      <SourceLink sourceType="PROVIDER_SETTLEMENT" sourceDocumentId={null} sourceRef="PS-26-010" />,
+    )
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    const span = screen.getByText('PS-26-010')
+    expect(span).toHaveAttribute('tabindex', '0')
+    expect(span).toHaveAccessibleDescription('Provider Settlement')
+  })
+
+  it('falls back to the Provider Settlement label when neither id nor ref is present', () => {
+    renderLink(
+      <SourceLink sourceType="PROVIDER_SETTLEMENT" sourceDocumentId={null} sourceRef={null} />,
+    )
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByText('Provider Settlement')).not.toHaveAttribute('tabindex')
+  })
 })

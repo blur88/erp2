@@ -86,6 +86,7 @@ export const JOURNAL_SOURCE_TYPE_OPTIONS: Options = [
   { value: 'OPENING_BALANCE', label: 'Opening Balance' },
   { value: 'EXPENSE', label: 'Expense' },
   { value: 'OWNER_EQUITY', label: 'Owner Equity' },
+  { value: 'PROVIDER_SETTLEMENT', label: 'Provider Settlement' },
 ] as const
 
 export const JOURNAL_STATUS_OPTIONS: Options = [

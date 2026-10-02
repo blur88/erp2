@@ -166,6 +166,56 @@ describe('AccountingPostingService', () => {
     });
   });
 
+  // #1340: General Ledger links a settlement source by its id, so the journal
+  // must carry the settlement id (not the Settlement No) as sourceDocumentId.
+  it('stamps a provider settlement JE with the settlement id and Settlement No', async () => {
+    const saved: any[] = [];
+    const { svc, manager } = makeService(saved, {
+      'bank-acc': acc('bank-acc'),
+      'clearing-acc': acc('clearing-acc'),
+    });
+    await svc.postProviderSettlement(
+      {
+        settlementId: 'ps-uuid-10', sourceRef: 'PS-26-010',
+        bankAccountId: 'bank-acc', clearingAccountId: 'clearing-acc',
+        amount: '200.00', entryDate: '2026-10-02', createdBy: 'tester',
+      },
+      manager,
+    );
+    const entry = saved.find((s) => s.entity === 'JournalEntry')!.value as JournalEntry;
+    expect(entry.sourceType).toBe('PROVIDER_SETTLEMENT');
+    expect(entry.sourceDocumentId).toBe('ps-uuid-10');
+    expect(entry.sourceRef).toBe('PS-26-010');
+  });
+
+  it('carries the settlement source metadata onto the reversal entry', async () => {
+    const saved: any[] = [];
+    const original = Object.assign(new JournalEntry(), {
+      id: 'je-154', journalNo: 'JE-26-154',
+      sourceType: AccountingSourceType.PROVIDER_SETTLEMENT,
+      sourceDocumentId: 'ps-uuid-10', sourceEventId: 'ps-uuid-10', sourceRef: 'PS-26-010',
+      postingType: PostingType.PROVIDER_SETTLEMENT,
+      lines: [
+        { accountId: 'bank-acc', debit: '200.0000', credit: '0.0000' },
+        { accountId: 'clearing-acc', debit: '0.0000', credit: '200.0000' },
+      ],
+    });
+    const { svc, manager } = makeService(saved, {
+      'je-154': original,
+      'bank-acc': acc('bank-acc'),
+      'clearing-acc': acc('clearing-acc'),
+    });
+    await svc.reverseEntry(
+      { originalEntryId: 'je-154', entryDate: '2026-10-02', createdBy: 'tester' } as any,
+      manager,
+    );
+    const reversal = saved.find((s) => s.entity === 'JournalEntry')!.value as JournalEntry;
+    expect(reversal.reversalOfEntryId).toBe('je-154');
+    expect(reversal.sourceType).toBe('PROVIDER_SETTLEMENT');
+    expect(reversal.sourceDocumentId).toBe('ps-uuid-10');
+    expect(reversal.sourceRef).toBe('PS-26-010');
+  });
+
   it('rejects an unbalanced entry', () => {
     expect(() =>
       assertBalanced([
