@@ -58,16 +58,20 @@ function Harness({
   )
 }
 
-/** Answer like the server: the rows of the requested method, or every row. */
+/** Answer like the server: the rows of the requested method and search, or every row. */
 function serveRows(all: Array<typeof TIKTOK>, total?: number) {
-  mockRows.mockImplementation((args: { paymentMethodId?: string; page?: number }) => {
-    const data = args.paymentMethodId ? all.filter((r) => r.paymentMethodId === args.paymentMethodId) : all
+  mockRows.mockImplementation((args: { paymentMethodId?: string; search?: string; page?: number }) => {
+    const data = all
+      .filter((r) => !args.paymentMethodId || r.paymentMethodId === args.paymentMethodId)
+      .filter((r) => !args.search || r.orderNumber.includes(args.search))
     return { data: { data, meta: { total: total ?? data.length, page: args.page ?? 1, limit: 25 } } }
   })
 }
 
 const lastRowsArgs = () => mockRows.mock.calls.at(-1)![0] as Record<string, unknown>
 const methodFilter = () => screen.getByRole('combobox', { name: 'Payment Method' })
+const searchInput = () => screen.getByLabelText('Search')
+const clearSearch = () => screen.getByRole('button', { name: 'Clear search' })
 
 async function chooseMethod(name: string) {
   await userEvent.click(methodFilter())
@@ -403,6 +407,99 @@ describe('SettlementRowPicker', () => {
       expect(methodFilter()).not.toHaveAttribute('aria-disabled', 'true')
       expect(methodFilter()).toHaveTextContent('All Payment Methods')
       expect(screen.getByText('SO-26-008')).toBeInTheDocument()
+    })
+  })
+
+  describe('Search clear control (#1338)', () => {
+    it('offers no clear control while Search is empty', () => {
+      render(<Harness />)
+      expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeInTheDocument()
+    })
+
+    it('offers the clear control once Search has text, and removes it again after clearing', async () => {
+      render(<Harness />)
+      await userEvent.type(searchInput(), 'SO-26-005')
+      await userEvent.click(clearSearch())
+      expect(searchInput()).toHaveValue('')
+      expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeInTheDocument()
+    })
+
+    it('restores the rows the search hid', async () => {
+      render(<Harness />)
+      await userEvent.type(searchInput(), 'SO-26-005')
+      await vi.waitFor(() => expect(screen.queryByText('SO-26-008')).not.toBeInTheDocument())
+
+      await userEvent.click(clearSearch())
+      expect(await screen.findByText('SO-26-008')).toBeInTheDocument()
+      expect(lastRowsArgs()).toEqual({ settlementDate: '2026-09-20', search: undefined, page: 1, limit: 25 })
+    })
+
+    it('returns to page 1 when Search clears', async () => {
+      serveRows([TIKTOK, DEDUCTION, ATOME], 60)
+      render(<Harness />)
+      await userEvent.type(searchInput(), 'SO-26')
+      await vi.waitFor(() => expect(lastRowsArgs()).toMatchObject({ search: 'SO-26', page: 1 }))
+      await userEvent.click(screen.getByRole('button', { name: 'Go to page 2' }))
+      expect(lastRowsArgs()).toMatchObject({ search: 'SO-26', page: 2 })
+
+      await userEvent.click(clearSearch())
+      await vi.waitFor(() => expect(lastRowsArgs()).toMatchObject({ search: undefined, page: 1 }))
+    })
+
+    it('keeps the Payment Method filter when Search clears', async () => {
+      render(<Harness />)
+      await chooseMethod('TikTok')
+      await userEvent.type(searchInput(), 'SO-26-009')
+      await vi.waitFor(() => expect(screen.queryByText('SO-26-008')).not.toBeInTheDocument())
+
+      await userEvent.click(clearSearch())
+      expect(await screen.findByText('SO-26-008')).toBeInTheDocument()
+      expect(lastRowsArgs()).toMatchObject({ search: undefined, paymentMethodId: 'pm-tt' })
+      expect(methodFilter()).toHaveTextContent('TikTok')
+      expect(screen.queryByText('SO-26-005')).not.toBeInTheDocument()
+    })
+
+    it('keeps selections, count, total and difference when Search clears', async () => {
+      const onSelectionChange = vi.fn()
+      render(<Harness entered="40" onSelectionChange={onSelectionChange} />)
+      await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-008 TikTok/ }))
+      await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-009 TikTok/ }))
+      onSelectionChange.mockClear()
+
+      await userEvent.type(searchInput(), 'SO-26-005')
+      await vi.waitFor(() => expect(screen.queryByText('SO-26-008')).not.toBeInTheDocument())
+      expect(screen.getByTestId('selected-count')).toHaveTextContent('2')
+
+      await userEvent.click(clearSearch())
+      expect(await screen.findByRole('checkbox', { name: /SO-26-008 TikTok/ })).toBeChecked()
+      expect(screen.getByRole('checkbox', { name: /SO-26-009 TikTok/ })).toBeChecked()
+      expect(screen.getByTestId('selected-count')).toHaveTextContent('2')
+      expect(screen.getByTestId('selected-total')).toHaveTextContent('40.00')
+      expect(screen.getByTestId('entered-amount')).toHaveTextContent('40.00')
+      expect(screen.getByTestId('difference')).toHaveTextContent('0.00')
+      // Clearing Search is a view change: it never writes the selection.
+      expect(onSelectionChange).not.toHaveBeenCalled()
+    })
+
+    it('returns focus to Search after a click', async () => {
+      render(<Harness />)
+      await userEvent.type(searchInput(), 'SO-26-005')
+      await userEvent.click(clearSearch())
+      expect(searchInput()).toHaveFocus()
+    })
+
+    it.each([
+      ['Enter', '{Enter}'],
+      ['Space', ' '],
+    ])('is reachable by Tab from Search and clears on %s, returning focus to Search', async (_key, press) => {
+      render(<Harness />)
+      await userEvent.type(searchInput(), 'SO-26-005')
+      await userEvent.tab()
+      expect(clearSearch()).toHaveFocus()
+
+      await userEvent.keyboard(press)
+      expect(searchInput()).toHaveValue('')
+      expect(searchInput()).toHaveFocus()
     })
   })
 })

@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import ClearIcon from '@mui/icons-material/Clear'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Alert,
   Box,
   Checkbox,
   CircularProgress,
+  IconButton,
+  InputAdornment,
   Stack,
   Table,
   TableBody,
@@ -80,6 +83,7 @@ export default function SettlementRowPicker({
   const [limit, setLimit] = useState(25)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
   // #1335: a DISPLAY filter. It narrows what the table lists and nothing else:
   // `selected` is owned by the form and is never rewritten from here, so rows
   // the filter hides stay selected, totalled and validated. The label is kept
@@ -128,6 +132,15 @@ export default function SettlementRowPicker({
   function changeMethodFilter(value: string | null) {
     const option = methodOptions.find((o) => o.value === value)
     setMethodFilter(option ? { id: option.value, label: option.label } : null)
+  }
+
+  // #1338: clears Search and nothing else. The rows come back through the same
+  // debounce as typing, and the page reset rides on the effect above. Focus
+  // returns to Search because the button unmounts with the text — left alone,
+  // focus would fall to the document body.
+  function clearSearch() {
+    setSearch('')
+    searchInputRef.current?.focus()
   }
 
   const selectedKeys = useMemo(() => new Set(selected.map(groupKey)), [selected])
@@ -191,6 +204,18 @@ export default function SettlementRowPicker({
           // stood 37px against the filter's 32px.
           size="xs"
           fullWidth
+          inputRef={searchInputRef}
+          slotProps={{
+            input: {
+              endAdornment: search ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={clearSearch} edge="end" aria-label="Clear search">
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            },
+          }}
           sx={{ maxWidth: { sm: 360 } }}
         />
         <FilterSelect
