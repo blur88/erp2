@@ -1070,6 +1070,18 @@ export interface ProviderSettlementProvider {
   deleted: boolean
 }
 
+/**
+ * A Payment Method option of the settlement picker's filter (#1335): a method
+ * with at least one eligible row. Inactive and deleted methods are included,
+ * since their recorded payments are still settleable.
+ */
+export interface EligibleSettlementMethod {
+  id: string
+  name: string
+  isActive: boolean
+  deleted: boolean
+}
+
 export interface SettlementPaymentDetail {
   id: string
   paymentDate: string

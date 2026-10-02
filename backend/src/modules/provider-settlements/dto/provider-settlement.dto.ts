@@ -93,12 +93,21 @@ export class EligibleRowsQueryDto {
   @IsCalendarDate() settlementDate: string;
   @IsOptional() @IsUUID() settlementId?: string;
   @IsOptional() @IsString() search?: string;
+  // #1335: a display filter over the listed groups. It never assigns the
+  // settlement's provider, which stays inferred from the saved rows.
+  @IsOptional() @IsUUID() paymentMethodId?: string;
   // `claimed` requires settlementId — enforced in the service (400).
   @IsOptional() @IsIn(['claimed']) scope?: 'claimed';
   @IsOptional() @Transform(splitCsv) @IsArray() @ArrayMaxSize(200) @IsUUID('4', { each: true })
   salesOrderIds?: string[];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
+}
+
+/** Scope of the picker's Payment Method options (#1335): the date and the draft, never Search. */
+export class EligibleMethodsQueryDto {
+  @IsCalendarDate() settlementDate: string;
+  @IsOptional() @IsUUID() settlementId?: string;
 }
 
 /**

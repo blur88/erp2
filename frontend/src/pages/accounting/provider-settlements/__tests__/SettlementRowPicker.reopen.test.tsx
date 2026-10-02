@@ -27,6 +27,15 @@ const ATOME_ROW = {
 
 // The picker's own arguments on first open: page 1, default limit, no search.
 const ARGS = { settlementDate: '2026-09-26', search: undefined, page: 1, limit: 25 }
+const METHOD_ARGS = { settlementDate: '2026-09-26' }
+
+const ELIGIBLE_URL = '/accounting/provider-settlements/eligible-rows'
+const METHODS_URL = '/accounting/provider-settlements/eligible-methods'
+
+/** GET requests to exactly `url`. */
+function countGets(url: string): number {
+  return vi.mocked(api).mock.calls.filter(([config]: any[]) => config.url === url).length
+}
 
 function makeStore() {
   return configureStore({
@@ -50,9 +59,13 @@ afterEach(() => {
 describe('SettlementRowPicker reopen', () => {
   it('shows a row that became eligible while the picker was closed', async () => {
     let rows: unknown[] = []
-    vi.mocked(api).mockImplementation(async () => ({
-      data: { data: rows, meta: { total: rows.length, page: 1, limit: 25 } },
-    }))
+    // Routed by URL: the picker also loads its Payment Method options (#1335),
+    // a plain array from a different endpoint.
+    vi.mocked(api).mockImplementation(async (config: any) => (
+      config.url === ELIGIBLE_URL
+        ? { data: { data: rows, meta: { total: rows.length, page: 1, limit: 25 } } }
+        : { data: [] }
+    ))
     const store = makeStore()
 
     const first = render(<Picker store={store} />)
@@ -61,7 +74,11 @@ describe('SettlementRowPicker reopen', () => {
     await vi.waitFor(() => expect(
       accountingApiSlice.endpoints.getEligibleSettlementRows.select(ARGS)(store.getState() as any).status,
     ).toBe('fulfilled'))
-    expect(vi.mocked(api)).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(
+      accountingApiSlice.endpoints.getEligibleSettlementMethods.select(METHOD_ARGS)(store.getState() as any).status,
+    ).toBe('fulfilled'))
+    expect(countGets(ELIGIBLE_URL)).toBe(1)
+    expect(countGets(METHODS_URL)).toBe(1)
     expect(screen.queryByText('SO-26-001')).not.toBeInTheDocument()
     first.unmount()
 
@@ -70,6 +87,9 @@ describe('SettlementRowPicker reopen', () => {
 
     expect(await screen.findByText('SO-26-001')).toBeInTheDocument()
     expect(screen.getByText('Atome')).toBeInTheDocument()
-    expect(vi.mocked(api)).toHaveBeenCalledTimes(2)
+    expect(countGets(ELIGIBLE_URL)).toBe(2)
+    // The options reload with the rows: a method whose first eligible payment
+    // arrived while the picker was closed must be offered too.
+    await vi.waitFor(() => expect(countGets(METHODS_URL)).toBe(2))
   })
 })

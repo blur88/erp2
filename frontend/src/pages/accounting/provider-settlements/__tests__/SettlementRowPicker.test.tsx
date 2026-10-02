@@ -10,8 +10,10 @@ import SettlementRowPicker from '../SettlementRowPicker'
 import type { SelectedRow } from '../settlementSelection'
 
 const mockRows = vi.fn()
+const mockMethods = vi.fn()
 vi.mock('@/store/api/accountingApi', () => ({
   useGetEligibleSettlementRowsQuery: (...a: unknown[]) => mockRows(...a),
+  useGetEligibleSettlementMethodsQuery: (...a: unknown[]) => mockMethods(...a),
 }))
 
 // Through the app theme, so themed colours (error.main) actually compute.
@@ -37,25 +39,59 @@ const TIKTOK = {
 const DEDUCTION = { ...TIKTOK, salesOrderId: 'so-9', orderNumber: 'SO-26-009', netAmount: '-30.0000', payments: [] }
 const ATOME = { ...TIKTOK, salesOrderId: 'so-5', orderNumber: 'SO-26-005', paymentMethodId: 'pm-at', paymentMethodName: 'Atome', netAmount: '20.0000', payments: [] }
 
-function Harness({ entered = '' }: { entered?: string }) {
+const METHODS = [
+  { id: 'pm-tt', name: 'TikTok', isActive: true, deleted: false },
+  { id: 'pm-at', name: 'Atome', isActive: true, deleted: false },
+]
+
+function Harness({
+  entered = '', settlementDate = '2026-09-20', onSelectionChange,
+}: { entered?: string; settlementDate?: string; onSelectionChange?: (next: SelectedRow[]) => void }) {
   const [selected, setSelected] = useState<SelectedRow[]>([])
-  return <SettlementRowPicker settlementDate="2026-09-20" selected={selected} onChange={setSelected} enteredAmount={entered} />
+  return (
+    <SettlementRowPicker
+      settlementDate={settlementDate}
+      selected={selected}
+      onChange={(next) => { onSelectionChange?.(next); setSelected(next) }}
+      enteredAmount={entered}
+    />
+  )
+}
+
+/** Answer like the server: the rows of the requested method, or every row. */
+function serveRows(all: Array<typeof TIKTOK>, total?: number) {
+  mockRows.mockImplementation((args: { paymentMethodId?: string; page?: number }) => {
+    const data = args.paymentMethodId ? all.filter((r) => r.paymentMethodId === args.paymentMethodId) : all
+    return { data: { data, meta: { total: total ?? data.length, page: args.page ?? 1, limit: 25 } } }
+  })
+}
+
+const lastRowsArgs = () => mockRows.mock.calls.at(-1)![0] as Record<string, unknown>
+const methodFilter = () => screen.getByRole('combobox', { name: 'Payment Method' })
+
+async function chooseMethod(name: string) {
+  await userEvent.click(methodFilter())
+  await userEvent.click(screen.getByRole('option', { name }))
 }
 
 beforeEach(() => {
-  mockRows.mockReset().mockReturnValue({
-    data: { data: [TIKTOK, DEDUCTION, ATOME], meta: { total: 3, page: 1, limit: 25 } },
-  })
+  mockRows.mockReset()
+  serveRows([TIKTOK, DEDUCTION, ATOME])
+  mockMethods.mockReset().mockReturnValue({ data: METHODS, isLoading: false, isError: false })
 })
 
 describe('SettlementRowPicker', () => {
-  it('shows Sales Order No, Payment Method and Net Amount columns with no provider filter', () => {
+  it('shows Sales Order No, Payment Method and Net Amount columns, unfiltered by default', () => {
     render(<Harness />)
     for (const h of ['Sales Order No', 'Payment Method', 'Net Amount']) {
       expect(screen.getByRole('columnheader', { name: h })).toBeInTheDocument()
     }
+    // #1335: the filter is optional. The default view is still cross-method.
+    expect(methodFilter()).toHaveTextContent('All Payment Methods')
+    expect(mockRows.mock.calls[0][0]).not.toHaveProperty('paymentMethodId')
     expect(mockRows.mock.calls[0][0]).not.toHaveProperty('providerPaymentMethodId')
     expect(screen.getByText('SO-26-008')).toBeInTheDocument()
+    expect(screen.getByText('SO-26-005')).toBeInTheDocument()
   })
 
   it('shows a negative net in error red with its minus sign and a screen-reader Deduction label', () => {
@@ -69,6 +105,20 @@ describe('SettlementRowPicker', () => {
     const label = within(row).getByText('Deduction')
     expect(label.closest('td')).toBe(amount.closest('td'))
     expect(within(row).queryByTestId('deduction-marker')).not.toBeInTheDocument()
+  })
+
+  // The screen-reader label is absolutely positioned. Without a positioned
+  // ancestor inside the table's scroll box it is laid out against the page, and
+  // at narrow widths (table wider than the viewport) it gives the whole page a
+  // horizontal scrollbar. Measured in a browser at 375px on PR #1336.
+  it('contains the hidden Deduction label inside the table scroll box', () => {
+    render(<Harness />)
+    const scrollBox = screen.getByRole('table').parentElement!
+    expect(getComputedStyle(scrollBox).overflowX).toBe('auto')
+    expect(getComputedStyle(scrollBox).position).toBe('relative')
+    const label = within(screen.getByText('SO-26-009').closest('tr')!).getByText('Deduction')
+    expect(getComputedStyle(label).position).toBe('absolute')
+    expect(scrollBox.contains(label)).toBe(true)
   })
 
   it('shows a positive net without a Deduction label or error colour', () => {
@@ -169,5 +219,190 @@ describe('SettlementRowPicker', () => {
   it('passes settlementId through so a draft sees its own claims', () => {
     render(<SettlementRowPicker settlementDate="2026-09-20" settlementId="ps-1" selected={[]} onChange={() => {}} enteredAmount="" />)
     expect(mockRows.mock.calls[0][0]).toMatchObject({ settlementId: 'ps-1' })
+  })
+
+  describe('Payment Method filter (#1335)', () => {
+    // Measured in a browser on PR #1336: a `small` Search (37.1px) beside the
+    // `xs` filter (32px). jsdom has no layout, so the guard is the size variant
+    // both controls resolve to, which is what fixes their height in the theme.
+    it('renders Search at the same size variant as the filter beside it', () => {
+      render(<Harness />)
+      const sizeOf = (el: HTMLElement) =>
+        [...el.closest('.MuiInputBase-root')!.classList].filter((c) => c.startsWith('MuiInputBase-size'))
+      expect(sizeOf(methodFilter())).toEqual(['MuiInputBase-sizeXs'])
+      expect(sizeOf(screen.getByLabelText('Search'))).toEqual(['MuiInputBase-sizeXs'])
+    })
+
+    it('offers every eligible method, marking inactive and deleted ones', async () => {
+      mockMethods.mockReturnValue({
+        data: [
+          ...METHODS,
+          { id: 'pm-in', name: 'GrabPay', isActive: false, deleted: false },
+          { id: 'pm-del', name: 'Lazada', isActive: true, deleted: true },
+        ],
+        isLoading: false, isError: false,
+      })
+      render(<Harness />)
+      await userEvent.click(methodFilter())
+      expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+        'All Payment Methods', 'TikTok', 'Atome', 'GrabPay (inactive)', 'Lazada (deleted)',
+      ])
+    })
+
+    it('scopes the options to the settlement date and the draft, never to Search', async () => {
+      render(<SettlementRowPicker settlementDate="2026-09-20" settlementId="ps-1" selected={[]} onChange={() => {}} enteredAmount="" />)
+      await userEvent.type(screen.getByLabelText('Search'), 'SO-26')
+      await vi.waitFor(() => expect(lastRowsArgs()).toMatchObject({ search: 'SO-26' }))
+      expect(mockMethods).toHaveBeenCalled()
+      for (const [args, options] of mockMethods.mock.calls) {
+        expect(args).toEqual({ settlementDate: '2026-09-20', settlementId: 'ps-1' })
+        expect(options).toEqual({ refetchOnMountOrArgChange: true })
+      }
+    })
+
+    it('omits settlementId from the options scope on a new settlement', () => {
+      render(<Harness />)
+      expect(mockMethods.mock.calls[0][0]).toEqual({ settlementDate: '2026-09-20' })
+    })
+
+    it('filters the rows to the chosen method, positive and Deduction alike', async () => {
+      render(<Harness />)
+      await chooseMethod('TikTok')
+      expect(lastRowsArgs()).toMatchObject({ paymentMethodId: 'pm-tt' })
+      expect(methodFilter()).toHaveTextContent('TikTok')
+      expect(screen.getByText('SO-26-008')).toBeInTheDocument()
+      const deduction = screen.getByText('SO-26-009').closest('tr')!
+      expect(within(deduction).getByText('Deduction')).toBeInTheDocument()
+      expect(screen.queryByText('SO-26-005')).not.toBeInTheDocument()
+    })
+
+    it('choosing All Payment Methods restores the cross-method view', async () => {
+      render(<Harness />)
+      await chooseMethod('Atome')
+      expect(screen.queryByText('SO-26-008')).not.toBeInTheDocument()
+      await chooseMethod('All Payment Methods')
+      expect(lastRowsArgs()).not.toHaveProperty('paymentMethodId')
+      expect(methodFilter()).toHaveTextContent('All Payment Methods')
+      expect(screen.getByText('SO-26-008')).toBeInTheDocument()
+      expect(screen.getByText('SO-26-005')).toBeInTheDocument()
+    })
+
+    it('sends the filter together with search, date and pagination', async () => {
+      render(<Harness />)
+      await chooseMethod('TikTok')
+      await userEvent.type(screen.getByLabelText('Search'), 'TT-1')
+      await vi.waitFor(() => expect(lastRowsArgs()).toEqual({
+        settlementDate: '2026-09-20', search: 'TT-1', paymentMethodId: 'pm-tt', page: 1, limit: 25,
+      }))
+    })
+
+    it('returns to page 1 when the filter changes', async () => {
+      serveRows([TIKTOK, DEDUCTION, ATOME], 60)
+      render(<Harness />)
+      await userEvent.click(screen.getByRole('button', { name: 'Go to page 2' }))
+      expect(lastRowsArgs()).toMatchObject({ page: 2 })
+      await chooseMethod('TikTok')
+      await vi.waitFor(() => expect(lastRowsArgs()).toMatchObject({ paymentMethodId: 'pm-tt', page: 1 }))
+    })
+
+    it('returns to page 1 when the settlement date changes, keeping the filter', async () => {
+      serveRows([TIKTOK, DEDUCTION, ATOME], 60)
+      const { rerender } = render(<Harness />)
+      await chooseMethod('TikTok')
+      await userEvent.click(screen.getByRole('button', { name: 'Go to page 2' }))
+      expect(lastRowsArgs()).toMatchObject({ page: 2 })
+      rerender(<Harness settlementDate="2026-09-10" />)
+      await vi.waitFor(() => expect(lastRowsArgs()).toMatchObject({
+        settlementDate: '2026-09-10', paymentMethodId: 'pm-tt', page: 1,
+      }))
+    })
+
+    it('keeps selections, count, total and difference when the filter hides the selected rows', async () => {
+      const onSelectionChange = vi.fn()
+      render(<Harness entered="40" onSelectionChange={onSelectionChange} />)
+      await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-008 TikTok/ }))
+      await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-009 TikTok/ }))
+      onSelectionChange.mockClear()
+
+      await chooseMethod('Atome')
+      expect(screen.queryByText('SO-26-008')).not.toBeInTheDocument()
+      expect(screen.getByTestId('selected-count')).toHaveTextContent('2')
+      expect(screen.getByTestId('selected-total')).toHaveTextContent('40.00')
+      expect(screen.getByTestId('difference')).toHaveTextContent('0.00')
+
+      await chooseMethod('All Payment Methods')
+      expect(screen.getByTestId('selected-count')).toHaveTextContent('2')
+      expect(screen.getByRole('checkbox', { name: /SO-26-008 TikTok/ })).toBeChecked()
+      expect(screen.getByRole('checkbox', { name: /SO-26-009 TikTok/ })).toBeChecked()
+      // Filtering is a view change: it never writes the selection.
+      expect(onSelectionChange).not.toHaveBeenCalled()
+    })
+
+    it('still warns on mixed methods when one of them is hidden by the filter', async () => {
+      render(<Harness />)
+      await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-008 TikTok/ }))
+      await chooseMethod('Atome')
+      expect(screen.queryByTestId('mixed-methods-warning')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-005 Atome/ }))
+      const alert = screen.getByTestId('mixed-methods-warning')
+      expect(alert).toHaveTextContent('TikTok (1)')
+      expect(alert).toHaveTextContent('Atome (1)')
+      expect(screen.getByTestId('selected-count')).toHaveTextContent('2')
+    })
+
+    it('keeps the chosen method selected and listed when a date change drops it from the options', async () => {
+      const { rerender } = render(<Harness />)
+      await chooseMethod('TikTok')
+      // The earlier date has no eligible TikTok rows.
+      mockMethods.mockReturnValue({ data: [METHODS[1]], isLoading: false, isError: false })
+      serveRows([ATOME])
+      rerender(<Harness settlementDate="2026-09-10" />)
+
+      expect(methodFilter()).toHaveTextContent('TikTok')
+      expect(lastRowsArgs()).toMatchObject({ settlementDate: '2026-09-10', paymentMethodId: 'pm-tt' })
+      expect(screen.getByText('No eligible payments match the current filters.')).toBeInTheDocument()
+      await userEvent.click(methodFilter())
+      expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+        'All Payment Methods', 'Atome', 'TikTok',
+      ])
+      // All Payment Methods is still there to broaden the view.
+      await userEvent.click(screen.getByRole('option', { name: 'All Payment Methods' }))
+      expect(screen.getByText('SO-26-005')).toBeInTheDocument()
+    })
+
+    it('drops a stale option once the user moves off it', async () => {
+      const { rerender } = render(<Harness />)
+      await chooseMethod('TikTok')
+      mockMethods.mockReturnValue({ data: [METHODS[1]], isLoading: false, isError: false })
+      rerender(<Harness settlementDate="2026-09-10" />)
+      await chooseMethod('Atome')
+      await userEvent.click(methodFilter())
+      expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['All Payment Methods', 'Atome'])
+    })
+
+    it('names the filters in the empty row when a method is chosen, with or without a search', async () => {
+      serveRows([TIKTOK])
+      render(<Harness />)
+      await chooseMethod('Atome')
+      expect(screen.getByText('No eligible payments match the current filters.')).toBeInTheDocument()
+      await userEvent.type(screen.getByLabelText('Search'), 'zzz')
+      await vi.waitFor(() => expect(lastRowsArgs()).toMatchObject({ search: 'zzz' }))
+      expect(screen.getByText('No eligible payments match the current filters.')).toBeInTheDocument()
+      expect(screen.queryByText('No payments match your search.')).not.toBeInTheDocument()
+    })
+
+    it('disables the filter while its options load', () => {
+      mockMethods.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+      render(<Harness />)
+      expect(methodFilter()).toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('leaves the filter usable, showing every row, when its options fail to load', async () => {
+      mockMethods.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+      render(<Harness />)
+      expect(methodFilter()).not.toHaveAttribute('aria-disabled', 'true')
+      expect(methodFilter()).toHaveTextContent('All Payment Methods')
+      expect(screen.getByText('SO-26-008')).toBeInTheDocument()
+    })
   })
 })

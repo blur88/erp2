@@ -1,6 +1,8 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CreateProviderSettlementDto, UpdateProviderSettlementDto } from './provider-settlement.dto';
+import {
+  CreateProviderSettlementDto, UpdateProviderSettlementDto, EligibleRowsQueryDto, EligibleMethodsQueryDto,
+} from './provider-settlement.dto';
 
 const so = '3f1e4b9a-0000-4000-8000-000000000001';
 const pm = '3f1e4b9a-0000-4000-8000-000000000002';
@@ -50,5 +52,32 @@ describe('UpdateProviderSettlementDto', () => {
   });
   it('accepts rows alone', async () => {
     expect(await errs(UpdateProviderSettlementDto, { rows: [row()] })).toHaveLength(0);
+  });
+});
+
+// #1335: the picker's optional Payment Method filter.
+describe('EligibleRowsQueryDto', () => {
+  it('accepts an optional paymentMethodId', async () => {
+    expect(await errs(EligibleRowsQueryDto, { settlementDate: '2026-09-20' })).toHaveLength(0);
+    expect(await errs(EligibleRowsQueryDto, { settlementDate: '2026-09-20', paymentMethodId: pm })).toHaveLength(0);
+  });
+  it('rejects a paymentMethodId that is not a uuid', async () => {
+    expect(props(await errs(EligibleRowsQueryDto, { settlementDate: '2026-09-20', paymentMethodId: 'tiktok' })))
+      .toContain('paymentMethodId');
+  });
+});
+
+describe('EligibleMethodsQueryDto', () => {
+  it('accepts a settlement date, with or without a settlementId', async () => {
+    expect(await errs(EligibleMethodsQueryDto, { settlementDate: '2026-09-20' })).toHaveLength(0);
+    expect(await errs(EligibleMethodsQueryDto, { settlementDate: '2026-09-20', settlementId: so })).toHaveLength(0);
+  });
+  it('requires a calendar settlementDate', async () => {
+    expect(props(await errs(EligibleMethodsQueryDto, {}))).toContain('settlementDate');
+    expect(props(await errs(EligibleMethodsQueryDto, { settlementDate: 'today' }))).toContain('settlementDate');
+  });
+  it('rejects a settlementId that is not a uuid', async () => {
+    expect(props(await errs(EligibleMethodsQueryDto, { settlementDate: '2026-09-20', settlementId: 'x' })))
+      .toContain('settlementId');
   });
 });

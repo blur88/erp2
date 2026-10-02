@@ -8,7 +8,7 @@ import { ProviderSettlementService } from '../services/provider-settlement.servi
 import { ProviderSettlementEligibilityService } from '../services/provider-settlement-eligibility.service';
 import {
   CreateProviderSettlementDto, UpdateProviderSettlementDto,
-  ListProviderSettlementsQueryDto, EligibleRowsQueryDto,
+  ListProviderSettlementsQueryDto, EligibleRowsQueryDto, EligibleMethodsQueryDto,
 } from '../dto/provider-settlement.dto';
 
 @Auth()
@@ -36,6 +36,14 @@ export class ProviderSettlementController {
       return this.eligibility.listClaimedRows(query.settlementId, query.settlementDate);
     }
     return this.eligibility.listEligibleRows(query);
+  }
+
+  // MUST precede @Get(':id'), like eligible-rows. A plain array, like
+  // /providers: at most one row per payment method (#1335).
+  @Get('eligible-methods')
+  @ApiOperation({ summary: 'List the payment methods that have rows eligible for settlement, for the picker filter' })
+  async eligibleMethods(@Query() query: EligibleMethodsQueryDto) {
+    return this.eligibility.listEligibleMethods(query);
   }
 
   // MUST precede @Get(':id'), like eligible-rows. A plain array: at most one

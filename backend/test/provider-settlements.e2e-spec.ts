@@ -1684,6 +1684,218 @@ describe('Provider settlements (e2e)', () => {
         expect(mine.map((r) => [r.paymentMethodId, r.netAmount])).toEqual([[shopeeMethodId, '47.0000']]);
       });
     });
+    /**
+     * #1335: the picker's optional Payment Method filter and its options.
+     *
+     * Every assertion is scoped to rows this block owns — by search tag for the
+     * rows, by method id for the options — because the database is shared with
+     * the rest of the suite and both endpoints are otherwise global.
+     */
+    describe('payment method filter and options (#1335)', () => {
+      const tag = `PMF-${runId}`;
+      const rowsUrl = '/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20';
+      const methodsUrl = '/accounting/provider-settlements/eligible-methods';
+
+      let positiveOrderId = '';
+      let deductionOrderId = '';
+      let zeroOrderId = '';
+      let atomeOrderId = '';
+      let inactiveOrderId = '';
+      let deletedOrderId = '';
+      let inactiveMethodId = '';
+      let deletedMethodId = '';
+      let zeroOnlyMethodId = '';
+      let draftOnlyMethodId = '';
+      let lateMethodId = '';
+      let unflaggedMethodId = '';
+      let ownDraftId = '';
+      const inactiveName = `PMF Inactive ${runId}`;
+      const deletedName = `PMF Deleted ${runId}`;
+
+      /** A suite-owned method recorded to `accountId`, so its payments journal there. */
+      async function insertMappedMethod(code: string, name: string, accountId: string): Promise<string> {
+        const [row] = await ds.query(
+          `INSERT INTO payment_methods (code, name, "sortOrder") VALUES ($1, $2, 0) RETURNING id`,
+          [`${code}${runId}`.slice(0, 20), name],
+        );
+        ownedMethodIds.push(row.id);
+        ownedEntityIds.push(row.id);
+        await putMapping(row.id, accountId);
+        return row.id;
+      }
+
+      async function methods(extra = '', settlementDate = '2026-09-20') {
+        const res = await get(`${methodsUrl}?settlementDate=${settlementDate}${extra}`).expect(200);
+        const list = (res.body.data ?? res.body) as any[];
+        return { list, byId: new Map(list.map((m) => [m.id, m])) };
+      }
+
+      const keys = (rows: any[]) =>
+        rows.map((r) => `${r.salesOrderId}:${r.paymentMethodId}:${r.netAmount}`).sort();
+
+      beforeAll(async () => {
+        inactiveMethodId = await insertMappedMethod('PMFI', inactiveName, clearingAccountId);
+        deletedMethodId = await insertMappedMethod('PMFD', deletedName, clearingAccountId);
+        zeroOnlyMethodId = await insertMappedMethod('PMFZ', `PMF Zero ${runId}`, clearingAccountId);
+        draftOnlyMethodId = await insertMappedMethod('PMFO', `PMF Draft ${runId}`, clearingAccountId);
+        lateMethodId = await insertMappedMethod('PMFL', `PMF Late ${runId}`, clearingAccountId);
+        // Recorded to the 1200 bank, which is not a provider clearing account.
+        unflaggedMethodId = await insertMappedMethod('PMFU', `PMF Unflagged ${runId}`, bankAccountId);
+
+        // TikTok, positive.
+        positiveOrderId = (await newOrder('100.00')).orderId;
+        await payExisting(positiveOrderId, '100.00', tiktokMethodId, '2026-09-01', tag);
+
+        // TikTok, Deduction: the payment is settled and posted, then partly
+        // refunded, leaving an unclaimed −30 residue.
+        deductionOrderId = (await newOrder('100.00')).orderId;
+        await payExisting(deductionOrderId, '100.00', tiktokMethodId, '2026-09-01', tag);
+        const settled = await createDraft(
+          [{ salesOrderId: deductionOrderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' }], '100.00',
+        );
+        expect(settled.status).toBe(201);
+        const posted = await post(
+          `/accounting/provider-settlements/${(settled.body.data ?? settled.body).id}/post`,
+        ).expect(201);
+        ownedRefs.push((posted.body.data ?? posted.body).referenceNumber);
+        await refundOrder(deductionOrderId, '30.00', tiktokMethodId, '2026-09-05', tag);
+
+        // TikTok, net zero.
+        zeroOrderId = (await newOrder('50.00')).orderId;
+        await payExisting(zeroOrderId, '50.00', tiktokMethodId, '2026-09-01', tag);
+        await refundOrder(zeroOrderId, '50.00', tiktokMethodId, '2026-09-02', tag);
+
+        // Another method, so the unfiltered view is genuinely cross-method.
+        atomeOrderId = (await newOrder('20.00')).orderId;
+        await payExisting(atomeOrderId, '20.00', atomeMethodId, '2026-09-01', tag);
+
+        inactiveOrderId = (await newOrder('11.00')).orderId;
+        await payExisting(inactiveOrderId, '11.00', inactiveMethodId, '2026-09-01', tag);
+        deletedOrderId = (await newOrder('12.00')).orderId;
+        await payExisting(deletedOrderId, '12.00', deletedMethodId, '2026-09-01', tag);
+
+        const zeroOnly = await newOrder('13.00');
+        await payExisting(zeroOnly.orderId, '13.00', zeroOnlyMethodId, '2026-09-01', tag);
+        await refundOrder(zeroOnly.orderId, '13.00', zeroOnlyMethodId, '2026-09-02', tag);
+
+        const draftOnly = await newOrder('14.00');
+        const draftOnlyPaymentId = await payExisting(draftOnly.orderId, '14.00', draftOnlyMethodId, '2026-09-01', tag);
+        ownDraftId = await insertDraft(
+          draftOnlyMethodId, [{ paymentId: draftOnlyPaymentId, amount: '14.0000' }], '14.0000',
+        );
+
+        const late = await newOrder('15.00');
+        await payExisting(late.orderId, '15.00', lateMethodId, '2026-09-25', tag);
+
+        const unflagged = await newOrder('16.00');
+        await payExisting(unflagged.orderId, '16.00', unflaggedMethodId, '2026-09-01', tag);
+
+        // Only now, with their payments recorded: historical methods.
+        await ds.query(`UPDATE payment_methods SET "isActive" = false WHERE id = $1`, [inactiveMethodId]);
+        await ds.query(`UPDATE payment_methods SET "deletedAt" = now() WHERE id = $1`, [deletedMethodId]);
+      });
+
+      it('filters to one method: its positive and Deduction rows, never its net-zero group', async () => {
+        const res = await get(`${rowsUrl}&search=${tag}&paymentMethodId=${tiktokMethodId}`).expect(200);
+        expect(keys(res.body.data)).toEqual([
+          `${positiveOrderId}:${tiktokMethodId}:100.0000`,
+          `${deductionOrderId}:${tiktokMethodId}:-30.0000`,
+        ].sort());
+        expect(res.body.data.some((r: any) => r.salesOrderId === zeroOrderId)).toBe(false);
+        expect(res.body.meta.total).toBe(2);
+      });
+
+      it('without the filter the same search stays cross-method', async () => {
+        const res = await get(`${rowsUrl}&search=${tag}`).expect(200);
+        expect(keys(res.body.data)).toEqual([
+          `${positiveOrderId}:${tiktokMethodId}:100.0000`,
+          `${deductionOrderId}:${tiktokMethodId}:-30.0000`,
+          `${atomeOrderId}:${atomeMethodId}:20.0000`,
+          `${inactiveOrderId}:${inactiveMethodId}:11.0000`,
+          `${deletedOrderId}:${deletedMethodId}:12.0000`,
+        ].sort());
+      });
+
+      it('paginates the FILTERED set: meta.total counts only that method, across pages', async () => {
+        const base = `${rowsUrl}&search=${tag}&paymentMethodId=${tiktokMethodId}&limit=1`;
+        const first = await get(`${base}&page=1`).expect(200);
+        const second = await get(`${base}&page=2`).expect(200);
+        expect(first.body.meta).toMatchObject({ total: 2, page: 1, limit: 1 });
+        expect(second.body.meta).toMatchObject({ total: 2, page: 2, limit: 1 });
+        expect(first.body.data).toHaveLength(1);
+        expect(second.body.data).toHaveLength(1);
+        expect(keys([...first.body.data, ...second.body.data])).toEqual([
+          `${positiveOrderId}:${tiktokMethodId}:100.0000`,
+          `${deductionOrderId}:${tiktokMethodId}:-30.0000`,
+        ].sort());
+      });
+
+      it('lists the rows of an inactive and of a soft-deleted method when filtered to them', async () => {
+        const inactive = await get(`${rowsUrl}&paymentMethodId=${inactiveMethodId}`).expect(200);
+        expect(keys(inactive.body.data)).toEqual([`${inactiveOrderId}:${inactiveMethodId}:11.0000`]);
+        expect(inactive.body.data[0].paymentMethodName).toBe(inactiveName);
+        const deleted = await get(`${rowsUrl}&paymentMethodId=${deletedMethodId}`).expect(200);
+        expect(keys(deleted.body.data)).toEqual([`${deletedOrderId}:${deletedMethodId}:12.0000`]);
+        expect(deleted.body.data[0].paymentMethodName).toBe(deletedName);
+      });
+
+      it('returns an empty page, total 0, for a method with no listable group', async () => {
+        const res = await get(`${rowsUrl}&paymentMethodId=${zeroOnlyMethodId}&page=1&limit=25`).expect(200);
+        expect(res.body.data).toEqual([]);
+        expect(res.body.meta.total).toBe(0);
+      });
+
+      it('rejects a paymentMethodId that is not a uuid', async () => {
+        await get(`${rowsUrl}&paymentMethodId=tiktok`).expect(400);
+      });
+
+      it('options: active methods with eligible rows, once each, unflagged as historical', async () => {
+        const { list, byId } = await methods();
+        expect(byId.get(tiktokMethodId)).toMatchObject({ id: tiktokMethodId, isActive: true, deleted: false });
+        expect(byId.get(atomeMethodId)).toMatchObject({ id: atomeMethodId, isActive: true, deleted: false });
+        // Two listable TikTok groups, one option.
+        expect(list.filter((m) => m.id === tiktokMethodId)).toHaveLength(1);
+      });
+
+      it('options: an inactive method with eligible payments is offered, flagged inactive', async () => {
+        const { byId } = await methods();
+        expect(byId.get(inactiveMethodId)).toEqual({
+          id: inactiveMethodId, name: inactiveName, isActive: false, deleted: false,
+        });
+      });
+
+      it('options: a soft-deleted method with eligible payments is offered, flagged deleted', async () => {
+        const { byId } = await methods();
+        expect(byId.get(deletedMethodId)).toEqual({
+          id: deletedMethodId, name: deletedName, isActive: true, deleted: true,
+        });
+      });
+
+      it('options: omit a method whose only group nets to zero or is not provider clearing', async () => {
+        const { byId } = await methods();
+        expect(byId.has(zeroOnlyMethodId)).toBe(false);
+        expect(byId.has(unflaggedMethodId)).toBe(false);
+      });
+
+      it('options follow the settlement date', async () => {
+        expect((await methods()).byId.has(lateMethodId)).toBe(false);
+        expect((await methods('', '2026-09-30')).byId.has(lateMethodId)).toBe(true);
+      });
+
+      it("options on Edit include the draft's own claims; a new settlement does not see them", async () => {
+        expect((await methods()).byId.has(draftOnlyMethodId)).toBe(false);
+        const mine = await methods(`&settlementId=${ownDraftId}`);
+        expect(mine.byId.get(draftOnlyMethodId)).toMatchObject({ isActive: true, deleted: false });
+        // Another draft's claims stay hidden from this one.
+        const otherDraftId = await insertDraft(atomeMethodId, [], '1.0000');
+        expect((await methods(`&settlementId=${otherDraftId}`)).byId.has(draftOnlyMethodId)).toBe(false);
+      });
+
+      it('options require a settlement date and a real draft', async () => {
+        await get(methodsUrl).expect(400);
+        await get(`${methodsUrl}?settlementDate=2026-09-20&settlementId=${randomUUID()}`).expect(404);
+      });
+    });
   });
   /**
    * #1289: the Provider filter's options are the methods that OWN a

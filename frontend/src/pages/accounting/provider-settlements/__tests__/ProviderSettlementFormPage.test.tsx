@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ProviderSettlementFormPage from '../ProviderSettlementFormPage'
 
 const mockEligible = vi.fn()
+const mockEligibleMethods = vi.fn()
 const mockClaimed = vi.fn()
 const mockRefreshClaimed = vi.fn()
 const mockRefreshEligible = vi.fn()
@@ -41,6 +42,9 @@ vi.mock('@/store/api/settingsApi', () => ({
 
 vi.mock('@/store/api/accountingApi', () => ({
   useGetEligibleSettlementRowsQuery: (...a: unknown[]) => mockEligible(...a),
+  // The picker's Payment Method filter options (#1335). The filter is a display
+  // control inside the picker and is covered in SettlementRowPicker.test.tsx.
+  useGetEligibleSettlementMethodsQuery: (...a: unknown[]) => mockEligibleMethods(...a),
   useGetClaimedSettlementRowsQuery: (...a: unknown[]) => mockClaimed(...a),
   useLazyGetClaimedSettlementRowsQuery: () => [mockRefreshClaimed],
   useLazyGetEligibleSettlementRowsQuery: () => [mockRefreshEligible],
@@ -177,6 +181,7 @@ async function dismissUnsavedChangesDialog() {
 beforeEach(() => {
   window.history.replaceState(null, '', '/')
   mockAccounts.mockReset().mockReturnValue(accountsPage(ACCOUNTS))
+  mockEligibleMethods.mockReset().mockReturnValue({ data: [], isLoading: false, isError: false })
   mockEligible.mockReset().mockReturnValue({
     data: { data: ELIGIBLE, meta: { total: ELIGIBLE.length, page: 1, limit: 25 } },
     isLoading: false,
@@ -599,9 +604,14 @@ describe('ProviderSettlementFormPage create flow (#1284)', () => {
 
   it('create: shows the inferred Payment Method read-only', async () => {
     renderForm(CREATE)
-    expect(screen.getByLabelText('Payment Method')).toHaveValue('—')
+    // By role: the picker's filter (#1335) is a combobox with the same label.
+    // This is the settlement's own, read-only field.
+    const inferred = () => screen.getByRole('textbox', { name: 'Payment Method' })
+    expect(inferred()).toHaveValue('—')
     await tick(/SO-26-008 TikTok/)
-    expect(screen.getByLabelText('Payment Method')).toHaveValue('TikTok')
+    expect(inferred()).toHaveValue('TikTok')
+    // Display filter only: it stays on All and assigns nothing.
+    expect(screen.getByRole('combobox', { name: 'Payment Method' })).toHaveTextContent('All Payment Methods')
   })
 
   it('create: SO-26-008 creates with exactly the TikTok row at a 2-dp expected net', async () => {
@@ -690,6 +700,66 @@ describe('ProviderSettlementFormPage create flow (#1284)', () => {
     expect(screen.getByTestId('save-block-reason')).toHaveTextContent(
       /separate settlement for each Payment Method/,
     )
+  })
+
+  // #1335: the picker's Payment Method filter is a display filter. Rows it
+  // hides are still part of the settlement being built.
+  describe('with the Payment Method filter hiding selected rows', () => {
+    beforeEach(() => {
+      mockEligibleMethods.mockReturnValue({
+        data: [
+          { id: 'pm-tt', name: 'TikTok', isActive: true, deleted: false },
+          { id: 'pm-at', name: 'Atome', isActive: true, deleted: false },
+        ],
+        isLoading: false, isError: false,
+      })
+      // Answer like the server: only the requested method's rows.
+      mockEligible.mockImplementation((args: { paymentMethodId?: string }) => {
+        const data = args.paymentMethodId
+          ? ELIGIBLE.filter((r) => r.paymentMethodId === args.paymentMethodId)
+          : ELIGIBLE
+        return { data: { data, meta: { total: data.length, page: 1, limit: 25 } } }
+      })
+    })
+
+    async function filterTo(name: string) {
+      await userEvent.click(screen.getByRole('combobox', { name: 'Payment Method' }))
+      await userEvent.click(screen.getByRole('option', { name }))
+    }
+
+    it('create: still blocks mixed methods when one method is filtered out of view', async () => {
+      renderForm(CREATE)
+      await tick(/SO-26-008 TikTok/)
+      await filterTo('Atome')
+      expect(screen.queryByRole('checkbox', { name: /SO-26-008 TikTok/ })).not.toBeInTheDocument()
+      await tick(/SO-26-005 Atome/)
+      await userEvent.type(amountField(), '90')
+      expect(createButton()).toBeDisabled()
+      expect(screen.getByTestId('save-block-reason')).toHaveTextContent(
+        /separate settlement for each Payment Method/,
+      )
+      // The inferred field reports the whole selection, not the filtered view.
+      expect(screen.getByRole('textbox', { name: 'Payment Method' })).toHaveValue('Multiple — see warning')
+    })
+
+    it('create: submits every selected row, including the ones the filter hides', async () => {
+      renderForm(CREATE)
+      await tick(/SO-26-008 TikTok/)
+      await tick(/SO-26-002 TikTok/)
+      await filterTo('Atome')
+      expect(screen.queryByRole('checkbox', { name: /TikTok/ })).not.toBeInTheDocument()
+      // Filtering to Atome assigns nothing: the settlement is still TikTok's.
+      expect(screen.getByRole('textbox', { name: 'Payment Method' })).toHaveValue('TikTok')
+      await chooseBank()
+      await userEvent.type(amountField(), '120')
+      await userEvent.click(createButton())
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+        rows: [
+          { salesOrderId: 'so-8', paymentMethodId: 'pm-tt', expectedNetAmount: '70.00' },
+          { salesOrderId: 'so-2', paymentMethodId: 'pm-tt', expectedNetAmount: '50.00' },
+        ],
+      }))
+    })
   })
 })
 
