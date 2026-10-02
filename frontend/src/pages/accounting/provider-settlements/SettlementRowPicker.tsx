@@ -186,7 +186,10 @@ export default function SettlementRowPicker({
           label="Search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          size="small"
+          // `xs`, the filter-bar size: Search and the filter beside it form one
+          // filter row and must be the same height (32px). At `small` Search
+          // stood 37px against the filter's 32px.
+          size="xs"
           fullWidth
           sx={{ maxWidth: { sm: 360 } }}
         />
@@ -213,8 +216,13 @@ export default function SettlementRowPicker({
       <TableCard>
         {/* TableCard clips (overflow: hidden) to keep the header inside its
             rounded corners, so the horizontal scroll lives on this inner box.
-            Pagination sits outside it and stays in view at narrow widths. */}
-        <Box sx={{ overflowX: 'auto' }}>
+            Pagination sits outside it and stays in view at narrow widths.
+            `position: relative` makes this box the containing block of the
+            rows' visually hidden Deduction labels. They are absolutely
+            positioned, and without it they are laid out against the page:
+            once the table is wider than the viewport they hang past its edge
+            and give the whole page a horizontal scrollbar. */}
+        <Box sx={{ overflowX: 'auto', position: 'relative' }}>
           <Table size={TABLE_STYLES.size} sx={{ minWidth: 480 }}>
             <TableHead>
               <TableRow>

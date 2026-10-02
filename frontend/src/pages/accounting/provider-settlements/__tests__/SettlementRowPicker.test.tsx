@@ -107,6 +107,20 @@ describe('SettlementRowPicker', () => {
     expect(within(row).queryByTestId('deduction-marker')).not.toBeInTheDocument()
   })
 
+  // The screen-reader label is absolutely positioned. Without a positioned
+  // ancestor inside the table's scroll box it is laid out against the page, and
+  // at narrow widths (table wider than the viewport) it gives the whole page a
+  // horizontal scrollbar. Measured in a browser at 375px on PR #1336.
+  it('contains the hidden Deduction label inside the table scroll box', () => {
+    render(<Harness />)
+    const scrollBox = screen.getByRole('table').parentElement!
+    expect(getComputedStyle(scrollBox).overflowX).toBe('auto')
+    expect(getComputedStyle(scrollBox).position).toBe('relative')
+    const label = within(screen.getByText('SO-26-009').closest('tr')!).getByText('Deduction')
+    expect(getComputedStyle(label).position).toBe('absolute')
+    expect(scrollBox.contains(label)).toBe(true)
+  })
+
   it('shows a positive net without a Deduction label or error colour', () => {
     render(<Harness />)
     const row = screen.getByText('SO-26-008').closest('tr')!
@@ -208,6 +222,17 @@ describe('SettlementRowPicker', () => {
   })
 
   describe('Payment Method filter (#1335)', () => {
+    // Measured in a browser on PR #1336: a `small` Search (37.1px) beside the
+    // `xs` filter (32px). jsdom has no layout, so the guard is the size variant
+    // both controls resolve to, which is what fixes their height in the theme.
+    it('renders Search at the same size variant as the filter beside it', () => {
+      render(<Harness />)
+      const sizeOf = (el: HTMLElement) =>
+        [...el.closest('.MuiInputBase-root')!.classList].filter((c) => c.startsWith('MuiInputBase-size'))
+      expect(sizeOf(methodFilter())).toEqual(['MuiInputBase-sizeXs'])
+      expect(sizeOf(screen.getByLabelText('Search'))).toEqual(['MuiInputBase-sizeXs'])
+    })
+
     it('offers every eligible method, marking inactive and deleted ones', async () => {
       mockMethods.mockReturnValue({
         data: [
