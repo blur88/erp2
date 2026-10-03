@@ -483,6 +483,7 @@ export class SettingsService {
     Expenses: { table: 'expenses', column: 'expenseNumber' },
     'Owner Equity': { table: 'owner_equity_documents', column: 'referenceNumber' },
     'Provider Settlements': { table: 'provider_settlements', column: 'referenceNumber' },
+    'Bank Reconciliations': { table: 'bank_statement_reconciliations', column: 'reconciliationNo' },
   };
 
   /**
@@ -530,6 +531,7 @@ export class SettingsService {
       { documentName: 'Expenses', prefix: 'EXP' },
       { documentName: 'Owner Equity', prefix: 'EQ' },
       { documentName: 'Provider Settlements', prefix: 'PS' },
+      { documentName: 'Bank Reconciliations', prefix: 'BR' },
     ];
 
     for (const d of defaults) {
