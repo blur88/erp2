@@ -8,7 +8,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-const { mockAccounts, mockGLData, mockAccountsQuery, mockGLQuery } = vi.hoisted(() => ({
+const { mockAccounts, mockGLData, mockSettlementGLData, mockAccountsQuery, mockGLQuery } = vi.hoisted(() => ({
   mockAccounts: {
     data: [
       {
@@ -82,6 +82,60 @@ const { mockAccounts, mockGLData, mockAccountsQuery, mockGLQuery } = vi.hoisted(
     pageTotals: { debit: '5000.0000', credit: '2000.0000' },
     meta: { total: 2, page: 1, limit: 25 },
   },
+  // #1340: a posted settlement, its reversal (same source document — the
+  // reversal entry copies the original's source metadata), and a settlement
+  // line whose document id is missing.
+  mockSettlementGLData: {
+    account: { id: 'acct-2', code: '1200', name: 'Bank Account' },
+    openingBalance: '1000.0000',
+    movements: [
+      {
+        id: 'ps-line-1',
+        date: '2026-10-02',
+        journalEntryId: 'je-154',
+        journalNo: 'JE-26-154',
+        description: 'Provider settlement',
+        debit: '200.0000',
+        credit: '0.0000',
+        balance: '1200.0000',
+        sourceType: 'PROVIDER_SETTLEMENT' as const,
+        sourceDocumentId: 'ps-uuid-10',
+        sourceRef: 'PS-26-010',
+      },
+      {
+        id: 'ps-line-2',
+        date: '2026-10-02',
+        journalEntryId: 'je-155',
+        journalNo: 'JE-26-155',
+        description: 'Reversal of JE-26-154',
+        debit: '0.0000',
+        credit: '200.0000',
+        balance: '1000.0000',
+        sourceType: 'PROVIDER_SETTLEMENT' as const,
+        sourceDocumentId: 'ps-uuid-10',
+        sourceRef: 'PS-26-010',
+      },
+      {
+        id: 'ps-line-3',
+        date: '2026-10-02',
+        journalEntryId: 'je-156',
+        journalNo: 'JE-26-156',
+        description: 'Settlement without document id',
+        debit: '50.0000',
+        credit: '0.0000',
+        balance: '1050.0000',
+        sourceType: 'PROVIDER_SETTLEMENT' as const,
+        sourceDocumentId: null,
+        sourceRef: 'PS-26-011',
+      },
+    ],
+    totalDebit: '250.0000',
+    totalCredit: '200.0000',
+    closingBalance: '1050.0000',
+    pageOpeningBalance: '1000.0000',
+    pageTotals: { debit: '250.0000', credit: '200.0000' },
+    meta: { total: 3, page: 1, limit: 25 },
+  },
   mockAccountsQuery: vi.fn().mockReturnValue({ data: null, isFetching: false }),
   mockGLQuery: vi.fn().mockReturnValue({ data: undefined, isFetching: false }),
 }))
@@ -110,6 +164,10 @@ function renderPage(initialEntry = '/accounting/general-ledger') {
     [
       { path: '/accounting/general-ledger', element: <GeneralLedgerPage /> },
       { path: '/sales/orders/:id/view', element: <div>Sales Order Page</div> },
+      {
+        path: '/accounting/provider-settlements/:id/view',
+        element: <div>Provider Settlement Page</div>,
+      },
       { path: '/accounting/journal-entries/:id', element: <div>JE Page</div> },
     ],
     { initialEntries: [initialEntry] },
@@ -584,5 +642,119 @@ describe('GeneralLedgerPage', () => {
       expect(router.state.location.pathname).toBe('/sales/orders/SO-001/view'),
     )
     expect(router.state.location.pathname).not.toContain('journal-entries')
+  })
+
+  describe('Provider Settlement sources (#1340)', () => {
+    const SETTLEMENT_PATH = '/accounting/provider-settlements/ps-uuid-10/view'
+
+    function renderSettlementLedger(search = '?account=acct-2') {
+      mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+      mockGLQuery.mockReturnValue({ data: mockSettlementGLData, isFetching: false })
+      return renderPage(`/accounting/general-ledger${search}`)
+    }
+
+    it('links both the Posted and the Reversed entry to the settlement by id', () => {
+      renderSettlementLedger()
+
+      const links = screen.getAllByRole('link', { name: 'PS-26-010' })
+      expect(links).toHaveLength(2)
+      for (const link of links) {
+        expect(link).toHaveAttribute('href', SETTLEMENT_PATH)
+        expect(link).toHaveAccessibleDescription('Provider Settlement')
+      }
+    })
+
+    it('opens the settlement, not the journal entry, with exactly one history entry', async () => {
+      const user = userEvent.setup()
+      const router = renderSettlementLedger()
+
+      await user.click(screen.getAllByRole('link', { name: 'PS-26-010' })[0])
+      await waitFor(() => expect(router.state.location.pathname).toBe(SETTLEMENT_PATH))
+      expect(screen.getByText('Provider Settlement Page')).toBeInTheDocument()
+
+      // One back() must land on GL. Had the row handler also fired, a journal
+      // entry navigation would sit in the history as well.
+      await act(async () => {
+        await router.navigate(-1)
+      })
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe('/accounting/general-ledger'),
+      )
+    })
+
+    it('opens the settlement from the Reversed entry row as well', async () => {
+      const user = userEvent.setup()
+      const router = renderSettlementLedger()
+
+      await user.click(screen.getAllByRole('link', { name: 'PS-26-010' })[1])
+      await waitFor(() => expect(router.state.location.pathname).toBe(SETTLEMENT_PATH))
+    })
+
+    it('keeps Journal No. navigation unchanged on a settlement row', async () => {
+      const user = userEvent.setup()
+      const router = renderSettlementLedger()
+
+      await user.click(screen.getByRole('link', { name: 'JE-26-154' }))
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/accounting/journal-entries/je-154')
+        expect(router.state.location.search).toContain('from=general-ledger')
+      })
+    })
+
+    it('shows plain text and keeps the row click when the document id is missing', async () => {
+      const user = userEvent.setup()
+      const router = renderSettlementLedger()
+
+      expect(screen.queryByRole('link', { name: 'PS-26-011' })).not.toBeInTheDocument()
+      await user.click(screen.getByText('PS-26-011'))
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe('/accounting/journal-entries/je-156'),
+      )
+    })
+
+    it('restores account, period, source type and pagination after returning', async () => {
+      const user = userEvent.setup()
+      const search =
+        '?account=acct-2&sourceType=PROVIDER_SETTLEMENT' +
+        '&period=custom&period_from=2026-10-02&period_to=2026-10-02&page=2&limit=50'
+      const router = renderSettlementLedger(search)
+
+      await user.click(screen.getAllByRole('link', { name: 'PS-26-010' })[0])
+      expect(await screen.findByText('Provider Settlement Page')).toBeInTheDocument()
+
+      await act(async () => {
+        await router.navigate(-1)
+      })
+
+      const restored = currentSearch()
+      expect(restored.get('account')).toBe('acct-2')
+      expect(restored.get('sourceType')).toBe('PROVIDER_SETTLEMENT')
+      expect(restored.get('period')).toBe('custom')
+      expect(restored.get('period_from')).toBe('2026-10-02')
+      expect(restored.get('period_to')).toBe('2026-10-02')
+      expect(restored.get('page')).toBe('2')
+      expect(restored.get('limit')).toBe('50')
+      const [params] = mockGLQuery.mock.calls.at(-1)!
+      expect(params).toMatchObject({
+        accountId: 'acct-2',
+        sourceType: 'PROVIDER_SETTLEMENT',
+        fromDate: '2026-10-02',
+        toDate: '2026-10-02',
+        page: 2,
+        limit: 50,
+      })
+      expect(screen.getByText('JE-26-154')).toBeInTheDocument()
+    })
+
+    it('offers Provider Settlement in the Source Type filter', async () => {
+      const user = userEvent.setup()
+      renderSettlementLedger()
+
+      await user.click(screen.getByLabelText('Source Type'))
+      await user.click(await screen.findByRole('option', { name: 'Provider Settlement' }))
+      await waitFor(() =>
+        expect(currentSearch().get('sourceType')).toBe('PROVIDER_SETTLEMENT'),
+      )
+    })
   })
 })

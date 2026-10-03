@@ -662,7 +662,7 @@ export interface BalanceSheetGroupRow {
 }
 
 export type JournalEntryStatus = 'Posted' | 'Reversed';
-export type AccountingSourceType = 'SALES_ORDER' | 'PURCHASE_ORDER' | 'STOCK_ADJUSTMENT' | 'OPENING_BALANCE' | 'EXPENSE' | 'OWNER_EQUITY';
+export type AccountingSourceType = 'SALES_ORDER' | 'PURCHASE_ORDER' | 'STOCK_ADJUSTMENT' | 'OPENING_BALANCE' | 'EXPENSE' | 'OWNER_EQUITY' | 'PROVIDER_SETTLEMENT';
 
 export interface JournalEntry {
   id: string;

@@ -20,5 +20,10 @@ export function buildSourceLink(
       return sourceDocumentId ? `/accounting/expenses/${sourceDocumentId}` : null
     case 'OWNER_EQUITY':
       return sourceRef ? `/accounting/owner-equity/${sourceRef}/view` : null
+    case 'PROVIDER_SETTLEMENT':
+      // The detail route is id-based; the Settlement No (sourceRef) is display-only.
+      return sourceDocumentId
+        ? `/accounting/provider-settlements/${sourceDocumentId}/view`
+        : null
   }
 }
