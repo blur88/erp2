@@ -208,6 +208,9 @@ export async function removeSuiteBankReconciliations(
     await qr.query(`ALTER TABLE bank_statement_reconciliation_versions DISABLE TRIGGER trg_bsr_version_sealed_at_commit`);
     await qr.query(`ALTER TABLE bank_statement_reconciliations DISABLE TRIGGER trg_bsr_current_version_sealed`);
 
+    // Drop partial unique draft index during bulk cleanup to allow temporary DRAFT status
+    await qr.query(`DROP INDEX IF EXISTS "UQ_bsr_one_draft_per_account"`);
+
     // 1. Reset currentVersionNo = NULL and status = 'DRAFT' on all headers first to clear FK_bsr_current_version
     await qr.query(
       `UPDATE bank_statement_reconciliations
@@ -239,6 +242,11 @@ export async function removeSuiteBankReconciliations(
       [reconciliationIds],
     );
 
+    // Recreate unique draft index
+    await qr.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "UQ_bsr_one_draft_per_account" ON bank_statement_reconciliations ("bankAccountId") WHERE status = 'DRAFT'`,
+    );
+
     // Re-enable triggers
     await qr.query(`ALTER TABLE bank_statement_reconciliation_lines ENABLE TRIGGER trg_bsr_line_classification`);
     await qr.query(`ALTER TABLE bank_statement_reconciliation_setup_marks ENABLE TRIGGER trg_bsr_mark_classification`);
@@ -252,6 +260,11 @@ export async function removeSuiteBankReconciliations(
     await qr.commitTransaction();
   } catch (err) {
     await qr.rollbackTransaction();
+    try {
+      await ds.query(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "UQ_bsr_one_draft_per_account" ON bank_statement_reconciliations ("bankAccountId") WHERE status = 'DRAFT'`,
+      );
+    } catch {}
     throw err;
   } finally {
     await qr.release();
@@ -272,6 +285,7 @@ export async function removeSuiteAccounts(
   accountIds: string[],
 ): Promise<void> {
   if (!accountIds || accountIds.length === 0) return;
+  await ds.query(`DELETE FROM journal_entry_line WHERE "accountId" = ANY($1::uuid[])`, [accountIds]);
   await ds.query(`DELETE FROM chart_of_account WHERE id = ANY($1::uuid[])`, [accountIds]);
 }
 

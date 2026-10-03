@@ -1,4 +1,6 @@
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { toMinorUnits, quantizeToCents, formatMoney } from '../../../common/utils/money';
+import { SetupClassification } from '../entities/bank-reconciliation.entity';
 
 export type AmountLine = { debit: string; credit: string };
 
@@ -162,4 +164,161 @@ export function completionGates(s: ReconciliationSummaryDto): {
       : s.unclassifiedCount === 0;
 
   return { closing, opening, classification };
+}
+
+export const LOCK_VERSION_MISMATCH_TEXT =
+  'This reconciliation was changed by someone else. Reload to continue.';
+
+export interface SavedLineState {
+  journalEntryLineId: string;
+  kind?: 'MATCHED' | 'OPENING_CLEARED' | null;
+  marked?: boolean;
+}
+
+export interface FinalLineState {
+  journalEntryLineId: string;
+  matched: boolean;
+  classification: SetupClassification;
+  targetKind: 'MATCHED' | 'OPENING_CLEARED' | null;
+  targetMark: boolean;
+}
+
+export function resolveFinalState(
+  saved: SavedLineState[],
+  matchedLineIds: string[] | undefined,
+  setupChanges: Array<{ journalEntryLineId: string; classification: SetupClassification }> | undefined,
+): Map<string, FinalLineState> {
+  const result = new Map<string, FinalLineState>();
+
+  if (setupChanges) {
+    const seen = new Set<string>();
+    for (const sc of setupChanges) {
+      if (seen.has(sc.journalEntryLineId)) {
+        throw new ConflictException({
+          message: {
+            text: 'The same entry cannot appear twice in setup changes.',
+          },
+        });
+      }
+      seen.add(sc.journalEntryLineId);
+    }
+  }
+
+  const savedMap = new Map<string, SavedLineState>();
+  for (const s of saved) {
+    savedMap.set(s.journalEntryLineId, s);
+  }
+
+  const setupMap = new Map<string, SetupClassification>();
+  for (const sc of setupChanges ?? []) {
+    setupMap.set(sc.journalEntryLineId, sc.classification);
+  }
+
+  const allLineIds = new Set<string>();
+  for (const s of saved) allLineIds.add(s.journalEntryLineId);
+  if (matchedLineIds) {
+    for (const id of matchedLineIds) allLineIds.add(id);
+  }
+  for (const sc of setupChanges ?? []) allLineIds.add(sc.journalEntryLineId);
+
+  const matchedSet = matchedLineIds ? new Set(matchedLineIds) : null;
+
+  for (const id of allLineIds) {
+    const s = savedMap.get(id);
+
+    let finalMatched = false;
+    if (matchedSet !== null) {
+      finalMatched = matchedSet.has(id);
+    } else {
+      finalMatched = s?.kind === 'MATCHED';
+    }
+
+    let finalCls = SetupClassification.UNCLASSIFIED;
+    if (setupMap.has(id)) {
+      finalCls = setupMap.get(id)!;
+    } else if (s?.kind === 'OPENING_CLEARED') {
+      finalCls = SetupClassification.CLEARED;
+    } else if (s?.marked) {
+      finalCls = SetupClassification.OUTSTANDING;
+    }
+
+    if (finalMatched && finalCls === SetupClassification.CLEARED) {
+      throw new ConflictException(
+        'An entry marked Already cleared cannot be ticked. Change its classification first.',
+      );
+    }
+
+    let targetKind: 'MATCHED' | 'OPENING_CLEARED' | null = null;
+    let targetMark = false;
+
+    if (finalCls === SetupClassification.CLEARED) {
+      targetKind = 'OPENING_CLEARED';
+      targetMark = false;
+    } else if (finalMatched) {
+      targetKind = 'MATCHED';
+      targetMark = finalCls === SetupClassification.OUTSTANDING;
+    } else if (finalCls === SetupClassification.OUTSTANDING) {
+      targetKind = null;
+      targetMark = true;
+    } else {
+      targetKind = null;
+      targetMark = false;
+    }
+
+    result.set(id, {
+      journalEntryLineId: id,
+      matched: finalMatched,
+      classification: finalCls,
+      targetKind,
+      targetMark,
+    });
+  }
+
+  return result;
+}
+
+export function mapReconciliationDbError(err: any): never {
+  if (err?.code === '23505') {
+    if (err?.constraint === 'UQ_bsr_one_draft_per_account') {
+      throw new ConflictException('A draft reconciliation already exists for this bank account.');
+    }
+    if (err?.constraint === 'UQ_bsr_account_sequence') {
+      throw new ConflictException(
+        'Another reconciliation was created for this bank account. Reload and try again.',
+      );
+    }
+    if (err?.constraint === 'UQ_bsr_line_journal_line') {
+      throw new ConflictException('One or more selected entries are already reconciled elsewhere.');
+    }
+    throw new ConflictException('A unique constraint violation occurred.');
+  }
+
+  if (err?.code === '40P01') {
+    throw new ConflictException(
+      'The operation conflicted with another concurrent change. Please try again.',
+    );
+  }
+
+  throw err;
+}
+
+export function validateSequenceInputs(
+  sequenceNo: number,
+  body: {
+    periodFrom?: string;
+    openingBalance?: string;
+    setupChanges?: any[];
+  },
+): void {
+  if (sequenceNo > 1) {
+    if (body.periodFrom !== undefined) {
+      throw new BadRequestException('periodFrom cannot be modified for sequence > 1.');
+    }
+    if (body.openingBalance !== undefined) {
+      throw new BadRequestException('openingBalance cannot be modified for sequence > 1.');
+    }
+    if (body.setupChanges && body.setupChanges.length > 0) {
+      throw new BadRequestException('setupChanges are only permitted on the first reconciliation for an account.');
+    }
+  }
 }

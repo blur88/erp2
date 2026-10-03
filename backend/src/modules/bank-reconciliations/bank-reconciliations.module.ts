@@ -11,6 +11,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 import { BankReconciliationController } from './controllers/bank-reconciliation.controller';
 import { BankReconciliationEligibilityService } from './services/bank-reconciliation-eligibility.service';
+import { BankReconciliationService } from './services/bank-reconciliation.service';
 
 @Module({
   imports: [
@@ -26,7 +27,13 @@ import { BankReconciliationEligibilityService } from './services/bank-reconcilia
     AuditLogsModule,
   ],
   controllers: [BankReconciliationController],
-  providers: [BankReconciliationEligibilityService],
-  exports: [BankReconciliationEligibilityService],
+  providers: [
+    BankReconciliationEligibilityService,
+    BankReconciliationService,
+  ],
+  exports: [
+    BankReconciliationEligibilityService,
+    BankReconciliationService,
+  ],
 })
 export class BankReconciliationsModule {}
