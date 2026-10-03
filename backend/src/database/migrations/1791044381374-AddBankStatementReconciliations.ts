@@ -59,7 +59,211 @@ export class AddBankStatementReconciliations1791044381374 implements MigrationIn
         await queryRunner.query(`ALTER TABLE "bank_statement_reconciliation_version_lines" ADD CONSTRAINT "FK_f4f641540beb7d3f91d50f571ca" FOREIGN KEY ("versionId") REFERENCES "bank_statement_reconciliation_versions"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "bank_statement_reconciliation_version_lines" ADD CONSTRAINT "FK_85326b3d6654db2471c1c124efc" FOREIGN KEY ("journalEntryLineId") REFERENCES "journal_entry_line"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`);
 
-        // 3. Idempotent document_number_settings insert for Bank Reconciliations.
+        // Migration-only FK: FK_bsr_current_version
+        await queryRunner.query(
+            `ALTER TABLE "bank_statement_reconciliations" ADD CONSTRAINT "FK_bsr_current_version" FOREIGN KEY ("id", "currentVersionNo") REFERENCES "bank_statement_reconciliation_versions"("reconciliationId", "versionNo") ON DELETE RESTRICT`
+        );
+
+        // 3. Functions and Triggers
+        // 3a. Classification consistency guard
+        await queryRunner.query(`
+          CREATE OR REPLACE FUNCTION bsr_guard_classification() RETURNS trigger AS $$
+          DECLARE
+            v_dummy uuid;
+            v_conflict_found boolean := false;
+          BEGIN
+            SELECT id INTO v_dummy
+              FROM bank_statement_reconciliations
+             WHERE id = NEW."reconciliationId"
+               FOR NO KEY UPDATE;
+
+            IF TG_TABLE_NAME = 'bank_statement_reconciliation_lines' THEN
+              IF NEW.kind = 'OPENING_CLEARED' THEN
+                SELECT EXISTS (
+                  SELECT 1 FROM bank_statement_reconciliation_setup_marks
+                   WHERE "reconciliationId" = NEW."reconciliationId"
+                     AND "journalEntryLineId" = NEW."journalEntryLineId"
+                ) INTO v_conflict_found;
+                IF v_conflict_found THEN
+                  RAISE EXCEPTION 'bsr: cannot classify line as OPENING_CLEARED while a setup mark exists'
+                    USING ERRCODE = 'check_violation';
+                END IF;
+              END IF;
+            ELSIF TG_TABLE_NAME = 'bank_statement_reconciliation_setup_marks' THEN
+              SELECT EXISTS (
+                SELECT 1 FROM bank_statement_reconciliation_lines
+                 WHERE "reconciliationId" = NEW."reconciliationId"
+                   AND "journalEntryLineId" = NEW."journalEntryLineId"
+                   AND kind = 'OPENING_CLEARED'
+              ) INTO v_conflict_found;
+              IF v_conflict_found THEN
+                RAISE EXCEPTION 'bsr: cannot mark line as setup OUTSTANDING while an OPENING_CLEARED line exists'
+                  USING ERRCODE = 'check_violation';
+              END IF;
+            END IF;
+
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql;
+        `);
+
+        await queryRunner.query(`
+          CREATE TRIGGER "trg_bsr_line_classification"
+            BEFORE INSERT OR UPDATE OF "kind" ON "bank_statement_reconciliation_lines"
+            FOR EACH ROW EXECUTE FUNCTION bsr_guard_classification();
+        `);
+
+        await queryRunner.query(`
+          CREATE TRIGGER "trg_bsr_mark_classification"
+            BEFORE INSERT ON "bank_statement_reconciliation_setup_marks"
+            FOR EACH ROW EXECUTE FUNCTION bsr_guard_classification();
+        `);
+
+        // 3b. Immutable IDs guard
+        await queryRunner.query(`
+          CREATE OR REPLACE FUNCTION bsr_guard_immutable_ids() RETURNS trigger AS $$
+          BEGIN
+            IF NEW."reconciliationId" <> OLD."reconciliationId" OR NEW."journalEntryLineId" <> OLD."journalEntryLineId" THEN
+              RAISE EXCEPTION 'bsr: reconciliationId and journalEntryLineId are immutable'
+                USING ERRCODE = 'check_violation';
+            END IF;
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql;
+        `);
+
+        await queryRunner.query(`
+          CREATE TRIGGER "trg_bsr_line_immutable_ids"
+            BEFORE UPDATE ON "bank_statement_reconciliation_lines"
+            FOR EACH ROW EXECUTE FUNCTION bsr_guard_immutable_ids();
+        `);
+
+        await queryRunner.query(`
+          CREATE TRIGGER "trg_bsr_mark_immutable_ids"
+            BEFORE UPDATE ON "bank_statement_reconciliation_setup_marks"
+            FOR EACH ROW EXECUTE FUNCTION bsr_guard_immutable_ids();
+        `);
+
+        // 3c. Version guard
+        await queryRunner.query(`
+          CREATE OR REPLACE FUNCTION bsr_guard_version() RETURNS trigger AS $$
+          BEGIN
+            IF TG_OP = 'DELETE' THEN
+              RAISE EXCEPTION 'bsr: bank reconciliation versions cannot be deleted'
+                USING ERRCODE = 'check_violation';
+            ELSIF TG_OP = 'UPDATE' THEN
+              IF OLD."sealedAt" IS NOT NULL THEN
+                RAISE EXCEPTION 'bsr: sealed bank reconciliation versions are immutable'
+                  USING ERRCODE = 'check_violation';
+              END IF;
+            END IF;
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql;
+        `);
+
+        await queryRunner.query(`
+          CREATE TRIGGER "trg_bsr_version_guard"
+            BEFORE UPDATE OR DELETE ON "bank_statement_reconciliation_versions"
+            FOR EACH ROW EXECUTE FUNCTION bsr_guard_version();
+        `);
+
+        // 3d. Version line guard
+        await queryRunner.query(`
+          CREATE OR REPLACE FUNCTION bsr_guard_version_line() RETURNS trigger AS $$
+          DECLARE
+            v_sealed_at timestamptz;
+            v_found boolean;
+          BEGIN
+            IF TG_OP = 'UPDATE' THEN
+              RAISE EXCEPTION 'bsr: bank reconciliation version lines cannot be updated'
+                USING ERRCODE = 'check_violation';
+            ELSIF TG_OP = 'DELETE' THEN
+              RAISE EXCEPTION 'bsr: bank reconciliation version lines cannot be deleted'
+                USING ERRCODE = 'check_violation';
+            ELSIF TG_OP = 'INSERT' THEN
+              SELECT "sealedAt" INTO v_sealed_at
+                FROM bank_statement_reconciliation_versions
+               WHERE id = NEW."versionId"
+                 FOR SHARE;
+              GET DIAGNOSTICS v_found = ROW_COUNT;
+              IF NOT v_found THEN
+                RAISE EXCEPTION 'bsr: parent version % does not exist', NEW."versionId"
+                  USING ERRCODE = 'check_violation';
+              END IF;
+              IF v_sealed_at IS NOT NULL THEN
+                RAISE EXCEPTION 'bsr: cannot add line to a sealed version'
+                  USING ERRCODE = 'check_violation';
+              END IF;
+            END IF;
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql;
+        `);
+
+        await queryRunner.query(`
+          CREATE TRIGGER "trg_bsr_version_line_guard"
+            BEFORE INSERT OR UPDATE OR DELETE ON "bank_statement_reconciliation_version_lines"
+            FOR EACH ROW EXECUTE FUNCTION bsr_guard_version_line();
+        `);
+
+        // 3e. Version sealed at commit deferred constraint trigger
+        await queryRunner.query(`
+          CREATE OR REPLACE FUNCTION bsr_assert_version_sealed() RETURNS trigger AS $$
+          DECLARE
+            v_stored_sealed_at timestamptz;
+            v_found boolean;
+          BEGIN
+            SELECT "sealedAt" INTO v_stored_sealed_at
+              FROM bank_statement_reconciliation_versions
+             WHERE id = NEW.id;
+            GET DIAGNOSTICS v_found = ROW_COUNT;
+
+            IF v_found AND v_stored_sealed_at IS NULL THEN
+              RAISE EXCEPTION 'bsr: unsealed version at commit'
+                USING ERRCODE = 'check_violation';
+            END IF;
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql;
+        `);
+
+        await queryRunner.query(`
+          CREATE CONSTRAINT TRIGGER "trg_bsr_version_sealed_at_commit"
+            AFTER INSERT ON "bank_statement_reconciliation_versions"
+            DEFERRABLE INITIALLY DEFERRED
+            FOR EACH ROW EXECUTE FUNCTION bsr_assert_version_sealed();
+        `);
+
+        // 3f. Current version sealed guard
+        await queryRunner.query(`
+          CREATE OR REPLACE FUNCTION bsr_guard_current_version() RETURNS trigger AS $$
+          DECLARE
+            v_is_sealed boolean := false;
+          BEGIN
+            IF NEW."currentVersionNo" IS NOT NULL THEN
+              SELECT ("sealedAt" IS NOT NULL) INTO v_is_sealed
+                FROM bank_statement_reconciliation_versions
+               WHERE "reconciliationId" = NEW.id
+                 AND "versionNo" = NEW."currentVersionNo";
+
+              IF v_is_sealed IS NOT TRUE THEN
+                RAISE EXCEPTION 'bsr: currentVersionNo must reference a sealed version of the same reconciliation'
+                  USING ERRCODE = 'check_violation';
+              END IF;
+            END IF;
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql;
+        `);
+
+        await queryRunner.query(`
+          CREATE TRIGGER "trg_bsr_current_version_sealed"
+            BEFORE INSERT OR UPDATE OF "currentVersionNo" ON "bank_statement_reconciliations"
+            FOR EACH ROW EXECUTE FUNCTION bsr_guard_current_version();
+        `);
+
+        // 4. Idempotent document_number_settings insert for Bank Reconciliations.
         await queryRunner.query(`
           INSERT INTO document_number_settings ("documentName", prefix, "paddingDigits", "nextNumber", "lastResetYear")
           SELECT 'Bank Reconciliations', 'BR', 3, 1, EXTRACT(YEAR FROM CURRENT_DATE)::int % 100
@@ -83,7 +287,7 @@ export class AddBankStatementReconciliations1791044381374 implements MigrationIn
             }
         }
 
-        // Drop triggers if exist (added in Task 2)
+        // Drop triggers if exist
         await queryRunner.query(`DROP TRIGGER IF EXISTS "trg_bsr_current_version_sealed" ON "bank_statement_reconciliations"`);
         await queryRunner.query(`DROP TRIGGER IF EXISTS "trg_bsr_version_sealed_at_commit" ON "bank_statement_reconciliation_versions"`);
         await queryRunner.query(`DROP TRIGGER IF EXISTS "trg_bsr_version_line_guard" ON "bank_statement_reconciliation_version_lines"`);
@@ -93,7 +297,7 @@ export class AddBankStatementReconciliations1791044381374 implements MigrationIn
         await queryRunner.query(`DROP TRIGGER IF EXISTS "trg_bsr_mark_classification" ON "bank_statement_reconciliation_setup_marks"`);
         await queryRunner.query(`DROP TRIGGER IF EXISTS "trg_bsr_line_classification" ON "bank_statement_reconciliation_lines"`);
 
-        // Drop functions if exist (added in Task 2)
+        // Drop functions if exist
         await queryRunner.query(`DROP FUNCTION IF EXISTS "bsr_guard_current_version"() CASCADE`);
         await queryRunner.query(`DROP FUNCTION IF EXISTS "bsr_assert_version_sealed"() CASCADE`);
         await queryRunner.query(`DROP FUNCTION IF EXISTS "bsr_guard_version_line"() CASCADE`);
@@ -101,7 +305,7 @@ export class AddBankStatementReconciliations1791044381374 implements MigrationIn
         await queryRunner.query(`DROP FUNCTION IF EXISTS "bsr_guard_immutable_ids"() CASCADE`);
         await queryRunner.query(`DROP FUNCTION IF EXISTS "bsr_guard_classification"() CASCADE`);
 
-        // Drop migration-only FK if exists (added in Task 2)
+        // Drop migration-only FK if exists
         await queryRunner.query(`ALTER TABLE "bank_statement_reconciliations" DROP CONSTRAINT IF EXISTS "FK_bsr_current_version"`);
 
         // Drop foreign keys
