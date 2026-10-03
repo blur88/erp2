@@ -332,4 +332,229 @@ export class BankReconciliationLifecycleService {
       await queryRunner.release();
     }
   }
+
+  async reopen(
+    id: string,
+    lockVersion: number,
+    userId?: string,
+    username?: string,
+  ): Promise<BankReconciliationDetailDto> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const manager = queryRunner.manager;
+
+      const [stub] = await manager.query(
+        `SELECT "bankAccountId" FROM bank_statement_reconciliations WHERE id = $1`,
+        [id],
+      );
+      if (!stub) {
+        throw new NotFoundException(`Bank reconciliation ${id} not found`);
+      }
+
+      const acct = await lockBankAccount(manager, stub.bankAccountId);
+      assertWritableAccount(acct);
+
+      const recon = await lockReconciliation(manager, id);
+
+      if (recon.lockVersion !== lockVersion) {
+        throw new ConflictException(LOCK_VERSION_MISMATCH_TEXT);
+      }
+      if (recon.status !== BankReconciliationStatus.COMPLETED) {
+        throw new ConflictException('Only a completed reconciliation can be reopened.');
+      }
+
+      const [latest] = await manager.query(
+        `SELECT max("sequenceNo") AS "maxSeq" FROM bank_statement_reconciliations WHERE "bankAccountId" = $1`,
+        [recon.bankAccountId],
+      );
+      const isLatest = latest?.maxSeq === recon.sequenceNo;
+
+      const [draft] = await manager.query(
+        `SELECT id FROM bank_statement_reconciliations WHERE "bankAccountId" = $1 AND status = 'DRAFT' LIMIT 1`,
+        [recon.bankAccountId],
+      );
+
+      if (!isLatest || draft) {
+        throw new ConflictException(
+          'Only the latest completed reconciliation can be reopened, and only when no draft exists for this bank account.',
+        );
+      }
+
+      await manager.query(
+        `UPDATE bank_statement_reconciliations
+            SET status = 'DRAFT',
+                "reopenedAt" = now(),
+                "reopenedBy" = $1,
+                "lockVersion" = "lockVersion" + 1
+          WHERE id = $2`,
+        [username || 'system', recon.id],
+      );
+
+      await this.auditLogService.log(
+        'REOPEN',
+        'BankReconciliation',
+        `Reopened bank reconciliation ${recon.reconciliationNo}`,
+        {
+          entityId: recon.id,
+          userId,
+          username,
+        },
+      );
+
+      await queryRunner.commitTransaction();
+
+      return this.reconciliationService.findOne(recon.id);
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      mapReconciliationDbError(err);
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async cancelReopen(
+    id: string,
+    lockVersion: number,
+    userId?: string,
+    username?: string,
+  ): Promise<BankReconciliationDetailDto> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const manager = queryRunner.manager;
+
+      const [stub] = await manager.query(
+        `SELECT "bankAccountId" FROM bank_statement_reconciliations WHERE id = $1`,
+        [id],
+      );
+      if (!stub) {
+        throw new NotFoundException(`Bank reconciliation ${id} not found`);
+      }
+
+      // Lock account (assertWritableAccount is skipped per plan)
+      await lockBankAccount(manager, stub.bankAccountId);
+
+      const recon = await lockReconciliation(manager, id);
+
+      if (recon.lockVersion !== lockVersion) {
+        throw new ConflictException(LOCK_VERSION_MISMATCH_TEXT);
+      }
+      if (
+        recon.status !== BankReconciliationStatus.DRAFT ||
+        recon.currentVersionNo === null
+      ) {
+        throw new ConflictException('Only a reopened draft can be cancelled.');
+      }
+
+      // 1. Delete working lines and setup marks
+      await manager.query(
+        `DELETE FROM bank_statement_reconciliation_lines WHERE "reconciliationId" = $1`,
+        [recon.id],
+      );
+      await manager.query(
+        `DELETE FROM bank_statement_reconciliation_setup_marks WHERE "reconciliationId" = $1`,
+        [recon.id],
+      );
+
+      // 2. Fetch current version
+      const [version] = await manager.query(
+        `SELECT * FROM bank_statement_reconciliation_versions
+          WHERE "reconciliationId" = $1 AND "versionNo" = $2`,
+        [recon.id, recon.currentVersionNo],
+      );
+      if (!version) {
+        throw new NotFoundException(
+          `Version ${recon.currentVersionNo} not found for reconciliation ${id}`,
+        );
+      }
+
+      // 3. Fetch version lines ordered by journalEntryLineId ASC
+      const vLines = await manager.query(
+        `SELECT * FROM bank_statement_reconciliation_version_lines
+          WHERE "versionId" = $1
+          ORDER BY "journalEntryLineId" ASC`,
+        [version.id],
+      );
+
+      // 4. Reinsert working lines and marks
+      try {
+        for (const vl of vLines) {
+          if (vl.role === 'MATCHED' || vl.role === 'OPENING_CLEARED') {
+            await manager.query(
+              `INSERT INTO bank_statement_reconciliation_lines (
+                id, "createdAt", "reconciliationId", "journalEntryLineId", kind, "addedBy", "addedAt"
+              ) VALUES (
+                gen_random_uuid(), now(), $1, $2, $3, $4, $5
+              )`,
+              [recon.id, vl.journalEntryLineId, vl.role, vl.addedBy, vl.addedAt],
+            );
+          }
+          if (vl.setupMarked) {
+            await manager.query(
+              `INSERT INTO bank_statement_reconciliation_setup_marks (
+                id, "createdAt", "reconciliationId", "journalEntryLineId", "markedBy", "markedAt"
+              ) VALUES (
+                gen_random_uuid(), now(), $1, $2, $3, $4
+              )`,
+              [recon.id, vl.journalEntryLineId, vl.setupMarkedBy, vl.setupMarkedAt],
+            );
+          }
+        }
+      } catch (insertErr) {
+        if ((insertErr as any)?.code === '23505') {
+          const text =
+            'Cancel Reopen could not restore the previous completion because an entry is reserved elsewhere. Nothing was changed.';
+          throw new ConflictException({ text, message: text });
+        }
+        throw insertErr;
+      }
+
+      // 5. Restore header business fields from version
+      await manager.query(
+        `UPDATE bank_statement_reconciliations
+            SET "periodFrom" = $1,
+                "periodTo" = $2,
+                "openingBalance" = $3,
+                "closingBalance" = $4,
+                status = 'COMPLETED',
+                "reopenedAt" = NULL,
+                "reopenedBy" = NULL,
+                "lockVersion" = "lockVersion" + 1
+          WHERE id = $5`,
+        [
+          version.periodFrom,
+          version.periodTo,
+          version.openingBalance,
+          version.closingBalance,
+          recon.id,
+        ],
+      );
+
+      // 6. Audit log
+      await this.auditLogService.log(
+        'CANCEL_REOPEN',
+        'BankReconciliation',
+        `Cancelled reopen on bank reconciliation ${recon.reconciliationNo}`,
+        {
+          entityId: recon.id,
+          userId,
+          username,
+        },
+      );
+
+      await queryRunner.commitTransaction();
+
+      return this.reconciliationService.findOne(recon.id);
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      mapReconciliationDbError(err);
+    } finally {
+      await queryRunner.release();
+    }
+  }
 }

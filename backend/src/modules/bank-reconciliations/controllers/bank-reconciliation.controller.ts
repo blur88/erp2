@@ -120,6 +120,32 @@ export class BankReconciliationController {
     return { data: result };
   }
 
+  @Post(':id/reopen')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Reopen the latest completed bank reconciliation' })
+  async reopen(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: LifecycleDto,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
+  ) {
+    const result = await this.lifecycleService.reopen(id, dto.lockVersion, userId, username);
+    return { data: result };
+  }
+
+  @Post(':id/cancel-reopen')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Cancel reopen and restore previous completion snapshot' })
+  async cancelReopen(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: LifecycleDto,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
+  ) {
+    const result = await this.lifecycleService.cancelReopen(id, dto.lockVersion, userId, username);
+    return { data: result };
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Discard bank reconciliation draft' })

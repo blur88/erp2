@@ -14,6 +14,7 @@ import {
   removeSuiteAccounts,
 } from './utils/bank-reconciliation-fixture';
 import { E2E_ADMIN_PASSWORD, removeSuiteAdmin, seedSuiteAdmin } from './utils/shared-e2e-fixture';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 import { SetupClassification } from '../src/modules/bank-reconciliations/entities/bank-reconciliation.entity';
 import { BankReconciliationService } from '../src/modules/bank-reconciliations/services/bank-reconciliation.service';
 import { RECONCILIATION_TEST_HOOK } from '../src/modules/bank-reconciliations/services/bank-reconciliation.test-hooks';
@@ -82,7 +83,18 @@ describe('Bank reconciliation complete lifecycle (e2e)', () => {
 
   afterAll(async () => {
     delete (service as any)[RECONCILIATION_TEST_HOOK];
+    await removeSuiteTraces(ds, {
+      userIds: adminUserId ? [adminUserId] : [],
+      usernames: adminUsername ? [adminUsername] : [],
+      entityIds: suiteReconciliationIds,
+    });
     await removeSuiteBankReconciliations(ds, suiteReconciliationIds);
+    await ds.query(`
+      DELETE FROM journal_entry_line WHERE "entryId" IN (
+        SELECT id FROM journal_entry WHERE "journalNo" LIKE 'JE-5K-%'
+      )
+    `);
+    await ds.query(`DELETE FROM journal_entry WHERE "journalNo" LIKE 'JE-5K-%'`);
     await removeSuiteJournalEntries(ds, suiteEntryIds);
     await removeSuiteAccounts(ds, suiteAccountIds);
     if (adminUsername) {

@@ -16,6 +16,7 @@ import {
   removeSuiteAccounts,
 } from './utils/bank-reconciliation-fixture';
 import { E2E_ADMIN_PASSWORD, removeSuiteAdmin, seedSuiteAdmin } from './utils/shared-e2e-fixture';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 import { SetupClassification } from '../src/modules/bank-reconciliations/entities/bank-reconciliation.entity';
 import { quantizeToCents, toMinorUnits, formatMoney } from '../src/common/utils/money';
 
@@ -72,6 +73,11 @@ describe('Bank reconciliation eligibility and preview (e2e)', () => {
     await ds.query(`DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "journalNo" LIKE 'JE-BULK-%')`);
     await ds.query(`DELETE FROM journal_entry WHERE "journalNo" LIKE 'JE-BULK-%'`);
 
+    await removeSuiteTraces(ds, {
+      userIds: adminUserId ? [adminUserId] : [],
+      usernames: adminUsername ? [adminUsername] : [],
+      entityIds: suiteReconciliationIds,
+    });
     await removeSuiteBankReconciliations(ds, suiteReconciliationIds);
     await removeSuiteJournalEntries(ds, suiteEntryIds);
     await removeSuiteAccounts(ds, suiteAccountIds);
