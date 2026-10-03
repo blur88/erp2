@@ -181,6 +181,30 @@ normalize() {
       ncomments++
       next
     }
+    in_func {
+      for (i = 1; i <= NF; i++) func_str = func_str " " $i
+      if ($0 ~ /\$\$;/) {
+        print func_str
+        in_func = 0
+        func_str = ""
+      }
+      next
+    }
+    $1 ~ /^CREATE FUNCTION public\./ {
+      func_str = $1
+      for (i = 2; i <= NF; i++) func_str = func_str " " $i
+      if ($0 ~ /\$\$;/) {
+        print func_str
+        func_str = ""
+      } else {
+        in_func = 1
+      }
+      next
+    }
+    $1 ~ /^ALTER TABLE ONLY public\./ && $2 ~ /^    ADD CONSTRAINT / {
+      print $1 " " substr($2, 5)
+      next
+    }
     { print $0 }
     END { for (i = 0; i < ncomments; i++) print comments[i] }
   ' \
@@ -220,13 +244,16 @@ fi
 #   - UQ_price_lists_single_default (partial unique, migration 1785600000000)
 #   - UQ_products_lower_name / UQ_products_lower_barcode (expression unique,
 #     migration 1785800000000)
+#   - 6 bank reconciliation functions (migration 1791044381374)
+#   - 8 bank reconciliation triggers (migration 1791044381374)
+#   - FK_bsr_current_version foreign key (migration 1791044381374)
 # Anything else in the diff fails the gate.
 
 # (a) Negative: only the allowlisted statements may appear as differences.
 UNEXPECTED=$(grep -E '^[+-]' "$OUT/diff.txt" \
   | grep -vE '^(\+\+\+|---)' \
   | grep -vE \
-'^\+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;|^\+COMMENT ON EXTENSION pg_trgm IS|^\+CREATE UNIQUE INDEX "UQ_price_lists_single_default"|^\+CREATE UNIQUE INDEX "UQ_products_lower_(name|barcode)"|^\+CREATE INDEX idx_(customers|products|sales_orders|purchase_orders|suppliers|vendor_payments)_[a-z]+_trgm' \
+'^\+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;|^\+COMMENT ON EXTENSION pg_trgm IS|^\+CREATE UNIQUE INDEX "UQ_price_lists_single_default"|^\+CREATE UNIQUE INDEX "UQ_products_lower_(name|barcode)"|^\+CREATE INDEX idx_(customers|products|sales_orders|purchase_orders|suppliers|vendor_payments)_[a-z]+_trgm|^\+CREATE FUNCTION public\.bsr_(assert_version_sealed|guard_classification|guard_current_version|guard_immutable_ids|guard_version|guard_version_line)\(\)|^\+CREATE TRIGGER trg_bsr_(current_version_sealed|line_classification|line_immutable_ids|mark_classification|mark_immutable_ids|version_guard|version_line_guard) |^\+CREATE CONSTRAINT TRIGGER trg_bsr_version_sealed_at_commit |^\+ALTER TABLE ONLY public\.bank_statement_reconciliations ADD CONSTRAINT "FK_bsr_current_version" FOREIGN KEY \(id, "currentVersionNo"\) REFERENCES public\.bank_statement_reconciliation_versions\("reconciliationId", "versionNo"\) ON DELETE RESTRICT;' \
   || true)
 
 if [ -n "$UNEXPECTED" ]; then
@@ -287,5 +314,90 @@ if [ "$ACTUAL_DEFS" != "$EXPECTED_DEFS" ]; then
   exit 1
 fi
 
-echo "PASS: pg_trgm installed, all 11 migration-index definitions exact, no other differences"
+EXPECTED_TRIGGERS="bank_statement_reconciliations|trg_bsr_current_version_sealed|O|false|false
+bank_statement_reconciliation_lines|trg_bsr_line_classification|O|false|false
+bank_statement_reconciliation_lines|trg_bsr_line_immutable_ids|O|false|false
+bank_statement_reconciliation_setup_marks|trg_bsr_mark_classification|O|false|false
+bank_statement_reconciliation_setup_marks|trg_bsr_mark_immutable_ids|O|false|false
+bank_statement_reconciliation_versions|trg_bsr_version_guard|O|false|false
+bank_statement_reconciliation_version_lines|trg_bsr_version_line_guard|O|false|false
+bank_statement_reconciliation_versions|trg_bsr_version_sealed_at_commit|O|true|true"
+
+ACTUAL_TRIGGERS=$(q_cand "
+  SELECT c.relname || '|' || t.tgname || '|' || t.tgenabled::text || '|' || t.tgdeferrable::text || '|' || t.tginitdeferred::text
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+   WHERE t.tgname IN (
+     'trg_bsr_current_version_sealed',
+     'trg_bsr_line_classification',
+     'trg_bsr_line_immutable_ids',
+     'trg_bsr_mark_classification',
+     'trg_bsr_mark_immutable_ids',
+     'trg_bsr_version_guard',
+     'trg_bsr_version_line_guard',
+     'trg_bsr_version_sealed_at_commit'
+   )
+   ORDER BY t.tgname;")
+
+if [ "$ACTUAL_TRIGGERS" != "$EXPECTED_TRIGGERS" ]; then
+  echo "FAIL: bank reconciliation triggers do not match exactly."
+  echo "--- expected ---"; echo "$EXPECTED_TRIGGERS"
+  echo "--- actual ---";   echo "$ACTUAL_TRIGGERS"
+  exit 1
+fi
+
+EXPECTED_FUNCS="bsr_assert_version_sealed
+bsr_guard_classification
+bsr_guard_current_version
+bsr_guard_immutable_ids
+bsr_guard_version
+bsr_guard_version_line"
+
+ACTUAL_FUNCS=$(q_cand "
+  SELECT proname
+    FROM pg_proc
+   WHERE proname IN (
+     'bsr_assert_version_sealed',
+     'bsr_guard_classification',
+     'bsr_guard_current_version',
+     'bsr_guard_immutable_ids',
+     'bsr_guard_version',
+     'bsr_guard_version_line'
+   )
+   ORDER BY proname;")
+
+if [ "$ACTUAL_FUNCS" != "$EXPECTED_FUNCS" ]; then
+  echo "FAIL: bank reconciliation functions do not match exactly."
+  echo "--- expected ---"; echo "$EXPECTED_FUNCS"
+  echo "--- actual ---";   echo "$ACTUAL_FUNCS"
+  exit 1
+fi
+
+EXPECTED_FK="FK_bsr_current_version|bank_statement_reconciliations|id,currentVersionNo|bank_statement_reconciliation_versions|reconciliationId,versionNo|r"
+
+ACTUAL_FK=$(q_cand "
+  SELECT
+    con.conname || '|' ||
+    cls.relname || '|' ||
+    (SELECT string_agg(att.attname, ',' ORDER BY ord.ord)
+       FROM unnest(con.conkey) WITH ORDINALITY AS ord(attnum, ord)
+       JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ord.attnum) || '|' ||
+    fcls.relname || '|' ||
+    (SELECT string_agg(fatt.attname, ',' ORDER BY ford.ord)
+       FROM unnest(con.confkey) WITH ORDINALITY AS ford(fattnum, ord)
+       JOIN pg_attribute fatt ON fatt.attrelid = con.confrelid AND fatt.attnum = ford.fattnum) || '|' ||
+    con.confdeltype::text
+  FROM pg_constraint con
+  JOIN pg_class cls ON cls.oid = con.conrelid
+  JOIN pg_class fcls ON fcls.oid = con.confrelid
+  WHERE con.conname = 'FK_bsr_current_version';")
+
+if [ "$ACTUAL_FK" != "$EXPECTED_FK" ]; then
+  echo "FAIL: FK_bsr_current_version definition does not match exactly."
+  echo "--- expected ---"; echo "$EXPECTED_FK"
+  echo "--- actual ---";   echo "$ACTUAL_FK"
+  exit 1
+fi
+
+echo "PASS: pg_trgm installed, all 11 migration-index definitions exact, 6 bsr functions, 8 bsr triggers, and FK_bsr_current_version exact, no other differences"
 exit 0
