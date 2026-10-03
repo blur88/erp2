@@ -48,16 +48,27 @@ export async function seedBankJournalLine(
     moneyIn?: string;
     moneyOut?: string;
     journalNo: string;
+    sourceType?: string;
+    sourceRef?: string;
+    sourceDocumentId?: string;
     description?: string;
     reversalOfEntryId?: string;
   },
 ): Promise<{ entryId: string; lineId: string }> {
   const [entry] = await ds.query(
     `INSERT INTO journal_entry (
-       "journalNo", "entryDate", "sourceType", "postingType", description, "reversalOfEntryId", "createdBy"
-     ) VALUES ($1, $2, 'EXPENSE', 'EXPENSE_PAYMENT', $3, $4, 'test')
+       "journalNo", "entryDate", "sourceType", "sourceRef", "sourceDocumentId", "postingType", description, "reversalOfEntryId", "createdBy"
+     ) VALUES ($1, $2, $3, $4, $5, 'EXPENSE_PAYMENT', $6, $7, 'test')
      RETURNING id`,
-    [o.journalNo, o.entryDate, o.description ?? null, o.reversalOfEntryId ?? null],
+    [
+      o.journalNo,
+      o.entryDate,
+      o.sourceType ?? 'EXPENSE',
+      o.sourceRef ?? null,
+      o.sourceDocumentId ?? null,
+      o.description ?? null,
+      o.reversalOfEntryId ?? null,
+    ],
   );
 
   const bankDebit = o.moneyIn ?? '0.0000';
@@ -116,6 +127,65 @@ export async function insertReconciliationRaw(
     ],
   );
   return row.id;
+}
+
+export async function insertCompletedReconciliationRaw(
+  ds: DataSource,
+  o: {
+    reconciliationNo: string;
+    bankAccountId: string;
+    sequenceNo?: number;
+    periodFrom?: string;
+    periodTo?: string;
+    openingBalance?: string;
+    closingBalance?: string;
+  },
+): Promise<{ reconciliationId: string; versionId: string }> {
+  const [acct] = await ds.query(
+    `SELECT code, name FROM chart_of_account WHERE id = $1`,
+    [o.bankAccountId],
+  );
+
+  const reconId = await insertReconciliationRaw(ds, {
+    reconciliationNo: o.reconciliationNo,
+    bankAccountId: o.bankAccountId,
+    sequenceNo: o.sequenceNo ?? 1,
+    periodFrom: o.periodFrom ?? '2026-01-01',
+    periodTo: o.periodTo ?? '2026-01-31',
+    openingBalance: o.openingBalance ?? '0.0000',
+    closingBalance: o.closingBalance ?? '0.0000',
+    status: 'DRAFT',
+  });
+
+  const [v] = await ds.query(
+    `INSERT INTO bank_statement_reconciliation_versions (
+       "reconciliationId", "versionNo", "reconciliationNo", "sequenceNo",
+       "bankAccountId", "bankAccountCode", "bankAccountName",
+       "periodFrom", "periodTo", "openingBalance", "closingBalance", "sealedAt", "completedAt", "completedBy"
+     ) VALUES ($1, 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now(), 'test')
+     RETURNING id`,
+    [
+      reconId,
+      o.reconciliationNo,
+      o.sequenceNo ?? 1,
+      o.bankAccountId,
+      acct?.code ?? 'ACCT',
+      acct?.name ?? 'Account',
+      o.periodFrom ?? '2026-01-01',
+      o.periodTo ?? '2026-01-31',
+      o.openingBalance ?? '0.0000',
+      o.closingBalance ?? '0.0000',
+    ],
+  );
+
+  await ds.query(
+    `UPDATE bank_statement_reconciliations
+        SET status = 'COMPLETED', "currentVersionNo" = 1
+      WHERE id = $1`,
+    [reconId],
+  );
+
+  return { reconciliationId: reconId, versionId: v.id };
 }
 
 export async function removeSuiteBankReconciliations(

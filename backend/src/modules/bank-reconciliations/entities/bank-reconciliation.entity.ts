@@ -10,6 +10,12 @@ export enum BankReconciliationStatus {
   COMPLETED = 'COMPLETED',
 }
 
+export enum SetupClassification {
+  CLEARED = 'CLEARED',
+  OUTSTANDING = 'OUTSTANDING',
+  UNCLASSIFIED = 'UNCLASSIFIED',
+}
+
 @Check('CHK_bsr_period', `"periodFrom" <= "periodTo"`)
 @Check(
   'CHK_bsr_completed_shape',

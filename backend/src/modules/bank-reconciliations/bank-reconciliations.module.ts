@@ -9,6 +9,9 @@ import { AccountingModule } from '../accounting/accounting.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
+import { BankReconciliationController } from './controllers/bank-reconciliation.controller';
+import { BankReconciliationEligibilityService } from './services/bank-reconciliation-eligibility.service';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -22,8 +25,8 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     SettingsModule,
     AuditLogsModule,
   ],
-  controllers: [],
-  providers: [],
-  exports: [],
+  controllers: [BankReconciliationController],
+  providers: [BankReconciliationEligibilityService],
+  exports: [BankReconciliationEligibilityService],
 })
 export class BankReconciliationsModule {}
