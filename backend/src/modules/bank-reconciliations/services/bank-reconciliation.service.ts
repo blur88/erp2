@@ -40,6 +40,7 @@ import {
   type SavedLineState,
   validateSequenceInputs,
 } from './bank-reconciliation.rules';
+import { formatMoney, quantizeToCents, toMinorUnits } from '../../../common/utils/money';
 import {
   assertWritableAccount,
   lockBankAccount,
@@ -59,6 +60,16 @@ export {
   type ReconciliationTestPhase,
   type ReconciliationTestHook,
 } from './bank-reconciliation.test-hooks';
+
+function fmtMoney(val: string | null | undefined): string {
+  if (!val) return '0.00';
+  return formatMoney(quantizeToCents(toMinorUnits(val)));
+}
+
+function fmtNullableMoney(val: string | null | undefined): string | null {
+  if (val === null || val === undefined) return null;
+  return formatMoney(quantizeToCents(toMinorUnits(val)));
+}
 
 @Injectable()
 export class BankReconciliationService {
@@ -623,72 +634,24 @@ export class BankReconciliationService {
     let summary: ReconciliationSummaryDto;
     let matched: ReconciliationLineDto[] = [];
     let classified: ReconciliationLineDto[] = [];
+    let version: BankReconciliationVersion | null = null;
 
     if (recon.status === BankReconciliationStatus.COMPLETED && recon.currentVersionNo !== null) {
-      const version = await this.dataSource.getRepository(BankReconciliationVersion).findOne({
+      version = await this.dataSource.getRepository(BankReconciliationVersion).findOne({
         where: { reconciliationId: recon.id, versionNo: recon.currentVersionNo },
       });
       summary = {
-        openingBalance: version?.openingBalance ?? recon.openingBalance,
-        closingBalance: version?.closingBalance ?? recon.closingBalance,
-        moneyIn: version?.moneyInTotal ?? '0.00',
-        moneyOut: version?.moneyOutTotal ?? '0.00',
-        calculatedClosingBalance: version?.calculatedClosingBalance ?? '0.00',
-        difference: version?.difference ?? '0.00',
-        openingClearedNet: version?.openingClearedNet ?? null,
-        openingBalanceDifference: version?.openingBalanceDifference ?? null,
+        openingBalance: fmtMoney(version?.openingBalance ?? recon.openingBalance),
+        closingBalance: fmtMoney(version?.closingBalance ?? recon.closingBalance),
+        moneyIn: fmtMoney(version?.moneyInTotal),
+        moneyOut: fmtMoney(version?.moneyOutTotal),
+        calculatedClosingBalance: fmtMoney(version?.calculatedClosingBalance),
+        difference: fmtMoney(version?.difference),
+        openingClearedNet: fmtNullableMoney(version?.openingClearedNet),
+        openingBalanceDifference: fmtNullableMoney(version?.openingBalanceDifference),
         unclassifiedCount: null,
       };
-
-      const vLines = await this.dataSource.query(
-        `SELECT
-           jel.id AS "journalEntryLineId",
-           jel."entryId" AS "journalEntryId",
-           je."entryDate"::text AS "entryDate",
-           je."journalNo" AS "journalNo",
-           je."sourceType"::text AS "sourceType",
-           je."sourceDocumentId" AS "sourceDocumentId",
-           je."sourceRef" AS "sourceRef",
-           je.description AS "description",
-           (ROUND(jel.debit, 2))::text AS "moneyIn",
-           (ROUND(jel.credit, 2))::text AS "moneyOut",
-           vl.role::text AS "role"
-         FROM bank_statement_reconciliation_version_lines vl
-         JOIN journal_entry_line jel ON jel.id = vl."journalEntryLineId"
-         JOIN journal_entry je ON je.id = jel."entryId"
-        WHERE vl."versionId" = $1
-        ORDER BY je."entryDate" ASC, je."journalNo" ASC, jel.id ASC`,
-        [version?.id],
-      );
-
-      for (const r of vLines) {
-        const isPre = recon.sequenceNo === 1 && r.entryDate < recon.periodFrom;
-        const lineDto: ReconciliationLineDto = {
-          journalEntryLineId: r.journalEntryLineId,
-          journalEntryId: r.journalEntryId,
-          entryDate: r.entryDate,
-          journalNo: r.journalNo,
-          sourceType: r.sourceType,
-          sourceDocumentId: r.sourceDocumentId,
-          sourceRef: r.sourceRef,
-          description: r.description,
-          moneyIn: r.moneyIn,
-          moneyOut: r.moneyOut,
-          role: r.role as BankReconciliationVersionLineRole,
-          prePeriod: isPre,
-          classification: isPre
-            ? r.role === BankReconciliationVersionLineRole.OPENING_CLEARED
-              ? SetupClassification.CLEARED
-              : SetupClassification.OUTSTANDING
-            : null,
-        };
-        if (r.role === BankReconciliationVersionLineRole.MATCHED) {
-          matched.push(lineDto);
-        }
-        if (isPre) {
-          classified.push(lineDto);
-        }
-      }
+      // For completed reconciliation, matched and classified are []
     } else {
       // Draft working set
       const lineRows = await this.dataSource.query(
@@ -857,8 +820,8 @@ export class BankReconciliationService {
       sequenceNo: recon.sequenceNo,
       bankAccountId: recon.bankAccountId,
       bankAccount: {
-        code: acct?.code ?? '',
-        name: acct?.name ?? '',
+        code: version?.bankAccountCode ?? (acct?.code ?? ''),
+        name: version?.bankAccountName ?? (acct?.name ?? ''),
         isActive: Boolean(acct?.isActive),
         isBankAccount: Boolean(acct?.isBankAccount),
       },
@@ -971,27 +934,32 @@ export class BankReconciliationService {
     const data: BankReconciliationDto[] = [];
     for (const r of rows) {
       let summary: ReconciliationSummaryDto;
+      let accountCode = r.accountCode;
+      let accountName = r.accountName;
 
       if (r.status === BankReconciliationStatus.COMPLETED && r.currentVersionNo !== null) {
         const [vRow] = await this.dataSource.query(
           `SELECT "openingBalance"::text, "closingBalance"::text, "moneyInTotal"::text AS "moneyIn", "moneyOutTotal"::text AS "moneyOut",
                   "calculatedClosingBalance"::text, "difference"::text, "openingClearedNet"::text,
-                  "openingBalanceDifference"::text
+                  "openingBalanceDifference"::text,
+                  "bankAccountCode", "bankAccountName"
              FROM bank_statement_reconciliation_versions
             WHERE "reconciliationId" = $1 AND "versionNo" = $2`,
           [r.id, r.currentVersionNo],
         );
         summary = {
-          openingBalance: vRow?.openingBalance ?? r.openingBalance,
-          closingBalance: vRow?.closingBalance ?? r.closingBalance,
-          moneyIn: vRow?.moneyIn ?? '0.00',
-          moneyOut: vRow?.moneyOut ?? '0.00',
-          calculatedClosingBalance: vRow?.calculatedClosingBalance ?? '0.00',
-          difference: vRow?.difference ?? '0.00',
-          openingClearedNet: vRow?.openingClearedNet ?? null,
-          openingBalanceDifference: vRow?.openingBalanceDifference ?? null,
+          openingBalance: fmtMoney(vRow?.openingBalance ?? r.openingBalance),
+          closingBalance: fmtMoney(vRow?.closingBalance ?? r.closingBalance),
+          moneyIn: fmtMoney(vRow?.moneyIn),
+          moneyOut: fmtMoney(vRow?.moneyOut),
+          calculatedClosingBalance: fmtMoney(vRow?.calculatedClosingBalance),
+          difference: fmtMoney(vRow?.difference),
+          openingClearedNet: fmtNullableMoney(vRow?.openingClearedNet),
+          openingBalanceDifference: fmtNullableMoney(vRow?.openingBalanceDifference),
           unclassifiedCount: null,
         };
+        if (vRow?.bankAccountCode) accountCode = vRow.bankAccountCode;
+        if (vRow?.bankAccountName) accountName = vRow.bankAccountName;
       } else {
         const matchedLines = await this.dataSource.query(
           `SELECT (ROUND(jel.debit, 2))::text AS debit, (ROUND(jel.credit, 2))::text AS credit
@@ -1057,8 +1025,8 @@ export class BankReconciliationService {
         sequenceNo: r.sequenceNo,
         bankAccountId: r.bankAccountId,
         bankAccount: {
-          code: r.accountCode,
-          name: r.accountName,
+          code: accountCode,
+          name: accountName,
           isActive: Boolean(r.accountIsActive),
           isBankAccount: Boolean(r.accountIsBankAccount),
         },
@@ -1108,6 +1076,99 @@ export class BankReconciliationService {
     const page = q.page ?? 1;
     const limit = q.limit ?? 25;
     const offset = (page - 1) * limit;
+
+    if (recon.status === BankReconciliationStatus.COMPLETED && recon.currentVersionNo !== null) {
+      const [version] = await this.dataSource.query(
+        `SELECT id FROM bank_statement_reconciliation_versions
+          WHERE "reconciliationId" = $1 AND "versionNo" = $2`,
+        [recon.id, recon.currentVersionNo],
+      );
+      if (!version) {
+        throw new NotFoundException(
+          `Version ${recon.currentVersionNo} not found for reconciliation ${id}`,
+        );
+      }
+
+      const params: any[] = [version.id];
+      let pIdx = 2;
+      let whereSql = 'WHERE vl."versionId" = $1';
+
+      if (roleFilter) {
+        params.push(roleFilter);
+        whereSql += ` AND vl.role = $${pIdx++}`;
+      }
+
+      let paginationClause = '';
+      if (hasPagination) {
+        params.push(limit);
+        const pLimit = `$${pIdx++}`;
+        params.push(offset);
+        const pOffset = `$${pIdx++}`;
+        paginationClause = `LIMIT ${pLimit} OFFSET ${pOffset}`;
+      }
+
+      const fullSql = `
+        SELECT
+          vl."journalEntryLineId",
+          vl."journalEntryId",
+          vl."entryDate"::text AS "entryDate",
+          vl."journalNo",
+          vl."sourceType",
+          vl."sourceDocumentId",
+          vl."sourceRef",
+          vl.description,
+          (ROUND(vl."moneyIn", 2))::text AS "moneyIn",
+          (ROUND(vl."moneyOut", 2))::text AS "moneyOut",
+          vl.role::text AS "role",
+          vl."setupMarked",
+          count(*) OVER() AS "windowTotal"
+        FROM bank_statement_reconciliation_version_lines vl
+        ${whereSql}
+        ORDER BY vl."entryDate" ASC, vl."journalNo" ASC, vl."journalEntryLineId" ASC
+        ${paginationClause}
+      `;
+
+      const rows = await this.dataSource.query(fullSql, params);
+      const total = rows.length > 0 ? parseInt(rows[0].windowTotal, 10) : 0;
+
+      const data: ReconciliationLineDto[] = rows.map((r: any) => {
+        const isPre = isFirst && r.entryDate < recon.periodFrom;
+        let classification: SetupClassification | null = null;
+        if (isPre) {
+          if (r.role === BankReconciliationVersionLineRole.OPENING_CLEARED) {
+            classification = SetupClassification.CLEARED;
+          } else if (r.setupMarked) {
+            classification = SetupClassification.OUTSTANDING;
+          } else {
+            classification = SetupClassification.UNCLASSIFIED;
+          }
+        }
+        return {
+          journalEntryLineId: r.journalEntryLineId,
+          journalEntryId: r.journalEntryId,
+          entryDate: r.entryDate,
+          journalNo: r.journalNo,
+          sourceType: r.sourceType,
+          sourceDocumentId: r.sourceDocumentId,
+          sourceRef: r.sourceRef,
+          description: r.description,
+          moneyIn: r.moneyIn,
+          moneyOut: r.moneyOut,
+          role: r.role as BankReconciliationVersionLineRole,
+          prePeriod: isPre,
+          classification,
+        };
+      });
+
+      return {
+        data,
+        meta: {
+          total,
+          page: hasPagination ? page : 1,
+          limit: hasPagination ? limit : total,
+        },
+      };
+    }
 
     let paginationClause = '';
     const params: any[] = [];

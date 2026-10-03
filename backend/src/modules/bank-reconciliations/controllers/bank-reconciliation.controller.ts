@@ -17,9 +17,11 @@ import { Auth } from '../../auth/decorators/auth.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { BankReconciliationEligibilityService } from '../services/bank-reconciliation-eligibility.service';
 import { BankReconciliationService } from '../services/bank-reconciliation.service';
+import { BankReconciliationLifecycleService } from '../services/bank-reconciliation-lifecycle.service';
 import {
   CreateBankReconciliationDto,
   EligibleLinesSearchDto,
+  LifecycleDto,
   ListBankReconciliationsQueryDto,
   PreviewDto,
   ReconciliationLinesQueryDto,
@@ -33,6 +35,7 @@ export class BankReconciliationController {
   constructor(
     private readonly eligibilityService: BankReconciliationEligibilityService,
     private readonly reconciliationService: BankReconciliationService,
+    private readonly lifecycleService: BankReconciliationLifecycleService,
   ) {}
 
   @Post('eligible-lines/search')
@@ -101,6 +104,19 @@ export class BankReconciliationController {
     @CurrentUser('username') username: string,
   ) {
     const result = await this.reconciliationService.update(id, dto, userId, username);
+    return { data: result };
+  }
+
+  @Post(':id/complete')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Complete bank reconciliation and seal immutable version' })
+  async complete(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: LifecycleDto,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
+  ) {
+    const result = await this.lifecycleService.complete(id, dto.lockVersion, userId, username);
     return { data: result };
   }
 

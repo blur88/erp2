@@ -12,6 +12,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { BankReconciliationController } from './controllers/bank-reconciliation.controller';
 import { BankReconciliationEligibilityService } from './services/bank-reconciliation-eligibility.service';
 import { BankReconciliationService } from './services/bank-reconciliation.service';
+import { BankReconciliationLifecycleService } from './services/bank-reconciliation-lifecycle.service';
 
 @Module({
   imports: [
@@ -30,10 +31,12 @@ import { BankReconciliationService } from './services/bank-reconciliation.servic
   providers: [
     BankReconciliationEligibilityService,
     BankReconciliationService,
+    BankReconciliationLifecycleService,
   ],
   exports: [
     BankReconciliationEligibilityService,
     BankReconciliationService,
+    BankReconciliationLifecycleService,
   ],
 })
 export class BankReconciliationsModule {}
