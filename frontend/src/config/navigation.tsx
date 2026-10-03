@@ -245,6 +245,13 @@ export const menuSections: MenuSection[] = [
             roles: ALL_ROLES,
           },
           {
+            id: 'bank-reconciliations',
+            title: 'Bank Reconciliations',
+            icon: <AccountBalanceIcon />,
+            path: '/accounting/bank-reconciliations',
+            roles: ALL_ROLES,
+          },
+          {
             id: 'general-ledger',
             title: 'General Ledger',
             icon: <MenuBookIcon />,

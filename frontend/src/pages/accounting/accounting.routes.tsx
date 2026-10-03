@@ -18,6 +18,9 @@ const OwnerEquityDetailPage = React.lazy(() => import('./owner-equity/OwnerEquit
 const ProviderSettlementsPage = React.lazy(() => import('./provider-settlements/ProviderSettlementsPage'))
 const ProviderSettlementFormPage = React.lazy(() => import('./provider-settlements/ProviderSettlementFormPage'))
 const ProviderSettlementDetailPage = React.lazy(() => import('./provider-settlements/ProviderSettlementDetailPage'))
+const BankReconciliationsPage = React.lazy(() => import('./bank-reconciliations/BankReconciliationsPage'))
+const BankReconciliationFormPage = React.lazy(() => import('./bank-reconciliations/BankReconciliationFormPage'))
+const BankReconciliationDetailPage = React.lazy(() => import('./bank-reconciliations/BankReconciliationDetailPage'))
 
 // Authentication is enforced by the parent router (authLoader + MainLayout in
 // router.tsx), not here. These routes carry no role restriction: accounting is
@@ -39,6 +42,10 @@ export const accountingRoutes: RouteObject[] = [
   { path: '/accounting/provider-settlements/create', element: <ProviderSettlementFormPage />, handle: { title: 'New Provider Settlement' } },
   { path: '/accounting/provider-settlements/:id/edit', element: <ProviderSettlementFormPage />, handle: { title: 'Edit Provider Settlement' } },
   { path: '/accounting/provider-settlements/:id/view', element: <ProviderSettlementDetailPage />, handle: { title: 'Provider Settlement Detail' } },
+  { path: '/accounting/bank-reconciliations', element: <BankReconciliationsPage />, handle: { title: 'Bank Reconciliations' } },
+  { path: '/accounting/bank-reconciliations/create', element: <BankReconciliationFormPage />, handle: { title: 'New Bank Reconciliation' } },
+  { path: '/accounting/bank-reconciliations/:id/edit', element: <BankReconciliationFormPage />, handle: { title: 'Edit Bank Reconciliation' } },
+  { path: '/accounting/bank-reconciliations/:id/view', element: <BankReconciliationDetailPage />, handle: { title: 'Bank Reconciliation Detail' } },
   { path: '/accounting/general-ledger', element: <GeneralLedgerPage />, handle: { title: 'General Ledger' } },
   { path: '/accounting/trial-balance', element: <TrialBalancePage />, handle: { title: 'Trial Balance' } },
   { path: '/accounting/profit-and-loss', element: <ProfitAndLossPage />, handle: { title: 'Profit & Loss' } },

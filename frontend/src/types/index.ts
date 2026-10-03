@@ -1128,6 +1128,87 @@ export interface ProviderSettlementListParams {
   limit?: number
 }
 
+export type BankReconciliationStatus = 'DRAFT' | 'COMPLETED'
+export type SetupClassification = 'CLEARED' | 'OUTSTANDING' | 'UNCLASSIFIED'
+export type ReconciliationLineRole = 'MATCHED' | 'OUTSTANDING' | 'OPENING_CLEARED'
+
+export interface ReconciliationLineDto {
+  journalEntryLineId: string
+  journalEntryId: string
+  entryDate: string
+  journalNo: string
+  sourceType: string
+  sourceDocumentId: string | null
+  sourceRef: string | null
+  description: string | null
+  moneyIn: string
+  moneyOut: string
+  role: ReconciliationLineRole
+  prePeriod: boolean
+  classification: SetupClassification | null
+}
+
+export interface ReconciliationSummaryDto {
+  openingBalance: string
+  closingBalance: string
+  moneyIn: string
+  moneyOut: string
+  calculatedClosingBalance: string
+  difference: string
+  openingClearedNet: string | null
+  openingBalanceDifference: string | null
+  unclassifiedCount: number | null
+}
+
+export interface BankReconciliationDto {
+  id: string
+  reconciliationNo: string
+  sequenceNo: number
+  bankAccountId: string
+  bankAccount: { code: string; name: string; isActive: boolean; isBankAccount: boolean }
+  periodFrom: string
+  periodTo: string
+  status: BankReconciliationStatus
+  reopened: boolean
+  currentVersionNo: number | null
+  lockVersion: number
+  completedAt: string | null
+  completedBy: string | null
+  isLatest: boolean
+  accountHasDraft: boolean
+  summary: ReconciliationSummaryDto
+}
+
+export interface BankReconciliationDetailDto extends BankReconciliationDto {
+  matched: ReconciliationLineDto[]
+  classified: ReconciliationLineDto[]
+}
+
+export interface NextPeriodDto {
+  sequenceNo: number
+  isFirst: boolean
+  periodFrom: string | null
+  openingBalance: string | null
+  blockedReason: string | null
+}
+
+export interface SetupSummaryDto {
+  prePeriodTotal: number
+  unclassifiedCount: number
+  clearedCount: number
+  outstandingCount: number
+  openingClearedNet: string
+  openingBalanceDifference: string
+}
+
+export interface PreviewResultDto {
+  matched: ReconciliationLineDto[]
+  invalidMatched: ReconciliationLineDto[]
+  invalidClassifications: ReconciliationLineDto[]
+  setupSummary: SetupSummaryDto | null
+}
+
+
 export {
   type Expense,
   type ExpenseDocumentStatus,
