@@ -601,6 +601,38 @@ describe('BankReconciliationFormPage', () => {
       expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled()
     })
 
+    it('does not adopt a newer server lockVersion for a form that was loaded from an older one', async () => {
+      const key = draftKey('u-1', { reconciliationId: 'r-1' })
+      mockExisting.mockReturnValue({ data: makeDetail({ lockVersion: 1 }), isLoading: false, isError: false })
+      mockUpdate.mockRejectedValue({ status: 409, data: 'This reconciliation was changed by someone else. Reload to continue.' })
+      renderEdit()
+
+      const closing = await screen.findByLabelText('Closing Balance')
+      await waitFor(() => expect(closing).toHaveValue('100.00'))
+      await userEvent.clear(closing)
+      await userEvent.type(closing, '777.00')
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+      expect(await screen.findByText('This reconciliation was changed by someone else. Reload to continue.')).toBeInTheDocument()
+      expect(mockUpdate.mock.calls[0][0].body.lockVersion).toBe(1)
+
+      // The failed mutation invalidates the cache, so the record refetches at the
+      // other session's lockVersion while this form still holds the older content.
+      mockExisting.mockReturnValue({
+        data: makeDetail({ lockVersion: 2, summary: { ...makeDetail().summary, closingBalance: '500.00' } }),
+        isLoading: false,
+        isError: false,
+      })
+      await userEvent.type(closing, '1')
+
+      expect(
+        await screen.findByText(/This reconciliation was changed elsewhere after you opened it/),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled()
+      // The stored draft keeps the version it was based on, so a reload reports it as stale.
+      expect(loadDraft(key)?.lockVersion).toBe(1)
+      expect(mockUpdate).toHaveBeenCalledTimes(1)
+    })
+
     it('renders and saves normally when sessionStorage throws', async () => {
       // Only sessionStorage fails. The prototype is shared with localStorage,
       // which unrelated utilities read, so every other receiver passes through.

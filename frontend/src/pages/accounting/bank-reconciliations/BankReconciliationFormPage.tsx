@@ -156,12 +156,19 @@ export default function BankReconciliationFormPage(): React.ReactElement {
   // Initialize form state
   const initializedRef = useRef(false)
   const staleDiscardedRef = useRef(false)
+  // The server lockVersion this form's content was loaded from. Every save and
+  // every stored draft uses THIS, never the live `existingDetail.lockVersion`:
+  // a rejected save invalidates the cache, the record refetches at the other
+  // session's version, and adopting that number would let a second Save
+  // overwrite their change with this form's older content.
+  const [baseLockVersion, setBaseLockVersion] = useState<number | null>(null)
   useEffect(() => {
     if (initializedRef.current) return
 
     if (isEdit) {
       if (!existingDetail) return
       initializedRef.current = true
+      setBaseLockVersion(existingDetail.lockVersion)
 
       const base = fromDetail(existingDetail)
       setBaseline(base)
@@ -205,8 +212,9 @@ export default function BankReconciliationFormPage(): React.ReactElement {
   useEffect(() => {
     if (!initializedRef.current) return
     if (isEdit && !isDirty(form, baseline)) return
+    if (isEdit && baseLockVersion === null) return
 
-    const lockVersion = isEdit && existingDetail ? existingDetail.lockVersion : null
+    const lockVersion = isEdit ? baseLockVersion : null
     saveDraft(storageKey, {
       v: 1,
       lockVersion,
@@ -214,7 +222,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       picker,
       savedAt: new Date().toISOString(),
     })
-  }, [storageKey, form, picker, isEdit, existingDetail, baseline])
+  }, [storageKey, form, picker, isEdit, baseLockVersion, baseline])
 
   // Monotonically increasing counter for preview
   const previewSeqRef = useRef(0)
@@ -500,7 +508,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     try {
       if (isEdit) {
         if (!existingDetail) return
-        const body = toUpdateBody(form, existingDetail.lockVersion, isFirst)
+        const body = toUpdateBody(form, baseLockVersion ?? existingDetail.lockVersion, isFirst)
         const updated = await updateReconciliation({ id: existingDetail.id, body }).unwrap()
         clearDraft(storageKey)
         showSuccess('Reconciliation updated')
@@ -514,7 +522,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       }
     } catch (err) {
       setSaveError(reconciliationErrorMessage(err, 'Failed to save bank reconciliation'))
-      const lockVersion = isEdit && existingDetail ? existingDetail.lockVersion : null
+      const lockVersion = isEdit ? baseLockVersion : null
       saveDraft(storageKey, {
         v: 1,
         lockVersion,
@@ -526,6 +534,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
   }, [
     isEdit,
     existingDetail,
+    baseLockVersion,
     form,
     picker,
     isFirst,
@@ -538,9 +547,12 @@ export default function BankReconciliationFormPage(): React.ReactElement {
 
   // Blockers for Save
   const hasInvalidSelections = invalidMatched.length > 0 || invalidClassifications.length > 0
+  const changedElsewhere =
+    isEdit && baseLockVersion !== null && !!existingDetail && existingDetail.lockVersion !== baseLockVersion
   const canSave =
     !isSaving &&
     !blockedReason &&
+    !changedElsewhere &&
     !hasInvalidSelections &&
     Boolean(form.bankAccountId) &&
     Boolean(form.periodTo) &&
@@ -578,6 +590,13 @@ export default function BankReconciliationFormPage(): React.ReactElement {
         <Alert severity="warning">
           Your unsaved changes could not be restored because this reconciliation was changed elsewhere.
           The current saved version is shown.
+        </Alert>
+      )}
+
+      {changedElsewhere && (
+        <Alert severity="warning">
+          This reconciliation was changed elsewhere after you opened it. Reload the page to load the
+          current version. Your unsaved changes cannot be saved over it.
         </Alert>
       )}
 
