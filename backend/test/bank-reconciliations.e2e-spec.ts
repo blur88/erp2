@@ -714,6 +714,51 @@ describe('Bank reconciliations drafts lifecycle (e2e)', () => {
       expect(res.body.message.invalidClassificationIds).toContain(l.lineId);
     });
 
+    it('lets an explicit UNCLASSIFIED change resolve a classification that is no longer before From', async () => {
+      const acct = await seedBankAccount(ds, `${runId}-frm-fix`);
+      const contra = await seedContraAccount(ds, `${runId}-frm-fix`);
+      suiteAccountIds.push(acct.id, contra.id);
+      const l = await seedBankJournalLine(ds, {
+        bankAccountId: acct.id, contraAccountId: contra.id, entryDate: '2026-01-05',
+        moneyIn: '10.00', journalNo: `JE-FRMFIX-${runId}`,
+      });
+      suiteEntryIds.push(l.entryId);
+
+      const draft = await post('/accounting/bank-reconciliations', {
+        bankAccountId: acct.id,
+        periodFrom: '2026-01-10',
+        periodTo: '2026-01-31',
+        closingBalance: '0.00',
+        matchedLineIds: [],
+        setupChanges: [{ journalEntryLineId: l.lineId, classification: SetupClassification.OUTSTANDING }],
+      }).expect(201);
+      const id = draft.body.data.id;
+      suiteReconciliationIds.push(id);
+      const marks = async () =>
+        (await ds.query(`SELECT count(*)::int AS c FROM bank_statement_reconciliation_setup_marks WHERE "reconciliationId" = $1`, [id]))[0].c;
+      expect(await marks()).toBe(1);
+
+      // The SAVED mark is reported by preview even though the request carries no setup change for it.
+      const previewSaved = await post('/accounting/bank-reconciliations/preview', {
+        bankAccountId: acct.id, reconciliationId: id,
+        periodFrom: '2026-01-01', periodTo: '2026-01-31', matchedLineIds: [],
+      }).expect(200);
+      expect(previewSaved.body.data.invalidClassifications.map((r: any) => r.journalEntryLineId)).toEqual([l.lineId]);
+
+      // Clearing it explicitly is the resolution, in preview and on save.
+      const cleared = [{ journalEntryLineId: l.lineId, classification: SetupClassification.UNCLASSIFIED }];
+      const previewCleared = await post('/accounting/bank-reconciliations/preview', {
+        bankAccountId: acct.id, reconciliationId: id,
+        periodFrom: '2026-01-01', periodTo: '2026-01-31', matchedLineIds: [], setupChanges: cleared,
+      }).expect(200);
+      expect(previewCleared.body.data.invalidClassifications).toEqual([]);
+
+      await patch(`/accounting/bank-reconciliations/${id}`, {
+        lockVersion: 1, periodFrom: '2026-01-01', setupChanges: cleared,
+      }).expect(200);
+      expect(await marks()).toBe(0);
+    });
+
     it('returns 409 on a stale lockVersion and increments it on success', async () => {
       const acct = await seedBankAccount(ds, `${runId}-stale`);
       suiteAccountIds.push(acct.id);
@@ -909,6 +954,47 @@ describe('Bank reconciliations drafts lifecycle (e2e)', () => {
       const ids = resOverlap.body.data.map((r: any) => r.id);
       expect(ids).toContain(rA.body.data.id);
       expect(ids).toContain(rB.body.data.id);
+    });
+
+    it('lists a DRAFT\'s lines for every role, and for no role', async () => {
+      const acct = await seedBankAccount(ds, `${runId}-rd-lines`);
+      const contra = await seedContraAccount(ds, `${runId}-rd-lines`);
+      suiteAccountIds.push(acct.id, contra.id);
+      const seed = async (suffix: string, entryDate: string, moneyIn: string) => {
+        const l = await seedBankJournalLine(ds, {
+          bankAccountId: acct.id, contraAccountId: contra.id, entryDate, moneyIn,
+          journalNo: `JE-RDL-${suffix}-${runId}`,
+        });
+        suiteEntryIds.push(l.entryId);
+        return l;
+      };
+      const cleared = await seed('C', '2025-12-10', '100.00');
+      const ticked = await seed('T', '2026-01-10', '20.00');
+      const open = await seed('O', '2026-01-20', '5.00');
+
+      const draft = await post('/accounting/bank-reconciliations', {
+        bankAccountId: acct.id,
+        periodFrom: '2026-01-01',
+        periodTo: '2026-01-31',
+        openingBalance: '100.00',
+        closingBalance: '120.00',
+        matchedLineIds: [ticked.lineId],
+        setupChanges: [{ journalEntryLineId: cleared.lineId, classification: SetupClassification.CLEARED }],
+      }).expect(201);
+      const id = draft.body.data.id;
+      suiteReconciliationIds.push(id);
+
+      const idsFor = async (query: string) => {
+        const res = await get(`/accounting/bank-reconciliations/${id}/lines${query}`).expect(200);
+        return { ids: res.body.data.map((r: any) => r.journalEntryLineId), total: res.body.meta.total };
+      };
+
+      // The detail page requests each tab exactly like this. MATCHED and
+      // OPENING_CLEARED used to fail: their SQL left two bound parameters unused.
+      expect(await idsFor('?role=MATCHED&page=1&limit=25')).toEqual({ ids: [ticked.lineId], total: 1 });
+      expect(await idsFor('?role=OPENING_CLEARED&page=1&limit=25')).toEqual({ ids: [cleared.lineId], total: 1 });
+      expect(await idsFor('?role=OUTSTANDING&page=1&limit=25')).toEqual({ ids: [open.lineId], total: 1 });
+      expect((await idsFor('')).ids.sort()).toEqual([cleared.lineId, ticked.lineId, open.lineId].sort());
     });
 
     it('applies only one condition for a single-ended period filter', async () => {

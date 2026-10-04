@@ -208,9 +208,16 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     }
   }, [isEdit, nextPeriod])
 
+  // Set once the form has been saved or abandoned. The page can stay mounted
+  // for a moment after that (the next route is lazy), and a refetch in that
+  // window changes the form again; without this the draft that was just
+  // cleared would be written straight back.
+  const finishedRef = useRef(false)
+
   // Save draft on form or picker changes
   useEffect(() => {
     if (!initializedRef.current) return
+    if (finishedRef.current) return
     if (isEdit && !isDirty(form, baseline)) return
     if (isEdit && baseLockVersion === null) return
 
@@ -491,12 +498,14 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     if (isDirty(form, baseline)) {
       setConfirmCancel(true)
     } else {
+      finishedRef.current = true
       clearDraft(storageKey)
       navigate(currentListPath(LIST_PATH))
     }
   }, [form, baseline, storageKey, navigate])
 
   const handleConfirmCancel = useCallback(() => {
+    finishedRef.current = true
     clearDraft(storageKey)
     setConfirmCancel(false)
     navigate(currentListPath(LIST_PATH))
@@ -510,12 +519,14 @@ export default function BankReconciliationFormPage(): React.ReactElement {
         if (!existingDetail) return
         const body = toUpdateBody(form, baseLockVersion ?? existingDetail.lockVersion, isFirst)
         const updated = await updateReconciliation({ id: existingDetail.id, body }).unwrap()
+        finishedRef.current = true
         clearDraft(storageKey)
         showSuccess('Reconciliation updated')
         navigate(forwardListQuery(`/accounting/bank-reconciliations/${updated.id}/view`))
       } else {
         const body = toCreateBody(form, isFirst)
         const created = await createReconciliation(body).unwrap()
+        finishedRef.current = true
         clearDraft(storageKey)
         showSuccess('Reconciliation created')
         navigate(forwardListQuery(`/accounting/bank-reconciliations/${created.id}/view`))

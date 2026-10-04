@@ -388,8 +388,10 @@ export class BankReconciliationService {
       const finalStates = resolveFinalState(saved, dto.matchedLineIds, dto.setupChanges);
 
       // Validate selection eligibility
+      // The FINAL classification of every affected line, UNCLASSIFIED included:
+      // an explicit UNCLASSIFIED must override a saved mark or cleared line, or
+      // a classification the user just cleared would still be judged invalid.
       const activeSetupChanges = Array.from(finalStates.values())
-        .filter((s) => s.classification !== SetupClassification.UNCLASSIFIED)
         .map((s) => ({ journalEntryLineId: s.journalEntryLineId, classification: s.classification }));
 
       const activeMatchedIds = Array.from(finalStates.values())
@@ -1276,7 +1278,15 @@ export class BankReconciliationService {
       paginationClause = `LIMIT ${pLimit} OFFSET ${pOffset}`;
     }
 
+    // Every bound parameter is named once here with an explicit type. The
+    // MATCHED and OPENING_CLEARED branches do not reference the bank account or
+    // period-to parameters, and Postgres rejects a statement whose parameter
+    // type it cannot infer ("could not determine data type of parameter $2").
     const fullSql = `
+      WITH bound AS (
+        SELECT $1::uuid AS reconciliation_id, $2::uuid AS bank_account_id,
+               $3::date AS period_to, $4::date AS period_from, $5::boolean AS is_first
+      )
       SELECT
         u.*,
         count(*) OVER() AS "windowTotal"

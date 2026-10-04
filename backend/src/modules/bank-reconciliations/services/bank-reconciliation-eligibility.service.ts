@@ -447,8 +447,30 @@ export class BankReconciliationEligibilityService {
       }
     }
 
-    // Check setup classifications
-    if (dto.setupChanges && dto.setupChanges.length > 0) {
+    // Check setup classifications: the effective one per line, i.e. the
+    // requested change if there is one, otherwise what is saved. Saved
+    // classifications matter even when the request does not mention them, and
+    // an effective UNCLASSIFIED is never invalid (see effectiveState).
+    const savedClassification = new Map<string, SetupClassification>();
+    if (dto.reconciliationId) {
+      const savedRows = await mgr.query(
+        `SELECT "journalEntryLineId", 'CLEARED' AS classification FROM bank_statement_reconciliation_lines
+          WHERE "reconciliationId" = $1 AND kind = 'OPENING_CLEARED'
+         UNION ALL
+         SELECT "journalEntryLineId", 'OUTSTANDING' FROM bank_statement_reconciliation_setup_marks
+          WHERE "reconciliationId" = $1`,
+        [dto.reconciliationId],
+      );
+      for (const r of savedRows) savedClassification.set(r.journalEntryLineId, r.classification);
+    }
+    const requestedClassification = new Map<string, SetupClassification>(
+      (dto.setupChanges ?? []).map((sc) => [sc.journalEntryLineId, sc.classification]),
+    );
+    const classificationIds = Array.from(
+      new Set([...requestedClassification.keys(), ...savedClassification.keys()]),
+    );
+
+    if (classificationIds.length > 0) {
       const clsRows = await mgr.query(
         `
         SELECT
@@ -472,12 +494,16 @@ export class BankReconciliationEligibilityService {
           ON other_rl."journalEntryLineId" = jel.id AND other_rl."reconciliationId" <> $1
         WHERE jel.id = ANY($2::uuid[])
         `,
-        [reconId, setupIds],
+        [reconId, classificationIds],
       );
 
       const clsRowMap = new Map<string, any>(clsRows.map((r: any) => [r.journalEntryLineId, r]));
 
-      for (const sc of dto.setupChanges) {
+      for (const lineId of classificationIds) {
+        const effective =
+          requestedClassification.get(lineId) ?? savedClassification.get(lineId) ?? SetupClassification.UNCLASSIFIED;
+        if (effective === SetupClassification.UNCLASSIFIED) continue;
+        const sc = { journalEntryLineId: lineId, classification: effective };
         const row = clsRowMap.get(sc.journalEntryLineId);
         const isEligiblePrePeriod =
           row &&
@@ -555,7 +581,22 @@ export class BankReconciliationEligibilityService {
       }
     }
 
-    const allIds = Array.from(new Set([...matchedLineIds, ...setupIds]));
+    // Saved classifications count as well as requested ones: moving From
+    // earlier can invalidate a mark or cleared line the request never mentions.
+    const savedClassifiedIds: string[] = ctx.reconciliationId
+      ? (
+          await manager.query(
+            `SELECT "journalEntryLineId" FROM bank_statement_reconciliation_lines
+              WHERE "reconciliationId" = $1 AND kind = 'OPENING_CLEARED'
+             UNION
+             SELECT "journalEntryLineId" FROM bank_statement_reconciliation_setup_marks
+              WHERE "reconciliationId" = $1`,
+            [ctx.reconciliationId],
+          )
+        ).map((r: any) => r.journalEntryLineId)
+      : [];
+
+    const allIds = Array.from(new Set([...matchedLineIds, ...setupIds, ...savedClassifiedIds]));
     if (allIds.length === 0) {
       return {
         matched: [],
@@ -614,8 +655,21 @@ export class BankReconciliationEligibilityService {
       }
     }
 
-    for (const sc of ctx.setupChanges ?? []) {
-      const r = rowMap.get(sc.journalEntryLineId);
+    // A classification is invalid when its EFFECTIVE value (the requested
+    // change, else the saved one) is Already cleared or Outstanding on a line
+    // that is not an eligible pre-period entry. An effective UNCLASSIFIED is
+    // never invalid: clearing a classification is how the user resolves one.
+    for (const id of new Set([...setupIds, ...savedClassifiedIds])) {
+      const r = rowMap.get(id);
+      const requested = setupChangeMap.get(id);
+      const effective: SetupClassification =
+        requested ??
+        (r?.savedKind === 'OPENING_CLEARED'
+          ? SetupClassification.CLEARED
+          : r?.savedMarked
+            ? SetupClassification.OUTSTANDING
+            : SetupClassification.UNCLASSIFIED);
+      if (effective === SetupClassification.UNCLASSIFIED) continue;
       if (
         !r ||
         !isFirst ||
@@ -626,7 +680,7 @@ export class BankReconciliationEligibilityService {
         r.otherReconLineId ||
         r.entryDate >= periodFrom
       ) {
-        invalidClassificationIds.push(sc.journalEntryLineId);
+        invalidClassificationIds.push(id);
       }
     }
 

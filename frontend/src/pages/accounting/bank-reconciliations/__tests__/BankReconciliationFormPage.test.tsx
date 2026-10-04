@@ -14,6 +14,29 @@ import type {
 import BankReconciliationFormPage from '../BankReconciliationFormPage'
 import { draftKey, loadDraft, saveDraft } from '../reconciliationDraftStorage'
 
+// When set, the form's navigations are swallowed so it stays mounted — which is
+// what happens in the app while the lazy detail route is still loading.
+let swallowNavigation = false
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  const { useMemo } = await import('react')
+  return {
+    ...actual,
+    useNavigate: () => {
+      const real = actual.useNavigate()
+      // Stable identity, like the real hook: effects list `navigate` as a dependency.
+      return useMemo(
+        () =>
+          ((...args: Parameters<typeof real>) => {
+            if (swallowNavigation && typeof args[0] === 'string') return
+            return real(...args)
+          }) as typeof real,
+        [real],
+      )
+    },
+  }
+})
+
 const mockShowSuccess = vi.fn()
 const mockShowError = vi.fn()
 vi.mock('@/hooks/useNotification', () => ({
@@ -631,6 +654,49 @@ describe('BankReconciliationFormPage', () => {
       // The stored draft keeps the version it was based on, so a reload reports it as stale.
       expect(loadDraft(key)?.lockVersion).toBe(1)
       expect(mockUpdate).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not store the draft again after a successful create', async () => {
+      const token = 'tok-after-create'
+      const key = draftKey('u-1', { createToken: token })
+      saveDraft(key, {
+        v: 1,
+        lockVersion: null,
+        form: {
+          bankAccountId: 'ba-1', periodFrom: '2026-01-01', periodTo: '2026-01-31',
+          openingBalance: '100.00', closingBalance: '200.00', matched: {}, setupChanges: {},
+        },
+        picker: { checklist: { page: 1, search: '' }, setup: { page: 1, search: '', filter: 'ALL' } },
+        savedAt: new Date().toISOString(),
+      })
+      // Creating invalidates the cache, so next-period refetches while the page
+      // is still mounted and now describes the FOLLOWING period.
+      let created = false
+      mockCreate.mockImplementation(async () => { created = true; return { id: 'r-created' } })
+      // Stable objects: the page keys an effect on this value's identity.
+      const before = { data: { sequenceNo: 1, isFirst: true, periodFrom: null, openingBalance: null, blockedReason: null }, isLoading: false }
+      const after = { data: { sequenceNo: 2, isFirst: false, periodFrom: '2026-02-01', openingBalance: '200.00', blockedReason: 'A draft exists' }, isLoading: false }
+      mockNextPeriod.mockImplementation(() => (created ? after : before))
+
+      render(
+        <MemoryRouter initialEntries={[`/accounting/bank-reconciliations/create?draft=${token}`]}>
+          <Routes>
+            <Route path="/accounting/bank-reconciliations/create" element={<BankReconciliationFormPage />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled())
+      swallowNavigation = true
+      try {
+        await userEvent.click(screen.getByRole('button', { name: 'Create' }))
+        await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
+        // Force the still-mounted form to re-render with the refetched next-period.
+        await userEvent.type(screen.getByPlaceholderText('Search transactions...'), 'x')
+        await act(() => new Promise<void>((r) => setTimeout(r, 400)))
+        expect(loadDraft(key)).toBeNull()
+      } finally {
+        swallowNavigation = false
+      }
     })
 
     it('renders and saves normally when sessionStorage throws', async () => {
