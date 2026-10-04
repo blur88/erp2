@@ -6,6 +6,7 @@ import { useRegionalSettings } from '@/hooks/useRegionalSettings'
 import { clearAuth, logout as logoutAction, selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
+import { useClearReconciliationDraftsOnSignOut } from './pages/accounting/bank-reconciliations/useClearReconciliationDraftsOnSignOut'
 
 const IDLE_TIMEOUT = 12 * 60 * 60 * 1000
 const WARNING_TIME = 5 * 60 * 1000
@@ -26,6 +27,7 @@ export default function RootLayout() {
   const [showIdleWarning, setShowIdleWarning] = useState(false)
 
   useRegionalSettings(isAuthenticated)
+  useClearReconciliationDraftsOnSignOut(isAuthenticated)
 
   const handleAutoLogout = useCallback(async () => {
     setShowIdleWarning(false)

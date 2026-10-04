@@ -30,6 +30,7 @@ import { SearchModule } from './modules/search/search.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { OwnerEquityModule } from './modules/owner-equity/owner-equity.module';
 import { ProviderSettlementsModule } from './modules/provider-settlements/provider-settlements.module';
+import { BankReconciliationsModule } from './modules/bank-reconciliations/bank-reconciliations.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 
 // Auth Guards
@@ -84,6 +85,7 @@ import { AppService } from './app.service';
     AccountingModule,
     OwnerEquityModule,
     ProviderSettlementsModule,
+    BankReconciliationsModule,
   ],
   controllers: [AppController],
   providers: [

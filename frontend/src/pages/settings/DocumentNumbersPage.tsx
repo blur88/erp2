@@ -28,7 +28,7 @@ const MODULE_GROUPS: Record<string, string[]> = {
   Sales: ['Sales Orders'],
   Purchasing: ['Purchase Orders'],
   Inventory: ['Stock Adjustment'],
-  Accounting: ['Journal Entries', 'Expenses', 'Owner Equity', 'Provider Settlements'],
+  Accounting: ['Journal Entries', 'Expenses', 'Owner Equity', 'Provider Settlements', 'Bank Reconciliations'],
 };
 
 /** Document types this page owns. Anything else the API returns is legacy. */

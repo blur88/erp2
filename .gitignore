@@ -90,6 +90,7 @@ backups/
 backend/backups/
 *.tar.gz
 *.sql
+!backend/scripts/*.sql
 *.sql.gz
 *.dump
 *.bak

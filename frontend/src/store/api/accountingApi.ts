@@ -34,6 +34,14 @@ import type {
   ProviderSettlementListParams,
   ProviderSettlementProvider,
   UpdateOwnerEquityRequest,
+  BankReconciliationDto,
+  BankReconciliationDetailDto,
+  BankReconciliationStatus,
+  NextPeriodDto,
+  PreviewResultDto,
+  ReconciliationLineDto,
+  ReconciliationLineRole,
+  SetupClassification,
   } from '@/types'
 
 import { axiosBaseQuery } from './baseQuery'
@@ -99,10 +107,68 @@ export interface EligibleRowsParams {
   paymentMethodId?: string
 }
 
+export interface SetupChangeBody {
+  journalEntryLineId: string
+  classification: SetupClassification
+}
+
+export interface CreateBankReconciliationBody {
+  bankAccountId: string
+  periodFrom?: string
+  periodTo: string
+  openingBalance?: string
+  closingBalance: string
+  matchedLineIds: string[]
+  setupChanges?: SetupChangeBody[]
+}
+
+export interface UpdateBankReconciliationBody {
+  lockVersion: number
+  periodFrom?: string
+  periodTo?: string
+  openingBalance?: string
+  closingBalance?: string
+  matchedLineIds?: string[]
+  setupChanges?: SetupChangeBody[]
+}
+
+interface DraftContextBody {
+  bankAccountId: string
+  reconciliationId?: string
+  periodFrom?: string
+  periodTo: string
+  openingBalance?: string
+  setupChanges?: SetupChangeBody[]
+}
+
+export interface EligibleLinesSearchBody extends DraftContextBody {
+  view: 'checklist' | 'setup'
+  classification?: SetupClassification
+  search?: string
+  page?: number
+  limit?: number
+}
+
+export interface PreviewBody extends DraftContextBody {
+  matchedLineIds: string[]
+}
+
+export interface BankReconciliationListParams {
+  search?: string
+  bankAccountId?: string
+  periodFrom?: string
+  periodTo?: string
+  status?: BankReconciliationStatus
+  page?: number
+  limit?: number
+}
+
+type Paged<T> = { data: T[]; meta: { total: number; page: number; limit: number } }
+
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'FormBMapping', 'OwnerEquity', 'PaymentMethodMapping', 'BalanceSheetGroup', 'ProviderSettlement'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'FormBMapping', 'OwnerEquity', 'PaymentMethodMapping', 'BalanceSheetGroup', 'ProviderSettlement', 'BankReconciliation'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -525,6 +591,92 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
           'ProfitAndLoss', 'BalanceSheet', 'FormB',
         ],
       }),
+      getBankReconciliations: builder.query<Paged<BankReconciliationDto>, BankReconciliationListParams | void>({
+        query: (params) => ({
+          url: '/accounting/bank-reconciliations',
+          params: (params ?? undefined) as Record<string, unknown> | undefined,
+        }),
+        providesTags: ['BankReconciliation'],
+      }),
+      getBankReconciliation: builder.query<BankReconciliationDetailDto, string>({
+        query: (id) => ({ url: `/accounting/bank-reconciliations/${id}` }),
+        transformResponse: (r: { data: BankReconciliationDetailDto }) => r.data,
+        providesTags: (_r, _e, id) => [{ type: 'BankReconciliation' as const, id }],
+      }),
+      getBankReconciliationLines: builder.query<
+        Paged<ReconciliationLineDto>,
+        { id: string; role?: ReconciliationLineRole; page?: number; limit?: number }
+      >({
+        query: ({ id, ...params }) => ({
+          url: `/accounting/bank-reconciliations/${id}/lines`,
+          params,
+        }),
+        providesTags: (_r, _e, { id }) => [{ type: 'BankReconciliation' as const, id }],
+      }),
+      getBankReconciliationNextPeriod: builder.query<NextPeriodDto, string>({
+        query: (bankAccountId) => ({
+          url: '/accounting/bank-reconciliations/next-period',
+          params: { bankAccountId },
+        }),
+        transformResponse: (r: { data: NextPeriodDto }) => r.data,
+        providesTags: ['BankReconciliation'],
+      }),
+      // Search and preview are mutations: never cached, never tag-invalidated.
+      searchEligibleReconciliationLines: builder.mutation<Paged<ReconciliationLineDto>, EligibleLinesSearchBody>({
+        query: (body) => ({ url: '/accounting/bank-reconciliations/eligible-lines/search', method: 'POST', body }),
+      }),
+      previewBankReconciliation: builder.mutation<PreviewResultDto, PreviewBody>({
+        query: (body) => ({ url: '/accounting/bank-reconciliations/preview', method: 'POST', body }),
+        transformResponse: (r: { data: PreviewResultDto }) => r.data,
+      }),
+      createBankReconciliation: builder.mutation<BankReconciliationDetailDto, CreateBankReconciliationBody>({
+        query: (body) => ({ url: '/accounting/bank-reconciliations', method: 'POST', body }),
+        transformResponse: (r: { data: BankReconciliationDetailDto }) => r.data,
+        invalidatesTags: ['BankReconciliation'],
+      }),
+      updateBankReconciliation: builder.mutation<
+        BankReconciliationDetailDto,
+        { id: string; body: UpdateBankReconciliationBody }
+      >({
+        query: ({ id, body }) => ({ url: `/accounting/bank-reconciliations/${id}`, method: 'PATCH', body }),
+        transformResponse: (r: { data: BankReconciliationDetailDto }) => r.data,
+        invalidatesTags: ['BankReconciliation'],
+      }),
+      discardBankReconciliation: builder.mutation<void, { id: string; lockVersion: number }>({
+        query: ({ id, lockVersion }) => ({
+          url: `/accounting/bank-reconciliations/${id}`,
+          method: 'DELETE',
+          params: { lockVersion },
+        }),
+        invalidatesTags: ['BankReconciliation'],
+      }),
+      completeBankReconciliation: builder.mutation<BankReconciliationDetailDto, { id: string; lockVersion: number }>({
+        query: ({ id, lockVersion }) => ({
+          url: `/accounting/bank-reconciliations/${id}/complete`,
+          method: 'POST',
+          body: { lockVersion },
+        }),
+        transformResponse: (r: { data: BankReconciliationDetailDto }) => r.data,
+        invalidatesTags: ['BankReconciliation'],
+      }),
+      reopenBankReconciliation: builder.mutation<BankReconciliationDetailDto, { id: string; lockVersion: number }>({
+        query: ({ id, lockVersion }) => ({
+          url: `/accounting/bank-reconciliations/${id}/reopen`,
+          method: 'POST',
+          body: { lockVersion },
+        }),
+        transformResponse: (r: { data: BankReconciliationDetailDto }) => r.data,
+        invalidatesTags: ['BankReconciliation'],
+      }),
+      cancelReopenBankReconciliation: builder.mutation<BankReconciliationDetailDto, { id: string; lockVersion: number }>({
+        query: ({ id, lockVersion }) => ({
+          url: `/accounting/bank-reconciliations/${id}/cancel-reopen`,
+          method: 'POST',
+          body: { lockVersion },
+        }),
+        transformResponse: (r: { data: BankReconciliationDetailDto }) => r.data,
+        invalidatesTags: ['BankReconciliation'],
+      }),
     }),
   })
 
@@ -582,6 +734,18 @@ export const {
   useDiscardProviderSettlementMutation,
   usePostProviderSettlementMutation,
   useReverseProviderSettlementMutation,
+  useGetBankReconciliationsQuery,
+  useGetBankReconciliationQuery,
+  useGetBankReconciliationLinesQuery,
+  useGetBankReconciliationNextPeriodQuery,
+  useSearchEligibleReconciliationLinesMutation,
+  usePreviewBankReconciliationMutation,
+  useCreateBankReconciliationMutation,
+  useUpdateBankReconciliationMutation,
+  useDiscardBankReconciliationMutation,
+  useCompleteBankReconciliationMutation,
+  useReopenBankReconciliationMutation,
+  useCancelReopenBankReconciliationMutation,
 } = accountingApiSlice
 
 /**

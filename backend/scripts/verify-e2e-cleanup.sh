@@ -58,7 +58,7 @@ if [ -f "$BACKEND_DIR/.env.test" ]; then
 fi
 export DB_DATABASE="$LEAKCHECK_DB"
 export NODE_ENV=test
-export NODE_OPTIONS=--experimental-vm-modules
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=4096 --experimental-vm-modules}"
 
 REPORT_DIR="${LEAKCHECK_REPORT_DIR:-$BACKEND_DIR/leakcheck-reports}"
 mkdir -p "$REPORT_DIR"
