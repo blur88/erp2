@@ -5,6 +5,33 @@
 - **Safety Rule**: **NEVER** run these destructive QA scenarios against the real local primary or production database.
 - **Default User**: Admin credentials (`admin` / `Admin@123!`).
 
+## Execution record
+
+**No verified run is recorded yet.** Every case below was first committed with
+`Result: PASS` at `2983fc58c`, with no record of the environment, commit, date,
+browser or evidence behind those results. They are therefore marked
+`UNVERIFIED` until a run is recorded here. Passing manual QA is a merge gate
+for PR #1343.
+
+Since those results were written, the form page was changed (the preview
+request loop, fixed in `2d8196d16`, and the error-message handling), so cases
+1, 5, 10, 11, 12 and 13 would need re-running even if the earlier run is
+substantiated.
+
+For each run, record:
+
+| Field | Value |
+|---|---|
+| Date | |
+| Run by | |
+| Commit under test | |
+| Database | name of the disposable copy and how it was created |
+| Stack | how the stack was pointed at that copy |
+| Browser and version | |
+| Evidence | screenshots or recordings, with their location |
+
+Then set each case's result to `PASS` or `FAIL` with a one-line observation.
+
 ---
 
 ## Test Cases
@@ -22,7 +49,7 @@
 - **Expected Result**:
   - The reconciliation saves successfully as Draft.
   - On the Detail page, the `Complete` button is disabled, and the blocker `Opening Balance Difference is <amount>` is displayed.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -42,7 +69,7 @@
   - Status chip displays green "Completed".
   - Completed metadata displays `Completed by <username> on <date>`.
   - Unsaved draft storage is cleared.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -54,7 +81,7 @@
   4. Open the Transactions list in the picker.
 - **Expected Result**:
   - The unticked January transaction appears in the eligible transactions list for February.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -65,7 +92,7 @@
 - **Expected Result**:
   - Both the original entry and the reversal entry appear as two distinct selectable lines in the picker table.
   - Ticking only one updates the total; ticking both nets them out in `moneyIn` and `moneyOut`.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -79,7 +106,7 @@
   - The matched transaction ticked on page 1 remains selected in state.
   - Its amount remains included in `Money In` / `Money Out` and the calculated closing balance.
   - Clearing the search shows the row still ticked.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -90,7 +117,7 @@
   3. Navigate away to another page (e.g. Dashboard) and return via the URL or browser back button.
 - **Expected Result**:
   - All form fields, ticked lines, and setup classifications are restored from `sessionStorage` draft recovery without loss.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -104,7 +131,7 @@
   - All reserved journal lines are unreserved.
   - Notification `Draft discarded` appears.
   - User is redirected to `/accounting/bank-reconciliations`.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -120,7 +147,7 @@
   - The reconciliation restores the previously completed snapshot verbatim.
   - Status returns to `Completed`.
   - Stored draft is cleared.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -133,7 +160,7 @@
   - Tab B receives a 409 Conflict error with message indicating concurrency conflict.
   - The server state is not overwritten.
   - In Tab B, the form stays intact with user changes preserved.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -144,7 +171,7 @@
   3. Click browser "Back" button to return to the reconciliation form.
 - **Expected Result**:
   - Form state, selections, and classifications are fully restored from the session draft.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -157,7 +184,7 @@
   - A warning banner appears: `Your unsaved changes could not be restored because this reconciliation was changed elsewhere. The current saved version is shown.`
   - The latest server state is loaded.
   - The stale draft in sessionStorage is cleared.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -172,7 +199,7 @@
   - Save button is disabled while invalid entries exist.
   - Clicking "Untick" or "Clear classification" in the panel removes each invalid entry.
   - Once resolved, Save button becomes enabled.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -182,7 +209,7 @@
   2. Attempt to complete.
 - **Expected Result**:
   - `Complete` button is disabled with blocker message: `<n> entries are unclassified`.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
 
 ---
 
@@ -192,4 +219,4 @@
   2. Verify dark theme rendering, table responsive overflow, fixed headers, and pagination controls.
 - **Expected Result**:
   - Clean layout, no overlapping text, body-only scrolling, and single dark theme aesthetics consistent with ERP design system.
-- **Result**: PASS
+- **Result**: UNVERIFIED (see Execution record)
