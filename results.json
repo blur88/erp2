@@ -1,0 +1,858 @@
+{
+  "case01": {
+    "title": "First-time setup with an opening mismatch blocks Complete while Draft saves",
+    "steps": [
+      "Open /accounting/bank-reconciliations/create, choose 1200 CIMB (no previous reconciliation)",
+      "Period 2026-01-01 to 2026-01-31, Opening 1000.00, Closing 1200.00",
+      "Classify all three pre-period entries as Outstanding (cleared net 0.00, so opening does not agree)",
+      "Tick JE-QA-J1 (in 500.00) and JE-QA-J2 (out 300.00)"
+    ],
+    "assertions": [
+      {
+        "text": "First-time setup section is shown with \"3 unclassified\"",
+        "pass": true
+      },
+      {
+        "text": "Opening Balance Difference shows 1,000.00",
+        "pass": true,
+        "actual": "0 unclassifiedOpening Balance Difference: MYR 1,000.00"
+      },
+      {
+        "text": "Summary: Money In 500.00, Money Out 300.00, Calculated Closing 1,200.00",
+        "pass": true,
+        "actual": "{\"moneyIn\":\"MYR 500.00\",\"moneyOut\":\"MYR 300.00\",\"calculated\":\"MYR 1,200.00\"}"
+      },
+      {
+        "text": "Create is enabled although the opening gate fails",
+        "pass": true
+      },
+      {
+        "text": "Database: saved as DRAFT, sequence 1, with a BR number",
+        "pass": true,
+        "actual": "DRAFT|BR-26-001|1|1"
+      },
+      {
+        "text": "Detail page: Complete is disabled",
+        "pass": true
+      },
+      {
+        "text": "Detail page shows the blocker \"Opening Balance Difference is <amount>\"",
+        "pass": true,
+        "actual": "Opening Balance Difference is 1000.00"
+      }
+    ],
+    "shots": [
+      "case01-form-before-create.png",
+      "case01-detail-blocked.png"
+    ],
+    "notes": []
+  },
+  "case02": {
+    "title": "Exact closing match completes",
+    "steps": [
+      "Open the Draft from case 1 and check the Matched tab lists the two ticked entries",
+      "Edit: reclassify JE-QA-P1 (in 1,000.00) as Already cleared",
+      "Click Complete and confirm"
+    ],
+    "assertions": [
+      {
+        "text": "Draft detail: the Matched tab lists JE-QA-J1 and JE-QA-J2",
+        "pass": true,
+        "actual": "05/01/2026JE-QA-J1ExpenseQA January receiptMYR 500.00MYR 0.0012/01/2026JE-QA-J2ExpenseQA January paymentMYR 0.00MYR 300.00"
+      },
+      {
+        "text": "Draft detail: Cleared at setup is empty before P1 is reclassified",
+        "pass": true
+      },
+      {
+        "text": "Draft detail: the Outstanding tab lists unticked entries (JE-QA-R1 shown)",
+        "pass": true
+      },
+      {
+        "text": "Opening Balance Difference becomes 0.00 and 0 unclassified",
+        "pass": true
+      },
+      {
+        "text": "Detail page: Complete is enabled with no blockers",
+        "pass": true
+      },
+      {
+        "text": "Confirmation states the lock and that no journal entries are changed",
+        "pass": true,
+        "actual": "Complete reconciliation?This locks the reconciliation and records the matched and outstanding entries as they are now. No journal entries are changed.CancelComplete"
+      },
+      {
+        "text": "Database: status COMPLETED with currentVersionNo 1",
+        "pass": true,
+        "actual": "COMPLETED|1|3"
+      },
+      {
+        "text": "Database: one sealed version, totals 500/300, difference 0, completedBy admin",
+        "pass": true,
+        "actual": "1|t|500.0000|300.0000|0.0000|admin"
+      },
+      {
+        "text": "Version lines: 2 MATCHED, 1 OPENING_CLEARED, the rest OUTSTANDING",
+        "pass": true,
+        "actual": "MATCHED|2 OUTSTANDING|35 OPENING_CLEARED|1"
+      },
+      {
+        "text": "Page shows \"Completed by admin on <date>\"",
+        "pass": true,
+        "actual": "Completed by admin on 05/10/2026SummaryTotal Money InMYR 500"
+      },
+      {
+        "text": "No reconciliation draft remains in sessionStorage",
+        "pass": true,
+        "actual": "[]"
+      }
+    ],
+    "shots": [
+      "case02-form-balanced.png",
+      "case02-confirm-complete.png",
+      "case02-detail-completed.png"
+    ],
+    "notes": []
+  },
+  "case03": {
+    "title": "Unticked entries carry forward to the next period",
+    "steps": [
+      "New reconciliation for 1200 CIMB after January was completed with JE-QA-J3 unticked"
+    ],
+    "assertions": [
+      {
+        "text": "Period From is read-only and 2026-02-01",
+        "pass": true,
+        "actual": "2026-02-01"
+      },
+      {
+        "text": "Opening Balance is read-only and equals January closing 1200.00",
+        "pass": true,
+        "actual": "1200.00"
+      },
+      {
+        "text": "No first-time setup section on a later reconciliation",
+        "pass": true
+      },
+      {
+        "text": "The unticked January entry JE-QA-J3 (25/01/2026) is listed for February",
+        "pass": true
+      },
+      {
+        "text": "JE-QA-J1, matched in January, is not offered again",
+        "pass": true
+      }
+    ],
+    "shots": [
+      "case03-carry-forward.png"
+    ],
+    "notes": []
+  },
+  "case04": {
+    "title": "An original and its reversal are separate rows",
+    "steps": [
+      "Search JE-QA-R on the same form: JE-QA-R1 (in 200.00, 15/01) and its reversal JE-QA-R2 (out 200.00, 16/01)"
+    ],
+    "assertions": [
+      {
+        "text": "Both rows are present and separately selectable",
+        "pass": true
+      },
+      {
+        "text": "Ticking only the original: Money In 200.00, Money Out 0.00, Calculated 1,400.00",
+        "pass": true,
+        "actual": "{\"moneyIn\":\"MYR 200.00\",\"moneyOut\":\"MYR 0.00\",\"calculated\":\"MYR 1,400.00\"}"
+      },
+      {
+        "text": "Ticking both: Money In 200.00 and Money Out 200.00 shown separately, Calculated back to 1,200.00",
+        "pass": true,
+        "actual": "{\"moneyIn\":\"MYR 200.00\",\"moneyOut\":\"MYR 200.00\",\"calculated\":\"MYR 1,200.00\"}"
+      }
+    ],
+    "shots": [
+      "case04-original-and-reversal.png"
+    ],
+    "notes": []
+  },
+  "case05": {
+    "title": "Hidden selections survive search and paging and stay in the totals",
+    "steps": [
+      "Tick JE-QA-P2 (out 150.00) on page 1",
+      "Search for \"zzzz\", which matches nothing",
+      "Clear the search with the \"Clear search\" control and go to page 2",
+      "Untick JE-QA-P2, tick JE-QA-FEB1 (in 60.00) and Create the February draft for the following cases"
+    ],
+    "assertions": [
+      {
+        "text": "Summary Money Out 150.00, Calculated 1,050.00",
+        "pass": true,
+        "actual": "{\"moneyIn\":\"MYR 0.00\",\"moneyOut\":\"MYR 150.00\",\"calculated\":\"MYR 1,050.00\"}"
+      },
+      {
+        "text": "With no rows shown, the totals are unchanged",
+        "pass": true,
+        "actual": "{\"moneyIn\":\"MYR 0.00\",\"moneyOut\":\"MYR 150.00\",\"calculated\":\"MYR 1,050.00\"}"
+      },
+      {
+        "text": "Page 2 does not show JE-QA-P2",
+        "pass": true
+      },
+      {
+        "text": "On page 2 the totals still include the hidden selection",
+        "pass": true,
+        "actual": "{\"moneyIn\":\"MYR 0.00\",\"moneyOut\":\"MYR 150.00\",\"calculated\":\"MYR 1,050.00\"}"
+      },
+      {
+        "text": "Back on page 1 the row is still ticked",
+        "pass": true
+      },
+      {
+        "text": "Database: February draft is sequence 2, From 2026-02-01, Opening 1200.0000",
+        "pass": true,
+        "actual": "DRAFT|2|2026-02-01|1200.0000|BR-26-002"
+      }
+    ],
+    "shots": [
+      "case05-page2-totals.png"
+    ],
+    "notes": []
+  },
+  "case06": {
+    "title": "Refresh and re-open persistence",
+    "steps": [
+      "Edit the February draft: Closing 1300.00, tick JE-QA-J3; do not save",
+      "Hard reload the page",
+      "Navigate to the dashboard and come back with the browser Back button"
+    ],
+    "assertions": [
+      {
+        "text": "After reload: Closing Balance is 1300.00",
+        "pass": true,
+        "actual": "1300.00"
+      },
+      {
+        "text": "After reload: search text \"JE-QA-J3\" is restored",
+        "pass": true,
+        "actual": "JE-QA-J3"
+      },
+      {
+        "text": "After reload: JE-QA-J3 is still ticked",
+        "pass": true
+      },
+      {
+        "text": "After leaving and returning: Closing 1300.00 and JE-QA-J3 ticked",
+        "pass": true,
+        "actual": "1300.00"
+      }
+    ],
+    "shots": [
+      "case06-after-reload.png"
+    ],
+    "notes": [
+      "This reconciliation is sequence 2, so it has no setup classifications; classification recovery is exercised on the Maybank first-time form in case 10."
+    ]
+  },
+  "case10": {
+    "title": "Unsaved-form recovery through a Journal No link on create and on edit",
+    "steps": [
+      "EDIT: with Closing 1300.00 and JE-QA-J3 ticked unsaved, click the Journal No link JE-QA-J3 (same tab)"
+    ],
+    "assertions": [
+      {
+        "text": "EDIT: navigated to the journal entry page in the same tab",
+        "pass": true,
+        "actual": "/accounting/journal-entries/6330dc5c-6bde-4d9d-a41d-4642eb057ae5"
+      },
+      {
+        "text": "EDIT: back on the form, Closing 1300.00, JE-QA-J3 ticked, search text kept",
+        "pass": true
+      }
+    ],
+    "shots": [
+      "case10-edit-journal-page.png",
+      "case10-edit-restored.png"
+    ],
+    "notes": []
+  },
+  "case09": {
+    "title": "Two-tab concurrency",
+    "steps": [
+      "Tab B opens the same draft in Edit (lockVersion 1); Tab A already has it open",
+      "Tab A: Closing 500.00, Save Changes",
+      "Tab B: Closing 777.00, Save Changes with stale lockVersion 1"
+    ],
+    "assertions": [
+      {
+        "text": "Tab B starts from server state (Closing 1260.00), not Tab A's unsaved draft: sessionStorage is per tab",
+        "pass": true,
+        "actual": "1260.00"
+      },
+      {
+        "text": "Tab A saved: Closing 500.0000, lockVersion 2",
+        "pass": true,
+        "actual": "500.0000|2"
+      },
+      {
+        "text": "Tab B shows the server's conflict message",
+        "pass": true,
+        "actual": "[\"This reconciliation was changed elsewhere after you opened it. Reload the page to load the current version. Your unsaved changes cannot be saved over it.\",\"This reconciliation was changed by someone else. Reload to continue.\"]"
+      },
+      {
+        "text": "Tab B stays on the edit form with 777.00 intact",
+        "pass": true,
+        "actual": "777.00"
+      },
+      {
+        "text": "Server state not overwritten: still 500.0000, lockVersion 2",
+        "pass": true,
+        "actual": "500.0000|2"
+      },
+      {
+        "text": "Tab B explains that the record changed elsewhere and must be reloaded",
+        "pass": true
+      },
+      {
+        "text": "Tab B cannot save again over the newer version: Save Changes is disabled",
+        "pass": true
+      },
+      {
+        "text": "Tab B keeps its unsaved draft, still at the lockVersion it was loaded from (1)",
+        "pass": true,
+        "actual": "{\"lockVersion\":1,\"closing\":\"777.00\"}"
+      },
+      {
+        "text": "Server state still 500.0000 at lockVersion 2 after Tab B's attempt",
+        "pass": true,
+        "actual": "500.0000|2"
+      }
+    ],
+    "shots": [
+      "case09-tabB-conflict.png"
+    ],
+    "notes": []
+  },
+  "case11": {
+    "title": "Stale-version recovery",
+    "steps": [
+      "Tab B holds a stored draft at lockVersion 1 (Closing 777.00); the server is now at lockVersion 2. Reload Tab B's edit page"
+    ],
+    "assertions": [
+      {
+        "text": "The exact warning text is shown",
+        "pass": true
+      },
+      {
+        "text": "The current server state is loaded (Closing 500.00)",
+        "pass": true,
+        "actual": "500.00"
+      },
+      {
+        "text": "The stale stored draft is gone (none stored, or re-stored at lockVersion 2 with server values)",
+        "pass": true,
+        "actual": "none"
+      }
+    ],
+    "shots": [
+      "case11-stale-warning.png"
+    ],
+    "notes": []
+  },
+  "case07": {
+    "title": "Discard",
+    "steps": [
+      "Open the February draft BR-26-002 (holds 2 reserved line(s)) and click Discard"
+    ],
+    "assertions": [
+      {
+        "text": "Confirmation explains the effect: deletes the draft, releases entries, number not reused, no journals changed",
+        "pass": true,
+        "actual": "Discard draft?This deletes the draft reconciliation and releases the entries it had ticked or classified. Its number will not be reused. No journal entries are changed. This cannot be undone.CancelDiscard"
+      },
+      {
+        "text": "Redirected to the list",
+        "pass": true,
+        "actual": "/accounting/bank-reconciliations"
+      },
+      {
+        "text": "Notification \"Draft discarded\" appears",
+        "pass": true
+      },
+      {
+        "text": "Database: the draft row is gone",
+        "pass": true
+      },
+      {
+        "text": "Database: its reservations are released",
+        "pass": true,
+        "actual": "before 2, after 0"
+      },
+      {
+        "text": "Database: the number counter did not go back (next is 3)",
+        "pass": true,
+        "actual": "3"
+      }
+    ],
+    "shots": [
+      "case07-confirm-discard.png",
+      "case07-list-after-discard.png"
+    ],
+    "notes": []
+  },
+  "case08": {
+    "title": "Cancel Reopen",
+    "steps": [
+      "Open completed January (latest on the account, no draft exists) and Reopen",
+      "Edit: Closing 999.00, untick JE-QA-J2, reclassify JE-QA-P2 to Already cleared, Save",
+      "Cancel Reopen and confirm"
+    ],
+    "assertions": [
+      {
+        "text": "Status is Draft and the reopened banner names the completion date",
+        "pass": true,
+        "actual": "Reopened. Cancel Reopen restores the version completed on 05/10/2026."
+      },
+      {
+        "text": "Reservations are kept while reopened",
+        "pass": true
+      },
+      {
+        "text": "The edits are saved to the working set (it now differs from the completed state)",
+        "pass": true,
+        "actual": "2026-01-01|2026-01-31|1000.0000|999.0000|DRAFT|1"
+      },
+      {
+        "text": "Confirmation explains the effect: discards changes since reopening, restores exactly, no journals changed",
+        "pass": true,
+        "actual": "Cancel reopen?This discards every change made since reopening and restores the reconciliation exactly as it was last completed, including its balances and matched entries. No journal entries are changed.CancelCancel Reopen"
+      },
+      {
+        "text": "Header business fields equal the pre-reopen capture",
+        "pass": true,
+        "actual": "2026-01-01|2026-01-31|1000.0000|1200.0000|COMPLETED|1"
+      },
+      {
+        "text": "Working lines (journal no, kind, original addedBy/addedAt) equal the pre-reopen capture",
+        "pass": true,
+        "actual": "JE-QA-J1:MATCHED:admin:2026-10-04 17:13:21.688+00 JE-QA-J2:MATCHED:admin:2026-10-04 17:13:21.695+00 JE-QA-P1:OPENING_CLEARED:admin:2026-10-04 17:13:41.871+00"
+      },
+      {
+        "text": "Setup marks (journal no, original markedBy/markedAt) equal the pre-reopen capture",
+        "pass": true,
+        "actual": "JE-QA-P2:admin:2026-10-04 17:13:21.702+00 JE-QA-P3:admin:2026-10-04 17:13:21.713+00"
+      },
+      {
+        "text": "lockVersion advanced and was not restored",
+        "pass": true,
+        "actual": "3 -> 6"
+      },
+      {
+        "text": "No version was appended (still 1)",
+        "pass": true
+      },
+      {
+        "text": "Audit history keeps REOPEN and CANCEL_REOPEN",
+        "pass": true,
+        "actual": "CREATE,UPDATE,COMPLETE,REOPEN,UPDATE,CANCEL_REOPEN"
+      },
+      {
+        "text": "No stored draft remains",
+        "pass": true
+      }
+    ],
+    "shots": [
+      "case08-reopened.png",
+      "case08-confirm-cancel-reopen.png",
+      "case08-restored-completed.png"
+    ],
+    "notes": []
+  },
+  "case10b": {
+    "title": "Unsaved-form recovery through a Journal No link on create (first-time form, with a classification)",
+    "steps": [
+      "CREATE on 1210 Maybank: 2026-01-01 to 2026-01-31, Opening 0.00, Closing 10.00; classify JE-QA-MP1 Outstanding; tick JE-QA-M1",
+      "Click the Journal No link JE-QA-M1, then browser Back"
+    ],
+    "assertions": [
+      {
+        "text": "The create URL carries a draft token",
+        "pass": true,
+        "actual": "2d0f72bd-5efc-4048-b778-532c2c45316e"
+      },
+      {
+        "text": "Same draft token after returning",
+        "pass": true
+      },
+      {
+        "text": "Statement fields restored (From 2026-01-01, To 2026-01-31, Opening 0.00, Closing 10.00)",
+        "pass": true
+      },
+      {
+        "text": "JE-QA-M1 is still ticked",
+        "pass": true
+      },
+      {
+        "text": "JE-QA-MP1 is still classified Outstanding",
+        "pass": true,
+        "actual": "true"
+      }
+    ],
+    "shots": [
+      "case10b-create-restored.png"
+    ],
+    "notes": []
+  },
+  "case12": {
+    "title": "Shortening To and moving From earlier",
+    "steps": [
+      "Tick JE-QA-M3 (25/01/2026), then change Period To to 2026-01-20",
+      "Move Period From from 2026-01-01 to 2025-12-01 while JE-QA-MP1 (15/12/2025) is classified Outstanding"
+    ],
+    "assertions": [
+      {
+        "text": "Invalid-entries panel lists JE-QA-M3",
+        "pass": true,
+        "actual": "The following selections are no longer eligible and must be resolved before saving:Matched entries dated after the statement period or no longer eligible:JE-QA-M3 (25/01/2026) — QA Maybank late receip"
+      },
+      {
+        "text": "The row is gone from the checklist but nothing was unticked automatically (still in the stored selection)",
+        "pass": true
+      },
+      {
+        "text": "Create is disabled while the panel is non-empty",
+        "pass": true
+      },
+      {
+        "text": "After Untick the entry leaves the panel and Create is enabled",
+        "pass": true
+      },
+      {
+        "text": "Invalid-entries panel lists the classification on JE-QA-MP1",
+        "pass": true,
+        "actual": "The following selections are no longer eligible and must be resolved before saving:Classified setup entries that are no longer before the period start date:JE-QA-MP1 (15/12/2025) — QA Maybank pre-peri"
+      },
+      {
+        "text": "Create is disabled; the classification was not removed automatically",
+        "pass": true
+      },
+      {
+        "text": "After Clear classification the panel is empty and Create is enabled",
+        "pass": true
+      }
+    ],
+    "shots": [
+      "case12-invalid-matched.png",
+      "case12-invalid-classification.png"
+    ],
+    "notes": []
+  },
+  "case13": {
+    "title": "A ticked but unclassified entry blocks Complete",
+    "steps": [
+      "JE-QA-MP1 (pre-period, 10.00 in) is now Unclassified. Untick JE-QA-M1, tick JE-QA-MP1 in the checklist, Closing 10.00, Create",
+      "Attempt Complete through the API as well (the server is the real guard)"
+    ],
+    "assertions": [
+      {
+        "text": "The form counts the ticked entry as \"1 unclassified\"",
+        "pass": true
+      },
+      {
+        "text": "Closing gate would pass: Calculated Closing 10.00 equals statement Closing 10.00",
+        "pass": true,
+        "actual": "{\"moneyIn\":\"MYR 10.00\",\"moneyOut\":\"MYR 0.00\",\"calculated\":\"MYR 10.00\"}"
+      },
+      {
+        "text": "Detail: Complete is disabled",
+        "pass": true
+      },
+      {
+        "text": "Blocker shown: \"1 entry is unclassified\"",
+        "pass": true,
+        "actual": "1 entry is unclassified"
+      },
+      {
+        "text": "It is the only blocker (no Difference or Opening Balance Difference blocker)",
+        "pass": true
+      },
+      {
+        "text": "Draft detail: the Matched tab lists JE-QA-MP1",
+        "pass": true
+      },
+      {
+        "text": "Server rejects Complete with 409 and names the gate",
+        "pass": true,
+        "actual": "409 {\"text\":\"Cannot complete: 1 entry is unclassified.\",\"gates\":{\"unclassifiedCount\":1}}"
+      }
+    ],
+    "shots": [
+      "case13-form-ticked-unclassified.png",
+      "case13-detail-blocked.png"
+    ],
+    "notes": []
+  },
+  "signout1": {
+    "title": "Sign-out in the tab that holds the draft",
+    "steps": [
+      "Edit the Maybank draft, change Closing to 11.00 (unsaved), confirm a draft is stored, then sign out from the user menu"
+    ],
+    "assertions": [
+      {
+        "text": "A draft is stored before sign-out",
+        "pass": true,
+        "actual": "[\"erp:bank-reconciliation-draft:40a64555-f9d0-4ea5-bda8-98581983053d:8217c798-8c32-4dcb-8a2b-e740f76943a2\"]"
+      },
+      {
+        "text": "After sign-out in the same tab, no reconciliation draft remains in that tab's sessionStorage",
+        "pass": true,
+        "actual": "[]"
+      }
+    ],
+    "shots": [
+      "signout1-after-signout.png"
+    ],
+    "notes": [
+      "Stored value fields: v, lockVersion, form, picker, savedAt; form fields: bankAccountId, periodFrom, periodTo, openingBalance, closingBalance, matched, setupChanges"
+    ]
+  },
+  "signout2": {
+    "title": "Sign-out in a different tab (known retention)",
+    "steps": [
+      "Tab A: edit the Maybank draft with an unsaved change (draft stored in Tab A). Tab B: open the list in the same browser profile",
+      "Sign out in Tab B",
+      "Tab A reloads (first action after the other tab signed out)"
+    ],
+    "assertions": [
+      {
+        "text": "Tab A holds a stored draft; Tab B holds none",
+        "pass": true
+      },
+      {
+        "text": "KNOWN LIMITATION OBSERVED: Tab A still holds its draft after Tab B signed out (retention, not cleanup)",
+        "pass": true,
+        "actual": "[\"erp:bank-reconciliation-draft:40a64555-f9d0-4ea5-bda8-98581983053d:8217c798-8c32-4dcb-8a2b-e740f76943a2\"]"
+      },
+      {
+        "text": "After Tab A reloads it is signed out and its draft is removed",
+        "pass": false,
+        "actual": "/accounting/bank-reconciliations/8217c798-8c32-4dcb-8a2b-e740f76943a2/edit [\"erp:bank-reconciliation-draft:40a64555-f9d0-4ea5-bda8-98581983053d:8217c798-8c32-4dcb-8a2b-e740f76943a2\"]"
+      }
+    ],
+    "shots": [
+      "signout2-tabA-after-tabB-signout.png"
+    ],
+    "notes": [
+      "Tab A still displays the form after Tab B signed out: true. Tab A URL: /accounting/bank-reconciliations/8217c798-8c32-4dcb-8a2b-e740f76943a2/edit"
+    ]
+  },
+  "restore1": {
+    "title": "Browser session restored while still signed in",
+    "steps": [
+      "Edit the Maybank draft, change Closing to 21.00 (unsaved); write a marker to sessionStorage; close the whole browser without signing out",
+      "Relaunch the browser on the same profile with session restore"
+    ],
+    "assertions": [
+      {
+        "text": "Before close: one draft is stored",
+        "pass": true
+      },
+      {
+        "text": "The tab is restored at the edit URL",
+        "pass": true,
+        "actual": "/accounting/bank-reconciliations/8217c798-8c32-4dcb-8a2b-e740f76943a2/edit"
+      },
+      {
+        "text": "The sessionStorage marker survived: this is a restored session, not a fresh load",
+        "pass": true,
+        "actual": "r1"
+      },
+      {
+        "text": "Still signed in, and the unsaved draft is offered back (Closing 21.00): retained by design",
+        "pass": true,
+        "actual": "21.00"
+      }
+    ],
+    "shots": [
+      "restore1-restored-signed-in.png"
+    ],
+    "notes": [
+      "Browser: 153.0.8010.12 (full Chromium, new headless), persistent profile"
+    ]
+  },
+  "restore2": {
+    "title": "Browser session restored after sign-out in another tab",
+    "steps": [
+      "Tab A: edit the Maybank draft with an unsaved change (Closing 22.00) and a sessionStorage marker",
+      "Tab B: sign out. Then close the whole browser",
+      "Relaunch the browser on the same profile with session restore"
+    ],
+    "assertions": [
+      {
+        "text": "KNOWN LIMITATION OBSERVED: before the close, Tab A still holds its draft although Tab B signed out",
+        "pass": true
+      },
+      {
+        "text": "Tab A is restored with its sessionStorage marker (a real session restore)",
+        "pass": true
+      },
+      {
+        "text": "The restored tab is signed out (login page)",
+        "pass": true,
+        "actual": "/login"
+      },
+      {
+        "text": "The restored tab's reconciliation draft was removed on load, while the unrelated marker remains",
+        "pass": true,
+        "actual": "[]"
+      }
+    ],
+    "shots": [
+      "restore2-restored-signed-out.png"
+    ],
+    "notes": [
+      "Restored tabs: /login, /login"
+    ]
+  },
+  "case14": {
+    "title": "Browser pass at desktop and narrow width",
+    "steps": [],
+    "assertions": [
+      {
+        "text": "desktop-1440 list: no horizontal page scroll",
+        "pass": true,
+        "actual": "scrollWidth 1440 vs 1440"
+      },
+      {
+        "text": "desktop-1440 list: header stays at the top after scrolling the content",
+        "pass": true,
+        "actual": "header top 0, scroller div.MuiBox-root, scrolled 274"
+      },
+      {
+        "text": "desktop-1440 list: single dark theme, same background as the Provider Settlements sibling",
+        "pass": true,
+        "actual": "rgb(18, 18, 18)"
+      },
+      {
+        "text": "desktop-1440 form: no horizontal page scroll",
+        "pass": true,
+        "actual": "scrollWidth 1440 vs 1440"
+      },
+      {
+        "text": "desktop-1440 form: header stays at the top after scrolling the content",
+        "pass": true,
+        "actual": "header top 0, scroller main.MuiBox-root, scrolled 670"
+      },
+      {
+        "text": "desktop-1440 form: single dark theme, same background as the Provider Settlements sibling",
+        "pass": true,
+        "actual": "rgb(18, 18, 18)"
+      },
+      {
+        "text": "desktop-1440 detail: no horizontal page scroll",
+        "pass": true,
+        "actual": "scrollWidth 1440 vs 1440"
+      },
+      {
+        "text": "desktop-1440 detail: header stays at the top after scrolling the content",
+        "pass": true,
+        "actual": "header top 0, scroller main.MuiBox-root, scrolled 244"
+      },
+      {
+        "text": "desktop-1440 detail: single dark theme, same background as the Provider Settlements sibling",
+        "pass": true,
+        "actual": "rgb(18, 18, 18)"
+      },
+      {
+        "text": "desktop-1440: the list scrolls the same container as the sibling list",
+        "pass": true,
+        "actual": "div.MuiBox-root vs div.MuiBox-root"
+      },
+      {
+        "text": "desktop-1440: the form scrolls the same container as the sibling form",
+        "pass": true,
+        "actual": "main.MuiBox-root vs main.MuiBox-root"
+      },
+      {
+        "text": "narrow-375 list: no horizontal page scroll",
+        "pass": true,
+        "actual": "scrollWidth 375 vs 375"
+      },
+      {
+        "text": "narrow-375 list: header stays at the top after scrolling the content",
+        "pass": true,
+        "actual": "header top 0, scroller none (content fits), scrolled 0"
+      },
+      {
+        "text": "narrow-375 list: single dark theme, same background as the Provider Settlements sibling",
+        "pass": true,
+        "actual": "rgb(18, 18, 18)"
+      },
+      {
+        "text": "narrow-375 form: no horizontal page scroll",
+        "pass": true,
+        "actual": "scrollWidth 375 vs 375"
+      },
+      {
+        "text": "narrow-375 form: header stays at the top after scrolling the content",
+        "pass": true,
+        "actual": "header top 0, scroller main.MuiBox-root, scrolled 1322"
+      },
+      {
+        "text": "narrow-375 form: single dark theme, same background as the Provider Settlements sibling",
+        "pass": true,
+        "actual": "rgb(18, 18, 18)"
+      },
+      {
+        "text": "narrow-375 detail: no horizontal page scroll",
+        "pass": true,
+        "actual": "scrollWidth 375 vs 375"
+      },
+      {
+        "text": "narrow-375 detail: header stays at the top after scrolling the content",
+        "pass": true,
+        "actual": "header top 0, scroller main.MuiBox-root, scrolled 709"
+      },
+      {
+        "text": "narrow-375 detail: single dark theme, same background as the Provider Settlements sibling",
+        "pass": true,
+        "actual": "rgb(18, 18, 18)"
+      },
+      {
+        "text": "narrow-375: the list scrolls the same container as the sibling list",
+        "pass": true,
+        "actual": "none (content fits) vs none (content fits)"
+      },
+      {
+        "text": "narrow-375: the form scrolls the same container as the sibling form",
+        "pass": true,
+        "actual": "main.MuiBox-root vs main.MuiBox-root"
+      }
+    ],
+    "shots": [
+      "case14-desktop-1440-list-top.png",
+      "case14-desktop-1440-list-scrolled.png",
+      "case14-desktop-1440-form-top.png",
+      "case14-desktop-1440-form-scrolled.png",
+      "case14-desktop-1440-detail-top.png",
+      "case14-desktop-1440-detail-scrolled.png",
+      "case14-desktop-1440-sibling-list-top.png",
+      "case14-desktop-1440-sibling-list-scrolled.png",
+      "case14-desktop-1440-sibling-form-top.png",
+      "case14-desktop-1440-sibling-form-scrolled.png",
+      "case14-narrow-375-list-top.png",
+      "case14-narrow-375-list-scrolled.png",
+      "case14-narrow-375-form-top.png",
+      "case14-narrow-375-form-scrolled.png",
+      "case14-narrow-375-detail-top.png",
+      "case14-narrow-375-detail-scrolled.png",
+      "case14-narrow-375-sibling-list-top.png",
+      "case14-narrow-375-sibling-list-scrolled.png",
+      "case14-narrow-375-sibling-form-top.png",
+      "case14-narrow-375-sibling-form-scrolled.png"
+    ],
+    "notes": [
+      "desktop-1440 measurements: {\"list\":{\"innerWidth\":1440,\"pageScrollWidth\":1440,\"horizontalOverflow\":false,\"scroller\":\"div.MuiBox-root\",\"scrolledTo\":274,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":0},\"form\":{\"innerWidth\":1440,\"pageScrollWidth\":1440,\"horizontalOverflow\":false,\"scroller\":\"main.MuiBox-root\",\"scrolledTo\":670,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":0},\"detail\":{\"innerWidth\":1440,\"pageScrollWidth\":1440,\"horizontalOverflow\":false,\"scroller\":\"main.MuiBox-root\",\"scrolledTo\":244,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":0},\"sibling-list\":{\"innerWidth\":1440,\"pageScrollWidth\":1440,\"horizontalOverflow\":false,\"scroller\":\"div.MuiBox-root\",\"scrolledTo\":274,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":0},\"sibling-form\":{\"innerWidth\":1440,\"pageScrollWidth\":1440,\"horizontalOverflow\":false,\"scroller\":\"main.MuiBox-root\",\"scrolledTo\":6,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":0}}",
+      "narrow-375 measurements: {\"list\":{\"innerWidth\":375,\"pageScrollWidth\":375,\"horizontalOverflow\":false,\"scroller\":\"none (content fits)\",\"scrolledTo\":0,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":0},\"form\":{\"innerWidth\":375,\"pageScrollWidth\":375,\"horizontalOverflow\":false,\"scroller\":\"main.MuiBox-root\",\"scrolledTo\":1322,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":1},\"detail\":{\"innerWidth\":375,\"pageScrollWidth\":375,\"horizontalOverflow\":false,\"scroller\":\"main.MuiBox-root\",\"scrolledTo\":709,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":1},\"sibling-list\":{\"innerWidth\":375,\"pageScrollWidth\":375,\"horizontalOverflow\":false,\"scroller\":\"none (content fits)\",\"scrolledTo\":0,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":0},\"sibling-form\":{\"innerWidth\":375,\"pageScrollWidth\":375,\"horizontalOverflow\":false,\"scroller\":\"main.MuiBox-root\",\"scrolledTo\":470,\"headerTopAfterScroll\":0,\"bodyBackground\":\"rgb(18, 18, 18)\",\"elementsPastRightEdgeOutsideTables\":0}}",
+      "Not judged by this script: visual quality such as spacing, overlap and alignment. The screenshots are the evidence for those and need a human look."
+    ]
+  }
+}
