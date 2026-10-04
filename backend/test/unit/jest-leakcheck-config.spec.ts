@@ -35,6 +35,14 @@ describe("jest-e2e-leakcheck.json", () => {
     expect(leak).toEqual(e2e);
   });
 
+  it("recycles the worker in both configs", () => {
+    // The parity test above passes when BOTH configs omit the limit. Each
+    // suite retains heap for the life of the Jest process (#1344), so without
+    // recycling the run's peak grows with the suite count until it aborts.
+    expect(read("jest-e2e.json").workerIdleMemoryLimit).toBe("1GB");
+    expect(read("jest-e2e-leakcheck.json").workerIdleMemoryLimit).toBe("1GB");
+  });
+
   it("does not itself define the lifecycle hooks", () => {
     const leak = read("jest-e2e-leakcheck.json");
     // Dropping the drop-and-recreate is the entire point: with it, every run
