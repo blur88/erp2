@@ -700,7 +700,7 @@ describe('Bank reconciliation reopen and cancel-reopen lifecycle (e2e)', () => {
         lockVersion: 4,
       }).expect(409);
 
-      expect(res.body.text ?? res.body.message).toContain('Cancel Reopen could not restore');
+      expect(res.body.message).toContain('Cancel Reopen could not restore');
 
       // Assert draft remains in status DRAFT with lockVersion 4
       const [reconRow] = await ds.query(
@@ -914,7 +914,7 @@ describe('Bank reconciliation reopen and cancel-reopen lifecycle (e2e)', () => {
         lockVersion: 3,
       }).expect(409);
 
-      expect(res.body.gates.unclassifiedCount).toBe(1);
+      expect(res.body.message.gates.unclassifiedCount).toBe(1);
     });
 
     it('remains available after Cancel Reopen', async () => {

@@ -46,27 +46,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.errorLogger.logUnexpectedError(exception, requestId, request);
     }
 
-    const extraFields =
-      exception instanceof HttpException &&
-      typeof exception.getResponse() === 'object' &&
-      exception.getResponse() !== null
-        ? Object.fromEntries(
-            Object.entries(exception.getResponse() as Record<string, any>).filter(
-              ([key]) =>
-                ![
-                  'statusCode',
-                  'timestamp',
-                  'path',
-                  'method',
-                  'error',
-                  'message',
-                  'code',
-                  'requestId',
-                ].includes(key),
-            ),
-          )
-        : {};
-
     const errorResponse: StandardizedErrorResponse = {
       statusCode: status,
       timestamp: new Date().toISOString(),
@@ -76,7 +55,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message,
       ...(errorCode && { code: errorCode }),
       ...(requestId && { requestId }),
-      ...extraFields,
     };
 
     if (this.securityDetector.isSecurityRelated(status, error)) {

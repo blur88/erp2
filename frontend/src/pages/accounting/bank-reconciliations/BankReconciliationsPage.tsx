@@ -19,7 +19,7 @@ import {
 import type { BankReconciliationDto, BankReconciliationStatus } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
-import { rtkErrorMessage } from '@/utils/errorMessage'
+import { reconciliationErrorMessage } from './reconciliationErrorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { withCurrentListQuery } from '@/utils/listQuery'
 import { PAGINATION } from '@/constants/tableStyles'
@@ -174,7 +174,7 @@ export default function BankReconciliationsPage() {
       if (action === 'cancelReopen') await cancelReopen(arg).unwrap()
       showSuccess(`${row.reconciliationNo}: ${DONE_LABEL[action]}`)
     } catch (err) {
-      showError(rtkErrorMessage(err, `Failed to ${CONFIRM_COPY[action].title.replace(/\?$/, '').toLowerCase()}`))
+      showError(reconciliationErrorMessage(err, `Failed to ${CONFIRM_COPY[action].title.replace(/\?$/, '').toLowerCase()}`))
     } finally {
       setConfirm(null)
     }

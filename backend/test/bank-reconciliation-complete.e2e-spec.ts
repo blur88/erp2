@@ -185,7 +185,16 @@ describe('Bank reconciliation complete lifecycle (e2e)', () => {
         lockVersion: 1,
       }).expect(409);
 
-      expect(res.body.gates.difference).toBeDefined();
+      // closing 250.00 − (opening 100.00 + nothing ticked) = 150.00. This is a
+      // sequence-1 reconciliation with nothing cleared, so the opening gate
+      // fails too: opening 100.00 − cleared net 0.00 = 100.00.
+      expect(res.body.message.gates).toEqual({
+        difference: '150.00',
+        openingBalanceDifference: '100.00',
+      });
+      expect(res.body.message.text).toBe(
+        'Cannot complete: Difference is 150.00; Opening Balance Difference is 100.00.',
+      );
 
       const versions = await ds.query(
         `SELECT count(*)::int AS c FROM bank_statement_reconciliation_versions WHERE "reconciliationId" = $1`,
@@ -269,7 +278,8 @@ describe('Bank reconciliation complete lifecycle (e2e)', () => {
         lockVersion: 1,
       }).expect(409);
 
-      expect(res.body.gates.openingBalanceDifference).toBeDefined();
+      // opening 100.00 − cleared net 50.00 = 50.00; the closing gate passes and is absent
+      expect(res.body.message.gates).toEqual({ openingBalanceDifference: '50.00' });
     });
 
     it('sequence 1: rejects when an OUTSTANDING pre-period entry is unclassified', async () => {
@@ -299,7 +309,7 @@ describe('Bank reconciliation complete lifecycle (e2e)', () => {
         lockVersion: 1,
       }).expect(409);
 
-      expect(res.body.gates.unclassifiedCount).toBe(1);
+      expect(res.body.message.gates.unclassifiedCount).toBe(1);
     });
 
     it('sequence 1: rejects when a TICKED pre-period entry is unclassified', async () => {
@@ -329,7 +339,7 @@ describe('Bank reconciliation complete lifecycle (e2e)', () => {
         lockVersion: 1,
       }).expect(409);
 
-      expect(res.body.gates.unclassifiedCount).toBe(1);
+      expect(res.body.message.gates.unclassifiedCount).toBe(1);
     });
 
     it('reports each failing gate independently in one response', async () => {
@@ -360,11 +370,15 @@ describe('Bank reconciliation complete lifecycle (e2e)', () => {
         lockVersion: 1,
       }).expect(409);
 
-      expect(res.body.gates).toBeDefined();
-      expect(res.body.gates.difference).toBeDefined();
-      expect(res.body.gates.openingBalanceDifference).toBeDefined();
-      expect(res.body.gates.unclassifiedCount).toBe(1);
-      expect(res.body.text).toContain('Cannot complete:');
+      // closing 200.00 − opening 100.00 = 100.00; nothing cleared, so opening 100.00 − 0.00 = 100.00
+      expect(res.body.message.gates).toEqual({
+        difference: '100.00',
+        openingBalanceDifference: '100.00',
+        unclassifiedCount: 1,
+      });
+      expect(res.body.message.text).toBe(
+        'Cannot complete: Difference is 100.00; Opening Balance Difference is 100.00; 1 entry is unclassified.',
+      );
     });
 
     it('sequence 2 uses the previous closing as opening and rejects a gap or overlap', async () => {
@@ -405,7 +419,8 @@ describe('Bank reconciliation complete lifecycle (e2e)', () => {
         lockVersion: 1,
       }).expect(409);
 
-      expect(res.body.gates.continuity).toBeDefined();
+      expect(res.body.message.gates.continuity).toEqual(expect.any(String));
+      expect(res.body.message.text).toContain(res.body.message.gates.continuity);
     });
 
     it('rejects a stale lockVersion and a non-draft', async () => {
@@ -580,7 +595,7 @@ describe('Bank reconciliation complete lifecycle (e2e)', () => {
         lockVersion: 1,
       }).expect(409);
 
-      expect(res.body.gates.workingSetMismatchIds).toContain(l.lineId);
+      expect(res.body.message.gates.workingSetMismatchIds).toContain(l.lineId);
     });
 
     it('copies displayed values so a later raw edit of journal description does not change the detail', async () => {

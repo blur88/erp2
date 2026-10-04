@@ -268,7 +268,9 @@ export class BankReconciliationLifecycleService {
           msgs.push(gates.continuity);
         }
         const text = `Cannot complete: ${msgs.join('; ')}.`;
-        throw new ConflictException({ text, message: text, gates });
+        // Details ride INSIDE message: the global filter keeps only `message`
+        // (same wire shape as the provider-settlement stale conflict).
+        throw new ConflictException({ message: { text, gates } });
       }
 
       // 5. Update the version (seal it)
@@ -509,7 +511,7 @@ export class BankReconciliationLifecycleService {
         if ((insertErr as any)?.code === '23505') {
           const text =
             'Cancel Reopen could not restore the previous completion because an entry is reserved elsewhere. Nothing was changed.';
-          throw new ConflictException({ text, message: text });
+          throw new ConflictException(text);
         }
         throw insertErr;
       }

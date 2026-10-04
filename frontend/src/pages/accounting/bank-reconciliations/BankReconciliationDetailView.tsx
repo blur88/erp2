@@ -41,7 +41,7 @@ import type {
   ReconciliationLineDto,
   ReconciliationLineRole,
 } from '@/types'
-import { rtkErrorMessage } from '@/utils/errorMessage'
+import { reconciliationErrorMessage } from './reconciliationErrorMessage'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { currentListPath } from '@/utils/listQuery'
 import {
@@ -176,7 +176,7 @@ export default function BankReconciliationDetailView({
         navigate(currentListPath(LIST_PATH))
       }
     } catch (err) {
-      const msg = rtkErrorMessage(err, 'Failed to perform action')
+      const msg = reconciliationErrorMessage(err, 'Failed to perform action')
       setActionError(msg)
       showError(msg)
       if (action === 'complete') {

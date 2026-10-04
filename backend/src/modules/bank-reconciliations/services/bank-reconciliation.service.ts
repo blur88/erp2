@@ -219,10 +219,11 @@ export class BankReconciliationService {
 
       if (eff.invalidMatchedIds.length > 0 || eff.invalidClassificationIds.length > 0) {
         throw new ConflictException({
-          message: 'One or more selected lines are no longer eligible.',
-          text: 'One or more selected lines are no longer eligible.',
-          invalidMatchedIds: eff.invalidMatchedIds,
-          invalidClassificationIds: eff.invalidClassificationIds,
+          message: {
+            text: 'One or more selected lines are no longer eligible.',
+            invalidMatchedIds: eff.invalidMatchedIds,
+            invalidClassificationIds: eff.invalidClassificationIds,
+          },
         });
       }
 
@@ -410,10 +411,11 @@ export class BankReconciliationService {
 
       if (eff.invalidMatchedIds.length > 0 || eff.invalidClassificationIds.length > 0) {
         throw new ConflictException({
-          message: 'One or more selected lines are no longer eligible.',
-          text: 'One or more selected lines are no longer eligible.',
-          invalidMatchedIds: eff.invalidMatchedIds,
-          invalidClassificationIds: eff.invalidClassificationIds,
+          message: {
+            text: 'One or more selected lines are no longer eligible.',
+            invalidMatchedIds: eff.invalidMatchedIds,
+            invalidClassificationIds: eff.invalidClassificationIds,
+          },
         });
       }
 

@@ -194,11 +194,7 @@ export function resolveFinalState(
     const seen = new Set<string>();
     for (const sc of setupChanges) {
       if (seen.has(sc.journalEntryLineId)) {
-        throw new ConflictException({
-          message: {
-            text: 'The same entry cannot appear twice in setup changes.',
-          },
-        });
+        throw new ConflictException('The same entry cannot appear twice in setup changes.');
       }
       seen.add(sc.journalEntryLineId);
     }

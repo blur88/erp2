@@ -35,7 +35,7 @@ import type {
   SetupClassification,
   SetupSummaryDto,
 } from '@/types'
-import { rtkErrorMessage } from '@/utils/errorMessage'
+import { reconciliationErrorMessage } from './reconciliationErrorMessage'
 import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 
 import {
@@ -513,7 +513,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
         navigate(forwardListQuery(`/accounting/bank-reconciliations/${created.id}/view`))
       }
     } catch (err) {
-      setSaveError(rtkErrorMessage(err, 'Failed to save bank reconciliation'))
+      setSaveError(reconciliationErrorMessage(err, 'Failed to save bank reconciliation'))
       const lockVersion = isEdit && existingDetail ? existingDetail.lockVersion : null
       saveDraft(storageKey, {
         v: 1,

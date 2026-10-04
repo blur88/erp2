@@ -679,7 +679,7 @@ describe('Bank reconciliations drafts lifecycle (e2e)', () => {
         periodTo: '2026-01-20',
       }).expect(409);
 
-      expect(res.body.invalidMatchedIds).toContain(l.lineId);
+      expect(res.body.message.invalidMatchedIds).toContain(l.lineId);
     });
 
     it('returns 409 and deletes no classification when From is moved earlier', async () => {
@@ -711,7 +711,7 @@ describe('Bank reconciliations drafts lifecycle (e2e)', () => {
         periodFrom: '2026-01-01',
       }).expect(409);
 
-      expect(res.body.invalidClassificationIds).toContain(l.lineId);
+      expect(res.body.message.invalidClassificationIds).toContain(l.lineId);
     });
 
     it('returns 409 on a stale lockVersion and increments it on success', async () => {
@@ -789,7 +789,7 @@ describe('Bank reconciliations drafts lifecycle (e2e)', () => {
         matchedLineIds: [l.lineId],
       }).expect(409);
 
-      expect(res.body.invalidMatchedIds).toContain(l.lineId);
+      expect(res.body.message.invalidMatchedIds).toContain(l.lineId);
     });
   });
 
