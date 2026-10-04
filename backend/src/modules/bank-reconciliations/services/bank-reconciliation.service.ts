@@ -391,8 +391,23 @@ export class BankReconciliationService {
       // The FINAL classification of every affected line, UNCLASSIFIED included:
       // an explicit UNCLASSIFIED must override a saved mark or cleared line, or
       // a classification the user just cleared would still be judged invalid.
-      const activeSetupChanges = Array.from(finalStates.values())
+      // Only lines that carry a classification question at all: ones the
+      // request reclassifies, or ones with a saved mark or cleared line. A line
+      // that is merely ticked has none, and on a later reconciliation any
+      // setup change is rejected outright.
+      const requestedSetupIds = new Set((dto.setupChanges ?? []).map((c) => c.journalEntryLineId));
+      const savedClassifiedIds = new Set(
+        saved.filter((sv) => sv.marked || sv.kind === 'OPENING_CLEARED').map((sv) => sv.journalEntryLineId),
+      );
+      const activeSetupChangeList = Array.from(finalStates.values())
+        .filter(
+          (s) =>
+            s.classification !== SetupClassification.UNCLASSIFIED ||
+            requestedSetupIds.has(s.journalEntryLineId) ||
+            savedClassifiedIds.has(s.journalEntryLineId),
+        )
         .map((s) => ({ journalEntryLineId: s.journalEntryLineId, classification: s.classification }));
+      const activeSetupChanges = activeSetupChangeList.length > 0 ? activeSetupChangeList : undefined;
 
       const activeMatchedIds = Array.from(finalStates.values())
         .filter((s) => s.matched)

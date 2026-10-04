@@ -423,6 +423,46 @@ describe('Bank reconciliation complete lifecycle (e2e)', () => {
       expect(res.body.message.text).toContain(res.body.message.gates.continuity);
     });
 
+    it('saves and completes a sequence-2 draft that has ticked lines', async () => {
+      const acct = await seedBankAccount(ds, `${runId}-seq2save`);
+      const contra = await seedContraAccount(ds, `${runId}-seq2save`);
+      suiteAccountIds.push(acct.id, contra.id);
+      const l = await seedBankJournalLine(ds, {
+        bankAccountId: acct.id, contraAccountId: contra.id, entryDate: '2026-02-10',
+        moneyIn: '60.00', journalNo: `JE-SEQ2-${runId}`,
+      });
+      suiteEntryIds.push(l.entryId);
+
+      const first = await post('/accounting/bank-reconciliations', {
+        bankAccountId: acct.id, periodFrom: '2026-01-01', periodTo: '2026-01-31',
+        openingBalance: '0.00', closingBalance: '0.00', matchedLineIds: [],
+      }).expect(201);
+      suiteReconciliationIds.push(first.body.data.id);
+      await post(`/accounting/bank-reconciliations/${first.body.data.id}/complete`, { lockVersion: 1 }).expect(200);
+
+      const second = await post('/accounting/bank-reconciliations', {
+        bankAccountId: acct.id, periodTo: '2026-02-28', closingBalance: '0.00', matchedLineIds: [],
+      }).expect(201);
+      const id = second.body.data.id;
+      suiteReconciliationIds.push(id);
+
+      // Ticking a line on a later reconciliation must not be mistaken for a setup change.
+      const saved = await patch(`/accounting/bank-reconciliations/${id}`, {
+        lockVersion: 1, closingBalance: '60.00', matchedLineIds: [l.lineId],
+      });
+      expect(saved.status).toBe(200);
+      expect(saved.body.data.summary.moneyIn).toBe('60.00');
+      expect(saved.body.data.summary.difference).toBe('0.00');
+
+      // Saving again with the same selection (a saved MATCHED line) works too.
+      const again = await patch(`/accounting/bank-reconciliations/${id}`, {
+        lockVersion: 2, matchedLineIds: [l.lineId],
+      });
+      expect(again.status).toBe(200);
+
+      await post(`/accounting/bank-reconciliations/${id}/complete`, { lockVersion: 3 }).expect(200);
+    });
+
     it('rejects a stale lockVersion and a non-draft', async () => {
       const acct = await seedBankAccount(ds, `${runId}-stale-c`);
       suiteAccountIds.push(acct.id);
