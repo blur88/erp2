@@ -57,28 +57,36 @@ Exposure of `sessionStorage`:
 inside redux-persist's `PersistGate`) removes every draft from **the tab it
 runs in** whenever that tab is not signed in.
 
-| Situation | Outcome | How it was checked |
-|---|---|---|
-| Sign-out in the tab that holds the draft (manual, idle timeout, or a forced `clearAuth` after a failed token refresh) | Drafts removed | Unit test: signed-in → signed-out transition |
-| Reload of a signed-in tab | Drafts kept, by design (spec D9) | Unit test: mounted signed-in. Relies on `PersistGate` rehydrating auth before first render |
-| Browser restores a closed tab or session **after** the user signed out or the persisted session is gone | Drafts removed when the app loads | Unit test: mounted signed-out |
-| Browser restores a tab while the persisted session is still valid (for example "remember me") | Drafts kept and offered back to the same user | By design; same as a reload |
-| **Sign-out in a different tab** | **Not covered.** `sessionStorage` is per tab and auth state is not synchronised between tabs, so the other tab stays signed in in memory and keeps its drafts. They are removed only when that tab itself signs out, is forced out by a failed request, or is closed | Code reading: no `storage` listener or `BroadcastChannel` exists in `frontend/src` |
-| Restored tab whose JavaScript never runs (offline, crashed page) | Not covered; the raw values stay until the tab is closed | Inherent to client-side cleanup |
+Each row below was exercised in Chromium 153 by the scripted browser QA at
+`bc9e8c6cf` (record and screenshots: `BANK_RECONCILIATION_QA.md`, scenarios
+Sign-out A/B and Session restore A/B), in addition to the unit tests.
 
-None of these rows has been exercised in a real browser. The unit tests cover
-the hook's logic only; multi-tab and session-restore behaviour belong in the
-manual QA run.
+| Situation | Observed in the browser |
+|---|---|
+| Sign-out in the tab that holds the draft | Draft removed from that tab's `sessionStorage`. |
+| Browser closed and relaunched with session restore, session still valid | Tab restored with its `sessionStorage` (a marker written before the close survived, so this was a real restore, not a reload). Still signed in; the draft is kept and offered back to the same user. By design (spec D9). |
+| Browser closed after a sign-out in another tab, then relaunched with session restore | Tab restored with its `sessionStorage` marker; the app loaded signed-out and the reconciliation draft was removed on load, while the unrelated marker remained. |
+| **Sign-out in a different tab, the first tab left open** | **Not cleaned up.** The first tab kept its draft. In one run a later reload of that tab found it signed out and removed the draft; in the recorded run the reload found the tab **still signed in** and the draft still stored. |
+
+The last row is wider than this feature. `sessionStorage` is per tab, auth state
+is persisted to shared `localStorage` by redux-persist, and nothing synchronises
+sign-out between tabs (`frontend/src` has no `storage` listener or
+`BroadcastChannel`). An open tab can write its own in-memory session back to
+shared storage after another tab has signed out, so whether it is later found
+signed out depends on timing. While that tab stays signed in, its draft stays.
+
+Not exercised: a restored tab whose JavaScript never runs (offline or crashed
+page); browsers other than Chromium.
 
 ## Residual risk
 
 - While a tab is signed in, unsaved balances and selected amounts are held in
   clear text in that tab's `sessionStorage`. This is inherent to the approved
   design (spec D9) and is retained.
-- After a sign-out in one tab, another open tab keeps its drafts for as long as
-  it stays open and signed in. Closing that gap means synchronising sign-out
-  across tabs, which is a change to authentication behaviour for the whole
-  application and has not been made.
+- After a sign-out in one tab, another open tab keeps its drafts, and can remain
+  signed in. Closing that gap means synchronising sign-out across tabs, which is
+  a change to authentication behaviour for the whole application and has not
+  been made here.
 - A restored tab that cannot run the application keeps its stored values.
 
 ## Disposition
@@ -90,4 +98,4 @@ manual QA run.
   multi-tab gap above stated rather than closed.
 
 The alert has **not** been dismissed. Dismissal is for the repository owner,
-after the multi-tab and session-restore rows have been exercised in a browser.
+on review of the browser evidence above, including the cross-tab row.
