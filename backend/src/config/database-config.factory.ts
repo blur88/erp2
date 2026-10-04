@@ -16,6 +16,11 @@ import { OwnerEquityDocument } from '../modules/owner-equity/entities/owner-equi
 import { OwnerEquitySettlement } from '../modules/owner-equity/entities/owner-equity-settlement.entity';
 import { ProviderSettlement } from '../modules/provider-settlements/entities/provider-settlement.entity';
 import { ProviderSettlementLine } from '../modules/provider-settlements/entities/provider-settlement-line.entity';
+import { BankReconciliation } from '../modules/bank-reconciliations/entities/bank-reconciliation.entity';
+import { BankReconciliationLine } from '../modules/bank-reconciliations/entities/bank-reconciliation-line.entity';
+import { BankReconciliationSetupMark } from '../modules/bank-reconciliations/entities/bank-reconciliation-setup-mark.entity';
+import { BankReconciliationVersion } from '../modules/bank-reconciliations/entities/bank-reconciliation-version.entity';
+import { BankReconciliationVersionLine } from '../modules/bank-reconciliations/entities/bank-reconciliation-version-line.entity';
 import { AuditLog } from '../database/entities/audit-log.entity';
 import { BackupLog } from '../database/entities/backup-log.entity';
 import { BackupSchedule } from '../database/entities/backup-schedule.entity';
@@ -166,6 +171,11 @@ export function createDatabaseConfig(
       OwnerEquitySettlement,
       ProviderSettlement,
       ProviderSettlementLine,
+      BankReconciliation,
+      BankReconciliationLine,
+      BankReconciliationSetupMark,
+      BankReconciliationVersion,
+      BankReconciliationVersionLine,
     ],
     migrations: [resolveMigrationsGlob()],
     // 'each' (not the TypeORM default 'all') so a migration that appends an

@@ -21,6 +21,7 @@ import { default as AccountTreeIcon } from '@mui/icons-material/AccountTree';
 import { default as ReceiptLongIcon } from '@mui/icons-material/ReceiptLong';
 import { default as MenuBookIcon } from '@mui/icons-material/MenuBook';
 import { default as BalanceIcon } from '@mui/icons-material/Balance';
+import { default as ChecklistIcon } from '@mui/icons-material/Checklist';
 import { default as AssessmentIcon } from '@mui/icons-material/Assessment';
 import { default as PrintIcon } from '@mui/icons-material/Print';
 import { default as DocumentNumberIcon } from '@mui/icons-material/FormatListNumbered';
@@ -242,6 +243,13 @@ export const menuSections: MenuSection[] = [
             title: 'Provider Settlements',
             icon: <PaymentsIcon />,
             path: '/accounting/provider-settlements',
+            roles: ALL_ROLES,
+          },
+          {
+            id: 'bank-reconciliations',
+            title: 'Bank Reconciliations',
+            icon: <ChecklistIcon />,
+            path: '/accounting/bank-reconciliations',
             roles: ALL_ROLES,
           },
           {

@@ -38,4 +38,5 @@ export interface StandardizedErrorResponse {
   message: string | object;
   code?: string;
   requestId?: string;
+  [key: string]: any;
 }
