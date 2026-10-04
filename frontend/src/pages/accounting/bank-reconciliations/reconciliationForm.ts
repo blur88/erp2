@@ -152,20 +152,27 @@ export function previewTotals(s: ReconciliationFormState): {
   }
 }
 
+/**
+ * Refresh the amounts of lines that are already selected. Never adds or removes
+ * a selection.
+ *
+ * Returns `s` itself when no amount changed. The form page decides whether to
+ * preview again by comparing `matched` by reference, so returning a fresh but
+ * equal object made every successful preview schedule another one, forever.
+ */
 export function applyPreview(
   s: ReconciliationFormState,
   p: PreviewResultDto,
 ): ReconciliationFormState {
-  const nextMatched = { ...s.matched }
+  let nextMatched: ReconciliationFormState['matched'] | null = null
   for (const line of p.matched) {
-    if (nextMatched[line.journalEntryLineId]) {
-      nextMatched[line.journalEntryLineId] = {
-        moneyIn: line.moneyIn,
-        moneyOut: line.moneyOut,
-      }
-    }
+    const current = s.matched[line.journalEntryLineId]
+    if (!current) continue
+    if (current.moneyIn === line.moneyIn && current.moneyOut === line.moneyOut) continue
+    nextMatched ??= { ...s.matched }
+    nextMatched[line.journalEntryLineId] = { moneyIn: line.moneyIn, moneyOut: line.moneyOut }
   }
-  return { ...s, matched: nextMatched }
+  return nextMatched ? { ...s, matched: nextMatched } : s
 }
 
 export function toCreateBody(

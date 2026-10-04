@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -410,6 +410,131 @@ describe('BankReconciliationFormPage', () => {
 
     await waitFor(() => {
       expect(loadDraft(key)).toBeNull()
+    })
+  })
+
+  describe('preview and search request ordering', () => {
+    function deferred<T>() {
+      let resolve!: (v: T) => void
+      const promise = new Promise<T>((r) => { resolve = r })
+      return { promise, resolve }
+    }
+    const wait = (ms: number) => act(() => new Promise<void>((r) => setTimeout(r, ms)))
+    const previewWith = (journalNo: string): PreviewResultDto => ({
+      matched: [],
+      invalidMatched: [makeLine({ journalEntryLineId: 'jel-1', journalNo })],
+      invalidClassifications: [],
+      setupSummary: null,
+    })
+    const searchResult = (journalNo: string) => ({
+      data: [makeLine({ journalEntryLineId: `jel-${journalNo}`, journalNo })],
+      meta: { total: 1, page: 1, limit: 25 },
+    })
+
+    it('an unchanged successful preview causes no further preview requests', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      renderEdit()
+
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(1))
+      // Well past the 300 ms debounce, several times over.
+      await wait(1200)
+      expect(mockPreview).toHaveBeenCalledTimes(1)
+    })
+
+    it('a preview that changes an amount settles after one follow-up request', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      mockPreview.mockResolvedValue({
+        ...defaultPreviewResult,
+        matched: [makeLine({ moneyIn: '100.01' })],
+      })
+      renderEdit()
+
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(2))
+      await wait(1200)
+      expect(mockPreview).toHaveBeenCalledTimes(2)
+    })
+
+    it('drops an older preview response that resolves after a newer one', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      renderEdit()
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(1))
+
+      const older = deferred<PreviewResultDto>()
+      const newer = deferred<PreviewResultDto>()
+      mockPreview.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise)
+
+      // Period changes preview immediately, so two changes are two in-flight requests.
+      fireEvent.change(screen.getByLabelText('Period To'), { target: { value: '2026-01-20' } })
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(2))
+      fireEvent.change(screen.getByLabelText('Period To'), { target: { value: '2026-01-10' } })
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(3))
+
+      await act(async () => { newer.resolve(previewWith('JE-NEWER')) })
+      expect(await screen.findByText(/JE-NEWER/)).toBeInTheDocument()
+
+      await act(async () => { older.resolve(previewWith('JE-OLDER')) })
+      await wait(50)
+      expect(screen.queryByText(/JE-OLDER/)).not.toBeInTheDocument()
+      expect(screen.getByText(/JE-NEWER/)).toBeInTheDocument()
+    })
+
+    it('a late preview response never re-ticks a row the user has since unticked', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      renderEdit()
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(1))
+
+      const late = deferred<PreviewResultDto>()
+      mockPreview.mockReturnValueOnce(late.promise)
+      fireEvent.change(screen.getByLabelText('Period To'), { target: { value: '2026-01-20' } })
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(2))
+
+      // The picker checkbox has no accessible name; reach it through its row.
+      const checklistCheckbox = () => {
+        const rows = screen.getAllByText('JE-001').map((el) => el.closest('tr') as HTMLElement)
+        const row = rows.find((r) => within(r).queryByRole('checkbox'))
+        return within(row as HTMLElement).getByRole('checkbox')
+      }
+      await waitFor(() => expect(checklistCheckbox()).toBeChecked())
+      await userEvent.click(checklistCheckbox())
+      expect(checklistCheckbox()).not.toBeChecked()
+
+      // The in-flight response still lists jel-1 as a matched line.
+      await act(async () => { late.resolve({ ...defaultPreviewResult, matched: [makeLine({ moneyIn: '555.00' })] }) })
+      await wait(500)
+      expect(checklistCheckbox()).not.toBeChecked()
+    })
+
+    it.each([
+      ['checklist', 'Search transactions...'],
+      ['setup', 'Search setup entries...'],
+    ])('drops an older %s search response that resolves after a newer one', async (view, placeholder) => {
+      const older = deferred<ReturnType<typeof searchResult>>()
+      const newer = deferred<ReturnType<typeof searchResult>>()
+      mockSearchLines.mockImplementation((arg: any) => {
+        if (arg.view !== view) return Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 25 } })
+        if (arg.search === 'a') return older.promise
+        if (arg.search === 'ab') return newer.promise
+        return Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 25 } })
+      })
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      renderEdit()
+
+      const searchCalls = (term: string) =>
+        mockSearchLines.mock.calls.filter(([a]) => a.view === view && a.search === term).length
+
+      const input = await screen.findByPlaceholderText(placeholder)
+      await userEvent.type(input, 'a')
+      await waitFor(() => expect(searchCalls('a')).toBe(1))
+      await userEvent.type(input, 'b')
+      await waitFor(() => expect(searchCalls('ab')).toBe(1))
+
+      await act(async () => { newer.resolve(searchResult('NEWER')) })
+      expect(await screen.findByText('NEWER')).toBeInTheDocument()
+
+      await act(async () => { older.resolve(searchResult('OLDER')) })
+      await wait(50)
+      expect(screen.queryByText('OLDER')).not.toBeInTheDocument()
+      expect(screen.getByText('NEWER')).toBeInTheDocument()
     })
   })
 

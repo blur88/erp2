@@ -184,6 +184,35 @@ describe('reconciliationForm', () => {
     expect(applied.matched['l2']).toEqual({ moneyIn: '20.00', moneyOut: '0.00' })
   })
 
+  it('applyPreview returns the same state object when no amount changed', () => {
+    let state = emptyForm()
+    state = toggleMatched(state, makeLine({ journalEntryLineId: 'l1', moneyIn: '10.00', moneyOut: '0.00' }))
+
+    const preview: PreviewResultDto = {
+      matched: [makeLine({ journalEntryLineId: 'l1', moneyIn: '10.00', moneyOut: '0.00' })],
+      invalidMatched: [],
+      invalidClassifications: [],
+      setupSummary: null,
+    }
+
+    // Identity, not equality: the form page compares `matched` by reference to
+    // decide whether to preview again, so a fresh-but-equal object loops forever.
+    const applied = applyPreview(state, preview)
+    expect(applied).toBe(state)
+    expect(applied.matched).toBe(state.matched)
+  })
+
+  it('applyPreview never adds a line that is not already selected', () => {
+    const state = emptyForm()
+    const preview: PreviewResultDto = {
+      matched: [makeLine({ journalEntryLineId: 'l9', moneyIn: '10.00', moneyOut: '0.00' })],
+      invalidMatched: [],
+      invalidClassifications: [],
+      setupSummary: null,
+    }
+    expect(applyPreview(state, preview)).toBe(state)
+  })
+
   it('fromDetail populates state from BankReconciliationDetailDto', () => {
     const detail: BankReconciliationDetailDto = {
       id: 'r-1',
