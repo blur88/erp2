@@ -18,12 +18,13 @@
 | Browser | Chromium 153.0.8010.12 via Playwright 1.63.0, headless. Cases 1–14 and sign-out: headless shell. Session restore: full Chromium with a persistent profile, closed and relaunched with `--restore-last-session`. |
 | Viewport | 1440×900 for all cases; case 14 also at 375×812 |
 | Assertions | 120 of 121 passed |
+| Reviewed by | The repository owner reviewed this record and all twelve list, form and detail screenshots at 1440 and 375 px on 2026-10-05: no blocking visual defect. Narrow tables and tabs scroll horizontally, as their components are configured to. |
 | Ledger check | Count and MD5 fingerprint of every journal entry and line were identical before and after the run |
-| Evidence | Screenshots and the raw `results.json` are on branch `screenshots/1342` |
+| Evidence | Screenshots and the raw `results.json` are on branch `screenshots/1342`, commit `59f7a97527edd9c6fca9a62d7c8039ba50dee9cf`. Links below are pinned to that commit. Keep the branch: deleting it lets the commit be garbage-collected and breaks the links. |
 
 **Failures and limits of this run**
 
-- **Cross-tab sign-out is not clean-up, and the final check failed.** After Tab B signed out, Tab A kept its stored draft (expected, recorded limitation). When Tab A was then reloaded it was *still signed in* and still held the draft. The same step passed in the previous run of this script, so the outcome is timing-dependent: an open tab can write its own in-memory session back to shared storage after another tab signs out. This is behaviour of the application's sign-out across tabs, not something this feature controls, and it is wider than the reconciliation form.
+- **Cross-tab sign-out is not clean-up, and the final check failed.** After Tab B signed out, Tab A kept its stored draft (expected, recorded limitation). When Tab A was then reloaded it was *still signed in* and still held the draft. The same step passed in the previous run of this script, so the outcome is timing-dependent: an open tab can write its own in-memory session back to shared storage after another tab signs out. This is behaviour of the application's sign-out across tabs, not something this feature controls, and it is wider than the reconciliation form. Tracked in #1345.
 - **Not judged by the script:** visual quality in case 14 (spacing, overlap, alignment). The script measured overflow, the fixed header, the scroll container and the background against the Provider Settlements pages; the screenshots need a human look.
 - **Not covered:** printing (the feature has no print path), and behaviour in browsers other than Chromium.
 - Case 6's classification recovery is exercised in case 10 (first-time form), because the reconciliation used in case 6 is a later one and has no setup section.
@@ -252,7 +253,7 @@ Steps:
 | Detail page: Complete is disabled | PASS |  |
 | Detail page shows the blocker "Opening Balance Difference is <amount>" | PASS | `Opening Balance Difference is 1000.00` |
 
-Screenshots: [case01-form-before-create.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case01-form-before-create.png), [case01-detail-blocked.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case01-detail-blocked.png)
+Screenshots: [case01-form-before-create.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case01-form-before-create.png), [case01-detail-blocked.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case01-detail-blocked.png)
 
 ### Case 2: Exact closing match completes
 
@@ -278,7 +279,7 @@ Steps:
 | Page shows "Completed by admin on <date>" | PASS | `Completed by admin on 05/10/2026SummaryTotal Money InMYR 500` |
 | No reconciliation draft remains in sessionStorage | PASS | `[]` |
 
-Screenshots: [case02-form-balanced.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case02-form-balanced.png), [case02-confirm-complete.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case02-confirm-complete.png), [case02-detail-completed.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case02-detail-completed.png)
+Screenshots: [case02-form-balanced.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case02-form-balanced.png), [case02-confirm-complete.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case02-confirm-complete.png), [case02-detail-completed.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case02-detail-completed.png)
 
 ### Case 3: Unticked entries carry forward to the next period
 
@@ -296,7 +297,7 @@ Steps:
 | The unticked January entry JE-QA-J3 (25/01/2026) is listed for February | PASS |  |
 | JE-QA-J1, matched in January, is not offered again | PASS |  |
 
-Screenshots: [case03-carry-forward.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case03-carry-forward.png)
+Screenshots: [case03-carry-forward.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case03-carry-forward.png)
 
 ### Case 4: An original and its reversal are separate rows
 
@@ -312,7 +313,7 @@ Steps:
 | Ticking only the original: Money In 200.00, Money Out 0.00, Calculated 1,400.00 | PASS | `{"moneyIn":"MYR 200.00","moneyOut":"MYR 0.00","calculated":"MYR 1,400.00"}` |
 | Ticking both: Money In 200.00 and Money Out 200.00 shown separately, Calculated back to 1,200.00 | PASS | `{"moneyIn":"MYR 200.00","moneyOut":"MYR 200.00","calculated":"MYR 1,200.00"}` |
 
-Screenshots: [case04-original-and-reversal.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case04-original-and-reversal.png)
+Screenshots: [case04-original-and-reversal.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case04-original-and-reversal.png)
 
 ### Case 5: Hidden selections survive search and paging and stay in the totals
 
@@ -334,7 +335,7 @@ Steps:
 | Back on page 1 the row is still ticked | PASS |  |
 | Database: February draft is sequence 2, From 2026-02-01, Opening 1200.0000 | PASS | `DRAFT\|2\|2026-02-01\|1200.0000\|BR-26-002` |
 
-Screenshots: [case05-page2-totals.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case05-page2-totals.png)
+Screenshots: [case05-page2-totals.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case05-page2-totals.png)
 
 ### Case 6: Refresh and re-open persistence
 
@@ -355,7 +356,7 @@ Steps:
 
 Note: This reconciliation is sequence 2, so it has no setup classifications; classification recovery is exercised on the Maybank first-time form in case 10.
 
-Screenshots: [case06-after-reload.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case06-after-reload.png)
+Screenshots: [case06-after-reload.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case06-after-reload.png)
 
 ### Case 7: Discard
 
@@ -374,7 +375,7 @@ Steps:
 | Database: its reservations are released | PASS | `before 2, after 0` |
 | Database: the number counter did not go back (next is 3) | PASS | `3` |
 
-Screenshots: [case07-confirm-discard.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case07-confirm-discard.png), [case07-list-after-discard.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case07-list-after-discard.png)
+Screenshots: [case07-confirm-discard.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case07-confirm-discard.png), [case07-list-after-discard.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case07-list-after-discard.png)
 
 ### Case 8: Cancel Reopen
 
@@ -400,7 +401,7 @@ Steps:
 | Audit history keeps REOPEN and CANCEL_REOPEN | PASS | `CREATE,UPDATE,COMPLETE,REOPEN,UPDATE,CANCEL_REOPEN` |
 | No stored draft remains | PASS |  |
 
-Screenshots: [case08-reopened.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case08-reopened.png), [case08-confirm-cancel-reopen.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case08-confirm-cancel-reopen.png), [case08-restored-completed.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case08-restored-completed.png)
+Screenshots: [case08-reopened.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case08-reopened.png), [case08-confirm-cancel-reopen.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case08-confirm-cancel-reopen.png), [case08-restored-completed.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case08-restored-completed.png)
 
 ### Case 9: Two-tab concurrency
 
@@ -424,7 +425,7 @@ Steps:
 | Tab B keeps its unsaved draft, still at the lockVersion it was loaded from (1) | PASS | `{"lockVersion":1,"closing":"777.00"}` |
 | Server state still 500.0000 at lockVersion 2 after Tab B's attempt | PASS | `500.0000\|2` |
 
-Screenshots: [case09-tabB-conflict.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case09-tabB-conflict.png)
+Screenshots: [case09-tabB-conflict.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case09-tabB-conflict.png)
 
 ### Case 10: Unsaved-form recovery through a Journal No link on create and on edit
 
@@ -439,7 +440,7 @@ Steps:
 | EDIT: navigated to the journal entry page in the same tab | PASS | `/accounting/journal-entries/6330dc5c-6bde-4d9d-a41d-4642eb057ae5` |
 | EDIT: back on the form, Closing 1300.00, JE-QA-J3 ticked, search text kept | PASS |  |
 
-Screenshots: [case10-edit-journal-page.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case10-edit-journal-page.png), [case10-edit-restored.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case10-edit-restored.png)
+Screenshots: [case10-edit-journal-page.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case10-edit-journal-page.png), [case10-edit-restored.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case10-edit-restored.png)
 
 ### Case 10 (create): Unsaved-form recovery through a Journal No link on create (first-time form, with a classification)
 
@@ -458,7 +459,7 @@ Steps:
 | JE-QA-M1 is still ticked | PASS |  |
 | JE-QA-MP1 is still classified Outstanding | PASS | `true` |
 
-Screenshots: [case10b-create-restored.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case10b-create-restored.png)
+Screenshots: [case10b-create-restored.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case10b-create-restored.png)
 
 ### Case 11: Stale-version recovery
 
@@ -474,7 +475,7 @@ Steps:
 | The current server state is loaded (Closing 500.00) | PASS | `500.00` |
 | The stale stored draft is gone (none stored, or re-stored at lockVersion 2 with server values) | PASS | `none` |
 
-Screenshots: [case11-stale-warning.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case11-stale-warning.png)
+Screenshots: [case11-stale-warning.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case11-stale-warning.png)
 
 ### Case 12: Shortening To and moving From earlier
 
@@ -495,7 +496,7 @@ Steps:
 | Create is disabled; the classification was not removed automatically | PASS |  |
 | After Clear classification the panel is empty and Create is enabled | PASS |  |
 
-Screenshots: [case12-invalid-matched.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case12-invalid-matched.png), [case12-invalid-classification.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case12-invalid-classification.png)
+Screenshots: [case12-invalid-matched.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case12-invalid-matched.png), [case12-invalid-classification.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case12-invalid-classification.png)
 
 ### Case 13: A ticked but unclassified entry blocks Complete
 
@@ -516,7 +517,7 @@ Steps:
 | Draft detail: the Matched tab lists JE-QA-MP1 | PASS |  |
 | Server rejects Complete with 409 and names the gate | PASS | `409 {"text":"Cannot complete: 1 entry is unclassified.","gates":{"unclassifiedCount":1}}` |
 
-Screenshots: [case13-form-ticked-unclassified.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case13-form-ticked-unclassified.png), [case13-detail-blocked.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case13-detail-blocked.png)
+Screenshots: [case13-form-ticked-unclassified.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case13-form-ticked-unclassified.png), [case13-detail-blocked.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case13-detail-blocked.png)
 
 ### Case 14: Browser pass at desktop and narrow width
 
@@ -528,7 +529,7 @@ Assertions: 22 of 22 passed. For the list, form and detail pages at 1440×900 an
 - narrow-375 measurements: {"list":{"innerWidth":375,"pageScrollWidth":375,"horizontalOverflow":false,"scroller":"none (content fits)","scrolledTo":0,"headerTopAfterScroll":0,"bodyBackground":"rgb(18, 18, 18)","elementsPastRightEdgeOutsideTables":0},"form":{"innerWidth":375,"pageScrollWidth":375,"horizontalOverflow":false,"scroller":"main.MuiBox-root","scrolledTo":1322,"headerTopAfterScroll":0,"bodyBackground":"rgb(18, 18, 18)","elementsPastRightEdgeOutsideTables":1},"detail":{"innerWidth":375,"pageScrollWidth":375,"horizontalOverflow":false,"scroller":"main.MuiBox-root","scrolledTo":709,"headerTopAfterScroll":0,"bodyBackground":"rgb(18, 18, 18)","elementsPastRightEdgeOutsideTables":1},"sibling-list":{"innerWidth":375,"pageScrollWidth":375,"horizontalOverflow":false,"scroller":"none (content fits)","scrolledTo":0,"headerTopAfterScroll":0,"bodyBackground":"rgb(18, 18, 18)","elementsPastRightEdgeOutsideTables":0},"sibling-form":{"innerWidth":375,"pageScrollWidth":375,"horizontalOverflow":false,"scroller":"main.MuiBox-root","scrolledTo":470,"headerTopAfterScroll":0,"bodyBackground":"rgb(18, 18, 18)","elementsPastRightEdgeOutsideTables":0}}
 - Not judged by this script: visual quality such as spacing, overlap and alignment. The screenshots are the evidence for those and need a human look.
 
-Screenshots: [case14-desktop-1440-list-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-list-top.png), [case14-desktop-1440-list-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-list-scrolled.png), [case14-desktop-1440-form-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-form-top.png), [case14-desktop-1440-form-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-form-scrolled.png), [case14-desktop-1440-detail-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-detail-top.png), [case14-desktop-1440-detail-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-detail-scrolled.png), [case14-desktop-1440-sibling-list-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-sibling-list-top.png), [case14-desktop-1440-sibling-list-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-sibling-list-scrolled.png), [case14-desktop-1440-sibling-form-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-sibling-form-top.png), [case14-desktop-1440-sibling-form-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-desktop-1440-sibling-form-scrolled.png), [case14-narrow-375-list-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-list-top.png), [case14-narrow-375-list-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-list-scrolled.png), [case14-narrow-375-form-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-form-top.png), [case14-narrow-375-form-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-form-scrolled.png), [case14-narrow-375-detail-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-detail-top.png), [case14-narrow-375-detail-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-detail-scrolled.png), [case14-narrow-375-sibling-list-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-sibling-list-top.png), [case14-narrow-375-sibling-list-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-sibling-list-scrolled.png), [case14-narrow-375-sibling-form-top.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-sibling-form-top.png), [case14-narrow-375-sibling-form-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/case14-narrow-375-sibling-form-scrolled.png)
+Screenshots: [case14-desktop-1440-list-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-list-top.png), [case14-desktop-1440-list-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-list-scrolled.png), [case14-desktop-1440-form-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-form-top.png), [case14-desktop-1440-form-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-form-scrolled.png), [case14-desktop-1440-detail-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-detail-top.png), [case14-desktop-1440-detail-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-detail-scrolled.png), [case14-desktop-1440-sibling-list-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-sibling-list-top.png), [case14-desktop-1440-sibling-list-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-sibling-list-scrolled.png), [case14-desktop-1440-sibling-form-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-sibling-form-top.png), [case14-desktop-1440-sibling-form-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-desktop-1440-sibling-form-scrolled.png), [case14-narrow-375-list-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-list-top.png), [case14-narrow-375-list-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-list-scrolled.png), [case14-narrow-375-form-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-form-top.png), [case14-narrow-375-form-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-form-scrolled.png), [case14-narrow-375-detail-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-detail-top.png), [case14-narrow-375-detail-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-detail-scrolled.png), [case14-narrow-375-sibling-list-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-sibling-list-top.png), [case14-narrow-375-sibling-list-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-sibling-list-scrolled.png), [case14-narrow-375-sibling-form-top.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-sibling-form-top.png), [case14-narrow-375-sibling-form-scrolled.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/case14-narrow-375-sibling-form-scrolled.png)
 
 ### Sign-out A: Sign-out in the tab that holds the draft
 
@@ -545,7 +546,7 @@ Steps:
 
 Note: Stored value fields: v, lockVersion, form, picker, savedAt; form fields: bankAccountId, periodFrom, periodTo, openingBalance, closingBalance, matched, setupChanges
 
-Screenshots: [signout1-after-signout.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/signout1-after-signout.png)
+Screenshots: [signout1-after-signout.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/signout1-after-signout.png)
 
 ### Sign-out B: Sign-out in a different tab (known retention)
 
@@ -565,7 +566,7 @@ Steps:
 
 Note: Tab A still displays the form after Tab B signed out: true. Tab A URL: /accounting/bank-reconciliations/8217c798-8c32-4dcb-8a2b-e740f76943a2/edit
 
-Screenshots: [signout2-tabA-after-tabB-signout.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/signout2-tabA-after-tabB-signout.png)
+Screenshots: [signout2-tabA-after-tabB-signout.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/signout2-tabA-after-tabB-signout.png)
 
 ### Session restore A: Browser session restored while still signed in
 
@@ -585,7 +586,7 @@ Steps:
 
 Note: Browser: 153.0.8010.12 (full Chromium, new headless), persistent profile
 
-Screenshots: [restore1-restored-signed-in.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/restore1-restored-signed-in.png)
+Screenshots: [restore1-restored-signed-in.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/restore1-restored-signed-in.png)
 
 ### Session restore B: Browser session restored after sign-out in another tab
 
@@ -606,4 +607,4 @@ Steps:
 
 Note: Restored tabs: /login, /login
 
-Screenshots: [restore2-restored-signed-out.png](https://raw.githubusercontent.com/blur88/erp2/screenshots/1342/shots/restore2-restored-signed-out.png)
+Screenshots: [restore2-restored-signed-out.png](https://raw.githubusercontent.com/blur88/erp2/59f7a97527edd9c6fca9a62d7c8039ba50dee9cf/shots/restore2-restored-signed-out.png)

@@ -1,8 +1,12 @@
 # Bank Reconciliation draft storage: CodeQL alert assessment
 
-Status: **open merge gate for PR #1343.** This records the assessment the alert
-must be judged against. The approved `sessionStorage` design (spec D9) is
-retained. The alert is not dismissed here.
+Status: **CodeQL alert 46 dismissed as a false positive on 2026-10-05**, on the
+repository owner's decision, for the traced value only (Question 1). The
+approved `sessionStorage` design (spec D9) is retained.
+
+The dismissal does **not** cover the two risks below, which are real and remain
+open: the financial data held in the draft (Question 2, Residual risk) and
+cross-tab sign-out (tracked in #1345).
 
 ## The alert
 
@@ -73,7 +77,7 @@ is persisted to shared `localStorage` by redux-persist, and nothing synchronises
 sign-out between tabs (`frontend/src` has no `storage` listener or
 `BroadcastChannel`). An open tab can write its own in-memory session back to
 shared storage after another tab has signed out, so whether it is later found
-signed out depends on timing. While that tab stays signed in, its draft stays.
+signed out depends on timing. While that tab stays signed in, its draft stays. Tracked in #1345.
 
 Not exercised: a restored tab whose JavaScript never runs (offline or crashed
 page); browsers other than Chromium.
@@ -97,5 +101,8 @@ page); browsers other than Chromium.
   recorded residual risk of the approved `sessionStorage` design, with the
   multi-tab gap above stated rather than closed.
 
-The alert has **not** been dismissed. Dismissal is for the repository owner,
-on review of the browser evidence above, including the cross-tab row.
+Alert 46 was dismissed as a false positive on 2026-10-05, citing this document,
+after the owner reviewed the browser evidence. The dismissal applies to the
+traced value. The retention of financial data in the draft and the cross-tab
+sign-out behaviour are not false positives; they stay recorded here, and the
+second is tracked in #1345.
