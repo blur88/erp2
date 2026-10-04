@@ -76,6 +76,11 @@ describe('navigation structure', () => {
         path: '/accounting/provider-settlements',
       },
       {
+        id: 'bank-reconciliations',
+        title: 'Bank Reconciliations',
+        path: '/accounting/bank-reconciliations',
+      },
+      {
         id: 'general-ledger',
         title: 'General Ledger',
         path: '/accounting/general-ledger',
@@ -114,7 +119,7 @@ describe('navigation structure', () => {
 
   it('opens every accounting child to all roles', () => {
     const children = accountingParent().children ?? []
-    expect(children).toHaveLength(10)
+    expect(children).toHaveLength(11)
     children.forEach((child) => {
       expect(child.roles).toEqual([
         'admin',
