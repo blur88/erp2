@@ -26,7 +26,7 @@
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:cov": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "test:debug": "NODE_OPTIONS=--experimental-vm-modules node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json",
+    "test:e2e": "NODE_ENV=test NODE_OPTIONS=\"--max-old-space-size=4096 --experimental-vm-modules\" jest --config ./test/jest-e2e.json",
     "test:redis": "./scripts/preflight-redis-test.sh && NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-redis.json",
     "test:scripts": "bats scripts/__tests__",
     "typeorm": "typeorm-ts-node-commonjs",
