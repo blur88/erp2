@@ -227,6 +227,7 @@ describe('SettingsService', () => {
       'Expenses',
       'Owner Equity',
       'Provider Settlements',
+      'Bank Reconciliations',
     ]);
     expect(names).not.toContain('Payments');
     expect(names).not.toContain('Goods Received');
