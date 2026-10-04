@@ -39,6 +39,15 @@ export interface ReconciliationLinePickerProps {
   readOnly?: boolean
 }
 
+/**
+ * Accessible name for a row's checkbox. Names the transaction itself: several
+ * rows can share a date or an amount, and an original and its reversal differ
+ * only by journal number and direction.
+ */
+export function checkboxLabel(row: ReconciliationLineDto): string {
+  return `Select ${row.journalNo}, ${formatDate(row.entryDate)}, Money In ${row.moneyIn}, Money Out ${row.moneyOut}`
+}
+
 export default function ReconciliationLinePicker({
   rows,
   total,
@@ -140,6 +149,7 @@ export default function ReconciliationLinePicker({
                           checked={isChecked}
                           disabled={readOnly}
                           onChange={() => onToggle(row)}
+                          slotProps={{ input: { 'aria-label': checkboxLabel(row) } }}
                         />
                       </TableCell>
                       <TableCell>{formatDate(row.entryDate)}</TableCell>

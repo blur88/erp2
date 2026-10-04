@@ -2,8 +2,8 @@
 import '@testing-library/jest-dom/vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
   Account,
@@ -413,6 +413,223 @@ describe('BankReconciliationFormPage', () => {
     })
   })
 
+  describe('selection, payloads and recovery', () => {
+    const emptyPage = { data: [], meta: { total: 0, page: 1, limit: 25 } }
+    const checkboxFor = (journalNo: string) =>
+      screen.getByRole('checkbox', { name: new RegExp(`^Select ${journalNo},`) })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('keeps selections and the summary across paging and search, and saves the full set', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      mockSearchLines.mockImplementation(async (arg: any) => {
+        if (arg.view !== 'checklist') return emptyPage
+        if (arg.search) return emptyPage
+        if (arg.page === 2) {
+          return {
+            data: [makeLine({ journalEntryLineId: 'jel-2', journalNo: 'JE-002', moneyIn: '50.00' })],
+            meta: { total: 30, page: 2, limit: 25 },
+          }
+        }
+        return { data: [makeLine()], meta: { total: 30, page: 1, limit: 25 } }
+      })
+      mockPreview.mockImplementation(async (arg: any) => ({
+        ...defaultPreviewResult,
+        matched: [
+          makeLine(),
+          makeLine({ journalEntryLineId: 'jel-2', journalNo: 'JE-002', moneyIn: '50.00' }),
+        ].filter((l) => arg.matchedLineIds.includes(l.journalEntryLineId)),
+      }))
+
+      renderEdit()
+      await waitFor(() => expect(checkboxFor('JE-001')).toBeChecked())
+      expect(screen.getByTestId('summary-money-in')).toHaveTextContent('100.00')
+
+      // Page 2: JE-001 is no longer on screen but stays selected and in the totals.
+      await userEvent.click(screen.getByRole('button', { name: /go to page 2/i }))
+      await userEvent.click(await screen.findByRole('checkbox', { name: /^Select JE-002,/ }))
+      expect(screen.getByTestId('summary-money-in')).toHaveTextContent('150.00')
+
+      // A search that matches nothing hides every row; the totals do not move.
+      await userEvent.type(screen.getByPlaceholderText('Search transactions...'), 'zzz')
+      await waitFor(() => expect(screen.queryByRole('checkbox', { name: /^Select / })).not.toBeInTheDocument())
+      expect(screen.getByTestId('summary-money-in')).toHaveTextContent('150.00')
+
+      await userEvent.clear(screen.getByPlaceholderText('Search transactions...'))
+      await waitFor(() => expect(checkboxFor('JE-001')).toBeChecked())
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeDisabled())
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+      const sent = mockUpdate.mock.calls[0][0]
+      expect(sent.id).toBe('r-1')
+      expect(sent.body.lockVersion).toBe(1)
+      expect(sent.body.matchedLineIds).toEqual(['jel-1', 'jel-2'])
+    })
+
+    it('sends setup changes separately from the matched set, and no lockVersion on create', async () => {
+      const token = 'tok-payload'
+      saveDraft(draftKey('u-1', { createToken: token }), {
+        v: 1,
+        lockVersion: null,
+        form: {
+          bankAccountId: 'ba-1',
+          periodFrom: '2026-01-01',
+          periodTo: '2026-01-31',
+          openingBalance: '100.00',
+          closingBalance: '200.00',
+          matched: { 'jel-1': { moneyIn: '100.00', moneyOut: '0.00' } },
+          setupChanges: { 'jel-pre': 'OUTSTANDING' },
+        },
+        picker: { checklist: { page: 1, search: '' }, setup: { page: 1, search: '', filter: 'ALL' } },
+        savedAt: new Date().toISOString(),
+      })
+
+      renderCreate(`?draft=${token}`)
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled())
+      await userEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+      await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))
+      const body = mockCreate.mock.calls[0][0]
+      expect(body).not.toHaveProperty('lockVersion')
+      expect(body.matchedLineIds).toEqual(['jel-1'])
+      expect(body.setupChanges).toEqual([{ journalEntryLineId: 'jel-pre', classification: 'OUTSTANDING' }])
+    })
+
+    it('refreshes the preview after ticking and after classifying, and shows the unclassified count it returns', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      mockSearchLines.mockImplementation(async (arg: any) =>
+        arg.view === 'setup'
+          ? {
+              data: [makeLine({
+                journalEntryLineId: 'jel-pre', journalNo: 'JE-PRE', entryDate: '2025-12-20',
+                prePeriod: true, classification: 'UNCLASSIFIED',
+              })],
+              meta: { total: 1, page: 1, limit: 25 },
+            }
+          : { data: [makeLine()], meta: { total: 1, page: 1, limit: 25 } },
+      )
+      // A ticked pre-period entry that is not classified still counts as unclassified:
+      // the count is whatever the server's preview reports.
+      mockPreview.mockResolvedValue({
+        ...defaultPreviewResult,
+        setupSummary: { ...defaultPreviewResult.setupSummary!, prePeriodTotal: 1, unclassifiedCount: 1 },
+      })
+
+      renderEdit()
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(1))
+      expect(await screen.findByText('1 unclassified')).toBeInTheDocument()
+
+      await userEvent.click(await screen.findByRole('checkbox', { name: /^Select JE-001,/ }))
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(2))
+      expect(mockPreview.mock.calls[1][0].matchedLineIds).toEqual([])
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Already cleared' }))
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(3))
+      expect(mockPreview.mock.calls[2][0].setupChanges).toEqual([
+        { journalEntryLineId: 'jel-pre', classification: 'CLEARED' },
+      ])
+    })
+
+    it('restores the whole form after following a Journal No link and coming back (edit)', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      mockSearchLines.mockImplementation(async (arg: any) =>
+        arg.view === 'checklist' ? { data: [makeLine()], meta: { total: 1, page: 1, limit: 25 } } : emptyPage,
+      )
+      mockPreview.mockImplementation(async (arg: any) => ({
+        ...defaultPreviewResult,
+        matched: arg.matchedLineIds.includes('jel-1') ? [makeLine()] : [],
+      }))
+
+      function JournalStub() {
+        const navigate = useNavigate()
+        return <button onClick={() => navigate(-1)}>BACK FROM JOURNAL</button>
+      }
+      render(
+        <MemoryRouter initialEntries={['/accounting/bank-reconciliations/r-1/edit']}>
+          <Routes>
+            <Route path="/accounting/bank-reconciliations/:id/edit" element={<BankReconciliationFormPage />} />
+            <Route path="/accounting/journal-entries/:id" element={<JournalStub />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+
+      await waitFor(() => expect(checkboxFor('JE-001')).toBeChecked())
+      const closing = screen.getByLabelText('Closing Balance')
+      await userEvent.clear(closing)
+      await userEvent.type(closing, '777.00')
+      await userEvent.click(checkboxFor('JE-001'))
+      expect(checkboxFor('JE-001')).not.toBeChecked()
+
+      await userEvent.click(screen.getByRole('link', { name: 'JE-001' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'BACK FROM JOURNAL' }))
+
+      await waitFor(() => expect(screen.getByLabelText('Closing Balance')).toHaveValue('777.00'))
+      await waitFor(() => expect(checkboxFor('JE-001')).not.toBeChecked())
+    })
+
+    it('previews after a restore and puts selections that are no longer eligible in the invalid panel', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      saveDraft(draftKey('u-1', { reconciliationId: 'r-1' }), {
+        v: 1,
+        lockVersion: 1,
+        form: {
+          bankAccountId: 'ba-1',
+          periodFrom: '2026-01-01',
+          periodTo: '2026-01-31',
+          openingBalance: '0.00',
+          closingBalance: '100.00',
+          matched: { 'jel-9': { moneyIn: '40.00', moneyOut: '0.00' } },
+          setupChanges: {},
+        },
+        picker: { checklist: { page: 1, search: '' }, setup: { page: 1, search: '', filter: 'ALL' } },
+        savedAt: new Date().toISOString(),
+      })
+      mockPreview.mockResolvedValue({
+        matched: [],
+        invalidMatched: [makeLine({ journalEntryLineId: 'jel-9', journalNo: 'JE-GONE' })],
+        invalidClassifications: [],
+        setupSummary: null,
+      })
+
+      renderEdit()
+
+      expect(await screen.findByText(/JE-GONE/)).toBeInTheDocument()
+      expect(mockPreview.mock.calls[0][0].matchedLineIds).toEqual(['jel-9'])
+      expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled()
+    })
+
+    it('renders and saves normally when sessionStorage throws', async () => {
+      // Only sessionStorage fails. The prototype is shared with localStorage,
+      // which unrelated utilities read, so every other receiver passes through.
+      const failing: Array<'setItem' | 'getItem' | 'removeItem'> = ['setItem', 'getItem', 'removeItem']
+      const spies = failing.map((method) => {
+        const original = Storage.prototype[method] as (...a: unknown[]) => unknown
+        return vi.spyOn(Storage.prototype, method).mockImplementation(function (this: Storage, ...args: unknown[]) {
+          if (this === window.sessionStorage) throw new Error('sessionStorage unavailable')
+          return original.apply(this, args)
+        } as never)
+      })
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+
+      renderEdit()
+      await waitFor(() => expect(checkboxFor('JE-001')).toBeChecked())
+
+      const closing = screen.getByLabelText('Closing Balance')
+      await userEvent.clear(closing)
+      await userEvent.type(closing, '100.00')
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeDisabled())
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+      expect(mockShowSuccess).toHaveBeenCalled()
+      // The failure path was really exercised, not bypassed.
+      expect(spies[0]).toHaveBeenCalled()
+    })
+  })
+
   describe('preview and search request ordering', () => {
     function deferred<T>() {
       let resolve!: (v: T) => void
@@ -488,12 +705,7 @@ describe('BankReconciliationFormPage', () => {
       fireEvent.change(screen.getByLabelText('Period To'), { target: { value: '2026-01-20' } })
       await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(2))
 
-      // The picker checkbox has no accessible name; reach it through its row.
-      const checklistCheckbox = () => {
-        const rows = screen.getAllByText('JE-001').map((el) => el.closest('tr') as HTMLElement)
-        const row = rows.find((r) => within(r).queryByRole('checkbox'))
-        return within(row as HTMLElement).getByRole('checkbox')
-      }
+      const checklistCheckbox = () => screen.getByRole('checkbox', { name: /^Select JE-001,/ })
       await waitFor(() => expect(checklistCheckbox()).toBeChecked())
       await userEvent.click(checklistCheckbox())
       expect(checklistCheckbox()).not.toBeChecked()

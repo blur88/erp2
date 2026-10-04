@@ -35,11 +35,19 @@ describe('reconciliation drafts and sign-out', () => {
     expect(sessionStorage.getItem('unrelated')).toBe('keep')
   })
 
-  it('keeps drafts across a reload, which starts signed-out and becomes signed-in', () => {
+  it('clears drafts on load when the tab is not signed in (browser-restored tab after sign-out)', () => {
+    renderHook(() => useClearReconciliationDraftsOnSignOut(false))
+    expect(sessionStorage.getItem(KEY_A)).toBeNull()
+    expect(sessionStorage.getItem(KEY_B)).toBeNull()
+    expect(sessionStorage.getItem('unrelated')).toBe('keep')
+  })
+
+  it('keeps drafts on load and on re-render while the tab stays signed in (reload of a signed-in tab)', () => {
     const { rerender } = renderHook(({ auth }) => useClearReconciliationDraftsOnSignOut(auth), {
-      initialProps: { auth: false },
+      initialProps: { auth: true },
     })
     rerender({ auth: true })
     expect(sessionStorage.getItem(KEY_A)).not.toBeNull()
+    expect(sessionStorage.getItem(KEY_B)).not.toBeNull()
   })
 })

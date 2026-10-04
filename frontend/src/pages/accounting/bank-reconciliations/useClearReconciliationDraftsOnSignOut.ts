@@ -1,16 +1,22 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
 import { clearAllDrafts } from './reconciliationDraftStorage'
 
 /**
- * Clears stored reconciliation drafts when the session ends. Only the
- * signed-in → signed-out transition clears: a page reload starts signed-out
- * and becomes signed-in, and must keep the draft it is about to restore.
+ * Removes stored reconciliation drafts from THIS tab whenever it is not signed
+ * in: on sign-out (manual, idle or forced), and on load when the persisted
+ * session is already gone — which is how a browser-restored tab arrives after
+ * the user signed out elsewhere or the session expired.
+ *
+ * Safe to run on mount: the caller renders inside redux-persist's PersistGate,
+ * so `isAuthenticated` is already rehydrated on first render and a reload of a
+ * signed-in tab never passes through a signed-out state.
+ *
+ * It cannot reach other tabs. sessionStorage is per tab, so another open tab
+ * keeps its drafts until that tab itself becomes signed-out or is closed.
  */
 export function useClearReconciliationDraftsOnSignOut(isAuthenticated: boolean): void {
-  const wasAuthenticated = useRef(isAuthenticated)
   useEffect(() => {
-    if (wasAuthenticated.current && !isAuthenticated) clearAllDrafts()
-    wasAuthenticated.current = isAuthenticated
+    if (!isAuthenticated) clearAllDrafts()
   }, [isAuthenticated])
 }

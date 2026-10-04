@@ -94,6 +94,33 @@ describe('ReconciliationLinePicker', () => {
     expect(checkbox).toBeChecked()
   })
 
+  it('names each checkbox after its transaction', () => {
+    const original = makeLine({ journalEntryLineId: 'jel-a', journalNo: 'JE-100', moneyIn: '200.00', moneyOut: '0.00' })
+    const reversal = makeLine({ journalEntryLineId: 'jel-b', journalNo: 'JE-101', moneyIn: '0.00', moneyOut: '200.00' })
+    render(
+      <MemoryRouter>
+        <ReconciliationLinePicker
+          rows={[original, reversal]}
+          total={2}
+          page={1}
+          search=""
+          loading={false}
+          selectedIds={new Set(['jel-b'])}
+          onToggle={vi.fn()}
+          onPageChange={vi.fn()}
+          onSearchChange={vi.fn()}
+        />
+      </MemoryRouter>,
+    )
+
+    // An original and its reversal share a date and an amount; the name tells them apart.
+    const first = screen.getByRole('checkbox', { name: /^Select JE-100, .*Money In 200\.00, Money Out 0\.00$/ })
+    const second = screen.getByRole('checkbox', { name: /^Select JE-101, .*Money In 0\.00, Money Out 200\.00$/ })
+    expect(first).not.toBeChecked()
+    expect(second).toBeChecked()
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2)
+  })
+
   it('renders an opening-balance source as plain text, not a link', () => {
     const line = makeLine({
       sourceType: 'OPENING_BALANCE',
