@@ -21,6 +21,7 @@ import { BankReconciliationLine } from '../modules/bank-reconciliations/entities
 import { BankReconciliationSetupMark } from '../modules/bank-reconciliations/entities/bank-reconciliation-setup-mark.entity';
 import { BankReconciliationVersion } from '../modules/bank-reconciliations/entities/bank-reconciliation-version.entity';
 import { BankReconciliationVersionLine } from '../modules/bank-reconciliations/entities/bank-reconciliation-version-line.entity';
+import { AuthSession } from '../database/entities/auth-session.entity';
 import { AuditLog } from '../database/entities/audit-log.entity';
 import { BackupLog } from '../database/entities/backup-log.entity';
 import { BackupSchedule } from '../database/entities/backup-schedule.entity';
@@ -147,6 +148,7 @@ export function createDatabaseConfig(
       PurchaseCostHistory,
       PurchaseOrder,
       PurchaseOrderItem,
+      AuthSession,
       RefreshToken,
       SalesOrder,
       SalesOrderItem,

@@ -3,14 +3,14 @@ import {
   UnauthorizedException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
 import { User, UserStatus } from '@/database/entities/user.entity';
 import { RefreshToken } from '@/database/entities/refresh-token.entity';
 import { bcryptRounds } from '@/common/security/bcrypt-rounds';
@@ -21,6 +21,8 @@ import {
   RefreshTokenDto,
   ChangePasswordDto,
 } from './dto';
+import { AuthSessionService } from './auth-session.service';
+import { AuthClock } from './auth-clock';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 30;
@@ -36,6 +38,9 @@ export class AuthService {
     private refreshTokenRepository: Repository<RefreshToken>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private dataSource: DataSource,
+    private authSessionService: AuthSessionService,
+    private clock: AuthClock,
   ) {}
 
   /**
@@ -66,18 +71,8 @@ export class AuthService {
     // Self-heal: if the lock has expired by the app clock, clear it before the
     // lock check. Guards against a stale lockedUntil lingering when a user can
     // never reach the success path that normally resets it. See issue #710.
-    if (user.lockedUntil && user.lockedUntil <= new Date()) {
-      user.failedLoginAttempts = 0;
-      user.lockedUntil = null;
-      try {
-        await this.userRepository.save(user);
-      } catch (err) {
-        // A failed cleanup must not block login; the in-memory isLocked check
-        // below still governs the decision. Retry happens on the next attempt.
-        this.logger.warn(
-          `Failed to persist lock self-heal for ${user.username}: ${err}`,
-        );
-      }
+    if (user.lockedUntil && user.lockedUntil <= this.clock.now()) {
+      await this.healExpiredLock(user);
     }
 
     // Check if account is locked
@@ -100,33 +95,55 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Reset failed login attempts on successful login
-    if (user.failedLoginAttempts > 0) {
-      user.failedLoginAttempts = 0;
-      user.lockedUntil = null;
-    }
+    const { tokens, user: updatedUser } = await this.dataSource.transaction(
+      async (manager) => {
+        const lockedUser = await manager.getRepository(User).findOne({
+          where: { id: user.id },
+          lock: { mode: 'for_no_key_update' },
+        });
 
-    // Update last login info
-    user.lastLoginAt = new Date();
-    user.lastLoginIp = ipAddress || null;
-    await this.userRepository.save(user);
+        if (!lockedUser || lockedUser.password !== user.password) {
+          throw new UnauthorizedException('Invalid credentials');
+        }
 
-    // Generate tokens
-    const { accessToken, refreshToken } = await this.generateTokens(
-      user,
-      rememberMe,
-      ipAddress,
-      userAgent,
+        const now = this.clock.now();
+        await manager.update(User, user.id, {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          lastLoginAt: now,
+          lastLoginIp: ipAddress || null,
+        });
+
+        lockedUser.failedLoginAttempts = 0;
+        lockedUser.lockedUntil = null;
+        lockedUser.lastLoginAt = now;
+        lockedUser.lastLoginIp = ipAddress || null;
+
+        const tokens = await this.authSessionService.createSession(
+          manager,
+          lockedUser,
+          {
+            rememberMe: rememberMe ?? false,
+            ipAddress,
+            userAgent,
+          },
+        );
+
+        return { tokens, user: lockedUser };
+      },
     );
 
     this.logger.log(`User ${user.username} logged in successfully from ${ipAddress}`);
 
     return {
-      accessToken,
-      refreshToken,
-      expiresIn: this.getAccessTokenExpiry(),
-      user: this.sanitizeUser(user),
-      requiresPasswordChange: user.requiresPasswordChange || false,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      sessionId: tokens.sessionId,
+      generation: tokens.generation,
+      accessTokenExpiresAt: tokens.accessTokenExpiresAt,
+      expiresIn: tokens.expiresIn,
+      user: this.sanitizeUser(updatedUser),
+      requiresPasswordChange: updatedUser.requiresPasswordChange || false,
     };
   }
 
@@ -163,30 +180,38 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, bcryptRounds());
 
-    // Create user
-    const user = this.userRepository.create({
-      username,
-      email,
-      password: hashedPassword,
-      firstName,
-      lastName,
-      role,
-      status: UserStatus.ACTIVE,
-      isActive: true,
-      failedLoginAttempts: 0,
-    });
+    const { user, tokens } = await this.dataSource.transaction(async (manager) => {
+      // Create user
+      const newUser = manager.getRepository(User).create({
+        username,
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        role,
+        status: UserStatus.ACTIVE,
+        isActive: true,
+        failedLoginAttempts: 0,
+      });
 
-    await this.userRepository.save(user);
+      const savedUser = await manager.getRepository(User).save(newUser);
+
+      const tokens = await this.authSessionService.createSession(manager, savedUser, {
+        rememberMe: false,
+      });
+
+      return { user: savedUser, tokens };
+    });
 
     this.logger.log(`New user registered: ${username} (${email})`);
 
-    // Auto-login after registration
-    const { accessToken, refreshToken } = await this.generateTokens(user);
-
     return {
-      accessToken,
-      refreshToken,
-      expiresIn: this.getAccessTokenExpiry(),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      sessionId: tokens.sessionId,
+      generation: tokens.generation,
+      accessTokenExpiresAt: tokens.accessTokenExpiresAt,
+      expiresIn: tokens.expiresIn,
       user: this.sanitizeUser(user),
       requiresPasswordChange: user.requiresPasswordChange || false,
     };
@@ -200,63 +225,28 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<AuthResponseDto> {
-    const { refreshToken: token } = refreshTokenDto;
-
-    // Hash the incoming token to compare with stored hash
-    const tokenHash = this.hashToken(token);
-
-    // Find refresh token in database
-    const refreshTokenRecord = await this.refreshTokenRepository.findOne({
-      where: { tokenHash, isActive: true },
-      relations: { user: true },
-    });
-
-    if (!refreshTokenRecord) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    // Check if token is expired
-    if (refreshTokenRecord.isExpired) {
-      await this.refreshTokenRepository.remove(refreshTokenRecord);
-      throw new UnauthorizedException('Refresh token expired');
-    }
-
-    const user = refreshTokenRecord.user;
-
-    // Check if user is still active
-    if (!user.isActive || user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('User account is not active');
-    }
-
-    // Invalidate old refresh token (token rotation)
-    await this.refreshTokenRepository.remove(refreshTokenRecord);
-
-    // Generate new tokens
-    const { accessToken, refreshToken: newRefreshToken } = await this.generateTokens(
-      user,
-      false,
-      ipAddress,
-      userAgent,
+    const { tokens, user } = await this.authSessionService.refresh(
+      refreshTokenDto.refreshToken,
+      {
+        ipAddress,
+        userAgent,
+      },
     );
 
     this.logger.log(`Access token refreshed for user ${user.username}`);
 
     return {
-      accessToken,
-      refreshToken: newRefreshToken,
-      expiresIn: this.getAccessTokenExpiry(),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      sessionId: tokens.sessionId,
+      generation: tokens.generation,
+      accessTokenExpiresAt: tokens.accessTokenExpiresAt,
+      expiresIn: tokens.expiresIn,
       user: this.sanitizeUser(user),
       requiresPasswordChange: user.requiresPasswordChange || false,
     };
   }
 
-  /**
-   * Logout - invalidate all refresh tokens for user
-   */
-  async logout(userId: string): Promise<void> {
-    await this.refreshTokenRepository.delete({ userId, isActive: true });
-    this.logger.log(`User ${userId} logged out - all tokens invalidated`);
-  }
 
   /**
    * Change user password
@@ -280,8 +270,13 @@ export class AuthService {
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
 
     if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new BadRequestException({
+        message: 'Current password is incorrect',
+        code: 'CURRENT_PASSWORD_INCORRECT',
+      });
     }
+
+    const verifiedHash = user.password;
 
     // Check that new password is different from current
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
@@ -293,13 +288,35 @@ export class AuthService {
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, bcryptRounds());
 
-    // Update password and clear password change requirement
-    user.password = hashedPassword;
-    user.requiresPasswordChange = false;
-    await this.userRepository.save(user);
+    await this.dataSource.transaction(async (manager) => {
+      const lockedUser = await manager.getRepository(User).findOne({
+        where: { id: userId },
+        lock: { mode: 'for_no_key_update' },
+      });
 
-    // Invalidate all refresh tokens (force re-login everywhere)
-    await this.logout(userId);
+      if (!lockedUser) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      if (lockedUser.password !== verifiedHash) {
+        throw new ConflictException({
+          message: 'Password changed concurrently',
+          code: 'PASSWORD_CHANGED_CONCURRENTLY',
+        });
+      }
+
+      await manager.update(User, userId, {
+        password: hashedPassword,
+        requiresPasswordChange: false,
+      });
+
+      await this.authSessionService.revokeAllForUser(
+        manager,
+        userId,
+        'password_change',
+        this.clock.now(),
+      );
+    });
 
     this.logger.log(`Password changed for user ${user.username} - all sessions invalidated`);
   }
@@ -331,117 +348,46 @@ export class AuthService {
   }
 
   /**
+   * Self-heal expired lockout
+   */
+  private async healExpiredLock(user: User): Promise<void> {
+    try {
+      await this.userRepository.update(user.id, {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      });
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+    } catch (err) {
+      // A failed cleanup must not block login; the in-memory isLocked check
+      // below still governs the decision. Retry happens on the next attempt.
+      this.logger.warn(
+        `Failed to persist lock self-heal for ${user.username}: ${err}`,
+      );
+    }
+  }
+
+  /**
    * Handle failed login attempts and account lockout
    */
   private async handleFailedLogin(user: User): Promise<void> {
-    user.failedLoginAttempts += 1;
+    const nextAttempts = user.failedLoginAttempts + 1;
+    let lockedUntil: Date | null = null;
 
-    if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
-      user.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
+    if (nextAttempts >= MAX_FAILED_ATTEMPTS) {
+      lockedUntil = new Date(this.clock.now().getTime() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
       this.logger.warn(
         `Account ${user.username} locked due to ${MAX_FAILED_ATTEMPTS} failed login attempts`,
       );
     }
 
-    await this.userRepository.save(user);
-  }
-
-  /**
-   * Generate JWT access token and refresh token
-   */
-  private async generateTokens(
-    user: User,
-    rememberMe = false,
-    ipAddress?: string,
-    userAgent?: string,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
-    // JWT payload
-    const payload = {
-      sub: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-    };
-
-    // Generate access token (short-lived)
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_ACCESS_TOKEN_EXPIRY', '15m'),
+    await this.userRepository.update(user.id, {
+      failedLoginAttempts: nextAttempts,
+      ...(lockedUntil !== null ? { lockedUntil } : {}),
     });
-
-    // Generate refresh token (long-lived)
-    // If "Remember me" is checked: 7 days, otherwise: 2 days (covers 12h idle + buffer)
-    //
-    // The `jti` nonce is load-bearing, not decoration (issue #1201): every other
-    // claim is second-granularity, so without it two refresh tokens minted for
-    // one user inside the same wall-clock second are byte-identical. Their
-    // SHA-256 hashes then collide on the unique index over
-    // refresh_tokens.tokenHash, and the second login fails with a 400/DB_001.
-    // Rotation has the same collision without the error, because it deletes the
-    // old row first — it would silently reissue the token it just revoked.
-    // Two logins are two sessions with their own device/IP audit trail and
-    // independent revocation, so they must be distinct rows.
-    // The access token is not persisted and deliberately keeps the bare payload.
-    const refreshTokenExpiry = rememberMe ? '7d' : '2d';
-    const refreshToken = this.jwtService.sign(
-      { ...payload, jti: crypto.randomUUID() },
-      {
-        expiresIn: this.configService.get('JWT_REFRESH_TOKEN_EXPIRY', refreshTokenExpiry),
-      },
-    );
-
-    // Store refresh token in database (hashed)
-    const tokenHash = this.hashToken(refreshToken);
-    const expiresAt = new Date(
-      Date.now() + this.parseExpiry(refreshTokenExpiry) * 1000,
-    );
-
-    const refreshTokenRecord = this.refreshTokenRepository.create({
-      tokenHash,
-      userId: user.id,
-      expiresAt,
-      deviceInfo: userAgent,
-      ipAddress,
-      isActive: true,
-    });
-
-    await this.refreshTokenRepository.save(refreshTokenRecord);
-
-    return { accessToken, refreshToken };
-  }
-
-  /**
-   * Hash token using SHA-256 for secure storage
-   */
-  private hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex');
-  }
-
-  /**
-   * Get access token expiry in seconds
-   */
-  private getAccessTokenExpiry(): number {
-    const expiry = this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRY', '15m');
-    return this.parseExpiry(expiry);
-  }
-
-  /**
-   * Parse expiry string (e.g., "15m", "7d") to seconds
-   */
-  private parseExpiry(expiry: string): number {
-    const unit = expiry.slice(-1);
-    const value = parseInt(expiry.slice(0, -1), 10);
-
-    switch (unit) {
-      case 's':
-        return value;
-      case 'm':
-        return value * 60;
-      case 'h':
-        return value * 60 * 60;
-      case 'd':
-        return value * 60 * 60 * 24;
-      default:
-        return 900; // Default 15 minutes
+    user.failedLoginAttempts = nextAttempts;
+    if (lockedUntil !== null) {
+      user.lockedUntil = lockedUntil;
     }
   }
 
@@ -451,18 +397,5 @@ export class AuthService {
   private sanitizeUser(user: User): Partial<User> {
     const { password, failedLoginAttempts, lockedUntil, ...sanitized } = user;
     return sanitized;
-  }
-
-  /**
-   * Cleanup expired refresh tokens (scheduled task)
-   */
-  async cleanupExpiredTokens(): Promise<number> {
-    const result = await this.refreshTokenRepository.delete({
-      expiresAt: LessThan(new Date()),
-    });
-
-    const count = result.affected || 0;
-    this.logger.log(`Cleaned up ${count} expired refresh tokens`);
-    return count;
   }
 }

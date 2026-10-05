@@ -5,14 +5,16 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { configureTestAppValidation } from "./utils/configure-test-app-validation";
 import { AppModule } from "../src/app.module";
-import { DataSource } from "typeorm";
+import { DataSource, IsNull } from "typeorm";
 import {
   User,
   UserRole,
   UserStatus,
 } from "../src/database/entities/user.entity";
 import { RefreshToken } from "../src/database/entities/refresh-token.entity";
+import { AuthSession } from "../src/database/entities/auth-session.entity";
 import { AuthService } from "../src/modules/auth/auth.service";
+import { AuthClock } from "../src/modules/auth/auth-clock";
 import * as bcrypt from "bcrypt";
 import {
   AUTH_ADMIN_USERNAME,
@@ -102,41 +104,35 @@ describe("Authentication (e2e)", () => {
     // Calling the running app's service exercises real signing and the unique
     // index; the unit cases separately cover login and rotation with a fixed iat.
     it("should persist two refresh tokens issued with the same iat", async () => {
-      const authService = app.get(AuthService);
-      const userRepository = dataSource.getRepository(User);
-      const user = await userRepository.findOne({ where: { id: testUserId } });
+      const authClock = app.get(AuthClock);
 
       const decodeIat = (token: string) =>
         JSON.parse(
           Buffer.from(token.split(".")[1], "base64url").toString("utf8"),
         ).iat;
 
-      const issuedAt = Date.now();
-      const clock = jest.spyOn(Date, "now").mockReturnValue(issuedAt);
-      let first: { refreshToken: string };
-      let second: { refreshToken: string };
+      const issuedAt = new Date(1790000000000);
+      const clock = jest.spyOn(authClock, "now").mockReturnValue(issuedAt);
+      let firstRes: any;
+      let secondRes: any;
       try {
-        first = await (authService as any).generateTokens(
-          user,
-          false,
-          "127.0.0.1",
-          "agent",
-        );
-        second = await (authService as any).generateTokens(
-          user,
-          false,
-          "127.0.0.1",
-          "agent",
-        );
+        firstRes = await request(app.getHttpServer())
+          .post("/auth/login")
+          .send({ username: AUTH_ADMIN_USERNAME, password: "Admin@123!" })
+          .expect(200);
+        secondRes = await request(app.getHttpServer())
+          .post("/auth/login")
+          .send({ username: AUTH_ADMIN_USERNAME, password: "Admin@123!" })
+          .expect(200);
       } finally {
         clock.mockRestore();
       }
 
       // The collision precondition. If these differ the case proves nothing,
       // so fail loudly rather than passing on a technicality.
-      expect(decodeIat(first.refreshToken)).toBe(decodeIat(second.refreshToken));
+      expect(decodeIat(firstRes.body.refreshToken)).toBe(decodeIat(secondRes.body.refreshToken));
 
-      expect(first.refreshToken).not.toBe(second.refreshToken);
+      expect(firstRes.body.refreshToken).not.toBe(secondRes.body.refreshToken);
 
       // Both sessions survive the unique index — each carries its own device/IP
       // audit trail and is independently revocable.
@@ -147,8 +143,8 @@ describe("Authentication (e2e)", () => {
       const hashes = new Set(rows.map((row) => row.tokenHash));
       expect(rows).toHaveLength(2);
       expect(hashes).toEqual(new Set([
-        createHash("sha256").update(first.refreshToken).digest("hex"),
-        createHash("sha256").update(second.refreshToken).digest("hex"),
+        createHash("sha256").update(firstRes.body.refreshToken).digest("hex"),
+        createHash("sha256").update(secondRes.body.refreshToken).digest("hex"),
       ]));
     });
 
@@ -313,27 +309,48 @@ describe("Authentication (e2e)", () => {
       expect(response.body).toHaveProperty("refreshToken");
     });
 
-    it("should invalidate old refresh token after rotation", async () => {
-      // First refresh
-      await request(app.getHttpServer())
-        .post("/auth/refresh")
-        .send({
-          refreshToken: adminRefreshToken,
-        })
-        .expect(200);
+    it("should allow old refresh token inside grace and reject as replay after grace", async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date("2026-10-05T12:00:00.000Z");
+      let currentMockTime = T0;
+      const clockSpy = jest
+        .spyOn(clock, "now")
+        .mockImplementation(() => new Date(currentMockTime.getTime()));
 
-      // Try to use old refresh token again
-      const response = await request(app.getHttpServer())
-        .post("/auth/refresh")
-        .send({
-          refreshToken: adminRefreshToken,
-        });
+      try {
+        // First refresh at T0 rotates to G2
+        const rotRes = await request(app.getHttpServer())
+          .post("/auth/refresh")
+          .send({
+            refreshToken: adminRefreshToken,
+          })
+          .expect(200);
 
-      expect([200, 401]).toContain(response.status);
-      if (response.status === 401) {
-        expect(response.body.message).toContain("Invalid");
-      } else {
-        expect(response.body).toHaveProperty("accessToken");
+        const g2Token = rotRes.body.refreshToken;
+
+        // Try to use old refresh token again inside grace (T0 + 30s) -> recovers G2 token
+        currentMockTime = new Date(T0.getTime() + 30 * 1000);
+        const recRes = await request(app.getHttpServer())
+          .post("/auth/refresh")
+          .send({
+            refreshToken: adminRefreshToken,
+          })
+          .expect(200);
+
+        expect(recRes.body.refreshToken).toBe(g2Token);
+
+        // Try to use old refresh token again after grace (T0 + 61s) -> 401 replay revocation
+        currentMockTime = new Date(T0.getTime() + 61 * 1000);
+        const replayRes = await request(app.getHttpServer())
+          .post("/auth/refresh")
+          .send({
+            refreshToken: adminRefreshToken,
+          })
+          .expect(401);
+
+        expect(replayRes.body.code).toBe("SESSION_REVOKED");
+      } finally {
+        clockSpy.mockRestore();
       }
     });
 
@@ -400,39 +417,40 @@ describe("Authentication (e2e)", () => {
       adminRefreshToken = response.body.refreshToken;
     });
 
-    it("should logout successfully", async () => {
+    it("should logout successfully without Authorization header and revoke the session", async () => {
       await request(app.getHttpServer())
         .post("/auth/logout")
-        .set("Authorization", `Bearer ${adminAccessToken}`)
         .send({
           refreshToken: adminRefreshToken,
         })
         .expect(204);
 
-      // Scoped to this test's own user: an unfiltered count asserts on global
-      // state and breaks the moment another suite holds a token (issue #1197).
-      const refreshTokenRepository = dataSource.getRepository(RefreshToken);
-      const count = await refreshTokenRepository.count({ where: { userId: testUserId } });
-      expect(count).toBe(0);
+      const sessionRepository = dataSource.getRepository(AuthSession);
+      const session = await sessionRepository.findOne({
+        where: { userId: testUserId },
+        order: { createdAt: "DESC" },
+      });
+      expect(session).not.toBeNull();
+      expect(session!.revokedAt).not.toBeNull();
+      expect(session!.revokeReason).toBe("logout");
     });
 
-    it("should invalidate all refresh tokens after logout", async () => {
-      // Logout
+    it("should reject refresh token after logout", async () => {
       await request(app.getHttpServer())
         .post("/auth/logout")
-        .set("Authorization", `Bearer ${adminAccessToken}`)
         .send({
           refreshToken: adminRefreshToken,
         })
         .expect(204);
 
-      // Try to use refresh token
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post("/auth/refresh")
         .send({
           refreshToken: adminRefreshToken,
         })
         .expect(401);
+
+      expect(res.body.code).toBe("SESSION_REVOKED");
     });
   });
 
@@ -472,7 +490,7 @@ describe("Authentication (e2e)", () => {
       expect(response.body).toHaveProperty("accessToken");
     });
 
-    it("should return 401 for incorrect current password", async () => {
+    it("should return 400 for incorrect current password", async () => {
       const response = await request(app.getHttpServer())
         .patch("/auth/change-password")
         .set("Authorization", `Bearer ${adminAccessToken}`)
@@ -481,8 +499,9 @@ describe("Authentication (e2e)", () => {
           newPassword: "NewPassword@456",
           newPasswordConfirmation: "NewPassword@456",
         })
-        .expect(401);
+        .expect(400);
 
+      expect(response.body.code).toBe("CURRENT_PASSWORD_INCORRECT");
       expect(response.body.message).toContain("Current password is incorrect");
     });
 
@@ -526,11 +545,12 @@ describe("Authentication (e2e)", () => {
         })
         .expect(204);
 
-      // Scoped to this test's own user: an unfiltered count asserts on global
-      // state and breaks the moment another suite holds a token (issue #1197).
-      const refreshTokenRepository = dataSource.getRepository(RefreshToken);
-      const count = await refreshTokenRepository.count({ where: { userId: testUserId } });
-      expect(count).toBe(0);
+      // Verify all sessions of the user are revoked
+      const sessionRepository = dataSource.getRepository(AuthSession);
+      const unrevokedCount = await sessionRepository.count({
+        where: { userId: testUserId, revokedAt: IsNull() },
+      });
+      expect(unrevokedCount).toBe(0);
     });
   });
 
