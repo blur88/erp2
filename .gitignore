@@ -210,3 +210,6 @@ docs/test/
 .antigravitycli/
 .superpowers/
 backend/leakcheck-reports/
+
+# Cross-tab session browser QA output (recorded runs are evidence in the PR)
+frontend/qa/cross-tab-session/results.json

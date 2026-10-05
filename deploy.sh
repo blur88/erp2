@@ -89,6 +89,9 @@ setup_environment() {
 deploy_services() {
     print_status "Building and starting services..."
     
+    # Identify the built bundle by the checkout it came from.
+    export VITE_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+
     # Pull latest images
     docker compose $COMPOSE_FILES pull
     

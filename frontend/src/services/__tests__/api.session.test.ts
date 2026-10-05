@@ -102,4 +102,32 @@ describe('api session interceptors', () => {
     const source = api.toString()
     expect(source).not.toMatch(/window\.location\s*=/)
   })
+
+  it('gate timings are recorded only when the flag is set', async () => {
+    const store: Record<string, string> = {}
+    ;(globalThis as unknown as { window: unknown }).window = globalThis
+    ;(globalThis as unknown as { location: unknown }).location = { origin: 'http://localhost:3000' }
+    ;(globalThis as unknown as { sessionStorage: unknown }).sessionStorage = {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => {
+        store[k] = v
+      },
+      removeItem: (k: string) => {
+        delete store[k]
+      },
+    }
+    const w = globalThis as unknown as { __erpSessionTimings?: unknown[] }
+    delete w.__erpSessionTimings
+
+    await runtime.start()
+    await runtime.signIn({ usernameOrEmail: 'u', password: 'p' })
+    respond((config) => ({ data: {}, status: 200, headers: {}, config }))
+    await api.get('/inventory')
+    expect(w.__erpSessionTimings).toBeUndefined()
+
+    store['erp-session-timing'] = '1'
+    await api.get('/inventory')
+    expect(Array.isArray(w.__erpSessionTimings)).toBe(true)
+    expect((w.__erpSessionTimings as unknown[]).length).toBeGreaterThan(0)
+  })
 })
