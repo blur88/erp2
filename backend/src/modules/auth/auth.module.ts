@@ -14,6 +14,7 @@ import { RolesGuard } from './guards/roles.guard';
 import { AuthScheduler } from './auth.scheduler';
 import { AuthClock } from './auth-clock';
 import { AuthSessionService } from './auth-session.service';
+import { ReplayAuditWriter } from './replay-audit.writer';
 import { REFRESH_KEYS, loadRefreshKeys } from './tokens/refresh-keys';
 
 @Module({
@@ -37,6 +38,7 @@ import { REFRESH_KEYS, loadRefreshKeys } from './tokens/refresh-keys';
   providers: [
     AuthClock,
     AuthSessionService,
+    ReplayAuditWriter,
     {
       provide: REFRESH_KEYS,
       inject: [ConfigService],
@@ -57,6 +59,7 @@ import { REFRESH_KEYS, loadRefreshKeys } from './tokens/refresh-keys';
     AuthService,
     AuthSessionService,
     AuthClock,
+    ReplayAuditWriter,
     REFRESH_KEYS,
     JwtModule,
     JwtAuthGuard,

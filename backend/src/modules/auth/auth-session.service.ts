@@ -13,6 +13,7 @@ import {
   hashRefreshToken,
 } from './tokens/refresh-token.codec';
 import { AuthClock } from './auth-clock';
+import { ReplayAuditWriter } from './replay-audit.writer';
 
 export interface IssuedTokens {
   accessToken: string;
@@ -44,6 +45,7 @@ export class AuthSessionService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly replayAuditWriter: ReplayAuditWriter,
   ) {
     const override = this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRY');
     if (override !== undefined && override !== null && override !== '') {
@@ -107,12 +109,14 @@ export class AuthSessionService {
     sessionId: string,
   ): { accessToken: string; accessTokenExpiresAt: number; expiresIn: number } {
     const expiresIn = this.getAccessTokenExpiry();
+    const nowSec = Math.floor(this.clock.now().getTime() / 1000);
     const payload = {
       sub: user.id,
       username: user.username,
       email: user.email,
       role: user.role,
       sid: sessionId,
+      iat: nowSec,
     };
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: `${expiresIn}s`,
@@ -255,65 +259,144 @@ export class AuthSessionService {
         });
       }
 
-      if (tokenRow.generation !== session.generation) {
-        throw new UnauthorizedException({
-          message: 'Invalid refresh token',
-          code: 'REFRESH_INVALID',
-        });
-      }
+      // 3. Current-generation rotate
+      if (tokenRow.generation === session.generation) {
+        const rawNow = now;
+        const nowTrunc = new Date(Math.floor(rawNow.getTime() / 1000) * 1000);
+        const lifetime = this.refreshLifetimeSeconds(session.rememberMe);
+        const newExpiresAt = new Date(nowTrunc.getTime() + lifetime * 1000);
 
-      const rawNow = now;
-      const nowTrunc = new Date(Math.floor(rawNow.getTime() / 1000) * 1000);
-      const lifetime = this.refreshLifetimeSeconds(session.rememberMe);
-      const newExpiresAt = new Date(nowTrunc.getTime() + lifetime * 1000);
+        session.generation += 1;
+        session.expiresAt = newExpiresAt;
+        await manager.getRepository(AuthSession).save(session);
 
-      session.generation += 1;
-      session.expiresAt = newExpiresAt;
-      await manager.getRepository(AuthSession).save(session);
+        const graceConfig = this.configService.get<string | number>('REFRESH_GRACE_SECONDS', 60);
+        const graceSeconds =
+          typeof graceConfig === 'number' ? graceConfig : parseInt(graceConfig, 10) || 60;
 
-      const graceConfig = this.configService.get<string | number>('REFRESH_GRACE_SECONDS', 60);
-      const graceSeconds =
-        typeof graceConfig === 'number' ? graceConfig : parseInt(graceConfig, 10) || 60;
+        tokenRow.supersededAt = nowTrunc;
+        tokenRow.graceUntil = new Date(nowTrunc.getTime() + graceSeconds * 1000);
+        await manager.getRepository(RefreshToken).save(tokenRow);
 
-      tokenRow.supersededAt = nowTrunc;
-      tokenRow.graceUntil = new Date(nowTrunc.getTime() + graceSeconds * 1000);
-      await manager.getRepository(RefreshToken).save(tokenRow);
+        const nowSec = Math.floor(nowTrunc.getTime() / 1000);
+        const expSec = Math.floor(newExpiresAt.getTime() / 1000);
+        const newRefreshToken = encodeRefreshToken(
+          {
+            userId: session.userId,
+            sessionId: session.id,
+            generation: session.generation,
+            issuedAt: nowSec,
+            expiresAt: expSec,
+            keyId: this.refreshKeys.activeKid,
+          },
+          this.refreshKeys,
+        );
 
-      const nowSec = Math.floor(nowTrunc.getTime() / 1000);
-      const expSec = Math.floor(newExpiresAt.getTime() / 1000);
-      const newRefreshToken = encodeRefreshToken(
-        {
+        const newTokenHash = hashRefreshToken(newRefreshToken);
+        const newTokenRow = manager.getRepository(RefreshToken).create({
+          tokenHash: newTokenHash,
           userId: session.userId,
           sessionId: session.id,
           generation: session.generation,
-          issuedAt: nowSec,
-          expiresAt: expSec,
+          issuedAt: nowTrunc,
+          expiresAt: newExpiresAt,
           keyId: this.refreshKeys.activeKid,
-        },
-        this.refreshKeys,
-      );
+          deviceInfo: ctx.userAgent,
+          ipAddress: ctx.ipAddress,
+        });
+        await manager.getRepository(RefreshToken).save(newTokenRow);
 
-      const newTokenHash = hashRefreshToken(newRefreshToken);
-      const newTokenRow = manager.getRepository(RefreshToken).create({
-        tokenHash: newTokenHash,
-        userId: session.userId,
+        return {
+          type: 'success' as const,
+          sessionId: session.id,
+          generation: session.generation,
+          refreshToken: newRefreshToken,
+          userId: session.userId,
+        };
+      }
+
+      // 4. Recover: superseded and clock is strictly before its own graceUntil
+      if (tokenRow.supersededAt !== null && now < tokenRow.graceUntil) {
+        const currentRow = await manager.getRepository(RefreshToken).findOne({
+          where: { sessionId: session.id, generation: session.generation },
+        });
+
+        if (!currentRow) {
+          this.logger.error(`Recovery failed: current token row not found for session ${session.id}`);
+          return { type: 'invalid' as const };
+        }
+
+        const keySecret = this.refreshKeys.secretFor(currentRow.keyId);
+        if (!keySecret) {
+          this.logger.error(`Recovery failed: signing key unavailable for session ${session.id}`);
+          return { type: 'key_unavailable' as const };
+        }
+
+        const issuedAtSec = Math.floor(currentRow.issuedAt.getTime() / 1000);
+        const expiresAtSec = Math.floor(currentRow.expiresAt.getTime() / 1000);
+        const recoveredToken = encodeRefreshToken(
+          {
+            userId: currentRow.userId,
+            sessionId: currentRow.sessionId,
+            generation: currentRow.generation,
+            issuedAt: issuedAtSec,
+            expiresAt: expiresAtSec,
+            keyId: currentRow.keyId,
+          },
+          this.refreshKeys,
+        );
+
+        if (hashRefreshToken(recoveredToken) !== currentRow.tokenHash) {
+          this.logger.error(`Recovery failed: token hash mismatch for session ${session.id}`);
+          return { type: 'invalid' as const };
+        }
+
+        return {
+          type: 'success' as const,
+          sessionId: session.id,
+          generation: session.generation,
+          refreshToken: recoveredToken,
+          userId: session.userId,
+        };
+      }
+
+      // 5. Otherwise replay: superseded, unexpired, at or after its graceUntil
+      session.revokedAt = now;
+      session.revokeReason = 'replay';
+      await manager.getRepository(AuthSession).save(session);
+
+      await this.replayAuditWriter.write(manager, {
         sessionId: session.id,
-        generation: session.generation,
-        issuedAt: nowTrunc,
-        expiresAt: newExpiresAt,
-        keyId: this.refreshKeys.activeKid,
-        deviceInfo: ctx.userAgent,
+        userId: session.userId,
+        presentedGeneration: tokenRow.generation,
+        currentGeneration: session.generation,
         ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
       });
-      await manager.getRepository(RefreshToken).save(newTokenRow);
 
-      return {
-        sessionId: session.id,
-        generation: session.generation,
-        refreshToken: newRefreshToken,
-        userId: session.userId,
-      };
+      return { type: 'replayed' as const };
     });
+
+    if (result.type === 'key_unavailable') {
+      throw new UnauthorizedException({
+        message: 'Refresh token key unavailable',
+        code: 'REFRESH_KEY_UNAVAILABLE',
+      });
+    }
+
+    if (result.type === 'invalid') {
+      throw new UnauthorizedException({
+        message: 'Invalid refresh token',
+        code: 'REFRESH_INVALID',
+      });
+    }
+
+    if (result.type === 'replayed') {
+      throw new UnauthorizedException({
+        message: 'Session has been revoked',
+        code: 'SESSION_REVOKED',
+      });
+    }
 
     const user = await this.userRepository.findOne({
       where: { id: result.userId },

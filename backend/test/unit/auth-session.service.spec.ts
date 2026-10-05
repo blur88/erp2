@@ -12,6 +12,7 @@ describe('AuthSessionService (unit)', () => {
   const mockSessionRepo: any = {};
   const mockTokenRepo: any = {};
   const mockUserRepo: any = {};
+  const mockReplayAuditWriter: any = { write: () => Promise.resolve() };
 
   function createService(refreshExpiry?: string): AuthSessionService {
     const mockConfigService: any = {
@@ -31,6 +32,7 @@ describe('AuthSessionService (unit)', () => {
       mockSessionRepo,
       mockTokenRepo,
       mockUserRepo,
+      mockReplayAuditWriter,
     );
   }
 

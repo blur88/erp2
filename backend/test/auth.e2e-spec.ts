@@ -308,24 +308,49 @@ describe("Authentication (e2e)", () => {
       expect(response.body).toHaveProperty("refreshToken");
     });
 
-    it("should invalidate old refresh token after rotation", async () => {
-      // First refresh
-      await request(app.getHttpServer())
-        .post("/auth/refresh")
-        .send({
-          refreshToken: adminRefreshToken,
-        })
-        .expect(200);
+    it("should allow old refresh token inside grace and reject as replay after grace", async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date("2026-10-05T12:00:00.000Z");
+      let currentMockTime = T0;
+      const clockSpy = jest
+        .spyOn(clock, "now")
+        .mockImplementation(() => new Date(currentMockTime.getTime()));
 
-      // Try to use old refresh token again
-      const response = await request(app.getHttpServer())
-        .post("/auth/refresh")
-        .send({
-          refreshToken: adminRefreshToken,
-        })
-        .expect(401);
+      try {
+        // First refresh at T0 rotates to G2
+        const rotRes = await request(app.getHttpServer())
+          .post("/auth/refresh")
+          .send({
+            refreshToken: adminRefreshToken,
+          })
+          .expect(200);
 
-      expect(response.body.code).toBe("REFRESH_INVALID");
+        const g2Token = rotRes.body.refreshToken;
+
+        // Try to use old refresh token again inside grace (T0 + 30s) -> recovers G2 token
+        currentMockTime = new Date(T0.getTime() + 30 * 1000);
+        const recRes = await request(app.getHttpServer())
+          .post("/auth/refresh")
+          .send({
+            refreshToken: adminRefreshToken,
+          })
+          .expect(200);
+
+        expect(recRes.body.refreshToken).toBe(g2Token);
+
+        // Try to use old refresh token again after grace (T0 + 61s) -> 401 replay revocation
+        currentMockTime = new Date(T0.getTime() + 61 * 1000);
+        const replayRes = await request(app.getHttpServer())
+          .post("/auth/refresh")
+          .send({
+            refreshToken: adminRefreshToken,
+          })
+          .expect(401);
+
+        expect(replayRes.body.code).toBe("SESSION_REVOKED");
+      } finally {
+        clockSpy.mockRestore();
+      }
     });
 
     it("should return 401 for invalid refresh token", async () => {

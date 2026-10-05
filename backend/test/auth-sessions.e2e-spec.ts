@@ -13,9 +13,15 @@ import {
   AUTHSESS_PASSWORD,
   seedSessionUsers,
   removeSessionSuiteRows,
+  holdRowLock,
+  waitForBlockedBy,
 } from './utils/auth-session-fixture';
 import { AuthSession } from '../src/database/entities/auth-session.entity';
 import { RefreshToken } from '../src/database/entities/refresh-token.entity';
+import { AuditLog } from '../src/database/entities/audit-log.entity';
+import { UserStatus } from '../src/database/entities/user.entity';
+import { AuthClock } from '../src/modules/auth/auth-clock';
+import { ReplayAuditWriter } from '../src/modules/auth/replay-audit.writer';
 import { REFRESH_KEYS, type RefreshKeySet } from '../src/modules/auth/tokens/refresh-keys';
 import { encodeRefreshToken } from '../src/modules/auth/tokens/refresh-token.codec';
 
@@ -51,6 +57,10 @@ describe('Auth Sessions (e2e)', () => {
 
   beforeEach(async () => {
     await seedSessionUsers(dataSource);
+  });
+
+  afterEach(async () => {
+    jest.restoreAllMocks();
   });
 
   describe('issuing and rotation', () => {
@@ -237,4 +247,711 @@ describe('Auth Sessions (e2e)', () => {
       expect(res.body.code).toBe('REFRESH_INVALID');
     });
   });
+
+  describe('recovery and replay', () => {
+    it('two concurrent refreshes with one token', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      const [res1, res2] = await Promise.all([
+        request(app.getHttpServer()).post('/auth/refresh').send({ refreshToken: g1Token }),
+        request(app.getHttpServer()).post('/auth/refresh').send({ refreshToken: g1Token }),
+      ]);
+
+      expect(res1.status).toBe(200);
+      expect(res2.status).toBe(200);
+      expect(res1.body.generation).toBe(2);
+      expect(res2.body.generation).toBe(2);
+      expect(res1.body.refreshToken).toBe(res2.body.refreshToken);
+
+      const count = await dataSource.getRepository(RefreshToken).countBy({ sessionId: sid });
+      expect(count).toBe(2);
+    });
+
+    it('recovery writes nothing', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      const rotRes = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+      const g2Token = rotRes.body.refreshToken;
+      const g2Access = rotRes.body.accessToken;
+
+      const sessionSnapshot = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      const tokensSnapshot = await dataSource
+        .getRepository(RefreshToken)
+        .find({ where: { sessionId: sid }, order: { generation: 'ASC' } });
+
+      currentMockTime = new Date(T0.getTime() + 30 * 1000);
+
+      const recRes = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      expect(recRes.body.refreshToken).toBe(g2Token);
+      expect(recRes.body.accessToken).not.toBe(g2Access);
+
+      const sessionAfter = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      const tokensAfter = await dataSource
+        .getRepository(RefreshToken)
+        .find({ where: { sessionId: sid }, order: { generation: 'ASC' } });
+
+      expect(JSON.stringify(sessionAfter)).toBe(JSON.stringify(sessionSnapshot));
+      expect(JSON.stringify(tokensAfter)).toBe(JSON.stringify(tokensSnapshot));
+    });
+
+    it('recovery returns the stored expiry, not a new one', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const sid = loginRes.body.sessionId;
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: loginRes.body.refreshToken })
+        .expect(200);
+
+      const g2Row = await dataSource.getRepository(RefreshToken).findOneBy({
+        sessionId: sid,
+        generation: 2,
+      });
+
+      currentMockTime = new Date(T0.getTime() + 30 * 1000);
+
+      const recRes = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: loginRes.body.refreshToken })
+        .expect(200);
+
+      const decoded: any = jwtService.decode(recRes.body.refreshToken);
+      expect(decoded.exp).toBe(Math.floor(g2Row!.expiresAt.getTime() / 1000));
+    });
+
+    it("three generations, inside G1's own deadline", async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+
+      const rot1 = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      currentMockTime = new Date(T0.getTime() + 10 * 1000);
+      const rot2 = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: rot1.body.refreshToken })
+        .expect(200);
+      const g3Token = rot2.body.refreshToken;
+
+      currentMockTime = new Date(T0.getTime() + 59 * 1000);
+      const recRes = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      expect(recRes.body.generation).toBe(3);
+      expect(recRes.body.refreshToken).toBe(g3Token);
+    });
+
+    it('three generations, at the deadline', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      const rot1 = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      currentMockTime = new Date(T0.getTime() + 10 * 1000);
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: rot1.body.refreshToken })
+        .expect(200);
+
+      currentMockTime = new Date(T0.getTime() + 60 * 1000);
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(401);
+
+      expect(res.body.code).toBe('SESSION_REVOKED');
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(session!.revokeReason).toBe('replay');
+    });
+
+    it('replay after grace', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      const rotRes = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+      const g2Token = rotRes.body.refreshToken;
+
+      currentMockTime = new Date(T0.getTime() + 61 * 1000);
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(401);
+
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(session!.revokedAt).not.toBeNull();
+      expect(session!.revokeReason).toBe('replay');
+
+      const g2Attempt = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g2Token })
+        .expect(401);
+      expect(g2Attempt.body.code).toBe('SESSION_REVOKED');
+
+      const auditLog = await dataSource.getRepository(AuditLog).findOneBy({
+        action: 'SESSION_REPLAY_REVOKED',
+        entityId: sid,
+      });
+      expect(auditLog).not.toBeNull();
+      expect(auditLog!.metadata).toEqual({ presentedGeneration: 1, currentGeneration: 2 });
+      const auditJson = JSON.stringify(auditLog);
+      expect(auditJson).not.toContain(g1Token);
+      expect(auditJson).not.toContain(g2Token);
+      const g1Hash = createHash('sha256').update(g1Token).digest('hex');
+      const g2Hash = createHash('sha256').update(g2Token).digest('hex');
+      expect(auditJson).not.toContain(g1Hash);
+      expect(auditJson).not.toContain(g2Hash);
+
+      // Second user's session created in the same test still refreshes with 200
+      const user2Login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[1], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: user2Login.body.refreshToken })
+        .expect(200);
+    });
+
+    it('the replay revocation and its audit row are committed although the request fails', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      currentMockTime = new Date(T0.getTime() + 61 * 1000);
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(401);
+
+      const qr = dataSource.createQueryRunner();
+      await qr.connect();
+      try {
+        const sessions = await qr.query(
+          'SELECT "revokedAt", "revokeReason" FROM auth_sessions WHERE id = $1',
+          [sid],
+        );
+        expect(sessions.length).toBe(1);
+        expect(sessions[0].revokedAt).not.toBeNull();
+        expect(sessions[0].revokeReason).toBe('replay');
+
+        const logs = await qr.query(
+          'SELECT id, action, metadata FROM audit_logs WHERE "entityId" = $1 AND action = $2',
+          [sid, 'SESSION_REPLAY_REVOKED'],
+        );
+        expect(logs.length).toBe(1);
+      } finally {
+        await qr.release();
+      }
+    });
+
+    it('revocation and audit are atomic', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      currentMockTime = new Date(T0.getTime() + 61 * 1000);
+
+      const spy = jest
+        .spyOn(app.get(ReplayAuditWriter), 'write')
+        .mockRejectedValue(new Error('audit down'));
+
+      const failRes = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token });
+
+      expect(failRes.status).toBeGreaterThanOrEqual(500);
+      expect(failRes.body.accessToken).toBeUndefined();
+      expect(failRes.body.refreshToken).toBeUndefined();
+      expect(failRes.body.code).not.toBe('SESSION_REVOKED');
+
+      const qr = dataSource.createQueryRunner();
+      await qr.connect();
+      try {
+        const sessions = await qr.query(
+          'SELECT "revokedAt" FROM auth_sessions WHERE id = $1',
+          [sid],
+        );
+        expect(sessions[0].revokedAt).toBeNull();
+        const logs = await qr.query(
+          'SELECT id FROM audit_logs WHERE "entityId" = $1 AND action = $2',
+          [sid, 'SESSION_REPLAY_REVOKED'],
+        );
+        expect(logs.length).toBe(0);
+      } finally {
+        await qr.release();
+      }
+
+      spy.mockRestore();
+
+      const retryRes = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(401);
+
+      expect(retryRes.body.code).toBe('SESSION_REVOKED');
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(session!.revokedAt).not.toBeNull();
+      expect(session!.revokeReason).toBe('replay');
+
+      const logs = await dataSource.getRepository(AuditLog).findBy({
+        entityId: sid,
+        action: 'SESSION_REPLAY_REVOKED',
+      });
+      expect(logs.length).toBe(1);
+    });
+
+    it('expired token is not replay', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      const g1Row = await dataSource.getRepository(RefreshToken).findOneBy({
+        sessionId: sid,
+        generation: 1,
+      });
+
+      currentMockTime = new Date(g1Row!.expiresAt.getTime() + 1000);
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(401);
+
+      expect(res.body.code).toBe('REFRESH_EXPIRED');
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(session!.revokedAt).toBeNull();
+      const logs = await dataSource.getRepository(AuditLog).findBy({
+        entityId: sid,
+        action: 'SESSION_REPLAY_REVOKED',
+      });
+      expect(logs.length).toBe(0);
+    });
+
+    it('expired session', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      currentMockTime = new Date(session!.expiresAt.getTime() + 1000);
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(401);
+
+      expect(res.body.code).toBe('REFRESH_EXPIRED');
+      const sessionAfter = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(sessionAfter!.revokedAt).toBeNull();
+    });
+
+    it('a revoked session never recovers', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      const rotRes = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+      const g2Token = rotRes.body.refreshToken;
+
+      await dataSource.query(
+        'UPDATE auth_sessions SET "revokedAt" = NOW(), "revokeReason" = $1 WHERE id = $2',
+        ['logout', sid],
+      );
+
+      const resG1 = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(401);
+      expect(resG1.body.code).toBe('SESSION_REVOKED');
+
+      const resG2 = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g2Token })
+        .expect(401);
+      expect(resG2.body.code).toBe('SESSION_REVOKED');
+    });
+
+    it('the clock is read under the lock', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      currentMockTime = new Date(T0.getTime() + 59 * 1000);
+
+      const lock = await holdRowLock(
+        dataSource,
+        'SELECT id FROM auth_sessions WHERE id = $1 FOR UPDATE',
+        [sid],
+      );
+
+      let reqPromise: Promise<request.Response> | undefined;
+      try {
+        reqPromise = request(app.getHttpServer())
+          .post('/auth/refresh')
+          .send({ refreshToken: g1Token });
+        void reqPromise.catch(() => {});
+
+        await waitForBlockedBy(dataSource, lock, 1);
+        currentMockTime = new Date(T0.getTime() + 61 * 1000);
+        await lock.release();
+
+        const res = await reqPromise;
+        expect(res.status).toBe(401);
+        expect(res.body.code).toBe('SESSION_REVOKED');
+
+        const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+        expect(session!.revokeReason).toBe('replay');
+      } finally {
+        try {
+          await lock.release();
+        } catch {}
+        if (reqPromise) await reqPromise.catch(() => {});
+      }
+    });
+
+    it('unknown key', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const sid = loginRes.body.sessionId;
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const unknownKeySet: RefreshKeySet = {
+        activeKid: 'unknown_key_id',
+        secretFor: () => 'some_secret_key_that_is_32_bytes_long_ok',
+        kids: () => ['unknown_key_id'],
+      };
+
+      const unknownToken = encodeRefreshToken(
+        {
+          userId: loginRes.body.user.id,
+          sessionId: sid,
+          generation: 1,
+          issuedAt: nowSec,
+          expiresAt: nowSec + 3600,
+          keyId: 'unknown_key_id',
+        },
+        unknownKeySet,
+      );
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: unknownToken })
+        .expect(401);
+
+      expect(res.body.code).toBe('REFRESH_KEY_UNAVAILABLE');
+
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(session!.revokedAt).toBeNull();
+    });
+
+    it('reproduction across instances and restarts', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+
+      const fixtureB = await Test.createTestingModule({ imports: [AppModule] }).compile();
+      const appB = fixtureB.createNestApplication();
+      configureTestAppValidation(appB);
+      await appB.init();
+
+      const rotRes = await request(appB.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+      const g2TokenFromB = rotRes.body.refreshToken;
+      await appB.close();
+
+      const fixtureC = await Test.createTestingModule({ imports: [AppModule] }).compile();
+      const appC = fixtureC.createNestApplication();
+      configureTestAppValidation(appC);
+      await appC.init();
+
+      const recRes = await request(appC.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      expect(recRes.body.refreshToken).toBe(g2TokenFromB);
+      await appC.close();
+    });
+
+    it('reproduction across signing-key rotation', async () => {
+      const k1Secret = '11111111111111111111111111111111';
+      const k2Secret = '22222222222222222222222222222222';
+      const keys1: RefreshKeySet = {
+        activeKid: 'k1',
+        secretFor: (kid: string) => (kid === 'k1' ? k1Secret : undefined),
+        kids: () => ['k1'],
+      };
+      const keys2: RefreshKeySet = {
+        activeKid: 'k2',
+        secretFor: (kid: string) => (kid === 'k1' ? k1Secret : kid === 'k2' ? k2Secret : undefined),
+        kids: () => ['k1', 'k2'],
+      };
+
+      const fixture1 = await Test.createTestingModule({ imports: [AppModule] })
+        .overrideProvider(REFRESH_KEYS)
+        .useValue(keys1)
+        .compile();
+      const app1 = fixture1.createNestApplication();
+      configureTestAppValidation(app1);
+      await app1.init();
+
+      const loginRes = await request(app1.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+
+      const rotRes = await request(app1.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+      const g2Token = rotRes.body.refreshToken;
+      await app1.close();
+
+      const fixture2 = await Test.createTestingModule({ imports: [AppModule] })
+        .overrideProvider(REFRESH_KEYS)
+        .useValue(keys2)
+        .compile();
+      const app2 = fixture2.createNestApplication();
+      configureTestAppValidation(app2);
+      await app2.init();
+
+      const recRes = await request(app2.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+      expect(recRes.body.refreshToken).toBe(g2Token);
+
+      const rot2Res = await request(app2.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g2Token })
+        .expect(200);
+      const g3Token = rot2Res.body.refreshToken;
+      const decodedHeader: any = jwtService.decode(g3Token, { complete: true });
+      expect(decodedHeader.header.kid).toBe('k2');
+
+      await app2.close();
+    });
+
+    it('recovery fails closed on a hash mismatch', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      await dataSource.query(
+        'UPDATE refresh_tokens SET "tokenHash" = $1 WHERE "sessionId" = $2 AND generation = 2',
+        ['corrupted_hash_value', sid],
+      );
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(401);
+
+      expect(res.body.code).toBe('REFRESH_INVALID');
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(session!.revokedAt).toBeNull();
+    });
+
+    it('recovery reports a missing signing key', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1Token = loginRes.body.refreshToken;
+      const sid = loginRes.body.sessionId;
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      await dataSource.query(
+        'UPDATE refresh_tokens SET "keyId" = $1 WHERE "sessionId" = $2 AND generation = 2',
+        ['gone', sid],
+      );
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(401);
+
+      expect(res.body.code).toBe('REFRESH_KEY_UNAVAILABLE');
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(session!.revokedAt).toBeNull();
+    });
+
+    it('deactivated user', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const sid = loginRes.body.sessionId;
+
+      await dataSource.query(
+        'UPDATE users SET status = $1 WHERE id = $2',
+        [UserStatus.INACTIVE, loginRes.body.user.id],
+      );
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: loginRes.body.refreshToken })
+        .expect(401);
+
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(session!.revokedAt).toBeNull();
+      const logs = await dataSource.getRepository(AuditLog).findBy({
+        entityId: sid,
+        action: 'SESSION_REPLAY_REVOKED',
+      });
+      expect(logs.length).toBe(0);
+    });
+  });
 });
+
