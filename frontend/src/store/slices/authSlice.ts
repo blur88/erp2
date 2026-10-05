@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '@/services/authApi';
+import { SessionChangedElsewhereError } from '@/session/runtime';
 import type { RootState } from '@/store';
+import type { ActiveSession } from '@/session/types';
 
 // Auth-specific User interface matching backend
 export interface AuthUser {
@@ -65,6 +67,9 @@ interface AuthState {
   lastActivityTime: number | null;
   inactivityTimeoutMinutes: number; // Configurable inactivity timeout
   rememberMe: boolean; // Track if user selected "Remember me"
+  sessionId: string | null;
+  generation: number;
+  storageUnavailable: boolean;
 }
 
 const initialState: AuthState = {
@@ -77,6 +82,9 @@ const initialState: AuthState = {
   lastActivityTime: null,
   inactivityTimeoutMinutes: 30, // Default: 30 minutes
   rememberMe: false, // Default: false
+  sessionId: null,
+  generation: 0,
+  storageUnavailable: false,
 };
 
 // Async thunks
@@ -84,23 +92,14 @@ export const login = createAsyncThunk(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
-      const response = await authApi.login(credentials);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
-    }
-  }
-);
-
-export const logout = createAsyncThunk(
-  'auth/logout',
-  async (refreshToken: string) => {
-    try {
-      await authApi.logout(refreshToken);
+      const { sessionRuntime } = await import('@/session');
+      await sessionRuntime.signIn(credentials);
       return null;
     } catch (error: any) {
-      // Even if logout fails on server, we still clear local state
-      return null;
+      if (error instanceof SessionChangedElsewhereError) {
+        return rejectWithValue('The session changed in another tab. Sign in again.');
+      }
+      return rejectWithValue(error.message || 'Login failed');
     }
   }
 );
@@ -122,6 +121,8 @@ export const changePassword = createAsyncThunk(
   async (data: ChangePasswordData, { rejectWithValue }) => {
     try {
       await authApi.changePassword(data);
+      const { sessionRuntime } = await import('@/session');
+      await sessionRuntime.passwordChanged();
       return null;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Password change failed');
@@ -134,21 +135,25 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    setCredentials: (state, action: PayloadAction<AuthResponse & { rememberMe?: boolean }>) => {
+    sessionEstablished: (state, action: PayloadAction<ActiveSession>) => {
       state.user = action.payload.user;
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
       state.error = null;
       state.lastActivityTime = Date.now();
-      if (action.payload.rememberMe !== undefined) {
-        state.rememberMe = action.payload.rememberMe;
-      }
+      state.rememberMe = action.payload.rememberMe;
+      state.sessionId = action.payload.sessionId;
+      state.generation = action.payload.generation;
     },
-    setAccessToken: (state, action: PayloadAction<string>) => {
-      state.accessToken = action.payload;
+    tokensUpdated: (
+      state,
+      action: PayloadAction<{ accessToken: string; accessTokenExpiresAt: number; refreshToken: string }>
+    ) => {
+      state.accessToken = action.payload.accessToken;
+      state.refreshToken = action.payload.refreshToken;
     },
-    clearAuth: (state) => {
+    sessionEnded: (state) => {
       state.user = null;
       state.accessToken = null;
       state.refreshToken = null;
@@ -156,6 +161,15 @@ const authSlice = createSlice({
       state.error = null;
       state.lastActivityTime = null;
       state.rememberMe = false;
+      state.sessionId = null;
+      state.generation = 0;
+    },    storageUnavailable: (state) => {
+      state.storageUnavailable = true;
+      state.user = null;
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.sessionId = null;
     },
     clearError: (state) => {
       state.error = null;
@@ -168,34 +182,15 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(login.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.user = action.payload.user;
-          state.accessToken = action.payload.accessToken;
-          state.refreshToken = action.payload.refreshToken;
-          state.isAuthenticated = true;
-          state.loading = false;
-          state.error = null;
-          state.lastActivityTime = Date.now();
-          // Store rememberMe from login thunk meta
-          state.rememberMe = (action.meta.arg as LoginCredentials).rememberMe || false;
-        }
+      .addCase(login.fulfilled, (state) => {
+        state.loading = false;
+        state.error = null;
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
       });
-
-    // Logout
-    builder.addCase(logout.fulfilled, (state) => {
-      state.user = null;
-      state.accessToken = null;
-      state.refreshToken = null;
-      state.isAuthenticated = false;
-      state.error = null;
-      state.rememberMe = false;
-    });
 
     // Get current user
     builder
@@ -205,19 +200,14 @@ const authSlice = createSlice({
       .addCase(getCurrentUser.fulfilled, (state, action) => {
         if (action.payload) {
           state.user = action.payload;
-          state.isAuthenticated = true;
           state.loading = false;
         }
       })
       .addCase(getCurrentUser.rejected, (state) => {
         state.loading = false;
-        state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
-        state.isAuthenticated = false;
       });
 
-    // Change password (logs out all sessions)
+    // Change password
     builder
       .addCase(changePassword.pending, (state) => {
         state.loading = true;
@@ -225,11 +215,6 @@ const authSlice = createSlice({
       })
       .addCase(changePassword.fulfilled, (state) => {
         state.loading = false;
-        state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
-        state.isAuthenticated = false;
-        state.rememberMe = false;
       })
       .addCase(changePassword.rejected, (state, action) => {
         state.loading = false;
@@ -238,12 +223,19 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setAccessToken, clearAuth, clearError } = authSlice.actions;
+export const {
+  sessionEstablished,
+  tokensUpdated,
+  sessionEnded,
+  storageUnavailable,
+  clearError,
+} = authSlice.actions;
 
 export const selectCurrentUser = (state: RootState) => state.auth.user;
 export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenticated;
 export const selectAccessToken = (state: RootState) => state.auth.accessToken;
 export const selectRefreshToken = (state: RootState) => state.auth.refreshToken;
 export const selectRememberMe = (state: RootState) => state.auth.rememberMe;
+export const selectStorageUnavailable = (state: RootState) => state.auth.storageUnavailable;
 
 export default authSlice.reducer;

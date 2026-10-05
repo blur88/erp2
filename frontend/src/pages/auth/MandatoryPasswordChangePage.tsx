@@ -21,7 +21,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
-import { changePassword, logout, ChangePasswordData } from '@/store/slices/authSlice';
+import { changePassword, ChangePasswordData } from '@/store/slices/authSlice';
+import { sessionRuntime } from '@/session';
 
 // Password validation schema
 const passwordSchema = yup.object({
@@ -46,7 +47,7 @@ const MandatoryPasswordChangePage: React.FC = () => {
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error, user, refreshToken } = useAppSelector((state) => state.auth);
+  const { loading, error, user } = useAppSelector((state) => state.auth);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -70,13 +71,10 @@ const MandatoryPasswordChangePage: React.FC = () => {
       setSuccessMessage('');
       await dispatch(changePassword(data)).unwrap();
 
-      setSuccessMessage('Password changed successfully! Logging out all sessions...');
+      setSuccessMessage('Password changed successfully! All sessions have been signed out.');
 
-      // Wait a moment to show success message, then logout (backend will force re-login)
       setTimeout(() => {
-        if (refreshToken) {
-          dispatch(logout(refreshToken));
-        }
+        navigate('/login', { replace: true });
       }, 2000);
     } catch (err: any) {
       console.error('Password change error:', err);
@@ -85,15 +83,12 @@ const MandatoryPasswordChangePage: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      if (refreshToken) {
-        await dispatch(logout(refreshToken)).unwrap();
-      }
-      // Navigate to login after logout
-      navigate('/login', { replace: true });
+      await sessionRuntime.signOut();
     } catch (error) {
       // Even if logout fails, redirect to login
-      navigate('/login', { replace: true });
+      void error;
     }
+    navigate('/login', { replace: true });
   };
 
   return (

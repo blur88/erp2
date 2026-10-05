@@ -28,6 +28,8 @@ import {
   clearError,
 } from '@/store/slices/authSlice';
 import type { LoginCredentials } from '@/store/slices/authSlice';
+import { sessionRuntime } from '@/session';
+import { SessionChangedElsewhereError } from '@/session/runtime';
 import { authApi } from '@/services/authApi';
 
 const schema = yup.object({
@@ -86,9 +88,10 @@ const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, navigate, location]);
 
-  // Clear error when component unmounts
+  // Clear error and cancel any pending sign-in when the component unmounts
   useEffect(() => {
     return () => {
+      sessionRuntime.cancelSignIn();
       dispatch(clearError());
     };
   }, [dispatch]);
@@ -98,7 +101,6 @@ const LoginPage: React.FC = () => {
       await dispatch(login(data)).unwrap();
       // Navigation is handled by the useEffect above
     } catch (err) {
-      // Error is handled by Redux state
       console.error('Login failed:', err);
     }
   };

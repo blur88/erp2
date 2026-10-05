@@ -3,8 +3,7 @@ import { REHYDRATE } from 'redux-persist'
 import { PERSIST_KEY } from '@/store/persistKey'
 import type { Notification } from '@/types'
 import type { RootState } from '@/store'
-import { logout, clearAuth } from './authSlice'
-
+import { sessionEnded } from './authSlice'
 interface NotificationState {
   notifications: Notification[]
   unreadCount: number
@@ -62,11 +61,7 @@ const notificationSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(logout.fulfilled, (state) => {
-        state.notifications = []
-        state.unreadCount = 0
-      })
-      .addCase(clearAuth, (state) => {
+      .addCase(sessionEnded, (state) => {
         state.notifications = []
         state.unreadCount = 0
       })

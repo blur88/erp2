@@ -25,6 +25,15 @@ vi.mock('../../../services/authApi', () => ({
   },
 }));
 
+const signInMock = vi.fn();
+const cancelSignInMock = vi.fn();
+vi.mock('@/session', () => ({
+  sessionRuntime: {
+    signIn: (...a: unknown[]) => signInMock(...a),
+    cancelSignIn: (...a: unknown[]) => cancelSignInMock(...a),
+  },
+}));
+
 describe('LoginPage', () => {
   let store: ReturnType<typeof configureStore>;
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
@@ -177,5 +186,34 @@ describe('LoginPage', () => {
     );
 
     expect(hasGradient).toBe(false);
+  });
+
+  it('shows the session-changed message and stays on the form', async () => {
+    const { SessionChangedElsewhereError } = await import('@/session/runtime');
+    signInMock.mockRejectedValueOnce(new SessionChangedElsewhereError('changed'));
+    await renderLoginPage();
+
+    fireEvent.change(screen.getByLabelText(/username or email/i), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'Password@123' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/the session changed in another tab. sign in again./i)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /sign in/i })).toBeInTheDocument();
+  });
+
+  it('calls cancelSignIn on unmount', async () => {
+    const { unmount } = render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <LoginPage />
+        </BrowserRouter>
+      </Provider>
+    );
+    await waitFor(() => expect(screen.getByText(/default admin credentials/i)).toBeInTheDocument());
+    cancelSignInMock.mockClear();
+    unmount();
+    expect(cancelSignInMock).toHaveBeenCalled();
   });
 });

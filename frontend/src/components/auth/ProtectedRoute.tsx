@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
-import { getCurrentUser, clearAuth } from '@/store/slices/authSlice';
+import { getCurrentUser } from '@/store/slices/authSlice';
+import StorageUnavailableScreen from './StorageUnavailableScreen';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -18,43 +19,38 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const loading = useAppSelector((state) => state.auth?.loading || false);
   const accessToken = useAppSelector((state) => state.auth?.accessToken || null);
   const user = useAppSelector((state) => state.auth?.user || null);
+  const storageUnavailable = useAppSelector((state) => state.auth?.storageUnavailable || false);
 
-  // Determine if we should attempt token verification
+  // The session runtime owns the token and the claim; this effect only refreshes
+  // the user profile once the runtime has established a session (accessToken set)
+  // but the user object is not yet mirrored.
   useEffect(() => {
-    // Only verify if we have a token but not authenticated and haven't tried yet
-    if (accessToken && !isAuthenticated && !user && !verificationAttempted.current) {
+    if (accessToken && !user && !verificationAttempted.current) {
       verificationAttempted.current = true;
       setShouldVerify(true);
 
-      // Set a hard timeout to force redirect to login if verification takes too long
       const timeoutId = setTimeout(() => {
-        console.warn('Token verification timeout - forcing logout');
-        dispatch(clearAuth());
         setShouldVerify(false);
-      }, 3000); // 3 second timeout
+      }, 3000);
 
       dispatch(getCurrentUser())
         .then(() => {
           clearTimeout(timeoutId);
           setShouldVerify(false);
         })
-        .catch((error) => {
-          // If verification fails, clear auth state
-          console.error('Token verification failed:', error);
+        .catch(() => {
           clearTimeout(timeoutId);
-          dispatch(clearAuth());
           setShouldVerify(false);
         });
-    } else if (accessToken && !isAuthenticated && !user && verificationAttempted.current) {
-      // Already attempted verification but still not authenticated - clear auth
-      dispatch(clearAuth());
     } else if (!accessToken && !isAuthenticated) {
-      // No token and not authenticated - ready to redirect
       setShouldVerify(false);
     }
-  }, [accessToken, isAuthenticated, user, dispatch]);
+  }, [accessToken, user, isAuthenticated, dispatch]);
 
-  // Show loading spinner only while actively verifying
+  if (storageUnavailable) {
+    return <StorageUnavailableScreen />;
+  }
+
   if (shouldVerify || loading) {
     return (
       <Box

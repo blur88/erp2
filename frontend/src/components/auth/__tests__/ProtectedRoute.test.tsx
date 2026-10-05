@@ -206,4 +206,36 @@ describe('ProtectedRoute', () => {
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
+
+  it('should show the storage-unavailable screen when storageUnavailable is true', () => {
+    const store = configureStore({
+      reducer: {
+        auth: authReducer as any,
+      },
+      preloadedState: {
+        auth: {
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          isAuthenticated: false,
+          loading: false,
+          error: null,
+          storageUnavailable: true,
+        },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <ProtectedRoute>
+            <TestComponent />
+          </ProtectedRoute>
+        </BrowserRouter>
+      </Provider>
+    );
+
+    expect(screen.getByText(/this browser cannot store your session safely/i)).toBeInTheDocument();
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+  });
 });

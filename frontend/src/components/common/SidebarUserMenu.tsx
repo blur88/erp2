@@ -13,13 +13,8 @@ import { default as LogoutIcon } from '@mui/icons-material/Logout'
 import { default as SettingsIcon } from '@mui/icons-material/Settings'
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { useAppDispatch } from '@/hooks/useRedux'
-import {
-  logout,
-  selectCurrentUser,
-  selectRefreshToken,
-} from '@/store/slices/authSlice'
-import { persistor } from '@/store'
+import { selectCurrentUser } from '@/store/slices/authSlice'
+import { sessionRuntime } from '@/session'
 
 interface SidebarUserMenuProps {
   collapsed: boolean
@@ -27,10 +22,8 @@ interface SidebarUserMenuProps {
 
 const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
   const theme = useTheme()
-  const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const user = useSelector(selectCurrentUser)
-  const refreshToken = useSelector(selectRefreshToken)
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null)
   const triggerButtonRef = useRef<HTMLButtonElement | null>(null)
 
@@ -57,13 +50,11 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
 
   const handleLogoutClick = async () => {
     handleMenuClose()
-    if (refreshToken) {
-      await dispatch(logout(refreshToken))
+    try {
+      await sessionRuntime.signOut()
+    } catch (error) {
+      console.error('Sign-out failed:', error)
     }
-    await persistor.purge()
-    // Explicit navigate after purge — ProtectedRoute's redirect is unreliable here
-    // because persistor.purge() clears localStorage async, and the accessToken in Redux
-    // can trigger ProtectedRoute's verification branch before purge completes.
     navigate('/login')
   }
 

@@ -1,9 +1,10 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Box, LinearProgress } from '@mui/material'
-import { useAppDispatch, useAppSelector } from './hooks/useRedux'
+import { useAppSelector } from './hooks/useRedux'
 import { useRegionalSettings } from '@/hooks/useRegionalSettings'
-import { clearAuth, logout as logoutAction, selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
+import { selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
+import { sessionRuntime } from '@/session'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
 import { useClearReconciliationDraftsOnSignOut } from './pages/accounting/bank-reconciliations/useClearReconciliationDraftsOnSignOut'
@@ -20,7 +21,6 @@ const PageLoader = () => (
 export default function RootLayout() {
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const rememberMe = useAppSelector(selectRememberMe)
-  const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -31,20 +31,14 @@ export default function RootLayout() {
 
   const handleAutoLogout = useCallback(async () => {
     setShowIdleWarning(false)
-    const state = (window as any).store?.getState()
-    const refreshToken = state?.auth?.refreshToken
-
     try {
-      if (refreshToken) {
-        await dispatch(logoutAction(refreshToken)).unwrap()
-      }
+      await sessionRuntime.signOut()
     } catch (error) {
       console.error('Server logout failed:', error)
     } finally {
-      dispatch(clearAuth())
       navigate('/login', { replace: true })
     }
-  }, [dispatch, navigate])
+  }, [navigate])
 
   const activityEvents = useMemo(() => ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'], [])
 
