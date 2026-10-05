@@ -5,13 +5,14 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { configureTestAppValidation } from "./utils/configure-test-app-validation";
 import { AppModule } from "../src/app.module";
-import { DataSource } from "typeorm";
+import { DataSource, IsNull } from "typeorm";
 import {
   User,
   UserRole,
   UserStatus,
 } from "../src/database/entities/user.entity";
 import { RefreshToken } from "../src/database/entities/refresh-token.entity";
+import { AuthSession } from "../src/database/entities/auth-session.entity";
 import { AuthService } from "../src/modules/auth/auth.service";
 import { AuthClock } from "../src/modules/auth/auth-clock";
 import * as bcrypt from "bcrypt";
@@ -416,39 +417,40 @@ describe("Authentication (e2e)", () => {
       adminRefreshToken = response.body.refreshToken;
     });
 
-    it("should logout successfully", async () => {
+    it("should logout successfully without Authorization header and revoke the session", async () => {
       await request(app.getHttpServer())
         .post("/auth/logout")
-        .set("Authorization", `Bearer ${adminAccessToken}`)
         .send({
           refreshToken: adminRefreshToken,
         })
         .expect(204);
 
-      // Scoped to this test's own user: an unfiltered count asserts on global
-      // state and breaks the moment another suite holds a token (issue #1197).
-      const refreshTokenRepository = dataSource.getRepository(RefreshToken);
-      const count = await refreshTokenRepository.count({ where: { userId: testUserId } });
-      expect(count).toBe(0);
+      const sessionRepository = dataSource.getRepository(AuthSession);
+      const session = await sessionRepository.findOne({
+        where: { userId: testUserId },
+        order: { createdAt: "DESC" },
+      });
+      expect(session).not.toBeNull();
+      expect(session!.revokedAt).not.toBeNull();
+      expect(session!.revokeReason).toBe("logout");
     });
 
-    it("should invalidate all refresh tokens after logout", async () => {
-      // Logout
+    it("should reject refresh token after logout", async () => {
       await request(app.getHttpServer())
         .post("/auth/logout")
-        .set("Authorization", `Bearer ${adminAccessToken}`)
         .send({
           refreshToken: adminRefreshToken,
         })
         .expect(204);
 
-      // Try to use refresh token
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post("/auth/refresh")
         .send({
           refreshToken: adminRefreshToken,
         })
         .expect(401);
+
+      expect(res.body.code).toBe("SESSION_REVOKED");
     });
   });
 
@@ -542,11 +544,12 @@ describe("Authentication (e2e)", () => {
         })
         .expect(204);
 
-      // Scoped to this test's own user: an unfiltered count asserts on global
-      // state and breaks the moment another suite holds a token (issue #1197).
-      const refreshTokenRepository = dataSource.getRepository(RefreshToken);
-      const count = await refreshTokenRepository.count({ where: { userId: testUserId } });
-      expect(count).toBe(0);
+      // Verify all sessions of the user are revoked
+      const sessionRepository = dataSource.getRepository(AuthSession);
+      const unrevokedCount = await sessionRepository.count({
+        where: { userId: testUserId, revokedAt: IsNull() },
+      });
+      expect(unrevokedCount).toBe(0);
     });
   });
 

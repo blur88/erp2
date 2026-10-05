@@ -243,13 +243,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Logout - invalidate all refresh tokens for user
-   */
-  async logout(userId: string): Promise<void> {
-    await this.refreshTokenRepository.delete({ userId, isActive: true });
-    this.logger.log(`User ${userId} logged out - all tokens invalidated`);
-  }
 
   /**
    * Change user password
@@ -291,8 +284,13 @@ export class AuthService {
     user.requiresPasswordChange = false;
     await this.userRepository.save(user);
 
-    // Invalidate all refresh tokens (force re-login everywhere)
-    await this.logout(userId);
+    // Invalidate all sessions (force re-login everywhere)
+    await this.authSessionService.revokeAllForUser(
+      this.dataSource.manager,
+      userId,
+      'password_change',
+      new Date(),
+    );
 
     this.logger.log(`Password changed for user ${user.username} - all sessions invalidated`);
   }

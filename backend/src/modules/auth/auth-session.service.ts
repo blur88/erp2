@@ -2,9 +2,9 @@ import { Injectable, Inject, UnauthorizedException, Logger } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager } from 'typeorm';
+import { Repository, DataSource, EntityManager, IsNull } from 'typeorm';
 import { User, UserStatus } from '@/database/entities/user.entity';
-import { AuthSession } from '@/database/entities/auth-session.entity';
+import { AuthSession, SessionRevokeReason } from '@/database/entities/auth-session.entity';
 import { RefreshToken } from '@/database/entities/refresh-token.entity';
 import { REFRESH_KEYS, type RefreshKeySet } from './tokens/refresh-keys';
 import {
@@ -243,6 +243,16 @@ export class AuthSessionService {
         });
       }
 
+      const presentedRow = await manager.getRepository(RefreshToken).findOne({
+        where: { id: tokenRow.id },
+      });
+      if (!presentedRow) {
+        throw new UnauthorizedException({
+          message: 'Invalid refresh token',
+          code: 'REFRESH_INVALID',
+        });
+      }
+
       const now = this.clock.now();
 
       if (session.revokedAt !== null) {
@@ -252,7 +262,7 @@ export class AuthSessionService {
         });
       }
 
-      if (tokenRow.expiresAt <= now || session.expiresAt <= now) {
+      if (presentedRow.expiresAt <= now || session.expiresAt <= now) {
         throw new UnauthorizedException({
           message: 'Refresh token expired',
           code: 'REFRESH_EXPIRED',
@@ -260,7 +270,7 @@ export class AuthSessionService {
       }
 
       // 3. Current-generation rotate
-      if (tokenRow.generation === session.generation) {
+      if (presentedRow.generation === session.generation) {
         const rawNow = now;
         const nowTrunc = new Date(Math.floor(rawNow.getTime() / 1000) * 1000);
         const lifetime = this.refreshLifetimeSeconds(session.rememberMe);
@@ -274,9 +284,9 @@ export class AuthSessionService {
         const graceSeconds =
           typeof graceConfig === 'number' ? graceConfig : parseInt(graceConfig, 10) || 60;
 
-        tokenRow.supersededAt = nowTrunc;
-        tokenRow.graceUntil = new Date(nowTrunc.getTime() + graceSeconds * 1000);
-        await manager.getRepository(RefreshToken).save(tokenRow);
+        presentedRow.supersededAt = nowTrunc;
+        presentedRow.graceUntil = new Date(nowTrunc.getTime() + graceSeconds * 1000);
+        await manager.getRepository(RefreshToken).save(presentedRow);
 
         const nowSec = Math.floor(nowTrunc.getTime() / 1000);
         const expSec = Math.floor(newExpiresAt.getTime() / 1000);
@@ -316,7 +326,7 @@ export class AuthSessionService {
       }
 
       // 4. Recover: superseded and clock is strictly before its own graceUntil
-      if (tokenRow.supersededAt !== null && now < tokenRow.graceUntil) {
+      if (presentedRow.supersededAt !== null && now < presentedRow.graceUntil) {
         const currentRow = await manager.getRepository(RefreshToken).findOne({
           where: { sessionId: session.id, generation: session.generation },
         });
@@ -432,4 +442,50 @@ export class AuthSessionService {
       user,
     };
   }
+
+  async logout(token: unknown): Promise<void> {
+    if (typeof token !== 'string') {
+      return;
+    }
+
+    const verifyResult = verifyRefreshToken(token, this.refreshKeys);
+    if (!verifyResult.ok) {
+      return;
+    }
+
+    const { claims } = verifyResult;
+    const tokenHash = hashRefreshToken(token);
+
+    const tokenRow = await this.refreshTokenRepository.findOne({
+      where: { tokenHash },
+    });
+
+    if (
+      !tokenRow ||
+      tokenRow.sessionId !== claims.sessionId ||
+      tokenRow.generation !== claims.generation
+    ) {
+      return;
+    }
+
+    const now = this.clock.now();
+    await this.sessionRepository.update(
+      { id: tokenRow.sessionId, revokedAt: IsNull() },
+      { revokedAt: now, revokeReason: 'logout' },
+    );
+  }
+
+  async revokeAllForUser(
+    manager: EntityManager,
+    userId: string,
+    reason: SessionRevokeReason,
+    now: Date,
+  ): Promise<number> {
+    const res = await manager
+      .getRepository(AuthSession)
+      .update({ userId, revokedAt: IsNull() }, { revokedAt: now, revokeReason: reason });
+    return res.affected ?? 0;
+  }
 }
+
+

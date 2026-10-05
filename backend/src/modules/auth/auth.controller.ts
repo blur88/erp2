@@ -18,12 +18,14 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
+import { AuthSessionService } from './auth-session.service';
 import {
   LoginDto,
   RegisterDto,
   RefreshTokenDto,
   ChangePasswordDto,
   AuthResponseDto,
+  LogoutDto,
 } from './dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -32,7 +34,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly authSessionService: AuthSessionService,
+  ) {}
 
   // Rate limiting is enforced ONLY by nginx: the login_limit zone
   // (nginx/nginx.conf:47, 5r/m) applied to ^/api/(auth|login|register)
@@ -166,24 +171,19 @@ export class AuthController {
     return this.authService.refreshAccessToken(refreshTokenDto, ipAddress, userAgent);
   }
 
+  @Public()
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'User logout',
-    description: 'Invalidate all refresh tokens for the current user (logout from all devices).',
+    description: 'Revoke the session identified by the refresh token credential.',
   })
   @ApiResponse({
     status: 204,
     description: 'Logout successful',
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid or expired token',
-  })
-  async logout(@CurrentUser('userId') userId: string): Promise<void> {
-    await this.authService.logout(userId);
+  async logout(@Body() dto: LogoutDto): Promise<void> {
+    await this.authSessionService.logout(dto?.refreshToken);
   }
 
   @Get('me')

@@ -114,6 +114,7 @@ let service: any;
       user: mockUser,
     }),
     refreshLifetimeSeconds: (jest.fn as unknown as any)().mockReturnValue(172800),
+    revokeAllForUser: (jest.fn as unknown as any)().mockResolvedValue(1),
   };
 
   const mockDataSource = {
@@ -541,19 +542,6 @@ let service: any;
     });
   });
 
-  describe("logout", () => {
-    it("should invalidate all refresh tokens for user", async () => {
-      const userId = mockUser.id;
-      mockRefreshTokenRepository.delete.mockResolvedValue({ affected: 1 });
-
-      await service.logout(userId);
-
-      expect(mockRefreshTokenRepository.delete).toHaveBeenCalledWith({
-        userId,
-        isActive: true,
-      });
-    });
-  });
 
   describe("changePassword", () => {
     const changePasswordDto = {
@@ -579,7 +567,7 @@ let service: any;
       expect(mockUserRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ password: "new-hashed-password" }),
       );
-      expect(mockRefreshTokenRepository.delete).toHaveBeenCalled(); // Logout all sessions
+      expect(mockAuthSessionService.revokeAllForUser).toHaveBeenCalled(); // Logout all sessions
     });
 
     it("should throw UnauthorizedException for incorrect current password", async () => {

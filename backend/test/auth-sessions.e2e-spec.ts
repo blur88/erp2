@@ -953,5 +953,279 @@ describe('Auth Sessions (e2e)', () => {
       expect(logs.length).toBe(0);
     });
   });
+
+  describe('logout', () => {
+    it('revokes only its own session', async () => {
+      const login1 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s1 = login1.body.sessionId;
+      const t1 = login1.body.refreshToken;
+
+      const login2 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s2 = login2.body.sessionId;
+      const t2 = login2.body.refreshToken;
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: t1 })
+        .expect(204);
+
+      const sess1 = await dataSource.getRepository(AuthSession).findOneBy({ id: s1 });
+      expect(sess1!.revokedAt).not.toBeNull();
+      expect(sess1!.revokeReason).toBe('logout');
+
+      const sess2 = await dataSource.getRepository(AuthSession).findOneBy({ id: s2 });
+      expect(sess2!.revokedAt).toBeNull();
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: t2 })
+        .expect(200);
+    });
+
+    it('ignores the Authorization header', async () => {
+      const login1 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s1 = login1.body.sessionId;
+      const t1 = login1.body.refreshToken;
+
+      const login2 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s2 = login2.body.sessionId;
+      const a2 = login2.body.accessToken;
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Authorization', `Bearer ${a2}`)
+        .send({ refreshToken: t1 })
+        .expect(204);
+
+      const sess1 = await dataSource.getRepository(AuthSession).findOneBy({ id: s1 });
+      expect(sess1!.revokedAt).not.toBeNull();
+      expect(sess1!.revokeReason).toBe('logout');
+
+      const sess2 = await dataSource.getRepository(AuthSession).findOneBy({ id: s2 });
+      expect(sess2!.revokedAt).toBeNull();
+    });
+
+    it('works with an expired access token', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s1 = login.body.sessionId;
+      const t1 = login.body.refreshToken;
+
+      const expiredAccess = jwtService.sign(
+        { sub: login.body.user.id, sid: s1 },
+        { expiresIn: '-1s' },
+      );
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Authorization', `Bearer ${expiredAccess}`)
+        .send({ refreshToken: t1 })
+        .expect(204);
+
+      const sess1 = await dataSource.getRepository(AuthSession).findOneBy({ id: s1 });
+      expect(sess1!.revokedAt).not.toBeNull();
+      expect(sess1!.revokeReason).toBe('logout');
+    });
+
+    it("works with a revoked session's access token", async () => {
+      const login1 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s1 = login1.body.sessionId;
+      const a1 = login1.body.accessToken;
+      const t1 = login1.body.refreshToken;
+
+      const login2 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s2 = login2.body.sessionId;
+      const t2 = login2.body.refreshToken;
+
+      // Logout S1 first
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: t1 })
+        .expect(204);
+
+      // Now logout S2 presenting S1's access token
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Authorization', `Bearer ${a1}`)
+        .send({ refreshToken: t2 })
+        .expect(204);
+
+      const sess2 = await dataSource.getRepository(AuthSession).findOneBy({ id: s2 });
+      expect(sess2!.revokedAt).not.toBeNull();
+      expect(sess2!.revokeReason).toBe('logout');
+    });
+
+    it('is idempotent', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s1 = login.body.sessionId;
+      const t1 = login.body.refreshToken;
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: t1 })
+        .expect(204);
+
+      const sessAfter1 = await dataSource.getRepository(AuthSession).findOneBy({ id: s1 });
+      expect(sessAfter1!.revokedAt).not.toBeNull();
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: t1 })
+        .expect(204);
+
+      const sessAfter2 = await dataSource.getRepository(AuthSession).findOneBy({ id: s1 });
+      expect(sessAfter2!.revokedAt!.getTime()).toBe(sessAfter1!.revokedAt!.getTime());
+    });
+
+    it('accepts a superseded token', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s1 = login.body.sessionId;
+      const g1Token = login.body.refreshToken;
+
+      // Rotate to G2
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1Token })
+        .expect(200);
+
+      // Logout with G1 token
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: g1Token })
+        .expect(204);
+
+      const sess = await dataSource.getRepository(AuthSession).findOneBy({ id: s1 });
+      expect(sess!.revokedAt).not.toBeNull();
+      expect(sess!.revokeReason).toBe('logout');
+
+      const auditLogs = await dataSource.getRepository(AuditLog).findBy({
+        entityId: s1,
+        action: 'SESSION_REPLAY_REVOKED',
+      });
+      expect(auditLogs.length).toBe(0);
+    });
+
+    it('accepts a retained expired token', async () => {
+      const clock = app.get(AuthClock);
+      const T0 = new Date('2026-10-05T12:00:00.000Z');
+      let currentMockTime = T0;
+      jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
+
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s1 = login.body.sessionId;
+      const t1 = login.body.refreshToken;
+
+      const tokenRow = await dataSource.getRepository(RefreshToken).findOneBy({ sessionId: s1 });
+      // Move clock past token expiresAt
+      currentMockTime = new Date(tokenRow!.expiresAt.getTime() + 10 * 1000);
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: t1 })
+        .expect(204);
+
+      const sess = await dataSource.getRepository(AuthSession).findOneBy({ id: s1 });
+      expect(sess!.revokedAt).not.toBeNull();
+      expect(sess!.revokeReason).toBe('logout');
+    });
+
+    it('is a no-op once the row is purged', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s1 = login.body.sessionId;
+      const t1 = login.body.refreshToken;
+
+      await dataSource.query('DELETE FROM refresh_tokens WHERE "sessionId" = $1', [s1]);
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: t1 })
+        .expect(204);
+
+      const sess = await dataSource.getRepository(AuthSession).findOneBy({ id: s1 });
+      expect(sess!.revokedAt).toBeNull();
+    });
+
+    it('is a no-op for an unknown key', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const s1 = login.body.sessionId;
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const unknownKeySet: RefreshKeySet = {
+        activeKid: 'unknown_key_id',
+        secretFor: () => 'some_secret_key_that_is_32_bytes_long_ok',
+        kids: () => ['unknown_key_id'],
+      };
+      const unknownToken = encodeRefreshToken(
+        {
+          userId: login.body.user.id,
+          sessionId: s1,
+          generation: 1,
+          issuedAt: nowSec,
+          expiresAt: nowSec + 3600,
+          keyId: 'unknown_key_id',
+        },
+        unknownKeySet,
+      );
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: unknownToken })
+        .expect(204);
+
+      const sess = await dataSource.getRepository(AuthSession).findOneBy({ id: s1 });
+      expect(sess!.revokedAt).toBeNull();
+    });
+
+    it.each([
+      { name: 'undefined body', body: undefined },
+      { name: 'empty object', body: {} },
+      { name: 'numeric refreshToken', body: { refreshToken: 42 } },
+      // 50,000 characters to stay comfortably within the default 100kb body limit
+      { name: 'large string', body: { refreshToken: 'x'.repeat(50000) } },
+      { name: 'non-jwt string', body: { refreshToken: 'not.a.jwt' } },
+    ])('tolerates $name', async ({ body }) => {
+      const req = request(app.getHttpServer()).post('/auth/logout');
+      if (body !== undefined) {
+        req.send(body);
+      }
+      await req.expect(204);
+    });
+  });
 });
+
 
