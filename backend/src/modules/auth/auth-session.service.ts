@@ -2,7 +2,7 @@ import { Injectable, Inject, UnauthorizedException, Logger } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager, IsNull } from 'typeorm';
+import { Repository, DataSource, EntityManager, IsNull, MoreThan } from 'typeorm';
 import { User, UserStatus } from '@/database/entities/user.entity';
 import { AuthSession, SessionRevokeReason } from '@/database/entities/auth-session.entity';
 import { RefreshToken } from '@/database/entities/refresh-token.entity';
@@ -485,6 +485,18 @@ export class AuthSessionService {
       .getRepository(AuthSession)
       .update({ userId, revokedAt: IsNull() }, { revokedAt: now, revokeReason: reason });
     return res.affected ?? 0;
+  }
+
+  async isLive(sessionId: string, userId: string, now: Date): Promise<boolean> {
+    const session = await this.sessionRepository.findOne({
+      where: {
+        id: sessionId,
+        userId,
+        revokedAt: IsNull(),
+        expiresAt: MoreThan(now),
+      },
+    });
+    return !!session;
   }
 }
 

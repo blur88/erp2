@@ -1492,6 +1492,193 @@ describe('Auth Sessions (e2e)', () => {
       expect(freshUser.failedLoginAttempts).toBe(0);
     });
   });
+
+  describe('authorization', () => {
+    it('a live session still works', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
+        .expect(200);
+
+      expect(res.body.username).toBe(AUTHSESS_USERS[0]);
+    });
+
+    it('an already-issued access token is rejected after sign-out', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: login.body.refreshToken })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
+        .expect(401);
+    });
+
+    it('an already-issued access token is rejected after password change', async () => {
+      const login1 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const login2 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      const newPass = 'NewPassAfterChange@123!';
+      await request(app.getHttpServer())
+        .patch('/auth/change-password')
+        .set('Authorization', `Bearer ${login1.body.accessToken}`)
+        .send({
+          currentPassword: AUTHSESS_PASSWORD,
+          newPassword: newPass,
+          newPasswordConfirmation: newPass,
+        })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${login2.body.accessToken}`)
+        .expect(401);
+    });
+
+    it('an already-issued access token is rejected after replay revocation', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const g1 = login.body.refreshToken;
+
+      // Rotate once
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1 })
+        .expect(200);
+
+      // Advance clock past grace (60s default, advance by 70s)
+      const clock = app.get(AuthClock);
+      const future = new Date(Date.now() + 70 * 1000);
+      jest.spyOn(clock, 'now').mockReturnValue(future);
+
+      // Replay g1
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: g1 })
+        .expect(401);
+
+      // Now access token from login is rejected
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
+        .expect(401);
+    });
+
+    it('a token without sid is rejected', async () => {
+      const user = await dataSource.getRepository(User).findOneByOrFail({ username: AUTHSESS_USERS[0] });
+      const legacyToken = jwtService.sign({
+        sub: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      });
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${legacyToken}`)
+        .expect(401);
+    });
+
+    it('an expired session is rejected before cleanup runs', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      const session = await dataSource.getRepository(AuthSession).findOneByOrFail({ id: login.body.sessionId });
+
+      const clock = app.get(AuthClock);
+      const pastSessionExpiry = new Date(session.expiresAt.getTime() + 1000);
+      jest.spyOn(clock, 'now').mockReturnValue(pastSessionExpiry);
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
+        .expect(401);
+
+      const sessionStillExists = await dataSource.getRepository(AuthSession).findOneBy({ id: session.id });
+      expect(sessionStillExists).not.toBeNull();
+    });
+
+    it('a refresh token is not an access token', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${login.body.refreshToken}`)
+        .expect(401);
+    });
+
+    it('rejects the refresh typ even when signed with the access key', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      const decoded: any = jwtService.decode(login.body.accessToken);
+      const { iat, exp, ...payload } = decoded;
+
+      const refreshTypToken = jwtService.sign(payload, {
+        header: { alg: 'HS256', typ: 'erp-refresh+jwt' },
+      });
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${refreshTypToken}`)
+        .expect(401);
+
+      const normalTypToken = jwtService.sign(payload, {
+        header: { alg: 'HS256', typ: 'JWT' },
+      });
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${normalTypToken}`)
+        .expect(200);
+    });
+
+    it('rejects another algorithm signed with the access key', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      const decoded: any = jwtService.decode(login.body.accessToken);
+      const { iat, exp, ...payload } = decoded;
+
+      const hs384Token = jwtService.sign(payload, {
+        algorithm: 'HS384',
+        header: { alg: 'HS384', typ: 'JWT' },
+      });
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${hs384Token}`)
+        .expect(401);
+    });
+  });
 });
 
 

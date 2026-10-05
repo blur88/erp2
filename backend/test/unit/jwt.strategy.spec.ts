@@ -5,6 +5,8 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { UnauthorizedException } from "@nestjs/common";
 import { JwtStrategy } from "../../src/modules/auth/strategies/jwt.strategy";
+import { AuthSessionService } from "../../src/modules/auth/auth-session.service";
+import { AuthClock } from "../../src/modules/auth/auth-clock";
 import {
   User,
   UserRole,
@@ -39,9 +41,20 @@ describe("JwtStrategy", () => {
     }),
   };
 
+  const mockNow = new Date('2026-10-05T12:00:00.000Z');
+  const mockClock = {
+    now: (jest.fn as unknown as any)().mockReturnValue(mockNow),
+  };
+
+  const mockAuthSessionService = {
+    isLive: (jest.fn as unknown as any)().mockResolvedValue(true),
+  };
+
   beforeEach(async () => {
     // Clear mocks before module creation to track constructor calls
     jest.clearAllMocks();
+    mockAuthSessionService.isLive.mockResolvedValue(true);
+    mockClock.now.mockReturnValue(mockNow);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -53,6 +66,14 @@ describe("JwtStrategy", () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: AuthSessionService,
+          useValue: mockAuthSessionService,
+        },
+        {
+          provide: AuthClock,
+          useValue: mockClock,
         },
       ],
     }).compile();
@@ -71,6 +92,7 @@ describe("JwtStrategy", () => {
       username: "testuser",
       email: "test@example.com",
       role: UserRole.MANAGER,
+      sid: "22222222-2222-4222-8222-222222222222",
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 900, // 15 minutes
     };
@@ -85,9 +107,37 @@ describe("JwtStrategy", () => {
       expect(result.username).toBe(payload.username);
       expect(result.email).toBe(payload.email);
       expect(result.role).toBe(payload.role);
+      expect(result.sessionId).toBe(payload.sid);
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
         where: { id: payload.sub },
       });
+    });
+
+    it("rejects a payload without sid", async () => {
+      const { sid, ...payloadWithoutSid } = payload;
+      await expect(strategy.validate(payloadWithoutSid as any)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it("rejects when isLive is false", async () => {
+      mockAuthSessionService.isLive.mockResolvedValueOnce(false);
+      await expect(strategy.validate(payload)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it("calls isLive with (sid, sub, clock.now()) on every validate call", async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      await strategy.validate(payload);
+      await strategy.validate(payload);
+
+      expect(mockAuthSessionService.isLive).toHaveBeenCalledTimes(2);
+      expect(mockAuthSessionService.isLive).toHaveBeenCalledWith(
+        payload.sid,
+        payload.sub,
+        mockNow,
+      );
     });
 
     it("should throw UnauthorizedException if user not found", async () => {
@@ -137,6 +187,7 @@ describe("JwtStrategy", () => {
         role: payload.role,
         firstName: mockUser.firstName,
         lastName: mockUser.lastName,
+        sessionId: payload.sid,
       });
     });
   });
