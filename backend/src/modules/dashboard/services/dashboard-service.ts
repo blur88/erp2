@@ -20,7 +20,7 @@ export class DashboardService {
     // Simplified constructor - no service dependencies for now
   ) {}
 
-  // Simplified dashboard data with mock data for testing WebSocket
+  // Simplified dashboard data with mock data
   async getDashboardData(request: DashboardDataRequest): Promise<DashboardDataResponse> {
     return {
       widgets: {

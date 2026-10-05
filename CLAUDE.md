@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ERP system — NestJS 11 backend + React 19 / TypeScript 6 / Material-UI v9 frontend, served via NGINX in Docker.
 
-- **Databases**: PostgreSQL 18.3 (TypeORM, primary), Redis 8.6 (caching, queues, WebSocket state)
+- **Databases**: PostgreSQL 18.3 (TypeORM, primary), Redis 8.6 (BullMQ queues only — see the `noeviction` note)
 - **Queue**: BullMQ via `@nestjs/bullmq` (background jobs)
 - **Testing**: Jest (backend) + Vitest (frontend)
 - **Default admin**: `admin / Admin@123!` — change on first login
@@ -467,5 +467,7 @@ On BullMQ 6.1.0 the public API returns a **boolean**: `removed: true` on success
 
 Login must never `save()` a whole `User` entity; use column-scoped `update()`. This was reproduced, not assumed: with the original `handleFailedLogin` (`userRepository.save(user)`) restored, `the new password survives stale failed-login bookkeeping` in `test/auth-sessions.e2e-spec.ts` failed because the stored hash was no longer the newly committed one (2026-10-05, TypeORM 1.1.1). A stale entity saved after a concurrent password change writes its old hash back.
 
-A refresh signing key is retired only when no `refresh_tokens` row references it (`DEPLOYMENT_CHECKLIST.md` has the query). The `X-ERP-Session-Protocol: 2` marker is accepted and ignored by the server for now; making it required is plan 2 of #1345 (the frontend PR), not #1348. The dashboard WebSocket performs no authentication and is outside all of this (#1348): session revocation covers authenticated HTTP requests only.
+A refresh signing key is retired only when no `refresh_tokens` row references it (`DEPLOYMENT_CHECKLIST.md` has the query). The `X-ERP-Session-Protocol: 2` marker is accepted and ignored by the server for now; making it required is plan 2 of #1345 (the frontend PR), not #1348.
+
+**There is no WebSocket transport (#1348).** The dashboard Socket.IO gateway accepted unauthenticated connections and nothing in the frontend consumed it, so it was removed rather than authenticated — gateway, `WebSocketProvider`, the `/socket.io/` NGINX locations, `VITE_SOCKET_URL` and the socket.io packages. `test/no-websocket-transport.e2e-spec.ts` asserts the backend does not answer an Engine.IO handshake; it tests the backend directly, not the proxied path. Behind NGINX, `/socket.io/` now falls through to the SPA `location /` in both configs and returns the app shell with 200, not a 404. A future real-time feature must design its transport and its authentication together, including disconnecting sockets when a session is revoked.
 

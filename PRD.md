@@ -81,7 +81,8 @@ The ERP software will serve as a **centralized platform** to manage business ope
 
 * **Reporting & Dashboard** ✅
 
-  * ✅ Sales summary with real-time WebSocket updates
+  * ✅ Sales summary
+  * ❌ Real-time (push) updates — not implemented; the unused Socket.IO gateway was removed in #1348
   * ✅ Stock movement report
   * ✅ Supplier purchase summary
   * ✅ Export reports (Excel/PDF)
@@ -104,7 +105,7 @@ The ERP software will serve as a **centralized platform** to manage business ope
 * ✅ **Flexible Costing Methods** - AVERAGE, FIFO, LIFO, STANDARD (November 2025)
 * ✅ **Module-Embedded Reports** - Comprehensive reporting in each module (November 2025)
 * ✅ **Settings Management** - Company settings and print configuration (November 2025)
-* ✅ **Real-time Dashboard** - WebSocket updates for live data
+* ❌ **Real-time Dashboard** - Not implemented. The Socket.IO gateway delivered nothing to the app and accepted unauthenticated connections; it was removed in #1348. A real-time transport must be designed together with its authentication.
 * ✅ **Soft-Delete Management** - View and restore deleted records
 * ✅ **Bulk Operations** - Mass operations on products, categories, customers
 * ✅ **Advanced Filtering** - Payment status, fulfillment status filters

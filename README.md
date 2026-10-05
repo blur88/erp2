@@ -19,7 +19,6 @@ and role-based access control.
 - Purchasing with supplier and goods-received management
 - Double-entry accounting with bank reconciliation and financial reports
 - Price list management with effective dates and bulk operations
-- Real-time dashboard with WebSocket updates
 - Audit logging for all operations
 - Excel and PDF report exports
 
@@ -72,7 +71,6 @@ JWT_REFRESH_TOKEN_EXPIRY=7d
 
 # Frontend
 VITE_API_BASE_URL=/api
-VITE_SOCKET_URL=/
 ```
 
 ## Development
