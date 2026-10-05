@@ -26,7 +26,9 @@ export interface MemorySessionStore extends SessionStore {
 export function createMemorySessionStore(shared: SharedMemory): MemorySessionStore {
   const closedListeners = new Set<() => void>()
 
-  let holdResolvers: Array<() => void> | null = null
+  let holdActive = false
+  let holdReleased = false
+  let holdWaiters: Array<() => void> = []
   let nextReadError: Error | null = null
 
   const ensureOpen = () => {
@@ -66,9 +68,16 @@ export function createMemorySessionStore(shared: SharedMemory): MemorySessionSto
   }
 
   const waitForHold = (): Promise<void> | null => {
-    if (holdResolvers === null) return null
+    if (!holdActive) return null
+    if (holdReleased) {
+      holdActive = false
+      return null
+    }
     return new Promise<void>((resolve) => {
-      holdResolvers?.push(resolve)
+      holdWaiters.push(() => {
+        holdActive = false
+        resolve()
+      })
     })
   }
 
@@ -77,8 +86,6 @@ export function createMemorySessionStore(shared: SharedMemory): MemorySessionSto
       const timeoutMs = opts?.timeoutMs ?? 5000
       return enqueue(async (cancelled) => {
         ensureOpen()
-        const hold = waitForHold()
-        if (hold) await hold
         if (cancelled()) throw new StorageTimeoutError('transaction timed out')
         ensureOpen()
         if (nextReadError) {
@@ -112,12 +119,16 @@ export function createMemorySessionStore(shared: SharedMemory): MemorySessionSto
     },
 
     holdNextTransaction() {
-      holdResolvers = []
+      holdActive = true
+      holdReleased = false
+      holdWaiters = []
       return {
         release() {
-          const resolvers = holdResolvers ?? []
-          holdResolvers = null
-          resolvers.forEach((r) => r())
+          if (!holdActive) return
+          holdReleased = true
+          const waiters = holdWaiters
+          holdWaiters = []
+          waiters.forEach((w) => w())
         },
       }
     },
