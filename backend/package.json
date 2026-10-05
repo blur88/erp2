@@ -47,11 +47,9 @@
     "@nestjs/mapped-types": "12.0.0",
     "@nestjs/passport": "12.0.0",
     "@nestjs/platform-express": "12.1.2",
-    "@nestjs/platform-socket.io": "12.1.2",
     "@nestjs/schedule": "12.0.2",
     "@nestjs/swagger": "12.0.2",
     "@nestjs/typeorm": "12.0.2",
-    "@nestjs/websockets": "12.1.2",
     "@types/archiver": "^8.0.0",
     "@types/bcrypt": "^6.0.0",
     "archiver": "8.0.0",
@@ -73,7 +71,6 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sanitize-html": "2.18.0",
-    "socket.io": "^4.8.1",
     "typeorm": "^1.0.0",
     "uuid": "^14.0.0"
   },
@@ -123,7 +120,6 @@
     "picomatch": ">=4.0.4",
     "@nestjs/mapped-types": "12.0.0",
     "glob": ">=10",
-    "ws": ">=8.20.1",
     "exceljs": {
       "uuid": ">=11.1.1"
     },

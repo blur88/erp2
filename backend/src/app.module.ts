@@ -75,7 +75,7 @@ import { AppService } from './app.service';
     InventoryModule,
     SalesModule,
     PurchasingModule,
-    DashboardModule, // Re-enabled - WebSocket support
+    DashboardModule,
     SettingsModule, // Company settings
     PrintSettingsModule, // Print settings and templates
     BackupModule, // Backup and restore functionality
