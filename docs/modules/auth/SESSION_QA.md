@@ -26,10 +26,17 @@ They are not production values.
 
 **Not performed for this revision.** The recorded browser run requires Docker,
 Playwright (`mcr.microsoft.com/playwright:v1.63.0-noble`), a LAN IP, and roughly
-thirty minutes of wall time; it was not executed in the environment where this
-branch was prepared. The run that gates the merge is produced on the final commit
-of this branch and recorded in the pull request that closes #1345. Until it is
-produced, the browser cases, workload W1 and the latency figures are unverified.
+thirty minutes of wall time. It was attempted on the host where this branch was
+prepared and refused by `run.sh`'s own disk guard: the root filesystem had under
+3 GB free (`df` reported ~470 MB). The run that gates the merge is produced on
+the final commit of this branch and recorded in the pull request that closes
+#1345. Until it is produced, the browser cases, workload W1 and the latency
+figures are unverified.
+
+The rate-limit script (`nginx/verify-rate-limits.sh`) **was** run on the final
+commit and passed twice in a row (phases 0, A, B, C, D and F), and the ordering
+check in Task 8A confirmed that moving the session block below the credential
+block makes phase B fail.
 
 ## What is automated
 

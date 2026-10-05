@@ -17,8 +17,9 @@ cd "${ROOT}"
 
 STATUS=0
 RESTORED=0
+HAS_CAPTURE=0
 cleanup() {
-  if [ "${RESTORED}" -eq 0 ]; then
+  if [ "${RESTORED}" -eq 0 ] && [ "${HAS_CAPTURE}" -eq 1 ]; then
     if ! "${QA_DIR}/stack.sh" restore; then
       if [ "${STATUS}" -eq 0 ]; then STATUS=3; fi
     fi
@@ -45,6 +46,7 @@ if [ -f "${SCRATCH}/stack-before.json" ]; then
   "${QA_DIR}/stack.sh" restore || refuse "could not restore a leftover capture"
 fi
 "${QA_DIR}/stack.sh" show > "${SCRATCH}/stack-before.json"
+HAS_CAPTURE=1
 
 # 3. Cleanup installed before the first mutation (the trap above is already set).
 
