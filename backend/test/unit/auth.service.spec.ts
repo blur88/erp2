@@ -602,19 +602,6 @@ let service: any;
     });
   });
 
-  describe("cleanupExpiredTokens", () => {
-    it("should delete expired refresh tokens", async () => {
-      mockRefreshTokenRepository.delete.mockResolvedValue({ affected: 5 });
-
-      const result = await service.cleanupExpiredTokens();
-
-      expect(mockRefreshTokenRepository.delete).toHaveBeenCalledWith({
-        expiresAt: expect.anything(),
-      });
-      expect(result).toBe(5);
-    });
-  });
-
   /**
    * Regression: issue #1201 — same-second token collision.
    *

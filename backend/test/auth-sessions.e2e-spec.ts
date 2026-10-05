@@ -1,8 +1,9 @@
 import { jest } from '@jest/globals';
 import request from 'supertest';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { createHash } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { AppModule } from '../src/app.module';
@@ -27,7 +28,10 @@ import { AuthClock } from '../src/modules/auth/auth-clock';
 import { ReplayAuditWriter } from '../src/modules/auth/replay-audit.writer';
 import { REFRESH_KEYS, type RefreshKeySet } from '../src/modules/auth/tokens/refresh-keys';
 import { encodeRefreshToken } from '../src/modules/auth/tokens/refresh-token.codec';
+import { AuthSessionService } from '../src/modules/auth/auth-session.service';
+import { AuthScheduler } from '../src/modules/auth/auth.scheduler';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
+import { DatabaseConfig } from '../src/config/database.config';
 
 describe('Auth Sessions (e2e)', () => {
   let app: INestApplication;
@@ -1679,6 +1683,337 @@ describe('Auth Sessions (e2e)', () => {
         .expect(401);
     });
   });
+
+  describe('cleanup and keys', () => {
+    async function inRolledBackTx(
+      ds: DataSource,
+      fn: (m: EntityManager) => Promise<void>,
+    ): Promise<void> {
+      const qr = ds.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        await fn(qr.manager);
+      } finally {
+        await qr.rollbackTransaction();
+        await qr.release();
+      }
+    }
+
+    it('purges token rows past their own expiry and nothing else', async () => {
+      const sessionService = app.get(AuthSessionService);
+      const user = await dataSource.getRepository(User).findOneByOrFail({
+        username: AUTHSESS_USERS[0],
+      });
+      const now = new Date('2026-10-05T12:00:00Z');
+
+      const beforeSessions = await dataSource.getRepository(AuthSession).count();
+      const beforeTokens = await dataSource.getRepository(RefreshToken).count();
+
+      await inRolledBackTx(dataSource, async (m) => {
+        const sess = await m.save(
+          m.create(AuthSession, {
+            userId: user.id,
+            ipAddress: '127.0.0.1',
+            deviceInfo: 'test',
+            expiresAt: new Date(now.getTime() + 7 * 86400 * 1000),
+          }),
+        );
+
+        const g1 = await m.save(
+          m.create(RefreshToken, {
+            sessionId: sess.id,
+            userId: user.id,
+            tokenHash: 'hash-g1-past-expiry',
+            keyId: 'k-active',
+            sequence: 1,
+            generation: 1,
+            issuedAt: now,
+            expiresAt: new Date(now.getTime() - 1000),
+            supersededAt: new Date(now.getTime() - 1000),
+            graceUntil: new Date(now.getTime() - 1000),
+          }),
+        );
+
+        const g2 = await m.save(
+          m.create(RefreshToken, {
+            sessionId: sess.id,
+            userId: user.id,
+            tokenHash: 'hash-g2-future-expiry',
+            keyId: 'k-active',
+            sequence: 2,
+            generation: 2,
+            issuedAt: now,
+            expiresAt: new Date(now.getTime() + 86400 * 1000),
+          }),
+        );
+
+        const res = await sessionService.cleanupExpired(now, m);
+        expect(res.tokens).toBe(1);
+        expect(res.sessions).toBe(0);
+
+        const foundG1 = await m.findOne(RefreshToken, { where: { id: g1.id } });
+        expect(foundG1).toBeNull();
+
+        const foundG2 = await m.findOne(RefreshToken, { where: { id: g2.id } });
+        expect(foundG2).not.toBeNull();
+
+        const foundSess = await m.findOne(AuthSession, { where: { id: sess.id } });
+        expect(foundSess).not.toBeNull();
+      });
+
+      const afterSessions = await dataSource.getRepository(AuthSession).count();
+      const afterTokens = await dataSource.getRepository(RefreshToken).count();
+      expect(afterSessions).toBe(beforeSessions);
+      expect(afterTokens).toBe(beforeTokens);
+    });
+
+    it('the boundary is inclusive', async () => {
+      const sessionService = app.get(AuthSessionService);
+      const user = await dataSource.getRepository(User).findOneByOrFail({
+        username: AUTHSESS_USERS[0],
+      });
+      const now = new Date('2026-10-05T12:00:00Z');
+
+      const beforeSessions = await dataSource.getRepository(AuthSession).count();
+      const beforeTokens = await dataSource.getRepository(RefreshToken).count();
+
+      await inRolledBackTx(dataSource, async (m) => {
+        const sess = await m.save(
+          m.create(AuthSession, {
+            userId: user.id,
+            ipAddress: '127.0.0.1',
+            deviceInfo: 'test',
+            expiresAt: new Date(now.getTime() + 7 * 86400 * 1000),
+          }),
+        );
+
+        const tExact = await m.save(
+          m.create(RefreshToken, {
+            sessionId: sess.id,
+            userId: user.id,
+            tokenHash: 'hash-exact-boundary',
+            keyId: 'k-active',
+            sequence: 1,
+            generation: 1,
+            issuedAt: now,
+            expiresAt: now,
+          }),
+        );
+
+        const tFuture = await m.save(
+          m.create(RefreshToken, {
+            sessionId: sess.id,
+            userId: user.id,
+            tokenHash: 'hash-future-boundary',
+            keyId: 'k-active',
+            sequence: 2,
+            generation: 2,
+            issuedAt: now,
+            expiresAt: new Date(now.getTime() + 1),
+          }),
+        );
+
+        const res = await sessionService.cleanupExpired(now, m);
+        expect(res.tokens).toBe(1);
+
+        expect(await m.findOne(RefreshToken, { where: { id: tExact.id } })).toBeNull();
+        expect(await m.findOne(RefreshToken, { where: { id: tFuture.id } })).not.toBeNull();
+      });
+
+      const afterSessions = await dataSource.getRepository(AuthSession).count();
+      const afterTokens = await dataSource.getRepository(RefreshToken).count();
+      expect(afterSessions).toBe(beforeSessions);
+      expect(afterTokens).toBe(beforeTokens);
+    });
+
+    it('purges expired sessions with their rows', async () => {
+      const sessionService = app.get(AuthSessionService);
+      const user = await dataSource.getRepository(User).findOneByOrFail({
+        username: AUTHSESS_USERS[0],
+      });
+      const now = new Date('2026-10-05T12:00:00Z');
+
+      const beforeSessions = await dataSource.getRepository(AuthSession).count();
+      const beforeTokens = await dataSource.getRepository(RefreshToken).count();
+
+      await inRolledBackTx(dataSource, async (m) => {
+        const expiredSess = await m.save(
+          m.create(AuthSession, {
+            userId: user.id,
+            ipAddress: '127.0.0.1',
+            deviceInfo: 'test',
+            expiresAt: new Date(now.getTime() - 1000),
+          }),
+        );
+        const expiredToken = await m.save(
+          m.create(RefreshToken, {
+            sessionId: expiredSess.id,
+            userId: user.id,
+            tokenHash: 'hash-token-in-expired-session',
+            keyId: 'k-active',
+            sequence: 1,
+            generation: 1,
+            issuedAt: now,
+            expiresAt: new Date(now.getTime() + 100000),
+          }),
+        );
+
+        const futureSess = await m.save(
+          m.create(AuthSession, {
+            userId: user.id,
+            ipAddress: '127.0.0.1',
+            deviceInfo: 'test',
+            expiresAt: new Date(now.getTime() + 86400 * 1000),
+          }),
+        );
+        const futureToken = await m.save(
+          m.create(RefreshToken, {
+            sessionId: futureSess.id,
+            userId: user.id,
+            tokenHash: 'hash-token-in-future-session',
+            keyId: 'k-active',
+            sequence: 1,
+            generation: 1,
+            issuedAt: now,
+            expiresAt: new Date(now.getTime() + 86400 * 1000),
+          }),
+        );
+
+        const res = await sessionService.cleanupExpired(now, m);
+        expect(res.sessions).toBe(1);
+
+        expect(await m.findOne(AuthSession, { where: { id: expiredSess.id } })).toBeNull();
+        expect(await m.findOne(RefreshToken, { where: { id: expiredToken.id } })).toBeNull();
+
+        expect(await m.findOne(AuthSession, { where: { id: futureSess.id } })).not.toBeNull();
+        expect(await m.findOne(RefreshToken, { where: { id: futureToken.id } })).not.toBeNull();
+      });
+
+      const afterSessions = await dataSource.getRepository(AuthSession).count();
+      const afterTokens = await dataSource.getRepository(RefreshToken).count();
+      expect(afterSessions).toBe(beforeSessions);
+      expect(afterTokens).toBe(beforeTokens);
+    });
+
+    it('keeps a revoked session until it would have expired', async () => {
+      const sessionService = app.get(AuthSessionService);
+      const user = await dataSource.getRepository(User).findOneByOrFail({
+        username: AUTHSESS_USERS[0],
+      });
+      const now = new Date('2026-10-05T12:00:00Z');
+
+      const beforeSessions = await dataSource.getRepository(AuthSession).count();
+      const beforeTokens = await dataSource.getRepository(RefreshToken).count();
+
+      await inRolledBackTx(dataSource, async (m) => {
+        const revokedSess = await m.save(
+          m.create(AuthSession, {
+            userId: user.id,
+            ipAddress: '127.0.0.1',
+            deviceInfo: 'test',
+            revokedAt: new Date(now.getTime() - 1000),
+            revokeReason: 'logout',
+            expiresAt: new Date(now.getTime() + 86400 * 1000),
+          }),
+        );
+
+        await sessionService.cleanupExpired(now, m);
+
+        const found = await m.findOne(AuthSession, { where: { id: revokedSess.id } });
+        expect(found).not.toBeNull();
+        expect(found!.revokedAt).not.toBeNull();
+        expect(found!.revokeReason).toBe('logout');
+      });
+
+      const afterSessions = await dataSource.getRepository(AuthSession).count();
+      const afterTokens = await dataSource.getRepository(RefreshToken).count();
+      expect(afterSessions).toBe(beforeSessions);
+      expect(afterTokens).toBe(beforeTokens);
+    });
+
+    it('the scheduler handler delegates', async () => {
+      const sessionService = app.get(AuthSessionService);
+      const scheduler = app.get(AuthScheduler);
+      const clock = app.get(AuthClock);
+      const fixedNow = new Date('2026-10-05T12:00:00Z');
+      const clockSpy = jest.spyOn(clock, 'now').mockReturnValue(fixedNow);
+      const spy = jest
+        .spyOn(sessionService, 'cleanupExpired')
+        .mockResolvedValue({ tokens: 0, sessions: 0 });
+
+      await scheduler.handleTokenCleanup();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith(fixedNow);
+      spy.mockRestore();
+      clockSpy.mockRestore();
+    });
+
+    it('reports stored key IDs that are not configured', async () => {
+      const sessionService = app.get(AuthSessionService);
+      const user = await dataSource.getRepository(User).findOneByOrFail({
+        username: AUTHSESS_USERS[0],
+      });
+      const sess = await dataSource.getRepository(AuthSession).save({
+        userId: user.id,
+        ipAddress: '127.0.0.1',
+        deviceInfo: 'test',
+        expiresAt: new Date(Date.now() + 86400000),
+      });
+      const tok = await dataSource.getRepository(RefreshToken).save({
+        sessionId: sess.id,
+        userId: user.id,
+        tokenHash: 'hash-unconfigured-retired',
+        keyId: 'retired',
+        sequence: 1,
+        generation: 1,
+        issuedAt: new Date(),
+        expiresAt: new Date(Date.now() + 86400000),
+      });
+
+      try {
+        const unconfigured = await sessionService.unconfiguredKeyUsage();
+        expect(unconfigured).toEqual(
+          expect.arrayContaining([{ keyId: 'retired', rows: 1 }]),
+        );
+
+        const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+        await sessionService.onModuleInit();
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringMatching(/retired.*1|1.*retired/),
+        );
+        warnSpy.mockRestore();
+      } finally {
+        await dataSource.getRepository(RefreshToken).delete({ id: tok.id });
+        await dataSource.getRepository(AuthSession).delete({ id: sess.id });
+      }
+    });
+
+    it('a missing active key stops startup', async () => {
+      const badModule = Test.createTestingModule({
+        imports: [AppModule],
+      })
+        .overrideProvider(DatabaseConfig)
+        .useValue({
+          createTypeOrmOptions: () => ({
+            ...app.get(DatabaseConfig).createTypeOrmOptions(),
+            migrationsRun: false,
+          }),
+        })
+        .overrideProvider(ConfigService)
+        .useValue({
+          get: (key: string, def?: any) => {
+            if (key === 'JWT_REFRESH_ACTIVE_KID') {
+              return 'non-existent-kid';
+            }
+            return app.get(ConfigService).get(key, def);
+          },
+        });
+
+      await expect(badModule.compile()).rejects.toThrow(/JWT_REFRESH_ACTIVE_KID/);
+    });
+  });
 });
+
 
 

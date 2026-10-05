@@ -1,8 +1,8 @@
-import { Injectable, Inject, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, Inject, UnauthorizedException, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager, IsNull, MoreThan } from 'typeorm';
+import { Repository, DataSource, EntityManager, IsNull, MoreThan, LessThanOrEqual } from 'typeorm';
 import { User, UserStatus } from '@/database/entities/user.entity';
 import { AuthSession, SessionRevokeReason } from '@/database/entities/auth-session.entity';
 import { RefreshToken } from '@/database/entities/refresh-token.entity';
@@ -30,7 +30,7 @@ export interface RequestContext {
 }
 
 @Injectable()
-export class AuthSessionService {
+export class AuthSessionService implements OnModuleInit {
   private readonly logger = new Logger(AuthSessionService.name);
 
   constructor(
@@ -497,6 +497,61 @@ export class AuthSessionService {
       },
     });
     return !!session;
+  }
+
+  async cleanupExpired(
+    now: Date,
+    manager?: EntityManager,
+  ): Promise<{ tokens: number; sessions: number }> {
+    const tokenRepo = manager
+      ? manager.getRepository(RefreshToken)
+      : this.refreshTokenRepository;
+    const sessionRepo = manager
+      ? manager.getRepository(AuthSession)
+      : this.sessionRepository;
+
+    const tokenRes = await tokenRepo.delete({ expiresAt: LessThanOrEqual(now) });
+    const sessionRes = await sessionRepo.delete({ expiresAt: LessThanOrEqual(now) });
+
+    return {
+      tokens: tokenRes.affected ?? 0,
+      sessions: sessionRes.affected ?? 0,
+    };
+  }
+
+  async unconfiguredKeyUsage(): Promise<Array<{ keyId: string; rows: number }>> {
+    const configuredKids = this.refreshKeys.kids();
+    const qb = this.refreshTokenRepository
+      .createQueryBuilder('token')
+      .select('token.keyId', 'keyId')
+      .addSelect('COUNT(*)::int', 'rows')
+      .groupBy('token.keyId');
+
+    if (configuredKids.length > 0) {
+      qb.where('token.keyId NOT IN (:...configuredKids)', { configuredKids });
+    }
+
+    const results = await qb.getRawMany();
+    return results.map((r) => ({
+      keyId: r.keyId,
+      rows: Number(r.rows),
+    }));
+  }
+
+  async onModuleInit(): Promise<void> {
+    try {
+      const unconfigured = await this.unconfiguredKeyUsage();
+      for (const entry of unconfigured) {
+        this.logger.warn(
+          `Unconfigured refresh signing key '${entry.keyId}' in use by ${entry.rows} token(s)`,
+        );
+      }
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to check unconfigured refresh key usage: ${err?.message || err}`,
+        err?.stack,
+      );
+    }
   }
 }
 

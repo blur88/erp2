@@ -9,7 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, LessThan } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserStatus } from '@/database/entities/user.entity';
 import { RefreshToken } from '@/database/entities/refresh-token.entity';
@@ -397,18 +397,5 @@ export class AuthService {
   private sanitizeUser(user: User): Partial<User> {
     const { password, failedLoginAttempts, lockedUntil, ...sanitized } = user;
     return sanitized;
-  }
-
-  /**
-   * Cleanup expired refresh tokens (scheduled task)
-   */
-  async cleanupExpiredTokens(): Promise<number> {
-    const result = await this.refreshTokenRepository.delete({
-      expiresAt: LessThan(new Date()),
-    });
-
-    const count = result.affected || 0;
-    this.logger.log(`Cleaned up ${count} expired refresh tokens`);
-    return count;
   }
 }
