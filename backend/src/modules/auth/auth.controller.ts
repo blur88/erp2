@@ -42,10 +42,12 @@ export class AuthController {
 
   // Rate limiting is enforced ONLY by nginx: the login_limit zone
   // (nginx/nginx.conf:47, 5r/m) applied to ^/api/(auth|login|register)
-  // at :137, burst=3 nodelay. There is no app-layer throttler -- #1154
-  // was closed not-planned, leaving nginx the single documented
-  // enforcement point, and the @Throttle decorators were removed as
-  // inert in the NestJS 12 migration.
+  // at :168, burst=3 nodelay. Session upkeep (refresh, logout, /auth/me)
+  // is on a separate session_limit zone (nginx.conf:54, 1r/s burst 20) at
+  // :146; its block must stay above this credential block. There is no
+  // app-layer throttler -- #1154 was closed not-planned, leaving nginx the
+  // single documented enforcement point, and the @Throttle decorators were
+  // removed as inert in the NestJS 12 migration.
   //
   // Rejection is 429, not 503: limit_req_status 429 sits in the http
   // block (nginx.conf:44) and is inherited by every limit_req in the
@@ -99,7 +101,7 @@ export class AuthController {
 
   // Rate limiting is enforced ONLY by nginx: the login_limit zone
   // (nginx/nginx.conf:47, 5r/m) applied to ^/api/(auth|login|register)
-  // at :137, burst=3 nodelay. There is no app-layer throttler -- #1154
+  // at :168, burst=3 nodelay. There is no app-layer throttler -- #1154
   // was closed not-planned, leaving nginx the single documented
   // enforcement point, and the @Throttle decorators were removed as
   // inert in the NestJS 12 migration.
