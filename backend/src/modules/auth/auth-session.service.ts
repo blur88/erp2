@@ -32,6 +32,7 @@ export interface RequestContext {
 @Injectable()
 export class AuthSessionService implements OnModuleInit {
   private readonly logger = new Logger(AuthSessionService.name);
+  private readonly graceSeconds: number;
 
   constructor(
     @Inject(REFRESH_KEYS) private readonly refreshKeys: RefreshKeySet,
@@ -51,6 +52,28 @@ export class AuthSessionService implements OnModuleInit {
     if (override !== undefined && override !== null && override !== '') {
       this.parseExpiry(override);
     }
+    this.graceSeconds = this.parseGraceSeconds(
+      this.configService.get<string | number>('REFRESH_GRACE_SECONDS'),
+    );
+  }
+
+  // Defaults only when unset. A malformed, zero, negative or fractional value
+  // fails construction (and so startup) instead of silently becoming 60.
+  private parseGraceSeconds(raw: unknown): number {
+    if (raw === undefined || raw === null) {
+      return 60;
+    }
+    const text = typeof raw === 'number' ? String(raw) : raw;
+    if (typeof text !== 'string' || !/^[1-9][0-9]*$/.test(text)) {
+      throw new Error(
+        `Invalid REFRESH_GRACE_SECONDS: '${String(raw)}' (expected a positive integer number of seconds)`,
+      );
+    }
+    return parseInt(text, 10);
+  }
+
+  refreshGraceSeconds(): number {
+    return this.graceSeconds;
   }
 
   private parseExpiry(expiry: string): number {
@@ -280,9 +303,7 @@ export class AuthSessionService implements OnModuleInit {
         session.expiresAt = newExpiresAt;
         await manager.getRepository(AuthSession).save(session);
 
-        const graceConfig = this.configService.get<string | number>('REFRESH_GRACE_SECONDS', 60);
-        const graceSeconds =
-          typeof graceConfig === 'number' ? graceConfig : parseInt(graceConfig, 10) || 60;
+        const graceSeconds = this.graceSeconds;
 
         presentedRow.supersededAt = nowTrunc;
         presentedRow.graceUntil = new Date(nowTrunc.getTime() + graceSeconds * 1000);

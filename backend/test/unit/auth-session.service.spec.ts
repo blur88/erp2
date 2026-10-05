@@ -14,11 +14,14 @@ describe('AuthSessionService (unit)', () => {
   const mockUserRepo: any = {};
   const mockReplayAuditWriter: any = { write: () => Promise.resolve() };
 
-  function createService(refreshExpiry?: string): AuthSessionService {
+  function createService(refreshExpiry?: string, grace?: unknown): AuthSessionService {
     const mockConfigService: any = {
       get: (key: string, defaultVal?: any) => {
         if (key === 'JWT_REFRESH_TOKEN_EXPIRY') {
           return refreshExpiry;
+        }
+        if (key === 'REFRESH_GRACE_SECONDS') {
+          return grace === undefined ? defaultVal : grace;
         }
         return defaultVal;
       },
@@ -56,5 +59,36 @@ describe('AuthSessionService (unit)', () => {
 
   it.each(['abc', '0d'])("rejects invalid expiry '%s'", (invalidExpiry) => {
     expect(() => createService(invalidExpiry)).toThrow(/JWT_REFRESH_TOKEN_EXPIRY/);
+  });
+
+  describe('REFRESH_GRACE_SECONDS', () => {
+    it('defaults to 60 only when unset', () => {
+      expect(createService(undefined, undefined).refreshGraceSeconds()).toBe(60);
+    });
+
+    it.each([
+      ['45', 45],
+      [45, 45],
+      ['1', 1],
+    ])('accepts the positive integer %p', (value, expected) => {
+      expect(createService(undefined, value).refreshGraceSeconds()).toBe(expected);
+    });
+
+    it.each([
+      ['malformed', 'abc'],
+      ['empty', ''],
+      ['zero', '0'],
+      ['numeric zero', 0],
+      ['negative', '-5'],
+      ['numeric negative', -5],
+      ['fractional', '1.5'],
+      ['numeric fractional', 1.5],
+      ['unit suffix', '60s'],
+      ['padded', ' 60 '],
+      ['exponent', '6e1'],
+      ['NaN', NaN],
+    ])('rejects a %s value at construction', (_name, value) => {
+      expect(() => createService(undefined, value)).toThrow(/REFRESH_GRACE_SECONDS/);
+    });
   });
 });

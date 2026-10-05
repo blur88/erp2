@@ -2012,6 +2012,33 @@ describe('Auth Sessions (e2e)', () => {
 
       await expect(badModule.compile()).rejects.toThrow(/JWT_REFRESH_ACTIVE_KID/);
     });
+
+    it.each(['abc', '0', '-5', '1.5'])(
+      'an invalid REFRESH_GRACE_SECONDS (%s) stops startup',
+      async (value) => {
+        const badModule = Test.createTestingModule({
+          imports: [AppModule],
+        })
+          .overrideProvider(DatabaseConfig)
+          .useValue({
+            createTypeOrmOptions: () => ({
+              ...app.get(DatabaseConfig).createTypeOrmOptions(),
+              migrationsRun: false,
+            }),
+          })
+          .overrideProvider(ConfigService)
+          .useValue({
+            get: (key: string, def?: any) => {
+              if (key === 'REFRESH_GRACE_SECONDS') {
+                return value;
+              }
+              return app.get(ConfigService).get(key, def);
+            },
+          });
+
+        await expect(badModule.compile()).rejects.toThrow(/REFRESH_GRACE_SECONDS/);
+      },
+    );
   });
 });
 
