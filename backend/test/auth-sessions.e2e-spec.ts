@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { jest } from '@jest/globals';
 import request from 'supertest';
 import { INestApplication, Logger } from '@nestjs/common';
@@ -32,6 +33,24 @@ import { AuthSessionService } from '../src/modules/auth/auth-session.service';
 import { AuthScheduler } from '../src/modules/auth/auth.scheduler';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
 import { DatabaseConfig } from '../src/config/database.config';
+import { AuthController } from '../src/modules/auth/auth.controller';
+import { SessionProtocolGuard } from '../src/modules/auth/guards/session-protocol.guard';
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
+
+function collectSourceFiles(dir = join(process.cwd(), 'src')): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...collectSourceFiles(full));
+    else if (entry.name.endsWith('.ts')) out.push(full);
+  }
+  return out;
+}
+
+function readSource(path: string): string {
+  return readFileSync(path, 'utf8');
+}
 
 describe('Auth Sessions (e2e)', () => {
   let app: INestApplication;
@@ -72,10 +91,108 @@ describe('Auth Sessions (e2e)', () => {
     jest.restoreAllMocks();
   });
 
+  describe('protocol marker', () => {
+    const body = { username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD };
+
+    it.each([
+      ['login', '/auth/login'],
+      ['register', '/auth/register'],
+      ['refresh', '/auth/refresh'],
+    ])('%s is refused without the marker', async (_name, route) => {
+      const res = await request(app.getHttpServer()).post(route).send(body);
+      expect(res.status).toBe(426);
+      expect(res.body.code).toBe('CLIENT_RELOAD_REQUIRED');
+    });
+
+    it('a refused registration creates no user', async () => {
+      const username = `${AUTHSESS_NS}_noreg`;
+      const res = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          username,
+          email: `${username}@example.com`,
+          password: 'Str0ng!Pass',
+          passwordConfirmation: 'Str0ng!Pass',
+          firstName: 'No',
+          lastName: 'Reg',
+        });
+      expect(res.status).toBe(426);
+      const user = await dataSource.getRepository(User).findOneBy({ username });
+      expect(user).toBeNull();
+    });
+
+    it('a refused sign-in creates no session', async () => {
+      const before = await dataSource.getRepository(AuthSession).count();
+      const res = await request(app.getHttpServer()).post('/auth/login').send(body);
+      expect(res.status).toBe(426);
+      const after = await dataSource.getRepository(AuthSession).count();
+      expect(after).toBe(before);
+    });
+
+    it('a refused refresh does not rotate', async () => {
+      const signIn = await request(app.getHttpServer())
+        .post('/auth/login').set(...SESSION_PROTOCOL)
+        .send(body)
+        .expect(200);
+      const sid = signIn.body.sessionId as string;
+      const generationBefore = signIn.body.generation as number;
+      const refreshToken = signIn.body.refreshToken as string;
+
+      const refused = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken });
+      expect(refused.status).toBe(426);
+
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: sid });
+      expect(session!.generation).toBe(generationBefore);
+      const tokensBefore = await dataSource
+        .getRepository(RefreshToken)
+        .find({ where: { sessionId: sid } });
+      expect(tokensBefore.length).toBe(1);
+
+      const rotated = await request(app.getHttpServer())
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
+        .send({ refreshToken })
+        .expect(200);
+      expect(rotated.body.generation).toBe(generationBefore + 1);
+    });
+
+    it('logout needs no marker', async () => {
+      const signIn = await request(app.getHttpServer())
+        .post('/auth/login').set(...SESSION_PROTOCOL)
+        .send(body)
+        .expect(200);
+      const res = await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: signIn.body.refreshToken });
+      expect(res.status).toBe(204);
+    });
+
+    it('the three token-issuing handlers carry the guard, logout does not', () => {
+      const guardsFor = (name: string) =>
+        (Reflect.getMetadata('__guards__', AuthController.prototype[name]) ?? []) as unknown[];
+      expect(guardsFor('login')).toContain(SessionProtocolGuard);
+      expect(guardsFor('register')).toContain(SessionProtocolGuard);
+      expect(guardsFor('refreshToken')).toContain(SessionProtocolGuard);
+      expect(guardsFor('logout')).not.toContain(SessionProtocolGuard);
+    });
+
+    it('no other file issues tokens', () => {
+      const files = collectSourceFiles();
+      const offenders = files.filter(
+        (f) =>
+          !f.endsWith('auth.service.ts') &&
+          !f.endsWith('auth-session.service.ts') &&
+          (/createSession\(/.test(readSource(f)) || /authSessionService\.refresh\(/.test(readSource(f))),
+      );
+      expect(offenders).toEqual([]);
+    });
+  });
+
   describe('issuing and rotation', () => {
     it('sign-in creates a session', async () => {
       const res = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({
           username: AUTHSESS_USERS[0],
           password: AUTHSESS_PASSWORD,
@@ -111,7 +228,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('refresh token carries no profile claims', async () => {
       const res = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({
           username: AUTHSESS_USERS[0],
           password: AUTHSESS_PASSWORD,
@@ -128,7 +245,7 @@ describe('Auth Sessions (e2e)', () => {
     it('registration creates a session', async () => {
       const regUsername = `${AUTHSESS_NS}_registered`;
       const res = await request(app.getHttpServer())
-        .post('/auth/register')
+        .post('/auth/register').set(...SESSION_PROTOCOL)
         .send({
           username: regUsername,
           email: `${regUsername}@example.com`,
@@ -168,7 +285,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('refresh rotates', async () => {
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({
           username: AUTHSESS_USERS[0],
           password: AUTHSESS_PASSWORD,
@@ -176,7 +293,7 @@ describe('Auth Sessions (e2e)', () => {
         .expect(200);
 
       const refreshRes = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: loginRes.body.refreshToken })
         .expect(200);
 
@@ -209,7 +326,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('refresh rejects a malformed token', async () => {
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: 'malformed.token.value' })
         .expect(401);
 
@@ -218,7 +335,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('refresh rejects an access token', async () => {
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({
           username: AUTHSESS_USERS[0],
           password: AUTHSESS_PASSWORD,
@@ -226,7 +343,7 @@ describe('Auth Sessions (e2e)', () => {
         .expect(200);
 
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: loginRes.body.accessToken })
         .expect(401);
 
@@ -249,7 +366,7 @@ describe('Auth Sessions (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: forgedToken })
         .expect(401);
 
@@ -260,7 +377,7 @@ describe('Auth Sessions (e2e)', () => {
   describe('recovery and replay', () => {
     it('two concurrent refreshes with one token', async () => {
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
 
@@ -268,8 +385,8 @@ describe('Auth Sessions (e2e)', () => {
       const sid = loginRes.body.sessionId;
 
       const [res1, res2] = await Promise.all([
-        request(app.getHttpServer()).post('/auth/refresh').send({ refreshToken: g1Token }),
-        request(app.getHttpServer()).post('/auth/refresh').send({ refreshToken: g1Token }),
+        request(app.getHttpServer()).post('/auth/refresh').set(...SESSION_PROTOCOL).send({ refreshToken: g1Token }),
+        request(app.getHttpServer()).post('/auth/refresh').set(...SESSION_PROTOCOL).send({ refreshToken: g1Token }),
       ]);
 
       expect(res1.status).toBe(200);
@@ -289,14 +406,14 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       const rotRes = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
       const g2Token = rotRes.body.refreshToken;
@@ -310,7 +427,7 @@ describe('Auth Sessions (e2e)', () => {
       currentMockTime = new Date(T0.getTime() + 30 * 1000);
 
       const recRes = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
@@ -333,13 +450,13 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const sid = loginRes.body.sessionId;
 
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: loginRes.body.refreshToken })
         .expect(200);
 
@@ -351,7 +468,7 @@ describe('Auth Sessions (e2e)', () => {
       currentMockTime = new Date(T0.getTime() + 30 * 1000);
 
       const recRes = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: loginRes.body.refreshToken })
         .expect(200);
 
@@ -366,26 +483,26 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
 
       const rot1 = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
       currentMockTime = new Date(T0.getTime() + 10 * 1000);
       const rot2 = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: rot1.body.refreshToken })
         .expect(200);
       const g3Token = rot2.body.refreshToken;
 
       currentMockTime = new Date(T0.getTime() + 59 * 1000);
       const recRes = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
@@ -400,26 +517,26 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       const rot1 = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
       currentMockTime = new Date(T0.getTime() + 10 * 1000);
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: rot1.body.refreshToken })
         .expect(200);
 
       currentMockTime = new Date(T0.getTime() + 60 * 1000);
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(401);
 
@@ -435,21 +552,21 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       const rotRes = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
       const g2Token = rotRes.body.refreshToken;
 
       currentMockTime = new Date(T0.getTime() + 61 * 1000);
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(401);
 
@@ -458,7 +575,7 @@ describe('Auth Sessions (e2e)', () => {
       expect(session!.revokeReason).toBe('replay');
 
       const g2Attempt = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g2Token })
         .expect(401);
       expect(g2Attempt.body.code).toBe('SESSION_REVOKED');
@@ -479,11 +596,11 @@ describe('Auth Sessions (e2e)', () => {
 
       // Second user's session created in the same test still refreshes with 200
       const user2Login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[1], password: AUTHSESS_PASSWORD })
         .expect(200);
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: user2Login.body.refreshToken })
         .expect(200);
     });
@@ -495,20 +612,20 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
       currentMockTime = new Date(T0.getTime() + 61 * 1000);
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(401);
 
@@ -540,14 +657,14 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
@@ -558,7 +675,7 @@ describe('Auth Sessions (e2e)', () => {
         .mockRejectedValue(new Error('audit down'));
 
       const failRes = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token });
 
       expect(failRes.status).toBeGreaterThanOrEqual(500);
@@ -586,7 +703,7 @@ describe('Auth Sessions (e2e)', () => {
       spy.mockRestore();
 
       const retryRes = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(401);
 
@@ -609,14 +726,14 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
@@ -627,7 +744,7 @@ describe('Auth Sessions (e2e)', () => {
 
       currentMockTime = new Date(g1Row!.expiresAt.getTime() + 1000);
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(401);
 
@@ -648,7 +765,7 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
@@ -658,7 +775,7 @@ describe('Auth Sessions (e2e)', () => {
       currentMockTime = new Date(session!.expiresAt.getTime() + 1000);
 
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(401);
 
@@ -669,14 +786,14 @@ describe('Auth Sessions (e2e)', () => {
 
     it('a revoked session never recovers', async () => {
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       const rotRes = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
       const g2Token = rotRes.body.refreshToken;
@@ -687,13 +804,13 @@ describe('Auth Sessions (e2e)', () => {
       );
 
       const resG1 = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(401);
       expect(resG1.body.code).toBe('SESSION_REVOKED');
 
       const resG2 = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g2Token })
         .expect(401);
       expect(resG2.body.code).toBe('SESSION_REVOKED');
@@ -706,14 +823,14 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
@@ -728,7 +845,7 @@ describe('Auth Sessions (e2e)', () => {
       let reqPromise: Promise<request.Response> | undefined;
       try {
         reqPromise = request(app.getHttpServer())
-          .post('/auth/refresh')
+          .post('/auth/refresh').set(...SESSION_PROTOCOL)
           .send({ refreshToken: g1Token });
         void reqPromise.catch(() => {});
 
@@ -752,7 +869,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('unknown key', async () => {
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const sid = loginRes.body.sessionId;
@@ -777,7 +894,7 @@ describe('Auth Sessions (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: unknownToken })
         .expect(401);
 
@@ -789,7 +906,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('reproduction across instances and restarts', async () => {
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
@@ -800,7 +917,7 @@ describe('Auth Sessions (e2e)', () => {
       await appB.init();
 
       const rotRes = await request(appB.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
       const g2TokenFromB = rotRes.body.refreshToken;
@@ -812,7 +929,7 @@ describe('Auth Sessions (e2e)', () => {
       await appC.init();
 
       const recRes = await request(appC.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
@@ -843,13 +960,13 @@ describe('Auth Sessions (e2e)', () => {
       await app1.init();
 
       const loginRes = await request(app1.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
 
       const rotRes = await request(app1.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
       const g2Token = rotRes.body.refreshToken;
@@ -864,13 +981,13 @@ describe('Auth Sessions (e2e)', () => {
       await app2.init();
 
       const recRes = await request(app2.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
       expect(recRes.body.refreshToken).toBe(g2Token);
 
       const rot2Res = await request(app2.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g2Token })
         .expect(200);
       const g3Token = rot2Res.body.refreshToken;
@@ -882,14 +999,14 @@ describe('Auth Sessions (e2e)', () => {
 
     it('recovery fails closed on a hash mismatch', async () => {
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
@@ -899,7 +1016,7 @@ describe('Auth Sessions (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(401);
 
@@ -910,14 +1027,14 @@ describe('Auth Sessions (e2e)', () => {
 
     it('recovery reports a missing signing key', async () => {
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1Token = loginRes.body.refreshToken;
       const sid = loginRes.body.sessionId;
 
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
@@ -927,7 +1044,7 @@ describe('Auth Sessions (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(401);
 
@@ -938,7 +1055,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('deactivated user', async () => {
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const sid = loginRes.body.sessionId;
@@ -949,7 +1066,7 @@ describe('Auth Sessions (e2e)', () => {
       );
 
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: loginRes.body.refreshToken })
         .expect(401);
 
@@ -966,14 +1083,14 @@ describe('Auth Sessions (e2e)', () => {
   describe('logout', () => {
     it('revokes only its own session', async () => {
       const login1 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s1 = login1.body.sessionId;
       const t1 = login1.body.refreshToken;
 
       const login2 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s2 = login2.body.sessionId;
@@ -992,21 +1109,21 @@ describe('Auth Sessions (e2e)', () => {
       expect(sess2!.revokedAt).toBeNull();
 
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: t2 })
         .expect(200);
     });
 
     it('ignores the Authorization header', async () => {
       const login1 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s1 = login1.body.sessionId;
       const t1 = login1.body.refreshToken;
 
       const login2 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s2 = login2.body.sessionId;
@@ -1028,7 +1145,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('works with an expired access token', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s1 = login.body.sessionId;
@@ -1052,7 +1169,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it("works with a revoked session's access token", async () => {
       const login1 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s1 = login1.body.sessionId;
@@ -1060,7 +1177,7 @@ describe('Auth Sessions (e2e)', () => {
       const t1 = login1.body.refreshToken;
 
       const login2 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s2 = login2.body.sessionId;
@@ -1086,7 +1203,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('is idempotent', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s1 = login.body.sessionId;
@@ -1111,7 +1228,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('accepts a superseded token', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s1 = login.body.sessionId;
@@ -1119,7 +1236,7 @@ describe('Auth Sessions (e2e)', () => {
 
       // Rotate to G2
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1Token })
         .expect(200);
 
@@ -1147,7 +1264,7 @@ describe('Auth Sessions (e2e)', () => {
       jest.spyOn(clock, 'now').mockImplementation(() => new Date(currentMockTime.getTime()));
 
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s1 = login.body.sessionId;
@@ -1169,7 +1286,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('is a no-op once the row is purged', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s1 = login.body.sessionId;
@@ -1188,7 +1305,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('is a no-op for an unknown key', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const s1 = login.body.sessionId;
@@ -1239,15 +1356,15 @@ describe('Auth Sessions (e2e)', () => {
   describe('password change', () => {
     it('revokes every session of the user', async () => {
       const login1 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const login2 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const user2Login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[1], password: AUTHSESS_PASSWORD })
         .expect(200);
 
@@ -1275,7 +1392,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('wrong current password is a 400', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
 
@@ -1315,7 +1432,7 @@ describe('Auth Sessions (e2e)', () => {
       let res: any;
       try {
         const loginPromise = request(app.getHttpServer())
-          .post('/auth/login')
+          .post('/auth/login').set(...SESSION_PROTOCOL)
           .send({ username: user.username, password: AUTHSESS_PASSWORD });
         void loginPromise.catch(() => {});
 
@@ -1345,7 +1462,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('two concurrent changes', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const user = await dataSource.getRepository(User).findOneByOrFail({ username: AUTHSESS_USERS[0] });
@@ -1420,12 +1537,12 @@ describe('Auth Sessions (e2e)', () => {
       let resB: any;
       try {
         const loginA = request(app.getHttpServer())
-          .post('/auth/login')
+          .post('/auth/login').set(...SESSION_PROTOCOL)
           .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD });
         void loginA.catch(() => {});
 
         const loginB = request(app.getHttpServer())
-          .post('/auth/login')
+          .post('/auth/login').set(...SESSION_PROTOCOL)
           .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD });
         void loginB.catch(() => {});
 
@@ -1453,11 +1570,11 @@ describe('Auth Sessions (e2e)', () => {
       // Repeat once without the held lock
       const [freeA, freeB] = await Promise.all([
         request(app.getHttpServer())
-          .post('/auth/login')
+          .post('/auth/login').set(...SESSION_PROTOCOL)
           .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
           .expect(200),
         request(app.getHttpServer())
-          .post('/auth/login')
+          .post('/auth/login').set(...SESSION_PROTOCOL)
           .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
           .expect(200),
       ]);
@@ -1500,7 +1617,7 @@ describe('Auth Sessions (e2e)', () => {
   describe('authorization', () => {
     it('a live session still works', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
 
@@ -1514,7 +1631,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('an already-issued access token is rejected after sign-out', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
 
@@ -1531,11 +1648,11 @@ describe('Auth Sessions (e2e)', () => {
 
     it('an already-issued access token is rejected after password change', async () => {
       const login1 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const login2 = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
 
@@ -1558,14 +1675,14 @@ describe('Auth Sessions (e2e)', () => {
 
     it('an already-issued access token is rejected after replay revocation', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
       const g1 = login.body.refreshToken;
 
       // Rotate once
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1 })
         .expect(200);
 
@@ -1576,7 +1693,7 @@ describe('Auth Sessions (e2e)', () => {
 
       // Replay g1
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/auth/refresh').set(...SESSION_PROTOCOL)
         .send({ refreshToken: g1 })
         .expect(401);
 
@@ -1604,7 +1721,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('an expired session is rejected before cleanup runs', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
 
@@ -1625,7 +1742,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('a refresh token is not an access token', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
 
@@ -1637,7 +1754,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('rejects the refresh typ even when signed with the access key', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
 
@@ -1665,7 +1782,7 @@ describe('Auth Sessions (e2e)', () => {
 
     it('rejects another algorithm signed with the access key', async () => {
       const login = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/login').set(...SESSION_PROTOCOL)
         .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
         .expect(200);
 

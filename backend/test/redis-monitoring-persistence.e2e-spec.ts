@@ -14,6 +14,7 @@ import { TypeOrmRedisMemoryHistoryStore } from '../src/modules/monitoring/typeor
 import { applyOomCounter } from '../src/modules/monitoring/redis-alert.transitions';
 import { RedisMemorySample } from '../src/modules/monitoring/redis-memory.types';
 import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 
 /**
  * E2E suites share one database and run in size order, so this suite
@@ -71,7 +72,7 @@ describe('Redis monitoring persistence (e2e)', () => {
   // throttler (#1154 closed not-planned); 30 rapid logins return 200 (#1197).
   async function loginAdmin(): Promise<string> {
     const res = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ usernameOrEmail: WINDOW_STATS_USER, password: WINDOW_STATS_PASSWORD })
       .expect(200);
     return res.body.accessToken as string;

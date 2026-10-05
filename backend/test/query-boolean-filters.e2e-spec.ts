@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
@@ -64,7 +65,7 @@ describe('Boolean list-query filters (e2e)', () => {
     adminUsername = admin.username;
 
     const login = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ username: adminUsername, password: E2E_ADMIN_PASSWORD });
     const token = login.body?.data?.accessToken ?? login.body?.accessToken;
     expect(typeof token).toBe('string');

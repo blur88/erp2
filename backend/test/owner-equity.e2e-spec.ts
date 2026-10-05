@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
@@ -196,7 +197,7 @@ describe('Owner Equity (e2e)', () => {
     docNumberSnapshot = await ds.query(`SELECT * FROM document_number_settings`);
 
     const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ username, password: 'Admin@123!' });
     token = loginRes.body?.data?.accessToken ?? loginRes.body?.accessToken;
     expect(token).toBeTruthy();

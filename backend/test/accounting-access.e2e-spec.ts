@@ -8,6 +8,7 @@ import { AppModule } from '../src/app.module';
 import { User, UserRole, UserStatus } from '../src/database/entities/user.entity';
 import { removeSuiteAdmin } from './utils/shared-e2e-fixture';
 import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 
 const password = 'Str0ng@Pass!';
 
@@ -75,7 +76,7 @@ describe('Accounting access (e2e)', () => {
 
   async function login(username: string): Promise<string> {
     const res = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ usernameOrEmail: username, password })
       .expect(200);
     return res.body.accessToken as string;

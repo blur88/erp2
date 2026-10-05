@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -53,7 +54,7 @@ describe('Legacy payment allocation route is retired (e2e)', () => {
     adminUserId = admin.id;
 
     const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ usernameOrEmail: adminUsername, password: E2E_ADMIN_PASSWORD });
 
     // Assert the login itself succeeded before relying on the token. A failed

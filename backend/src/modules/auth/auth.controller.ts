@@ -30,6 +30,7 @@ import {
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { SessionProtocolGuard } from './guards/session-protocol.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -61,6 +62,7 @@ export class AuthController {
   // #1193), or any future second ingress.
   @Post('login')
   @Public()
+  @UseGuards(SessionProtocolGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'User login',
@@ -117,6 +119,7 @@ export class AuthController {
   // #1193), or any future second ingress.
   @Post('register')
   @Public()
+  @UseGuards(SessionProtocolGuard)
   @ApiOperation({
     summary: 'User registration',
     description: 'Register new user account. Auto-login after successful registration.',
@@ -145,6 +148,7 @@ export class AuthController {
 
   @Post('refresh')
   @Public()
+  @UseGuards(SessionProtocolGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Refresh access token',

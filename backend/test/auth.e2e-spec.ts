@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { jest } from "@jest/globals";
 import { createHash } from "crypto";
 import { Test, TestingModule } from "@nestjs/testing";
@@ -77,7 +78,7 @@ describe("Authentication (e2e)", () => {
   describe("/auth/login (POST)", () => {
     it("should login successfully with valid credentials", async () => {
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
@@ -117,11 +118,11 @@ describe("Authentication (e2e)", () => {
       let secondRes: any;
       try {
         firstRes = await request(app.getHttpServer())
-          .post("/auth/login")
+          .post("/auth/login").set(...SESSION_PROTOCOL)
           .send({ username: AUTH_ADMIN_USERNAME, password: "Admin@123!" })
           .expect(200);
         secondRes = await request(app.getHttpServer())
-          .post("/auth/login")
+          .post("/auth/login").set(...SESSION_PROTOCOL)
           .send({ username: AUTH_ADMIN_USERNAME, password: "Admin@123!" })
           .expect(200);
       } finally {
@@ -150,7 +151,7 @@ describe("Authentication (e2e)", () => {
 
     it("should login with email instead of username", async () => {
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: `${AUTH_ADMIN_USERNAME}@test.com`,
           password: "Admin@123!",
@@ -163,7 +164,7 @@ describe("Authentication (e2e)", () => {
 
     it("should return 401 for invalid username", async () => {
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: "invaliduser",
           password: "Admin@123!",
@@ -175,7 +176,7 @@ describe("Authentication (e2e)", () => {
 
     it("should return 401 for invalid password", async () => {
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "WrongPassword",
@@ -190,7 +191,7 @@ describe("Authentication (e2e)", () => {
 
       // First failed attempt
       await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "WrongPassword",
@@ -209,7 +210,7 @@ describe("Authentication (e2e)", () => {
       // Make 5 failed login attempts
       for (let i = 0; i < 5; i++) {
         await request(app.getHttpServer())
-          .post("/auth/login")
+          .post("/auth/login").set(...SESSION_PROTOCOL)
           .send({
             usernameOrEmail: AUTH_ADMIN_USERNAME,
             password: "WrongPassword",
@@ -238,7 +239,7 @@ describe("Authentication (e2e)", () => {
       );
 
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
@@ -259,7 +260,7 @@ describe("Authentication (e2e)", () => {
 
       // Successful login
       await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
@@ -275,7 +276,7 @@ describe("Authentication (e2e)", () => {
 
     it("returns 400 when password is omitted", async () => {
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({})
         .expect(400);
 
@@ -287,7 +288,7 @@ describe("Authentication (e2e)", () => {
     beforeEach(async () => {
       // Login to get refresh token
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
@@ -299,7 +300,7 @@ describe("Authentication (e2e)", () => {
 
     it("should refresh access token with valid refresh token", async () => {
       const response = await request(app.getHttpServer())
-        .post("/auth/refresh")
+        .post("/auth/refresh").set(...SESSION_PROTOCOL)
         .send({
           refreshToken: adminRefreshToken,
         })
@@ -320,7 +321,7 @@ describe("Authentication (e2e)", () => {
       try {
         // First refresh at T0 rotates to G2
         const rotRes = await request(app.getHttpServer())
-          .post("/auth/refresh")
+          .post("/auth/refresh").set(...SESSION_PROTOCOL)
           .send({
             refreshToken: adminRefreshToken,
           })
@@ -331,7 +332,7 @@ describe("Authentication (e2e)", () => {
         // Try to use old refresh token again inside grace (T0 + 30s) -> recovers G2 token
         currentMockTime = new Date(T0.getTime() + 30 * 1000);
         const recRes = await request(app.getHttpServer())
-          .post("/auth/refresh")
+          .post("/auth/refresh").set(...SESSION_PROTOCOL)
           .send({
             refreshToken: adminRefreshToken,
           })
@@ -342,7 +343,7 @@ describe("Authentication (e2e)", () => {
         // Try to use old refresh token again after grace (T0 + 61s) -> 401 replay revocation
         currentMockTime = new Date(T0.getTime() + 61 * 1000);
         const replayRes = await request(app.getHttpServer())
-          .post("/auth/refresh")
+          .post("/auth/refresh").set(...SESSION_PROTOCOL)
           .send({
             refreshToken: adminRefreshToken,
           })
@@ -356,7 +357,7 @@ describe("Authentication (e2e)", () => {
 
     it("should return 401 for invalid refresh token", async () => {
       const response = await request(app.getHttpServer())
-        .post("/auth/refresh")
+        .post("/auth/refresh").set(...SESSION_PROTOCOL)
         .send({
           refreshToken: "invalid-token",
         })
@@ -370,7 +371,7 @@ describe("Authentication (e2e)", () => {
     beforeEach(async () => {
       // Login to get access token
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
@@ -407,7 +408,7 @@ describe("Authentication (e2e)", () => {
     beforeEach(async () => {
       // Login to get tokens
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
@@ -444,7 +445,7 @@ describe("Authentication (e2e)", () => {
         .expect(204);
 
       const res = await request(app.getHttpServer())
-        .post("/auth/refresh")
+        .post("/auth/refresh").set(...SESSION_PROTOCOL)
         .send({
           refreshToken: adminRefreshToken,
         })
@@ -458,7 +459,7 @@ describe("Authentication (e2e)", () => {
     beforeEach(async () => {
       // Login to get access token
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
@@ -480,7 +481,7 @@ describe("Authentication (e2e)", () => {
 
       // Try to login with new password
       const response = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "NewPassword@456",
@@ -590,7 +591,7 @@ describe("Authentication (e2e)", () => {
 
       // Login admin
       const adminResponse = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
@@ -599,7 +600,7 @@ describe("Authentication (e2e)", () => {
 
       // Login manager
       const managerResponse = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_MANAGER_USERNAME,
           password: "Manager@123!",
@@ -608,7 +609,7 @@ describe("Authentication (e2e)", () => {
 
       // Login sales staff
       const salesResponse = await request(app.getHttpServer())
-        .post("/auth/login")
+        .post("/auth/login").set(...SESSION_PROTOCOL)
         .send({
           usernameOrEmail: AUTH_SALES_USERNAME,
           password: "Manager@123!",

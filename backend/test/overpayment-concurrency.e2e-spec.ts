@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -62,7 +63,7 @@ describe('Concurrent payments cannot jointly exceed the order total (e2e)', () =
     adminUserId = admin.id;
 
     const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ usernameOrEmail: adminUsername, password: E2E_ADMIN_PASSWORD });
     token = loginRes.body?.data?.accessToken ?? loginRes.body?.accessToken;
     expect(token).toBeTruthy();

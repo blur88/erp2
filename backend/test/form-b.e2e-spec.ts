@@ -12,6 +12,7 @@ import { FormBMappingService } from '../src/modules/accounting/services/form-b-m
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
 import { removeSuiteAdmin } from './utils/shared-e2e-fixture';
 import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 
 async function seedAccounting(ds: DataSource) {
   const coa = ds.getRepository(ChartOfAccount);
@@ -115,7 +116,7 @@ describe('Form B (e2e)', () => {
     companySnapshot = await ds.query(`SELECT * FROM company_settings`);
     docNumberSnapshot = await ds.query(`SELECT * FROM document_number_settings`);
     const adminLogin = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ username: adminUsername, password: 'Admin@123!' });
     adminToken = adminLogin.body?.data?.accessToken ?? adminLogin.body?.accessToken;
     expect(adminToken).toBeTruthy();
@@ -134,7 +135,7 @@ describe('Form B (e2e)', () => {
     }));
     nonAdminUserId = (savedSales as any).id;
     const nonAdminLogin = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ username: nonAdminUsername, password: 'Admin@123!' });
     nonAdminToken = nonAdminLogin.body?.data?.accessToken ?? nonAdminLogin.body?.accessToken;
     expect(nonAdminToken).toBeTruthy();

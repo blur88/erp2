@@ -12,6 +12,7 @@ import { ACCOUNTING_POSTING_PORT, AccountingPostingPort } from '../src/common/ac
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
 import { removeSuiteAdmin } from './utils/shared-e2e-fixture';
 import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 
 async function seedAccounting(ds: DataSource) {
   const coa = ds.getRepository(ChartOfAccount);
@@ -135,7 +136,7 @@ describe('Profit & Loss (e2e)', () => {
     }));
     plUserId = (saved as any).id;
     const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ username, password: 'Admin@123!' });
     token = loginRes.body?.data?.accessToken ?? loginRes.body?.accessToken;
     expect(token).toBeTruthy();

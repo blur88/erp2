@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { AppModule } from "../src/app.module";
@@ -180,7 +181,7 @@ describe("Suite isolation sentinel (e2e)", () => {
   it("survives auth's fixture operations with its token, user row and refresh tokens intact", async () => {
     // 1. Authenticate BEFORE auth's destructive operations.
     const login = await request(app.getHttpServer())
-      .post("/auth/login")
+      .post("/auth/login").set(...SESSION_PROTOCOL)
       .send({ usernameOrEmail: SENTINEL_USERNAME, password: SENTINEL_PASSWORD })
       .expect(200); // /auth/login returns 200, not 201 (auth.e2e-spec.ts:74)
     const token = login.body?.data?.accessToken ?? login.body?.accessToken;
@@ -219,7 +220,7 @@ describe("Suite isolation sentinel (e2e)", () => {
 
   it("survives search's fixture operations with its token, user row, refresh tokens and business row intact", async () => {
     const login = await request(app.getHttpServer())
-      .post("/auth/login")
+      .post("/auth/login").set(...SESSION_PROTOCOL)
       .send({
         usernameOrEmail: SENTINEL_SEARCH_USERNAME,
         password: SENTINEL_PASSWORD,
@@ -271,7 +272,7 @@ describe("Suite isolation sentinel (e2e)", () => {
     //    stayed green against a demonstrably destructive helper. This case
     //    holds a live credential across the cleanup on purpose.
     const login = await request(app.getHttpServer())
-      .post("/auth/login")
+      .post("/auth/login").set(...SESSION_PROTOCOL)
       .send({
         usernameOrEmail: SENTINEL_SHARED_E2E_USERNAME,
         password: SENTINEL_PASSWORD,
@@ -388,7 +389,7 @@ describe("Suite isolation sentinel (e2e)", () => {
     // ("Invalid refresh token"), so asserting /auth/me alone would miss half
     // the damage.
     await request(app.getHttpServer())
-      .post("/auth/refresh")
+      .post("/auth/refresh").set(...SESSION_PROTOCOL)
       .send({ refreshToken })
       .expect(200);
 

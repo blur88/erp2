@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import request from "supertest";
@@ -175,7 +176,7 @@ describe("GET /search/global - role-based filtering (e2e)", () => {
     if (cached) return cached;
 
     const response = await request(app.getHttpServer())
-      .post("/auth/login")
+      .post("/auth/login").set(...SESSION_PROTOCOL)
       .send({
         usernameOrEmail: `${SEARCH_NS}_${role}`,
         password,

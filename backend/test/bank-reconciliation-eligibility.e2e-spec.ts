@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
@@ -52,7 +53,7 @@ describe('Bank reconciliation eligibility and preview (e2e)', () => {
     adminUserId = admin.id;
 
     const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ usernameOrEmail: adminUsername, password: E2E_ADMIN_PASSWORD });
     token = loginRes.body?.data?.accessToken ?? loginRes.body?.accessToken;
     expect(token).toBeTruthy();

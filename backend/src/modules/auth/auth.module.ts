@@ -11,6 +11,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { SessionProtocolGuard } from './guards/session-protocol.guard';
 import { AuthScheduler } from './auth.scheduler';
 import { AuthClock } from './auth-clock';
 import { AuthSessionService } from './auth-session.service';
@@ -53,6 +54,7 @@ import { REFRESH_KEYS, loadRefreshKeys } from './tokens/refresh-keys';
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,
+    SessionProtocolGuard,
     AuthScheduler,
   ],
   exports: [
@@ -64,6 +66,7 @@ import { REFRESH_KEYS, loadRefreshKeys } from './tokens/refresh-keys';
     JwtModule,
     JwtAuthGuard,
     RolesGuard,
+    SessionProtocolGuard,
   ],
 })
 export class AuthModule {}

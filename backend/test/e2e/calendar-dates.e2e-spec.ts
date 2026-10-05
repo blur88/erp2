@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from '../utils/session-protocol';
 import { jest } from "@jest/globals";
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
@@ -62,7 +63,7 @@ beforeAll(async () => {
   }
 
   const login = await request(app.getHttpServer())
-    .post("/auth/login")
+    .post("/auth/login").set(...SESSION_PROTOCOL)
     .send({
       usernameOrEmail: E2E_ADMIN_USERNAMES.calendarDates,
       password: E2E_ADMIN_PASSWORD,
