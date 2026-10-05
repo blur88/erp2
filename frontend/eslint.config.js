@@ -7,6 +7,15 @@ import { reactRefresh } from 'eslint-plugin-react-refresh';
 export default tseslint.config(
   { ignores: ['dist'] },
   {
+    // On-demand QA scripts run under Node inside a Playwright container.
+    files: ['qa/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: globals.node,
+    },
+  },
+  {
     files: ['**/*.{js,mjs,cjs,ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2020,
