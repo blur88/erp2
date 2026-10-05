@@ -9,7 +9,6 @@ A modern, comprehensive React frontend application for the ERP system built with
 - **Responsive Design** - Mobile-first approach with Material-UI v7 components
 - **State Management** - Redux Toolkit for predictable state management
 - **Public Access** - Authentication system completely removed for rapid development
-- **Real-time Updates** - WebSocket integration for live data updates
 - **Module-based Navigation** - Sidebar navigation for different ERP modules
 
 ### 📱 UI/UX Features
@@ -42,7 +41,6 @@ A modern, comprehensive React frontend application for the ERP system built with
 - **Yup** - Schema validation
 - **Axios** - HTTP client with interceptors
 - **Chart.js & Recharts** - Data visualization
-- **Socket.io Client** - Real-time communication
 - **Date-fns** - Date manipulation library
 
 ## Project Structure
@@ -105,7 +103,6 @@ A modern, comprehensive React frontend application for the ERP system built with
    Edit `.env` with your configuration:
    ```env
    VITE_API_BASE_URL=http://localhost:3001/api
-   VITE_SOCKET_URL=http://localhost:3001
    ```
 
 4. **Start development server**
@@ -224,7 +221,6 @@ npm run test:coverage    # Run tests with coverage report
 **Note**: No auth state - authentication system completely removed
 
 ### Real-time Updates
-- **WebSocket integration** - Live data synchronization
 - **Optimistic updates** - Immediate UI feedback
 - **Conflict resolution** - Handling concurrent modifications
 - **Offline support** - Queue operations when offline
@@ -278,7 +274,6 @@ npm run build:analyze    # Analyze bundle size and dependencies
    ```bash
    docker run -p 80:80 \
      -e VITE_API_BASE_URL=https://api.yourdomain.com/api \
-     -e VITE_SOCKET_URL=https://api.yourdomain.com \
      erp-frontend
    ```
 
@@ -298,7 +293,6 @@ The build includes:
 Production environment variables:
 ```env
 VITE_API_BASE_URL=https://your-api-domain.com/api
-VITE_SOCKET_URL=https://your-api-domain.com
 VITE_APP_NAME=Your Company ERP
 VITE_APP_VERSION=1.0.0
 ```

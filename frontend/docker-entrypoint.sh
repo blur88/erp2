@@ -6,8 +6,7 @@
 # Create environment configuration that gets injected into HTML
 cat > /usr/share/nginx/html/env-config.js << ENVEOF
 window.__ENV__ = {
-  VITE_API_BASE_URL: "${VITE_API_BASE_URL}",
-  VITE_SOCKET_URL: "${VITE_SOCKET_URL}"
+  VITE_API_BASE_URL: "${VITE_API_BASE_URL}"
 };
 ENVEOF
 
