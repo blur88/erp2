@@ -16,14 +16,18 @@ import {
   holdRowLock,
   waitForBlockedBy,
 } from './utils/auth-session-fixture';
+import bcrypt from 'bcrypt';
 import { AuthSession } from '../src/database/entities/auth-session.entity';
 import { RefreshToken } from '../src/database/entities/refresh-token.entity';
 import { AuditLog } from '../src/database/entities/audit-log.entity';
-import { UserStatus } from '../src/database/entities/user.entity';
+import { User, UserStatus } from '../src/database/entities/user.entity';
+import { AuthService } from '../src/modules/auth/auth.service';
+import passport from 'passport';
 import { AuthClock } from '../src/modules/auth/auth-clock';
 import { ReplayAuditWriter } from '../src/modules/auth/replay-audit.writer';
 import { REFRESH_KEYS, type RefreshKeySet } from '../src/modules/auth/tokens/refresh-keys';
 import { encodeRefreshToken } from '../src/modules/auth/tokens/refresh-token.codec';
+import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
 
 describe('Auth Sessions (e2e)', () => {
   let app: INestApplication;
@@ -56,6 +60,7 @@ describe('Auth Sessions (e2e)', () => {
   });
 
   beforeEach(async () => {
+    passport.use(app.get(JwtStrategy));
     await seedSessionUsers(dataSource);
   });
 
@@ -1224,6 +1229,267 @@ describe('Auth Sessions (e2e)', () => {
         req.send(body);
       }
       await req.expect(204);
+    });
+  });
+
+  describe('password change', () => {
+    it('revokes every session of the user', async () => {
+      const login1 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const login2 = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const user2Login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[1], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      const newPass = 'NewSecurePass@123!';
+      await request(app.getHttpServer())
+        .patch('/auth/change-password')
+        .set('Authorization', `Bearer ${login1.body.accessToken}`)
+        .send({
+          currentPassword: AUTHSESS_PASSWORD,
+          newPassword: newPass,
+          newPasswordConfirmation: newPass,
+        })
+        .expect(204);
+
+      const s1 = await dataSource.getRepository(AuthSession).findOneBy({ id: login1.body.sessionId });
+      const s2 = await dataSource.getRepository(AuthSession).findOneBy({ id: login2.body.sessionId });
+      const sOther = await dataSource.getRepository(AuthSession).findOneBy({ id: user2Login.body.sessionId });
+
+      expect(s1!.revokedAt).not.toBeNull();
+      expect(s1!.revokeReason).toBe('password_change');
+      expect(s2!.revokedAt).not.toBeNull();
+      expect(s2!.revokeReason).toBe('password_change');
+      expect(sOther!.revokedAt).toBeNull();
+    });
+
+    it('wrong current password is a 400', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+
+      const userBefore = await dataSource.getRepository(User).findOneByOrFail({ username: AUTHSESS_USERS[0] });
+
+      const res = await request(app.getHttpServer())
+        .patch('/auth/change-password')
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
+        .send({
+          currentPassword: 'WrongPassword@999!',
+          newPassword: 'NewSecurePass@123!',
+          newPasswordConfirmation: 'NewSecurePass@123!',
+        })
+        .expect(400);
+
+      expect(res.body.code).toBe('CURRENT_PASSWORD_INCORRECT');
+
+      const userAfter = await dataSource.getRepository(User).findOneByOrFail({ username: AUTHSESS_USERS[0] });
+      expect(userAfter.password).toBe(userBefore.password);
+
+      const session = await dataSource.getRepository(AuthSession).findOneBy({ id: login.body.sessionId });
+      expect(session!.revokedAt).toBeNull();
+    });
+
+    it('a sign-in that verified the old password cannot create a session afterwards', async () => {
+      const user = await dataSource.getRepository(User).findOneByOrFail({ username: AUTHSESS_USERS[0] });
+      const newHash = await bcrypt.hash('BrandNewPass@123!', 4);
+
+      const sessionsBefore = await dataSource.getRepository(AuthSession).findBy({ userId: user.id });
+
+      const lock = await holdRowLock(
+        dataSource,
+        'SELECT id FROM users WHERE id = $1 FOR UPDATE',
+        [user.id],
+      );
+
+      let res: any;
+      try {
+        const loginPromise = request(app.getHttpServer())
+          .post('/auth/login')
+          .send({ username: user.username, password: AUTHSESS_PASSWORD });
+        void loginPromise.catch(() => {});
+
+        await waitForBlockedBy(dataSource, lock, 1);
+
+        await lock.run('UPDATE users SET password = $1 WHERE id = $2', [newHash, user.id]);
+        await lock.release();
+
+        res = await loginPromise;
+      } finally {
+        try {
+          await lock.release();
+        } catch {
+          // already released
+        }
+      }
+
+      expect(res.status).toBe(401);
+      expect(res.body.message).toBe('Invalid credentials');
+
+      const sessionsAfter = await dataSource.getRepository(AuthSession).findBy({ userId: user.id });
+      expect(sessionsAfter.length).toBe(sessionsBefore.length);
+
+      const freshUser = await dataSource.getRepository(User).findOneByOrFail({ id: user.id });
+      expect(freshUser.password).toBe(newHash);
+    });
+
+    it('two concurrent changes', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+        .expect(200);
+      const user = await dataSource.getRepository(User).findOneByOrFail({ username: AUTHSESS_USERS[0] });
+
+      const lock = await holdRowLock(
+        dataSource,
+        'SELECT id FROM users WHERE id = $1 FOR UPDATE',
+        [user.id],
+      );
+
+      const passA = 'NewPassA@12345!';
+      const passB = 'NewPassB@12345!';
+
+      let resA: any;
+      let resB: any;
+      try {
+        const reqA = request(app.getHttpServer())
+          .patch('/auth/change-password')
+          .set('Authorization', `Bearer ${login.body.accessToken}`)
+          .send({
+            currentPassword: AUTHSESS_PASSWORD,
+            newPassword: passA,
+            newPasswordConfirmation: passA,
+          });
+        void reqA.catch(() => {});
+
+        const reqB = request(app.getHttpServer())
+          .patch('/auth/change-password')
+          .set('Authorization', `Bearer ${login.body.accessToken}`)
+          .send({
+            currentPassword: AUTHSESS_PASSWORD,
+            newPassword: passB,
+            newPasswordConfirmation: passB,
+          });
+        void reqB.catch(() => {});
+
+        await waitForBlockedBy(dataSource, lock, 2);
+        await lock.release();
+
+        [resA, resB] = await Promise.all([reqA, reqB]);
+      } finally {
+        try {
+          await lock.release();
+        } catch {
+          // already released
+        }
+      }
+
+      const statuses = [resA.status, resB.status].sort();
+      expect(statuses).toEqual([204, 409]);
+
+      const conflictRes = resA.status === 409 ? resA : resB;
+      expect(conflictRes.body.code).toBe('PASSWORD_CHANGED_CONCURRENTLY');
+
+      const winningPass = resA.status === 204 ? passA : passB;
+      const updatedUser = await dataSource.getRepository(User).findOneByOrFail({ id: user.id });
+      const matchesWinner = await bcrypt.compare(winningPass, updatedUser.password);
+      expect(matchesWinner).toBe(true);
+    });
+
+    it('two concurrent successful sign-ins do not deadlock', async () => {
+      const user = await dataSource.getRepository(User).findOneByOrFail({ username: AUTHSESS_USERS[0] });
+      const beforeCount = await dataSource.getRepository(AuthSession).countBy({ userId: user.id });
+
+      const lock = await holdRowLock(
+        dataSource,
+        'SELECT id FROM users WHERE id = $1 FOR UPDATE',
+        [user.id],
+      );
+
+      let resA: any;
+      let resB: any;
+      try {
+        const loginA = request(app.getHttpServer())
+          .post('/auth/login')
+          .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD });
+        void loginA.catch(() => {});
+
+        const loginB = request(app.getHttpServer())
+          .post('/auth/login')
+          .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD });
+        void loginB.catch(() => {});
+
+        await waitForBlockedBy(dataSource, lock, 2);
+        await lock.release();
+
+        [resA, resB] = await Promise.all([loginA, loginB]);
+      } finally {
+        try {
+          await lock.release();
+        } catch {
+          // already released
+        }
+      }
+
+      expect(resA.status).toBe(200);
+      expect(resB.status).toBe(200);
+      expect(resA.body.sessionId).toBeDefined();
+      expect(resB.body.sessionId).toBeDefined();
+      expect(resA.body.sessionId).not.toBe(resB.body.sessionId);
+
+      const afterCount = await dataSource.getRepository(AuthSession).countBy({ userId: user.id });
+      expect(afterCount).toBe(beforeCount + 2);
+
+      // Repeat once without the held lock
+      const [freeA, freeB] = await Promise.all([
+        request(app.getHttpServer())
+          .post('/auth/login')
+          .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+          .expect(200),
+        request(app.getHttpServer())
+          .post('/auth/login')
+          .send({ username: AUTHSESS_USERS[0], password: AUTHSESS_PASSWORD })
+          .expect(200),
+      ]);
+      expect(freeA.body.sessionId).not.toBe(freeB.body.sessionId);
+    });
+
+    it('the new password survives stale failed-login bookkeeping', async () => {
+      const user = await dataSource.getRepository(User).findOneByOrFail({ username: AUTHSESS_USERS[0] });
+      const staleUser = await dataSource.getRepository(User).findOneByOrFail({ id: user.id });
+      const initialAttempts = staleUser.failedLoginAttempts;
+
+      const newHash = await bcrypt.hash('SurvivingPass@123!', 4);
+      await dataSource.query('UPDATE users SET password = $1 WHERE id = $2', [newHash, user.id]);
+
+      await (app.get(AuthService) as any).handleFailedLogin(staleUser);
+
+      const freshUser = await dataSource.getRepository(User).findOneByOrFail({ id: user.id });
+      expect(freshUser.password).toBe(newHash);
+      expect(freshUser.failedLoginAttempts).toBe(initialAttempts + 1);
+    });
+
+    it('the new password survives stale lock self-heal', async () => {
+      const user = await dataSource.getRepository(User).findOneByOrFail({ username: AUTHSESS_USERS[0] });
+      const staleUser = await dataSource.getRepository(User).findOneByOrFail({ id: user.id });
+      staleUser.lockedUntil = new Date(Date.now() - 3600 * 1000);
+      staleUser.failedLoginAttempts = 5;
+
+      const newHash = await bcrypt.hash('SurvivingSelfHeal@123!', 4);
+      await dataSource.query('UPDATE users SET password = $1 WHERE id = $2', [newHash, user.id]);
+
+      await (app.get(AuthService) as any).healExpiredLock(staleUser);
+
+      const freshUser = await dataSource.getRepository(User).findOneByOrFail({ id: user.id });
+      expect(freshUser.password).toBe(newHash);
+      expect(freshUser.lockedUntil).toBeNull();
+      expect(freshUser.failedLoginAttempts).toBe(0);
     });
   });
 });

@@ -490,7 +490,7 @@ describe("Authentication (e2e)", () => {
       expect(response.body).toHaveProperty("accessToken");
     });
 
-    it("should return 401 for incorrect current password", async () => {
+    it("should return 400 for incorrect current password", async () => {
       const response = await request(app.getHttpServer())
         .patch("/auth/change-password")
         .set("Authorization", `Bearer ${adminAccessToken}`)
@@ -499,8 +499,9 @@ describe("Authentication (e2e)", () => {
           newPassword: "NewPassword@456",
           newPasswordConfirmation: "NewPassword@456",
         })
-        .expect(401);
+        .expect(400);
 
+      expect(response.body.code).toBe("CURRENT_PASSWORD_INCORRECT");
       expect(response.body.message).toContain("Current password is incorrect");
     });
 

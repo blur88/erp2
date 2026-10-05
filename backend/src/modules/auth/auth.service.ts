@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -21,6 +22,7 @@ import {
   ChangePasswordDto,
 } from './dto';
 import { AuthSessionService } from './auth-session.service';
+import { AuthClock } from './auth-clock';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 30;
@@ -38,6 +40,7 @@ export class AuthService {
     private configService: ConfigService,
     private dataSource: DataSource,
     private authSessionService: AuthSessionService,
+    private clock: AuthClock,
   ) {}
 
   /**
@@ -68,18 +71,8 @@ export class AuthService {
     // Self-heal: if the lock has expired by the app clock, clear it before the
     // lock check. Guards against a stale lockedUntil lingering when a user can
     // never reach the success path that normally resets it. See issue #710.
-    if (user.lockedUntil && user.lockedUntil <= new Date()) {
-      user.failedLoginAttempts = 0;
-      user.lockedUntil = null;
-      try {
-        await this.userRepository.save(user);
-      } catch (err) {
-        // A failed cleanup must not block login; the in-memory isLocked check
-        // below still governs the decision. Retry happens on the next attempt.
-        this.logger.warn(
-          `Failed to persist lock self-heal for ${user.username}: ${err}`,
-        );
-      }
+    if (user.lockedUntil && user.lockedUntil <= this.clock.now()) {
+      await this.healExpiredLock(user);
     }
 
     // Check if account is locked
@@ -104,20 +97,31 @@ export class AuthService {
 
     const { tokens, user: updatedUser } = await this.dataSource.transaction(
       async (manager) => {
-        // Reset failed login attempts on successful login
-        if (user.failedLoginAttempts > 0) {
-          user.failedLoginAttempts = 0;
-          user.lockedUntil = null;
+        const lockedUser = await manager.getRepository(User).findOne({
+          where: { id: user.id },
+          lock: { mode: 'for_no_key_update' },
+        });
+
+        if (!lockedUser || lockedUser.password !== user.password) {
+          throw new UnauthorizedException('Invalid credentials');
         }
 
-        // Update last login info
-        user.lastLoginAt = new Date();
-        user.lastLoginIp = ipAddress || null;
-        await manager.getRepository(User).save(user);
+        const now = this.clock.now();
+        await manager.update(User, user.id, {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          lastLoginAt: now,
+          lastLoginIp: ipAddress || null,
+        });
+
+        lockedUser.failedLoginAttempts = 0;
+        lockedUser.lockedUntil = null;
+        lockedUser.lastLoginAt = now;
+        lockedUser.lastLoginIp = ipAddress || null;
 
         const tokens = await this.authSessionService.createSession(
           manager,
-          user,
+          lockedUser,
           {
             rememberMe: rememberMe ?? false,
             ipAddress,
@@ -125,7 +129,7 @@ export class AuthService {
           },
         );
 
-        return { tokens, user };
+        return { tokens, user: lockedUser };
       },
     );
 
@@ -266,8 +270,13 @@ export class AuthService {
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
 
     if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new BadRequestException({
+        message: 'Current password is incorrect',
+        code: 'CURRENT_PASSWORD_INCORRECT',
+      });
     }
+
+    const verifiedHash = user.password;
 
     // Check that new password is different from current
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
@@ -279,18 +288,35 @@ export class AuthService {
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, bcryptRounds());
 
-    // Update password and clear password change requirement
-    user.password = hashedPassword;
-    user.requiresPasswordChange = false;
-    await this.userRepository.save(user);
+    await this.dataSource.transaction(async (manager) => {
+      const lockedUser = await manager.getRepository(User).findOne({
+        where: { id: userId },
+        lock: { mode: 'for_no_key_update' },
+      });
 
-    // Invalidate all sessions (force re-login everywhere)
-    await this.authSessionService.revokeAllForUser(
-      this.dataSource.manager,
-      userId,
-      'password_change',
-      new Date(),
-    );
+      if (!lockedUser) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      if (lockedUser.password !== verifiedHash) {
+        throw new ConflictException({
+          message: 'Password changed concurrently',
+          code: 'PASSWORD_CHANGED_CONCURRENTLY',
+        });
+      }
+
+      await manager.update(User, userId, {
+        password: hashedPassword,
+        requiresPasswordChange: false,
+      });
+
+      await this.authSessionService.revokeAllForUser(
+        manager,
+        userId,
+        'password_change',
+        this.clock.now(),
+      );
+    });
 
     this.logger.log(`Password changed for user ${user.username} - all sessions invalidated`);
   }
@@ -322,19 +348,47 @@ export class AuthService {
   }
 
   /**
+   * Self-heal expired lockout
+   */
+  private async healExpiredLock(user: User): Promise<void> {
+    try {
+      await this.userRepository.update(user.id, {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      });
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+    } catch (err) {
+      // A failed cleanup must not block login; the in-memory isLocked check
+      // below still governs the decision. Retry happens on the next attempt.
+      this.logger.warn(
+        `Failed to persist lock self-heal for ${user.username}: ${err}`,
+      );
+    }
+  }
+
+  /**
    * Handle failed login attempts and account lockout
    */
   private async handleFailedLogin(user: User): Promise<void> {
-    user.failedLoginAttempts += 1;
+    const nextAttempts = user.failedLoginAttempts + 1;
+    let lockedUntil: Date | null = null;
 
-    if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
-      user.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
+    if (nextAttempts >= MAX_FAILED_ATTEMPTS) {
+      lockedUntil = new Date(this.clock.now().getTime() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
       this.logger.warn(
         `Account ${user.username} locked due to ${MAX_FAILED_ATTEMPTS} failed login attempts`,
       );
     }
 
-    await this.userRepository.save(user);
+    await this.userRepository.update(user.id, {
+      failedLoginAttempts: nextAttempts,
+      ...(lockedUntil !== null ? { lockedUntil } : {}),
+    });
+    user.failedLoginAttempts = nextAttempts;
+    if (lockedUntil !== null) {
+      user.lockedUntil = lockedUntil;
+    }
   }
 
   /**

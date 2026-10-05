@@ -7,6 +7,7 @@ import { Repository, DataSource } from "typeorm";
 import { User } from "../../src/database/entities/user.entity";
 import { RefreshToken } from "../../src/database/entities/refresh-token.entity";
 import { AuthSessionService } from "../../src/modules/auth/auth-session.service";
+import { AuthClock } from "../../src/modules/auth/auth-clock";
 const mockCompare = jest.fn();
 const mockHash = jest.fn();
 jest.unstable_mockModule("bcrypt", () => ({
@@ -67,6 +68,7 @@ let service: any;
     findOne: (jest.fn as unknown as any)(),
     save: (jest.fn as unknown as any)(),
     create: (jest.fn as unknown as any)(),
+    update: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
   };
 
   const mockRefreshTokenRepository = {
@@ -117,16 +119,17 @@ let service: any;
     revokeAllForUser: (jest.fn as unknown as any)().mockResolvedValue(1),
   };
 
+  const mockManager = {
+    getRepository: (jest.fn as unknown as any)((entity: any) => {
+      if (entity === User) return mockUserRepository;
+      if (entity === RefreshToken) return mockRefreshTokenRepository;
+      return mockUserRepository;
+    }),
+    update: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+  };
+
   const mockDataSource = {
-    transaction: (jest.fn as unknown as any)((cb: any) =>
-      cb({
-        getRepository: (entity: any) => {
-          if (entity === User) return mockUserRepository;
-          if (entity === RefreshToken) return mockRefreshTokenRepository;
-          return mockUserRepository;
-        },
-      }),
-    ),
+    transaction: (jest.fn as unknown as any)((cb: any) => cb(mockManager)),
   };
 
   beforeEach(async () => {
@@ -157,6 +160,10 @@ let service: any;
           provide: AuthSessionService,
           useValue: mockAuthSessionService,
         },
+        {
+          provide: AuthClock,
+          useValue: { now: () => new Date() },
+        },
       ],
     }).compile();
 
@@ -172,6 +179,8 @@ let service: any;
     jest.clearAllMocks();
     mockedBcrypt.compare.mockReset();
     mockedBcrypt.hash.mockReset();
+    mockUserRepository.update.mockResolvedValue({ affected: 1 });
+    mockManager.update.mockResolvedValue({ affected: 1 });
   });
 
   it("should be defined", () => {
@@ -275,10 +284,6 @@ let service: any;
     it("should login successfully with valid credentials", async () => {
       mockedBcrypt.compare.mockResolvedValue(true as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockUserRepository.save.mockResolvedValue({
-        ...mockUser,
-        lastLoginAt: new Date(),
-      });
       mockRefreshTokenRepository.create.mockReturnValue({});
       mockRefreshTokenRepository.save.mockResolvedValue({});
 
@@ -289,15 +294,17 @@ let service: any;
       expect(result).toHaveProperty("user");
       expect(result.user.username).toBe("testuser");
       expect(mockAuthSessionService.createSession).toHaveBeenCalled();
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+      expect(mockManager.update).toHaveBeenCalledWith(
+        User,
+        mockUser.id,
+        expect.objectContaining({ failedLoginAttempts: 0, lockedUntil: null }),
+      );
     });
 
     it("should accept username as a legacy alias for usernameOrEmail", async () => {
       mockedBcrypt.compare.mockResolvedValue(true as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockUserRepository.save.mockResolvedValue({
-        ...mockUser,
-        lastLoginAt: new Date(),
-      });
       mockRefreshTokenRepository.create.mockReturnValue({});
       mockRefreshTokenRepository.save.mockResolvedValue({});
 
@@ -314,59 +321,52 @@ let service: any;
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
         where: [{ username: "testuser" }, { email: "testuser" }],
       });
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
     });
 
     it("should increment failed login attempts on wrong password", async () => {
       mockedBcrypt.compare.mockResolvedValue(false as never);
       const userWithFailedAttempts = { ...mockUser, failedLoginAttempts: 2 };
       mockUserRepository.findOne.mockResolvedValue(userWithFailedAttempts);
-      mockUserRepository.save.mockResolvedValue({
-        ...userWithFailedAttempts,
-        failedLoginAttempts: 3,
-      });
 
       await expect(service.login(loginDto, mockRequest as any)).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ failedLoginAttempts: 3 }),
-      );
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+      expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser.id, {
+        failedLoginAttempts: 3,
+      });
     });
 
     it("should lock account after 5 failed attempts", async () => {
       mockedBcrypt.compare.mockResolvedValue(false as never);
       const userWithMaxAttempts = { ...mockUser, failedLoginAttempts: 4 };
       mockUserRepository.findOne.mockResolvedValue(userWithMaxAttempts);
-      mockUserRepository.save.mockImplementation((user) =>
-        Promise.resolve(user),
-      );
 
       await expect(service.login(loginDto, mockRequest as any)).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          failedLoginAttempts: 5,
-          lockedUntil: expect.any(Date),
-        }),
-      );
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+      expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser.id, {
+        failedLoginAttempts: 5,
+        lockedUntil: expect.any(Date),
+      });
     });
 
     it("should reset failed login attempts on successful login", async () => {
       mockedBcrypt.compare.mockResolvedValue(true as never);
       const userWithPreviousFailures = { ...mockUser, failedLoginAttempts: 3 };
       mockUserRepository.findOne.mockResolvedValue(userWithPreviousFailures);
-      mockUserRepository.save.mockResolvedValue({
-        ...userWithPreviousFailures,
-        failedLoginAttempts: 0,
-      });
       mockRefreshTokenRepository.create.mockReturnValue({});
       mockRefreshTokenRepository.save.mockResolvedValue({});
 
       const result = await service.login(loginDto, mockRequest as any);
 
       expect(result).toHaveProperty("accessToken");
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+      expect(mockManager.update).toHaveBeenCalledWith(
+        User,
+        mockUser.id,
         expect.objectContaining({ failedLoginAttempts: 0 }),
       );
     });
@@ -396,7 +396,6 @@ let service: any;
       } as any;
 
       mockUserRepository.findOne.mockResolvedValue(user);
-      mockUserRepository.save.mockImplementation((u) => Promise.resolve(u));
       // Wrong password: proves execution passed the lock check and reached
       // password validation (handleFailedLogin), not stopped by ForbiddenException.
       mockedBcrypt.compare.mockResolvedValue(false as never);
@@ -408,9 +407,11 @@ let service: any;
       // bcrypt.compare being reached proves the lock check was bypassed — the
       // self-heal cleared the stale lock instead of throwing ForbiddenException.
       expect(mockedBcrypt.compare).toHaveBeenCalled();
-      // The stale lock was cleared (failedLoginAttempts is then re-incremented
-      // by handleFailedLogin on the wrong password, so we assert on lockedUntil).
-      expect(user.lockedUntil).toBeNull();
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+      expect(mockUserRepository.update).toHaveBeenCalledWith("u1", {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      });
     });
 
     it("still rejects a user whose lockedUntil is in the future", async () => {
@@ -556,27 +557,24 @@ let service: any;
         .mockResolvedValueOnce(false as never);
       mockedBcrypt.hash.mockResolvedValue("new-hashed-password" as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockUserRepository.save.mockResolvedValue({
-        ...mockUser,
-        password: "new-hashed-password",
-      });
-      mockRefreshTokenRepository.delete.mockResolvedValue({ affected: 1 });
 
       await service.changePassword(mockUser.id, changePasswordDto);
 
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ password: "new-hashed-password" }),
-      );
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+      expect(mockManager.update).toHaveBeenCalledWith(User, mockUser.id, {
+        password: "new-hashed-password",
+        requiresPasswordChange: false,
+      });
       expect(mockAuthSessionService.revokeAllForUser).toHaveBeenCalled(); // Logout all sessions
     });
 
-    it("should throw UnauthorizedException for incorrect current password", async () => {
+    it("should throw BadRequestException for incorrect current password", async () => {
       mockedBcrypt.compare.mockResolvedValue(false as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
 
       await expect(
         service.changePassword(mockUser.id, changePasswordDto),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it("should throw BadRequestException if passwords do not match", async () => {
@@ -699,6 +697,7 @@ let service: any;
           { provide: ConfigService, useValue: mockConfigService },
           { provide: DataSource, useValue: mockDataSource },
           { provide: AuthSessionService, useValue: mockAuthSession },
+          { provide: AuthClock, useValue: { now: () => new Date() } },
         ],
       }).compile();
 

@@ -103,7 +103,13 @@ export async function waitForBlockedBy(
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const res = await ds.query(
-      `SELECT count(*)::int AS count FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))`,
+      `WITH RECURSIVE blockers AS (
+        SELECT pid FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))
+        UNION
+        SELECT a.pid FROM pg_stat_activity a
+        JOIN blockers b ON b.pid = ANY(pg_blocking_pids(a.pid))
+      )
+      SELECT count(DISTINCT pid)::int AS count FROM blockers`,
       [blocker.pid],
     );
     const count = Number(res[0]?.count ?? 0);
