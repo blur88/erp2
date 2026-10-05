@@ -13,6 +13,7 @@ import {
 } from "../src/database/entities/user.entity";
 import { RefreshToken } from "../src/database/entities/refresh-token.entity";
 import { AuthService } from "../src/modules/auth/auth.service";
+import { AuthClock } from "../src/modules/auth/auth-clock";
 import * as bcrypt from "bcrypt";
 import {
   AUTH_ADMIN_USERNAME,
@@ -102,41 +103,35 @@ describe("Authentication (e2e)", () => {
     // Calling the running app's service exercises real signing and the unique
     // index; the unit cases separately cover login and rotation with a fixed iat.
     it("should persist two refresh tokens issued with the same iat", async () => {
-      const authService = app.get(AuthService);
-      const userRepository = dataSource.getRepository(User);
-      const user = await userRepository.findOne({ where: { id: testUserId } });
+      const authClock = app.get(AuthClock);
 
       const decodeIat = (token: string) =>
         JSON.parse(
           Buffer.from(token.split(".")[1], "base64url").toString("utf8"),
         ).iat;
 
-      const issuedAt = Date.now();
-      const clock = jest.spyOn(Date, "now").mockReturnValue(issuedAt);
-      let first: { refreshToken: string };
-      let second: { refreshToken: string };
+      const issuedAt = new Date(1790000000000);
+      const clock = jest.spyOn(authClock, "now").mockReturnValue(issuedAt);
+      let firstRes: any;
+      let secondRes: any;
       try {
-        first = await (authService as any).generateTokens(
-          user,
-          false,
-          "127.0.0.1",
-          "agent",
-        );
-        second = await (authService as any).generateTokens(
-          user,
-          false,
-          "127.0.0.1",
-          "agent",
-        );
+        firstRes = await request(app.getHttpServer())
+          .post("/auth/login")
+          .send({ username: AUTH_ADMIN_USERNAME, password: "Admin@123!" })
+          .expect(200);
+        secondRes = await request(app.getHttpServer())
+          .post("/auth/login")
+          .send({ username: AUTH_ADMIN_USERNAME, password: "Admin@123!" })
+          .expect(200);
       } finally {
         clock.mockRestore();
       }
 
       // The collision precondition. If these differ the case proves nothing,
       // so fail loudly rather than passing on a technicality.
-      expect(decodeIat(first.refreshToken)).toBe(decodeIat(second.refreshToken));
+      expect(decodeIat(firstRes.body.refreshToken)).toBe(decodeIat(secondRes.body.refreshToken));
 
-      expect(first.refreshToken).not.toBe(second.refreshToken);
+      expect(firstRes.body.refreshToken).not.toBe(secondRes.body.refreshToken);
 
       // Both sessions survive the unique index — each carries its own device/IP
       // audit trail and is independently revocable.
@@ -147,8 +142,8 @@ describe("Authentication (e2e)", () => {
       const hashes = new Set(rows.map((row) => row.tokenHash));
       expect(rows).toHaveLength(2);
       expect(hashes).toEqual(new Set([
-        createHash("sha256").update(first.refreshToken).digest("hex"),
-        createHash("sha256").update(second.refreshToken).digest("hex"),
+        createHash("sha256").update(firstRes.body.refreshToken).digest("hex"),
+        createHash("sha256").update(secondRes.body.refreshToken).digest("hex"),
       ]));
     });
 
@@ -327,14 +322,10 @@ describe("Authentication (e2e)", () => {
         .post("/auth/refresh")
         .send({
           refreshToken: adminRefreshToken,
-        });
+        })
+        .expect(401);
 
-      expect([200, 401]).toContain(response.status);
-      if (response.status === 401) {
-        expect(response.body.message).toContain("Invalid");
-      } else {
-        expect(response.body).toHaveProperty("accessToken");
-      }
+      expect(response.body.code).toBe("REFRESH_INVALID");
     });
 
     it("should return 401 for invalid refresh token", async () => {

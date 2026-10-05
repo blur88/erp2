@@ -5,16 +5,20 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from '@/database/entities/user.entity';
 import { RefreshToken } from '@/database/entities/refresh-token.entity';
+import { AuthSession } from '@/database/entities/auth-session.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { AuthScheduler } from './auth.scheduler';
+import { AuthClock } from './auth-clock';
+import { AuthSessionService } from './auth-session.service';
+import { REFRESH_KEYS, loadRefreshKeys } from './tokens/refresh-keys';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, RefreshToken]),
+    TypeOrmModule.forFeature([User, RefreshToken, AuthSession]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -30,7 +34,33 @@ import { AuthScheduler } from './auth.scheduler';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, AuthScheduler],
-  exports: [AuthService, JwtModule, JwtAuthGuard, RolesGuard],
+  providers: [
+    AuthClock,
+    AuthSessionService,
+    {
+      provide: REFRESH_KEYS,
+      inject: [ConfigService],
+      useFactory: (c: ConfigService) =>
+        loadRefreshKeys({
+          JWT_REFRESH_KEYS: c.get('JWT_REFRESH_KEYS'),
+          JWT_REFRESH_ACTIVE_KID: c.get('JWT_REFRESH_ACTIVE_KID'),
+          JWT_SECRET: c.get('JWT_SECRET'),
+        }),
+    },
+    AuthService,
+    JwtStrategy,
+    JwtAuthGuard,
+    RolesGuard,
+    AuthScheduler,
+  ],
+  exports: [
+    AuthService,
+    AuthSessionService,
+    AuthClock,
+    REFRESH_KEYS,
+    JwtModule,
+    JwtAuthGuard,
+    RolesGuard,
+  ],
 })
 export class AuthModule {}

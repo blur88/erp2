@@ -3,9 +3,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
-import { Repository } from "typeorm";
+import { Repository, DataSource } from "typeorm";
 import { User } from "../../src/database/entities/user.entity";
 import { RefreshToken } from "../../src/database/entities/refresh-token.entity";
+import { AuthSessionService } from "../../src/modules/auth/auth-session.service";
 const mockCompare = jest.fn();
 const mockHash = jest.fn();
 jest.unstable_mockModule("bcrypt", () => ({
@@ -97,6 +98,36 @@ let service: any;
     }),
   };
 
+  const mockTokens = {
+    accessToken: "mock.jwt.token.123e4567-e89b-12d3-a456-426614174000",
+    refreshToken: "mock.refresh.token",
+    sessionId: "22222222-2222-4222-8222-222222222222",
+    generation: 1,
+    accessTokenExpiresAt: 1790000900,
+    expiresIn: 900,
+  };
+
+  const mockAuthSessionService = {
+    createSession: (jest.fn as unknown as any)().mockResolvedValue(mockTokens),
+    refresh: (jest.fn as unknown as any)().mockResolvedValue({
+      tokens: mockTokens,
+      user: mockUser,
+    }),
+    refreshLifetimeSeconds: (jest.fn as unknown as any)().mockReturnValue(172800),
+  };
+
+  const mockDataSource = {
+    transaction: (jest.fn as unknown as any)((cb: any) =>
+      cb({
+        getRepository: (entity: any) => {
+          if (entity === User) return mockUserRepository;
+          if (entity === RefreshToken) return mockRefreshTokenRepository;
+          return mockUserRepository;
+        },
+      }),
+    ),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -116,6 +147,14 @@ let service: any;
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
+        },
+        {
+          provide: AuthSessionService,
+          useValue: mockAuthSessionService,
         },
       ],
     }).compile();
@@ -248,7 +287,7 @@ let service: any;
       expect(result).toHaveProperty("refreshToken");
       expect(result).toHaveProperty("user");
       expect(result.user.username).toBe("testuser");
-      expect(mockJwtService.sign).toHaveBeenCalled();
+      expect(mockAuthSessionService.createSession).toHaveBeenCalled();
     });
 
     it("should accept username as a legacy alias for usernameOrEmail", async () => {
@@ -412,8 +451,6 @@ let service: any;
         ...mockUser,
         lastLoginAt: new Date(),
       });
-      mockRefreshTokenRepository.create.mockReturnValue({});
-      mockRefreshTokenRepository.save.mockResolvedValue({});
 
       const result = await service.login(
         loginDto,
@@ -423,18 +460,16 @@ let service: any;
 
       expect(result).toHaveProperty("accessToken");
       expect(result).toHaveProperty("refreshToken");
-      expect(mockJwtService.sign).toHaveBeenCalledTimes(2);
+      expect(mockAuthSessionService.createSession).toHaveBeenCalled();
     });
 
-    it("should include correct payload in tokens", async () => {
+    it("should delegate token creation to AuthSessionService", async () => {
       mockedBcrypt.compare.mockResolvedValue(true as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockUserRepository.save.mockResolvedValue({
         ...mockUser,
         lastLoginAt: new Date(),
       });
-      mockRefreshTokenRepository.create.mockReturnValue({});
-      mockRefreshTokenRepository.save.mockResolvedValue({});
 
       await service.login(
         loginDto,
@@ -442,14 +477,14 @@ let service: any;
         mockRequest.headers["user-agent"],
       );
 
-      expect(mockJwtService.sign).toHaveBeenCalledWith(
+      expect(mockAuthSessionService.createSession).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ id: mockUser.id }),
         expect.objectContaining({
-          sub: mockUser.id,
-          username: mockUser.username,
-          email: mockUser.email,
-          role: mockUser.role,
+          rememberMe: false,
+          ipAddress: mockRequest.ip,
+          userAgent: mockRequest.headers["user-agent"],
         }),
-        expect.objectContaining({ expiresIn: "15m" }),
       );
     });
   });
@@ -467,23 +502,27 @@ let service: any;
 
     it("should refresh access token with valid refresh token", async () => {
       const refreshTokenDto = { refreshToken: "valid-refresh-token" };
-      mockRefreshTokenRepository.findOne.mockResolvedValue(mockRefreshToken);
-      mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockRefreshTokenRepository.create.mockReturnValue({});
-      mockRefreshTokenRepository.save.mockResolvedValue({});
-      mockRefreshTokenRepository.remove.mockResolvedValue(mockRefreshToken);
+      mockAuthSessionService.refresh.mockResolvedValue({
+        tokens: mockTokens,
+        user: mockUser,
+      });
 
       const result = await service.refreshAccessToken(refreshTokenDto);
 
       expect(result).toHaveProperty("accessToken");
       expect(result).toHaveProperty("refreshToken");
-      expect(mockRefreshTokenRepository.remove).toHaveBeenCalled(); // Old token deleted
-      expect(mockRefreshTokenRepository.save).toHaveBeenCalled(); // New token saved
+      expect(result).toHaveProperty("sessionId");
+      expect(mockAuthSessionService.refresh).toHaveBeenCalledWith(
+        "valid-refresh-token",
+        { ipAddress: undefined, userAgent: undefined },
+      );
     });
 
     it("should throw UnauthorizedException for invalid refresh token", async () => {
       const refreshTokenDto = { refreshToken: "invalid-token" };
-      mockRefreshTokenRepository.findOne.mockResolvedValue(null);
+      mockAuthSessionService.refresh.mockRejectedValue(
+        new UnauthorizedException("Invalid refresh token"),
+      );
 
       await expect(service.refreshAccessToken(refreshTokenDto)).rejects.toThrow(
         UnauthorizedException,
@@ -491,14 +530,10 @@ let service: any;
     });
 
     it("should throw UnauthorizedException for expired refresh token", async () => {
-      const expiredToken = {
-        ...mockRefreshToken,
-        expiresAt: new Date(Date.now() - 1000), // Expired
-        isExpired: true,
-      };
       const refreshTokenDto = { refreshToken: "expired-token" };
-      mockRefreshTokenRepository.findOne.mockResolvedValue(expiredToken);
-      mockRefreshTokenRepository.remove.mockResolvedValue(expiredToken);
+      mockAuthSessionService.refresh.mockRejectedValue(
+        new UnauthorizedException("Refresh token expired"),
+      );
 
       await expect(service.refreshAccessToken(refreshTokenDto)).rejects.toThrow(
         UnauthorizedException,
@@ -626,6 +661,41 @@ let service: any;
         remove: (jest.fn as unknown as any)(),
       };
 
+      let seq = 0;
+      const mockAuthSession = {
+        createSession: (jest.fn as unknown as any)(async () => {
+          seq++;
+          const token = `mock.refresh.token.${seq}`;
+          const hash = `mock.hash.${seq}`;
+          savedTokens.push({ tokenHash: hash });
+          return {
+            accessToken: `mock.access.${seq}`,
+            refreshToken: token,
+            sessionId: `mock.sid.${seq}`,
+            generation: 1,
+            accessTokenExpiresAt: 1790000900,
+            expiresIn: 900,
+          };
+        }),
+        refresh: (jest.fn as unknown as any)(async () => {
+          seq++;
+          const token = `mock.refresh.token.${seq}`;
+          const hash = `mock.hash.${seq}`;
+          savedTokens.push({ tokenHash: hash });
+          return {
+            tokens: {
+              accessToken: `mock.access.${seq}`,
+              refreshToken: token,
+              sessionId: `mock.sid.1`,
+              generation: 2,
+              accessTokenExpiresAt: 1790000900,
+              expiresIn: 900,
+            },
+            user: mockUser,
+          };
+        }),
+      };
+
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           AuthService,
@@ -639,6 +709,8 @@ let service: any;
             useValue: new JwtService({ secret: "test-secret-key" }),
           },
           { provide: ConfigService, useValue: mockConfigService },
+          { provide: DataSource, useValue: mockDataSource },
+          { provide: AuthSessionService, useValue: mockAuthSession },
         ],
       }).compile();
 

@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 import { JwtService } from '@nestjs/jwt';
-import { RefreshKeySet } from './refresh-keys';
+import type { RefreshKeySet } from './refresh-keys';
 
 export const REFRESH_TYP = 'erp-refresh+jwt';
 
@@ -70,7 +70,7 @@ export function verifyRefreshToken(token: unknown, keys: RefreshKeySet): Refresh
     null;
 
   try {
-    decoded = jwtService.decode(token, { complete: true }) as {
+    decoded = (jwtService.decode(token, { complete: true }) as unknown) as {
       header?: Record<string, unknown>;
       payload?: Record<string, unknown>;
     } | null;

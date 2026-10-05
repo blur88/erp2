@@ -12,3 +12,5 @@ export { PurchaseOrder, PurchaseOrderStatus, PurchaseOrderPaymentStatus } from '
 export { PurchaseOrderItem } from './purchase-order-item.entity';
 export { VendorPayment } from './vendor-payment.entity';
 export { PaymentMethodEntity } from './payment-method.entity';
+export { AuthSession } from './auth-session.entity';
+export type { SessionRevokeReason } from './auth-session.entity';
