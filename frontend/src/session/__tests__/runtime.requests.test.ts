@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createHarness, advance } from './twoTabs'
 import { SessionEndedError, StorageTimeoutError, StorageUnavailableError } from '../types'
 import { RefreshRejectedError } from '../authHttp'
@@ -244,5 +244,38 @@ describe('session runtime — requests and refresh', () => {
     const refB = (await b.runtime.beginRequest()).ref
     expect(await a.runtime.canDeliver(refA)).toBe(true)
     expect(await b.runtime.canDeliver(refB)).toBe(true)
+  })
+
+  it('a resumed tab ends locally without sending a request', async () => {
+    const h = createHarness({ channel: false })
+    const a = await signedInTab(h, 'A')
+    const b = h.createTab('B')
+    await b.runtime.start()
+    await a.runtime.signOut()
+    await b.runtime.reconcileNow()
+    expect(b.runtime.claim()).toBeNull()
+    expect(b.events.ended).toContain('elsewhere')
+    expect(h.server.refreshCalls).toBe(0)
+  })
+
+  it('a resumed tab adopts tokens another tab refreshed while it was hidden', async () => {
+    const h = createHarness({ channel: false })
+    const a = await signedInTab(h, 'A')
+    const b = h.createTab('B')
+    await b.runtime.start()
+    await a.runtime.handleUnauthorized((await a.runtime.beginRequest()).ref)
+    await b.runtime.reconcileNow()
+    expect(b.events.updated).toBe(1)
+    const stored = await b.store.read()
+    expect(stored.record.session?.generation).toBe(2)
+  })
+
+  it('reconcileNow before start settled reads nothing', async () => {
+    const h = createHarness()
+    const a = h.createTab('A')
+    const readSpy = vi.spyOn(a.store, 'read')
+    await a.runtime.reconcileNow()
+    expect(readSpy).not.toHaveBeenCalled()
+    expect(a.events.ended).toHaveLength(0)
   })
 })
