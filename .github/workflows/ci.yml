@@ -74,9 +74,9 @@ jobs:
       REDIS_TEST_ALLOW_WRITES: "1"
       NODE_ENV: test
       JWT_SECRET: test-secret-key-minimum-32chars-long-for-testing-only
-      JWT_REFRESH_SECRET: test-refresh-secret-minimum-32chars-long-for-testing
-      JWT_EXPIRES_IN: 15m
-      JWT_REFRESH_EXPIRES_IN: 7d
+      JWT_REFRESH_KEYS: k1=test-refresh-key-minimum-32chars-long-for-testing
+      JWT_REFRESH_ACTIVE_KID: k1
+      JWT_ACCESS_TOKEN_EXPIRY: 15m
       JWT_AUDIENCE: erp-app
       JWT_ISSUER: erp-backend
       ALLOWED_ORIGINS: http://localhost:3000
@@ -277,6 +277,8 @@ jobs:
             -e DB_SYNCHRONIZE=false \
             -e REDIS_HOST=localhost -e REDIS_PORT=6379 \
             -e JWT_SECRET=ci_jwt_secret_value_not_used_outside_ci \
+            -e JWT_REFRESH_KEYS=k1=ci_jwt_refresh_secret_value_not_used_outside_ci \
+            -e JWT_REFRESH_ACTIVE_KID=k1 \
             -e PORT=3001 \
             erp-backend:ci
 
@@ -444,6 +446,8 @@ jobs:
             -e DB_SYNCHRONIZE=false \
             -e REDIS_HOST=localhost -e REDIS_PORT=6379 \
             -e JWT_SECRET=ci_jwt_secret_value_not_used_outside_ci \
+            -e JWT_REFRESH_KEYS=k1=ci_jwt_refresh_secret_value_not_used_outside_ci \
+            -e JWT_REFRESH_ACTIVE_KID=k1 \
             -e PORT=3001 \
             erp-backend:ci
 
