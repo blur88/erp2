@@ -245,6 +245,4 @@ describe('session runtime — requests and refresh', () => {
     expect(await a.runtime.canDeliver(refA)).toBe(true)
     expect(await b.runtime.canDeliver(refB)).toBe(true)
   })
-
-  it.todo('a token response that arrives while explicit sign-out is unpublished is not written')
 })

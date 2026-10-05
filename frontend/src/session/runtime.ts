@@ -64,6 +64,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   let status: RuntimeStatus = 'starting'
   let memory: ActiveSession | null = null
+  let lastCredential: { sessionId: string; refreshToken: string } | null = null
   let attemptCounter = 0
   let currentAttempt = 0
   let signInAbort: AbortController | null = null
@@ -71,6 +72,9 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   let refreshInFlight: Promise<'retry' | 'ended'> | null = null
 
   const claim = () => memory?.sessionId ?? null
+  const remember = (session: ActiveSession) => {
+    lastCredential = { sessionId: session.sessionId, refreshToken: session.refreshToken }
+  }
   const post = () => channel?.post()
   const isEligible = (sessionId: string) => claim() === sessionId
 
@@ -120,6 +124,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     if (remote === null) return false
     if (action === 'adopt-tokens') {
       memory = { ...remote }
+      remember(memory)
       events.tokensUpdated({
         accessToken: remote.accessToken,
         accessTokenExpiresAt: remote.accessTokenExpiresAt,
@@ -152,6 +157,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       const stored = await store.read()
       if (stored.record.session) {
         memory = { ...stored.record.session }
+        remember(memory)
         status = 'signed-in'
         events.sessionEstablished(memory)
       } else {
@@ -224,6 +230,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       rememberMe,
     }
     memory = session
+    remember(session)
     status = 'signed-in'
     events.sessionEstablished(session)
     post()
@@ -336,6 +343,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
     if (isEligible(requestSessionId) && memory) {
       memory = { ...memory, ...response }
+      remember(memory)
       events.tokensUpdated({
         accessToken: response.accessToken,
         accessTokenExpiresAt: response.accessTokenExpiresAt,
@@ -377,9 +385,12 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   // ---- endings --------------------------------------------------------------
 
   const signOut = async (): Promise<void> => {
-    const captured = memory ? { sessionId: memory.sessionId, refreshToken: memory.refreshToken } : null
+    const captured = memory
+      ? { sessionId: memory.sessionId, refreshToken: memory.refreshToken }
+      : lastCredential
     memory = null
-    status = 'signed-out'
+    lastCredential = null
+    status = status === 'storage-unavailable' ? 'storage-unavailable' : 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
     events.sessionEnded('explicit')
@@ -393,8 +404,9 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   }
 
   const passwordChanged = async (): Promise<void> => {
-    const target = memory?.sessionId ?? null
+    const target = memory?.sessionId ?? lastCredential?.sessionId ?? null
     memory = null
+    lastCredential = null
     status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
