@@ -29,6 +29,14 @@ export const AUTH_USERNAMES: readonly string[] = [
  * Refresh tokens cascade via RefreshToken.userId (onDelete: 'CASCADE').
  */
 export async function resetAuthFixtureUsers(ds: DataSource): Promise<void> {
+  const users = await ds.query(
+    `SELECT id FROM users WHERE username = ANY($1)`,
+    [[...AUTH_USERNAMES]],
+  );
+  const userIds: string[] = users.map((u: { id: string }) => u.id);
+  if (userIds.length > 0) {
+    await ds.query(`DELETE FROM audit_logs WHERE "userId" = ANY($1)`, [userIds]);
+  }
   await ds.query(`DELETE FROM users WHERE username = ANY($1)`, [
     [...AUTH_USERNAMES],
   ]);
