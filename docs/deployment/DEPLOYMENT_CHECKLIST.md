@@ -409,6 +409,41 @@ _____________________________________________________________
 
 ---
 
+---
+
+## Server Sessions & Refresh Token Signing Keys (#1345)
+
+### Environment Variables
+Configure the following three variables in `.env` / deployment configuration:
+
+- `JWT_REFRESH_KEYS`: Comma-separated `kid=secret` pairs (e.g. `k1=base64-or-hex-secret-min-32-chars,k2=...`). Each `kid` must match `^[A-Za-z0-9_-]{1,32}$`. Secrets must be at least 32 characters and must **never** equal `JWT_SECRET`.
+- `JWT_REFRESH_ACTIVE_KID`: The key ID used to sign newly minted refresh tokens. Must match one of the keys in `JWT_REFRESH_KEYS`. **The backend fails startup if this is missing or does not match a key in `JWT_REFRESH_KEYS`.**
+- `JWT_REFRESH_GRACE_SECONDS`: Optional integer (defaults to `30`). Grace window during which a superseded refresh token may recover the active successor token across network splits.
+
+### Deployment & User Migration
+- **One-time Re-authentication**: Existing users will need to sign in once after deployment to establish a server session with the new token structure.
+- **Boot Warning**: The backend logs a warning on startup (`unconfiguredKeyUsage`) if any unexpired tokens in the database reference a `keyId` that is not configured in `JWT_REFRESH_KEYS`.
+
+### Key Retirement Procedure
+Do not remove a key from `JWT_REFRESH_KEYS` until all tokens signed by that key have expired. Check outstanding tokens using:
+```sql
+SELECT "keyId", count(*), max("expiresAt") FROM refresh_tokens GROUP BY "keyId";
+```
+When `count(*)` is 0 (or all `expiresAt` are in the past), the key can be safely removed from `JWT_REFRESH_KEYS`.
+
+If a key must be removed early (e.g. key compromise), immediately revoke all active sessions relying on that key before removing it from `JWT_REFRESH_KEYS`:
+```sql
+UPDATE auth_sessions s
+SET "revokedAt" = '<now>', "revokeReason" = 'key_retired'
+FROM refresh_tokens t
+WHERE t."sessionId" = s.id
+  AND t."supersededAt" IS NULL
+  AND t."keyId" = '<kid>'
+  AND s."revokedAt" IS NULL;
+```
+
+---
+
 ## Completion
 
 **Deployment Completed**: [ ] YES [ ] NO
@@ -418,6 +453,6 @@ _____________________________________________________________
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: January 13, 2026
+**Document Version**: 1.1
+**Last Updated**: October 5, 2026
 **Maintained By**: ERP Development Team
