@@ -8,7 +8,8 @@ import type {
 } from '@/store/slices/authSlice';
 
 // Get API base URL dynamically
-const getApiBaseUrl = () => {
+export const getApiBaseUrl = () => {
+  if (typeof window === 'undefined') return '/api';
   const envUrl = (window as any).__ENV__?.VITE_API_BASE_URL;
   if (envUrl) return envUrl;
 
