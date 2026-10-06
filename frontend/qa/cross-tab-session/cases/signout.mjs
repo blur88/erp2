@@ -43,19 +43,57 @@ export async function afterNextPoll(profile, page) {
   return false
 }
 
+/**
+ * Notes when the tab's main frame arrives at /login. Cases 1, 3 and 15 use it
+ * to bound "before the tab learned of the sign-out".
+ */
+function watchRedirect(page) {
+  const seen = { at: null }
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame() && new URL(frame.url()).pathname === '/login' && seen.at === null) seen.at = Date.now()
+  })
+  return seen
+}
+
+/**
+ * Pass: tab B issued no request of any kind between `mark` (taken just before
+ * tab A's sign-out) and its own arrival at /login. A tab learns of a sign-out
+ * from the channel message or from its next request through the gate; with no
+ * request in between, it was the message. If the redirect was never seen the
+ * window runs to now, so a tab that only sent something still fails.
+ */
+function sentNothingBeforeRedirect(ctx, profile, mark, b, redirect, prefix = '') {
+  const until = redirect.at ?? Date.now()
+  const sent = profile.since(mark, b).filter((e) => e.issuedAt <= until)
+  ctx.check(`${prefix}tab B sent no request between the sign-out and its redirect`, sent.length === 0, sent.map((e) => [e.method, e.path, e.status]))
+  ctx.record(`${prefix}redirectSeen`, redirect.at !== null)
+}
+
 export default [
   {
     id: 1,
     name: 'Two-tab sign-out',
     // Passes when: after tab A signs out through the sidebar menu, tab B of the
-    // same profile shows the login page, and B is still the document it was
-    // (nothing reloaded or navigated it).
+    // same profile shows the login page within 5 s, B is still the document it
+    // was (nothing reloaded or navigated it), and B SENT NO REQUEST between
+    // the sign-out and its redirect.
+    //
+    // The last condition is what makes this a test of the channel: a signed-in
+    // tab polls through the request gate every 30 s, and a poll would tell it
+    // of the sign-out by itself. The case starts right after one of B's polls
+    // (the next is about 30 s away, the wait is 5 s), and a B that sent
+    // anything before it left fails. So a pass means B was told by the
+    // BroadcastChannel message, not by a request of its own.
     async run(ctx) {
-      const { a, b } = await pair(ctx)
+      const { profile, a, b } = await pair(ctx)
       const doc = await documentId(b)
+      const redirect = watchRedirect(b)
+      ctx.require('a status poll of tab B was seen (the case starts right after one)', await afterNextPoll(profile, b))
+      const mark = profile.mark()
       await ctx.signOut(a)
       ctx.check('tab A shows the login page', await onLoginPage(a))
-      ctx.check('tab B shows the login page', await onLoginPage(b))
+      ctx.check('tab B shows the login page within 5 s', await onLoginPage(b, 5000))
+      sentNothingBeforeRedirect(ctx, profile, mark, b, redirect)
       ctx.check('tab B no longer shows the signed-in application', !(await showsSignedInUi(b, 300)))
       ctx.check('tab B was not reloaded', (await documentId(b)) === doc)
       const after = summarize(await readStored(a))
@@ -111,15 +149,24 @@ export default [
     id: 3,
     name: 'Drafts',
     // Passes when: a bank-reconciliation draft seeded in tab B's sessionStorage
-    // is there before tab A signs out and gone afterwards, without B being
-    // reloaded.
+    // is there before tab A signs out and gone within 5 s afterwards, without
+    // B being reloaded, and B SENT NO REQUEST between the sign-out and its
+    // redirect. As in case 1, that last condition and the start right after
+    // one of B's polls are what tie the result to the BroadcastChannel
+    // message: a B that lost its draft only because a request of its own told
+    // it of the sign-out fails.
     async run(ctx) {
-      const { a, b, stored } = await pair(ctx)
+      const { profile, a, b, stored } = await pair(ctx)
       const key = await seedDraft(b, stored.record.session.user.id)
       const doc = await documentId(b)
+      const redirect = watchRedirect(b)
+      ctx.require('a status poll of tab B was seen (the case starts right after one)', await afterNextPoll(profile, b))
       ctx.require('the draft is in tab B before the sign-out', (await draftKeys(b)).includes(key))
+      const mark = profile.mark()
       await ctx.signOut(a)
-      ctx.check("tab B's draft is gone", await draftsGone(b), await draftKeys(b))
+      ctx.check("tab B's draft is gone within 5 s", await draftsGone(b, 5000), await draftKeys(b))
+      ctx.check('tab B shows the login page', await onLoginPage(b, 5000))
+      sentNothingBeforeRedirect(ctx, profile, mark, b, redirect)
       ctx.check('tab B was not reloaded', (await documentId(b)) === doc)
     },
   },
@@ -186,12 +233,7 @@ export default [
         ctx.require(`${eventName}: BroadcastChannel is absent in tab B`, await b.evaluate(() => typeof BroadcastChannel === 'undefined'))
         const key = await seedDraft(b, stored.record.session.user.id)
         const doc = await documentId(b)
-        let redirectedAt = null
-        b.on('framenavigated', (frame) => {
-          if (frame === b.mainFrame() && new URL(frame.url()).pathname === '/login' && redirectedAt === null) {
-            redirectedAt = Date.now()
-          }
-        })
+        const redirect = watchRedirect(b)
 
         await afterNextPoll(profile, b)
         await b.bringToFront()
@@ -214,14 +256,7 @@ export default [
         ctx.check(`${eventName}: tab B shows the login page`, await onLoginPage(b))
         ctx.check(`${eventName}: tab B's draft is gone`, await draftsGone(b), await draftKeys(b))
         ctx.check(`${eventName}: tab B was not reloaded`, (await documentId(b)) === doc)
-        const until = redirectedAt ?? Date.now()
-        const sent = profile.since(mark, b).filter((e) => e.issuedAt <= until)
-        ctx.check(
-          `${eventName}: tab B sent no request between the sign-out and its redirect`,
-          sent.length === 0,
-          sent.map((e) => [e.method, e.path, e.status]),
-        )
-        ctx.record(`${eventName}.redirected`, redirectedAt !== null)
+        sentNothingBeforeRedirect(ctx, profile, mark, b, redirect, `${eventName}: `)
         await ctx.close()
       }
     },

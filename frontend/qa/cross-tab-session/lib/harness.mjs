@@ -22,6 +22,21 @@ export const PASSWORD_FIELD = 'input[name="password"]'
 export const fingerprint = (token) =>
   token ? createHash('sha256').update(String(token)).digest('hex').slice(0, 12) : null
 
+const isRefresh = (path) => path.replace(/\/$/, '') === '/api/auth/refresh'
+// The routes that hand out tokens.
+const TOKEN_ROUTE = /^\/api\/auth\/(login|refresh)\/?$/
+
+/** Fingerprint of the refresh token in a refresh request's body; a body without one is said to be so. */
+function presentedRefresh(request) {
+  let body = null
+  try {
+    body = request.postDataJSON()
+  } catch (err) {
+    return `unreadable body: ${String(err && err.message ? err.message : err).slice(0, 80)}`
+  }
+  return typeof body?.refreshToken === 'string' ? fingerprint(body.refreshToken) : 'no refreshToken in the body'
+}
+
 export function zoneOf(path) {
   if (SESSION_ZONE.test(path)) return 'session'
   if (LOGIN_ZONE.test(path)) return 'login'
@@ -223,7 +238,7 @@ export class Profile {
     this.labels = new Map()
     this.byRequest = new Map()
     this.forced401 = new Map()
-    this.heldRefresh = new Map()
+    this.holds = new Map()
     this.errors = new Map()
     this.tabCount = 0
     // With { keepAnswers: RegExp }: the latest body answered 2xx to a GET on
@@ -303,12 +318,14 @@ export class Profile {
         body: JSON.stringify({ statusCode: 401, message: 'Unauthorized', error: 'forced by the QA script' }),
       })
     }
-    const hold = page ? this.heldRefresh.get(page) : null
-    if (hold && !hold.route && path.replace(/\/$/, '') === '/api/auth/refresh') {
-      hold.route = route
-      hold.capturedAt = Date.now()
+    const described = { path: path.replace(/\/$/, ''), zone, method: request.method() }
+    for (const hold of page ? this.holds.get(page) ?? [] : []) {
+      if (hold.released || (!hold.many && hold.items.length > 0) || !hold.match(described)) continue
+      const entry = this.byRequest.get(request) ?? null
+      if (entry) entry.heldAt = Date.now()
+      hold.items.push({ route, entry, capturedAt: Date.now(), ...described })
       hold.resolve()
-      return undefined // deliberately neither continued nor fulfilled until release()
+      return undefined // deliberately neither continued nor fulfilled until the hold is let go
     }
     return route.fallback()
   }
@@ -337,6 +354,9 @@ export class Profile {
       status: null,
       token: fingerprint((request.headers().authorization || '').replace(/^Bearer /, '') || null),
     }
+    // The refresh token a refresh presents, as a fingerprint: it is what says
+    // which generation the tab was refreshing from.
+    if (isRefresh(url.pathname)) entry.presented = presentedRefresh(request)
     Object.defineProperty(entry, 'page', { value: page, enumerable: false })
     this.log.push(entry)
     this.byRequest.set(request, entry)
@@ -347,6 +367,25 @@ export class Profile {
     if (!entry) return
     entry.status = response.status()
     entry.respondedAt = Date.now()
+    // What a sign-in or a refresh handed out: the generation and fingerprints
+    // of the tokens, never the tokens. Not swallowed: a body that cannot be
+    // read is kept as such, and whoever judges by `issued` finds no generation
+    // in it. `issuedRead` settles when it is there.
+    if (TOKEN_ROUTE.test(entry.path) && entry.status === 200) {
+      entry.issuedRead = response.json().then(
+        (body) => {
+          entry.issued = {
+            generation: body?.generation ?? null,
+            access: fingerprint(body?.accessToken),
+            refresh: fingerprint(body?.refreshToken),
+          }
+        },
+        (err) => {
+          entry.issued = { unreadable: String(err && err.message ? err.message : err) }
+        },
+      )
+      Object.defineProperty(entry, 'issuedRead', { enumerable: false })
+    }
     if (this.opts.keepAnswers && entry.method === 'GET' && entry.status >= 200 && entry.status < 300 && this.opts.keepAnswers.test(entry.path)) {
       // Not swallowed: a body that cannot be read is kept as such, and the
       // reader of `answers` finds no usable reference and stops.
@@ -413,23 +452,71 @@ export class Profile {
   }
 
   /**
+   * Arms a hold on requests of `page` under /api: the next one `match` accepts
+   * (or, with `many`, every one until the hold is let go) is kept inside the
+   * browser, neither sent nor answered. `match` is given { path, zone,
+   * method }. `captured` resolves at the first capture; `items` lists what is
+   * held, each with its log entry. A hold is let go in one of two ways:
+   *   continueAll()  the requests go to the server as they are;
+   *   answer401()    the script answers them 401 (see answer401Together).
+   */
+  armHold(page, match, { many = false } = {}) {
+    if (!this.opts.intercept) throw new Error('profile was not created with { intercept: true }')
+    const hold = { match, many, items: [], released: false }
+    hold.captured = new Promise((resolve) => {
+      hold.resolve = resolve
+    })
+    hold.continueAll = async () => {
+      hold.released = true
+      for (const item of hold.items) {
+        item.releasedAt = Date.now()
+        if (item.entry) item.entry.releasedAt = item.releasedAt
+        await item.route.continue()
+      }
+    }
+    // Returns the pending fulfilments without waiting for them, so that
+    // several holds can be answered in the same turn.
+    hold.answer401 = () => {
+      hold.released = true
+      return hold.items.map((item) => {
+        item.releasedAt = Date.now()
+        if (item.entry) {
+          item.entry.forced401 = true
+          item.entry.forced401DeliveredAt = item.releasedAt
+        }
+        return item.route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ statusCode: 401, message: 'Unauthorized', error: 'forced by the QA script' }),
+        })
+      })
+    }
+    this.holds.set(page, [...(this.holds.get(page) ?? []), hold])
+    return hold
+  }
+
+  /**
    * Arms a hold on the tab's next POST /api/auth/refresh. The request is kept
    * inside the browser, not yet on the wire, until release().
    */
   armHoldRefresh(page) {
-    if (!this.opts.intercept) throw new Error('profile was not created with { intercept: true }')
-    const hold = { route: null }
-    hold.captured = new Promise((resolve) => {
-      hold.resolve = resolve
-    })
+    const hold = this.armHold(page, (r) => r.path === '/api/auth/refresh')
     hold.release = async () => {
-      if (!hold.route) throw new Error('no refresh request was captured to release')
-      this.heldRefresh.delete(page)
-      await hold.route.continue()
+      if (hold.items.length === 0) throw new Error('no refresh request was captured to release')
+      await hold.continueAll()
+      return hold.items[0]
     }
-    this.heldRefresh.set(page, hold)
     return hold
   }
+}
+
+/**
+ * Answers everything the given holds captured with 401, all in one turn of
+ * the script: no hold's requests are answered after another tab could have
+ * acted on its own 401. Resolves when every answer has been handed over.
+ */
+export async function answer401Together(holds) {
+  await Promise.all(holds.flatMap((hold) => hold.answer401()))
 }
 
 // ---------------------------------------------------------------------------
