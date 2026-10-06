@@ -8,9 +8,10 @@ import { clearAllDrafts } from './reconciliationDraftStorage'
  * session is already gone — which is how a browser-restored tab arrives after
  * the user signed out elsewhere or the session expired.
  *
- * Safe to run on mount: the caller renders inside redux-persist's PersistGate,
- * so `isAuthenticated` is already rehydrated on first render and a reload of a
- * signed-in tab never passes through a signed-out state.
+ * Safe to run on mount: every route's loader awaits `sessionReady()`, so the
+ * session runtime has already mirrored the stored session into `isAuthenticated`
+ * before the caller first renders, and a reload of a signed-in tab never passes
+ * through a signed-out state.
  *
  * It cannot reach other tabs. sessionStorage is per tab, so another open tab
  * keeps its drafts until that tab itself becomes signed-out or is closed.
