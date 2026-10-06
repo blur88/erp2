@@ -169,6 +169,89 @@ needed one in-app round trip, the company data arriving by the automatic retry i
 1.1 to 1.4 s. Ten and twenty tabs were also all usable; the longest automatic
 retry took 5.4 s and used two of its three retries.
 
+## Recorded run on `a8fc7d564` (2026-10-07), revised suite
+
+Same machine and Chromium as above. **Exit status 0.** Configuration 15m / 60
+before, 20s / 5 during, 15m / 60 after; served build `a8fc7d564` during and after.
+
+**Cases: 15 of 15 passed**, as they were then written. A review afterwards found
+that four of them judged less than their names say (below), so read this run as
+"nothing failed", not as proof of every named behaviour.
+
+**W1, as a non-administrator (`sales_staff`, 15 pages):**
+
+| Tabs | Variant | Usable | Complete on first load | Needed an in-app action | Company data by the automatic retry | 429 on `refresh`/`logout`/`me` |
+|---|---|---|---|---|---|---|
+| 5 | current token | 5/5 | 3 | 2 | 0 | 0 |
+| 5 | expired token | 5/5 | 0 | 5 | 4 | 0 |
+| 10 | current token | 10/10 | 3 | 7 | 5 | 0 |
+| 10 | expired token | 10/10 | 0 | 10 | 9 | 0 |
+| 20 | current token | 20/20 | 6 | 14 | 11 | 0 |
+| 20 | expired token | 20/20 | 0 | 20 | 15 | 0 |
+
+- What reached the session zone at five tabs: nothing with current tokens (the
+  application sends no `/auth/me` on load); one `refresh` with expired tokens (one
+  tab takes the lease and refreshes, the others adopt its tokens); one `refresh`
+  and one `logout` in the sign-out round. Peak accumulated demand was 1.82 against
+  a burst of 20.
+- **This is not a capacity figure.** It shows refresh coordination, and that a
+  restored window puts little load on `session_limit`. It does not measure that
+  zone's capacity, which was never approached, and it does not establish how many
+  tabs a restored window can carry: that is bounded by the general `api_limit`,
+  which answered 28% to 67% of the tabs' own data requests with 429 across both
+  recorded runs (issue #1353).
+- No tab needed more than two in-app actions; the slowest recovery took about
+  30 s. The company-data retry never failed, but of the 44 tab loads whose first
+  request was refused, 7 needed the third and last retry (all at ten or twenty
+  tabs). One more refusal there would have left the tab without that data.
+- A refused regional-settings request was never repeated (up to 14 of 20 tabs);
+  formats were wrong in none, because the profile had stored them at sign-in.
+
+**Latency:** M1 2.8 ms and M2 4.9 ms passed (blocking). Diagnostic, not judged:
+M3 59.8 / 280.5 ms, M4 82.5 / 402.8 ms (one tab / four tabs); the former
+provisional 10 / 20 ms targets were not met. 55 of 444 four-tab requests were
+answered 429, and two unrelated containers were restarting on the host.
+
+**Rate-limit script on the same build:** passed twice in a row. It was also run
+against two configurations it must reject, on throwaway NGINX containers: with
+the session block moved below the credential block, and with `main`'s
+configuration, session upkeep was refused while the login budget was spent (0 of
+32 admitted) and `logout` and `me` were answered 429. So the ordering comment in
+`nginx.conf` is true.
+
+## What a final review of `a8fc7d564` found, and what changed
+
+Fixed afterwards, each with a regression test seen failing first, or, where the
+product code was already right, a rewritten test shown to fail under a temporary
+change to the code it protects:
+
+- **A sign-in cancelled around its commit** could write over the session other
+  tabs were using and leave that session live on the server. Whether the attempt
+  is still current is now decided inside the transaction, so a cancelled attempt
+  writes nothing; where a commit does complete before the cancellation is seen,
+  the session it displaced is logged out as well as its own; a commit that fails
+  logs out the session the server had just created.
+- **Eight tests could not fail for the behaviour they named**, and two required
+  behaviours had no test that could. They were rewritten.
+- **The mandatory password-change page** now goes to the login page when its
+  session ends.
+- **A start-up read that times out** no longer shows the sign-in form as though
+  storage had confirmed there was no session. The tab shows "Still waiting for
+  this browser's session storage. Another tab may be busy." with a retry, sends no
+  request and offers no sign-in. This is a third state, distinct from signed-out
+  and from storage-unavailable: storage did not answer; it was not found broken.
+- **The suite:** an interrupted or aborted run now exits non-zero; case 7 holds
+  both forced 401s and requires exactly one rotation; cases 9 to 11 judge the held
+  refresh's answer against the grace; case 5 checks a tab that held the first
+  user's data; W1's sign-out round is blocking at five tabs; W1 states no capacity.
+
+On case 7: both recorded runs above show the session going from generation 1 to
+3, two rotations. With both 401s held and released together, development runs
+showed one rotation, the second tab adopting. The earlier arrangement let the
+second tab's request leave after the first tab's rotation, already carrying the
+new token, so its own refresh was correct. That explains the recorded figures; it
+is not a measurement of those two runs.
+
 ## What is automated
 
 - Vitest on the in-memory store double: every commit rule, the reconciliation
@@ -228,6 +311,9 @@ CI has no NGINX and no browser; neither is a CI gate.
 - A legitimate refresh delayed past grace revokes its session in every tab.
 - A tab paused mid-transaction blocks other tabs' session operations until it
   resumes or closes; waiting operations time out with an error and sign nobody out.
+- A tab that waited for storage at start-up and then recovered a session has
+  already rehydrated with nothing: it does not show that session's persisted
+  notifications, and its next write replaces them. A reload avoids it.
 - Rehydration of persisted notifications waits for the session runtime to start,
   which route loaders do. A route without a loader would rehydrate empty after
   redux-persist's 5 s timeout.
