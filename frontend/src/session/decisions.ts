@@ -154,28 +154,34 @@ export function normalizeStored(raw: unknown): StoredState {
   if (record === null || typeof record !== 'object') return empty
 
   const rec = record as Record<string, unknown>
-  const revision = typeof rec.revision === 'number' && Number.isFinite(rec.revision) ? rec.revision : 0
+  // A revision is a count of commits. Anything else is an unreadable record,
+  // which is signed-out whatever session it claims to hold.
+  const readable = isCount(rec.revision)
+  const revision = readable ? (rec.revision as number) : 0
 
-  const session = normalizeSession(rec.session)
+  const session = readable ? normalizeSession(rec.session) : null
   const slices = normalizeSlices(obj.slices)
   const refreshLease = normalizeLease(obj.refreshLease)
 
   return { record: { revision, session }, slices, refreshLease }
 }
 
+const isCount = (value: unknown): boolean => Number.isSafeInteger(value) && (value as number) >= 0
+
 function normalizeSession(raw: unknown): ActiveSession | null {
   if (raw === null || typeof raw !== 'object') return null
   const s = raw as Record<string, unknown>
-  if (typeof s.sessionId !== 'string' || typeof s.generation !== 'number') return null
+  if (typeof s.sessionId !== 'string' || !isCount(s.generation)) return null
   if (typeof s.accessToken !== 'string' || typeof s.accessTokenExpiresAt !== 'number') return null
   if (typeof s.refreshToken !== 'string') return null
+  if (s.user === null || typeof s.user !== 'object') return null
   return {
     sessionId: s.sessionId,
-    generation: s.generation,
+    generation: s.generation as number,
     accessToken: s.accessToken,
     accessTokenExpiresAt: s.accessTokenExpiresAt,
     refreshToken: s.refreshToken,
-    user: (s.user ?? null) as ActiveSession['user'],
+    user: s.user as ActiveSession['user'],
     rememberMe: s.rememberMe === true,
   }
 }

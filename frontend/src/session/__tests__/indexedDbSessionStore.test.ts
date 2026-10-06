@@ -224,7 +224,7 @@ describe('indexedDbSessionStore', () => {
     accessToken: 'at',
     accessTokenExpiresAt: 10,
     refreshToken: 'rt',
-    user: null,
+    user: { id: 'u' },
     rememberMe: false,
   }
 

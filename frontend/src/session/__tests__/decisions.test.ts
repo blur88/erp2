@@ -297,6 +297,12 @@ describe('normalizeStored', () => {
     [{}, 0],
     [{ record: { revision: 'a' } }, 0],
     [{ record: { revision: 7, session: { sessionId: 1 } } }, 7],
+    [{ record: { revision: 7, session: { ...session(), user: undefined } } }, 7],
+    [{ record: { revision: 7, session: { ...session(), user: null } } }, 7],
+    [{ record: { revision: 7, session: { ...session(), user: 'u' } } }, 7],
+    [{ record: { revision: 7, session: { ...session(), generation: 1.5 } } }, 7],
+    [{ record: { revision: -1, session: session() } }, 0],
+    [{ record: { revision: 2.5, session: session() } }, 0],
   ])('%j becomes signed-out with revision %i', (raw, revision) => {
     const s = normalizeStored(raw)
     expect(s.record.session).toBeNull()
