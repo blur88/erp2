@@ -389,12 +389,17 @@ describe('session runtime — requests and refresh', () => {
     const a = await signedInTab(h)
     const posts = a.channelPost.mock.calls.length
     const ref = (await a.runtime.beginRequest()).ref
+    const before = h.shared.state
     const hold = a.store.holdNextTransaction()
     const attempt = a.runtime.handleUnauthorized(ref)
     await expect(attempt).rejects.toBeInstanceOf(StorageTimeoutError)
     hold.release()
     await flush()
     expect(a.channelPost.mock.calls.length).toBe(posts)
+    // Nothing was applied after the release: the stored state is the same object.
+    expect(h.shared.state).toBe(before)
+    expect(h.shared.state.refreshLease).toBeNull()
+    expect(h.server.refreshCalls).toBe(0)
   }, 15000)
 
   it('dispatch and channel post happen only after completion', async () => {
@@ -403,7 +408,6 @@ describe('session runtime — requests and refresh', () => {
     const postsBefore = a.channelPost.mock.calls.length
     const establishedBefore = a.events.established
     const hold = a.store.holdNextTransaction()
-    console.log("HOLD SET")
     const signInPromise = a.runtime.signIn({ usernameOrEmail: 'z', password: 'p' })
     await flush()
     await flush()

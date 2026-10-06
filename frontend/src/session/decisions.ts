@@ -34,7 +34,6 @@ export function tokenCommit(
   a: { claim: string | null; requestSessionId: string; response: TokenResponse },
 ): Decision<{ outcome: 'written-both' | 'written-access' | 'discarded' | 'session-mismatch' }> {
   const stored = s.record.session
-  const ids = [a.claim, a.requestSessionId, a.response.sessionId, stored?.sessionId ?? null]
 
   if (a.claim === null || a.requestSessionId !== a.response.sessionId || a.claim !== a.requestSessionId || stored === null || stored.sessionId !== a.claim) {
     return { result: { outcome: 'session-mismatch' } }
@@ -72,7 +71,6 @@ export function tokenCommit(
     }
   }
 
-  void ids
   return { result: { outcome: 'discarded' } }
 }
 
