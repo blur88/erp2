@@ -7,13 +7,63 @@ class StubTransaction {
   onabort: (() => void) | null = null
   onerror: (() => void) | null = null
   aborted = false
+  abortCalls = 0
+  // 'fires': abort() takes effect and onabort follows, as for a transaction that
+  // has not started committing. 'silent': abort() takes effect and the test fires
+  // onabort itself. 'throws': the transaction is already committing or finished.
+  abortMode: 'fires' | 'silent' | 'throws' = 'fires'
   objectStore() {
     return stubStore
   }
   abort() {
+    this.abortCalls += 1
+    if (this.abortMode === 'throws') {
+      throw new DOMException('The transaction has finished.', 'InvalidStateError')
+    }
     this.aborted = true
-    queueMicrotask(() => this.onabort?.())
+    if (this.abortMode === 'fires') queueMicrotask(() => this.onabort?.())
   }
+}
+
+let currentTx: StubTransaction | null = null
+
+// A store whose gets succeed on a microtask. Like IndexedDB, an exception thrown
+// by a success handler aborts the transaction.
+function answeringStore(order: string[] = [], stored: Record<string, unknown> = {}): typeof stubStore {
+  return {
+    get: (key) => {
+      order.push(`get:${key}`)
+      const req: { onsuccess?: () => void; result?: unknown } = { result: stored[key] }
+      const tx = currentTx
+      queueMicrotask(() => {
+        try {
+          req.onsuccess?.()
+        } catch {
+          if (tx && !tx.aborted) {
+            tx.aborted = true
+            queueMicrotask(() => tx.onabort?.())
+          }
+        }
+      })
+      return req
+    },
+    put: (_value, key) => order.push(`put:${key}`),
+    delete: (key) => order.push(`delete:${key}`),
+  }
+}
+
+const ticks = async (n = 4) => {
+  for (let i = 0; i < n; i += 1) await Promise.resolve()
+}
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+function observe<T>(promise: Promise<T>) {
+  const state: { status: 'pending' | 'resolved' | 'rejected'; value?: T; error?: unknown } = { status: 'pending' }
+  promise.then(
+    (value) => Object.assign(state, { status: 'resolved', value }),
+    (error) => Object.assign(state, { status: 'rejected', error }),
+  )
+  return state
 }
 
 let stubStore: {
@@ -44,6 +94,7 @@ function makeStubFactory(mode: 'ok' | 'error' | 'stall' | 'stall-before-get' = '
           transaction: () => {
             const tx = new StubTransaction()
             activeTx = tx
+            currentTx = tx
             return tx
           },
           close: () => {},
@@ -142,7 +193,10 @@ describe('indexedDbSessionStore', () => {
     const factory = makeStubFactory('ok')
     const store = await openIndexedDbSessionStore(factory as unknown as IDBFactory, { onTiming })
 
-    await store.read()
+    const readPromise = store.read()
+    await ticks()
+    factory.__getActiveTx()?.oncomplete?.()
+    await readPromise
     expect(onTiming).toHaveBeenCalledTimes(1)
     expect(onTiming.mock.calls[0][0]).toBe('read')
 
@@ -157,7 +211,157 @@ describe('indexedDbSessionStore', () => {
 
     const factory2 = makeStubFactory('ok')
     const store2 = await openIndexedDbSessionStore(factory2 as unknown as IDBFactory)
-    await store2.read()
+    const readPromise2 = store2.read()
+    await ticks()
+    factory2.__getActiveTx()?.oncomplete?.()
+    await readPromise2
     expect(onTiming).toHaveBeenCalledTimes(2)
+  })
+
+  const SESSION = {
+    sessionId: 's1',
+    generation: 1,
+    accessToken: 'at',
+    accessTokenExpiresAt: 10,
+    refreshToken: 'rt',
+    user: null,
+    rememberMe: false,
+  }
+
+  describe('completion semantics (spec B3)', () => {
+    it('a timeout that fires while the transaction is committing still resolves from oncomplete', async () => {
+      const order: string[] = []
+      stubStore = answeringStore(order)
+      const factory = makeStubFactory('ok')
+      const store = await openIndexedDbSessionStore(factory as unknown as IDBFactory)
+
+      const promise = store.transact(
+        (s) => ({ write: { record: { revision: s.record.revision + 1, session: null } }, result: 'r' }),
+        { timeoutMs: 20 },
+      )
+      const seen = observe(promise)
+      const tx = factory.__getActiveTx()!
+      tx.abortMode = 'throws'
+      await ticks()
+      expect(order).toEqual(['get:record', 'get:slices', 'get:refreshLease', 'put:record'])
+
+      await wait(40)
+      expect(tx.abortCalls).toBe(1)
+      expect(seen.status).toBe('pending')
+
+      tx.oncomplete?.()
+      await ticks()
+      expect(seen).toEqual({ status: 'resolved', value: 'r' })
+    })
+
+    it('a timeout does not settle the caller until onabort fires', async () => {
+      stubStore = { get: () => ({}), put: () => {}, delete: () => {} } // queued: nothing answers
+      const factory = makeStubFactory('ok')
+      const store = await openIndexedDbSessionStore(factory as unknown as IDBFactory)
+      const decide = vi.fn(() => ({ result: null }) as never)
+
+      const seen = observe(store.transact(decide, { timeoutMs: 20 }))
+      const tx = factory.__getActiveTx()!
+      tx.abortMode = 'silent'
+
+      await wait(40)
+      expect(tx.abortCalls).toBe(1)
+      expect(seen.status).toBe('pending')
+
+      tx.onabort?.()
+      await ticks()
+      expect(seen.status).toBe('rejected')
+      expect(seen.error).toBeInstanceOf(StorageTimeoutError)
+      expect(decide).not.toHaveBeenCalled()
+    })
+
+    it('a read timeout that fires while the transaction is finishing still resolves from oncomplete', async () => {
+      stubStore = answeringStore([], { record: { revision: 7, session: SESSION } })
+      const factory = makeStubFactory('ok')
+      const store = await openIndexedDbSessionStore(factory as unknown as IDBFactory)
+
+      const seen = observe(store.read({ timeoutMs: 20 }))
+      const tx = factory.__getActiveTx()!
+      tx.abortMode = 'throws'
+
+      await wait(40)
+      expect(tx.abortCalls).toBe(1)
+      expect(seen.status).toBe('pending')
+
+      tx.oncomplete?.()
+      await ticks()
+      expect(seen.status).toBe('resolved')
+      expect(seen.value?.record).toEqual({ revision: 7, session: SESSION })
+    })
+
+    it('a read timeout does not settle the caller until onabort fires', async () => {
+      stubStore = { get: () => ({}), put: () => {}, delete: () => {} }
+      const factory = makeStubFactory('ok')
+      const store = await openIndexedDbSessionStore(factory as unknown as IDBFactory)
+
+      const seen = observe(store.read({ timeoutMs: 20 }))
+      const tx = factory.__getActiveTx()!
+      tx.abortMode = 'silent'
+
+      await wait(40)
+      expect(tx.abortCalls).toBe(1)
+      expect(seen.status).toBe('pending')
+
+      tx.onabort?.()
+      await ticks()
+      expect(seen.status).toBe('rejected')
+      expect(seen.error).toBeInstanceOf(StorageTimeoutError)
+    })
+  })
+
+  describe('abort classification (spec B8)', () => {
+    it('an abort that the timeout did not request rejects with StorageUnavailableError', async () => {
+      stubStore = answeringStore()
+      const factory = makeStubFactory('ok')
+      const store = await openIndexedDbSessionStore(factory as unknown as IDBFactory)
+
+      const seen = observe(
+        store.transact((s) => ({ write: { record: { revision: s.record.revision + 1, session: null } }, result: 'r' })),
+      )
+      const tx = factory.__getActiveTx()!
+      await ticks()
+      // The commit fails (quota, for one): onabort with no timer having fired.
+      tx.onabort?.()
+      await ticks()
+      expect(tx.abortCalls).toBe(0)
+      expect(seen.status).toBe('rejected')
+      expect(seen.error).toBeInstanceOf(StorageUnavailableError)
+    })
+
+    it('a read abort that the timeout did not request rejects with StorageUnavailableError', async () => {
+      stubStore = { get: () => ({}), put: () => {}, delete: () => {} }
+      const factory = makeStubFactory('ok')
+      const store = await openIndexedDbSessionStore(factory as unknown as IDBFactory)
+
+      const seen = observe(store.read())
+      factory.__getActiveTx()!.onabort?.()
+      await ticks()
+      expect(seen.status).toBe('rejected')
+      expect(seen.error).toBeInstanceOf(StorageUnavailableError)
+    })
+
+    it('a decide function that throws aborts the transaction and rejects with StorageUnavailableError, writing nothing', async () => {
+      const order: string[] = []
+      stubStore = answeringStore(order)
+      const factory = makeStubFactory('ok')
+      const store = await openIndexedDbSessionStore(factory as unknown as IDBFactory)
+
+      const seen = observe(
+        store.transact(() => {
+          throw new Error('decide failed')
+        }),
+      )
+      const tx = factory.__getActiveTx()!
+      await ticks(8)
+      expect(tx.aborted).toBe(true)
+      expect(seen.status).toBe('rejected')
+      expect(seen.error).toBeInstanceOf(StorageUnavailableError)
+      expect(order).toEqual(['get:record', 'get:slices', 'get:refreshLease'])
+    })
   })
 })

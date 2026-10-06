@@ -80,90 +80,66 @@ class IndexedDbSessionStore implements SessionStore {
   }
 
   read(opts?: { timeoutMs?: number }): Promise<StoredState> {
-    const started = this.timing ? performance.now() : 0
-    const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS
-
-    return new Promise<StoredState>((resolve, reject) => {
-      let settled = false
-      let timer: Timer | undefined
-
-      const finish = (fn: () => void) => {
-        if (settled) return
-        settled = true
-        if (timer !== undefined) clearTimeout(timer)
-        if (this.timing) this.timing('read', performance.now() - started)
-        fn()
-      }
-
-      let tx: IDBTransaction
-      try {
-        tx = this.db.transaction('kv', 'readonly')
-      } catch (err) {
-        finish(() => reject(new StorageUnavailableError(String(err))))
-        return
-      }
-
-      tx.onabort = () => finish(() => reject(new StorageTimeoutError('read aborted')))
-      tx.onerror = () => finish(() => reject(new StorageUnavailableError('read failed')))
-
-      const os = tx.objectStore('kv')
-      const values: Record<string, unknown> = {}
-      let pending = KEYS.length
-
-      for (const key of KEYS) {
-        const req = os.get(key)
-        req.onsuccess = () => {
-          values[key] = req.result
-          pending -= 1
-          if (pending === 0) {
-            finish(() => resolve(buildState(values)))
-          }
-        }
-        req.onerror = () => finish(() => reject(new StorageUnavailableError('read failed')))
-      }
-
-      if (timeoutMs > 0 && Number.isFinite(timeoutMs)) {
-        timer = setTimeout(() => {
-          finish(() => reject(new StorageTimeoutError('read timed out')))
-          try {
-            tx.abort()
-          } catch {
-            /* already aborted */
-          }
-        }, timeoutMs)
-      }
-    })
+    return this.run('read', 'readonly', opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS, (_os, state) => state)
   }
 
   transact<R>(decide: (s: StoredState) => Decision<R>, opts?: { timeoutMs?: number }): Promise<R> {
+    return this.run('transact', 'readwrite', opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS, (os, state) => {
+      const decision = decide(state)
+      applyWrite(os, decision.write)
+      return decision.result
+    })
+  }
+
+  // One transaction: read the three keys, then run `body` synchronously inside it.
+  // The caller is settled only by the transaction's own completion events:
+  // `complete` resolves, `abort` rejects. The timer and a throwing `body` only
+  // ask for an abort; they never settle the caller themselves.
+  private run<R>(
+    op: 'read' | 'transact',
+    mode: IDBTransactionMode,
+    timeoutMs: number,
+    body: (os: IDBObjectStore, state: StoredState) => R,
+  ): Promise<R> {
     const started = this.timing ? performance.now() : 0
-    const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS
 
     return new Promise<R>((resolve, reject) => {
       let settled = false
       let timer: Timer | undefined
+      let timeoutRequestedAbort = false
+      let failure: unknown = null
+      let outcome: { value: R } | null = null
 
       const finish = (fn: () => void) => {
         if (settled) return
         settled = true
         if (timer !== undefined) clearTimeout(timer)
-        if (this.timing) this.timing('transact', performance.now() - started)
+        if (this.timing) this.timing(op, performance.now() - started)
         fn()
       }
 
       let tx: IDBTransaction
       try {
-        tx = this.db.transaction('kv', 'readwrite')
+        tx = this.db.transaction('kv', mode)
       } catch (err) {
         finish(() => reject(new StorageUnavailableError(String(err))))
         return
       }
 
-      let decisionResult: Decision<R> | null = null
-
-      tx.oncomplete = () => finish(() => resolve((decisionResult as Decision<R>).result))
-      tx.onabort = () => finish(() => reject(new StorageTimeoutError('transaction aborted')))
-      tx.onerror = () => finish(() => reject(new StorageUnavailableError('transaction failed')))
+      tx.oncomplete = () =>
+        finish(() => {
+          if (outcome) resolve(outcome.value)
+          else reject(new StorageUnavailableError(`${op} completed without a result`))
+        })
+      // A request error or a failed commit aborts the transaction, so `abort` is
+      // the one place a failure is reported. Only an abort this call's own timer
+      // asked for is a timeout.
+      tx.onabort = () =>
+        finish(() => {
+          if (timeoutRequestedAbort) reject(new StorageTimeoutError(`${op} timed out`))
+          else if (failure !== null) reject(new StorageUnavailableError(`${op} failed: ${String(failure)}`))
+          else reject(new StorageUnavailableError(`${op} aborted`))
+        })
 
       const os = tx.objectStore('kv')
       const values: Record<string, unknown> = {}
@@ -174,25 +150,28 @@ class IndexedDbSessionStore implements SessionStore {
         req.onsuccess = () => {
           values[key] = req.result
           pending -= 1
-          if (pending === 0) {
-            const state = buildState(values)
-            const decision = decide(state)
-            decisionResult = decision
-            applyWrite(os, values, state, decision.write)
+          if (pending !== 0) return
+          try {
+            outcome = { value: body(os, buildState(values)) }
+          } catch (err) {
+            failure = err
+            try {
+              tx.abort()
+            } catch {
+              /* already aborted */
+            }
           }
-        }
-        req.onerror = () => {
-          tx.abort()
         }
       }
 
       if (timeoutMs > 0 && Number.isFinite(timeoutMs)) {
         timer = setTimeout(() => {
-          finish(() => reject(new StorageTimeoutError('transaction timed out')))
+          timeoutRequestedAbort = true
           try {
             tx.abort()
           } catch {
-            /* already aborted */
+            // Already committing or finished: the completion event decides.
+            timeoutRequestedAbort = false
           }
         }, timeoutMs)
       }
@@ -205,12 +184,7 @@ class IndexedDbSessionStore implements SessionStore {
   }
 }
 
-function applyWrite(
-  os: IDBObjectStore,
-  values: Record<string, unknown>,
-  state: StoredState,
-  write: Partial<StoredState> | undefined,
-): void {
+function applyWrite(os: IDBObjectStore, write: Partial<StoredState> | undefined): void {
   if (!write) return
   if (write.record !== undefined) {
     os.put(write.record, KEY_RECORD)
@@ -223,8 +197,6 @@ function applyWrite(
     if (write.refreshLease === null) os.delete(KEY_LEASE)
     else os.put(write.refreshLease, KEY_LEASE)
   }
-  void values
-  void state
 }
 
 function buildState(values: Record<string, unknown>): StoredState {
