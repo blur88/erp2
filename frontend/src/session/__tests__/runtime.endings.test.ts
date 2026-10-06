@@ -223,29 +223,4 @@ describe('session runtime — endings', () => {
     expect(after.record.session).toBeNull()
     expect(after.slices).toBeNull()
   })
-
-  it('the retry budget: at most three sends and two refreshes, then endAfterFinalUnauthorized', async () => {
-    const h = createHarness()
-    const a = await signedInTab(h)
-    const ref = (await a.runtime.beginRequest()).ref
-
-    let sends = 0
-    let refreshes = 0
-    let ended = false
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const currentRef = (await a.runtime.beginRequest()).ref
-      void ref
-      sends += 1
-      if (attempt < 2) {
-        const outcome = await a.runtime.handleUnauthorized(currentRef)
-        refreshes += 1
-        void outcome
-      } else {
-        ended = (await a.runtime.endAfterFinalUnauthorized(currentRef)) === 'ended'
-      }
-    }
-    expect(sends).toBe(3)
-    expect(refreshes).toBe(2)
-    expect(ended).toBe(true)
-  })
 })

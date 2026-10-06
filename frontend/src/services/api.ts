@@ -27,9 +27,17 @@ const api: AxiosInstance = axios.create({
 
 interface SessionConfig extends InternalAxiosRequestConfig {
   __sessionRef?: SessionRef
+  // Sends so far, the original included. Absent until the first retry is issued.
   __sends?: number
   __refreshes?: number
+  // The signal the caller passed, kept apart from the combined one on `signal`
+  // so a retry combines it afresh. `null` when the caller passed none.
+  __callerSignal?: AbortSignal | null
 }
+
+// One original request is sent at most three times and triggers at most two refreshes.
+const MAX_SENDS = 3
+const MAX_REFRESHES = 2
 
 const timingEnabled = () =>
   typeof sessionStorage !== 'undefined' && sessionStorage.getItem('erp-session-timing') === '1'
@@ -58,7 +66,11 @@ api.interceptors.request.use(
     if (config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`
     }
-    if (signal) config.signal = signal
+    if (config.__callerSignal === undefined) {
+      config.__callerSignal = (config.signal as AbortSignal | undefined) ?? null
+    }
+    // The request aborts when either the caller's signal or the session's fires.
+    config.signal = config.__callerSignal ? AbortSignal.any([config.__callerSignal, signal]) : signal
 
     return config
   },
@@ -81,12 +93,14 @@ api.interceptors.response.use(
     const originalRequest = error.config as SessionConfig | undefined
 
     if (error.response?.status === 401 && originalRequest) {
-      const sends = originalRequest.__sends ?? 0
+      const sends = originalRequest.__sends ?? 1
       const refreshes = originalRequest.__refreshes ?? 0
       const ref = originalRequest.__sessionRef
+      if (!ref) return Promise.reject(error)
 
-      if (ref && sends < 3 && refreshes < 2) {
-        const outcome = await getSessionRuntime()!.handleUnauthorized(ref)
+      const runtime = getSessionRuntime()!
+      if (sends < MAX_SENDS && refreshes < MAX_REFRESHES) {
+        const outcome = await runtime.handleUnauthorized(ref)
         if (outcome === 'retry') {
           originalRequest.__sends = sends + 1
           originalRequest.__refreshes = refreshes + 1
@@ -95,8 +109,10 @@ api.interceptors.response.use(
         return Promise.reject(error)
       }
 
-      if (ref && sends >= 3) {
-        await getSessionRuntime()!.endAfterFinalUnauthorized(ref)
+      // The final send's 401: end the session only if it is still the one, at the
+      // generation, that send captured. If another tab advanced it, follow that.
+      if ((await runtime.endAfterFinalUnauthorized(ref)) === 'kept') {
+        await runtime.reconcileNow()
       }
       return Promise.reject(error)
     }
