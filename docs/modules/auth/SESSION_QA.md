@@ -113,7 +113,9 @@ Why the old targets could not be met on this machine: the wait is for the page's
 own main thread while it loads, not for storage or the adapter. In the
 investigation (`diagnose-latency.mjs`, same build, same machine) a raw read on the
 main thread during a load was as slow as the adapter's (p95 68 ms against 78 ms in
-one tab); the same read from a worker took 13 ms, and about 2 ms on an idle page.
+one tab); the same read from a worker took 13 ms in one tab (79 ms with four tabs
+loading, where the worker also competes for four cores), and about 2 ms on an
+idle page.
 About 73% of read time in one tab (85% in four) coincided with main-thread delay.
 
 Supporting evidence, to be read with its limits: with the gate wait simulated
@@ -152,7 +154,9 @@ recovery through a page only an administrator can open does not count.
 - **W1 runs as a non-administrator** (`sales_staff`, the default role for a new
   user) and refuses any recovery step that would open a page that role cannot
   open. Its expected data includes what the shell shows on every page.
-- **The suite's own judgement was checked by forcing it to fail**: with recovery
+- **The suite's own judgement was checked by forcing it to fail**, in development
+  mode on a patched copy of the suite or of the frontend build, not in a recorded
+  run: with recovery
   disabled it reports unusable tabs; with the company retry exhausted it names the
   company data as unrecoverable; an administrator-only step is refused.
 
@@ -227,5 +231,25 @@ CI has no NGINX and no browser; neither is a CI gate.
 - Rehydration of persisted notifications waits for the session runtime to start,
   which route loaders do. A route without a loader would rehydrate empty after
   redux-persist's 5 s timeout.
+- **One tab's idle timeout signs out every tab of the profile.** Activity is
+  tracked per tab, and sign-out now reaches every tab. A tab left open and
+  untouched reaches its timeout and signs out the tab the user is working in: the
+  server session is revoked, caches are reset and unsaved reconciliation drafts
+  are cleared. This is the designed behaviour; making activity in any tab keep
+  the session alive would be a separate change.
+- Revocation covers authenticated HTTP requests, which is every authenticated
+  path: no WebSocket transport exists (#1348 removed it).
+- A captured refresh token can be exchanged for the current one during its grace
+  window, across later rotations. Rotation does not bound an attacker's access.
+- An expired refresh token is never treated as replay, so a token replayed after
+  its own lifetime is not detected.
+- A logout is a no-op once the captured token's row has been purged or its
+  signing key retired; the session, if still live, stays live until it expires or
+  is revoked another way.
+- A sign-in that loses the revision check, or is cancelled, must be submitted
+  again. Revoking the server session it created is best effort: if that logout
+  fails, the unadopted session can remain live until it expires.
+- Removing a refresh signing key early strands the sessions that depend on it
+  without revoking them.
 - Production is clear-text HTTP; credentials and tokens are readable on the
   network.
