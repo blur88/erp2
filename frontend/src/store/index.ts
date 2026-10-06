@@ -34,6 +34,25 @@ import { RESET_FOR_SESSION_END } from './sessionReset'
 
 export { RESET_FOR_SESSION_END }
 
+// Every RTK Query API slice of the store, once. The middleware below and the
+// cache reset on a session end (`@/session`) both run over this list, and
+// `sessionReset.test.ts` fails if the reducer holds an API slice missing from it.
+export const apiSlices = [
+  auditLogApiSlice,
+  backupApiSlice,
+  priceListApiSlice,
+  userManagementApiSlice,
+  inventoryApiSlice,
+  purchasingApiSlice,
+  salesApiSlice,
+  settingsApiSlice,
+  paymentMethodsApiSlice,
+  printSettingsApiSlice,
+  searchApiSlice,
+  accountingApiSlice,
+  redisMonitoringApiSlice,
+]
+
 const slicedReducer = combineReducers({
   auth: authSlice,
   notifications: notificationSlice,
@@ -130,21 +149,7 @@ export const store = configureStore({
       ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/FLUSH', 'persist/PURGE', RESET_FOR_SESSION_END],
       ignoredPaths: ['register'],
     },
-  }).concat(
-    auditLogApiSlice.middleware as any,
-    backupApiSlice.middleware as any,
-    priceListApiSlice.middleware as any,
-    userManagementApiSlice.middleware as any,
-    inventoryApiSlice.middleware as any,
-    purchasingApiSlice.middleware as any,
-    salesApiSlice.middleware as any,
-    settingsApiSlice.middleware as any,
-    paymentMethodsApiSlice.middleware as any,
-    printSettingsApiSlice.middleware as any,
-    searchApiSlice.middleware as any,
-    accountingApiSlice.middleware as any,
-    redisMonitoringApiSlice.middleware as any,
-  ),
+  }).concat(apiSlices.map((slice) => slice.middleware as any)),
 })
 
 // The legacy redux-persist key lived in localStorage. It is removed on first

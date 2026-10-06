@@ -6,38 +6,9 @@ import { registerSessionRuntime } from './registry'
 import type { SessionStore } from './store/sessionStore'
 import type { ActiveSession, StoredState } from './types'
 import { StorageUnavailableError } from './types'
-import { store } from '@/store'
+import { store, apiSlices } from '@/store'
 import { sessionEstablished, tokensUpdated, sessionEnded, storageUnavailable } from '@/store/slices/authSlice'
 import { RESET_FOR_SESSION_END } from '@/store/sessionReset'
-import { auditLogApiSlice } from '@/store/api/auditLogApi'
-import { backupApiSlice } from '@/store/api/backupApi'
-import { priceListApiSlice } from '@/store/api/priceListApi'
-import { userManagementApiSlice } from '@/store/api/userManagementApi'
-import { inventoryApiSlice } from '@/store/api/inventoryApi'
-import { purchasingApiSlice } from '@/store/api/purchasingApi'
-import { salesApiSlice } from '@/store/api/salesApi'
-import { settingsApiSlice } from '@/store/api/settingsApi'
-import { paymentMethodsApiSlice } from '@/store/api/paymentMethodsApi'
-import { printSettingsApiSlice } from '@/store/api/printSettingsApi'
-import { searchApiSlice } from '@/store/api/searchApi'
-import { accountingApiSlice } from '@/store/api/accountingApi'
-import { redisMonitoringApiSlice } from '@/store/api/redisMonitoringApi'
-
-const apiSlices = [
-  auditLogApiSlice,
-  backupApiSlice,
-  priceListApiSlice,
-  userManagementApiSlice,
-  inventoryApiSlice,
-  purchasingApiSlice,
-  salesApiSlice,
-  settingsApiSlice,
-  paymentMethodsApiSlice,
-  printSettingsApiSlice,
-  searchApiSlice,
-  accountingApiSlice,
-  redisMonitoringApiSlice,
-]
 
 const SESSION_CHANNEL_NAME = 'erp-session'
 

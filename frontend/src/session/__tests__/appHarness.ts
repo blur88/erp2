@@ -47,9 +47,21 @@ export async function loadApp(options: LoadAppOptions = {}) {
   shared.state = { ...shared.state, ...options.stored }
 
   vi.doMock('@/session/store/indexedDbSessionStore', () => ({
-    openIndexedDbSessionStore: async () => {
+    openIndexedDbSessionStore: async (
+      _factory?: unknown,
+      opts?: { onTiming?: (op: 'read' | 'transact', ms: number) => void },
+    ) => {
       if (options.storage === 'unavailable') throw new StorageUnavailableError('IndexedDB is not available')
-      return createMemorySessionStore(shared)
+      const memoryStore = createMemorySessionStore(shared)
+      // Like the real store, report each operation's duration when asked to.
+      return {
+        ...memoryStore,
+        read: async (readOpts?: { timeoutMs?: number }) => {
+          const state = await memoryStore.read(readOpts)
+          opts?.onTiming?.('read', 0)
+          return state
+        },
+      }
     },
   }))
 
