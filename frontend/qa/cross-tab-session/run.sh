@@ -22,47 +22,37 @@ LAN_IP="${1:-}"
 mkdir -p "${SCRATCH}"
 cd "${ROOT}"
 
-# The status is only ever set from zero to non-zero: the first failure decides
-# it and nothing later can clear it. 3 is reserved for "stack not restored".
-STATUS=0
-RESTORED=0
-RESTORE_FAILED=0
-HAS_CAPTURE=0
-FINALIZED=0
+# The exit-status rule lives in lib/run-guard.sh (tested by
+# run-status.test.sh): the first failure decides the status and nothing later
+# clears it; 0 is possible only when the last line below was reached; INT is
+# 130, TERM is 143, any other early exit is 1; 3 is "stack not restored".
+# shellcheck source=frontend/qa/cross-tab-session/lib/run-guard.sh
+source "${QA_DIR}/lib/run-guard.sh"
 PROBE_PID=""
-fail() { if [ "${STATUS}" -eq 0 ]; then STATUS="$1"; fi; }
 
-restore_stack() {
+run_restore() {
   if ! "${QA_DIR}/stack.sh" restore; then
-    RESTORE_FAILED=1
-    echo "STACK NOT RESTORED: see the capture file ${SCRATCH}/stack-before.json" >&2
-    fail 3
+    echo "the capture file is ${SCRATCH}/stack-before.json" >&2
+    return 1
   fi
-  RESTORED=1
 }
 
-# results.json is written on every exit that got as far as a capture, so a
-# failed run still leaves its evidence, the configuration included.
-finalize() {
-  if [ "${FINALIZED}" -eq 1 ] || [ "${HAS_CAPTURE}" -eq 0 ]; then return 0; fi
-  FINALIZED=1
+run_finalize() {
   docker run --rm \
     -v "${ROOT}:/repo:ro" -v "${SCRATCH}:/scratch" -w /scratch \
     -e QA_SCRATCH=/scratch -e QA_RUN_STATUS="${STATUS}" -e QA_RESTORE_FAILED="${RESTORE_FAILED}" \
+    -e QA_RUN_COMPLETED="${COMPLETED}" -e QA_RUN_ABORTED="${ABORTED}" \
     -e QA_COMMIT="$(git rev-parse HEAD)" \
-    "${PLAYWRIGHT_IMAGE}" node /repo/frontend/qa/cross-tab-session/finalize.mjs \
-    || echo "could not assemble results.json; the parts are in ${SCRATCH}" >&2
+    "${PLAYWRIGHT_IMAGE}" node /repo/frontend/qa/cross-tab-session/finalize.mjs
 }
 
-cleanup() {
+run_stop_helpers() {
   if [ -n "${PROBE_PID}" ]; then kill "${PROBE_PID}" 2>/dev/null || true; PROBE_PID=""; fi
-  if [ "${RESTORED}" -eq 0 ] && [ "${HAS_CAPTURE}" -eq 1 ]; then
-    restore_stack
-  fi
-  finalize
-  exit "${STATUS}"
 }
-trap cleanup EXIT INT TERM
+
+# In place before anything is changed: every way out of this script goes
+# through on_exit, which restores the stack and writes results.json.
+install_status_traps
 
 refuse() { echo "refusing: $1" >&2; fail 1; exit 1; }
 
@@ -104,11 +94,7 @@ in_playwright() {
 }
 
 # 1. Refusals (nothing changed yet).
-if [ -z "${LAN_IP}" ]; then refuse "usage: run.sh <lan-ip>"; fi
-case "${LAN_IP}" in
-  localhost|127.0.0.1|*:*/*) refuse "use a LAN IP, not ${LAN_IP}" ;;
-esac
-if echo "${LAN_IP}" | grep -q ":"; then refuse "no port allowed in ${LAN_IP}"; fi
+if reason="$(address_refusal "${LAN_IP}")"; then refuse "${reason}"; fi
 for name in QA_USERNAME QA_PASSWORD QA_USERNAME_2 QA_PASSWORD_2 QA_USERNAME_3 QA_PASSWORD_3; do
   if [ -z "${!name:-}" ]; then refuse "${name} is not set (credentials come from the environment; see README.md)"; fi
 done
@@ -176,7 +162,10 @@ if [ "${RESTORE_FAILED}" -eq 0 ]; then
   fi
 fi
 
-# 7. results.json and the summary.
+# 7. results.json and the summary. COMPLETED is what allows status 0: it is
+#    set here and nowhere else, after everything the run does, and a
+#    results.json that cannot be written still fails the run (finalize).
+COMPLETED=1
 finalize
 echo "run complete: status=${STATUS}; results in ${SCRATCH}/results.json"
 exit "${STATUS}"

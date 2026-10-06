@@ -38,12 +38,18 @@ const psPath = join(scratch, 'docker-ps-before-latency.txt')
 const workload = competingWorkload(existsSync(psPath) ? readFileSync(psPath, 'utf8') : null)
 if (!latency.missing) latency.environment = { ...(latency.environment ?? {}), competingWorkload: workload }
 const restoreFailed = process.env.QA_RESTORE_FAILED === '1'
+// Whether run.sh reached its last line, and if not, why (lib/run-guard.sh).
+// A run that did not complete never has exit status 0.
+const completed = process.env.QA_RUN_COMPLETED === '1'
+const aborted = process.env.QA_RUN_ABORTED || null
 
 const results = {
   suite: 'cross-tab-session (#1345)',
   writtenAt: new Date().toISOString(),
   commit: process.env.QA_COMMIT || cases.commit || null,
   exitStatus: status,
+  completed,
+  aborted: completed ? null : aborted ?? 'the run did not reach its last line',
   stackRestored: !restoreFailed,
   restoreFailure: restoreFailed
     ? 'stack.sh restore failed: the stack may still run the QA configuration. See the capture file and the command stack.sh printed.'
@@ -70,6 +76,7 @@ writeFileSync(join(scratch, 'results.json'), JSON.stringify(results, null, 2))
 
 console.log('\n=== cross-tab session run ===')
 console.log(`commit ${results.commit}   exit status ${status}   stack restored: ${results.stackRestored ? 'yes' : 'NO'}`)
+if (!completed) console.log(`  RUN NOT COMPLETED: ${results.aborted}. What follows is what was written before it stopped.`)
 for (const key of ['before', 'during', 'after']) {
   const c = results.configuration[key]
   console.log(`  ${key.padEnd(6)} ${c.missing ?? `access ${c.accessTokenExpiry}, grace ${c.refreshGraceSeconds}, build ${c.servedBuild || '(none)'}`}`)

@@ -150,12 +150,23 @@ wait_ingress() {
   return 1
 }
 
+# The backend container's health as Docker states it: exactly `healthy`,
+# `unhealthy`, `starting`, or `none` when it has no health check or is absent.
+# Read from the state, not from the `docker compose ps` text, where "healthy"
+# is also part of "(unhealthy)".
+backend_health() {
+  docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' erp_backend 2>/dev/null || echo none
+}
+
+# Passes only when the health is exactly `healthy`, within $1 tries (default
+# 60) two seconds apart.
 wait_healthy() {
-  for _ in $(seq 1 60); do
-    if compose ps backend 2>/dev/null | grep -q "healthy"; then return 0; fi
+  local tries="${1:-60}"
+  for _ in $(seq 1 "${tries}"); do
+    if [ "$(backend_health)" = "healthy" ]; then return 0; fi
     sleep 2
   done
-  echo "backend did not become healthy" >&2
+  echo "backend did not become healthy (it is: $(backend_health))" >&2
   return 1
 }
 
@@ -223,10 +234,15 @@ cmd_restore() {
   echo "restore ok (access=${access}, grace=${grace})"
 }
 
-case "${1:-}" in
-  show) cmd_show ;;
-  qa-up) cmd_qa_up ;;
-  restore) cmd_restore ;;
-  verify) cmd_verify ;;
-  *) echo "usage: stack.sh {show|qa-up|restore|verify}" >&2; exit 2 ;;
-esac
+# Dispatches only when executed. run-status.test.sh sources this file to call
+# wait_healthy against a stand-in for docker; an executed stack.sh always
+# dispatches, so no environment variable can turn a command into a no-op.
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  case "${1:-}" in
+    show) cmd_show ;;
+    qa-up) cmd_qa_up ;;
+    restore) cmd_restore ;;
+    verify) cmd_verify ;;
+    *) echo "usage: stack.sh {show|qa-up|restore|verify}" >&2; exit 2 ;;
+  esac
+fi
