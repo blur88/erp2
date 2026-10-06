@@ -83,6 +83,17 @@ if (Array.isArray(results.cases)) {
 }
 if (results.w1) {
   console.log(`  W1 ${results.w1.pass ? 'pass' : 'FAIL'}  documented capacity: ${results.w1.recorded?.judgement?.capacityTabs ?? '?'} tabs`)
+  // A tab is usable only with its data present and an action working; the
+  // recovery each round needed is printed, not only the verdict.
+  for (const r of results.w1.recorded?.rounds ?? []) {
+    if (r.round === 'c') continue
+    console.log(
+      `     N=${r.n} (${r.round})${r.n === 5 ? ' blocking' : ''}: usable ${r.tabsUsable}/${r.n}; data complete on first load ${r.tabsCompleteOnFirstLoad}/${r.n}; ` +
+        `needed recovery ${r.tabsNeedingRecovery} (most actions for one tab: ${r.maxRecoveryActions}; through the administrator-only Company page: ${r.tabsNeedingCompanySettingsVisit}); ` +
+        `not recoverable ${r.tabsNotRecoverable?.length ?? '?'}; ` +
+        `session-endpoint 429s ${r.count429 + (r.sessionRequests429DuringUsabilityCheck ?? 0)}`,
+    )
+  }
   for (const finding of results.w1.recorded?.judgement?.nonBlockingFindings ?? []) console.log(`     (not blocking) ${finding}`)
 } else {
   console.log('  W1: not run')

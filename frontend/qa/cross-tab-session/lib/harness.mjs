@@ -325,6 +325,8 @@ export class Profile {
       tab: page ? this.labels.get(page) ?? '?' : '?',
       method: request.method(),
       path: url.pathname,
+      // The query string: W1 tells two requests for one path apart by it.
+      search: url.search,
       zone,
       issuedAt: Date.now(),
       sentAt: null,

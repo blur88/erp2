@@ -21,6 +21,23 @@ export function peakDemand(times, ratePerSecond) {
   return peak
 }
 
+/**
+ * How full the same bucket is at time `now`, after the requests sent at
+ * `times` (seconds, ascending): the replay above, drained on to `now`. Used
+ * to pace W1's recovery; every request is counted as admitted, which
+ * overstates the level and so only makes the pacing wait longer.
+ */
+export function bucketLevel(times, ratePerSecond, now) {
+  let e = 0
+  let prev = null
+  for (const t of times) {
+    if (prev !== null) e = Math.max(0, e - ratePerSecond * (t - prev))
+    e += 1
+    prev = t
+  }
+  return prev === null ? 0 : Math.max(0, e - ratePerSecond * (now - prev))
+}
+
 /** The largest number of events inside any one-second interval [t, t + 1). */
 export function busiestSecond(times) {
   const sorted = [...times].sort((a, b) => a - b)

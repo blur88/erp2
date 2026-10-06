@@ -79,9 +79,19 @@ export async function loadZones() {
       throw new Error(`could not read rate and burst of ${name} from nginx/nginx.conf`)
     }
   }
+  // api_limit, the general limit on /api. parseZones reads its rate; its burst
+  // is read here, from the same file. W1 uses it only to pace recovery, and
+  // stops if it cannot be read (null here, a precondition there).
+  const text = readFileSync(join(REPO_ROOT, 'nginx/nginx.conf'), 'utf8')
+  const apiBurst = /limit_req\s+zone=api_limit\s+burst=(\d+)/.exec(text)
+  const api =
+    zones.api_limit && zones.api_limit.ratePerSecond > 0 && apiBurst
+      ? { ...zones.api_limit, burst: Number(apiBurst[1]) }
+      : null
   return {
     session: zones.session_limit,
     login: zones.login_limit,
+    api,
     drainWaitSeconds: mod.drainWaitSeconds,
   }
 }

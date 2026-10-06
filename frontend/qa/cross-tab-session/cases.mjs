@@ -25,7 +25,10 @@ export const cases = [...signout, ...switching, ...refresh, ...storage, ...marke
   .concat([w1])
 
 const CASE_LIMIT_MS = 12 * 60 * 1000
-const W1_LIMIT_MS = 45 * 60 * 1000
+// W1 checks every tab of rounds (a) and (b) one at a time, recovery included:
+// 35 tabs twice, at up to about half a minute each when a tab needs every
+// allowed action.
+const W1_LIMIT_MS = 75 * 60 * 1000
 
 function selection(argv) {
   const i = argv.indexOf('--only')
