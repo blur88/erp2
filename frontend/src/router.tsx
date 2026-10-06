@@ -37,6 +37,7 @@ async function authLoader({ request }: { request: Request }) {
   const { auth } = store.getState() as unknown as RootState
   const url = new URL(request.url)
 
+  // RootLayout shows the storage-unavailable screen in place of every route.
   if (auth.storageUnavailable) {
     return null
   }

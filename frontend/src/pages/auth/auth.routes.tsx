@@ -5,8 +5,9 @@ import { sessionReady } from '@/session'
 const LoginPage = React.lazy(() => import('./LoginPage'))
 const MandatoryPasswordChangePage = React.lazy(() => import('./MandatoryPasswordChangePage'))
 
-// These pages show the form or the storage-unavailable screen depending on what
-// the session runtime found at startup, so that is known before they render.
+// What the session runtime found at startup decides whether these forms render
+// or RootLayout shows the storage-unavailable screen in their place, so that is
+// known before the first render.
 async function sessionLoader() {
   await sessionReady()
   return null

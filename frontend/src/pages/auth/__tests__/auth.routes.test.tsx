@@ -12,8 +12,8 @@ vi.mock('@/session', () => ({ sessionReady: () => sessionReady() }))
 import { authRoutes } from '../auth.routes'
 
 describe('auth routes', () => {
-  // The session record decides what these pages show (the form, or the
-  // storage-unavailable screen), so it is read before their first render.
+  // The session record decides what is shown at these paths (the form, or the
+  // storage-unavailable screen in its place), so it is read before the first render.
   it.each(['/login', '/change-password-required'])('%s waits for the session before rendering', async (path) => {
     const route = authRoutes.find((r) => r.path === path)
     expect(typeof route?.loader).toBe('function')

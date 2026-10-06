@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
@@ -215,50 +215,5 @@ describe('LoginPage', () => {
     cancelSignInMock.mockClear();
     unmount();
     expect(cancelSignInMock).toHaveBeenCalled();
-  });
-
-  describe('storage unavailable (spec B8)', () => {
-    const renderWithStorageUnavailable = async () => {
-      const { storageUnavailable } = await import('../../../store/slices/authSlice');
-      store.dispatch(storageUnavailable());
-      render(
-        <Provider store={store}>
-          <BrowserRouter>
-            <LoginPage />
-          </BrowserRouter>
-        </Provider>
-      );
-    };
-
-    it('LoginPage shows the storage-unavailable screen in place of the form', async () => {
-      await renderWithStorageUnavailable();
-
-      expect(screen.getByText(/this browser cannot store your session safely/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /sign in/i })).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/username or email/i)).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/^password$/i)).not.toBeInTheDocument();
-    });
-
-    it('no login request is sent when storage is unavailable', async () => {
-      await renderWithStorageUnavailable();
-
-      // There is no form to submit, so nothing can reach the runtime.
-      expect(document.querySelector('form')).toBeNull();
-      expect(signInMock).not.toHaveBeenCalled();
-    });
-
-    it('replaces a form already on screen when storage becomes unavailable', async () => {
-      await renderLoginPage();
-      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
-
-      const { storageUnavailable } = await import('../../../store/slices/authSlice');
-      act(() => {
-        store.dispatch(storageUnavailable());
-      });
-
-      expect(screen.getByText(/this browser cannot store your session safely/i)).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /sign in/i })).not.toBeInTheDocument();
-    });
   });
 });

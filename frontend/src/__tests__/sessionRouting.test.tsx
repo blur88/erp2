@@ -179,3 +179,85 @@ describe('a tab whose session ends', () => {
     expect(app.requests.filter((r) => r.url === '/auth/logout')).toHaveLength(1)
   })
 })
+
+describe('storage unavailable', () => {
+  const screenText = /this browser cannot store your session safely/i
+
+  it('a protected route renders the storage-unavailable screen, not the shell, when IndexedDB cannot be opened', async () => {
+    const { app } = await openTab(PROTECTED_PATH, { storage: 'unavailable' })
+
+    expect(await screen.findByText(screenText)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument()
+    expect(document.querySelector('.app-shell-root')).toBeNull()
+    expect(screen.queryByRole('heading', { name: /page not found/i })).not.toBeInTheDocument()
+    expect(app.store.getState().auth.storageUnavailable).toBe(true)
+    expect(pathname()).toBe(PROTECTED_PATH)
+  })
+
+  it.each(['/login', '/change-password-required'])(
+    '%s renders the storage-unavailable screen in place of its form',
+    async (path) => {
+      const { app } = await openTab(path, { storage: 'unavailable' })
+
+      expect(await screen.findByText(screenText)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /sign in/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /change password/i })).not.toBeInTheDocument()
+      // There is no form to submit, so no sign-in can reach the server.
+      expect(document.querySelector('form')).toBeNull()
+      expect(app.requests).toHaveLength(0)
+      expect(pathname()).toBe(path)
+    },
+  )
+
+  it('a sign-in form already on screen is replaced when storage becomes unavailable', async () => {
+    const { app } = await openTab('/login')
+    await loginForm()
+
+    app.shared.closed = true
+    await act(async () => {
+      await expect(app.sessionRuntime.reconcileNow()).rejects.toThrow()
+    })
+
+    expect(await screen.findByText(screenText)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /sign in/i })).not.toBeInTheDocument()
+    expect(document.querySelector('form')).toBeNull()
+  })
+
+  it('a tab that loses storage mid-session replaces the shell with the screen', async () => {
+    const { app, visited } = await openSignedInTab()
+
+    // The database closes under the tab; its next request finds out.
+    app.shared.closed = true
+    const { ApiService } = await import('@/services/api')
+    await act(async () => {
+      await expect(ApiService.get('/products')).rejects.toThrow()
+    })
+
+    expect(await screen.findByText(screenText)).toBeInTheDocument()
+    expect(app.sessionRuntime.status()).toBe('storage-unavailable')
+    expect(document.querySelector('.app-shell-root')).toBeNull()
+    expect(screen.queryByRole('heading', { name: /page not found/i })).not.toBeInTheDocument()
+    // The message replaces the page where the tab is; it is not sent to sign in.
+    expect(visited).toEqual([PROTECTED_PATH])
+    expect(pathname()).toBe(PROTECTED_PATH)
+  })
+
+  it('no authenticated request is sent in that state', async () => {
+    const { app } = await openSignedInTab()
+    const sent = app.requests.length
+
+    app.shared.closed = true
+    const { ApiService } = await import('@/services/api')
+    await act(async () => {
+      await expect(ApiService.get('/products')).rejects.toThrow()
+    })
+    await screen.findByText(screenText)
+    await act(async () => {
+      await expect(ApiService.get('/products')).rejects.toThrow()
+      await new Promise((r) => setTimeout(r, 50))
+    })
+
+    expect(app.requests).toHaveLength(sent)
+  })
+})

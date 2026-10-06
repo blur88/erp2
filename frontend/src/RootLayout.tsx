@@ -3,10 +3,11 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Box, LinearProgress } from '@mui/material'
 import { useAppSelector } from './hooks/useRedux'
 import { useRegionalSettings } from '@/hooks/useRegionalSettings'
-import { selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
+import { selectIsAuthenticated, selectRememberMe, selectStorageUnavailable } from './store/slices/authSlice'
 import { sessionRuntime } from '@/session'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
+import StorageUnavailableScreen from './components/auth/StorageUnavailableScreen'
 import { useClearReconciliationDraftsOnSignOut } from './pages/accounting/bank-reconciliations/useClearReconciliationDraftsOnSignOut'
 
 const IDLE_TIMEOUT = 12 * 60 * 60 * 1000
@@ -21,6 +22,7 @@ const PageLoader = () => (
 export default function RootLayout() {
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const rememberMe = useAppSelector(selectRememberMe)
+  const storageUnavailable = useAppSelector(selectStorageUnavailable)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -74,6 +76,16 @@ export default function RootLayout() {
       setShowIdleWarning(false)
     }
   }, [isAuthenticated])
+
+  // Fail closed (spec B8): without session storage the message takes the place
+  // of every route, public or protected, at startup or when it happens later.
+  if (storageUnavailable) {
+    return (
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+        <StorageUnavailableScreen />
+      </Box>
+    )
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
