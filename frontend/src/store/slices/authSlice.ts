@@ -2,30 +2,13 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '@/services/authApi';
 import { SessionChangedElsewhereError } from '@/session/runtime';
 import type { RootState } from '@/store';
-import type { ActiveSession } from '@/session/types';
+import { StorageTimeoutError, StorageUnavailableError } from '@/session/types';
+import type { ActiveSession, AuthUser, LoginCredentials } from '@/session/types';
+import { getErrorMessage } from '@/utils/errorMessage';
 
-// Auth-specific User interface matching backend
-export interface AuthUser {
-  id: string;
-  username: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  fullName?: string;
-  phoneNumber?: string;
-  role: 'admin' | 'manager' | 'sales_staff' | 'inventory_staff' | 'procurement_staff';
-  status: 'active' | 'inactive' | 'suspended';
-  isActive: boolean;
-  lastLoginAt?: Date | string;
-  lastLoginIp?: string;
-  failedLoginAttempts: number;
-  lockedUntil?: Date | string;
-  isLocked?: boolean;
-  notes?: string;
-  requiresPasswordChange?: boolean;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-}
+// Defined with the session record they are stored in; re-exported for the
+// existing imports from this slice.
+export type { AuthUser, LoginCredentials };
 
 export interface AuthResponse {
   accessToken: string;
@@ -33,12 +16,6 @@ export interface AuthResponse {
   user: AuthUser;
   expiresIn: number;
   requiresPasswordChange?: boolean;
-}
-
-export interface LoginCredentials {
-  usernameOrEmail: string;
-  password: string;
-  rememberMe?: boolean;
 }
 
 export interface RegisterData {
@@ -87,6 +64,24 @@ const initialState: AuthState = {
   storageUnavailable: false,
 };
 
+// The message shown on the login form: the server's own wording when the
+// response carries one (wrong password, locked account, 426 reload required),
+// otherwise a sentence for the failures that never reach the server.
+const loginErrorMessage = (error: any): string => {
+  const serverMessage = getErrorMessage(error?.response?.data?.message, '');
+  if (serverMessage) return serverMessage;
+  if (error instanceof SessionChangedElsewhereError) {
+    return 'The session changed in another tab. Sign in again.';
+  }
+  if (error instanceof StorageUnavailableError) {
+    return 'Session storage is unavailable in this browser. Allow site data for this address, then reload.';
+  }
+  if (error instanceof StorageTimeoutError) {
+    return 'Session storage did not respond in time. Try again.';
+  }
+  return 'Login failed';
+};
+
 // Async thunks
 export const login = createAsyncThunk(
   'auth/login',
@@ -96,10 +91,7 @@ export const login = createAsyncThunk(
       await sessionRuntime.signIn(credentials);
       return null;
     } catch (error: any) {
-      if (error instanceof SessionChangedElsewhereError) {
-        return rejectWithValue('The session changed in another tab. Sign in again.');
-      }
-      return rejectWithValue(error.message || 'Login failed');
+      return rejectWithValue(loginErrorMessage(error));
     }
   }
 );
@@ -148,10 +140,16 @@ const authSlice = createSlice({
     },
     tokensUpdated: (
       state,
-      action: PayloadAction<{ accessToken: string; accessTokenExpiresAt: number; refreshToken: string }>
+      action: PayloadAction<{
+        generation: number;
+        accessToken: string;
+        accessTokenExpiresAt: number;
+        refreshToken: string;
+      }>
     ) => {
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
+      state.generation = action.payload.generation;
     },
     sessionEnded: (state) => {
       state.user = null;
@@ -163,7 +161,8 @@ const authSlice = createSlice({
       state.rememberMe = false;
       state.sessionId = null;
       state.generation = 0;
-    },    storageUnavailable: (state) => {
+    },
+    storageUnavailable: (state) => {
       state.storageUnavailable = true;
       state.user = null;
       state.accessToken = null;

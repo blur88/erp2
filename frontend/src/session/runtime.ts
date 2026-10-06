@@ -25,7 +25,12 @@ export class SessionChangedElsewhereError extends Error {}
 
 export interface RuntimeEvents {
   sessionEstablished(session: ActiveSession): void
-  tokensUpdated(tokens: { accessToken: string; accessTokenExpiresAt: number; refreshToken: string }): void
+  tokensUpdated(tokens: {
+    generation: number
+    accessToken: string
+    accessTokenExpiresAt: number
+    refreshToken: string
+  }): void
   sessionEnded(reason: 'explicit' | 'failure' | 'elsewhere' | 'storage'): void
 }
 
@@ -126,6 +131,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       memory = { ...remote }
       remember(memory)
       events.tokensUpdated({
+        generation: remote.generation,
         accessToken: remote.accessToken,
         accessTokenExpiresAt: remote.accessTokenExpiresAt,
         refreshToken: remote.refreshToken,
@@ -135,6 +141,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     if (action === 'adopt-access' && memory) {
       memory = { ...memory, accessToken: remote.accessToken, accessTokenExpiresAt: remote.accessTokenExpiresAt }
       events.tokensUpdated({
+        generation: memory.generation,
         accessToken: remote.accessToken,
         accessTokenExpiresAt: remote.accessTokenExpiresAt,
         refreshToken: memory.refreshToken,
@@ -358,6 +365,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       memory = { ...memory, ...response }
       remember(memory)
       events.tokensUpdated({
+        generation: response.generation,
         accessToken: response.accessToken,
         accessTokenExpiresAt: response.accessTokenExpiresAt,
         refreshToken: response.refreshToken,

@@ -1,6 +1,31 @@
-import type { AuthUser, LoginCredentials } from '@/store/slices/authSlice'
+// Auth-specific User interface matching backend
+export interface AuthUser {
+  id: string
+  username: string
+  email: string
+  firstName: string
+  lastName: string
+  fullName?: string
+  phoneNumber?: string
+  role: 'admin' | 'manager' | 'sales_staff' | 'inventory_staff' | 'procurement_staff'
+  status: 'active' | 'inactive' | 'suspended'
+  isActive: boolean
+  lastLoginAt?: Date | string
+  lastLoginIp?: string
+  failedLoginAttempts: number
+  lockedUntil?: Date | string
+  isLocked?: boolean
+  notes?: string
+  requiresPasswordChange?: boolean
+  createdAt: Date | string
+  updatedAt: Date | string
+}
 
-export type { AuthUser, LoginCredentials }
+export interface LoginCredentials {
+  usernameOrEmail: string
+  password: string
+  rememberMe?: boolean
+}
 
 export interface ActiveSession {
   sessionId: string

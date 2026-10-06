@@ -9,7 +9,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 // The tokens the tab last took into memory through a refresh or an adoption.
 const lastTokens = (tab: Tab) =>
   (tab.events.tokensUpdated as Mock).mock.calls.at(-1)?.[0] as
-    | { accessToken: string; accessTokenExpiresAt: number; refreshToken: string }
+    | { generation: number; accessToken: string; accessTokenExpiresAt: number; refreshToken: string }
     | undefined
 
 async function signedInTab(h: ReturnType<typeof createHarness>, id = 'A') {
@@ -279,6 +279,34 @@ describe('session runtime — requests and refresh', () => {
     expect(await a.runtime.handleUnauthorized(sentAtGeneration1)).toBe('retry')
     expect(h.server.refreshCalls).toBe(1)
     expect((await a.runtime.beginRequest()).ref.generation).toBe(2)
+  })
+
+  it('tokensUpdated carries the generation the tokens belong to', async () => {
+    const h = createHarness()
+    const a = await signedInTab(h, 'A')
+    const b = await (async () => {
+      const tab = h.createTab('B')
+      await tab.runtime.start()
+      return tab
+    })()
+
+    // A refresh in this tab, an adoption in the other.
+    await a.runtime.handleUnauthorized((await a.runtime.beginRequest()).ref)
+    expect(lastTokens(a)?.generation).toBe(2)
+    await b.runtime.reconcileNow()
+    expect(lastTokens(b)?.generation).toBe(2)
+
+    // An equal-generation adoption of a later access token keeps the generation.
+    const session = h.shared.state.record.session!
+    h.shared.state = {
+      ...h.shared.state,
+      record: {
+        ...h.shared.state.record,
+        session: { ...session, accessToken: 'at-later', accessTokenExpiresAt: session.accessTokenExpiresAt + 1 },
+      },
+    }
+    await b.runtime.reconcileNow()
+    expect(lastTokens(b)).toMatchObject({ generation: 2, accessToken: 'at-later' })
   })
 
   it('a 401 for a request captured under another session is not refreshed and not retried', async () => {
