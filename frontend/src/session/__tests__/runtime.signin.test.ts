@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createHarness, holdLoginResponses } from './twoTabs'
 import { SessionChangedElsewhereError } from '../runtime'
-import { StorageTimeoutError, StorageUnavailableError } from '../types'
+import { SessionEndedError, StorageTimeoutError, StorageUnavailableError } from '../types'
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
@@ -346,5 +346,162 @@ describe('session runtime — sign-in and startup', () => {
     expect(a.runtime.status()).toBe('storage-unavailable')
     expect(a.events.ended).toContain('storage')
     expect(h.server.sessions.size).toBe(0)
+  })
+})
+
+// A start-up read that times out: storage did not answer. It has not been
+// found broken, and nothing says the browser holds no session.
+describe('session runtime — a start-up read that times out', () => {
+  const timeout = () => new StorageTimeoutError('read timed out')
+
+  // B holds a session (unless told otherwise); A starts while storage is busy.
+  async function startedWhileBusy(opts: { stored?: boolean } = {}) {
+    const h = createHarness()
+    const b = h.createTab('B')
+    await b.runtime.start()
+    if (opts.stored !== false) await b.runtime.signIn({ usernameOrEmail: 'b', password: 'p' })
+    const a = h.createTab('A')
+    a.store.failNextRead(timeout())
+    await a.runtime.start()
+    return { h, a, b }
+  }
+
+  it('start with a read that times out is neither signed-out nor storage-unavailable', async () => {
+    const { h, a, b } = await startedWhileBusy()
+
+    expect(a.runtime.status()).toBe('storage-waiting')
+    expect(a.runtime.status()).not.toBe('signed-out')
+    expect(a.runtime.status()).not.toBe('storage-unavailable')
+    expect(a.runtime.claim()).toBeNull()
+    expect(a.events.waiting).toEqual([true])
+    // Nobody was signed out and nothing was reported as broken.
+    expect(a.events.sessionEnded).not.toHaveBeenCalled()
+    expect(a.events.sessionEstablished).not.toHaveBeenCalled()
+    expect(h.shared.state.record.session?.sessionId).toBe(b.runtime.claim())
+    expect(b.runtime.status()).toBe('signed-in')
+  })
+
+  it('whenStarted settles in that state', async () => {
+    const { a } = await startedWhileBusy()
+    await expect(a.runtime.whenStarted()).resolves.toBeUndefined()
+    expect(a.runtime.status()).toBe('storage-waiting')
+  })
+
+  it('retrying after the block clears claims the stored session', async () => {
+    const { h, a, b } = await startedWhileBusy()
+
+    await a.runtime.retryStart()
+
+    expect(a.runtime.status()).toBe('signed-in')
+    expect(a.runtime.claim()).toBe(b.runtime.claim())
+    expect(a.events.sessionEstablished).toHaveBeenCalledTimes(1)
+    expect(a.events.sessionEstablished).toHaveBeenCalledWith(h.shared.state.record.session)
+    expect(a.events.waiting).toEqual([true, false])
+    expect(a.events.sessionEnded).not.toHaveBeenCalled()
+    expect(await a.runtime.canDeliver((await a.runtime.beginRequest()).ref)).toBe(true)
+    // Claiming at start writes nothing and announces nothing.
+    expect(a.channelPost).not.toHaveBeenCalled()
+  })
+
+  it('retrying with nothing stored is signed-out', async () => {
+    const { a } = await startedWhileBusy({ stored: false })
+
+    await a.runtime.retryStart()
+
+    expect(a.runtime.status()).toBe('signed-out')
+    expect(a.runtime.claim()).toBeNull()
+    expect(a.events.waiting).toEqual([true, false])
+    expect(a.events.sessionEstablished).not.toHaveBeenCalled()
+    expect(a.events.sessionEnded).not.toHaveBeenCalled()
+    // An ordinary signed-out tab: it can sign in.
+    await expect(a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' })).resolves.toBeDefined()
+  })
+
+  it('a retry that fails as unavailable becomes storage-unavailable', async () => {
+    const { a } = await startedWhileBusy()
+    a.store.failNextRead(new StorageUnavailableError('gone'))
+
+    await expect(a.runtime.retryStart()).resolves.toBeUndefined()
+
+    expect(a.runtime.status()).toBe('storage-unavailable')
+    expect(a.events.ended).toEqual(['storage'])
+    expect(a.events.sessionEstablished).not.toHaveBeenCalled()
+  })
+
+  it('a retry that times out again stays where it is', async () => {
+    const { a } = await startedWhileBusy()
+    a.store.failNextRead(timeout())
+
+    await expect(a.runtime.retryStart()).resolves.toBeUndefined()
+
+    expect(a.runtime.status()).toBe('storage-waiting')
+    expect(a.events.waiting).toEqual([true])
+    expect(a.events.sessionEnded).not.toHaveBeenCalled()
+
+    await a.runtime.retryStart()
+    expect(a.runtime.status()).toBe('signed-in')
+  })
+
+  it('signIn is refused in that state', async () => {
+    const { h, a } = await startedWhileBusy()
+    const sessions = h.server.sessions.size
+    const read = vi.spyOn(a.store, 'read')
+    const before = h.shared.state
+
+    await expect(a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' })).rejects.toBeInstanceOf(
+      StorageTimeoutError,
+    )
+
+    // No login request was sent: the server created nothing.
+    expect(h.server.sessions.size).toBe(sessions)
+    expect(read).not.toHaveBeenCalled()
+    expect(h.shared.state).toBe(before)
+    expect(a.runtime.status()).toBe('storage-waiting')
+  })
+
+  it('no request begins and no slices are read in that state', async () => {
+    const { a } = await startedWhileBusy()
+    const read = vi.spyOn(a.store, 'read')
+
+    await expect(a.runtime.beginRequest()).rejects.toBeInstanceOf(SessionEndedError)
+    expect(await a.runtime.readSlices()).toBeNull()
+    expect(read).not.toHaveBeenCalled()
+    expect(a.runtime.status()).toBe('storage-waiting')
+  })
+
+  it('a channel message or a resume repeats the start-up read', async () => {
+    const { a, b } = await startedWhileBusy()
+
+    a.deliverChannel()
+    await flush()
+    expect(a.runtime.status()).toBe('signed-in')
+    expect(a.runtime.claim()).toBe(b.runtime.claim())
+
+    const { a: resumed } = await startedWhileBusy({ stored: false })
+    await resumed.runtime.reconcileNow()
+    expect(resumed.runtime.status()).toBe('signed-out')
+  })
+
+  it('retryStart does nothing in any other state', async () => {
+    const h = createHarness()
+    const a = h.createTab('A')
+    const b = h.createTab('B')
+    await a.runtime.start()
+    await b.runtime.start()
+    await b.runtime.signIn({ usernameOrEmail: 'b', password: 'p' })
+    const read = vi.spyOn(a.store, 'read')
+
+    // A signed-out running tab never adopts, by this path either.
+    await a.runtime.retryStart()
+    expect(read).not.toHaveBeenCalled()
+    expect(a.runtime.status()).toBe('signed-out')
+    expect(a.events.waiting).toEqual([])
+  })
+
+  it('storage closing while it waits makes it storage-unavailable', async () => {
+    const { a } = await startedWhileBusy()
+    a.store.close()
+    expect(a.runtime.status()).toBe('storage-unavailable')
+    expect(a.events.ended).toEqual(['storage'])
   })
 })

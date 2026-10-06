@@ -15,6 +15,7 @@ import { reconcile, type ReconcileAction } from './reconcile'
 import type { SessionStore } from './store/sessionStore'
 import {
   SessionEndedError,
+  StorageTimeoutError,
   StorageUnavailableError,
   type ActiveSession,
   type LoginCredentials,
@@ -33,6 +34,8 @@ export interface RuntimeEvents {
     refreshToken: string
   }): void
   sessionEnded(reason: 'explicit' | 'failure' | 'elsewhere' | 'storage'): void
+  /** The start-up read timed out (`true`), or a later one settled what it left open (`false`). */
+  storageWaiting(waiting: boolean): void
 }
 
 export interface RuntimeDeps {
@@ -44,12 +47,17 @@ export interface RuntimeDeps {
   now: () => number
 }
 
-export type RuntimeStatus = 'starting' | 'signed-out' | 'signed-in' | 'storage-unavailable'
+// 'storage-waiting': the start-up read timed out. Storage did not answer, so the
+// tab is not signed-out (a session may be stored) and storage has not been found
+// broken either (spec B3, B8: a timeout settles nothing and signs nobody out).
+export type RuntimeStatus = 'starting' | 'signed-out' | 'signed-in' | 'storage-waiting' | 'storage-unavailable'
 
 export interface SessionRuntime {
   start(): Promise<void>
   /** Resolves when `start()` has settled, in any state. Never rejects. */
   whenStarted(): Promise<void>
+  /** Repeats the start-up read of a tab left 'storage-waiting'. Does nothing in any other state. Never rejects. */
+  retryStart(): Promise<void>
   status(): RuntimeStatus
   claim(): string | null
   signIn(credentials: LoginCredentials): Promise<{ requiresPasswordChange: boolean }>
@@ -79,6 +87,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   let signInAbort: AbortController | null = null
   let sessionAbort = new AbortController()
   let refreshInFlight: Promise<'retry' | 'ended'> | null = null
+  let startRetryInFlight: Promise<void> | null = null
   let announceStarted: () => void = () => undefined
   const started = new Promise<void>((resolve) => {
     announceStarted = resolve
@@ -165,13 +174,18 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   const reconcileNow = async (): Promise<void> => {
     if (status === 'starting') return
+    // Nothing to reconcile yet: what brings a tab here (a channel message, a
+    // resume) is a reason to ask storage again.
+    if (status === 'storage-waiting') return retryStart()
     const stored = await readRecord()
     applyAdoption(reconcile(claim(), memory, stored.record), stored)
   }
 
   // ---- startup --------------------------------------------------------------
 
-  const start = async (): Promise<void> => {
+  // What a tab is at start is what the stored record says. A read that fails
+  // puts it in the storage-unavailable state; one that times out says nothing.
+  const readAtStart = async (): Promise<'settled' | 'timed-out'> => {
     try {
       const stored = await store.read()
       if (stored.record.session) {
@@ -182,9 +196,19 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       } else {
         status = 'signed-out'
       }
+      return 'settled'
     } catch (err) {
       if (err instanceof StorageUnavailableError) moveToStorageUnavailable()
+      else if (err instanceof StorageTimeoutError) return 'timed-out'
       else status = 'signed-out'
+      return 'settled'
+    }
+  }
+
+  const start = async (): Promise<void> => {
+    if ((await readAtStart()) === 'timed-out') {
+      status = 'storage-waiting'
+      events.storageWaiting(true)
     }
 
     store.onClosed(() => moveToStorageUnavailable())
@@ -198,9 +222,28 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     announceStarted()
   }
 
+  const retryStart = (): Promise<void> => {
+    if (status !== 'storage-waiting') return Promise.resolve()
+    if (!startRetryInFlight) {
+      startRetryInFlight = (async () => {
+        try {
+          const outcome = await readAtStart()
+          // Storage may have closed under the read; that already settled it.
+          if (outcome === 'settled' && (status as RuntimeStatus) !== 'storage-unavailable') events.storageWaiting(false)
+        } finally {
+          startRetryInFlight = null
+        }
+      })()
+    }
+    return startRetryInFlight
+  }
+
   // ---- sign-in --------------------------------------------------------------
 
   const signIn = async (credentials: LoginCredentials): Promise<{ requiresPasswordChange: boolean }> => {
+    // Storage has not said whether a session is stored: signing in now could
+    // displace one. Nothing is read and nothing is sent.
+    if (status === 'storage-waiting') throw new StorageTimeoutError('session storage has not answered')
     const attempt = ++attemptCounter
     currentAttempt = attempt
     signInAbort = new AbortController()
@@ -282,6 +325,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   // ---- request lifecycle ----------------------------------------------------
 
   const beginRequest = async (): Promise<{ ref: SessionRef; accessToken: string; signal: AbortSignal }> => {
+    if (status === 'storage-waiting') throw new SessionEndedError('no claim')
     const stored = await readRecord()
     applyAdoption(reconcile(claim(), memory, stored.record), stored)
 
@@ -439,6 +483,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   }
 
   const readSlices = async (): Promise<string | null> => {
+    if (status === 'storage-waiting') return null
     const stored = await store.read()
     const sessionId = stored.record.session?.sessionId ?? null
     // Read back only when the tag is the stored session, and that session is
@@ -457,7 +502,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       : lastCredential
     memory = null
     lastCredential = null
-    status = status === 'storage-unavailable' ? 'storage-unavailable' : 'signed-out'
+    if (status !== 'storage-unavailable' && status !== 'storage-waiting') status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
     events.sessionEnded('explicit')
@@ -500,6 +545,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   return {
     start,
+    retryStart,
     whenStarted: () => started,
     status: () => status,
     claim,

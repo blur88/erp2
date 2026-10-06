@@ -29,8 +29,11 @@ export const persistedPayload = (slices: Record<string, unknown>, version = 7): 
   })
 
 export interface LoadAppOptions {
-  /** 'unavailable': IndexedDB cannot be opened. */
-  storage?: 'memory' | 'unavailable'
+  /**
+   * 'unavailable': IndexedDB cannot be opened. 'busy': it opens, and the
+   * start-up read times out, as behind a tab paused mid-transaction.
+   */
+  storage?: 'memory' | 'unavailable' | 'busy'
   stored?: Partial<StoredState>
   /** Runs after the mocks are in place and before any application module is imported. */
   beforeImport?: () => void
@@ -40,10 +43,11 @@ export async function loadApp(options: LoadAppOptions = {}) {
   vi.resetModules()
 
   const { createSharedMemory, createMemorySessionStore } = await import('../store/memorySessionStore')
-  const { StorageUnavailableError } = await import('../types')
+  const { StorageTimeoutError, StorageUnavailableError } = await import('../types')
   const { createSessionRuntime } = await import('../runtime')
 
   const shared: SharedMemory = createSharedMemory()
+  let failNextRead: (error: Error) => void = () => undefined
   shared.state = { ...shared.state, ...options.stored }
 
   vi.doMock('@/session/store/indexedDbSessionStore', () => ({
@@ -53,6 +57,8 @@ export async function loadApp(options: LoadAppOptions = {}) {
     ) => {
       if (options.storage === 'unavailable') throw new StorageUnavailableError('IndexedDB is not available')
       const memoryStore = createMemorySessionStore(shared)
+      failNextRead = (error) => memoryStore.failNextRead(error)
+      if (options.storage === 'busy') failNextRead(new StorageTimeoutError('read timed out'))
       // Like the real store, report each operation's duration when asked to.
       return {
         ...memoryStore,
@@ -128,7 +134,12 @@ export async function loadApp(options: LoadAppOptions = {}) {
           calls.push('logout')
         },
       },
-      events: { sessionEstablished: () => undefined, tokensUpdated: () => undefined, sessionEnded: () => undefined },
+      events: {
+        sessionEstablished: () => undefined,
+        tokensUpdated: () => undefined,
+        sessionEnded: () => undefined,
+        storageWaiting: () => undefined,
+      },
       channel: null,
       tabId: 'other-tab',
       now: () => Date.now(),
@@ -145,6 +156,10 @@ export async function loadApp(options: LoadAppOptions = {}) {
     storeModule,
     sessionRuntime: sessionModule.sessionRuntime,
     sessionReady: sessionModule.sessionReady,
+    /** The application's next storage read rejects with this. */
+    failNextRead: (error: Error) => failNextRead(error),
+    /** The next read times out again: the other tab is still busy. */
+    stillBusy: () => failNextRead(new StorageTimeoutError('read timed out')),
     rehydrated,
     otherTab,
   }

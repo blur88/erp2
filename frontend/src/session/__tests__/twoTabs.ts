@@ -240,6 +240,7 @@ export interface Tab {
     established: number
     updated: number
     ended: string[]
+    waiting: boolean[]
   }
   deliverChannel(): void
 }
@@ -268,6 +269,7 @@ export function createHarness(opts?: { accessLifetimeMs?: number; graceMs?: numb
       established: 0,
       updated: 0,
       ended: [],
+      waiting: [],
       sessionEstablished: vi.fn(() => {
         events.established += 1
       }),
@@ -276,6 +278,9 @@ export function createHarness(opts?: { accessLifetimeMs?: number; graceMs?: numb
       }),
       sessionEnded: vi.fn((reason: string) => {
         events.ended.push(reason)
+      }),
+      storageWaiting: vi.fn((waiting: boolean) => {
+        events.waiting.push(waiting)
       }),
     }
 

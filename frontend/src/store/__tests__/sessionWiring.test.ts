@@ -66,6 +66,70 @@ describe('the application store on the session runtime', () => {
     expect(titles(app.store.getState())).toEqual([])
   })
 
+  // The start-up read times out (another tab is paused mid-transaction): the
+  // loaders and redux-persist still get their answer, and the answer is neither
+  // "signed out" nor "storage is broken".
+  const busyApp = () => {
+    const session = storedSession()
+    return loadApp({
+      storage: 'busy',
+      stored: {
+        record: { revision: 3, session },
+        slices: { sessionId: session.sessionId, json: storedNotifications(['stored']) },
+      },
+    })
+  }
+
+  it('a start-up read that times out: sessionReady settles, rehydration completes empty and the app is waiting', async () => {
+    const app = await busyApp()
+
+    await Promise.all([app.rehydrated(), app.sessionReady()])
+
+    expect(app.persistor.getState().bootstrapped).toBe(true)
+    expect(titles(app.store.getState())).toEqual([])
+    expect(app.sessionRuntime.status()).toBe('storage-waiting')
+    expect(app.store.getState().auth.storageWaiting).toBe(true)
+    expect(app.store.getState().auth.storageUnavailable).toBe(false)
+    expect(app.store.getState().auth.isAuthenticated).toBe(false)
+    expect(app.store.getState().auth.accessToken).toBeNull()
+    expect(app.requests).toHaveLength(0)
+    // Nothing was written or removed while it waits.
+    expect(app.shared.state.record.session?.sessionId).toBe('sess-stored')
+    expect(app.shared.state.slices?.json).toBe(storedNotifications(['stored']))
+  })
+
+  it('the retry that gets an answer claims the stored session, through the runtime\u2019s events', async () => {
+    const app = await busyApp()
+    await Promise.all([app.rehydrated(), app.sessionReady()])
+
+    app.stillBusy()
+    await app.sessionRuntime.retryStart()
+    expect(app.store.getState().auth.storageWaiting).toBe(true)
+    expect(app.store.getState().auth.isAuthenticated).toBe(false)
+
+    await app.sessionRuntime.retryStart()
+    expect(app.sessionRuntime.status()).toBe('signed-in')
+    expect(app.store.getState().auth.storageWaiting).toBe(false)
+    expect(app.store.getState().auth.isAuthenticated).toBe(true)
+    expect(app.store.getState().auth.sessionId).toBe('sess-stored')
+    expect(app.store.getState().auth.storageUnavailable).toBe(false)
+  })
+
+  it('a retry that finds storage broken leaves waiting for storage-unavailable', async () => {
+    const app = await busyApp()
+    await Promise.all([app.rehydrated(), app.sessionReady()])
+
+    // The error class of the freshly loaded application, not this file's copy.
+    const { StorageUnavailableError } = await import('@/session/types')
+    app.failNextRead(new StorageUnavailableError('read failed'))
+    await app.sessionRuntime.retryStart()
+
+    expect(app.sessionRuntime.status()).toBe('storage-unavailable')
+    expect(app.store.getState().auth.storageUnavailable).toBe(true)
+    expect(app.store.getState().auth.storageWaiting).toBe(false)
+    expect(app.store.getState().auth.isAuthenticated).toBe(false)
+  })
+
   it('storage unavailable: rehydration completes empty and the app is in the storage-unavailable state', async () => {
     const app = await loadApp({ storage: 'unavailable' })
 

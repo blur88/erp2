@@ -44,6 +44,7 @@ function makeRuntime(memory = createSharedMemory(), prefix = 'sess') {
       sessionEstablished: vi.fn(),
       tokensUpdated: vi.fn(),
       sessionEnded: vi.fn(),
+      storageWaiting: vi.fn(),
     },
     channel: null,
     tabId: 'test',

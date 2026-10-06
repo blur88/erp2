@@ -47,6 +47,9 @@ interface AuthState {
   sessionId: string | null;
   generation: number;
   storageUnavailable: boolean;
+  // The start-up read of the session record timed out: not signed-out, and
+  // storage not found broken. Written only from the session runtime's events.
+  storageWaiting: boolean;
 }
 
 const initialState: AuthState = {
@@ -62,6 +65,7 @@ const initialState: AuthState = {
   sessionId: null,
   generation: 0,
   storageUnavailable: false,
+  storageWaiting: false,
 };
 
 // The message shown on the login form: the server's own wording when the
@@ -162,8 +166,12 @@ const authSlice = createSlice({
       state.sessionId = null;
       state.generation = 0;
     },
+    storageWaiting: (state, action: PayloadAction<boolean>) => {
+      state.storageWaiting = action.payload;
+    },
     storageUnavailable: (state) => {
       state.storageUnavailable = true;
+      state.storageWaiting = false;
       state.user = null;
       state.accessToken = null;
       state.refreshToken = null;
@@ -227,6 +235,7 @@ export const {
   tokensUpdated,
   sessionEnded,
   storageUnavailable,
+  storageWaiting,
   clearError,
 } = authSlice.actions;
 
@@ -236,5 +245,6 @@ export const selectAccessToken = (state: RootState) => state.auth.accessToken;
 export const selectRefreshToken = (state: RootState) => state.auth.refreshToken;
 export const selectRememberMe = (state: RootState) => state.auth.rememberMe;
 export const selectStorageUnavailable = (state: RootState) => state.auth.storageUnavailable;
+export const selectStorageWaiting = (state: RootState) => state.auth.storageWaiting;
 
 export default authSlice.reducer;

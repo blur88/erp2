@@ -17,11 +17,13 @@ async function sessionLoader() {
 
 // The mandatory change needs the session it changes the password of. Opened
 // without one it goes to the sign-in form; the page itself leaves when the
-// session ends while it is open. RootLayout covers the storage-unavailable state.
+// session ends while it is open. RootLayout covers the storage-unavailable and
+// storage-waiting states.
 async function passwordChangeLoader() {
   await sessionReady()
   const { auth } = store.getState() as unknown as RootState
-  if (!auth.storageUnavailable && !auth.isAuthenticated) return redirect('/login')
+  if (auth.storageUnavailable || auth.storageWaiting) return null
+  if (!auth.isAuthenticated) return redirect('/login')
   return null
 }
 

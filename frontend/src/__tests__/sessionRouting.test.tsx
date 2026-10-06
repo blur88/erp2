@@ -344,6 +344,129 @@ describe('the mandatory password-change page', () => {
   })
 })
 
+describe('storage did not answer at start', () => {
+  const waitingText = /still waiting for this browser\u2019s session storage\. another tab may be busy\./i
+  const unavailableText = /this browser cannot store your session safely/i
+  const busy = (stored: LoadAppOptions['stored'] = signedIn().stored): LoadAppOptions => ({ storage: 'busy', stored })
+  const tryAgain = () => screen.getByRole('button', { name: /try again/i })
+
+  it.each([PROTECTED_PATH, '/login', '/change-password-required'])(
+    'the waiting screen takes the place of %s and no request is sent',
+    async (path) => {
+      const { app, visited } = await openTab(path, busy())
+
+      expect(await screen.findByText(waitingText)).toBeInTheDocument()
+      expect(tryAgain()).toBeEnabled()
+      // Not the sign-in form: storage has not said that nobody is signed in.
+      expect(screen.queryByRole('button', { name: /sign in/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /change password/i })).not.toBeInTheDocument()
+      expect(document.querySelector('form')).toBeNull()
+      // Not the storage-unavailable message either: nothing was found broken.
+      expect(screen.queryByText(unavailableText)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /reload/i })).not.toBeInTheDocument()
+      expect(document.querySelector('.app-shell-root')).toBeNull()
+      expect(screen.queryByRole('heading', { name: /page not found/i })).not.toBeInTheDocument()
+
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50))
+      })
+      expect(app.store.getState().auth.storageWaiting).toBe(true)
+      expect(app.store.getState().auth.storageUnavailable).toBe(false)
+      expect(app.requests).toHaveLength(0)
+      expect(publicRequests).toHaveLength(0)
+      expect(visited).toEqual([path])
+      expect(pathname()).toBe(path)
+      // The stored session is untouched.
+      expect(app.shared.state.record.session?.sessionId).toBe('sess-stored')
+    },
+  )
+
+  it('Try again recovers the stored session where the tab was opened', async () => {
+    const { app } = await openTab(PROTECTED_PATH, busy())
+    await screen.findByText(waitingText)
+
+    fireEvent.click(tryAgain())
+
+    await screen.findByRole('heading', { name: /page not found/i })
+    expect(document.querySelector('.app-shell-root')).not.toBeNull()
+    expect(screen.queryByText(waitingText)).not.toBeInTheDocument()
+    expect(app.store.getState().auth.isAuthenticated).toBe(true)
+    expect(app.store.getState().auth.storageWaiting).toBe(false)
+    expect(app.sessionRuntime.claim()).toBe('sess-stored')
+    expect(pathname()).toBe(PROTECTED_PATH)
+  })
+
+  it('Try again with no session stored shows the sign-in form', async () => {
+    const { app, visited } = await openTab(PROTECTED_PATH, busy({ record: { revision: 4, session: null } }))
+    await screen.findByText(waitingText)
+
+    fireEvent.click(tryAgain())
+
+    await loginForm()
+    expect(pathname()).toBe('/login')
+    expect(visited).toEqual([PROTECTED_PATH, '/login'])
+    expect(app.sessionRuntime.status()).toBe('signed-out')
+    expect(app.requests).toHaveLength(0)
+  })
+
+  it('Try again while storage is still busy stays on the waiting screen', async () => {
+    const { app, visited } = await openTab('/login', busy())
+    await screen.findByText(waitingText)
+
+    app.stillBusy()
+    fireEvent.click(tryAgain())
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50))
+    })
+
+    expect(screen.getByText(waitingText)).toBeInTheDocument()
+    expect(tryAgain()).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /sign in/i })).not.toBeInTheDocument()
+    expect(app.sessionRuntime.status()).toBe('storage-waiting')
+    expect(app.requests).toHaveLength(0)
+    expect(publicRequests).toHaveLength(0)
+    expect(visited).toEqual(['/login'])
+  })
+
+  it('Try again that finds storage broken shows the storage-unavailable screen', async () => {
+    const { app } = await openTab(PROTECTED_PATH, busy())
+    await screen.findByText(waitingText)
+
+    const { StorageUnavailableError } = await import('@/session/types')
+    app.failNextRead(new StorageUnavailableError('read failed'))
+    fireEvent.click(tryAgain())
+
+    expect(await screen.findByText(unavailableText)).toBeInTheDocument()
+    expect(screen.queryByText(waitingText)).not.toBeInTheDocument()
+    expect(app.sessionRuntime.status()).toBe('storage-unavailable')
+    expect(app.requests).toHaveLength(0)
+  })
+
+  it('a resume retries by itself', async () => {
+    const { app } = await openTab(PROTECTED_PATH, busy())
+    await screen.findByText(waitingText)
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    await screen.findByRole('heading', { name: /page not found/i })
+    expect(app.store.getState().auth.isAuthenticated).toBe(true)
+  })
+
+  it('a recovered session that must change its password is taken to that page, as at a normal start', async () => {
+    const session = storedSession({ user: { id: 'u1', username: 'stored', requiresPasswordChange: true } as never })
+    await openTab(PROTECTED_PATH, busy({ record: { revision: 1, session } }))
+    await screen.findByText(waitingText)
+
+    fireEvent.click(tryAgain())
+
+    await screen.findByRole('heading', { name: /password change required/i })
+    expect(pathname()).toBe('/change-password-required')
+    expect(document.querySelector('.app-shell-root')).toBeNull()
+  })
+})
+
 describe('storage unavailable', () => {
   const screenText = /this browser cannot store your session safely/i
 

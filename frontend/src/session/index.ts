@@ -7,7 +7,13 @@ import type { SessionStore } from './store/sessionStore'
 import type { ActiveSession, StoredState } from './types'
 import { StorageUnavailableError } from './types'
 import { store, apiSlices } from '@/store'
-import { sessionEstablished, tokensUpdated, sessionEnded, storageUnavailable } from '@/store/slices/authSlice'
+import {
+  sessionEstablished,
+  tokensUpdated,
+  sessionEnded,
+  storageUnavailable,
+  storageWaiting,
+} from '@/store/slices/authSlice'
 import { RESET_FOR_SESSION_END } from '@/store/sessionReset'
 
 const SESSION_CHANNEL_NAME = 'erp-session'
@@ -48,6 +54,9 @@ const events: RuntimeEvents = {
     store.dispatch({ type: RESET_FOR_SESSION_END })
     apiSlices.forEach((slice) => store.dispatch(slice.util.resetApiState()))
     if (reason === 'storage') store.dispatch(storageUnavailable())
+  },
+  storageWaiting(waiting) {
+    store.dispatch(storageWaiting(waiting))
   },
 }
 
