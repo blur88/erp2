@@ -1,10 +1,12 @@
 import React from 'react'
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeAll, beforeEach } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { RouterProvider } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/server'
 import { loadApp, storedSession, type LoadAppOptions } from '@/session/__tests__/appHarness'
 
 // The top bar's health indicator polls the server and expects its reply's shape.
@@ -61,14 +63,51 @@ async function openSignedInTab(path = PROTECTED_PATH) {
   return tab
 }
 
-const loginForm = () => screen.findByRole('button', { name: /sign in/i })
+// The login page asks one public question when it mounts (whether to show the
+// default credentials), through bare axios: no session gate, no token. It is the
+// only request that reaches the network here; everything sent through the
+// application's clients is in `app.requests`.
+let publicRequests: Request[] = []
+
+type EnvWindow = { __ENV__?: { VITE_API_BASE_URL?: string } }
+
+beforeEach(() => {
+  publicRequests = []
+  // Same-origin API, as behind NGINX.
+  ;(window as unknown as EnvWindow).__ENV__ = { VITE_API_BASE_URL: '/api' }
+  server.use(
+    http.get('*/auth/show-default-credentials', ({ request }) => {
+      publicRequests.push(request)
+      return HttpResponse.json({ showDefaultCredentials: false })
+    }),
+  )
+})
+
+// The login page, mounted once: its form is up and its one request was made.
+const loginForm = async () => {
+  const submit = await screen.findByRole('button', { name: /sign in/i })
+  await waitFor(() => expect(publicRequests).toHaveLength(1))
+  expect(publicRequests[0].headers.get('authorization')).toBeNull()
+  return submit
+}
 const pathname = () => window.location.pathname
+
+// The first import of the route tree is transformed here, under its own time
+// limit, rather than inside whichever test happens to run first.
+beforeAll(async () => {
+  const app = await loadApp()
+  await Promise.all([app.rehydrated(), app.sessionReady()])
+  const { router } = await import('@/router')
+  router.dispose()
+  vi.doUnmock('@/session/store/indexedDbSessionStore')
+}, 120_000)
 
 afterEach(() => {
   dispose?.()
   dispose = null
   vi.doUnmock('@/session/store/indexedDbSessionStore')
   sessionStorage.clear()
+  delete (window as unknown as EnvWindow).__ENV__
   window.history.replaceState(null, '', '/')
 })
 
@@ -145,6 +184,7 @@ describe('a tab whose session ends', () => {
 
     expect(visited).toEqual([PROTECTED_PATH, '/login'])
     expect(pathname()).toBe('/login')
+    // Still the one login page: it was not mounted a second time.
     expect(await loginForm()).toBeInTheDocument()
   })
 
