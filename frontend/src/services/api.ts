@@ -62,6 +62,10 @@ api.interceptors.request.use(
     const { ref, accessToken, signal } = await runtime!.beginRequest()
     if (timingEnabled()) recordGate('gate-before', performance.now() - started)
 
+    // A retry goes out only under the session the request was first sent under.
+    if (config.__sessionRef && config.__sessionRef.sessionId !== ref.sessionId) {
+      throw new SessionEndedError('session changed before the retry')
+    }
     config.__sessionRef = ref
     if (config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`

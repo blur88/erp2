@@ -9,7 +9,7 @@ import { SessionEndedError } from '@/session/types'
 import api from '@/services/api'
 import { authApi } from '@/services/authApi'
 import { createAuthHttp } from '@/session/authHttp'
-import { createHarness } from '@/session/__tests__/twoTabs'
+import { createHarness, holdRefreshResponses } from '@/session/__tests__/twoTabs'
 
 function makeRuntime() {
   const memory = createSharedMemory()
@@ -254,6 +254,40 @@ describe('api session interceptors — 401, refresh and retry', () => {
     expect(h.shared.state.record.session?.generation).toBe(4)
     // It reconciled: the other tab's tokens are already in this tab's memory.
     expect((tab.events.tokensUpdated as Mock).mock.calls.at(-1)?.[0].accessToken).toBe('at-other-tab')
+  })
+
+  it('a request sent under one session is not re-sent after the tab switched to another', async () => {
+    const x = h.shared.state.record.session!.sessionId
+    serve((config) => fail(config, 401))
+    // The refresh for X's 401 is still in flight when the tab signs out and in again as Y.
+    const gate = holdRefreshResponses(h.server)
+    const request = api.get('/inventory')
+    await vi.waitFor(() => expect(gate.waiting()).toBe(1))
+    await tab.runtime.signOut()
+    await tab.runtime.signIn({ usernameOrEmail: 'y', password: 'p' })
+    const y = { ...h.shared.state.record.session! }
+    expect(y.sessionId).not.toBe(x)
+    gate.release()
+
+    await expect(request).rejects.toMatchObject({ response: { status: 401 } })
+    expect(sent).toHaveLength(1)
+    expect(sent.map(bearer)).not.toContain(`Bearer ${y.accessToken}`)
+    expect(tab.runtime.claim()).toBe(y.sessionId)
+    expect(h.shared.state.record.session).toEqual(y)
+  })
+
+  it('a retry refuses to go out under a session other than the one the request captured', async () => {
+    serve((config) => fail(config, 401))
+    // The tab switches sessions in the gap between the runtime answering 'retry' and the re-send.
+    vi.spyOn(tab.runtime, 'handleUnauthorized').mockImplementation(async () => {
+      await tab.runtime.signOut()
+      await tab.runtime.signIn({ usernameOrEmail: 'y', password: 'p' })
+      return 'retry'
+    })
+
+    await expect(api.get('/inventory')).rejects.toBeInstanceOf(SessionEndedError)
+    expect(sent).toHaveLength(1)
+    expect(tab.runtime.status()).toBe('signed-in')
   })
 
   it('change-password with a 400 CURRENT_PASSWORD_INCORRECT surfaces the error, sends no refresh and ends no session', async () => {

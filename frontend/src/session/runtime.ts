@@ -368,19 +368,26 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   }
 
   const handleUnauthorized = async (ref: SessionRef): Promise<'retry' | 'ended'> => {
+    // The request was sent under a session this tab no longer holds. It is never
+    // refreshed for and never re-sent: a retry would go out with another
+    // session's token.
+    if (claim() !== ref.sessionId) return 'ended'
     // The tab adopted or refreshed since this request was sent: its 401 is for a
     // token the tab no longer uses, so retry with the current one.
-    if (memory && memory.sessionId === ref.sessionId && memory.generation > ref.generation) return 'retry'
-    if (refreshInFlight) return refreshInFlight
-    const promise = (async () => {
-      try {
-        return await doRefresh()
-      } finally {
-        refreshInFlight = null
-      }
-    })()
-    refreshInFlight = promise
-    return promise
+    if (memory && memory.generation > ref.generation) return 'retry'
+    if (!refreshInFlight) {
+      const promise = (async () => {
+        try {
+          return await doRefresh()
+        } finally {
+          refreshInFlight = null
+        }
+      })()
+      refreshInFlight = promise
+    }
+    const outcome = await refreshInFlight
+    // The tab may have switched sessions while the refresh was in flight.
+    return claim() === ref.sessionId ? outcome : 'ended'
   }
 
   // ---- slices ---------------------------------------------------------------

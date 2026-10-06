@@ -281,6 +281,40 @@ describe('session runtime — requests and refresh', () => {
     expect((await a.runtime.beginRequest()).ref.generation).toBe(2)
   })
 
+  it('a 401 for a request captured under another session is not refreshed and not retried', async () => {
+    const h = createHarness()
+    const a = await signedInTab(h)
+    const sentUnderX = (await a.runtime.beginRequest()).ref
+    await a.runtime.signOut()
+    await a.runtime.signIn({ usernameOrEmail: 'y', password: 'p' })
+    const y = { ...h.shared.state.record.session! }
+    expect(y.sessionId).not.toBe(sentUnderX.sessionId)
+
+    expect(await a.runtime.handleUnauthorized(sentUnderX)).toBe('ended')
+    expect(h.server.refreshCalls).toBe(0)
+    expect(a.runtime.claim()).toBe(y.sessionId)
+    expect(a.runtime.status()).toBe('signed-in')
+    expect(h.shared.state.record.session).toEqual(y)
+    expect(a.events.ended).toEqual(['explicit'])
+  })
+
+  it('a 401 whose refresh was overtaken by a switch to another session is not retried', async () => {
+    const h = createHarness()
+    const a = await signedInTab(h)
+    const sentUnderX = (await a.runtime.beginRequest()).ref
+    const gate = holdRefreshResponses(h.server)
+    const outcome = a.runtime.handleUnauthorized(sentUnderX)
+    await vi.waitFor(() => expect(gate.waiting()).toBe(1))
+    await a.runtime.signOut()
+    await a.runtime.signIn({ usernameOrEmail: 'y', password: 'p' })
+    const y = { ...h.shared.state.record.session! }
+    gate.release()
+
+    expect(await outcome).toBe('ended')
+    expect(a.runtime.claim()).toBe(y.sessionId)
+    expect(h.shared.state.record.session).toEqual(y)
+  })
+
   // The refresh is rejected at an unchanged generation, and another tab changes
   // the record between this tab's reconcile read and its failure-driven commit.
   async function refusedFailureEnding(change: (h: ReturnType<typeof createHarness>) => void) {
