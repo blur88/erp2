@@ -18,7 +18,7 @@ failed**: M1 2.1 ms and M2 5.1 ms passed; M3 99 / 330.1 ms and M4 205.3 /
 603.3 ms (one tab / four tabs, median p95 of three) failed the 10 / 20 ms
 targets they then had, and the run exited with status 1.
 
-On 2026-10-06 the repository owner decided two things, and the suite was
+On 2026-10-06 the repository owner decided three things, and the suite was
 revised to them:
 
 - **Latency.** M1 and M2 stay blocking. M3 and M4 became diagnostic. Their
@@ -28,11 +28,15 @@ revised to them:
 - **W1.** A tab counts as usable only with its expected data on screen and an
   action working, without a reload or a new sign-in. A rendered shell with
   missing data is not usable (see "W1 and the documented tab capacity").
+- **W1's user.** W1 signs in as a non-administrator, and recovery through a
+  page only an administrator can open no longer counts: the suite refuses
+  such a step and the tab fails (see "Who W1 runs as").
 
-**The revised suite has no recorded run yet.** The revision was exercised
-against the stack serving `582096992` (`measure.mjs`, and `cases.mjs --only
-W1` with the QA token lifetime); those are development results and not
-evidence. `run.sh` itself was not run for the revision.
+**The revised suite has no recorded run yet.** The revisions were exercised
+against the stack serving `582096992` (`measure.mjs`), and W1 in development
+mode against a local build of the checkout with the QA token lifetime
+(`QA_DIST_DIR`, `cases.mjs --only W1`); those are development results and not
+evidence. `run.sh` itself was not run for the revisions.
 
 ## What it does
 
@@ -58,7 +62,7 @@ condition in a comment above its `run()`.
 | 13 | IndexedDB unavailable | `cases/storage.mjs` |
 | 14 | Old bundle (no protocol marker) | `cases/marker.mjs` |
 | 15 | Resume without a channel message | `cases/signout.mjs` |
-| W1 | Restored window: N tabs opened at once, N = 5, 10, 20 | `lib/w1.mjs`, `lib/usable.mjs` |
+| W1 | Restored window: N tabs opened at once, N = 5, 10, 20, as a non-administrator | `lib/w1.mjs`, `lib/usable.mjs`, `lib/access.mjs` |
 
 `measure.mjs` measures what the reconcile gate costs (M1 to M5, below).
 
@@ -66,13 +70,16 @@ A case fails if any of its pass conditions is false, if it throws, or if any
 request outside the sign-in routes is answered 429 (W1 excepted: it exists to
 count them). Nothing is retried to make a case pass. W1's recovery of a tab
 whose data failed to load is not such a retry: it is bounded, it is what the
-definition of "usable" asks to be measured, and every action is recorded.
+definition of "usable" asks to be measured, and every action is recorded. The
+suite sends no request again by itself; the one automatic retry W1 sees is the
+application's own, of the company settings, and W1 records it.
 
 ## Running a recorded run
 
 ```bash
 export QA_USERNAME=... QA_PASSWORD=...        # the user the cases sign in as
 export QA_USERNAME_2=... QA_PASSWORD_2=...    # a second user, for case 5
+export QA_USERNAME_3=... QA_PASSWORD_3=...    # W1's user: not an administrator
 frontend/qa/cross-tab-session/run.sh "$(hostname -I | awk '{print $1}')"
 ```
 
@@ -112,18 +119,29 @@ back.
 ## What it needs
 
 - Docker, the running stack, and the Playwright image above (about 2 GB).
-- **Two accounts, given through the environment and never committed:**
-  `QA_USERNAME` / `QA_PASSWORD` and `QA_USERNAME_2` / `QA_PASSWORD_2`. Both must
-  be able to open the dashboard, the product list and sales orders, and
-  neither may be flagged to change its password at first sign-in: that
-  redirect blocks every case. `QA_USERNAME` must be an **administrator**: W1
-  recovers the sidebar's company data through Settings > Company, which only
-  an administrator can open (see W1 below for what that means for everyone
-  else). Use accounts made for this purpose; the run signs them in about
-  thirty times and ends their sessions.
-- **At least one customer** visible to `QA_USERNAME`. W1 asks every tab to
+- **Three accounts, given through the environment and never committed:**
+  `QA_USERNAME` / `QA_PASSWORD`, `QA_USERNAME_2` / `QA_PASSWORD_2` and
+  `QA_USERNAME_3` / `QA_PASSWORD_3`. None may be flagged to change its
+  password at first sign-in: that redirect blocks every case. Use accounts
+  made for this purpose; the run signs them in about thirty times and ends
+  their sessions.
+  - `QA_USERNAME` and `QA_USERNAME_2` are used by the fifteen cases and the
+    latency measurement. Both must be able to open the dashboard, the product
+    list and sales orders.
+  - `QA_USERNAME_3` is W1's user and must have the role **`sales_staff`**. It
+    must not be an administrator: W1 reads the role from the stored session
+    and stops if it is `admin`. `sales_staff` is the role the backend gives a
+    new user when none is named (`CreateUserDto`), and it is shown fifteen
+    pages: the dashboard, the three Sales pages and the eleven Accounting
+    pages. Another non-administrator role works only if it is shown *Sales >
+    Sales Orders* and *Sales > Customers*, which W1 follows (`manager` is);
+    W1 stops with that reason otherwise.
+- **At least one customer** visible to `QA_USERNAME_3`. W1 asks every tab to
   open the customer list and show its rows; it checks this once, before the
   first round, and stops if the list is empty. The suite only reads.
+- **The company settings have a name**, if the sidebar's company name is to be
+  checked on screen. Without one the sidebar has nothing to show and only the
+  request is judged.
 - About thirty sign-ins. They stay on `login_limit` (four, then one every
   12 s per address): `ctx.signIn` waits and retries on 429 for up to 90 s, and
   `results.json` records how many waits there were (`signInWaits`). The limit is
@@ -213,28 +231,76 @@ Decided by the repository owner on 2026-10-06, and implemented as written:
 > blocking. Business-endpoint 429s remain documented under #1353, provided
 > recovery meets the definition above.
 
+### Who W1 runs as
+
+W1 first ran as an administrator, and passed at N = 5 only because of that:
+when the sidebar's company request was refused, the one way to get the data
+back was the Company settings page, which only an administrator is shown. The
+owner decided, the same day:
+
+> Update W1 to exercise a non-administrator with representative permissions
+> and verify recovery without visiting administrator-only pages. If other
+> panels remain unusable, report those failures; don't silently broaden this
+> into global HTTP retries.
+>
+> Administrator-only recovery does not satisfy W1 for ordinary users.
+
+So W1 signs in as `QA_USERNAME_3`, a `sales_staff` user, and:
+
+- **The pages that user can open are read from the application**, not listed
+  here: `lib/access.mjs` reads `menuSections` and the role lists in
+  `frontend/src/config/navigation.tsx`, the one place that says which role is
+  shown which page (`router.tsx` puts no role on a route, so a page whose link
+  a user is not shown is a page that user has no link to). Before the first
+  round W1 opens every section of the sidebar and stops unless the titles on
+  screen are exactly the ones read from the file for the user's role.
+- **A step outside that set is refused.** Every sidebar link W1 follows, in
+  recovery and in the action, is looked up in the role's menu before anything
+  is clicked. A link the role is not shown is not followed
+  (`RecoveryRefused`), and the tab is recorded not usable with that reason.
+  The same happens if a click ends on a path outside the set.
+- **The suite adds no retry.** It follows links; it never sends a request
+  again. The application retries one request itself after a 429,
+  `GET /api/settings/company` (`store/api/settingsApi.ts`,
+  `services/retryOn429.ts`: up to 3 times, after 250-500, 500-1000 and
+  1000-2000 ms). W1 sees those repeats in its request log and records them.
+
+### How a tab is judged
+
 After a round has played out, `lib/usable.mjs` takes its tabs one at a time,
 as a person would work through a restored window:
 
-1. **Expected data.** The tab is at `/dashboard`, the "Dashboard" heading is
-   rendered (the page renders it only when none of its six queries is still
-   loading), the page shows no "Could not load: …" warning, and **no data
-   request the tab made is left failed**: for every request, by method, path
-   and query, the latest answer is 2xx. The last condition is what catches the
-   shell. The sidebar's company name and logo come from
-   `GET /api/settings/company`, and when that request fails the sidebar
-   silently shows its "ERP" placeholder: nothing on screen says so.
-2. **Recovery**, only if data is missing, and only through the sidebar's own
-   links, which change the route inside the running application. A reload, a
-   URL load and a sign-in are never used. The dashboard has no retry button,
-   so the action is *Inventory > Products, then Dashboard*: opening the
-   dashboard again asks again for what failed. That does not bring back the
-   company data, because the sidebar never leaves the screen; the only other
-   page that asks for it is *Settings > Company*, so that is the second
-   action. At most three actions per tab. Before each one the script waits
-   until `api_limit`'s bucket, replayed over what the profile sent, has room
-   for a page of requests, so recovery does not itself run into the limit.
-3. **An action.** *Sales > Customers* through the sidebar: the click must send
+1. **Expected data: the page.** The tab is at `/dashboard`, the "Dashboard"
+   heading is rendered (the page renders it only when none of its six queries
+   is still loading), the page shows no "Could not load: ..." warning, and no
+   data request the tab made is left failed: for every request, by method,
+   path and query, the latest answer is 2xx.
+2. **Expected data: the shell**, which is on every page.
+   - *Company data.* The sidebar's company name and logo come from
+     `GET /api/settings/company`. When that request fails the sidebar silently
+     shows its "ERP" placeholder. The tab has it when the latest answer to
+     that request is 2xx and the sidebar shows the name the server answered.
+   - *Regional settings.* `useRegionalSettings` (mounted once, in
+     `RootLayout`) asks `GET /api/settings/regional` and copies the date,
+     time and number formats, the currency, the time zone and the first day
+     of the week into `localStorage`; every formatter and date picker reads
+     them from there and falls back to built-in defaults when a key is absent.
+     So this request is judged **by its effect, not by its status**: the tab
+     has the regional settings when the values in its `localStorage` equal the
+     ones the server answered. See "What a refused regional-settings request
+     does" below for why, and for what that leaves out.
+3. **Recovery**, only if data is missing, and only by what the user can do
+   without a reload, a URL load or a sign-in. The dashboard has no retry
+   button, so the action is the one a person has: *Sales > Sales Orders, then
+   Dashboard*. Opening the dashboard again asks again for what the dashboard
+   asked for and did not get. At most three per tab. Before each one the
+   script waits until `api_limit`'s bucket, replayed over what the profile
+   sent, has room for a page of requests, so recovery does not itself run
+   into the limit. Shell data is different: the sidebar and the root layout
+   never leave the screen, so no page change asks for it again. When shell
+   data is all that is missing, one round trip is made (it is what a person
+   would try, and it is the evidence) and then no more.
+4. **An action.** *Sales > Customers* through the sidebar: the click must send
    a fresh request for the list, it must be answered 2xx, and the rows must be
    on screen (not a skeleton, not the empty message, no "Failed to load
    customers."). Up to three tries, each by leaving and coming back.
@@ -242,23 +308,64 @@ as a person would work through a restored window:
 A tab is usable only if all of that ends with the data present and the action
 working, in the same document it first loaded. A tab that cannot be recovered
 within the bound is **not usable**; nothing is retried beyond the bound to make
-it so.
+it so, and at N = 5 it fails W1.
 
-For each tab `results.json` holds whether its data was complete on first load,
-what was missing, every recovery action (which, why, how long it waited for
-the limit, how long it took, what was still missing after it), the time until
-the data was there, and each try of the action. For each round it holds how
-many tabs were complete on first load, how many needed recovery, the largest
-number of actions any tab needed, how many needed the Company page, and the
-tabs that were not recoverable with the reason for each.
+For each tab `results.json` holds:
 
-Two things about this check that a reader should know:
+- whether its data was complete on first load, and by name what was missing
+  (`firstLoad.missing`);
+- `company`: the status and send time of every `GET /api/settings/company`,
+  whether the data came on the first request, after the session's renewal
+  only (a 401, then the data), or by the application's retry after a 429, how
+  many retries were sent, how long from the first refusal to the data
+  (`automaticRetryWaitMs`), and whether the retries were used up;
+- whether its own regional-settings request was refused, and what was then
+  wrong with the formats, if anything;
+- every manual recovery action (what, why, how long it waited for the limit,
+  how long it took, what was still missing after it), and the time until the
+  data was there;
+- `notRecoverableByRole`: each piece of data the user had no way to get back,
+  by name, with the reason;
+- each try of the action, a refused step if there was one, and the verdict.
 
-- **The Company page is open to administrators only.** A tab recovered through
-  it counts as usable, because the user of this run could do it, and is
-  counted separately (`tabsNeedingCompanySettingsVisit`). For any other user
-  the sidebar's company data stays missing until a reload. That is reported
-  with the result every time it happens, not folded into the pass.
+For each round it holds the same things counted over its tabs, and
+`dataNotRecoverableByRole`: each such piece of data with the tabs it was
+missing in. `w1.recorded.user` holds the role, the pages it can open and the
+pages closed to it; `w1.recorded.judgement.dataNotRecoverableByRole` lists
+every loss at every size.
+
+### What a refused regional-settings request does
+
+Looked at in the running application on 2026-10-06, as the `sales_staff`
+user, with the server's date format `DD-MM-YYYY` (the built-in default is
+`DD/MM/YYYY`) and `GET /api/settings/regional` answered 429 by the script:
+
+| The profile's `localStorage` | What the tab showed |
+|---|---|
+| already holds the values (an earlier load of the same profile stored them) | exactly what a tab whose request succeeded shows: `02-10-2026`, `MYR 100.00`. No message. |
+| holds none (the first load of the profile was the refused one) | the defaults: the same order list showed `02/10/2026`. No message, no error. |
+
+In the second case the user then opened every one of the fifteen pages the
+role is shown; none asked for the regional settings again, and the keys were
+still absent at the end. The pages that do ask again are the product pages and
+three settings pages, and a `sales_staff` user is shown none of them.
+
+`localStorage` belongs to the profile, not to the tab, and W1's profile has
+loaded the application once (the sign-in) before the tabs open, as a restored
+window has. So in W1 a refused regional request normally leaves nothing
+missing, and that is what the check says: such tabs are counted
+(`tabsRegionalRequestRefused`) and are not failed unless the formats are in
+fact wrong (`tabsRegionalNotInEffect`). What W1 does **not** exercise is a
+profile whose storage is empty or out of date: there the refused request does
+change what is on screen, and an ordinary user cannot repair it without a
+reload.
+
+Two more things about this check that a reader should know:
+
+- **The company data cannot be recovered by an ordinary user** once the
+  application's retries are used up. That is not folded into anything: the tab
+  is not usable, the data is named in `notRecoverableByRole`, and at N = 5 W1
+  fails.
 - **The status indicator is not judged.** It polls `/api/health` every 30 s
   and repairs itself; 429s among its polls are counted per tab
   (`statusPolls429`).
@@ -267,8 +374,9 @@ Two things about this check that a reader should know:
 
 Blocking: at N = 5, in rounds (a) and (b), no request to `refresh`, `logout`
 or `me` is answered 429 (in the round itself or while its tabs are checked),
-and every tab is usable by the definition above. Everything else is recorded
-and not blocking.
+and every tab is usable for the non-administrator by the definition above:
+without a reload, a new sign-in or a page outside the role's set. Everything
+else is recorded and not blocking.
 
 The capacity the documentation may state (`w1.recorded.judgement`) is the
 largest N at which both hold in (a) and (b); no capacity is claimed beyond what
@@ -416,12 +524,15 @@ application records there:
 
 ```bash
 # the arithmetic and the judgement, no browser
-node --test frontend/qa/cross-tab-session/measure.test.mjs frontend/qa/cross-tab-session/usable.test.mjs
+node --test frontend/qa/cross-tab-session/measure.test.mjs frontend/qa/cross-tab-session/usable.test.mjs frontend/qa/cross-tab-session/access.test.mjs
 ```
 
 `measure.test.mjs` holds the blocking rule: M1 or M2 over its threshold fails
 the run, M3 and M4 at the figures of `582096992` do not, and the criteria block
-is present. `usable.test.mjs` holds the judgement of W1's "usable".
+is present. `usable.test.mjs` holds the judgement of W1's "usable", the
+reading of the company retry and the refusal of a step outside the role's
+pages. `access.test.mjs` holds the reading of `navigation.tsx`, on a small
+menu and on the real file.
 
 ## Where the gate's time goes: `diagnose-latency.mjs`
 
@@ -484,7 +595,7 @@ QA_W1_NS=5 node cases.mjs --only W1
 ```
 
 Both scripts need `QA_BASE_URL` (a LAN address, no port), `QA_STACK_SHOW` (a
-file holding `stack.sh show` output), the four credential variables, and
+file holding `stack.sh show` output), the six credential variables, and
 Playwright resolvable from `QA_SCRATCH`; run them in the Playwright container
 as `run.sh` does. `QA_DIST_DIR=<a local vite build>` serves the page and its
 assets from that directory through request interception while `/api` still
@@ -521,11 +632,22 @@ from the rates and bursts in `nginx/nginx.conf`, and must pass twice in a row.
 - The latency figures come from one machine and headless Chromium, with
   whatever else the host was running (recorded with them). They describe the
   cost where the run could reach; they do not predict another machine.
-- W1's usability check knows one page. "Expected data" is the dashboard's, and
-  the action is the customer list; a tab restored on another page is not
-  exercised. The check reads the dashboard's own warning and the request log,
-  so data a panel shows wrongly although its request succeeded would not be
-  seen.
+- W1's usability check knows one page and one role. "Expected data" is the
+  dashboard's and the shell's, the action is the customer list, and the user
+  is a `sales_staff` user; a tab restored on another page and the other
+  non-administrator roles are not exercised. The check reads the dashboard's
+  own warning, the sidebar's company name, the stored formats and the request
+  log, so data a panel shows wrongly although its request succeeded would not
+  be seen.
+- W1's profile has loaded the application before its tabs open, so its
+  `localStorage` already holds the regional formats. A profile with empty or
+  out-of-date storage, where a refused regional-settings request does change
+  what is on screen, is not exercised (see "What a refused regional-settings
+  request does").
+- The pages a role can open are the ones its menu shows. The frontend puts no
+  role on a route, so a user who types the address of a page they are not
+  shown does get that page; W1 never loads an address, and does not count
+  that as something an ordinary user would do.
 - W1 recovers tabs one at a time and paced. Several tabs recovered at once
   would send their requests together again, and that is not exercised.
 - The tab capacity of `session_limit` is the number W1 measured, and no more.
