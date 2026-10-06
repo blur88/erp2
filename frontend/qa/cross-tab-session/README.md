@@ -232,6 +232,42 @@ and for each disk whether it is rotational).
 node --test frontend/qa/cross-tab-session/measure.test.mjs   # the arithmetic, no browser
 ```
 
+## Where the gate's time goes: `diagnose-latency.mjs`
+
+`measure.mjs` says how long the gate takes. `diagnose-latency.mjs` says which
+layer the time is spent in. It is a diagnostic: no threshold, no pass or fail,
+never part of a recorded run, and `run.sh` does not call it. It loads the same
+three pages in one tab and in four and records, in the page, with product code
+unchanged:
+
+- every transaction on `erp-session`/`kv` with the time of each event, so a
+  read splits into created → first result → last result → `complete`;
+- main-thread delay (a 4 ms timer's lateness, long tasks, long animation
+  frames), and how much of each read coincides with it;
+- raw reads during the load from the main thread and from a worker (variant
+  `probed`): the worker's do not wait for the page's main thread;
+- the application's gate timings, each stamped with its end time, so reads
+  asked in the same turn and reads queued behind the page's own writes can be
+  counted.
+
+The other variants are **simulations** made by the script inside the page, to
+size a change before anyone writes it: `settleOnSuccess`, `noWrites`,
+`coalesce`, `lean` and `leanCoalesce` keep a storage read on every gate;
+`memoryReads` answers reads from a copy in the page and exists only as a
+zero-wait baseline (the spec forbids resolving the gate from memory). A
+simulated figure is an estimate of what a real change would give, not a
+measurement of one. The header of the script describes each variant.
+
+```bash
+QA_DIAG_REPS=5 node diagnose-latency.mjs   # same environment as measure.mjs
+node --test frontend/qa/cross-tab-session/diagnose-latency.test.mjs   # the arithmetic
+```
+
+`QA_DIAG_VARIANTS` and `QA_DIAG_TABS` select variants and tab counts. It writes
+`results-diagnose.json` (summary) and `diagnose-raw.json` to the scratch
+directory. Four tabs loading at once exceed `api_limit`'s burst, so those
+figures include 429s; the summary counts them per variant.
+
 ## `results.json`
 
 Written to the scratch directory (`ERP_SESSION_SCRATCH`, default
