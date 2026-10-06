@@ -14,14 +14,26 @@ export interface FakeSession {
   sessionId: string
   generation: number
   refreshToken: string
-  prevRefreshToken: string | null
-  prevSupersededAt: number | null
+  // Superseded refresh tokens and when each was superseded: grace is per token.
+  superseded: Map<string, number>
   revoked: boolean
+}
+
+export interface RefreshGate {
+  /** Refresh requests the server has answered but whose responses are held. */
+  waiting(): number
+  /** Deliver one held response (the oldest unless an index is given). */
+  releaseOne(index?: number): void
+  /** Deliver every held response and stop holding. */
+  release(): void
 }
 
 export interface FakeServer {
   sessions: Map<string, FakeSession>
   refreshCalls: number
+  rotations: number
+  recoveries: number
+  refreshGate: { wait(): Promise<void> } | null
   logoutCalls: string[]
   nextSeq: number
   accessLifetimeMs: number
@@ -41,6 +53,9 @@ export function createServer(opts?: { accessLifetimeMs?: number; graceMs?: numbe
   return {
     sessions: new Map(),
     refreshCalls: 0,
+    rotations: 0,
+    recoveries: 0,
+    refreshGate: null,
     logoutCalls: [],
     nextSeq: 1,
     accessLifetimeMs: opts?.accessLifetimeMs ?? 60000,
@@ -55,11 +70,58 @@ function issue(server: FakeServer, sessionId: string, generation: number, refres
   return {
     sessionId,
     generation,
-    accessToken: `at-${sessionId}-${generation}`,
+    accessToken: `at-${sessionId}-${generation}-${server.nextSeq++}`,
     accessTokenExpiresAt: clock.value + server.accessLifetimeMs,
     refreshToken,
     user: user as never,
   }
+}
+
+function findSession(server: FakeServer, refreshToken: string): FakeSession | undefined {
+  return [...server.sessions.values()].find((s) => s.refreshToken === refreshToken || s.superseded.has(refreshToken))
+}
+
+// Mirrors the server's refresh rules (spec A5): the current token rotates; a
+// superseded token strictly inside its own grace recovers the current tokens and
+// writes nothing; at or after its deadline it is replay and revokes the session.
+function answerRefresh(server: FakeServer, refreshToken: string): TokenResponse {
+  const failure = server.refreshFailure?.()
+  if (failure) throw failure
+  const found = findSession(server, refreshToken)
+  if (!found || found.revoked) throw new RefreshRejectedError('refresh rejected')
+
+  if (found.refreshToken === refreshToken) {
+    found.superseded.set(found.refreshToken, clock.value)
+    found.generation += 1
+    found.refreshToken = `rt-${found.sessionId}-${found.generation}`
+    server.rotations += 1
+  } else if (clock.value - (found.superseded.get(refreshToken) as number) >= server.graceMs) {
+    found.revoked = true
+    throw new RefreshRejectedError('replay')
+  } else {
+    server.recoveries += 1
+  }
+  return issue(server, found.sessionId, found.generation, found.refreshToken, { id: 'u' })
+}
+
+export function holdRefreshResponses(server: FakeServer): RefreshGate {
+  const held: Array<() => void> = []
+  const gate = { wait: () => new Promise<void>((resolve) => held.push(resolve)) }
+  server.refreshGate = gate
+  return {
+    waiting: () => held.length,
+    releaseOne(index = 0) {
+      held.splice(index, 1)[0]?.()
+    },
+    release() {
+      if (server.refreshGate === gate) server.refreshGate = null
+      held.splice(0).forEach((resolve) => resolve())
+    },
+  }
+}
+
+export function now(): number {
+  return clock.value
 }
 
 export function makeHttp(server: FakeServer): AuthHttp {
@@ -71,8 +133,7 @@ export function makeHttp(server: FakeServer): AuthHttp {
         sessionId,
         generation: 1,
         refreshToken,
-        prevRefreshToken: null,
-        prevSupersededAt: null,
+        superseded: new Map(),
         revoked: false,
       })
       const deliver = () => {
@@ -91,30 +152,24 @@ export function makeHttp(server: FakeServer): AuthHttp {
 
     async refresh(refreshToken) {
       server.refreshCalls += 1
-      const failure = server.refreshFailure?.()
-      if (failure) throw failure
-      const found = [...server.sessions.values()].find(
-        (s) => s.refreshToken === refreshToken || s.prevRefreshToken === refreshToken,
-      )
-      if (!found || found.revoked) throw new RefreshRejectedError('refresh rejected')
-      if (found.refreshToken !== refreshToken) {
-        if (clock.value - (found.prevSupersededAt ?? 0) > server.graceMs) {
-          found.revoked = true
-          throw new RefreshRejectedError('replay')
+      // The server decides when the request arrives; only the response is delayed.
+      let respond: () => TokenResponse
+      try {
+        const response = answerRefresh(server, refreshToken)
+        respond = () => response
+      } catch (error) {
+        respond = () => {
+          throw error
         }
       }
-      found.prevRefreshToken = found.refreshToken
-      found.prevSupersededAt = clock.value
-      found.generation += 1
-      found.refreshToken = `rt-${found.sessionId}-${found.generation}`
-      return issue(server, found.sessionId, found.generation, found.refreshToken, { id: 'u' })
+      if (server.refreshGate) await server.refreshGate.wait()
+      else await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      return respond()
     },
 
     async logout(refreshToken) {
       server.logoutCalls.push(refreshToken)
-      const found = [...server.sessions.values()].find(
-        (s) => s.refreshToken === refreshToken || s.prevRefreshToken === refreshToken,
-      )
+      const found = findSession(server, refreshToken)
       if (found) found.revoked = true
     },
   }

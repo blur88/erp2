@@ -268,6 +268,9 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     return claim() === ref.sessionId && stored.record.session?.sessionId === ref.sessionId
   }
 
+  const acquireLease = async (): Promise<boolean> =>
+    (await transact((s) => leaseAcquire(s, { owner: tabId, now: now(), ttlMs: LEASE_TTL_MS }))).acquired
+
   const doRefresh = async (): Promise<'retry' | 'ended'> => {
     const first = await readRecord()
     if (applyAdoption(reconcile(claim(), memory, first.record), first)) {
@@ -276,36 +279,42 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     }
     if (!memory) return 'ended'
 
-    const lease = await transact((s) => leaseAcquire(s, { owner: tabId, now: now(), ttlMs: LEASE_TTL_MS }))
-    if (!lease.acquired) {
-      const maxRounds = Math.max(1, Math.floor(LEASE_TTL_MS / 250))
-      let acquired = false
-      for (let round = 0; round < maxRounds && !acquired; round += 1) {
-        await new Promise((r) => setTimeout(r, 250))
-        const again = await readRecord()
-        if (applyAdoption(reconcile(claim(), memory, again.record), again)) {
-          if (status !== 'signed-in') return 'ended'
-          await transact((s) => leaseRelease(s, { owner: tabId })).catch(() => undefined)
-          return 'retry'
+    // The lease covers the refresh request itself: the tab that holds it sends,
+    // the others wait to adopt its tokens. A tab that outwaits the lease proceeds
+    // without it, and only the owner ever releases it.
+    let holdsLease = await acquireLease()
+    try {
+      if (!holdsLease) {
+        const maxRounds = Math.max(1, Math.floor(LEASE_TTL_MS / 250))
+        for (let round = 0; round < maxRounds && !holdsLease; round += 1) {
+          await new Promise((r) => setTimeout(r, 250))
+          const again = await readRecord()
+          if (applyAdoption(reconcile(claim(), memory, again.record), again)) {
+            if (status !== 'signed-in') return 'ended'
+            return 'retry'
+          }
+          if (!memory) return 'ended'
+          holdsLease = await acquireLease()
         }
-        if (!memory) return 'ended'
-        const retryLease = await transact((s) => leaseAcquire(s, { owner: tabId, now: now(), ttlMs: LEASE_TTL_MS }))
-        acquired = retryLease.acquired
       }
-    }
 
-    const second = await readRecord()
-    const adopted = applyAdoption(reconcile(claim(), memory, second.record), second)
-    await transact((s) => leaseRelease(s, { owner: tabId })).catch(() => undefined)
-    if (adopted) {
-      if (status !== 'signed-in') return 'ended'
-      return 'retry'
-    }
-    if (!memory) return 'ended'
+      const second = await readRecord()
+      if (applyAdoption(reconcile(claim(), memory, second.record), second)) {
+        if (status !== 'signed-in') return 'ended'
+        return 'retry'
+      }
+      if (!memory) return 'ended'
 
-    const requestSessionId = memory.sessionId
-    const capturedGeneration = memory.generation
-    const refreshToken = memory.refreshToken
+      return await sendRefresh(memory)
+    } finally {
+      if (holdsLease) await transact((s) => leaseRelease(s, { owner: tabId })).catch(() => undefined)
+    }
+  }
+
+  const sendRefresh = async (session: ActiveSession): Promise<'retry' | 'ended'> => {
+    const requestSessionId = session.sessionId
+    const capturedGeneration = session.generation
+    const refreshToken = session.refreshToken
 
     let response
     try {

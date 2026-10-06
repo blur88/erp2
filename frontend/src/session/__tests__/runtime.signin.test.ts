@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createHarness } from './twoTabs'
 import { SessionChangedElsewhereError } from '../runtime'
 
@@ -136,5 +136,45 @@ describe('session runtime — sign-in and startup', () => {
     const before = h.server.logoutCalls.length
     await a.runtime.signIn({ usernameOrEmail: 'u2', password: 'p' })
     expect(h.server.logoutCalls.length).toBeGreaterThan(before)
+  })
+
+  it('cancelled sign-in cleanup arriving after a newer session committed writes nothing', async () => {
+    const h = createHarness()
+    const a = h.createTab('A')
+    const b = h.createTab('B')
+    await a.runtime.start()
+    await b.runtime.start()
+
+    // A's commit completes, then its attempt is cancelled; before A's cleanup
+    // transaction runs, B signs in over A's unclaimed session.
+    const transact = a.store.transact.bind(a.store)
+    let calls = 0
+    vi.spyOn(a.store, 'transact').mockImplementation(async (decide, opts) => {
+      calls += 1
+      if (calls === 1) {
+        const result = await transact(decide, opts)
+        a.runtime.cancelSignIn()
+        return result
+      }
+      if (calls === 2) await b.runtime.signIn({ usernameOrEmail: 'b', password: 'p' })
+      return transact(decide, opts)
+    })
+
+    await expect(a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' })).rejects.toBeInstanceOf(
+      SessionChangedElsewhereError,
+    )
+    expect(calls).toBe(2)
+
+    const bSession = b.runtime.claim()
+    expect(bSession).toBeTruthy()
+    // A committed (revision 1), B committed over it (revision 2); A's cleanup wrote nothing.
+    expect(h.shared.state.record.revision).toBe(2)
+    expect(h.shared.state.record.session?.sessionId).toBe(bSession)
+    expect(b.runtime.status()).toBe('signed-in')
+    expect(b.events.established).toBe(1)
+    expect(b.events.ended).toEqual([])
+    expect(await b.runtime.canDeliver((await b.runtime.beginRequest()).ref)).toBe(true)
+    expect(a.runtime.claim()).toBeNull()
+    expect(a.events.established).toBe(0)
   })
 })

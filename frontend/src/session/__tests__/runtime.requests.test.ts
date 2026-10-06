@@ -1,9 +1,16 @@
-import { describe, it, expect, vi } from 'vitest'
-import { createHarness, advance } from './twoTabs'
+import { describe, it, expect, vi, type Mock } from 'vitest'
+import { createHarness, advance, now, holdRefreshResponses, type Tab } from './twoTabs'
 import { SessionEndedError, StorageTimeoutError, StorageUnavailableError } from '../types'
 import { RefreshRejectedError } from '../authHttp'
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// The tokens the tab last took into memory through a refresh or an adoption.
+const lastTokens = (tab: Tab) =>
+  (tab.events.tokensUpdated as Mock).mock.calls.at(-1)?.[0] as
+    | { accessToken: string; accessTokenExpiresAt: number; refreshToken: string }
+    | undefined
 
 async function signedInTab(h: ReturnType<typeof createHarness>, id = 'A') {
   const tab = h.createTab(id)
@@ -56,26 +63,141 @@ describe('session runtime — requests and refresh', () => {
     const refA = (await a.runtime.beginRequest()).ref
     const refB = (await b.runtime.beginRequest()).ref
 
-    const [ra, rb] = await Promise.all([a.runtime.handleUnauthorized(refA), b.runtime.handleUnauthorized(refB)])
+    const gate = holdRefreshResponses(h.server)
+    const pa = a.runtime.handleUnauthorized(refA)
+    const pb = b.runtime.handleUnauthorized(refB)
+    await vi.waitFor(() => expect(gate.waiting()).toBe(1))
+
+    // A's refresh is in flight and A holds the lease. B polls every 250 ms and
+    // must not send its own.
+    await wait(600)
     expect(h.server.refreshCalls).toBe(1)
+    expect(h.shared.state.refreshLease?.owner).toBe('A')
+
+    gate.release()
+    const [ra, rb] = await Promise.all([pa, pb])
     expect(ra).toBe('retry')
     expect(rb).toBe('retry')
+    expect(h.server.refreshCalls).toBe(1)
+    expect((await a.runtime.beginRequest()).ref.generation).toBe(2)
+    expect((await b.runtime.beginRequest()).ref.generation).toBe(2)
+    expect(h.shared.state.refreshLease).toBeNull()
   })
 
-  it('without the lease both would still be correct', async () => {
-    const h = createHarness()
+  // Both tabs send: A rotates at t0, then A's lease is expired on the shared clock
+  // (still inside the server's 60 s grace) so B sees it free and its superseded
+  // token is recovered. Both responses are held for the test to deliver in order.
+  async function racedRefreshes(h: ReturnType<typeof createHarness>) {
     const a = await signedInTab(h, 'A')
     const b = h.createTab('B')
     await b.runtime.start()
-    // Force both to see the lease free: expire it by advancing the clock.
-    advance(30000)
     const refA = (await a.runtime.beginRequest()).ref
     const refB = (await b.runtime.beginRequest()).ref
-    await Promise.all([a.runtime.handleUnauthorized(refA), b.runtime.handleUnauthorized(refB)])
-    expect(h.server.refreshCalls).toBeGreaterThanOrEqual(1)
-    // Both end on the same generation.
-    const stored = await a.store.read()
-    expect(stored.record.session?.generation).toBeGreaterThanOrEqual(2)
+
+    const gate = holdRefreshResponses(h.server)
+    const pa = a.runtime.handleUnauthorized(refA)
+    await vi.waitFor(() => expect(gate.waiting()).toBe(1))
+    advance(30000)
+    const pb = b.runtime.handleUnauthorized(refB)
+    await vi.waitFor(() => expect(gate.waiting()).toBe(2))
+    return { a, b, gate, pa, pb }
+  }
+
+  it('without the lease both would still be correct', async () => {
+    const h = createHarness()
+    const { a, b, gate, pa, pb } = await racedRefreshes(h)
+    gate.release()
+    expect(await pa).toBe('retry')
+    expect(await pb).toBe('retry')
+
+    expect(h.server.refreshCalls).toBe(2)
+    expect(h.server.rotations).toBe(1)
+    expect(h.server.recoveries).toBe(1)
+    expect((await a.runtime.beginRequest()).ref.generation).toBe(2)
+    expect((await b.runtime.beginRequest()).ref.generation).toBe(2)
+    const stored = (await a.store.read()).record.session!
+    expect(stored.generation).toBe(2)
+    expect(lastTokens(a)?.refreshToken).toBe(stored.refreshToken)
+    expect(lastTokens(b)?.refreshToken).toBe(stored.refreshToken)
+    expect(h.shared.state.refreshLease).toBeNull()
+  })
+
+  it('the lease is released when the refresh fails with a network error', async () => {
+    const h = createHarness()
+    const a = await signedInTab(h)
+    h.server.refreshFailure = () => Object.assign(new Error('network'), { code: 'ERR_NETWORK' })
+    const ref = (await a.runtime.beginRequest()).ref
+    await expect(a.runtime.handleUnauthorized(ref)).rejects.toThrow('network')
+    expect(h.server.refreshCalls).toBe(1)
+    expect(h.shared.state.refreshLease).toBeNull()
+  })
+
+  it('the lease is released when the refresh is rejected', async () => {
+    const h = createHarness()
+    const a = await signedInTab(h)
+    h.server.sessions.get(a.runtime.claim()!)!.revoked = true
+    const ref = (await a.runtime.beginRequest()).ref
+    expect(await a.runtime.handleUnauthorized(ref)).toBe('ended')
+    expect(h.server.refreshCalls).toBe(1)
+    expect(h.shared.state.refreshLease).toBeNull()
+  })
+
+  it('equal generation with a later accessTokenExpiresAt replaces an expired stored access token', async () => {
+    const h = createHarness({ accessLifetimeMs: 1000 })
+    const { a, gate, pa, pb } = await racedRefreshes(h)
+
+    gate.releaseOne() // A's rotation, issued 30 s ago
+    expect(await pa).toBe('retry')
+    const rotated = (await a.store.read()).record.session!
+    expect(rotated.generation).toBe(2)
+    expect(rotated.accessTokenExpiresAt).toBeLessThan(now())
+
+    gate.releaseOne() // B's recovery: same generation, later expiry
+    expect(await pb).toBe('retry')
+    const stored = (await a.store.read()).record.session!
+    expect(stored.generation).toBe(2)
+    expect(stored.refreshToken).toBe(rotated.refreshToken)
+    expect(stored.accessToken).not.toBe(rotated.accessToken)
+    expect(stored.accessTokenExpiresAt).toBeGreaterThan(now())
+  })
+
+  it('equal generation with an earlier one is discarded', async () => {
+    const h = createHarness({ accessLifetimeMs: 1000 })
+    const { a, gate, pa, pb } = await racedRefreshes(h)
+
+    gate.releaseOne(1) // B's recovery commits first
+    expect(await pb).toBe('retry')
+    const recovered = (await a.store.read()).record.session!
+    expect(recovered.generation).toBe(2)
+
+    gate.releaseOne() // A's rotation: same generation, earlier expiry
+    expect(await pa).toBe('retry')
+    expect((await a.store.read()).record.session).toEqual(recovered)
+    // A adopted what is stored instead of its own response.
+    expect(lastTokens(a)?.accessToken).toBe(recovered.accessToken)
+    expect(h.server.refreshCalls).toBe(2)
+  })
+
+  it('a discard followed by an expired adopted token ends in one further refresh, not a loop', async () => {
+    const h = createHarness({ accessLifetimeMs: 1000 })
+    const { a, gate, pa, pb } = await racedRefreshes(h)
+    gate.releaseOne(1)
+    await pb
+    gate.release()
+    expect(await pa).toBe('retry') // discarded, adopted the stored tokens
+    expect(h.server.refreshCalls).toBe(2)
+
+    advance(2000) // the adopted access token has expired: the retry gets 401 again
+    const ref = (await a.runtime.beginRequest()).ref
+    expect(ref.generation).toBe(2)
+    expect(await a.runtime.handleUnauthorized(ref)).toBe('retry')
+
+    expect(h.server.refreshCalls).toBe(3)
+    expect(h.server.rotations).toBe(2)
+    const stored = (await a.store.read()).record.session!
+    expect(stored.generation).toBe(3)
+    expect(stored.accessTokenExpiresAt).toBeGreaterThan(now())
+    expect(a.runtime.status()).toBe('signed-in')
   })
 
   it('a response with a lower generation is discarded and the stored tokens adopted', async () => {
