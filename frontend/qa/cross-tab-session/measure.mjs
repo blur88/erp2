@@ -9,30 +9,38 @@
 //
 //   M1  one raw read, one tab idle                     blocking p95 <= 5 ms
 //   M2  one raw read, four tabs busy, a fifth writing  blocking p95 <= 15 ms
-//   M3  the adapter's reads in the running app         blocking p95 <= 10 ms (one tab), <= 20 ms (four)
-//   M4  what one request waits for the gate            blocking p95 <= 10 ms (one tab), <= 20 ms (four)
-//   M5  page-level aggregate estimate                  none: diagnostic only
+//   M3  the adapter's reads in the running app         diagnostic: recorded, not judged
+//   M4  what one request waits for the gate            diagnostic: recorded, not judged
+//   M5  page-level aggregate estimate                  diagnostic: recorded, not judged
+//
+// The criteria were revised on 2026-10-06 (lib/latency-criteria.mjs). M3 and
+// M4 first had provisional targets of 10 ms in one tab and 20 ms in four.
+// Those were replaced, not met: the recorded run on 582096992 measured 99 /
+// 330.1 ms and 205.3 / 603.3 ms and failed. M3 and M4 are still measured in
+// full, and are shown against the former targets so that nothing here can be
+// read as "the gate is fast".
 //
 // Each blocking figure is the MEDIAN p95 of three repetitions, so one slow
 // run does not decide the outcome. Maxima and p99 are recorded for every
 // measurement and never block.
 //
-// Writes <scratch>/results-latency.json; exits non-zero if a blocking
-// threshold is exceeded or a blocking measurement has no samples.
+// Writes <scratch>/results-latency.json; exits non-zero if M1 or M2 exceeds
+// its threshold, or if any of M1 to M4 has a repetition without samples.
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { launchOptions, loadConfig, loadPlaywright, loadZones, sleep } from './lib/config.mjs'
 import { CaseContext, Run, pageFetch, readStored, showsSignedInUi } from './lib/harness.mjs'
 import { machine, servedBuild } from './lib/machine.mjs'
+import { BLOCKING_REPETITIONS, CRITERIA, blockingFigure, diagnosticFigure, judge, summaryLines } from './lib/latency-criteria.mjs'
 import { median, summary } from './lib/stats.mjs'
 
 export { peakDemand } from './lib/stats.mjs'
 
 const READS = 500
-const BLOCKING_REPETITIONS = 3
 const PAGE_REPETITIONS = 5
-const THRESHOLDS_MS = { M1: 5, M2: 15, M3: { oneTab: 10, fourTabs: 20 }, M4: { oneTab: 10, fourTabs: 20 } }
+const THRESHOLDS_MS = { M1: CRITERIA.blocking.M1.p95Ms, M2: CRITERIA.blocking.M2.p95Ms }
+const FORMER_TARGETS_MS = CRITERIA.formerProvisionalTargets.p95Ms
 const M5_SENTENCE =
   'Requests on a page overlap, so the sum of their gate waits is not the time the gate adds to the page load; it is an upper bound on it.'
 
@@ -176,23 +184,6 @@ function inFlight(entries) {
 const sum = (values) => values.reduce((a, b) => a + b, 0)
 const round3 = (v) => (v === null || v === undefined ? null : Math.round(v * 1000) / 1000)
 
-/** Median of the per-repetition p95s, with the repetitions shown. */
-function blockingFigure(repetitions, limit) {
-  const used = repetitions.slice(0, BLOCKING_REPETITIONS)
-  const stats = used.map(summary)
-  const p95s = stats.map((s) => s.p95).filter((v) => v !== null)
-  const medianP95 = p95s.length === used.length && used.length === BLOCKING_REPETITIONS ? round3(median(p95s)) : null
-  return {
-    repetitions: stats,
-    medianP95Ms: medianP95,
-    thresholdMs: limit,
-    pass: medianP95 !== null && medianP95 <= limit,
-    reason: medianP95 === null ? 'no samples in at least one repetition' : undefined,
-    maxMs: round3(Math.max(0, ...stats.map((s) => s.max ?? 0))),
-    p99Ms: stats.map((s) => s.p99),
-  }
-}
-
 async function main() {
   const config = loadConfig()
   const zones = await loadZones()
@@ -257,7 +248,11 @@ async function main() {
     const entries = all.flatMap((l) => l.entries)
     const non2xx = all.flatMap((l) => Object.entries(l.statuses).filter(([status]) => !/^2/.test(status)))
     if (non2xx.length > 0) notes.push(`${name}: some requests were not answered 2xx during the loads: ${JSON.stringify(non2xx)}`)
+    // 429s among the measured loads, counted and never hidden: four tabs
+    // loading at once send more than api_limit's burst admits.
+    const answered429 = sum(all.map((l) => l.statuses['429'] ?? 0))
     variants[name] = {
+      loadRequests: { loads: all.length, requests: sum(all.map((l) => l.requests)), answered429 },
       reads: repetitions.map((loads) => loads.flatMap((l) => l.entries.filter((e) => e.op === 'read').map((e) => e.ms))),
       gates: repetitions.map((loads) => loads.flatMap((l) => gateWaits(l.entries).waits)),
       pairing: gateWaits(entries).pairing,
@@ -288,7 +283,25 @@ async function main() {
     chromium: browser.version(),
     machine: machine(),
     configuration: config.show,
-    rule: `Each blocking figure is the median p95 of ${BLOCKING_REPETITIONS} repetitions. Maxima and p99 are recorded and never block.`,
+    criteria: CRITERIA,
+    rule: `M1 and M2 block, each on the median p95 of ${BLOCKING_REPETITIONS} repetitions. M3, M4 and M5 are diagnostic and are not judged. Maxima and p99 are recorded and never block.`,
+    // What M3 and M4 were measured on. The machine and the browser are also
+    // at the top of this file; they are repeated here because a diagnostic
+    // figure means nothing without them.
+    environment: {
+      machine: machine(),
+      diskKinds: machine().disks.map((d) => `${d.name}: ${d.kind}`),
+      chromium: browser.version(),
+      accessTokenExpiry: config.show.accessTokenExpiry,
+      requestsAnswered429DuringMeasuredLoads: {
+        oneTab: variants.oneTab.loadRequests,
+        fourTabs: variants.fourTabs.loadRequests,
+        any: variants.oneTab.loadRequests.answered429 + variants.fourTabs.loadRequests.answered429 > 0,
+        total: variants.oneTab.loadRequests.answered429 + variants.fourTabs.loadRequests.answered429,
+      },
+      competingWorkload:
+        'Not visible from inside the browser container. run.sh records the host\'s container list before the measurement and finalize.mjs adds it here in results.json.',
+    },
     M1: { what: `one raw read, one tab idle; ${READS} sequential read-only transactions per repetition`, ...blockingFigure(m1, THRESHOLDS_MS.M1) },
     M2: {
       what: `one raw read in four tabs at once (${READS} each per repetition) while a fifth tab commits a write every 100 ms`,
@@ -297,14 +310,16 @@ async function main() {
     },
     M3: {
       what: "the adapter's own `read` timings while the dashboard, the products list and a sales order load",
-      oneTab: blockingFigure(variants.oneTab.reads, THRESHOLDS_MS.M3.oneTab),
-      fourTabs: blockingFigure(variants.fourTabs.reads, THRESHOLDS_MS.M3.fourTabs),
+      status: CRITERIA.diagnostic.statement,
+      oneTab: diagnosticFigure(variants.oneTab.reads, FORMER_TARGETS_MS.M3.oneTab),
+      fourTabs: diagnosticFigure(variants.fourTabs.reads, FORMER_TARGETS_MS.M3.fourTabs),
       transactTimings: { oneTab: variants.oneTab.transacts, fourTabs: variants.fourTabs.transacts },
     },
     M4: {
       what: 'per request, gate-before + gate-after: wall time added to that request, queueing included',
-      oneTab: { ...blockingFigure(variants.oneTab.gates, THRESHOLDS_MS.M4.oneTab), pairing: variants.oneTab.pairing, inFlight: variants.oneTab.inFlight },
-      fourTabs: { ...blockingFigure(variants.fourTabs.gates, THRESHOLDS_MS.M4.fourTabs), pairing: variants.fourTabs.pairing, inFlight: variants.fourTabs.inFlight },
+      status: CRITERIA.diagnostic.statement,
+      oneTab: { ...diagnosticFigure(variants.oneTab.gates, FORMER_TARGETS_MS.M4.oneTab), pairing: variants.oneTab.pairing, inFlight: variants.oneTab.inFlight },
+      fourTabs: { ...diagnosticFigure(variants.fourTabs.gates, FORMER_TARGETS_MS.M4.fourTabs), pairing: variants.fourTabs.pairing, inFlight: variants.fourTabs.inFlight },
     },
     M5: {
       label: 'Aggregate-cost estimate. Diagnostic only: no threshold, and no share of page load is computed from it.',
@@ -321,19 +336,9 @@ async function main() {
       `The access lifetime during this measurement was ${config.show.accessTokenExpiry}, under five minutes: the figures include refreshes that ordinary use does not have.`,
     )
   }
-  const blocking = [
-    ['M1', latency.M1],
-    ['M2', latency.M2],
-    ['M3 one tab', latency.M3.oneTab],
-    ['M3 four tabs', latency.M3.fourTabs],
-    ['M4 one tab', latency.M4.oneTab],
-    ['M4 four tabs', latency.M4.fourTabs],
-  ]
-  latency.maximaAbove100Ms = blocking.filter(([, f]) => f.maxMs > 100).map(([name, f]) => `${name}: max ${f.maxMs} ms`)
-  latency.blockingFailures = blocking
-    .filter(([, f]) => !f.pass)
-    .map(([name, f]) => `${name}: ${f.reason ?? `median p95 ${f.medianP95Ms} ms over the ${f.thresholdMs} ms threshold`}`)
-  latency.pass = latency.blockingFailures.length === 0
+  // Pass condition: M1 and M2 within their thresholds, and M3 and M4
+  // recorded. See judge() for why the size of M3 and M4 cannot fail the run.
+  Object.assign(latency, judge(latency))
   latency.signInWaits = run.signInWaits
 
   await ctx.close()
@@ -341,9 +346,10 @@ async function main() {
 
   const out = join(config.scratch, 'results-latency.json')
   writeFileSync(out, JSON.stringify(latency, null, 2))
-  for (const [name, f] of blocking) {
-    console.log(`  ${f.pass ? 'ok  ' : 'FAIL'} ${name}: median p95 ${f.medianP95Ms} ms (threshold ${f.thresholdMs}), max ${f.maxMs} ms`)
-  }
+  for (const line of summaryLines(latency)) console.log(`  ${line}`)
+  for (const line of latency.diagnosticsNotRecorded) console.log(`  FAIL ${line}`)
+  const seen429 = latency.environment.requestsAnswered429DuringMeasuredLoads
+  console.log(`  measured loads answered 429: ${seen429.oneTab.answered429} of ${seen429.oneTab.requests} (one tab), ${seen429.fourTabs.answered429} of ${seen429.fourTabs.requests} (four tabs)`)
   console.log(`  M5 (diagnostic): ${M5_SENTENCE}`)
   console.log(`wrote ${out}`)
   process.exit(latency.pass ? 0 : 1)

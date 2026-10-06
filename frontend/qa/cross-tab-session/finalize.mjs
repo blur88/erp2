@@ -9,8 +9,13 @@
 //   results-latency.json   M1 to M5                              (measure.mjs)
 //   stack-before.recorded.json / stack-during.json / stack-after.json
 //                          `stack.sh show` before, during and after the run
+//   docker-ps-before-latency.txt
+//                          the host's containers just before the measurement
+//                          (run.sh); recorded with M3 and M4 as the competing
+//                          workload
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { competingWorkload, summaryLines } from './lib/latency-criteria.mjs'
 
 const scratch = process.env.QA_SCRATCH || process.cwd()
 const read = (name) => {
@@ -26,6 +31,12 @@ const read = (name) => {
 const cases = read('results-cases.json')
 const latency = read('results-latency.json')
 const status = Number(process.env.QA_RUN_STATUS ?? 1)
+
+// The competing workload belongs with the diagnostic figures it explains. A
+// list that was not captured is recorded as not captured, never as "none".
+const psPath = join(scratch, 'docker-ps-before-latency.txt')
+const workload = competingWorkload(existsSync(psPath) ? readFileSync(psPath, 'utf8') : null)
+if (!latency.missing) latency.environment = { ...(latency.environment ?? {}), competingWorkload: workload }
 const restoreFailed = process.env.QA_RESTORE_FAILED === '1'
 
 const results = {
@@ -78,7 +89,12 @@ if (results.w1) {
 }
 if (latency.missing) console.log(`  latency: ${latency.missing}`)
 else {
-  console.log(`  latency ${latency.pass ? 'pass' : 'FAIL'}${latency.blockingFailures?.length ? `: ${latency.blockingFailures.join('; ')}` : ''}`)
+  const failures = [...(latency.blockingFailures ?? []), ...(latency.diagnosticsNotRecorded ?? [])]
+  console.log(`  latency ${latency.pass ? 'pass (M1 and M2 only; M3 and M4 are diagnostic and were not judged)' : 'FAIL'}${failures.length ? `: ${failures.join('; ')}` : ''}`)
+  for (const line of summaryLines(latency)) console.log(`     ${line}`)
   for (const line of latency.maximaAbove100Ms ?? []) console.log(`     (not blocking) ${line}`)
+  const seen = latency.environment?.requestsAnswered429DuringMeasuredLoads
+  if (seen) console.log(`     measured loads answered 429: ${seen.oneTab.answered429} of ${seen.oneTab.requests} (one tab), ${seen.fourTabs.answered429} of ${seen.fourTabs.requests} (four tabs)`)
+  console.log(`     competing workload: ${workload.note}`)
 }
 console.log(`  sign-in waits: ${results.signInWaits}   results: ${join(scratch, 'results.json')}`)

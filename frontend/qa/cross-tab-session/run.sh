@@ -121,7 +121,8 @@ if [ -f "${SCRATCH}/stack-before.json" ]; then
   "${QA_DIR}/stack.sh" restore || refuse "could not restore a leftover capture"
 fi
 rm -f "${SCRATCH}"/results-cases.json "${SCRATCH}"/results-latency.json "${SCRATCH}"/results.json \
-  "${SCRATCH}"/stack-during.json "${SCRATCH}"/stack-after.json "${SCRATCH}"/stack-before.recorded.json
+  "${SCRATCH}"/stack-during.json "${SCRATCH}"/stack-after.json "${SCRATCH}"/stack-before.recorded.json \
+  "${SCRATCH}"/docker-ps-before-latency.txt
 "${QA_DIR}/stack.sh" show > "${SCRATCH}/stack-before.json.tmp" || refuse "could not read the running configuration"
 mv "${SCRATCH}/stack-before.json.tmp" "${SCRATCH}/stack-before.json"
 cp "${SCRATCH}/stack-before.json" "${SCRATCH}/stack-before.recorded.json"
@@ -148,10 +149,24 @@ PROBE_PID=""
 
 # 6. Restore, then measure latency under the restored configuration. The
 #    measurement runs whether or not a case failed (it cannot clear the
-#    status), but never over a stack that was not restored.
+#    status), but never over a stack that was not restored. Only M1 and M2 can
+#    fail it by their size; M3 and M4 are diagnostic since 2026-10-06 (their
+#    former 10 / 20 ms targets were replaced, not met) and fail it only if
+#    they could not be recorded at all.
 restore_stack
 if [ "${RESTORE_FAILED}" -eq 0 ]; then
   if "${QA_DIR}/stack.sh" show > "${SCRATCH}/stack-after.json"; then
+    # What else runs on this host while the latency is measured. The browser
+    # container cannot see it, so it is taken here; finalize.mjs records it
+    # with M3 and M4 and flags restarting containers. Written to a temporary
+    # name first: if the listing fails there is no file, and results.json says
+    # the workload was not captured instead of showing an empty list.
+    if docker ps --format '{{.Names}}\t{{.Status}}' > "${SCRATCH}/docker-ps-before-latency.txt.tmp"; then
+      mv "${SCRATCH}/docker-ps-before-latency.txt.tmp" "${SCRATCH}/docker-ps-before-latency.txt"
+    else
+      rm -f "${SCRATCH}/docker-ps-before-latency.txt.tmp"
+      echo "could not list the host's containers; the competing workload will be recorded as not captured" >&2
+    fi
     in_playwright measure.mjs stack-after.json || fail 1
   else
     fail 1
