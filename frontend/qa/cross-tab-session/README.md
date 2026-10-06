@@ -3,6 +3,11 @@
 On-demand, manual coverage. CI has no NGINX and no browser, so this is not a CI
 gate; results are recorded in the pull request.
 
+> **Status at commit `79949b451`: incomplete.** `cases.mjs` holds 2 of the 15
+> cases, workload W1 does not exist, and `measure.mjs` measures M1 only. A run of
+> this script at that commit is not evidence, even if it exits 0. See
+> `docs/modules/auth/SESSION_QA.md`, "Status after review".
+
 ## Running a recorded run
 
 ```bash
