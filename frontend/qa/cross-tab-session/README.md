@@ -12,15 +12,27 @@ the real ingress.
 
 ## Status
 
-Everything the plan asks of this directory is written: the fifteen cases, W1,
-M1 to M5, the stack and run scripts. **No recorded run exists yet**, so nothing
-here is evidence until `run.sh` has completed on a commit and its
-`results.json` is in the pull request. Each case, W1 and the measurement were
-exercised during development against the checkout's frontend served through
-`QA_DIST_DIR` (below) and a backend image older than the checkout; `run.sh`
-itself and `stack.sh qa-up` / `restore` were not run, because they rebuild the
-images. A development run is not evidence; what it found belongs in the pull
-request and in `docs/modules/auth/SESSION_QA.md`.
+One recorded run exists, on `582096992`, made before the two decisions below.
+All fifteen cases passed, W1 passed as it was then judged, and **latency
+failed**: M1 2.1 ms and M2 5.1 ms passed; M3 99 / 330.1 ms and M4 205.3 /
+603.3 ms (one tab / four tabs, median p95 of three) failed the 10 / 20 ms
+targets they then had, and the run exited with status 1.
+
+On 2026-10-06 the repository owner decided two things, and the suite was
+revised to them:
+
+- **Latency.** M1 and M2 stay blocking. M3 and M4 became diagnostic. Their
+  10 / 20 ms targets were provisional and were **replaced, not met**; the
+  failed figures above stay on record, in this file and in every result the
+  suite writes (see "The latency measurement").
+- **W1.** A tab counts as usable only with its expected data on screen and an
+  action working, without a reload or a new sign-in. A rendered shell with
+  missing data is not usable (see "W1 and the documented tab capacity").
+
+**The revised suite has no recorded run yet.** The revision was exercised
+against the stack serving `582096992` (`measure.mjs`, and `cases.mjs --only
+W1` with the QA token lifetime); those are development results and not
+evidence. `run.sh` itself was not run for the revision.
 
 ## What it does
 
@@ -46,13 +58,15 @@ condition in a comment above its `run()`.
 | 13 | IndexedDB unavailable | `cases/storage.mjs` |
 | 14 | Old bundle (no protocol marker) | `cases/marker.mjs` |
 | 15 | Resume without a channel message | `cases/signout.mjs` |
-| W1 | Restored window: N tabs opened at once, N = 5, 10, 20 | `lib/w1.mjs` |
+| W1 | Restored window: N tabs opened at once, N = 5, 10, 20 | `lib/w1.mjs`, `lib/usable.mjs` |
 
 `measure.mjs` measures what the reconcile gate costs (M1 to M5, below).
 
 A case fails if any of its pass conditions is false, if it throws, or if any
 request outside the sign-in routes is answered 429 (W1 excepted: it exists to
-count them). Nothing is retried to make a case pass.
+count them). Nothing is retried to make a case pass. W1's recovery of a tab
+whose data failed to load is not such a retry: it is bounded, it is what the
+definition of "usable" asks to be measured, and every action is recorded.
 
 ## Running a recorded run
 
@@ -83,8 +97,9 @@ and less than 3 GB of free disk. It then:
    prints a summary.
 
 The exit status is that of the first failure; nothing later clears it. Status
-3 means the stack was not restored. A full run takes roughly 40 minutes, most
-of it W1's drain waits and the sign-in pacing.
+3 means the stack was not restored. A full run takes roughly 40 minutes, about
+half of it W1: its drain waits, and since the revision of 2026-10-06 the check
+of every tab of rounds (a) and (b) one at a time, recovery included.
 
 A recorded run always goes through `run.sh`. `maintain.sh` and a plain
 `docker compose build frontend` do not export `VITE_BUILD_SHA`, so their bundle
@@ -99,11 +114,16 @@ back.
 - Docker, the running stack, and the Playwright image above (about 2 GB).
 - **Two accounts, given through the environment and never committed:**
   `QA_USERNAME` / `QA_PASSWORD` and `QA_USERNAME_2` / `QA_PASSWORD_2`. Both must
-  be able to open the dashboard, the product list and sales orders (the
-  administrator role is the simple choice), and neither may be flagged to change
-  its password at first sign-in: that redirect blocks every case. Use accounts
-  made for this purpose; the run signs them in about thirty times and ends
-  their sessions.
+  be able to open the dashboard, the product list and sales orders, and
+  neither may be flagged to change its password at first sign-in: that
+  redirect blocks every case. `QA_USERNAME` must be an **administrator**: W1
+  recovers the sidebar's company data through Settings > Company, which only
+  an administrator can open (see W1 below for what that means for everyone
+  else). Use accounts made for this purpose; the run signs them in about
+  thirty times and ends their sessions.
+- **At least one customer** visible to `QA_USERNAME`. W1 asks every tab to
+  open the customer list and show its rows; it checks this once, before the
+  first round, and stops if the list is empty. The suite only reads.
 - About thirty sign-ins. They stay on `login_limit` (four, then one every
   12 s per address): `ctx.signIn` waits and retries on 429 for up to 90 s, and
   `results.json` records how many waits there were (`signInWaits`). The limit is
@@ -180,37 +200,206 @@ the end state of the tabs. `E` replays the NGINX bucket over the send times
 the whole round exactly when `E ≤ burst + 1`. The busiest second is recorded
 but is the wrong measure for sizing.
 
-A tab counts as usable when, after the round has played out, it shows the
-signed-in application and completes a data request when used once more,
-without a reload. The statuses of the requests of its own loading are recorded
-beside that, and so is the number of them answered 429 by `api_limit`
-(`dataRequests429`): several dashboards loading at once send more data requests
-than that limit's burst admits, which is a different limit from the one W1
-sizes and is reported as a finding, not judged.
+### What "usable" means
 
-Blocking: N = 5, rounds (a) and (b), no 429 from `session_limit` and every tab
-usable. Everything else is recorded and not blocking. The largest N with no 429 in both (a) and
-(b) is the capacity the documentation may state (`w1.recorded.judgement`), and
-no capacity is claimed beyond what was measured. If an N = 10 round has a 429,
-the judgement carries a candidate burst, `⌈1.25 × (E − 1)⌉`; above 60 it says
-to stop and take the figures to the repository owner.
+Decided by the repository owner on 2026-10-06, and implemented as written:
+
+> "Usable" means the tab reaches a working state without reloading or signing
+> in again, with its expected data available and actions working. It does not
+> require every initial request to succeed. Record any retries or user actions
+> needed to recover; a rendered shell with missing data is not usable.
+>
+> The separate requirement of no session-endpoint 429s at five tabs remains
+> blocking. Business-endpoint 429s remain documented under #1353, provided
+> recovery meets the definition above.
+
+After a round has played out, `lib/usable.mjs` takes its tabs one at a time,
+as a person would work through a restored window:
+
+1. **Expected data.** The tab is at `/dashboard`, the "Dashboard" heading is
+   rendered (the page renders it only when none of its six queries is still
+   loading), the page shows no "Could not load: …" warning, and **no data
+   request the tab made is left failed**: for every request, by method, path
+   and query, the latest answer is 2xx. The last condition is what catches the
+   shell. The sidebar's company name and logo come from
+   `GET /api/settings/company`, and when that request fails the sidebar
+   silently shows its "ERP" placeholder: nothing on screen says so.
+2. **Recovery**, only if data is missing, and only through the sidebar's own
+   links, which change the route inside the running application. A reload, a
+   URL load and a sign-in are never used. The dashboard has no retry button,
+   so the action is *Inventory > Products, then Dashboard*: opening the
+   dashboard again asks again for what failed. That does not bring back the
+   company data, because the sidebar never leaves the screen; the only other
+   page that asks for it is *Settings > Company*, so that is the second
+   action. At most three actions per tab. Before each one the script waits
+   until `api_limit`'s bucket, replayed over what the profile sent, has room
+   for a page of requests, so recovery does not itself run into the limit.
+3. **An action.** *Sales > Customers* through the sidebar: the click must send
+   a fresh request for the list, it must be answered 2xx, and the rows must be
+   on screen (not a skeleton, not the empty message, no "Failed to load
+   customers."). Up to three tries, each by leaving and coming back.
+
+A tab is usable only if all of that ends with the data present and the action
+working, in the same document it first loaded. A tab that cannot be recovered
+within the bound is **not usable**; nothing is retried beyond the bound to make
+it so.
+
+For each tab `results.json` holds whether its data was complete on first load,
+what was missing, every recovery action (which, why, how long it waited for
+the limit, how long it took, what was still missing after it), the time until
+the data was there, and each try of the action. For each round it holds how
+many tabs were complete on first load, how many needed recovery, the largest
+number of actions any tab needed, how many needed the Company page, and the
+tabs that were not recoverable with the reason for each.
+
+Two things about this check that a reader should know:
+
+- **The Company page is open to administrators only.** A tab recovered through
+  it counts as usable, because the user of this run could do it, and is
+  counted separately (`tabsNeedingCompanySettingsVisit`). For any other user
+  the sidebar's company data stays missing until a reload. That is reported
+  with the result every time it happens, not folded into the pass.
+- **The status indicator is not judged.** It polls `/api/health` every 30 s
+  and repairs itself; 429s among its polls are counted per tab
+  (`statusPolls429`).
+
+### What blocks
+
+Blocking: at N = 5, in rounds (a) and (b), no request to `refresh`, `logout`
+or `me` is answered 429 (in the round itself or while its tabs are checked),
+and every tab is usable by the definition above. Everything else is recorded
+and not blocking.
+
+The capacity the documentation may state (`w1.recorded.judgement`) is the
+largest N at which both hold in (a) and (b); no capacity is claimed beyond what
+was measured. If an N = 10 round has a 429 from `session_limit`, the judgement
+carries a candidate burst, `⌈1.25 × (E − 1)⌉`; above 60 it says to stop and
+take the figures to the repository owner.
+
+429s on business endpoints are a different limit (`api_limit`, 10 requests a
+second, burst 20 per address): several dashboards loading at once send more
+data requests than its burst admits. They are counted for every round
+(`dataRequests429`), reported as findings and not judged. They are tracked in
+issue #1353. What they do to a tab is exactly what the usability check
+measures.
 
 ## The latency measurement
 
-| | What | Blocking threshold |
+| | What | Status |
 |---|---|---|
-| M1 | one raw read, one tab idle (500 read-only transactions fetching the three keys) | p95 ≤ 5 ms |
-| M2 | the same in four tabs at once while a fifth commits a write every 100 ms | p95 ≤ 15 ms |
-| M3 | the adapter's own `read` timings while the dashboard, the products list and a sales order load | p95 ≤ 10 ms in one tab, ≤ 20 ms in four |
-| M4 | per request, `gate-before` + `gate-after` | p95 ≤ 10 ms in one tab, ≤ 20 ms in four |
-| M5 | per page: navigation to last API response, number of requests, sum of gate waits | none; diagnostic only |
+| M1 | one raw read, one tab idle (500 read-only transactions fetching the three keys) | **blocking**, p95 ≤ 5 ms |
+| M2 | the same in four tabs at once while a fifth commits a write every 100 ms | **blocking**, p95 ≤ 15 ms |
+| M3 | the adapter's own `read` timings while the dashboard, the products list and a sales order load | diagnostic: recorded, not judged |
+| M4 | per request, `gate-before` + `gate-after` | diagnostic: recorded, not judged |
+| M5 | per page: navigation to last API response, number of requests, sum of gate waits | diagnostic: recorded, not judged |
 
 Each blocking figure is the **median p95 of three repetitions**. Maxima and p99
 are recorded for every measurement and never block; a maximum above 100 ms is
-listed for a reader to judge. M5 is an aggregate-cost estimate: "Requests on a
-page overlap, so the sum of their gate waits is not the time the gate adds to
-the page load; it is an upper bound on it." No share of page load is computed
-from it.
+listed for a reader to judge.
+
+### The criteria were replaced, not met
+
+M3 and M4 were first given targets of p95 ≤ 10 ms in one tab and ≤ 20 ms in
+four. Those targets were provisional. The recorded run on `582096992` measured
+them and **failed**:
+
+| | one tab | four tabs | target then | outcome |
+|---|---|---|---|---|
+| M3 | 99 ms | 330.1 ms | 10 / 20 ms | failed |
+| M4 | 205.3 ms | 603.3 ms | 10 / 20 ms | failed |
+
+(M1 2.1 ms and M2 5.1 ms passed; the run's exit status was 1.)
+
+On 2026-10-06 the repository owner revised the criteria:
+
+> Revise the latency acceptance criteria, preserving the hard gate and
+> transaction-completion semantics. The proposed 10/20 ms targets were
+> provisional; this explicitly replaces them, rather than treating failed
+> thresholds as passed.
+> - Keep M1/M2 as blocking criteria.
+> - Make M3/M4 diagnostic, recording the measured waits and environment.
+> - Report the page-load comparison as supporting evidence, with its
+>   simulation method, variability, 429s, and competing workload disclosed.
+>   Say "no slowdown detected in this experiment," not "the gate cannot slow
+>   pages."
+> - Do not implement the simulated optimizations or resolve reads before
+>   transaction completion.
+>
+> Preserve the original failed latency results alongside the revised
+> acceptance decision.
+
+So M1 and M2 block, and M3 and M4 are measured exactly as before (all
+repetitions, p50, p95, p99, maximum, in-flight statistics, pairing) and have no
+pass or fail. A latency result that passes today says that M1 and M2 are within
+their thresholds. **It does not say the gate is fast, and it does not say the
+former targets were met; they were not.** The gate itself is unchanged: none of
+the optimizations that were simulated was implemented, and no read is resolved
+before its transaction completes.
+
+The suite keeps this impossible to lose:
+
+- `results-latency.json` carries a `criteria` block (from
+  `lib/latency-criteria.mjs`): the revised criteria, the date, the statement
+  that the former targets were replaced and not met, and the figures and exit
+  status of the run in which they failed.
+- M3 and M4 have no `pass` and no `thresholdMs`. Each carries
+  `formerProvisionalTargetMs` and `againstFormerProvisionalTarget`, and every
+  printed summary shows the figure beside "former provisional target … ms, not
+  met", followed by the failed figures of `582096992`.
+- The size of M3 or M4 cannot fail a run. A run in which one of them has no
+  samples is incomplete and fails (`diagnosticsNotRecorded`): the decision asks
+  for them to be recorded, and an empty record must not pass for a recorded
+  one.
+
+### What M3 and M4 are recorded with
+
+`latency.environment` holds the machine (CPU, memory, and for each disk whether
+it is rotational), the Chromium version, the access-token lifetime, and how
+many requests of the measured loads were answered 429 (per variant, with the
+totals). Four tabs loading at once exceed `api_limit`'s burst, so the four-tab
+figures normally include 429s; a 429 has no delivery read, which shortens that
+request's gate wait.
+
+The browser container cannot see the host, so `run.sh` writes
+`docker ps --format '{{.Names}}\t{{.Status}}'` to the scratch directory just
+before the measurement, and `finalize.mjs` puts it in `results.json` under
+`latency.environment.competingWorkload`, naming every container whose status
+says `Restarting`. If the list could not be taken, it says "not captured"; it
+never shows an empty list in its place.
+
+### M5
+
+M5 is an aggregate-cost estimate: "Requests on a page overlap, so the sum of
+their gate waits is not the time the gate adds to the page load; it is an upper
+bound on it." No share of page load is computed from it.
+
+### Supporting evidence: the page-load comparison
+
+`diagnose-latency.mjs` (next section) was used once, on `582096992`, to
+estimate what the gate's storage wait costs a whole page load. It is supporting
+evidence, not a criterion, and `run.sh` does not depend on it.
+
+- **Result.** No slowdown detected in this experiment: median navigation to
+  last API response was 979 ms with the gate as it is and 994 ms with its
+  storage wait simulated away in one tab, and 3096 ms against 3167 ms in four.
+- **Method.** A simulation made in the page, not a build without the gate: an
+  init script answered the page's read-only session transactions from a copy
+  held in the page (variant `memoryReads`), with product code unchanged. Five
+  repetitions, 15 loads per variant in one tab and 60 in four, variants
+  interleaved.
+- **Variability.** In that experiment differences of 20% or less between
+  variants are noise. The differences above are well inside that, so the
+  experiment cannot show a small effect in either direction.
+- **429s.** The measured loads included requests answered 429 by `api_limit`:
+  25 to 75 of the 440 four-tab requests per variant.
+- **Competing workload.** Two unrelated containers on the host were in a
+  restart loop throughout, loading every variant alike.
+
+That is all it supports. It is one experiment on one machine, and it says
+nothing about a page whose main thread is idle, about time to first visible
+content, or about another machine.
+
+### What the measurement depends on
 
 M3 to M5 read `window.__erpSessionTimings`, which the application fills when
 `sessionStorage['erp-session-timing']` is `'1'`. Two things depend on what the
@@ -225,18 +414,21 @@ application records there:
   which is exact only when requests do not overlap; the result names the
   pairing used.
 
-`results.json` also records the Chromium version and the machine (CPU model,
-and for each disk whether it is rotational).
-
 ```bash
-node --test frontend/qa/cross-tab-session/measure.test.mjs   # the arithmetic, no browser
+# the arithmetic and the judgement, no browser
+node --test frontend/qa/cross-tab-session/measure.test.mjs frontend/qa/cross-tab-session/usable.test.mjs
 ```
+
+`measure.test.mjs` holds the blocking rule: M1 or M2 over its threshold fails
+the run, M3 and M4 at the figures of `582096992` do not, and the criteria block
+is present. `usable.test.mjs` holds the judgement of W1's "usable".
 
 ## Where the gate's time goes: `diagnose-latency.mjs`
 
 `measure.mjs` says how long the gate takes. `diagnose-latency.mjs` says which
 layer the time is spent in. It is a diagnostic: no threshold, no pass or fail,
-never part of a recorded run, and `run.sh` does not call it. It loads the same
+never part of a recorded run, and `run.sh` does not call it. Its one use as
+supporting evidence is described above, with its limits. It loads the same
 three pages in one tab and in four and records, in the page, with product code
 unchanged:
 
@@ -275,8 +467,10 @@ Written to the scratch directory (`ERP_SESSION_SCRATCH`, default
 `stack.sh show` reported **before, during and after** the run (evidence in its
 own right, because `.env` is not covered by the commit); for each case its
 checks, recorded evidence and, when it failed, where each tab was, what it sent
-last and a screenshot path; the W1 rounds and judgement; the latency table; the
-Chromium version and the machine; and the number of sign-in waits. Tokens are
+last and a screenshot path; the W1 rounds and judgement, with what each tab
+needed to become usable; the latency table with its `criteria` block and the
+environment M3 and M4 were measured in, the host's other containers included;
+the Chromium version and the machine; and the number of sign-in waits. Tokens are
 never written, only short fingerprints of them. The container runs as root, so
 the files it writes into the scratch directory are owned by root.
 
@@ -324,9 +518,16 @@ from the rates and bursts in `nginx/nginx.conf`, and must pass twice in a row.
 - A browser's own session restore (a restarted browser reopening its tabs) is
   not exercised. Case 4 uses a reload, and a new tab whose `sessionStorage` is
   populated before the page starts.
-- The latency figures come from one machine, headless Chromium and an idle
-  disk. They bound the cost where the run could reach; they do not predict an
-  office PC with a spinning disk.
+- The latency figures come from one machine and headless Chromium, with
+  whatever else the host was running (recorded with them). They describe the
+  cost where the run could reach; they do not predict another machine.
+- W1's usability check knows one page. "Expected data" is the dashboard's, and
+  the action is the customer list; a tab restored on another page is not
+  exercised. The check reads the dashboard's own warning and the request log,
+  so data a panel shows wrongly although its request succeeded would not be
+  seen.
+- W1 recovers tabs one at a time and paced. Several tabs recovered at once
+  would send their requests together again, and that is not exercised.
 - The tab capacity of `session_limit` is the number W1 measured, and no more.
   Several users sharing one address are not exercised by W1 and stay
   unverified.
