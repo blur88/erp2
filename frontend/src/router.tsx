@@ -2,6 +2,7 @@ import React from 'react'
 import { Navigate, createBrowserRouter, redirect } from 'react-router-dom'
 import RouteErrorBoundary from './components/errors/RouteErrorBoundary'
 import MainLayout from './components/common/MainLayout'
+import RequireSession from './components/auth/RequireSession'
 import RootLayout from './RootLayout'
 import { store, persistor } from './store'
 import { sessionReady } from './session'
@@ -59,7 +60,11 @@ export const router = createBrowserRouter([
       ...authRoutes,
       {
         loader: authLoader,
-        element: <MainLayout />,
+        element: (
+          <RequireSession>
+            <MainLayout />
+          </RequireSession>
+        ),
         children: [
           { path: '/', element: <Navigate to="/dashboard" replace /> },
           ...dashboardRoutes,
