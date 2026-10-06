@@ -66,7 +66,29 @@ describe('session ending in the application', () => {
   const isApiState = (value: unknown): value is { queries: Record<string, unknown> } =>
     typeof value === 'object' && value !== null && 'queries' in value && 'mutations' in value && 'provided' in value
 
-  it('sessionEnded resets every plain slice and every RTK Query cache', async () => {
+  type App = Awaited<ReturnType<typeof loadApp>>
+  // Every ending reaches the store through the same event, whatever caused it.
+  const endings: Array<[string, (app: App) => Promise<void>]> = [
+    ['an explicit sign-out', (app) => app.sessionRuntime.signOut()],
+    [
+      'a failure-driven ending',
+      async (app) => {
+        const { ref } = await app.sessionRuntime.beginRequest()
+        expect(await app.sessionRuntime.endAfterFinalUnauthorized(ref)).toBe('ended')
+      },
+    ],
+    [
+      'an ending in another tab',
+      async (app) => {
+        const other = await app.otherTab()
+        await other.runtime.signOut()
+        expect(app.store.getState().auth.isAuthenticated).toBe(true)
+        await app.sessionRuntime.reconcileNow()
+      },
+    ],
+  ]
+
+  it.each(endings)('%s resets every plain slice and every RTK Query cache', async (_name, end) => {
     const app = await signedInApp()
     const { store, storeModule } = app
     const state = () => store.getState() as unknown as AnyState
@@ -101,7 +123,7 @@ describe('session ending in the application', () => {
     }
 
     const dispatch = vi.spyOn(store, 'dispatch')
-    await app.sessionRuntime.signOut()
+    await end(app)
 
     expect(store.getState().auth.isAuthenticated).toBe(false)
     for (const key of plainKeys) expect(state()[key], key).toEqual(initial[key])

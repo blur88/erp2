@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { createHarness } from './twoTabs'
+import { describe, it, expect, vi } from 'vitest'
+import { createHarness, delayNextTransaction, holdLoginResponses, holdRefreshResponses } from './twoTabs'
+import { SessionChangedElsewhereError } from '../runtime'
+import { explicitEndCommit } from '../decisions'
+import { SessionEndedError, type StoredState } from '../types'
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
@@ -62,31 +65,72 @@ describe('session runtime — endings', () => {
     const a = await signedInTab(h, 'A')
     const b = h.createTab('B')
     await b.runtime.start()
-    // The delayed-publication window: storage still holds the session (other tabs
-    // cannot see the sign-out yet) but the server has already revoked it.
     const sid = a.runtime.claim()!
-    h.server.sessions.get(sid)!.revoked = true
 
-    const ref = (await b.runtime.beginRequest()).ref
-    const result = await b.runtime.handleUnauthorized(ref)
-    expect(result).toBe('ended')
+    // A signs out: its logout reaches the server, its publication does not complete.
+    const publication = delayNextTransaction(a.store)
+    const signingOut = a.runtime.signOut()
+    await flush()
+    expect(publication.reached()).toBe(true)
+    expect(h.server.sessions.get(sid)!.revoked).toBe(true)
+    expect(h.shared.state.record.session?.sessionId).toBe(sid)
+
+    // Storage still shows B the session, so its request goes out; the server
+    // answers 401, its refresh is rejected, and B ends through the failure path.
+    const { ref } = await b.runtime.beginRequest()
+    expect(ref.sessionId).toBe(sid)
+    expect(await b.runtime.handleUnauthorized(ref)).toBe('ended')
+    expect(h.server.refreshCalls).toBe(1)
+    expect(b.events.ended).toEqual(['failure'])
+    expect(b.runtime.claim()).toBeNull()
+    expect(publication.completed()).toBe(false)
+
+    publication.release()
+    await signingOut
+    expect(h.shared.state.record.session).toBeNull()
   })
 
+  // The known limit: the bound above exists only because the logout reached the
+  // server. When it did not, publication alone ends the other tabs.
   it('no bound when logout fails', async () => {
     const h = createHarness()
     const a = await signedInTab(h, 'A')
     const b = h.createTab('B')
     await b.runtime.start()
-    // With no server session, logout revokes nothing server-side. Publication to
-    // B is what ends B, so a failed logout leaves B signed in until publication.
-    h.server.sessions.clear()
-    const hold = a.store.holdNextTransaction()
-    const promise = a.runtime.signOut()
+    const sid = a.runtime.claim()!
+
+    h.server.logoutFailure = new Error('network')
+    const publication = delayNextTransaction(a.store)
+    const signingOut = a.runtime.signOut()
     await flush()
-    expect(h.server.sessions.size).toBe(0)
-    hold.release()
-    await promise
-    await expect(b.runtime.beginRequest()).rejects.toBeTruthy()
+    expect(publication.reached()).toBe(true)
+    expect(a.runtime.claim()).toBeNull()
+    expect(h.server.logoutCalls).toHaveLength(1)
+    expect(h.server.sessions.get(sid)!.revoked).toBe(false)
+
+    // While both hold, B keeps working: its requests are sent and delivered, and
+    // even a refresh is accepted.
+    for (let round = 0; round < 2; round += 1) {
+      const { ref } = await b.runtime.beginRequest()
+      expect(await b.runtime.canDeliver(ref)).toBe(true)
+      expect(await b.runtime.handleUnauthorized(ref)).toBe('retry')
+      b.deliverChannel()
+      await flush()
+    }
+    expect(h.server.rotations).toBe(2)
+    expect(b.runtime.status()).toBe('signed-in')
+    expect(b.runtime.claim()).toBe(sid)
+    expect(b.events.ended).toEqual([])
+    expect(publication.completed()).toBe(false)
+
+    // It ends only when the publication completes.
+    publication.release()
+    await signingOut
+    b.deliverChannel()
+    await flush()
+    expect(b.events.ended).toEqual(['elsewhere'])
+    expect(b.runtime.status()).toBe('signed-out')
+    await expect(b.runtime.beginRequest()).rejects.toBeInstanceOf(SessionEndedError)
   })
 
   it('signOut against a different stored session skips clearing it, still increments revision and still sends logout', async () => {
@@ -109,26 +153,55 @@ describe('session runtime — endings', () => {
 
   it('signOut against an already signed-out record invalidates a pending sign-in in another tab', async () => {
     const h = createHarness()
-    const a = await signedInTab(h, 'A')
+    const a = h.createTab('A')
     const b = h.createTab('B')
+    await a.runtime.start()
     await b.runtime.start()
-    h.server.loginHold = true
-    const pending = b.runtime.signIn({ usernameOrEmail: 'u', password: 'p' })
-    const guarded = pending.catch((e) => e)
+    expect(h.shared.state.record).toEqual({ revision: 0, session: null })
+
+    // B's sign-in is pending: the server has answered, the response is held.
+    const login = holdLoginResponses(h.server)
+    const pending = b.runtime.signIn({ usernameOrEmail: 'u', password: 'p' }).catch((e) => e)
+    await vi.waitFor(() => expect(login.waiting()).toBe(1))
+    const created = [...h.server.sessions.values()][0]
+
+    // A has no session and neither has the record; its sign-out still counts.
+    expect(a.runtime.status()).toBe('signed-out')
     await a.runtime.signOut()
-    await flush()
-    await expect(guarded).resolves.toBeTruthy()
+    expect(h.shared.state.record).toEqual({ revision: 1, session: null })
+    const published = h.shared.state
+
+    login.release()
+    expect(await pending).toBeInstanceOf(SessionChangedElsewhereError)
+
+    // B wrote nothing and holds nothing; the session it created was logged out.
+    expect(h.shared.state).toBe(published)
+    expect(b.runtime.claim()).toBeNull()
+    expect(b.runtime.status()).toBe('signed-out')
+    expect(b.events.sessionEstablished).not.toHaveBeenCalled()
+    expect(b.channelPost).not.toHaveBeenCalled()
+    expect(h.server.logoutCalls).toEqual([created.refreshToken])
   })
 
   it('signOut uses the captured target session ID', async () => {
     const h = createHarness()
     const a = await signedInTab(h)
     const target = a.runtime.claim()!
+    const holding = h.shared.state
+    const transact = vi.spyOn(a.store, 'transact')
+
     await a.runtime.signOut()
+
+    // The claim was dropped before the transaction was queued; the decision it
+    // was given still compares storage with the session captured before that.
+    expect(transact).toHaveBeenCalledTimes(1)
+    const decide = transact.mock.calls[0][0] as (s: StoredState) => ReturnType<typeof explicitEndCommit>
+    expect(a.runtime.claim()).toBeNull()
+    expect(decide(holding)).toEqual(explicitEndCommit(holding, { targetSessionId: target }))
+    expect(decide(holding).result).toEqual({ cleared: true })
+
     const after = await a.store.read()
-    expect(after.record.session).toBeNull()
-    expect(after.record.revision).toBeGreaterThan(0)
-    void target
+    expect(after.record).toEqual({ revision: holding.record.revision + 1, session: null })
   })
 
   it('logout is sent from the storage-unavailable state', async () => {
@@ -177,17 +250,29 @@ describe('session runtime — endings', () => {
 
   it('a failure-driven ending leaves revision unchanged, and an independent pending sign-in then commits', async () => {
     const h = createHarness()
-    const a = await signedInTab(h)
-    const revisionBefore = h.shared.state.record.revision
-    const ref = (await a.runtime.beginRequest()).ref
-    await a.runtime.endAfterFinalUnauthorized(ref)
-    expect(h.shared.state.record.revision).toBe(revisionBefore)
-
-    // An independent pending sign-in can still commit: simulate a fresh attempt.
+    // B is open and signed-out; it never adopts the session A then signs in to.
     const b = h.createTab('B')
     await b.runtime.start()
-    await b.runtime.signIn({ usernameOrEmail: 'u2', password: 'p' })
+    const a = await signedInTab(h)
+    expect(b.runtime.status()).toBe('signed-out')
+    const revisionBefore = h.shared.state.record.revision
+
+    // B's sign-in is pending across A's ending: it captured the revision before it.
+    const login = holdLoginResponses(h.server)
+    const pending = b.runtime.signIn({ usernameOrEmail: 'u2', password: 'p' })
+    await vi.waitFor(() => expect(login.waiting()).toBe(1))
+
+    const ref = (await a.runtime.beginRequest()).ref
+    expect(await a.runtime.endAfterFinalUnauthorized(ref)).toBe('ended')
+    expect(h.shared.state.record).toEqual({ revision: revisionBefore, session: null })
+
+    // Intended: nothing told the pending sign-in that anything changed.
+    login.release()
+    await expect(pending).resolves.toEqual({ requiresPasswordChange: false })
     expect(b.runtime.status()).toBe('signed-in')
+    expect(h.shared.state.record.revision).toBe(revisionBefore + 1)
+    expect(h.shared.state.record.session?.sessionId).toBe(b.runtime.claim())
+    expect(b.runtime.claim()).not.toBe(ref.sessionId)
   })
 
   it('the idle timer fires in two tabs at once', async () => {
@@ -208,19 +293,35 @@ describe('session runtime — endings', () => {
   it('a token response that arrives while explicit sign-out is unpublished is not written', async () => {
     const h = createHarness()
     const a = await signedInTab(h)
-    const oldClaim = a.runtime.claim()!
+    const sid = a.runtime.claim()!
 
-    // Start the sign-out; it clears the tab synchronously.
-    const publish = a.runtime.signOut()
+    // A refresh is on the wire: the server has rotated, its response is held.
+    const refresh = holdRefreshResponses(h.server)
+    const ref = (await a.runtime.beginRequest()).ref
+    const refreshing = a.runtime.handleUnauthorized(ref)
+    await vi.waitFor(() => expect(refresh.waiting()).toBe(1))
+    expect(h.server.sessions.get(sid)!.generation).toBe(2)
+
+    // The tab signs out; its publication does not complete.
+    const publication = delayNextTransaction(a.store)
+    const signingOut = a.runtime.signOut()
     await flush()
+    expect(publication.reached()).toBe(true)
     expect(a.runtime.claim()).toBeNull()
+    const unpublished = h.shared.state.record
+    expect(unpublished.session).toMatchObject({ sessionId: sid, generation: 1 })
 
-    // A payload queued under the old session is not written: the tab has no claim.
-    await a.runtime.persistSlices(oldClaim, '{"stale":true}')
+    // The token response arrives first. Storage still holds the session it is
+    // for, but the tab that asked no longer claims it.
+    refresh.release()
+    await expect(refreshing).resolves.toBe('ended')
+    expect(publication.completed()).toBe(false)
+    expect(h.shared.state.record).toBe(unpublished)
+    expect(h.shared.state.record.session).toMatchObject({ generation: 1, refreshToken: `rt-${sid}-1` })
+    expect(a.events.tokensUpdated).not.toHaveBeenCalled()
 
-    await publish
-    const after = await a.store.read()
-    expect(after.record.session).toBeNull()
-    expect(after.slices).toBeNull()
+    publication.release()
+    await signingOut
+    expect(h.shared.state.record.session).toBeNull()
   })
 })

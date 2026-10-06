@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createHarness } from './twoTabs'
+import { createHarness, holdLoginResponses } from './twoTabs'
 import { SessionChangedElsewhereError } from '../runtime'
 import { StorageTimeoutError, StorageUnavailableError } from '../types'
 
@@ -49,42 +49,88 @@ describe('session runtime — sign-in and startup', () => {
     expect(a.channelPost).toHaveBeenCalledTimes(1)
   })
 
-  it('a sign-in that loses the revision check revokes its own session and writes nothing', async () => {
-    const h = createHarness()
+  // A's sign-in is pending (the server answered, the response is held) while B
+  // signs out the existing session, which raises the revision A captured.
+  async function signInLosingTheRevisionCheck(h: ReturnType<typeof createHarness>) {
     const a = h.createTab('A')
     await a.runtime.start()
-
-    // A holds its login response.
-    h.server.loginHold = true
-    const promise = a.runtime.signIn({ usernameOrEmail: 'u', password: 'p' })
-    const guarded = promise.catch((e) => e)
-
-    // B commits a sign-out, raising revision.
     const b = h.createTab('B')
     await b.runtime.start()
-    await b.runtime.signOut()
-    await flush()
+    await b.runtime.signIn({ usernameOrEmail: 'b', password: 'p' })
+    const existing = { ...h.shared.state.record.session! }
+    expect(a.runtime.status()).toBe('signed-out')
 
-    await expect(guarded).resolves.toBeInstanceOf(SessionChangedElsewhereError)
+    const login = holdLoginResponses(h.server)
+    const outcome = a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' }).then(
+      (value) => ({ value }),
+      (error: unknown) => ({ error }),
+    )
+    await vi.waitFor(() => expect(login.waiting()).toBe(1))
+    const created = [...h.server.sessions.values()].find((x) => x.sessionId !== existing.sessionId)!
+
+    await b.runtime.signOut()
+    const published = h.shared.state
+    expect(published.record).toEqual({ revision: 2, session: null })
+    const sentBefore = [...h.server.logoutCalls]
+    expect(sentBefore).toEqual([existing.refreshToken])
+
+    login.release()
+    return { a, b, created, published, outcome: await outcome }
+  }
+
+  it('a sign-in that loses the revision check revokes its own session and writes nothing', async () => {
+    const h = createHarness()
+    const { a, created, published, outcome } = await signInLosingTheRevisionCheck(h)
+
+    expect(outcome).toEqual({ error: expect.any(SessionChangedElsewhereError) })
+    // The stored record is unchanged by A.
+    expect(h.shared.state).toBe(published)
+    // The server received logout with A's new refresh token, after B's own.
+    expect(h.server.logoutCalls).toHaveLength(2)
+    expect(h.server.logoutCalls[1]).toBe(created.refreshToken)
+    expect(created.revoked).toBe(true)
     expect(a.runtime.claim()).toBeNull()
     expect(a.events.sessionEstablished).not.toHaveBeenCalled()
-    // A's newly created session was revoked best-effort.
-    expect(h.server.logoutCalls.length).toBeGreaterThanOrEqual(1)
+    expect(a.channelPost).not.toHaveBeenCalled()
   })
 
   it('a failed best-effort logout changes nothing in the browser', async () => {
-    const h = createHarness()
-    const a = h.createTab('A')
-    await a.runtime.start()
-    h.server.loginHold = true
-    const promise = a.runtime.signIn({ usernameOrEmail: 'u', password: 'p' })
-    const guarded = promise.catch((e) => e)
-    const b = h.createTab('B')
-    await b.runtime.start()
-    await b.runtime.signOut()
-    await flush()
-    await expect(guarded).resolves.toBeInstanceOf(SessionChangedElsewhereError)
-    expect(a.runtime.claim()).toBeNull()
+    const unhandled: unknown[] = []
+    const onUnhandled = (reason: unknown) => unhandled.push(reason)
+    process.on('unhandledRejection', onUnhandled)
+    try {
+      const h = createHarness()
+      h.server.logoutFailure = new Error('logout failed')
+      const { a, b, created, published, outcome } = await signInLosingTheRevisionCheck(h)
+
+      // The sign-in fails as it would have: the logout's failure is not what it reports.
+      expect(outcome).toEqual({ error: expect.any(SessionChangedElsewhereError) })
+      // Both logouts were attempted and both failed; neither revoked anything.
+      expect(h.server.logoutCalls).toHaveLength(2)
+      expect(h.server.logoutCalls[1]).toBe(created.refreshToken)
+      expect(created.revoked).toBe(false)
+
+      // Nothing in the browser differs from the case where the logout succeeded.
+      expect(h.shared.state).toBe(published)
+      for (const tab of [a, b]) {
+        expect(tab.runtime.status()).toBe('signed-out')
+        expect(tab.runtime.claim()).toBeNull()
+        expect(tab.events.ended).not.toContain('storage')
+      }
+      expect(a.events.sessionEstablished).not.toHaveBeenCalled()
+      expect(a.events.sessionEnded).not.toHaveBeenCalled()
+      expect(a.channelPost).not.toHaveBeenCalled()
+
+      // And the tab can sign in afterwards.
+      h.server.logoutFailure = null
+      await expect(a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' })).resolves.toBeDefined()
+
+      // Nothing escaped: an unhandled rejection is reported after a full turn.
+      await new Promise((r) => setTimeout(r, 10))
+      expect(unhandled).toEqual([])
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+    }
   })
 
   it('a newer attempt in the same tab supersedes an older one', async () => {

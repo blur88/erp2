@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import { configureStore } from '@reduxjs/toolkit'
+import { createApi } from '@reduxjs/toolkit/query'
+import { axiosBaseQuery } from '@/store/api/baseQuery'
 import { registerSessionRuntime } from '@/session/registry'
 import { createSessionRuntime } from '@/session/runtime'
 import { createSharedMemory, createMemorySessionStore } from '@/session/store/memorySessionStore'
@@ -11,13 +16,12 @@ import { authApi } from '@/services/authApi'
 import { createAuthHttp } from '@/session/authHttp'
 import { createHarness, holdRefreshResponses } from '@/session/__tests__/twoTabs'
 
-function makeRuntime() {
-  const memory = createSharedMemory()
+function makeRuntime(memory = createSharedMemory(), prefix = 'sess') {
   const store = createMemorySessionStore(memory)
   let seq = 0
   const http: AuthHttp = {
     async login(credentials) {
-      const id = `sess-${++seq}`
+      const id = `${prefix}-${++seq}`
       return {
         sessionId: id,
         generation: 1,
@@ -50,10 +54,12 @@ function makeRuntime() {
 
 describe('api session interceptors', () => {
   let runtime: SessionRuntime
+  let memory: ReturnType<typeof createSharedMemory>
 
   beforeEach(() => {
     const h = makeRuntime()
     runtime = h.runtime
+    memory = h.memory
     registerSessionRuntime(runtime)
   })
 
@@ -85,12 +91,92 @@ describe('api session interceptors', () => {
     expect(authorization?.startsWith('Bearer ')).toBe(true)
   })
 
+  // The server's 200 for a request sent under session X, held until the test
+  // releases it. The adapter ignores the abort signal, as a response already on
+  // its way does.
+  const holdResponse = (data: unknown) => {
+    const sent: any[] = []
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    api.defaults.adapter = async (config: any) => {
+      sent.push(config)
+      await held
+      return { data, status: 200, statusText: 'OK', headers: {}, config }
+    }
+    return { sent, release: () => release() }
+  }
+
+  // Another tab of the same browser replaces the stored session with its own.
+  // This tab is not told: it finds out when it next reads the record.
+  const changeSessionElsewhere = async () => {
+    const other = makeRuntime(memory, 'other').runtime
+    await other.start()
+    await other.signIn({ usernameOrEmail: 'y', password: 'p' })
+    expect(memory.state.record.session?.sessionId).toBe('other-1')
+    expect(runtime.claim()).toBe('sess-1')
+  }
+
   it('a 200 whose session changed is rejected with SessionEndedError', async () => {
     await runtime.start()
     await runtime.signIn({ usernameOrEmail: 'u', password: 'p' })
-    respond((config) => ({ data: {}, status: 200, headers: {}, config }))
-    await runtime.signOut()
-    await expect(api.get('/inventory')).rejects.toBeInstanceOf(SessionEndedError)
+    const response = holdResponse({ secret: 'for-x' })
+    const canDeliver = vi.spyOn(runtime, 'canDeliver')
+
+    const request = api.get('/inventory')
+    const settled = request.then(
+      (value) => ({ value: value.data }),
+      (error: unknown) => ({ error }),
+    )
+    // The request went out under X; its response is on the way.
+    await vi.waitFor(() => expect(response.sent).toHaveLength(1))
+    expect(response.sent[0].headers.Authorization).toBe('Bearer at-sess-1')
+
+    await changeSessionElsewhere()
+    response.release()
+
+    // The 200 arrived, and it is not handed over: the delivery check found the
+    // stored session is no longer the one the request was sent under.
+    expect(await settled).toEqual({ error: expect.any(SessionEndedError) })
+    expect(canDeliver).toHaveBeenCalledTimes(1)
+    expect(canDeliver).toHaveBeenCalledWith({ sessionId: 'sess-1', generation: 1 })
+    await expect(canDeliver.mock.results[0].value).resolves.toBe(false)
+    expect(runtime.claim()).toBeNull()
+  })
+
+  it('an RTK Query call whose session changed settles rejected, not pending', async () => {
+    const testApi = createApi({
+      reducerPath: 'deliveryTestApi',
+      baseQuery: axiosBaseQuery(),
+      endpoints: (builder) => ({
+        inventory: builder.query<{ secret: string }, void>({ query: () => ({ url: '/inventory' }) }),
+      }),
+    })
+    const store = configureStore({
+      reducer: { [testApi.reducerPath]: testApi.reducer },
+      middleware: (getDefault) => getDefault().concat(testApi.middleware),
+    })
+    const entry = () => testApi.endpoints.inventory.select()(store.getState())
+
+    await runtime.start()
+    await runtime.signIn({ usernameOrEmail: 'u', password: 'p' })
+    const response = holdResponse({ secret: 'for-x' })
+
+    const query = store.dispatch(testApi.endpoints.inventory.initiate())
+    await vi.waitFor(() => expect(response.sent).toHaveLength(1))
+    expect(entry().status).toBe('pending')
+
+    await changeSessionElsewhere()
+    response.release()
+
+    const result = await query
+    expect(result.isError).toBe(true)
+    expect(result.data).toBeUndefined()
+    expect(result.error).toEqual({ status: undefined, data: 'session ended before delivery' })
+    expect(entry().status).toBe('rejected')
+    expect(entry().data).toBeUndefined()
+    query.unsubscribe()
   })
 
   it('sends the request and returns a normal response when the session is intact', async () => {
@@ -129,9 +215,14 @@ describe('api session interceptors', () => {
     expect(gated).toHaveLength(0)
   })
 
+  // The interceptors used to send the tab to /login themselves. Where a tab goes
+  // when its session ends is the router's business (sessionRouting.test.tsx);
+  // this module must not navigate, which only its source can show.
   it('does not assign window.location anywhere', () => {
-    const source = api.toString()
-    expect(source).not.toMatch(/window\.location\s*=/)
+    const source = readFileSync(fileURLToPath(new URL('../api.ts', import.meta.url)), 'utf8')
+    expect(source).toContain('api.interceptors.response.use')
+    expect(source).not.toMatch(/\blocation\s*(\.\s*(href|pathname|search|hash))?\s*=(?!=)/)
+    expect(source).not.toMatch(/\blocation\s*\.\s*(assign|replace|reload)\s*\(/)
   })
 
   it('gate timings are recorded only when the flag is set', async () => {

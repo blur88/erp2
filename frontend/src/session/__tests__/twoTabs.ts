@@ -39,8 +39,11 @@ export interface FakeServer {
   accessLifetimeMs: number
   graceMs: number
   loginHold: boolean
+  loginGate: { wait(): Promise<void> } | null
   failLoginAfterHold: Error | null
   refreshFailure: (() => Error | null) | null
+  /** When set, a logout request is recorded and then fails, revoking nothing. */
+  logoutFailure: Error | null
 }
 
 const clock = { value: 1_000_000 }
@@ -61,8 +64,10 @@ export function createServer(opts?: { accessLifetimeMs?: number; graceMs?: numbe
     accessLifetimeMs: opts?.accessLifetimeMs ?? 60000,
     graceMs: opts?.graceMs ?? 60000,
     loginHold: false,
+    loginGate: null,
     failLoginAfterHold: null,
     refreshFailure: null,
+    logoutFailure: null,
   }
 }
 
@@ -120,6 +125,56 @@ export function holdRefreshResponses(server: FakeServer): RefreshGate {
   }
 }
 
+// The server creates the session when the request arrives; only the response is held.
+export function holdLoginResponses(server: FakeServer): RefreshGate {
+  const held: Array<() => void> = []
+  const gate = { wait: () => new Promise<void>((resolve) => held.push(resolve)) }
+  server.loginGate = gate
+  return {
+    waiting: () => held.length,
+    releaseOne(index = 0) {
+      held.splice(index, 1)[0]?.()
+    },
+    release() {
+      if (server.loginGate === gate) server.loginGate = null
+      held.splice(0).forEach((resolve) => resolve())
+    },
+  }
+}
+
+// Delays a store's next transaction before it is queued. Unlike
+// `holdNextTransaction`, which holds it at the head of the shared queue, the
+// other tabs' reads and transactions go on running meanwhile.
+export function delayNextTransaction(store: MemorySessionStore) {
+  const inner = store.transact.bind(store)
+  let release: () => void = () => undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let reached = false
+  let done = false
+  const spy = vi.spyOn(store, 'transact').mockImplementation(async (decide, opts) => {
+    if (reached) return inner(decide, opts)
+    reached = true
+    await gate
+    try {
+      return await inner(decide, opts)
+    } finally {
+      done = true
+    }
+  })
+  return {
+    reached: () => reached,
+    completed: () => done,
+    release() {
+      release()
+    },
+    restore() {
+      spy.mockRestore()
+    },
+  }
+}
+
 export function now(): number {
   return clock.value
 }
@@ -143,6 +198,7 @@ export function makeHttp(server: FakeServer): AuthHttp {
           requiresPasswordChange: false,
         }
       }
+      if (server.loginGate) await server.loginGate.wait()
       if (server.loginHold) {
         server.loginHold = false
         await new Promise<void>((resolve) => setTimeout(resolve, 0))
@@ -169,6 +225,7 @@ export function makeHttp(server: FakeServer): AuthHttp {
 
     async logout(refreshToken) {
       server.logoutCalls.push(refreshToken)
+      if (server.logoutFailure) throw server.logoutFailure
       const found = findSession(server, refreshToken)
       if (found) found.revoked = true
     },

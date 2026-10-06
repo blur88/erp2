@@ -211,25 +211,30 @@ describe('session runtime — requests and refresh', () => {
     expect(stored.record.session?.generation).toBe(3)
   })
 
-  it('network error, timeout, 429 and 5xx from refresh keep the session', async () => {
-    for (const status of ['network', 429, 500]) {
+  it.each<['network' | 'timeout' | 429 | 500]>([['network'], ['timeout'], [429], [500]])(
+    'network error, timeout, 429 and 5xx from refresh keep the session (%s)',
+    async (kind) => {
       const h = createHarness()
       const a = await signedInTab(h)
-      h.server.refreshFailure = () => {
-        if (status === 'network') {
-          const e: any = new Error('network')
-          e.code = 'ERR_NETWORK'
-          return e
-        }
-        const e: any = new Error('http')
-        e.response = { status }
-        return e
-      }
+      const stored = h.shared.state.record
+      const failure: Error & { code?: string; response?: { status: number } } = new Error(String(kind))
+      if (kind === 'network') failure.code = 'ERR_NETWORK'
+      // What axios raises when the 15-second refresh timeout aborts the request.
+      else if (kind === 'timeout') failure.code = 'ECONNABORTED'
+      else failure.response = { status: kind }
+      h.server.refreshFailure = () => failure
+
       const ref = (await a.runtime.beginRequest()).ref
-      await expect(a.runtime.handleUnauthorized(ref)).rejects.toBeTruthy()
+      await expect(a.runtime.handleUnauthorized(ref)).rejects.toBe(failure)
+      expect(h.server.refreshCalls).toBe(1)
       expect(a.runtime.status()).toBe('signed-in')
-    }
-  })
+      expect(a.runtime.claim()).toBe(ref.sessionId)
+      expect(a.events.ended).toEqual([])
+      expect(h.shared.state.record).toBe(stored)
+      // The lease it took for the attempt was given back.
+      expect(h.shared.state.refreshLease).toBeNull()
+    },
+  )
 
   it('401 from refresh at an unchanged generation ends the session in every tab', async () => {
     const h = createHarness()
@@ -449,14 +454,42 @@ describe('session runtime — requests and refresh', () => {
   it('a token commit that completes after the tab cleared itself is not dispatched', async () => {
     const h = createHarness()
     const a = await signedInTab(h)
+    const sid = a.runtime.claim()!
     const ref = (await a.runtime.beginRequest()).ref
-    await a.runtime.handleUnauthorized(ref)
-    await a.runtime.signOut()
-    const before = a.events.updated
-    a.deliverChannel()
-    await flush()
-    expect(a.events.updated).toBe(before)
+    const posts = a.channelPost.mock.calls.length
+
+    // The tab signs out between the token transaction's decision and the code
+    // that runs after it: the commit was decided while the tab still held the
+    // session, and completes for a tab that has cleared itself.
+    const transact = a.store.transact.bind(a.store)
+    let committed: unknown = null
+    let signingOut: Promise<void> | null = null
+    vi.spyOn(a.store, 'transact').mockImplementation(async (decide, opts) => {
+      const result = (await transact(decide, opts)) as { outcome?: string }
+      if (result && result.outcome !== undefined && signingOut === null) {
+        committed = { outcome: result.outcome, generation: h.shared.state.record.session?.generation }
+        signingOut = a.runtime.signOut()
+        expect(a.runtime.claim()).toBeNull()
+      }
+      return result as never
+    })
+
+    await expect(a.runtime.handleUnauthorized(ref)).resolves.toBe('ended')
+    await signingOut
+
+    // The tokens were written under the session, by a tab that then held it.
+    expect(committed).toEqual({ outcome: 'written-both', generation: 2 })
+    // They were not taken into the cleared tab, dispatched or announced.
+    expect(a.events.tokensUpdated).not.toHaveBeenCalled()
+    expect(a.events.established).toBe(1)
+    expect(a.events.ended).toEqual(['explicit'])
     expect(a.runtime.claim()).toBeNull()
+    expect(a.runtime.status()).toBe('signed-out')
+    // One post, for the sign-out's publication; none for the tokens.
+    expect(a.channelPost.mock.calls.length).toBe(posts + 1)
+    await expect(a.runtime.beginRequest()).rejects.toBeInstanceOf(SessionEndedError)
+    expect(h.shared.state.record.session).toBeNull()
+    expect(h.server.sessions.get(sid)!.revoked).toBe(true)
   })
 
   it('a blocked transaction whose caller timed out does not commit after release and posts nothing to the channel', async () => {

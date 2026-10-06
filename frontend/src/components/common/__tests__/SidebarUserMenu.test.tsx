@@ -132,7 +132,6 @@ describe('SidebarUserMenu', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }))
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/login'))
     expect((persistor as unknown as { purge: ReturnType<typeof vi.fn> }).purge).not.toHaveBeenCalled()
-    void persistor
   })
 
   it('menu closes on Escape key', async () => {
