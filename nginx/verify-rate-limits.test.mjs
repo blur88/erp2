@@ -12,6 +12,7 @@ import {
   admittedBounds,
   peakDemand,
   candidateBurst,
+  judgeBurst,
 } from './verify-rate-limits.mjs'
 
 const conf = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'nginx.conf'), 'utf8')
@@ -69,4 +70,37 @@ test('peak demand: a spread-out burst has a low E, a dense one a high E', () => 
 test('candidate burst is 1.25x(E-1) rounded up', () => {
   assert.equal(candidateBurst(30), 37)
   assert.equal(candidateBurst(21), 25)
+})
+
+test('judgeBurst: a slow zone must admit exactly burst + 1', () => {
+  const login = { ratePerSecond: 5 / 60, burst: 3 }
+  assert.equal(judgeBurst(login, { seconds: 1, admitted: 4, rejected: 6, other: 0 }).verdict, 'pass')
+  assert.equal(judgeBurst(login, { seconds: 1, admitted: 5, rejected: 5, other: 0 }).verdict, 'fail')
+  assert.equal(judgeBurst(login, { seconds: 1, admitted: 3, rejected: 7, other: 0 }).verdict, 'fail')
+})
+
+test('judgeBurst: a fast zone is bounded by the measured duration', () => {
+  const session = { ratePerSecond: 1, burst: 20 }
+  assert.equal(judgeBurst(session, { seconds: 0.4, admitted: 21, rejected: 11, other: 0 }).verdict, 'pass')
+  assert.equal(judgeBurst(session, { seconds: 1.5, admitted: 23, rejected: 9, other: 0 }).verdict, 'pass')
+  assert.equal(judgeBurst(session, { seconds: 0.4, admitted: 23, rejected: 9, other: 0 }).verdict, 'fail')
+  assert.equal(judgeBurst(session, { seconds: 0.4, admitted: 20, rejected: 12, other: 0 }).verdict, 'fail')
+})
+
+test('judgeBurst: exhaustion must be observed', () => {
+  const session = { ratePerSecond: 1, burst: 20 }
+  assert.equal(judgeBurst(session, { seconds: 0.4, admitted: 21, rejected: 0, other: 0 }).verdict, 'fail')
+})
+
+test('judgeBurst: any status that is neither the admitted one nor 429 fails', () => {
+  const session = { ratePerSecond: 1, burst: 20 }
+  assert.equal(judgeBurst(session, { seconds: 0.4, admitted: 21, rejected: 10, other: 1 }).verdict, 'fail')
+})
+
+test('judgeBurst: a burst too slow to judge is inconclusive, not a pass or a fail', () => {
+  const session = { ratePerSecond: 1, burst: 20 }
+  assert.equal(judgeBurst(session, { seconds: 5.1, admitted: 26, rejected: 6, other: 0 }).verdict, 'inconclusive')
+  const login = { ratePerSecond: 5 / 60, burst: 3 }
+  assert.equal(judgeBurst(login, { seconds: 10, admitted: 4, rejected: 6, other: 0 }).verdict, 'inconclusive')
+  assert.equal(judgeBurst(login, { seconds: 9.9, admitted: 4, rejected: 6, other: 0 }).verdict, 'pass')
 })
