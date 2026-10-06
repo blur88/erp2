@@ -7,75 +7,185 @@ verified. The code lives in `frontend/src/session/` and `frontend/qa/cross-tab-s
 
 | Command | Purpose |
 |---|---|
-| `frontend/qa/cross-tab-session/run.sh "<lan-ip>"` | A whole recorded run: configure the stack, run the cases and W1, restore, measure latency. **Incomplete at `79949b451`; see Status after review.** |
+| `frontend/qa/cross-tab-session/run.sh "<lan-ip>"` | A whole recorded run: capture the running configuration, rebuild, start with the QA values, run the fifteen cases and W1, restore, measure latency, write `results.json`. |
 | `frontend/qa/cross-tab-session/stack.sh {show\|qa-up\|restore}` | The only supported way to start or recreate containers for a run. |
 | `nginx/verify-rate-limits.sh` | The ingress rate limits and CORS, from a container with its own address. Must pass twice in a row. |
 | `node --test nginx/verify-rate-limits.test.mjs` | The arithmetic the rate-limit script derives from the configuration. |
+| `frontend/qa/cross-tab-session/diagnose-latency.mjs` | A diagnostic, not a gate: where the reconcile gate's time goes during a page load. |
 
-`run.sh` refuses a `localhost` address, any port, a dirty working tree, and less
-than 3 GB free disk. It captures the running token lifetime and grace before
-changing anything, and restores exactly those afterwards; a failed restoration
-never yields exit 0. It must be run against the ingress on port 80 (the LAN IP);
-port 3000 is the frontend container's own NGINX, which applies no rate limit.
+`run.sh` refuses a `localhost` address, any port, a dirty working tree, missing
+QA credentials and less than 3 GB free disk. It captures the running token
+lifetime and grace from inside the backend before changing anything, and
+restores exactly those afterwards; a failed restoration never yields exit 0. It
+goes through the ingress on port 80 (the LAN IP); port 3000 is the frontend
+container's own NGINX, which applies no rate limit. The browser container runs on
+Docker's default bridge, not on the host network.
 
 The two QA values are an access-token lifetime of **20 s** and a refresh grace of
-**5 s**, set by `stack.sh qa-up` so cases 8-11 can observe expiry and rotation.
-They are not production values.
+**5 s**, set by `stack.sh qa-up` so cases 8 to 11 and W1 can observe expiry,
+rotation and replay in seconds. They are not production values.
 
-## Status after review (2026-10-06, commit `79949b451`)
+`frontend/qa/cross-tab-session/README.md` describes each case, W1, the
+measurements and the accounts the suite needs.
 
-A review of this branch against the implementation plan found that parts of the
-verification described in this document did not exist yet. Until the items below
-are closed, nothing here establishes cross-tab consistency in a real browser.
+## Where the evidence is
 
-**Browser script: incomplete.**
+A document in the repository cannot hold the results of a run on its own commit.
+So:
 
-- `cases.mjs` held 2 cases, not 15. Its sign-out case opened each "tab" in a
-  separate browser context (a separate profile), so it did not test two tabs of
-  one profile, and it navigated the second tab before checking.
-- Workload W1 did not exist. The `session_limit` burst (20) is therefore
-  unmeasured and no tab capacity is claimed.
-- `measure.mjs` measured M1 only. M2 to M5 did not exist.
-- `stack.sh qa-up` did not check the 20 s access lifetime by observed behaviour.
-- No recorded run has been made. The earlier statement that the run was blocked
-  only by free disk was incomplete: the script could not have produced the
-  required evidence even with disk available.
+- **This document** records the first recorded run, on commit `582096992`, with
+  everything it found, including what failed.
+- **The run that gates the merge** is made on the final commit of the branch and
+  recorded in the body of the pull request that closes #1345, with the SHA it
+  describes.
 
-**Rate-limit script: incomplete.** `nginx/verify-rate-limits.sh` passed twice on
-`79949b451`, covering phases 0, A, B, C, D and F. Phase E (`change-password`,
-`logout`, `me`) was not implemented. Phase D ran after a drain wait, so it did not
-show that the login budget is unaffected by session traffic. Bursts were not
-checked against the longest duration that can still be judged.
+## Recorded run on `582096992` (2026-10-06)
 
-**Product defects found by reading, each to be confirmed by a failing test before
-it is fixed:** the IndexedDB adapter settles a caller on timeout before the
-transaction's own outcome is known, and reports every abort as a timeout; the
-interceptor never reaches the final-401 session ending; the refresh lease is
-released before the refresh is sent; the public default-credentials request goes
-through the authenticated client; the sign-in error message from the server is
-lost; persisted notifications are not read back; the login form has no
-fail-closed message when IndexedDB is unavailable.
+Chromium 153.0.8010.12 in `mcr.microsoft.com/playwright:v1.63.0-noble`; AMD Ryzen 3
+3200G, 4 cores, 9.7 GiB, spinning disk. **Exit status 1**: the latency thresholds
+then in force were exceeded. Everything else passed as it was then judged.
 
-**CI:** the only run on `79949b451` was cancelled. Local results and GitHub CI are
-separate evidence, and the second does not exist yet.
+| | Before | During | After |
+|---|---|---|---|
+| Access-token lifetime | 15m | 20s | 15m |
+| Refresh grace | 60 | 5 | 60 |
+| Served build | (none: the previous image predates the build tag) | `582096992` | `582096992` |
 
-This section is replaced when the work is done. The run that gates the merge is
-made on the final commit and recorded in the pull request that closes #1345, not
-here, so that recording it does not change the tested commit.
+**Cases: 15 of 15 passed.** Two-tab sign-out; stale write-back; drafts; reload and
+session restore; user switch; same-user sign-out and sign-in; simultaneous
+refresh; use past real expiry; holder paused and resumed inside grace, after
+grace, and after further rotations; tab paused mid-transaction; IndexedDB
+unavailable; old bundle (sign-in, registration and refresh each refused with 426);
+resume without a channel message. Sign-ins waited on the login limit 16 times, as
+designed.
+
+**W1 (restored window), as judged in that run:**
+
+| Tabs | Session requests per round | 429 on `refresh`/`logout`/`me` | Peak accumulated demand `E` | Business requests answered 429 |
+|---|---|---|---|---|
+| 5 | 0 to 2 | 0 | 1 | 18 of 45, 18 of 48, 40 of 71 |
+| 10 | 0 to 2 | 0 | 1 | 44 of 90, 81 of 121, 44 of 90 |
+| 20 | 1 to 2 | 0 | 1 | 103 of 211, 124 of 247, 29 of 105 |
+
+- One refresh per round even with twenty tabs holding expired tokens: the refresh
+  lease does what it is for.
+- `E` on the session zone was 1, far inside burst 20, so `session_limit` was not
+  retuned.
+- In that run a tab counted as usable when a fresh request succeeded once traffic
+  had settled. That definition was too weak and has been replaced (below); the
+  run is **not** evidence that the tabs were usable in the stricter sense.
+
+**Latency, as measured (median p95 of three repetitions):**
+
+| | One tab | Four tabs | Threshold then in force | |
+|---|---|---|---|---|
+| M1 raw IndexedDB read, idle page | 2.1 ms | | 5 ms | pass |
+| M2 raw read, four tabs busy and a writer | | 5.1 ms | 15 ms | pass |
+| M3 the adapter's reads inside the loading application | 99 ms | 330.1 ms | 10 / 20 ms | **fail** |
+| M4 per request, wait before sending plus wait before delivery | 205.3 ms | 603.3 ms | 10 / 20 ms | **fail** |
+
+Maxima: M3 196 / 833 ms, M4 241 / 874 ms. The four-tab loads included requests
+answered 429 by the general API limit. M5 (diagnostic): a dashboard load took
+about 0.8 s from navigation to its last response in one tab and 2.3 s with four.
+
+**Rate-limit script on the same build:** passed twice in a row, phases 0 and A to
+F. Login budget exactly 4 admitted of 10 alone, while the session budget was
+spent, and for `change-password`; session budget 21 admitted of 32 alone and while
+the login budget was spent; logout 204 and `me` 401 unthrottled; both preflights
+allow `X-ERP-Session-Protocol`. Every burst took under half a second.
+
+## Decisions taken after that run (repository owner, 2026-10-06)
+
+### Latency acceptance criteria
+
+The 10 / 20 ms targets for M3 and M4 were provisional. They were **replaced, not
+met**; the failed figures above stand as measured.
+
+- **M1 (p95 ≤ 5 ms) and M2 (p95 ≤ 15 ms) are the blocking criteria.**
+- **M3 and M4 are diagnostic**: measured and recorded with their environment on
+  every run, never pass or fail. A run in which they have no samples is
+  incomplete and fails.
+- The hard gate (a successful read before every request and before every
+  delivery) and the rule that a storage call settles only from its transaction's
+  completion are unchanged. No optimisation that was simulated was implemented.
+
+Why the old targets could not be met on this machine: the wait is for the page's
+own main thread while it loads, not for storage or the adapter. In the
+investigation (`diagnose-latency.mjs`, same build, same machine) a raw read on the
+main thread during a load was as slow as the adapter's (p95 68 ms against 78 ms in
+one tab); the same read from a worker took 13 ms, and about 2 ms on an idle page.
+About 73% of read time in one tab (85% in four) coincided with main-thread delay.
+
+Supporting evidence, to be read with its limits: with the gate wait simulated
+away, **no slowdown was detected in this experiment** (979 ms against 994 ms to
+the last response in one tab; 3096 ms against 3167 ms in four). That is a
+simulation made in the page, not a build without the gate; differences of 20% or
+less between variants were noise in it; the four-tab loads included requests
+answered 429; and two unrelated containers were restart-looping on the host
+throughout.
+
+What this does and does not establish: it supports accepting the measured cost on
+this machine. It does not establish that every possible implementation that keeps
+the gate would miss the old targets, and it says nothing about other machines.
+
+### What "usable" means in W1
+
+A tab is usable when it reaches a working state without reloading and without
+signing in again, with its expected data available and actions working. It does
+not require every initial request to succeed. Retries and user actions needed to
+recover are recorded. A rendered shell with missing data is not usable, and
+recovery through a page only an administrator can open does not count.
+
+- No 429 on `refresh`, `logout` or `me` at five tabs remains blocking.
+- 429s on business endpoints come from the general `api_limit`, which #1345 leaves
+  unchanged. They are recorded and tracked in issue #1353, and are acceptable only
+  when recovery meets the definition above.
+
+## What changed after that run
+
+- **Company data recovers by itself.** When the general limit refused
+  `GET /settings/company`, the sidebar stayed without its company data and only an
+  administrator-only page requested it again. That one request, and no other, is
+  now retried after a 429: three retries at most, waits of 250 to 500, 500 to 1000
+  and 1000 to 2000 ms, or a valid `Retry-After` capped at 4 s. Every retry goes
+  through the session checks, and an abort or a session change cancels the wait.
+- **W1 runs as a non-administrator** (`sales_staff`, the default role for a new
+  user) and refuses any recovery step that would open a page that role cannot
+  open. Its expected data includes what the shell shows on every page.
+- **The suite's own judgement was checked by forcing it to fail**: with recovery
+  disabled it reports unusable tabs; with the company retry exhausted it names the
+  company data as unrecoverable; an administrator-only step is refused.
+
+Development results under the new definition (a local build of `81958c8bd` served
+through request interception, API through the real ingress; **not a recorded
+run**): at five tabs every tab became usable with no 429 on the session routes.
+With current tokens four of five were complete on first load and one needed one
+in-app round trip; with expired tokens none was complete on first load and each
+needed one in-app round trip, the company data arriving by the automatic retry in
+1.1 to 1.4 s. Ten and twenty tabs were also all usable; the longest automatic
+retry took 5.4 s and used two of its three retries.
 
 ## What is automated
 
 - Vitest on the in-memory store double: every commit rule, the reconciliation
-  table, the runtime's request lifecycle and the endings
-  (`frontend/src/session/__tests__/`). At `79949b451` the interceptor's 401 path
-  (refresh, retry, the three-send budget) had no test, and the refresh-lease test
-  passed without exercising the lease.
-- Vitest on the components: the fail-closed screen, the session-changed message,
-  the idle-timeout sign-out, the reset of the plain slices and the API caches.
+  table, the runtime's request lifecycle, refresh coordination across tabs with a
+  fake server that delays its answers and models grace, and every kind of ending
+  (`frontend/src/session/__tests__/`).
+- Vitest on the HTTP interceptors with a real runtime: the refresh and retry path,
+  the three-send budget and the final-401 ending, the caller's and the session's
+  abort signals, and no re-send under another session
+  (`frontend/src/services/__tests__/`).
+- Vitest on the application wiring: the redirect to the login page when a session
+  ends, the storage-unavailable screen in place of every route, the reset of every
+  slice and API cache, rehydration through the started runtime, drafts cleared on
+  a local ending and on resume.
+- Vitest on the IndexedDB adapter against a hand-written stub. It proves the
+  adapter's logic, not the browser's IndexedDB; that is what the browser run is
+  for.
 - Jest on the backend guard and the CORS allow-list, and the e2e `protocol marker`
   block (the marker is refused on all three token-issuing routes; a refused
   refresh does not rotate, read from the `auth_sessions` row).
-- `node --test` on the rate-limit script's arithmetic.
+- `node --test` on the arithmetic of the rate-limit script and of the QA scripts.
 
 ## What is manual
 
@@ -87,16 +197,35 @@ CI has no NGINX and no browser; neither is a CI gate.
 ## Known limits
 
 - Chromium only. Firefox, Safari and mobile are unverified.
-- Natural tab freezing, tab discard and device sleep are not exercised. Case 15,
-  once written, dispatches `visibilitychange` and `pageshow` synthetically; the
-  browser's own freezing and back/forward cache are not covered.
-- The latency figures come from one machine (headless Chromium, idle disk). They
-  do not predict an office PC with a spinning disk.
-- The tab capacity of `session_limit` is whatever workload W1 measures, and no
-  more. W1 has not run, so no capacity is claimed.
-- Several users sharing one address are unverified.
+- Natural tab freezing, tab discard and device sleep are not exercised. Case 15
+  dispatches `visibilitychange` and `pageshow` synthetically; the browser's own
+  freezing and back/forward cache are not covered. Pauses in cases 9 to 12 are
+  debugger pauses.
+- The reconcile read waits for the page's main thread during a page load: tens to
+  hundreds of milliseconds per request on the QA machine (figures above). This
+  cost is accepted, not removed. The figures come from one machine with a spinning
+  disk and say nothing about others.
+- When several tabs load at once, the general `api_limit` refuses a third to two
+  thirds of their data requests (issue #1353). Tabs recover without a reload, but
+  mostly through one in-app navigation by the user, not by themselves. Only the
+  company data is retried automatically.
+- A refused regional-settings request is not retried. A profile that has signed
+  in before keeps the formats it stored; a profile with empty storage falls back
+  to `DD/MM/YYYY` silently, and an ordinary user can only correct that by opening
+  a page that requests the settings again, or by reloading. W1 does not exercise
+  the empty-storage case.
+- `session_limit` (1 request per second, burst 20) was checked against a restored
+  window of 5, 10 and 20 tabs of one profile. Several users sharing one address
+  are unverified, and so is `limit_conn addr 10` with more than one profile behind
+  an address.
 - A sign-out's publication to other tabs is delayed by a blocked transaction; the
   bound while it is delayed is the server revocation, which exists only once the
   logout reaches the server.
+- A legitimate refresh delayed past grace revokes its session in every tab.
+- A tab paused mid-transaction blocks other tabs' session operations until it
+  resumes or closes; waiting operations time out with an error and sign nobody out.
+- Rehydration of persisted notifications waits for the session runtime to start,
+  which route loaders do. A route without a loader would rehydrate empty after
+  redux-persist's 5 s timeout.
 - Production is clear-text HTTP; credentials and tokens are readable on the
   network.
