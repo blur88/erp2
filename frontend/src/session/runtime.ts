@@ -288,12 +288,27 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     (await transact((s) => leaseAcquire(s, { owner: tabId, now: now(), ttlMs: LEASE_TTL_MS }))).acquired
 
   const doRefresh = async (): Promise<'retry' | 'ended'> => {
-    const first = await readRecord()
-    if (applyAdoption(reconcile(claim(), memory, first.record), first)) {
-      if (status !== 'signed-in') return 'ended'
-      return 'retry'
+    const startedWith = memory
+    if (!startedWith) return 'ended'
+
+    // Reconciles, then says whether this refresh is already settled. The tab can
+    // take newer tokens on another path while this one waits for the lease (a
+    // channel message, another request's reconcile); the reconcile here then
+    // finds nothing to adopt, so the tab's own tokens are compared with the ones
+    // the refresh was started for. Sending anyway would rotate a second time.
+    const settled = async (): Promise<'retry' | 'ended' | null> => {
+      const stored = await readRecord()
+      applyAdoption(reconcile(claim(), memory, stored.record), stored)
+      if (status !== 'signed-in' || !memory) return 'ended'
+      const movedOn =
+        memory.sessionId !== startedWith.sessionId ||
+        memory.generation > startedWith.generation ||
+        memory.accessTokenExpiresAt > startedWith.accessTokenExpiresAt
+      return movedOn ? 'retry' : null
     }
-    if (!memory) return 'ended'
+
+    const first = await settled()
+    if (first) return first
 
     // The lease covers the refresh request itself: the tab that holds it sends,
     // the others wait to adopt its tokens. A tab that outwaits the lease proceeds
@@ -304,21 +319,14 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
         const maxRounds = Math.max(1, Math.floor(LEASE_TTL_MS / 250))
         for (let round = 0; round < maxRounds && !holdsLease; round += 1) {
           await new Promise((r) => setTimeout(r, 250))
-          const again = await readRecord()
-          if (applyAdoption(reconcile(claim(), memory, again.record), again)) {
-            if (status !== 'signed-in') return 'ended'
-            return 'retry'
-          }
-          if (!memory) return 'ended'
+          const again = await settled()
+          if (again) return again
           holdsLease = await acquireLease()
         }
       }
 
-      const second = await readRecord()
-      if (applyAdoption(reconcile(claim(), memory, second.record), second)) {
-        if (status !== 'signed-in') return 'ended'
-        return 'retry'
-      }
+      const second = await settled()
+      if (second) return second
       if (!memory) return 'ended'
 
       return await sendRefresh(memory)
