@@ -9,9 +9,10 @@
 //       signs out while the others are still loading.
 //
 // Recorded for each round: the send time and status of every request to
-// refresh, logout and me; the total and per-tab counts; the busiest
+// refresh, logout and me; the total, per-route and per-tab counts; the busiest
 // one-second interval; the peak accumulated demand E; the number of 429s; and
-// whether every tab ended usable (round c: on the login page).
+// whether every tab ended usable (round c: on the login page, in the document
+// it first loaded, and how many tabs were still loading at the sign-out).
 //
 // W1 signs in as a NON-ADMINISTRATOR (QA_USERNAME_3), by the owner's decision
 // of 2026-10-06: "Administrator-only recovery does not satisfy W1 for
@@ -27,14 +28,18 @@
 // had no way to get back. A tab that cannot be recovered is not usable, and
 // at N = 5 that fails W1. Nothing is retried to make it pass.
 //
-// Blocking: N = 5, rounds (a) and (b): no 429 on refresh, logout or me, and
-// every tab usable. Not blocking: everything else. The largest N at which
-// both hold in (a) and (b) is the capacity the documentation may state;
-// nothing beyond what was measured is claimed. 429s on business endpoints
+// Blocking, at N = 5 (lib/w1-judgement.mjs, blockingChecks): in all three
+// rounds no 429 on refresh, logout or me; in (a) and (b) every tab usable; in
+// (c) the logout sent and every tab on the login page without a reload. Not
+// blocking: everything at N = 10 and 20. 429s on business endpoints
 // (api_limit) are counted and not judged: they are tracked in issue #1353.
+//
+// W1 states no capacity. It reports what was observed at each size, and says
+// what that does and does not show (W1_SCOPE).
 import { accessFor, loadNavigation } from './access.mjs'
 import { sleep } from './config.mjs'
-import { USER_MENU, onLoginPage, readStored, showsSignedInUi, summarize } from './harness.mjs'
+import { USER_MENU, documentId, onLoginPage, readStored, showsSignedInUi, summarize } from './harness.mjs'
+import { HOW_ROUNDS_REACH_THE_SESSION_ZONE, W1_SCOPE, blockingChecks, byRoute, nonBlockingFindings, observed, observedLine } from './w1-judgement.mjs'
 import { busiestSecond, candidateBurst, peakDemand } from './stats.mjs'
 import {
   ACTION,
@@ -65,6 +70,7 @@ function measure(profile, mark, zone) {
   return {
     requests: entries,
     total: entries.length,
+    byRoute: byRoute(entries),
     perTab,
     busiestSecond: busiestSecond(times),
     peakDemandE: Math.round(peak * 1000) / 1000,
@@ -132,20 +138,16 @@ async function endStates(profile, mark, pages, api, shell) {
   }
 }
 
-/** One line per round, printed as soon as the round is done. */
-function report(r) {
+/** One line per round, printed as soon as the round is done: what was observed, and for (a) and (b) how the data arrived. */
+function report(r, burst) {
+  console.log(`    ${observedLine(observed(r, burst))}`)
+  if (r.round === 'c') return
   console.log(
-    `    N=${r.n} (${r.round}): ${r.total} session requests, busiest second ${r.busiestSecond}, E ${r.peakDemandE}, ` +
-      `429s ${r.count429} (data requests 429: ${r.dataRequests429}/${r.dataRequests}), ` +
-      (r.round === 'c'
-        ? `on login ${r.tabsOnLoginPage}/${r.n}`
-        : `usable ${r.tabsUsable}/${r.n}: data complete on first load ${r.tabsCompleteOnFirstLoad}; ` +
-          `company data on the first request ${r.tabsCompanyOnFirstRequest}, after the session's renewal ${r.tabsCompanyAfterSessionRenewalOnly}, by the application's retry after a 429 ${r.tabsCompanyByAutomaticRetry}` +
-          `${r.companyAutomaticRetryWaitMs ? ` (wait ${r.companyAutomaticRetryWaitMs.shortest} to ${r.companyAutomaticRetryWaitMs.longest} ms)` : ''}, retries used up ${r.tabsCompanyRetryExhausted}; ` +
-          `regional request refused ${r.tabsRegionalRequestRefused} (formats wrong in ${r.tabsRegionalNotInEffect}); ` +
-          `needed manual recovery ${r.tabsNeedingRecovery} (${r.recoveryActionsTotal} action(s), most for one tab ${r.maxRecoveryActions}); ` +
-          `not usable ${r.tabsNotRecoverable.length}` +
-          `${Object.keys(r.dataNotRecoverableByRole).length > 0 ? `; NOT recoverable by this role: ${lostData(r)}` : ''}`),
+    `      company data on the first request ${r.tabsCompanyOnFirstRequest}, after the session's renewal ${r.tabsCompanyAfterSessionRenewalOnly}, by the application's retry after a 429 ${r.tabsCompanyByAutomaticRetry}` +
+      `${r.companyAutomaticRetryWaitMs ? ` (wait ${r.companyAutomaticRetryWaitMs.shortest} to ${r.companyAutomaticRetryWaitMs.longest} ms)` : ''}, retries used up ${r.tabsCompanyRetryExhausted}; ` +
+      `regional request refused ${r.tabsRegionalRequestRefused} (formats wrong in ${r.tabsRegionalNotInEffect}); ` +
+      `needed manual recovery ${r.tabsNeedingRecovery}; not usable ${r.tabsNotRecoverable.length}` +
+      `${Object.keys(r.dataNotRecoverableByRole).length > 0 ? `; NOT recoverable by this role: ${lostData(r)}` : ''}`,
   )
 }
 
@@ -312,7 +314,7 @@ export default {
         ...measured,
         ...states,
       })
-      report(rounds.at(-1))
+      report(rounds.at(-1), zone.burst)
       await closeAll(opened.pages)
 
       // ---- (b) expired access token --------------------------------------
@@ -336,13 +338,16 @@ export default {
         ...measured,
         ...states,
       })
-      report(rounds.at(-1))
+      report(rounds.at(-1), zone.burst)
       await closeAll(opened.pages)
 
       // ---- (c) one tab signs out while the others are loading ------------
       await sleep(drainMs)
       mark = profile.mark()
       opened = await openTabs(profile, n, `N${n}c`)
+      // Which document each tab loaded: a tab that reaches the login page by
+      // being reloaded has another one afterwards.
+      const documents = await Promise.all(opened.pages.map(documentId))
       const first = await Promise.any(
         opened.pages.map((page) => page.locator(USER_MENU).first().waitFor({ state: 'visible', timeout: 60000 }).then(() => page)),
       )
@@ -350,89 +355,34 @@ export default {
       await ctx.signOut(first)
       const ended = await Promise.all(opened.pages.map((page) => onLoginPage(page, 60000)))
       await quiet(profile, mark)
+      const same = await Promise.all(opened.pages.map(async (page, i) => (await documentId(page)) === documents[i]))
       rounds.push({
         n,
         round: 'c',
         description: 'one tab signs out while the others are still loading',
         tabsStillLoadingAtSignOut: shown.filter((count) => count === 0).length,
         ...measure(profile, mark, zone),
-        tabsOnLoginPage: ended.filter(Boolean).length,
-        everyTabOnLoginPage: ended.every(Boolean),
-        tabs: opened.pages.map((page, i) => ({ tab: profile.label(page), onLoginPage: ended[i], at: new URL(page.url()).pathname })),
+        // On the login page AND still the document the tab first loaded.
+        tabsOnLoginPage: ended.filter((on, i) => on && same[i]).length,
+        everyTabOnLoginPage: ended.every((on, i) => on && same[i]),
+        tabs: opened.pages.map((page, i) => ({ tab: profile.label(page), onLoginPage: ended[i], sameDocument: same[i], at: new URL(page.url()).pathname })),
       })
-      report(rounds.at(-1))
+      report(rounds.at(-1), zone.burst)
       await ctx.close()
     }
 
-    // ---- judgement --------------------------------------------------------
-    const of = (n, round) => rounds.find((r) => r.n === n && r.round === round)
-    // 429s on refresh, logout or me: the round's own and those the usability
-    // checks caused.
-    const session429 = (r) => r.count429 + (r.sessionRequests429DuringUsabilityCheck ?? 0)
-    // A size holds when, in both (a) and (b), no session endpoint answered 429
-    // and every tab was usable.
-    const holds = (n) => ['a', 'b'].every((round) => of(n, round) && session429(of(n, round)) === 0 && of(n, round).everyTabUsable === true)
-    const capacity = sizes.filter(holds).reduce((max, n) => Math.max(max, n), 0)
+    // ---- what was observed, and the judgement -------------------------------
+    const noted = nonBlockingFindings(rounds, shell.access.role)
     const judgement = {
-      capacityTabs: capacity,
-      capacityMeans:
-        'the largest N at which, in rounds (a) and (b), no request to refresh, logout or me was answered 429 (session_limit) and every tab was usable by the definition of 2026-10-06 (recorded.usableMeans). 429s on business endpoints (api_limit) are counted and not judged; they are tracked in issue #1353.',
+      // No capacity is stated. This is what W1 shows and what it does not.
+      scope: W1_SCOPE,
+      howEachRoundReachesTheSessionZone: HOW_ROUNDS_REACH_THE_SESSION_ZONE,
+      blocking:
+        'At N = 5: no 429 on refresh, logout or me in rounds (a), (b) and (c); every tab usable in (a) and (b); in (c) the logout sent and every tab on the login page without a reload. Nothing at N = 10 or 20 blocks.',
+      observed: rounds.map((r) => observed(r, zone.burst)),
       // Every piece of data some tab's user could not get back, at any size.
-      dataNotRecoverableByRole: [],
-      nonBlockingFindings: [],
-    }
-    for (const r of rounds) {
-      const blocking = r.n === 5 && r.round !== 'c'
-      if (!blocking) {
-        if (session429(r) > 0) judgement.nonBlockingFindings.push(`N=${r.n} (${r.round}): ${session429(r)} request(s) to refresh, logout or me answered 429`)
-      }
-      if (r.dataRequests429 > 0) {
-        judgement.nonBlockingFindings.push(
-          `N=${r.n} (${r.round}): ${r.dataRequests429} of ${r.dataRequests} data requests of the tabs' own loading were answered 429 (api_limit, not session_limit; tracked in issue #1353)`,
-        )
-      }
-      if (r.dataRequestsFailed.length > 0) {
-        judgement.nonBlockingFindings.push(`N=${r.n} (${r.round}): ${r.dataRequestsFailed.length} data request(s) failed without an answer: ${[...new Set(r.dataRequestsFailed)].join(', ')}`)
-      }
-      if (r.round !== 'c') {
-        // Recorded for every size, blocking or not: what recovery took.
-        if (r.tabsNeedingRecovery > 0) {
-          judgement.nonBlockingFindings.push(
-            `N=${r.n} (${r.round}): ${r.tabsNeedingRecovery} of ${r.n} tabs first showed missing data and the user had to act ` +
-              `(${r.recoveryActionsTotal} round trip(s) through the sidebar in all, at most ${r.maxRecoveryActions} for one tab, slowest ${r.slowestRecoveryMs} ms)`,
-          )
-        }
-        if (r.tabsCompanyByAutomaticRetry > 0) {
-          judgement.nonBlockingFindings.push(
-            `N=${r.n} (${r.round}): in ${r.tabsCompanyByAutomaticRetry} tab(s) the company data was refused at first and came by the application's own retry, ` +
-              `${r.companyAutomaticRetryWaitMs.shortest} to ${r.companyAutomaticRetryWaitMs.longest} ms after the refusal`,
-          )
-        }
-        if (r.tabsRegionalRequestRefused > 0) {
-          judgement.nonBlockingFindings.push(
-            `N=${r.n} (${r.round}): the regional-settings request of ${r.tabsRegionalRequestRefused} tab(s) was refused and never repeated; ` +
-              `the formats were wrong in ${r.tabsRegionalNotInEffect} of them (the others applied the values the profile had stored before)`,
-          )
-        }
-        // By name, for every size: what the role could not get back.
-        for (const [data, tabs] of Object.entries(r.dataNotRecoverableByRole)) {
-          judgement.dataNotRecoverableByRole.push({ n: r.n, round: r.round, data, tabs: tabs.length, of: r.n })
-          judgement.nonBlockingFindings.push(
-            `N=${r.n} (${r.round}): NOT recoverable by a ${shell.access.role} user without a reload: ${data}, in ${tabs.length} of ${r.n} tabs` + (r.n === 5 ? ' (this fails W1)' : ''),
-          )
-        }
-        if (r.tabsWithRefusedStep > 0) judgement.nonBlockingFindings.push(`N=${r.n} (${r.round}): a step was refused in ${r.tabsWithRefusedStep} tab(s) because it would have opened a page outside the role's set`)
-        if (r.tabsNeedingActionRetry > 0) judgement.nonBlockingFindings.push(`N=${r.n} (${r.round}): the action had to be tried more than once in ${r.tabsNeedingActionRetry} tab(s)`)
-      }
-      if (!blocking) {
-        if (r.round === 'c' ? !r.everyTabOnLoginPage : !r.everyTabUsable) {
-          judgement.nonBlockingFindings.push(
-            r.round === 'c'
-              ? `N=${r.n} (c): not every tab reached the login page`
-              : `N=${r.n} (${r.round}): ${r.tabsNotRecoverable.length} of ${r.n} tabs were NOT usable: ${r.tabsNotRecoverable.map((t) => `${t.tab}: ${t.whyNot}`).join(' || ')}`,
-          )
-        }
-      }
+      dataNotRecoverableByRole: noted.dataNotRecoverableByRole,
+      nonBlockingFindings: noted.findings,
     }
     const ten = rounds.filter((r) => r.n === 10)
     if (ten.some((r) => r.count429 > 0)) {
@@ -450,30 +400,6 @@ export default {
     }
     ctx.record('judgement', judgement)
 
-    if (!sizes.includes(5)) {
-      ctx.check('N = 5 was run (the blocking size)', false, { sizes })
-      return
-    }
-    for (const round of ['a', 'b']) {
-      const r = of(5, round)
-      // Pass: no request to refresh, logout or me was answered 429, in the
-      // round itself or while its tabs were checked.
-      ctx.check(`N = 5 (${round}): no 429 on refresh, logout or me`, session429(r) === 0, {
-        count429: r.count429,
-        duringUsabilityCheck: r.sessionRequests429DuringUsabilityCheck,
-      })
-      // Pass: every tab has its data on screen, the shell's included, and an
-      // action working, for the non-administrator, without a reload, a new
-      // sign-in or a page outside the role's set (lib/usable.mjs, verdict()).
-      ctx.check(`N = 5 (${round}): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)`, r.everyTabUsable === true, {
-        usable: r.tabsUsable,
-        completeOnFirstLoad: r.tabsCompleteOnFirstLoad,
-        companyByAutomaticRetry: r.tabsCompanyByAutomaticRetry,
-        neededManualRecovery: r.tabsNeedingRecovery,
-        dataNotRecoverableByRole: r.dataNotRecoverableByRole,
-        notUsable: r.tabsNotRecoverable,
-      })
-    }
-    ctx.check('N = 5 (b): every tab did start with an expired access token', of(5, 'b').accessTokenExpiredAtStart === true)
+    for (const c of blockingChecks(rounds, sizes)) ctx.check(c.label, c.ok, c.detail)
   },
 }

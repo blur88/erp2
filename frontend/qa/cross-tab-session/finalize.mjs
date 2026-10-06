@@ -16,6 +16,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { competingWorkload, summaryLines } from './lib/latency-criteria.mjs'
+import { W1_SCOPE, observedLine } from './lib/w1-judgement.mjs'
 
 const scratch = process.env.QA_SCRATCH || process.cwd()
 const read = (name) => {
@@ -90,26 +91,24 @@ if (Array.isArray(results.cases)) {
 }
 if (results.w1) {
   const user = results.w1.recorded?.user
-  console.log(
-    `  W1 ${results.w1.pass ? 'pass' : 'FAIL'}  as a non-administrator (role ${user?.role ?? '?'}, ${user?.pagesTheRoleCanOpen?.length ?? '?'} pages)  ` +
-      `documented capacity: ${results.w1.recorded?.judgement?.capacityTabs ?? '?'} tabs`,
-  )
+  console.log(`  W1 ${results.w1.pass ? 'pass' : 'FAIL'}  as a non-administrator (role ${user?.role ?? '?'}, ${user?.pagesTheRoleCanOpen?.length ?? '?'} pages)`)
+  // What was observed at each size, all three rounds: no capacity is stated.
+  for (const o of results.w1.recorded?.judgement?.observed ?? []) console.log(`     ${observedLine(o)}`)
   // A tab is usable only with its data present, the shell's included, and an
-  // action working; what each round needed is printed, not only the verdict.
+  // action working; what rounds (a) and (b) needed is printed, not only the
+  // verdict.
   for (const r of results.w1.recorded?.rounds ?? []) {
     if (r.round === 'c') continue
     const lost = Object.entries(r.dataNotRecoverableByRole ?? {})
     console.log(
-      `     N=${r.n} (${r.round})${r.n === 5 ? ' blocking' : ''}: usable ${r.tabsUsable}/${r.n}; data complete on first load ${r.tabsCompleteOnFirstLoad}/${r.n}; ` +
-        `company data by the application's retry after a 429: ${r.tabsCompanyByAutomaticRetry}` +
+      `     N=${r.n} (${r.round}): company data by the application's retry after a 429: ${r.tabsCompanyByAutomaticRetry}` +
         `${r.companyAutomaticRetryWaitMs ? ` (${r.companyAutomaticRetryWaitMs.shortest} to ${r.companyAutomaticRetryWaitMs.longest} ms)` : ''}, retries used up: ${r.tabsCompanyRetryExhausted}; ` +
-        `needed manual recovery ${r.tabsNeedingRecovery} (${r.recoveryActionsTotal} action(s), most for one tab: ${r.maxRecoveryActions}); ` +
-        `not usable ${r.tabsNotRecoverable?.length ?? '?'}; ` +
-        `session-endpoint 429s ${r.count429 + (r.sessionRequests429DuringUsabilityCheck ?? 0)}`,
+        `needed manual recovery ${r.tabsNeedingRecovery}; not usable ${r.tabsNotRecoverable?.length ?? '?'}`,
     )
     // By name, on a line of its own: what the role had no way to get back.
     for (const [data, tabs] of lost) console.log(`       NOT recoverable by this role without a reload: ${data}, in ${tabs.length} of ${r.n} tabs`)
   }
+  console.log(`     ${W1_SCOPE}`)
   for (const finding of results.w1.recorded?.judgement?.nonBlockingFindings ?? []) console.log(`     (not blocking) ${finding}`)
 } else {
   console.log('  W1: not run')
