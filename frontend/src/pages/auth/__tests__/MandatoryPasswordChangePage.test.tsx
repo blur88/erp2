@@ -4,7 +4,7 @@ import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
 import '@testing-library/jest-dom/vitest'
-import authReducer from '../../../store/slices/authSlice'
+import authReducer, { sessionEstablished } from '../../../store/slices/authSlice'
 
 const changePasswordMock = vi.fn()
 vi.mock('@/services/authApi', () => ({
@@ -24,6 +24,18 @@ vi.mock('react-router-dom', async () => {
 
 const renderPage = () => {
   const store = configureStore({ reducer: { auth: authReducer } })
+  // The page is only ever shown to a signed-in tab.
+  store.dispatch(
+    sessionEstablished({
+      sessionId: 's1',
+      generation: 1,
+      accessToken: 'at',
+      accessTokenExpiresAt: 0,
+      refreshToken: 'rt',
+      user: { id: 'u1', username: 'admin' } as never,
+      rememberMe: false,
+    }),
+  )
   render(
     <Provider store={store}>
       <BrowserRouter>

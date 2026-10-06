@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, afterEach, beforeAll, beforeEach } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { RouterProvider } from 'react-router-dom'
@@ -217,6 +217,130 @@ describe('a tab whose session ends', () => {
     expect(visited).toEqual([PROTECTED_PATH, '/login'])
     expect(window.history.length).toBeLessThanOrEqual(entries + 1)
     expect(app.requests.filter((r) => r.url === '/auth/logout')).toHaveLength(1)
+  })
+})
+
+describe('the mandatory password-change page', () => {
+  const PAGE = '/change-password-required'
+  const pageHeading = () => screen.findByRole('heading', { name: /password change required/i })
+
+  async function openPage() {
+    const tab = await openTab(PAGE, signedIn())
+    await pageHeading()
+    return tab
+  }
+
+  it('is left for /login when its session ends elsewhere', async () => {
+    const { app, visited } = await openPage()
+    const sent = app.requests.length
+    const entries = window.history.length
+
+    const other = await app.otherTab()
+    await other.runtime.signOut()
+    await act(async () => {
+      await app.sessionRuntime.reconcileNow()
+    })
+
+    await loginForm()
+    expect(pathname()).toBe('/login')
+    expect(screen.queryByRole('button', { name: /change password/i })).not.toBeInTheDocument()
+    expect(visited).toEqual([PAGE, '/login'])
+    expect(window.history.length).toBe(entries)
+    expect(app.requests).toHaveLength(sent)
+  })
+
+  it('the same when it is learned on resume (visibilitychange)', async () => {
+    const { app, visited } = await openPage()
+    const sent = app.requests.length
+
+    const other = await app.otherTab()
+    await other.runtime.signOut()
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    await loginForm()
+    expect(pathname()).toBe('/login')
+    expect(visited).toEqual([PAGE, '/login'])
+    expect(app.requests).toHaveLength(sent)
+  })
+
+  it('opened signed-out, it redirects to /login', async () => {
+    const { app, visited } = await openTab(PAGE)
+
+    await loginForm()
+    expect(pathname()).toBe('/login')
+    expect(visited).toEqual(['/login'])
+    expect(screen.queryByRole('heading', { name: /password change required/i })).not.toBeInTheDocument()
+    expect(app.requests).toHaveLength(0)
+  })
+
+  it('its Logout button ends on /login exactly once', async () => {
+    const { app, visited } = await openPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /^logout$/i }))
+
+    await loginForm()
+    await waitFor(() => expect(app.shared.state.record.session).toBeNull())
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50))
+    })
+    expect(visited).toEqual([PAGE, '/login'])
+    expect(app.requests.filter((r) => r.url === '/auth/logout')).toHaveLength(1)
+  })
+
+  it('a successful change shows its confirmation, then ends on /login exactly once', async () => {
+    const { app, visited } = await openPage()
+    const sent = app.requests.length
+
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: 'OldPass@123' } })
+    fireEvent.change(screen.getByLabelText(/^new password/i), { target: { value: 'NewPass@123' } })
+    fireEvent.change(screen.getByLabelText(/confirm/i), { target: { value: 'NewPass@123' } })
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
+
+    // The change revokes every session, this tab's included. The page keeps its
+    // confirmation on screen; the ended session does not take it away early.
+    expect(await screen.findByText(/password changed successfully/i)).toBeInTheDocument()
+    expect(app.store.getState().auth.isAuthenticated).toBe(false)
+    expect(app.shared.state.record.session).toBeNull()
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 300))
+    })
+    expect(screen.getByText(/password changed successfully/i)).toBeInTheDocument()
+    expect(pathname()).toBe(PAGE)
+    expect(visited).toEqual([PAGE])
+
+    await waitFor(() => expect(pathname()).toBe('/login'), { timeout: 4000 })
+    await loginForm()
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 100))
+    })
+    expect(visited).toEqual([PAGE, '/login'])
+    expect(screen.getAllByRole('button', { name: /sign in/i })).toHaveLength(1)
+    expect(app.requests.slice(sent).map((r) => r.url)).toEqual(['/auth/change-password'])
+  })
+
+  it('a change refused because the session ended elsewhere goes to /login', async () => {
+    const { app, visited } = await openPage()
+    const sent = app.requests.length
+    // The page logs the failure it is about to act on.
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const other = await app.otherTab()
+    await other.runtime.signOut()
+
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: 'OldPass@123' } })
+    fireEvent.change(screen.getByLabelText(/^new password/i), { target: { value: 'NewPass@123' } })
+    fireEvent.change(screen.getByLabelText(/confirm/i), { target: { value: 'NewPass@123' } })
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
+
+    // Validation, the refused request and the navigation each take a turn.
+    await waitFor(() => expect(pathname()).toBe('/login'), { timeout: 5000 })
+    await loginForm()
+    expect(visited).toEqual([PAGE, '/login'])
+    // The request was refused at the gate: nothing was sent.
+    expect(app.requests).toHaveLength(sent)
+    expect(logged).toHaveBeenCalledTimes(1)
+    logged.mockRestore()
   })
 })
 
