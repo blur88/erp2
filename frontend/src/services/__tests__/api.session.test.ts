@@ -160,6 +160,24 @@ describe('api session interceptors', () => {
     await api.get('/inventory')
     expect(Array.isArray(w.__erpSessionTimings)).toBe(true)
     expect((w.__erpSessionTimings as unknown[]).length).toBeGreaterThan(0)
+
+    // Each gate timing carries how many gate reads were already in flight when
+    // it started: a lone request sees none, requests begun together see each other.
+    type Timing = { op: string; ms: number; inFlight?: number; id?: number }
+    const lone = w.__erpSessionTimings as Timing[]
+    expect(lone.every((t) => t.inFlight === 0)).toBe(true)
+
+    w.__erpSessionTimings = []
+    await Promise.all([api.get('/inventory'), api.get('/inventory'), api.get('/inventory')])
+    const together = (w.__erpSessionTimings as Timing[]).filter((t) => t.op === 'gate-before')
+    expect(together).toHaveLength(3)
+    expect(together.map((t) => t.inFlight).sort()).toEqual([0, 1, 2])
+    // A request's two gate timings share an id, and no two requests share one.
+    const all = w.__erpSessionTimings as Timing[]
+    const afters = all.filter((t) => t.op === 'gate-after')
+    expect(new Set(together.map((t) => t.id)).size).toBe(3)
+    expect(afters.map((t) => t.id).sort()).toEqual(together.map((t) => t.id).sort())
+    delete store['erp-session-timing']
   })
 })
 

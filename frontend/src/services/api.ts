@@ -33,6 +33,7 @@ interface SessionConfig extends InternalAxiosRequestConfig {
   // The signal the caller passed, kept apart from the combined one on `signal`
   // so a retry combines it afresh. `null` when the caller passed none.
   __callerSignal?: AbortSignal | null
+  __gateId?: number
 }
 
 // One original request is sent at most three times and triggers at most two refreshes.
@@ -42,12 +43,38 @@ const MAX_REFRESHES = 2
 const timingEnabled = () =>
   typeof sessionStorage !== 'undefined' && sessionStorage.getItem('erp-session-timing') === '1'
 
-const recordGate = (op: 'gate-before' | 'gate-after', ms: number) => {
+// Gate reads currently waiting on the runtime, counted only while timing is on.
+// Each timing records how many were already in flight when it started, which is
+// what tells request contention apart from a slow read (SESSION_QA, latency).
+let gatesInFlight = 0
+// Pairs a request's gate-before with its gate-after; assigned only while timing is on.
+let gateSequence = 0
+
+const recordGate = (op: 'gate-before' | 'gate-after', ms: number, inFlight: number, id: number) => {
   if (!timingEnabled()) return
-  const w = window as unknown as { __erpSessionTimings?: Array<{ op: string; ms: number }> }
+  const w = window as unknown as { __erpSessionTimings?: Array<{ op: string; ms: number; inFlight?: number; id?: number }> }
   if (!w.__erpSessionTimings) w.__erpSessionTimings = []
   if (w.__erpSessionTimings.length >= 5000) return
-  w.__erpSessionTimings.push({ op, ms })
+  w.__erpSessionTimings.push({ op, ms, inFlight, id })
+}
+
+async function timedGate<T>(
+  op: 'gate-before' | 'gate-after',
+  config: SessionConfig,
+  gate: () => Promise<T>,
+): Promise<T> {
+  if (!timingEnabled()) return gate()
+  if (config.__gateId === undefined) config.__gateId = ++gateSequence
+  const id = config.__gateId
+  const inFlight = gatesInFlight
+  gatesInFlight += 1
+  const started = performance.now()
+  try {
+    return await gate()
+  } finally {
+    gatesInFlight -= 1
+    recordGate(op, performance.now() - started, inFlight, id)
+  }
 }
 
 // Request interceptor: reconcile before sending, attach token and abort signal.
@@ -58,9 +85,7 @@ api.interceptors.request.use(
     }
 
     const runtime = getSessionRuntime()
-    const started = timingEnabled() ? performance.now() : 0
-    const { ref, accessToken, signal } = await runtime!.beginRequest()
-    if (timingEnabled()) recordGate('gate-before', performance.now() - started)
+    const { ref, accessToken, signal } = await timedGate('gate-before', config, () => runtime!.beginRequest())
 
     // A retry goes out only under the session the request was first sent under.
     if (config.__sessionRef && config.__sessionRef.sessionId !== ref.sessionId) {
@@ -86,9 +111,8 @@ api.interceptors.response.use(
   async (response: AxiosResponse) => {
     const config = response.config as SessionConfig
     if (config.__sessionRef) {
-      const started = timingEnabled() ? performance.now() : 0
-      const ok = await getSessionRuntime()!.canDeliver(config.__sessionRef)
-      if (timingEnabled()) recordGate('gate-after', performance.now() - started)
+      const ref = config.__sessionRef
+      const ok = await timedGate('gate-after', config, () => getSessionRuntime()!.canDeliver(ref))
       if (!ok) throw new SessionEndedError('session ended before delivery')
     }
     return response
