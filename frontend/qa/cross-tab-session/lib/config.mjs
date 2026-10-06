@@ -53,6 +53,8 @@ export function loadConfig() {
     graceSeconds,
     userA: { usernameOrEmail: required('QA_USERNAME'), password: required('QA_PASSWORD') },
     userB: { usernameOrEmail: required('QA_USERNAME_2'), password: required('QA_PASSWORD_2') },
+    // The user W1 signs in as: NOT an administrator (W1 stops if it is one).
+    userC: { usernameOrEmail: required('QA_USERNAME_3'), password: required('QA_PASSWORD_3') },
     // Development only: serve the page and its assets from a local build of the
     // checkout instead of from the ingress, so cases can be exercised without
     // rebuilding the frontend image. API calls still go through the ingress.

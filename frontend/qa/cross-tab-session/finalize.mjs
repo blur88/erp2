@@ -82,17 +82,26 @@ if (Array.isArray(results.cases)) {
   console.log(`  cases: ${cases.missing}`)
 }
 if (results.w1) {
-  console.log(`  W1 ${results.w1.pass ? 'pass' : 'FAIL'}  documented capacity: ${results.w1.recorded?.judgement?.capacityTabs ?? '?'} tabs`)
-  // A tab is usable only with its data present and an action working; the
-  // recovery each round needed is printed, not only the verdict.
+  const user = results.w1.recorded?.user
+  console.log(
+    `  W1 ${results.w1.pass ? 'pass' : 'FAIL'}  as a non-administrator (role ${user?.role ?? '?'}, ${user?.pagesTheRoleCanOpen?.length ?? '?'} pages)  ` +
+      `documented capacity: ${results.w1.recorded?.judgement?.capacityTabs ?? '?'} tabs`,
+  )
+  // A tab is usable only with its data present, the shell's included, and an
+  // action working; what each round needed is printed, not only the verdict.
   for (const r of results.w1.recorded?.rounds ?? []) {
     if (r.round === 'c') continue
+    const lost = Object.entries(r.dataNotRecoverableByRole ?? {})
     console.log(
       `     N=${r.n} (${r.round})${r.n === 5 ? ' blocking' : ''}: usable ${r.tabsUsable}/${r.n}; data complete on first load ${r.tabsCompleteOnFirstLoad}/${r.n}; ` +
-        `needed recovery ${r.tabsNeedingRecovery} (most actions for one tab: ${r.maxRecoveryActions}; through the administrator-only Company page: ${r.tabsNeedingCompanySettingsVisit}); ` +
-        `not recoverable ${r.tabsNotRecoverable?.length ?? '?'}; ` +
+        `company data by the application's retry after a 429: ${r.tabsCompanyByAutomaticRetry}` +
+        `${r.companyAutomaticRetryWaitMs ? ` (${r.companyAutomaticRetryWaitMs.shortest} to ${r.companyAutomaticRetryWaitMs.longest} ms)` : ''}, retries used up: ${r.tabsCompanyRetryExhausted}; ` +
+        `needed manual recovery ${r.tabsNeedingRecovery} (${r.recoveryActionsTotal} action(s), most for one tab: ${r.maxRecoveryActions}); ` +
+        `not usable ${r.tabsNotRecoverable?.length ?? '?'}; ` +
         `session-endpoint 429s ${r.count429 + (r.sessionRequests429DuringUsabilityCheck ?? 0)}`,
     )
+    // By name, on a line of its own: what the role had no way to get back.
+    for (const [data, tabs] of lost) console.log(`       NOT recoverable by this role without a reload: ${data}, in ${tabs.length} of ${r.n} tabs`)
   }
   for (const finding of results.w1.recorded?.judgement?.nonBlockingFindings ?? []) console.log(`     (not blocking) ${finding}`)
 } else {

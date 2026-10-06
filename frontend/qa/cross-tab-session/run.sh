@@ -8,6 +8,8 @@
 # Credentials come from the environment and are never written anywhere:
 #   QA_USERNAME / QA_PASSWORD       the user the cases sign in as
 #   QA_USERNAME_2 / QA_PASSWORD_2   a second user, for the user-switch case
+#   QA_USERNAME_3 / QA_PASSWORD_3   the user W1 signs in as: NOT an
+#                                   administrator (role sales_staff; README)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -88,6 +90,7 @@ in_playwright() {
     -e QA_SCRIPT="${script}" \
     -e QA_PLAYWRIGHT_PACKAGE="${PLAYWRIGHT_PACKAGE}" \
     -e QA_USERNAME -e QA_PASSWORD -e QA_USERNAME_2 -e QA_PASSWORD_2 \
+    -e QA_USERNAME_3 -e QA_PASSWORD_3 \
     "${PLAYWRIGHT_IMAGE}" \
     bash -c '
       set -uo pipefail
@@ -106,10 +109,10 @@ case "${LAN_IP}" in
   localhost|127.0.0.1|*:*/*) refuse "use a LAN IP, not ${LAN_IP}" ;;
 esac
 if echo "${LAN_IP}" | grep -q ":"; then refuse "no port allowed in ${LAN_IP}"; fi
-for name in QA_USERNAME QA_PASSWORD QA_USERNAME_2 QA_PASSWORD_2; do
+for name in QA_USERNAME QA_PASSWORD QA_USERNAME_2 QA_PASSWORD_2 QA_USERNAME_3 QA_PASSWORD_3; do
   if [ -z "${!name:-}" ]; then refuse "${name} is not set (credentials come from the environment; see README.md)"; fi
 done
-export QA_USERNAME QA_PASSWORD QA_USERNAME_2 QA_PASSWORD_2
+export QA_USERNAME QA_PASSWORD QA_USERNAME_2 QA_PASSWORD_2 QA_USERNAME_3 QA_PASSWORD_3
 avail_kb="$(df -Pk "${ROOT}" | awk 'NR==2{print $4}')"
 if [ "${avail_kb}" -lt 3145728 ]; then refuse "free disk under 3 GB"; fi
 if [ -n "$(git status --porcelain)" ]; then refuse "dirty working tree"; fi

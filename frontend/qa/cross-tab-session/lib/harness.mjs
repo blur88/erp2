@@ -226,6 +226,10 @@ export class Profile {
     this.heldRefresh = new Map()
     this.errors = new Map()
     this.tabCount = 0
+    // With { keepAnswers: RegExp }: the latest body answered 2xx to a GET on
+    // each matching path, by path. W1 compares what a tab shows with what the
+    // server said, and this is where it reads what the server said.
+    this.answers = new Map()
   }
 
   async init() {
@@ -343,6 +347,14 @@ export class Profile {
     if (!entry) return
     entry.status = response.status()
     entry.respondedAt = Date.now()
+    if (this.opts.keepAnswers && entry.method === 'GET' && entry.status >= 200 && entry.status < 300 && this.opts.keepAnswers.test(entry.path)) {
+      // Not swallowed: a body that cannot be read is kept as such, and the
+      // reader of `answers` finds no usable reference and stops.
+      response.json().then(
+        (body) => this.answers.set(entry.path, { body, at: Date.now() }),
+        (err) => this.answers.set(entry.path, { unreadable: String(err && err.message ? err.message : err), at: Date.now() }),
+      )
+    }
     if (entry.status === 429) {
       if (entry.zone === 'login') this.ctx.run.loginZone429 += 1
       else if (!this.ctx.allow429) this.ctx.unexpected429.push({ tab: entry.tab, method: entry.method, path: entry.path })
@@ -477,6 +489,7 @@ export function summarize(stored) {
           access: fingerprint(s.accessToken),
           refresh: fingerprint(s.refreshToken),
           username: s.user?.username ?? null,
+          role: s.user?.role ?? null,
         }
       : null,
     slicesSessionId: stored?.slices?.sessionId ?? null,
