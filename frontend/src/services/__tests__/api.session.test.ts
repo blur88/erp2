@@ -101,6 +101,34 @@ describe('api session interceptors', () => {
     expect(response.data).toEqual({ ok: true })
   })
 
+  it('the public default-credentials request is sent while signed out, outside the session gate', async () => {
+    await runtime.start()
+    expect(runtime.status()).toBe('signed-out')
+    const gated: any[] = []
+    respond((config) => {
+      gated.push(config)
+      return { data: {}, status: 200, headers: {}, config }
+    })
+    const bare: any[] = []
+    const previous = axios.defaults.adapter
+    axios.defaults.adapter = (async (config: any) => {
+      bare.push(config)
+      return { data: { showDefaultCredentials: true }, status: 200, statusText: 'OK', headers: {}, config }
+    }) as never
+    try {
+      const response = await authApi.shouldShowDefaultCredentials()
+      expect(response.data).toEqual({ showDefaultCredentials: true })
+    } finally {
+      axios.defaults.adapter = previous
+    }
+
+    expect(bare).toHaveLength(1)
+    expect(bare[0].url).toBe('/auth/show-default-credentials')
+    expect(bare[0].method).toBe('get')
+    expect(bare[0].headers.Authorization).toBeUndefined()
+    expect(gated).toHaveLength(0)
+  })
+
   it('does not assign window.location anywhere', () => {
     const source = api.toString()
     expect(source).not.toMatch(/window\.location\s*=/)

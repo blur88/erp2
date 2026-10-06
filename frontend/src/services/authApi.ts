@@ -1,4 +1,4 @@
-import { AxiosResponse } from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import type {
   ChangePasswordData,
   AuthUser,
@@ -46,7 +46,11 @@ export const authApi = {
    * Returns true if admin user still requires password change
    */
   shouldShowDefaultCredentials: async (): Promise<AxiosResponse<{ showDefaultCredentials: boolean }>> => {
-    const apiInstance = (await import('./api')).default;
-    return await apiInstance.get<{ showDefaultCredentials: boolean }>('/auth/show-default-credentials');
+    // Public route, called from the login page while signed out: it goes through
+    // bare axios, so there is no session gate and no Authorization header.
+    return await axios.get<{ showDefaultCredentials: boolean }>('/auth/show-default-credentials', {
+      baseURL: getApiBaseUrl(),
+      timeout: 30000,
+    });
   },
 };
