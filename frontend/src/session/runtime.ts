@@ -333,8 +333,12 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
         if (ended.ended) {
           clearLocally('failure')
           post()
+          return 'ended'
         }
-        return 'ended'
+        // Another tab changed the record between the read and the commit, so
+        // nothing was ended: follow what is stored now.
+        await reconcileNow()
+        return claim() !== null ? 'retry' : 'ended'
       }
       throw err
     }
@@ -364,7 +368,9 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   }
 
   const handleUnauthorized = async (ref: SessionRef): Promise<'retry' | 'ended'> => {
-    void ref
+    // The tab adopted or refreshed since this request was sent: its 401 is for a
+    // token the tab no longer uses, so retry with the current one.
+    if (memory && memory.sessionId === ref.sessionId && memory.generation > ref.generation) return 'retry'
     if (refreshInFlight) return refreshInFlight
     const promise = (async () => {
       try {

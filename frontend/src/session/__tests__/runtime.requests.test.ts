@@ -268,6 +268,71 @@ describe('session runtime — requests and refresh', () => {
     expect(a.runtime.claim()).not.toBeNull()
   })
 
+  it("a 401 for a request sent before the tab's tokens advanced retries without refreshing", async () => {
+    const h = createHarness()
+    const a = await signedInTab(h)
+    const sentAtGeneration1 = (await a.runtime.beginRequest()).ref
+    expect(await a.runtime.handleUnauthorized(sentAtGeneration1)).toBe('retry')
+    expect(h.server.refreshCalls).toBe(1)
+
+    // A second request sent with the old token gets its 401 after that refresh finished.
+    expect(await a.runtime.handleUnauthorized(sentAtGeneration1)).toBe('retry')
+    expect(h.server.refreshCalls).toBe(1)
+    expect((await a.runtime.beginRequest()).ref.generation).toBe(2)
+  })
+
+  // The refresh is rejected at an unchanged generation, and another tab changes
+  // the record between this tab's reconcile read and its failure-driven commit.
+  async function refusedFailureEnding(change: (h: ReturnType<typeof createHarness>) => void) {
+    const h = createHarness()
+    const a = await signedInTab(h)
+    let rejected = false
+    h.server.refreshFailure = () => {
+      rejected = true
+      return new RefreshRejectedError('rejected')
+    }
+    const transact = a.store.transact.bind(a.store)
+    vi.spyOn(a.store, 'transact').mockImplementation((decide, opts) => {
+      if (rejected) {
+        rejected = false
+        change(h)
+      }
+      return transact(decide, opts)
+    })
+    const result = await a.runtime.handleUnauthorized((await a.runtime.beginRequest()).ref)
+    return { h, a, result }
+  }
+
+  it('a refused failure-driven ending reconciles instead of reporting ended', async () => {
+    const { h, a, result } = await refusedFailureEnding((h) => {
+      const session = h.shared.state.record.session!
+      h.shared.state = {
+        ...h.shared.state,
+        record: {
+          ...h.shared.state.record,
+          session: { ...session, generation: 2, accessToken: 'at-other-tab', refreshToken: 'rt-other-tab' },
+        },
+      }
+    })
+    expect(result).toBe('retry')
+    expect(a.runtime.status()).toBe('signed-in')
+    expect(a.events.ended).toEqual([])
+    expect(h.shared.state.record.session?.generation).toBe(2)
+    // The tab took the other tab's tokens.
+    const next = await a.runtime.beginRequest()
+    expect(next.ref.generation).toBe(2)
+    expect(next.accessToken).toBe('at-other-tab')
+  })
+
+  it('a refused failure-driven ending reports ended when the reconcile ends the tab', async () => {
+    const { a, result } = await refusedFailureEnding((h) => {
+      h.shared.state = { ...h.shared.state, record: { ...h.shared.state.record, session: null } }
+    })
+    expect(result).toBe('ended')
+    expect(a.runtime.claim()).toBeNull()
+    expect(a.events.ended).toEqual(['elsewhere'])
+  })
+
   it('a missing BroadcastChannel does not block use', async () => {
     const h = createHarness({ channel: false })
     const a = await signedInTab(h, 'A')
