@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createHarness } from './twoTabs'
 import { SessionChangedElsewhereError } from '../runtime'
+import { StorageUnavailableError } from '../types'
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
@@ -176,5 +177,18 @@ describe('session runtime — sign-in and startup', () => {
     expect(await b.runtime.canDeliver((await b.runtime.beginRequest()).ref)).toBe(true)
     expect(a.runtime.claim()).toBeNull()
     expect(a.events.established).toBe(0)
+  })
+  it('a failed storage read at sign-in puts the tab in the storage-unavailable state and sends no sign-in', async () => {
+    const h = createHarness()
+    const a = h.createTab('A')
+    await a.runtime.start()
+    a.store.failNextRead(new StorageUnavailableError('gone'))
+
+    await expect(a.runtime.signIn({ usernameOrEmail: 'u', password: 'p' })).rejects.toBeInstanceOf(
+      StorageUnavailableError,
+    )
+    expect(a.runtime.status()).toBe('storage-unavailable')
+    expect(a.events.ended).toContain('storage')
+    expect(h.server.sessions.size).toBe(0)
   })
 })

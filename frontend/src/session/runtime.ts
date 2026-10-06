@@ -199,7 +199,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     const attempt = ++attemptCounter
     currentAttempt = attempt
     signInAbort = new AbortController()
-    const captured = await store.read()
+    const captured = await readRecord()
     const capturedRevision = captured.record.revision
 
     let response: Awaited<ReturnType<AuthHttp['login']>>
