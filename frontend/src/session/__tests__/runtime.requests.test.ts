@@ -423,6 +423,19 @@ describe('session runtime — requests and refresh', () => {
     expect(await a.runtime.readSlices()).toBe('{"n":1}')
   })
 
+  it("readSlices returns null when the stored session is not the tab's claim", async () => {
+    const h = createHarness()
+    const a = await signedInTab(h, 'A')
+    // Another tab replaced the session and stored its own slices; this tab has not reconciled yet.
+    const b = await signedInTab(h, 'B')
+    await b.runtime.persistSlices(b.runtime.claim(), '{"theirs":1}')
+    expect(h.shared.state.slices).toEqual({ sessionId: b.runtime.claim(), json: '{"theirs":1}' })
+    expect(a.runtime.claim()).not.toBe(b.runtime.claim())
+
+    expect(await a.runtime.readSlices()).toBeNull()
+    expect(await b.runtime.readSlices()).toBe('{"theirs":1}')
+  })
+
   it('storage closed mid-session', async () => {
     const h = createHarness()
     const a = await signedInTab(h)

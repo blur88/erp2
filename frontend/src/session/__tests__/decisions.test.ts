@@ -235,6 +235,17 @@ describe('slicesWrite', () => {
     expect(write).toBeUndefined()
   })
 
+  it('a removal deletes the slices under the same three-way check', () => {
+    const stored = { ...signedIn({ sessionId: 'Y' }), slices: { sessionId: 'Y', json: '{"a":1}' } }
+    const removed = slicesWrite(stored, { originSessionId: 'Y', claim: 'Y', json: null })
+    expect(removed.result.written).toBe(true)
+    expect(removed.write).toEqual({ slices: null })
+
+    const skipped = slicesWrite(stored, { originSessionId: 'X', claim: 'Y', json: null })
+    expect(skipped.result.written).toBe(false)
+    expect(skipped.write).toBeUndefined()
+  })
+
   it('skips a signed-out payload (all three null)', () => {
     const { result, write } = slicesWrite(state(), { originSessionId: null, claim: null, json: '{}' })
     expect(result.written).toBe(false)

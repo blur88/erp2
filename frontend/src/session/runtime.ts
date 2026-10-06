@@ -47,6 +47,8 @@ export type RuntimeStatus = 'starting' | 'signed-out' | 'signed-in' | 'storage-u
 
 export interface SessionRuntime {
   start(): Promise<void>
+  /** Resolves when `start()` has settled, in any state. Never rejects. */
+  whenStarted(): Promise<void>
   status(): RuntimeStatus
   claim(): string | null
   signIn(credentials: LoginCredentials): Promise<{ requiresPasswordChange: boolean }>
@@ -55,7 +57,8 @@ export interface SessionRuntime {
   canDeliver(ref: SessionRef): Promise<boolean>
   handleUnauthorized(ref: SessionRef): Promise<'retry' | 'ended'>
   reconcileNow(): Promise<void>
-  persistSlices(originSessionId: string | null, json: string): Promise<void>
+  /** Writes the tagged slices; `json: null` removes them. Skipped unless the origin is still the session. */
+  persistSlices(originSessionId: string | null, json: string | null): Promise<void>
   readSlices(): Promise<string | null>
   signOut(): Promise<void>
   passwordChanged(): Promise<void>
@@ -75,6 +78,10 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   let signInAbort: AbortController | null = null
   let sessionAbort = new AbortController()
   let refreshInFlight: Promise<'retry' | 'ended'> | null = null
+  let announceStarted: () => void = () => undefined
+  const started = new Promise<void>((resolve) => {
+    announceStarted = resolve
+  })
 
   const claim = () => memory?.sessionId ?? null
   const remember = (session: ActiveSession) => {
@@ -182,6 +189,8 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
         void reconcileNow().catch(() => undefined)
       })
     }
+
+    announceStarted()
   }
 
   // ---- sign-in --------------------------------------------------------------
@@ -400,13 +409,16 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   // ---- slices ---------------------------------------------------------------
 
-  const persistSlices = async (originSessionId: string | null, json: string): Promise<void> => {
+  const persistSlices = async (originSessionId: string | null, json: string | null): Promise<void> => {
     await transact((s) => slicesWrite(s, { originSessionId, claim: claim(), json }))
   }
 
   const readSlices = async (): Promise<string | null> => {
     const stored = await store.read()
-    if (stored.record.session && stored.slices && stored.slices.sessionId === stored.record.session.sessionId) {
+    const sessionId = stored.record.session?.sessionId ?? null
+    // Read back only when the tag is the stored session, and that session is
+    // the one this tab holds: a tab about to end locally shows nobody's slices.
+    if (sessionId !== null && sessionId === claim() && stored.slices?.sessionId === sessionId) {
       return stored.slices.json
     }
     return null
@@ -463,6 +475,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   return {
     start,
+    whenStarted: () => started,
     status: () => status,
     claim,
     signIn,

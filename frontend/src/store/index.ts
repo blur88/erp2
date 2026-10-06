@@ -29,7 +29,7 @@ import { searchApiSlice } from './api/searchApi'
 import { accountingApiSlice } from './api/accountingApi'
 import { redisMonitoringApiSlice } from './api/redisMonitoringApi'
 import { PERSIST_KEY } from './persistKey'
-import { getSessionRuntime } from '@/session/registry'
+import { getSessionRuntime, startedSessionRuntime } from '@/session/registry'
 import { RESET_FOR_SESSION_END } from './sessionReset'
 
 export { RESET_FOR_SESSION_END }
@@ -74,20 +74,30 @@ const rootReducer = (state: ReturnType<typeof slicedReducer> | undefined, action
 // redux-persist storage backed by the session runtime's tagged slices store.
 // The runtime is registered lazily by `@/session` to avoid an import cycle.
 const storage = {
-  getItem: (key: string) => getSessionRuntime()?.readSlices() ?? Promise.resolve(null),
-  setItem: (key: string, value: string) => {
-    const runtime = getSessionRuntime()
-    if (!runtime) return Promise.resolve()
-    return runtime.persistSlices(runtime.claim(), value).then(() => undefined)
+  // `persistStore` below asks for the stored slices while this module is still
+  // being evaluated, before `@/session` has registered a runtime. The read waits
+  // for the runtime to exist and to have started, and never fails: whatever
+  // cannot be read rehydrates as nothing.
+  getItem: async (_key: string): Promise<string | null> => {
+    try {
+      return await (await startedSessionRuntime()).readSlices()
+    } catch {
+      return null
+    }
   },
-  removeItem: (key: string) => {
-    const runtime = getSessionRuntime()
-    if (!runtime) return Promise.resolve()
-    return runtime.persistSlices(runtime.claim(), '').then(() => {
-      void key
-      return undefined
-    })
-  },
+  // The payload is stamped here, when redux-persist hands it over, with the
+  // session it was produced under. The write itself runs later and is skipped
+  // unless that session is still the tab's claim and the stored one (spec B2).
+  setItem: (_key: string, value: string) => writeSlices(value),
+  removeItem: (_key: string) => writeSlices(null),
+}
+
+function writeSlices(json: string | null): Promise<void> {
+  const runtime = getSessionRuntime()
+  const originSessionId = runtime?.claim() ?? null
+  // A signed-out payload never writes.
+  if (!runtime || originSessionId === null) return Promise.resolve()
+  return runtime.persistSlices(originSessionId, json)
 }
 
 // Persist configuration
@@ -117,7 +127,7 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
     serializableCheck: {
-      ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', RESET_FOR_SESSION_END],
+      ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/FLUSH', 'persist/PURGE', RESET_FOR_SESSION_END],
       ignoredPaths: ['register'],
     },
   }).concat(

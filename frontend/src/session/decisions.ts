@@ -110,7 +110,8 @@ export function cancelledSignInCleanup(s: StoredState, a: { sessionId: string })
 
 export function slicesWrite(
   s: StoredState,
-  a: { originSessionId: string | null; claim: string | null; json: string },
+  // `json: null` removes the stored slices; the check is the same.
+  a: { originSessionId: string | null; claim: string | null; json: string | null },
 ): Decision<{ written: boolean }> {
   const stored = s.record.session
   if (
@@ -123,7 +124,7 @@ export function slicesWrite(
     return { result: { written: false } }
   }
   return {
-    write: { slices: { sessionId: a.claim, json: a.json } },
+    write: { slices: a.json === null ? null : { sessionId: a.claim, json: a.json } },
     result: { written: true },
   }
 }
