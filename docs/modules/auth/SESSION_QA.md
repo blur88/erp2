@@ -252,6 +252,26 @@ second tab's request leave after the first tab's rotation, already carrying the
 new token, so its own refresh was correct. That explains the recorded figures; it
 is not a measurement of those two runs.
 
+## Recorded run on `2ef0e4a12` (2026-10-07): exit status 1, a flaw in case 8
+
+The first run after the review fixes passed fourteen cases, W1 (now with its
+sign-out round blocking at five tabs) and latency, and **failed case 8**, "use past
+real expiry". Every one of its fourteen uses succeeded, both tabs stayed signed in
+on the same session, and the session rotated twice; the case required three.
+
+The flaw was in the case. It ran for a fixed three and a half access-token
+lifetimes, but a refresh happens only at the first use after an expiry, so that
+window holds two or three rotations depending on where the uses fall against the
+expiries. Earlier runs saw three by timing (and, before the lease fix, because
+tabs rotated more often than they needed to). The case now keeps using the tabs
+until the third rotation is seen, bounded at six lifetimes, and its requirement
+is unchanged. Three development runs of the revised case passed, one of them
+needing 3.75 lifetimes.
+
+The run is recorded here because it failed; it is not passing evidence for
+anything, and the cases that passed in it were run again on the commit that
+followed.
+
 ## What is automated
 
 - Vitest on the in-memory store double: every commit rule, the reconciliation

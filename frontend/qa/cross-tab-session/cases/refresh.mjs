@@ -271,25 +271,38 @@ export default [
   {
     id: 8,
     name: 'Use past real expiry',
-    // Passes when: over three and a half access-token lifetimes, two tabs used
-    // in turn every quarter lifetime each complete every data request, the
-    // session stays the same one, its generation advances at least three
-    // times, and both tabs are still signed in.
+    // Passes when: two tabs used in turn every quarter lifetime each complete
+    // every data request for at least three and a half access-token lifetimes
+    // and until the session has rotated three times, the session stays the
+    // same one, and both tabs are still signed in.
+    //
+    // A refresh happens only at the first use after an expiry, so one cycle
+    // lasts between one lifetime and a lifetime plus a step. Three and a half
+    // lifetimes therefore hold two or three rotations depending on where the
+    // uses fall against the expiries (a recorded run at 2ef0e4a12 saw two and
+    // failed a fixed-length version of this case with every use succeeding).
+    // The uses go on until the third rotation is seen; six lifetimes are more
+    // than three longest cycles, so running out of them is a real failure.
     async run(ctx) {
       const lifetime = ctx.config.accessSeconds
       ctx.require('the access lifetime is the short QA one', lifetime <= 60, { accessSeconds: lifetime })
       const { profile, a, b, stored } = await pair(ctx)
       const before = summarize(stored)
       const mark = profile.mark()
-      const end = Date.now() + lifetime * 3500
+      const startedAt = Date.now()
+      const atLeast = startedAt + lifetime * 3500
+      const atMost = startedAt + lifetime * 6000
       const step = (lifetime * 1000) / 4
+      const rotations = async () => (summarize(await readStored(a)).session?.generation ?? 0) - before.session.generation
       let uses = 0
-      for (let i = 0; Date.now() < end; i += 1) {
+      for (let i = 0; Date.now() < atMost; i += 1) {
+        if (Date.now() >= atLeast && (await rotations()) >= 3) break
         const started = Date.now()
         await exercise(profile, i % 2 === 0 ? a : b)
         uses += 1
         await sleepUntil(started + step)
       }
+      ctx.record('lifetimesUsed', Math.round(((Date.now() - startedAt) / (lifetime * 1000)) * 100) / 100)
       const after = summarize(await readStored(a))
       ctx.record('uses', uses)
       ctx.record('refreshRequests', refreshes(profile, mark).map((e) => [e.tab, e.status]))
