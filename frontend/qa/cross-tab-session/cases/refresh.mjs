@@ -12,29 +12,13 @@ import {
   pageFetch,
   pauseTab,
   readStored,
+  refreshes,
+  rotation,
   showsSignedInUi,
   summarize,
   withTimeout,
 } from '../lib/harness.mjs'
 import { pair } from './signout.mjs'
-
-const refreshes = (profile, mark, page) =>
-  profile.since(mark, page).filter((e) => e.path.replace(/\/$/, '') === '/api/auth/refresh')
-
-/**
- * Waits for a rotation answered 200 to `page` (or to any tab) after `mark`.
- * A tab's first successful data request can be one that went out before its
- * refresh, so "the request succeeded" does not yet mean "it has rotated".
- */
-async function rotation(profile, mark, page, timeout = 45000) {
-  const deadline = Date.now() + timeout
-  for (;;) {
-    const done = refreshes(profile, mark, page).find((e) => e.status === 200)
-    if (done) return done
-    if (Date.now() > deadline) return null
-    await sleep(100)
-  }
-}
 
 async function sleepUntil(at) {
   const ms = at - Date.now()

@@ -152,5 +152,5 @@ fi
 
 # 7. results.json and the summary.
 finalize
-echo "run complete: status=${STATUS}"
+echo "run complete: status=${STATUS}; results in ${SCRATCH}/results.json"
 exit "${STATUS}"

@@ -596,6 +596,26 @@ export async function exercise(profile, page, { timeout = 45000 } = {}) {
   throw new Error(`${profile.label(page)}: sent no API request after moving to ${tried.join(', ')}`)
 }
 
+/** The refresh requests issued by `page` (or by any tab) after `mark`. */
+export const refreshes = (profile, mark, page) =>
+  profile.since(mark, page).filter((e) => e.path.replace(/\/$/, '') === '/api/auth/refresh')
+
+/**
+ * Waits for a rotation answered 200 to `page` (or to any tab) after `mark`;
+ * null on timeout. A tab's first successful data request can be one that went
+ * out before its refresh, so "the request succeeded" does not yet mean "it
+ * has rotated".
+ */
+export async function rotation(profile, mark, page, timeout = 45000) {
+  const deadline = Date.now() + timeout
+  for (;;) {
+    const done = refreshes(profile, mark, page).find((e) => e.status === 200)
+    if (done) return done
+    if (Date.now() > deadline) return null
+    await sleep(100)
+  }
+}
+
 /** Moves the tab inside the application without waiting for any outcome. */
 export async function nudge(page, path) {
   await page.evaluate((p) => {

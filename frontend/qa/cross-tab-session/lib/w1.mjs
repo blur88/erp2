@@ -43,6 +43,12 @@ function measure(profile, mark, zone) {
     peakDemandE: Math.round(peak * 1000) / 1000,
     admittedInFullByTheLimit: peak <= zone.burst + 1,
     count429: entries.filter((e) => e.status === 429).length,
+    // Outside W1's definition, recorded because it is what a person would
+    // see: data requests of the tabs' own loading answered 429 by api_limit,
+    // and requests that failed without an answer.
+    dataRequests: profile.since(mark).filter((e) => e.zone === 'business').length,
+    dataRequests429: profile.since(mark).filter((e) => e.zone === 'business' && e.status === 429).length,
+    dataRequestsFailed: profile.since(mark).filter((e) => e.zone === 'business' && e.failed).map((e) => e.failed),
   }
 }
 
@@ -57,13 +63,17 @@ async function openTabs(profile, n, round) {
   return { pages, started }
 }
 
-/** No request to the session routes for three seconds: the round has played out. */
-async function quiet(profile, mark, maxMs = 60000) {
+/**
+ * The round has played out: no API request from any tab is pending and none
+ * was sent for three seconds. Data requests count too, so that the usability
+ * check afterwards does not run into the tail of the tabs' own loading.
+ */
+async function quiet(profile, mark, maxMs = 90000) {
   const deadline = Date.now() + maxMs
   for (;;) {
-    const session = profile.since(mark).filter((e) => e.zone === 'session')
-    const pending = session.some((e) => e.status === null && !e.failed)
-    const lastAt = session.reduce((m, e) => Math.max(m, e.respondedAt ?? e.issuedAt), 0)
+    const api = profile.since(mark).filter((e) => e.zone === 'session' || e.zone === 'business')
+    const pending = api.some((e) => e.status === null && !e.failed)
+    const lastAt = api.reduce((m, e) => Math.max(m, e.respondedAt ?? e.issuedAt), 0)
     if (!pending && Date.now() - lastAt > 3000) return
     if (Date.now() > deadline) return
     await sleep(250)
@@ -227,7 +237,7 @@ export default {
     for (const r of rounds) {
       console.log(
         `    N=${r.n} (${r.round}): ${r.total} session requests, busiest second ${r.busiestSecond}, E ${r.peakDemandE}, ` +
-          `429s ${r.count429}, ${r.round === 'c' ? `on login ${r.tabsOnLoginPage}` : `usable ${r.tabsUsable}`}/${r.n}`,
+          `429s ${r.count429} (data requests 429: ${r.dataRequests429}/${r.dataRequests}), ${r.round === 'c' ? `on login ${r.tabsOnLoginPage}` : `usable ${r.tabsUsable}`}/${r.n}`,
       )
     }
 
@@ -235,11 +245,25 @@ export default {
     const of = (n, round) => rounds.find((r) => r.n === n && r.round === round)
     const clean = (n) => ['a', 'b'].every((round) => of(n, round)?.count429 === 0)
     const capacity = sizes.filter(clean).reduce((max, n) => Math.max(max, n), 0)
-    const judgement = { capacityTabs: capacity, nonBlockingFindings: [] }
+    const judgement = {
+      capacityTabs: capacity,
+      capacityMeans: 'the largest N with no 429 from session_limit (refresh, logout, me) in rounds (a) and (b); api_limit is a separate limit, see the findings',
+      nonBlockingFindings: [],
+    }
     for (const r of rounds) {
       const blocking = r.n === 5 && r.round !== 'c'
       if (!blocking) {
         if (r.count429 > 0) judgement.nonBlockingFindings.push(`N=${r.n} (${r.round}): ${r.count429} request(s) answered 429`)
+      }
+      if (r.dataRequests429 > 0) {
+        judgement.nonBlockingFindings.push(
+          `N=${r.n} (${r.round}): ${r.dataRequests429} of ${r.dataRequests} data requests of the tabs' own loading were answered 429 (api_limit, not session_limit)`,
+        )
+      }
+      if (r.dataRequestsFailed.length > 0) {
+        judgement.nonBlockingFindings.push(`N=${r.n} (${r.round}): ${r.dataRequestsFailed.length} data request(s) failed without an answer: ${[...new Set(r.dataRequestsFailed)].join(', ')}`)
+      }
+      if (!blocking) {
         if (r.round === 'c' ? !r.everyTabOnLoginPage : !r.everyTabUsable) {
           judgement.nonBlockingFindings.push(`N=${r.n} (${r.round}): not every tab reached its expected end state`)
         }

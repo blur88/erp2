@@ -5,6 +5,7 @@ import {
   exercise,
   onLoginPage,
   readStored,
+  rotation,
   showsSignedInUi,
   summarize,
 } from '../lib/harness.mjs'
@@ -82,10 +83,13 @@ export default [
       await sleep(2000)
       ctx.check('tab B did not adopt the new session', !(await showsSignedInUi(b, 500)))
 
+      const beforeRefresh = profile.mark()
       profile.armForced401(a)
+      await exercise(profile, a)
+      ctx.check('the forced 401 was followed by a rotation answered 200', !!(await rotation(profile, beforeRefresh, a)))
       const used = await exercise(profile, a)
       const third = summarize(await readStored(a))
-      ctx.check("tab A's request succeeded after the forced 401", used.status >= 200 && used.status < 300, used)
+      ctx.check("tab A's next request succeeds on the stored token", used.token === third.session?.access, { used, third })
       ctx.check('the session is still the new one', third.session?.sessionId === second.session?.sessionId, third)
       ctx.check(
         'the refresh advanced it by one generation',
