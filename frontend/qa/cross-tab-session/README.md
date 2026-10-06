@@ -12,31 +12,32 @@ the real ingress.
 
 ## Status
 
-One recorded run exists, on `582096992`, made before the two decisions below.
-All fifteen cases passed, W1 passed as it was then judged, and **latency
-failed**: M1 2.1 ms and M2 5.1 ms passed; M3 99 / 330.1 ms and M4 205.3 /
-603.3 ms (one tab / four tabs, median p95 of three) failed the 10 / 20 ms
-targets they then had, and the run exited with status 1.
+This section describes the suite, not a run of it, so that it stays true at
+whatever commit it is read. **Recorded runs are listed in
+`docs/modules/auth/SESSION_QA.md`**, each with its commit, its figures and its
+exit status; **the run that gates a merge is in the pull request** that merge
+belongs to. Nothing in this file says whether a run exists for the commit you
+are reading it at.
 
-On 2026-10-06 the repository owner decided three things, and the suite was
-revised to them:
+What a reader of those records needs to know about how the suite judges:
 
-- **Latency.** M1 and M2 stay blocking. M3 and M4 became diagnostic. Their
-  10 / 20 ms targets were provisional and were **replaced, not met**; the
-  failed figures above stay on record, in this file and in every result the
-  suite writes (see "The latency measurement").
+- **Latency.** M1 and M2 are blocking. M3 and M4 are diagnostic. Their first
+  10 / 20 ms targets were provisional and were **replaced, not met** (decision
+  of the repository owner, 2026-10-06); the figures of the run that failed
+  them stay on record, in this file and in every result the suite writes (see
+  "The latency measurement").
 - **W1.** A tab counts as usable only with its expected data on screen and an
   action working, without a reload or a new sign-in. A rendered shell with
-  missing data is not usable (see "W1 and the documented tab capacity").
+  missing data is not usable (see "W1: the restored window").
 - **W1's user.** W1 signs in as a non-administrator, and recovery through a
-  page only an administrator can open no longer counts: the suite refuses
-  such a step and the tab fails (see "Who W1 runs as").
+  page only an administrator can open does not count: the suite refuses such
+  a step and the tab fails (see "Who W1 runs as").
+- **W1 states no capacity.** It reports what was observed at each size and
+  blocks at five tabs, in all three rounds (see "What W1 shows and what it
+  does not").
 
-**The revised suite has no recorded run yet.** The revisions were exercised
-against the stack serving `582096992` (`measure.mjs`), and W1 in development
-mode against a local build of the checkout with the QA token lifetime
-(`QA_DIST_DIR`, `cases.mjs --only W1`); those are development results and not
-evidence. `run.sh` itself was not run for the revisions.
+Results of `cases.mjs --only ...` and of anything run with `QA_DIST_DIR` are
+development results. They say so in the file they write and are not evidence.
 
 ## What it does
 
@@ -83,15 +84,18 @@ export QA_USERNAME_3=... QA_PASSWORD_3=...    # W1's user: not an administrator
 frontend/qa/cross-tab-session/run.sh "$(hostname -I | awk '{print $1}')"
 ```
 
-`run.sh` refuses a `localhost` address (a secure context, where conditions
-differ), any port (port 3000 bypasses the ingress and its limits), missing
-credentials, a working tree with any uncommitted change (tracked or untracked),
+`run.sh` refuses a loopback address however it is written (`localhost` and
+names under it, anything in `127.0.0.0/8`, `::1`, and a host name that
+resolves to one of those or to nothing: a loopback origin is a secure context,
+where conditions differ), any port (port 3000 bypasses the ingress and its
+limits), missing credentials, a working tree with any uncommitted change (tracked or untracked),
 and less than 3 GB of free disk. It then:
 
 1. restores a capture left by an earlier run, and captures the running
    configuration with `stack.sh show`;
-2. has an `EXIT` trap in place that restores the stack, before anything is
-   changed;
+2. has its traps in place before anything is changed: once the configuration
+   is captured, every way out of the script, a failed command and `INT` or
+   `TERM` included, restores the stack and writes `results.json`;
 3. builds and starts the stack with `stack.sh qa-up`, which also checks the
    access lifetime by behaviour, and refuses unless the served `erp-build`
    equals `HEAD`;
@@ -103,10 +107,28 @@ and less than 3 GB of free disk. It then:
 6. writes `results.json` to the scratch directory (outside the repository) and
    prints a summary.
 
-The exit status is that of the first failure; nothing later clears it. Status
-3 means the stack was not restored. A full run takes roughly 40 minutes, about
-half of it W1: its drain waits, and since the revision of 2026-10-06 the check
-of every tab of rounds (a) and (b) one at a time, recovery included.
+The exit status is that of the first failure; nothing later clears it
+(`lib/run-guard.sh`):
+
+| Status | Meaning |
+|---|---|
+| 0 | The script reached its last line and nothing failed. No other way out gives 0. |
+| 1 | A case, W1 or the latency measurement failed; or a refusal; or the script was aborted (a command failed outside any handled failure, or it stopped before its last line); or `results.json` could not be written. |
+| 3 | The stack was not restored, and nothing had failed before that. |
+| 130 / 143 | Interrupted (`INT`) / terminated (`TERM`). The stack is still restored and `results.json` still written. |
+
+`results.json` carries the same status, `completed` (whether the last line was
+reached) and, when it was not, `aborted` with the reason. A run that was
+interrupted or aborted is never reported as passed, in the file or by the
+status.
+
+```bash
+bash frontend/qa/cross-tab-session/run-status.test.sh   # the status rule, the address refusals, the health wait; no Docker
+```
+
+A full run takes roughly half an hour to 40 minutes, about half of it W1: its
+drain waits, and the check of every tab of rounds (a) and (b) one at a time,
+recovery included.
 
 A recorded run always goes through `run.sh`. `maintain.sh` and a plain
 `docker compose build frontend` do not export `VITE_BUILD_SHA`, so their bundle
@@ -190,6 +212,41 @@ grace value first.
   timing recorder, switched on for that profile.
 - **Forced 401s** (cases 6, 7, 9 to 11) are answered by the script for one data
   request of one tab; the refresh that follows is the real one.
+- **Case 7** has to show that two tabs refused at the same moment produce one
+  rotation. A tab's first data request after a move can leave it a second
+  after another tab's, which is longer than a refresh takes, so answering each
+  tab's next request 401 as it comes does not make the 401s overlap: the
+  second tab may by then be sending with the new token, and refreshing again
+  is then correct. So the script keeps one data request of each tab unanswered
+  until it holds both, checks that nothing has rotated, and answers both 401
+  in the same turn. The case then requires that both refused requests carried
+  the starting access token, that both 401s were delivered before the first
+  refresh was answered, and that exactly one rotation happened: every refresh
+  presented the starting refresh token and was answered with the next
+  generation (the other tab adopting, or recovering with the same token inside
+  the grace). A second rotation fails it. `timeline` in the case's record
+  holds the times, token fingerprints and statuses, pass or fail.
+- **Cases 9 to 11 judge the held refresh itself**, not only where the tabs end
+  up: it was sent and answered by the server, it presented the superseded
+  token, and it was let go inside the configured grace and answered 200 (9,
+  11a) or after it and answered 401 (10, 11b). The grace is read from the
+  stack configuration.
+- **Cases 1 and 3 prove the channel.** A signed-in tab polls through the
+  request gate every 30 s, and a poll would tell it of a sign-out by itself.
+  Both cases start right after one of tab B's polls, give B 5 s, and require
+  that B sent no request between the sign-out and its redirect. A B that
+  learned of the sign-out from a request of its own fails; a pass means the
+  `BroadcastChannel` message did it. (Cases 2, 4 and 15 remove the channel on
+  purpose and prove the other paths.)
+- **Case 5 identifies user X's data by provenance, not by content.** The two
+  users of the cases may see the same customers, so "no cached X data
+  appears" is judged by which request produced what is on screen. X loads the
+  customer list in a tab; after the switch Y signs in in that same tab,
+  without a reload, and opens the list while the script keeps the tab's data
+  requests unanswered. The tab must send a fresh request under Y's token and
+  show no row until it is answered; every data request answered to the tab
+  must have been issued after Y's sign-in under Y's token. X's other tab must
+  end on the login page.
 - **Moving a tab inside the application** is `history.pushState` plus a
   `popstate` event, which is what the router listens to. No case reloads a tab
   except case 4, where the reload is the subject.
@@ -202,7 +259,7 @@ grace value first.
   does not enforce the marker it would create a real user, and the case has
   already failed by then.
 
-## W1 and the documented tab capacity
+## W1: the restored window
 
 One profile holding a stored session opens N tabs at the same moment, for
 N = 5, 10 and 20, three times each: (a) with a current access token, (b) with
@@ -210,13 +267,47 @@ an expired one, (c) with one tab signing out while the others load. Each round
 starts from an empty `session_limit` bucket; the drain wait is computed from
 the rate and burst in `nginx/nginx.conf`.
 
+### What W1 shows and what it does not
+
+W1 shows that the tabs of a restored window coordinate their refresh and that
+a restored window puts little load on `session_limit`. It does not measure the
+capacity of that zone, which is never approached, and it does not establish
+how many tabs a restored window can hold: that is bounded by the general
+`api_limit` (issue #1353).
+
+The suite prints that sentence with every W1 summary and stores it as
+`w1.recorded.judgement.scope`. **W1 states no tab capacity**, and nothing in
+its results may be read as one.
+
+How each round reaches the session zone (`refresh`, `logout`, `me`):
+
+- **(a)** Current tokens: there is nothing to refresh, and the application
+  sends no `/auth/me` on load. The round normally sends nothing to the zone.
+  The round counts as "current token" only if the stored access token had
+  time left when the tabs opened; at N = 5 that is a blocking check.
+- **(b)** Every tab starts with an expired access token: one tab takes the
+  lease and refreshes, the others adopt its tokens.
+- **(c)** As (b), plus the explicit `logout` of the tab that signs out.
+
+So what a round sends to the zone is one refresh, a logout in (c), and
+whatever a tab adds by recovering; it is not expected to grow with N. The
+summary prints the count by route and the peak accumulated demand beside the
+configured burst, so a reader sees how far from the limit the round stayed.
+
 For each round `results.json` holds the send time and status of every request
-to `refresh`, `logout` and `me`, the total and per-tab counts, the busiest
-one-second interval, the peak accumulated demand `E`, the number of 429s and
-the end state of the tabs. `E` replays the NGINX bucket over the send times
-(`peakDemand` in `lib/stats.mjs`, exported from `measure.mjs`); NGINX admits
-the whole round exactly when `E ≤ burst + 1`. The busiest second is recorded
-but is the wrong measure for sizing.
+to `refresh`, `logout` and `me`, the total, per-route and per-tab counts, the
+busiest one-second interval, the peak accumulated demand `E`, the number of
+429s and the end state of the tabs. `E` replays the NGINX bucket over the send
+times (`peakDemand` in `lib/stats.mjs`, exported from `measure.mjs`); NGINX
+admits the whole round exactly when `E ≤ burst + 1`. The busiest second is
+recorded but is the wrong measure for sizing.
+
+`w1.recorded.judgement.observed` and the printed summary state, per size and
+round, what was observed: the session-zone requests by route, the 429s among
+them, the peak accumulated demand against the configured burst, the usable
+tabs, the tabs complete on first load, the recovery actions and the
+business-endpoint 429s; for round (c), the tabs on the login page without a
+reload and how many tabs were still loading at the sign-out.
 
 ### What "usable" means
 
@@ -372,17 +463,29 @@ Two more things about this check that a reader should know:
 
 ### What blocks
 
-Blocking: at N = 5, in rounds (a) and (b), no request to `refresh`, `logout`
-or `me` is answered 429 (in the round itself or while its tabs are checked),
-and every tab is usable for the non-administrator by the definition above:
-without a reload, a new sign-in or a page outside the role's set. Everything
-else is recorded and not blocking.
+At N = 5, all of (`lib/w1-judgement.mjs`, `blockingChecks`):
 
-The capacity the documentation may state (`w1.recorded.judgement`) is the
-largest N at which both hold in (a) and (b); no capacity is claimed beyond what
-was measured. If an N = 10 round has a 429 from `session_limit`, the judgement
-carries a candidate burst, `⌈1.25 × (E − 1)⌉`; above 60 it says to stop and
-take the figures to the repository owner.
+- in rounds (a), (b) and (c), no request to `refresh`, `logout` or `me` is
+  answered 429 (in the round itself or while its tabs are checked);
+- in rounds (a) and (b), every tab is usable for the non-administrator by the
+  definition above: without a reload, a new sign-in or a page outside the
+  role's set;
+- round (a) started with a current access token and round (b) with an expired
+  one;
+- in round (c), the sign-out sent its `logout` and it was answered 2xx, and
+  every tab is on the login page afterwards in the document it first loaded
+  (no reload).
+
+Round (c) is where `logout` is sent, so it is the round that puts `logout`
+under the 429 criterion. How many tabs were still loading when the one tab
+signed out is recorded and printed (`tabsStillLoadingAtSignOut`) and no number
+is required: at five tabs the tabs load fast, and the summary line shows how
+much "while the others are still loading" held in that run.
+
+Everything at N = 10 and 20 is recorded and not blocking. If an N = 10 round
+has a 429 from `session_limit`, the judgement carries a candidate burst,
+`⌈1.25 × (E − 1)⌉`; above 60 it says to stop and take the figures to the
+repository owner.
 
 429s on business endpoints are a different limit (`api_limit`, 10 requests a
 second, burst 20 per address): several dashboards loading at once send more
@@ -396,12 +499,15 @@ measures.
 | | What | Status |
 |---|---|---|
 | M1 | one raw read, one tab idle (500 read-only transactions fetching the three keys) | **blocking**, p95 ≤ 5 ms |
-| M2 | the same in four tabs at once while a fifth commits a write every 100 ms | **blocking**, p95 ≤ 15 ms |
+| M2 | the same in four tabs at once while a fifth commits a write every 100 ms | **blocking**, p95 ≤ 15 ms, and the writer committed in every repetition |
 | M3 | the adapter's own `read` timings while the dashboard, the products list and a sales order load | diagnostic: recorded, not judged |
 | M4 | per request, `gate-before` + `gate-after` | diagnostic: recorded, not judged |
 | M5 | per page: navigation to last API response, number of requests, sum of gate waits | diagnostic: recorded, not judged |
 
-Each blocking figure is the **median p95 of three repetitions**. Maxima and p99
+Each blocking figure is the **median p95 of three repetitions**. M2 measures
+reads under contention, so it counts only if there was some: a repetition in
+which the writing tab committed nothing fails M2 as "no contention produced",
+whatever the figure. Maxima and p99
 are recorded for every measurement and never block; a maximum above 100 ms is
 listed for a reader to judge.
 
@@ -436,9 +542,11 @@ On 2026-10-06 the repository owner revised the criteria:
 > Preserve the original failed latency results alongside the revised
 > acceptance decision.
 
-So M1 and M2 block, and M3 and M4 are measured exactly as before (all
-repetitions, p50, p95, p99, maximum, in-flight statistics, pairing) and have no
-pass or fail. A latency result that passes today says that M1 and M2 are within
+So M1 and M2 block, and M3 and M4 are measured exactly as before (p50, p95,
+p99, maximum, in-flight statistics, pairing) and have no pass or fail. Each
+page is loaded five times; **M3 and M4 use the first three of those five
+repetitions**, their maxima included (`figure` in `lib/latency-criteria.mjs`),
+as M1 and M2 use three. Repetitions four and five feed M5 only. A latency result that passes today says that M1 and M2 are within
 their thresholds. **It does not say the gate is fast, and it does not say the
 former targets were met; they were not.** The gate itself is unchanged: none of
 the optimizations that were simulated was implemented, and no read is resolved
@@ -524,7 +632,8 @@ application records there:
 
 ```bash
 # the arithmetic and the judgement, no browser
-node --test frontend/qa/cross-tab-session/measure.test.mjs frontend/qa/cross-tab-session/usable.test.mjs frontend/qa/cross-tab-session/access.test.mjs
+node --test frontend/qa/cross-tab-session/*.test.mjs
+bash frontend/qa/cross-tab-session/run-status.test.sh
 ```
 
 `measure.test.mjs` holds the blocking rule: M1 or M2 over its threshold fails
@@ -532,7 +641,11 @@ the run, M3 and M4 at the figures of `582096992` do not, and the criteria block
 is present. `usable.test.mjs` holds the judgement of W1's "usable", the
 reading of the company retry and the refusal of a step outside the role's
 pages. `access.test.mjs` holds the reading of `navigation.tsx`, on a small
-menu and on the real file.
+menu and on the real file. `judge.test.mjs` holds the judgements of cases 5, 7
+and 9 to 11, each shown failing on every way the behaviour can be wrong (a
+second rotation in case 7 among them). `w1-judgement.test.mjs` holds what W1
+blocks on, round (c) included, and what it reports. `run-status.test.sh` holds
+`run.sh`'s exit-status rule.
 
 ## Where the gate's time goes: `diagnose-latency.mjs`
 
@@ -650,9 +763,18 @@ from the rates and bursts in `nginx/nginx.conf`, and must pass twice in a row.
   that as something an ordinary user would do.
 - W1 recovers tabs one at a time and paced. Several tabs recovered at once
   would send their requests together again, and that is not exercised.
-- The tab capacity of `session_limit` is the number W1 measured, and no more.
-  Several users sharing one address are not exercised by W1 and stay
+- W1 measures no capacity: not of `session_limit`, which its rounds never
+  approach, and not of a restored window, which `api_limit` bounds (issue
+  #1353). Several users sharing one address are not exercised by W1 and stay
   unverified.
+- Case 5 identifies user X's data by provenance (the request that produced
+  what is on screen, and its token), not by content. It checks the customer
+  list; the persisted `notifications` slice and other lists are not looked
+  at.
+- Case 7's 401s are simultaneous as the script delivers them (both answered
+  in one turn, both seen by the tabs before any refresh is answered). Two
+  tabs whose tokens expire on the server at the same instant are exercised by
+  case 8 and W1 round (b), without that guarantee.
 - Case 14 shows that a refused refresh did not rotate the session by timing
   (the token still rotates normally after its grace would have run out). The
   backend e2e test `a refused refresh does not rotate` shows it directly, from
