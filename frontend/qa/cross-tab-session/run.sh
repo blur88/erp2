@@ -67,9 +67,17 @@ refuse() { echo "refusing: $1" >&2; fail 1; exit 1; }
 # Runs one of the suite's scripts in the Playwright container. A failed
 # Playwright install fails the run: it is never mistaken for a script result,
 # and never hidden.
+#
+# The container is on Docker's default bridge, not on the host's network. With
+# `--network host` Chromium watches the host's interfaces and fails in-flight
+# requests with net::ERR_NETWORK_CHANGED whenever one changes, which on a host
+# running other, restarting containers fails cases at random. From the bridge
+# the page is still loaded by LAN IP through the ingress on port 80: the origin
+# is the same non-localhost, non-secure one, and nothing the cases test depends
+# on which network namespace the browser sits in.
 in_playwright() {
   local script="$1" show="$2"
-  docker run --rm --network host \
+  docker run --rm \
     -v "${ROOT}:/repo:ro" \
     -v "${SCRATCH}:/scratch" \
     -w /scratch \

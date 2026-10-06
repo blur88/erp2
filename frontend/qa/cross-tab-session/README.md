@@ -276,13 +276,12 @@ from the rates and bursts in `nginx/nginx.conf`, and must pass twice in a row.
 ## Known limits
 
 - Chromium only; Firefox, Safari and mobile are unverified.
-- The browser runs with `--network host`, so it sees the host's network
-  interfaces. A change to them during a run (another container starting or
-  crash-looping creates and removes interfaces) makes Chromium fail in-flight
-  requests with `net::ERR_NETWORK_CHANGED`. This was seen once in development.
-  W1 records such failures (`dataRequestsFailed`); in a case they show up as a
-  request that never succeeded. Keep the host's other containers quiet during
-  a recorded run.
+- The browser container runs on Docker's default bridge and reaches the ingress
+  by LAN IP. It deliberately does not use `--network host`: there Chromium
+  watches the host's interfaces and fails in-flight requests with
+  `net::ERR_NETWORK_CHANGED` whenever another container starts or restarts,
+  which was seen about twenty times in one development round. W1 still records
+  failed requests (`dataRequestsFailed`), so a recurrence would be visible.
 - Natural tab freezing, tab discarding, device sleep and the back/forward cache
   are not exercised. Pauses use the debugger, and case 15 dispatches its events
   synthetically.
