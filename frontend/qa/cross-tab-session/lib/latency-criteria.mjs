@@ -133,6 +133,12 @@ export function judge(latency) {
   const blockingFailures = blocking
     .filter(([, f]) => !f.pass)
     .map(([name, f]) => `${name}: ${f.reason ?? `median p95 ${f.medianP95Ms} ms over the ${f.thresholdMs} ms threshold`}`)
+  // M2 is "reads while a fifth tab commits a write every 100 ms". Pass
+  // condition: in every repetition the writer committed at least once. With
+  // no commit there was no contention, and a fast figure would say nothing
+  // about it: M2 then fails as "no contention produced", whatever its size.
+  const contention = noContention(latency.M2.writer)
+  if (contention) blockingFailures.push(`M2: no contention produced (${contention})`)
   const notRecorded = diagnostic
     .filter(([, f]) => !f.recorded)
     .map(([name]) => `${name}: no samples in at least one repetition, so the diagnostic was not recorded`)
@@ -144,6 +150,17 @@ export function judge(latency) {
   }
 }
 
+/**
+ * Why M2's writer produced no contention, or null when it did: `writer` is
+ * the list measure.mjs records, one { commits, failures } per repetition.
+ */
+export function noContention(writer) {
+  if (!Array.isArray(writer) || writer.length === 0) return 'the writer\'s commits were not recorded'
+  const idle = writer.map((w, i) => [i + 1, w?.commits]).filter(([, commits]) => !(Number.isInteger(commits) && commits > 0))
+  if (idle.length === 0) return null
+  return `the writer committed nothing in repetition ${idle.map(([i]) => i).join(', ')}: commits per repetition ${writer.map((w) => w?.commits ?? 'not recorded').join(', ')}`
+}
+
 /** The lines every summary prints. Nothing here says "ok" about M3 or M4. */
 export function summaryLines(latency) {
   const lines = []
@@ -151,6 +168,8 @@ export function summaryLines(latency) {
     const f = latency[name]
     lines.push(`${f.pass ? 'ok  ' : 'FAIL'} ${name} (blocking): median p95 ${f.medianP95Ms} ms, threshold ${f.thresholdMs} ms, max ${f.maxMs} ms`)
   }
+  const contention = noContention(latency.M2.writer)
+  if (contention) lines.push(`FAIL M2 (blocking): no contention produced (${contention})`)
   for (const [name, m, variant] of FOUR) {
     const f = latency[m][variant]
     lines.push(

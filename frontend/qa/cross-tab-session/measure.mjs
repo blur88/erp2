@@ -336,8 +336,10 @@ async function main() {
       `The access lifetime during this measurement was ${config.show.accessTokenExpiry}, under five minutes: the figures include refreshes that ordinary use does not have.`,
     )
   }
-  // Pass condition: M1 and M2 within their thresholds, and M3 and M4
-  // recorded. See judge() for why the size of M3 and M4 cannot fail the run.
+  // Pass condition: M1 and M2 within their thresholds, M2 measured under
+  // real contention (the writer committed in every repetition), and M3 and
+  // M4 recorded. See judge() for why the size of M3 and M4 cannot fail the
+  // run.
   Object.assign(latency, judge(latency))
   latency.signInWaits = run.signInWaits
 

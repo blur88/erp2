@@ -26,10 +26,21 @@ export function durationSeconds(text) {
   return Number(m[1]) * unit
 }
 
+/**
+ * True for `localhost` and names under it, anything in 127.0.0.0/8 and ::1,
+ * as a URL's hostname states them (the URL parser has already normalised
+ * 127.1 or 2130706433 to dotted form). run.sh refuses the same and, having a
+ * resolver, also a name that resolves to one of them.
+ */
+export function isLoopbackHost(hostname) {
+  const h = String(hostname).toLowerCase().replace(/\.$/, '')
+  return h === 'localhost' || h.endsWith('.localhost') || /^127\.\d+\.\d+\.\d+$/.test(h) || h === '[::1]' || h === '::1'
+}
+
 export function loadConfig() {
   const base = required('QA_BASE_URL').replace(/\/+$/, '')
   const url = new URL(base)
-  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]') {
+  if (isLoopbackHost(url.hostname)) {
     throw new Error('QA_BASE_URL must be a LAN address: localhost is a secure context and behaves differently')
   }
   if (url.port) throw new Error('QA_BASE_URL must not carry a port: the run goes through the ingress on port 80')

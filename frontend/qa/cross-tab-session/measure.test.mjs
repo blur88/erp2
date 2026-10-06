@@ -3,8 +3,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { peakDemand } from './measure.mjs'
 import { busiestSecond, candidateBurst, median, percentile } from './lib/stats.mjs'
-import { durationSeconds } from './lib/config.mjs'
-import { CRITERIA, blockingFigure, competingWorkload, diagnosticFigure, judge, summaryLines } from './lib/latency-criteria.mjs'
+import { durationSeconds, isLoopbackHost } from './lib/config.mjs'
+import { CRITERIA, blockingFigure, competingWorkload, diagnosticFigure, judge, noContention, summaryLines } from './lib/latency-criteria.mjs'
 
 // Eight requests at each of seconds 0, 1, 2 and 3, then two at second 4:
 // no one-second interval holds more than 8, yet at 1 r/s the bucket never
@@ -54,6 +54,15 @@ test('durations as the backend writes them', () => {
   assert.throws(() => durationSeconds('soon'))
 })
 
+test('every loopback host is one, as a URL states it, and a LAN address is not', () => {
+  for (const url of ['http://localhost', 'http://LOCALHOST', 'http://app.localhost', 'http://127.0.0.1', 'http://127.0.1.1', 'http://127.1', 'http://2130706433', 'http://[::1]']) {
+    assert.equal(isLoopbackHost(new URL(url).hostname), true, url)
+  }
+  for (const url of ['http://10.1.1.34', 'http://192.168.1.20', 'http://10.127.0.1', 'http://erp.lan']) {
+    assert.equal(isLoopbackHost(new URL(url).hostname), false, url)
+  }
+})
+
 // --- the latency acceptance criteria (revised 2026-10-06) -------------------
 // M1 and M2 block. M3 and M4 are diagnostic: over the former targets they must
 // not fail the run, and nothing about them may read as a pass.
@@ -61,11 +70,14 @@ test('durations as the backend writes them', () => {
 // A repetition whose p95 is `ms`.
 const reps = (ms) => [Array(20).fill(ms), Array(20).fill(ms), Array(20).fill(ms)]
 
-function latencyWith({ m1 = 2, m2 = 5, m3 = [99, 330.1], m4 = [205.3, 603.3] } = {}) {
+// The writer of M2 as both recorded runs had it: 11 to 13 commits a repetition.
+const BUSY_WRITER = [{ commits: 12, failures: 0 }, { commits: 11, failures: 0 }, { commits: 13, failures: 0 }]
+
+function latencyWith({ m1 = 2, m2 = 5, m3 = [99, 330.1], m4 = [205.3, 603.3], writer = BUSY_WRITER } = {}) {
   const { p95Ms: former } = CRITERIA.formerProvisionalTargets
   return {
     M1: blockingFigure(reps(m1), CRITERIA.blocking.M1.p95Ms),
-    M2: blockingFigure(reps(m2), CRITERIA.blocking.M2.p95Ms),
+    M2: { ...blockingFigure(reps(m2), CRITERIA.blocking.M2.p95Ms), writer },
     M3: {
       oneTab: m3 === null ? diagnosticFigure([[], [1], [1]], former.M3.oneTab) : diagnosticFigure(reps(m3[0]), former.M3.oneTab),
       fourTabs: diagnosticFigure(reps((m3 ?? [1, 1])[1]), former.M3.fourTabs),
@@ -95,6 +107,20 @@ test('M2 over its threshold fails the run', () => {
   const verdict = judge(latencyWith({ m2: 15.1 }))
   assert.equal(verdict.pass, false)
   assert.match(verdict.blockingFailures[0], /^M2: median p95 15\.1 ms over the 15 ms threshold$/)
+})
+
+test('M2 with a writer that committed nothing fails as "no contention produced", however fast it was', () => {
+  const idle = judge(latencyWith({ m2: 1, writer: [{ commits: 12, failures: 0 }, { commits: 0, failures: 9 }, { commits: 13, failures: 0 }] }))
+  assert.equal(idle.pass, false)
+  assert.equal(idle.blockingFailures.length, 1)
+  assert.match(idle.blockingFailures[0], /^M2: no contention produced \(the writer committed nothing in repetition 2: commits per repetition 12, 0, 13\)$/)
+  // Commits that were never recorded are not a pass either.
+  for (const writer of [undefined, [], [{ failures: 0 }, { commits: 12 }, { commits: 12 }]]) {
+    const verdict = judge({ ...latencyWith(), M2: { ...latencyWith().M2, writer } })
+    assert.equal(verdict.pass, false)
+    assert.match(verdict.blockingFailures[0], /^M2: no contention produced/)
+  }
+  assert.equal(noContention(BUSY_WRITER), null)
 })
 
 test('M1 and M2 exactly at their thresholds pass', () => {
