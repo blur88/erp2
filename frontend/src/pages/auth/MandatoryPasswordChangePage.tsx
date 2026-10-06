@@ -21,8 +21,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
-import { changePassword, ChangePasswordData } from '@/store/slices/authSlice';
+import { changePassword, ChangePasswordData, selectStorageUnavailable } from '@/store/slices/authSlice';
 import { sessionRuntime } from '@/session';
+import StorageUnavailableScreen from '@/components/auth/StorageUnavailableScreen';
 
 // Password validation schema
 const passwordSchema = yup.object({
@@ -43,7 +44,7 @@ const passwordSchema = yup.object({
     .oneOf([yup.ref('newPassword')], 'Passwords must match'),
 });
 
-const MandatoryPasswordChangePage: React.FC = () => {
+const MandatoryPasswordChangeForm: React.FC = () => {
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -358,6 +359,12 @@ const MandatoryPasswordChangePage: React.FC = () => {
       </Container>
     </Box>
   );
+};
+
+// Fail closed (spec B8): without session storage the message takes the form's place.
+const MandatoryPasswordChangePage: React.FC = () => {
+  const storageUnavailable = useAppSelector(selectStorageUnavailable);
+  return storageUnavailable ? <StorageUnavailableScreen /> : <MandatoryPasswordChangeForm />;
 };
 
 export default MandatoryPasswordChangePage;

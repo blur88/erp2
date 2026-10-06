@@ -26,11 +26,13 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
 import {
   login,
   clearError,
+  selectStorageUnavailable,
 } from '@/store/slices/authSlice';
 import type { LoginCredentials } from '@/store/slices/authSlice';
 import { sessionRuntime } from '@/session';
 import { SessionChangedElsewhereError } from '@/session/runtime';
 import { authApi } from '@/services/authApi';
+import StorageUnavailableScreen from '@/components/auth/StorageUnavailableScreen';
 
 const schema = yup.object({
   usernameOrEmail: yup.string().required('Username or email is required'),
@@ -38,7 +40,7 @@ const schema = yup.object({
   rememberMe: yup.boolean(),
 });
 
-const LoginPage: React.FC = () => {
+const LoginForm: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -281,6 +283,13 @@ const LoginPage: React.FC = () => {
       </Paper>
     </Box>
   );
+};
+
+// Fail closed (spec B8): without session storage the message takes the form's
+// place, so no sign-in can be submitted.
+const LoginPage: React.FC = () => {
+  const storageUnavailable = useAppSelector(selectStorageUnavailable);
+  return storageUnavailable ? <StorageUnavailableScreen /> : <LoginForm />;
 };
 
 export default LoginPage;

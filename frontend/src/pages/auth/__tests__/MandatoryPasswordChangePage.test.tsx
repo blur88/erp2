@@ -4,7 +4,7 @@ import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
 import '@testing-library/jest-dom/vitest'
-import authReducer from '../../../store/slices/authSlice'
+import authReducer, { storageUnavailable } from '../../../store/slices/authSlice'
 
 const changePasswordMock = vi.fn()
 vi.mock('@/services/authApi', () => ({
@@ -55,6 +55,22 @@ describe('MandatoryPasswordChangePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /change password/i }))
 
     await waitFor(() => expect(passwordChanged).toHaveBeenCalled())
+  })
+
+  it('shows the storage-unavailable screen in place of the form', () => {
+    const store = configureStore({ reducer: { auth: authReducer } })
+    store.dispatch(storageUnavailable())
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <MandatoryPasswordChangePage />
+        </BrowserRouter>
+      </Provider>
+    )
+
+    expect(screen.getByText(/this browser cannot store your session safely/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /change password/i })).not.toBeInTheDocument()
+    expect(document.querySelector('form')).toBeNull()
   })
 
   it('does not apply a hardcoded gradient background', () => {
