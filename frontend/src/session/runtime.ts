@@ -9,6 +9,7 @@ import {
   leaseAcquire,
   leaseRelease,
   type Decision,
+  type SignInCommitResult,
 } from './decisions'
 import { reconcile, type ReconcileAction } from './reconcile'
 import type { SessionStore } from './store/sessionStore'
@@ -89,6 +90,10 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   }
   const post = () => channel?.post()
   const isEligible = (sessionId: string) => claim() === sessionId
+  // Best effort: a logout that fails changes nothing in the browser.
+  const logoutBestEffort = (refreshToken: string) => {
+    void http.logout(refreshToken).catch(() => undefined)
+  }
 
   const moveToStorageUnavailable = () => {
     if (status === 'storage-unavailable') return
@@ -211,28 +216,40 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     }
 
     if (attempt !== currentAttempt) {
-      void http.logout(response.refreshToken)
+      logoutBestEffort(response.refreshToken)
       throw new SessionChangedElsewhereError('sign-in cancelled')
     }
 
     const rememberMe = credentials.rememberMe === true
-    let commit
+    let commit: SignInCommitResult
     try {
-      commit = await transact((s) => signInCommit(s, { capturedRevision, response, rememberMe }))
+      // Whether the attempt is still current is read when the transaction runs,
+      // not when it is queued: a cancellation in between writes nothing.
+      commit = await transact((s) =>
+        signInCommit(s, { capturedRevision, attemptCurrent: attempt === currentAttempt, response, rememberMe }),
+      )
     } catch (err) {
+      // Nothing was committed, so nobody holds the session the server created.
+      logoutBestEffort(response.refreshToken)
       if (attempt === currentAttempt) currentAttempt = 0
       throw err
     }
 
-    if (!commit.ok) {
-      void http.logout(response.refreshToken)
+    if (commit.ok === false) {
+      logoutBestEffort(response.refreshToken)
+      if (commit.reason === 'attempt-cancelled') throw new SessionChangedElsewhereError('sign-in cancelled')
       if (attempt === currentAttempt) currentAttempt = 0
       throw new SessionChangedElsewhereError('session changed elsewhere')
     }
 
+    // The commit completed and the attempt was cancelled after the transaction
+    // decided. The record holds a session no tab claims: it is cleared, but only
+    // while it is still that session, so a newer one is never touched.
     if (attempt !== currentAttempt) {
-      void http.logout(response.refreshToken)
-      await transact((s) => cancelledSignInCleanup(s, { sessionId: response.sessionId }))
+      logoutBestEffort(response.refreshToken)
+      if (commit.displaced) logoutBestEffort(commit.displaced.refreshToken)
+      const cleanup = await transact((s) => cancelledSignInCleanup(s, { sessionId: response.sessionId }))
+      if (cleanup.cleared) post()
       throw new SessionChangedElsewhereError('sign-in cancelled')
     }
 
@@ -251,7 +268,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     events.sessionEstablished(session)
     post()
 
-    if (commit.displaced) void http.logout(commit.displaced.refreshToken)
+    if (commit.displaced) logoutBestEffort(commit.displaced.refreshToken)
 
     return { requiresPasswordChange: response.requiresPasswordChange === true }
   }
@@ -444,7 +461,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     sessionAbort.abort()
     sessionAbort = new AbortController()
     events.sessionEnded('explicit')
-    if (captured) void http.logout(captured.refreshToken)
+    if (captured) logoutBestEffort(captured.refreshToken)
     try {
       await transact((s) => explicitEndCommit(s, { targetSessionId: captured?.sessionId ?? '' }))
     } catch {

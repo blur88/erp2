@@ -51,6 +51,7 @@ describe('signInCommit', () => {
   ])('%s', (_name, s, capturedRevision, expected) => {
     const { result, write } = signInCommit(s, {
       capturedRevision,
+      attemptCurrent: true,
       response: response({ sessionId: 'S', generation: 2 }),
       rememberMe: false,
     })
@@ -67,16 +68,36 @@ describe('signInCommit', () => {
   it('rejects when the revision moved', () => {
     const { result, write } = signInCommit(signedIn({}, 5), {
       capturedRevision: 3,
+      attemptCurrent: true,
       response: response(),
       rememberMe: false,
     })
-    expect(result.ok).toBe(false)
+    expect(result).toEqual({ ok: false, reason: 'revision-changed' })
+    expect(write).toBeUndefined()
+  })
+
+  // Both preconditions are checked inside the transaction (spec B4 row 1): an
+  // attempt cancelled while its commit was queued writes nothing, whatever the
+  // revision, and the caller can tell it from a revision that moved.
+  it.each<[string, StoredState, number]>([
+    ['with a matching revision, over a live session', signedIn({ sessionId: 'OLD' }, 3), 3],
+    ['with a matching revision, cold', state(), 0],
+    ['with a revision that moved', signedIn({ sessionId: 'OLD' }, 5), 3],
+  ])('writes nothing when the attempt is no longer current, %s', (_name, s, capturedRevision) => {
+    const { result, write } = signInCommit(s, {
+      capturedRevision,
+      attemptCurrent: false,
+      response: response({ sessionId: 'NEW' }),
+      rememberMe: false,
+    })
+    expect(result).toEqual({ ok: false, reason: 'attempt-cancelled' })
     expect(write).toBeUndefined()
   })
 
   it('keeps revision monotonic and reports the displaced session', () => {
     const { write } = signInCommit(signedIn({ sessionId: 'OLD' }, 3), {
       capturedRevision: 3,
+      attemptCurrent: true,
       response: response({ sessionId: 'NEW' }),
       rememberMe: false,
     })

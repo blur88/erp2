@@ -2,12 +2,22 @@ import type { ActiveSession, SessionRef, StoredState, TokenResponse } from './ty
 
 export type Decision<R> = { write?: Partial<StoredState>; result: R }
 
+export type SignInCommitResult =
+  | { ok: true; displaced: ActiveSession | null }
+  | { ok: false; reason: 'attempt-cancelled' | 'revision-changed' }
+
+// Both preconditions hold inside the transaction (spec B4 row 1). Whether the
+// attempt is still current is the caller's to know; it is evaluated when the
+// transaction runs and passed in, so this stays a function of its arguments.
 export function signInCommit(
   s: StoredState,
-  a: { capturedRevision: number; response: TokenResponse; rememberMe: boolean },
-): Decision<{ ok: true; displaced: ActiveSession | null } | { ok: false }> {
+  a: { capturedRevision: number; attemptCurrent: boolean; response: TokenResponse; rememberMe: boolean },
+): Decision<SignInCommitResult> {
+  if (!a.attemptCurrent) {
+    return { result: { ok: false, reason: 'attempt-cancelled' } }
+  }
   if (s.record.revision !== a.capturedRevision) {
-    return { result: { ok: false } }
+    return { result: { ok: false, reason: 'revision-changed' } }
   }
 
   const previous = s.record.session
