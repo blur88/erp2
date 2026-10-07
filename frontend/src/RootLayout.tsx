@@ -36,7 +36,7 @@ export default function RootLayout() {
   const [showIdleWarning, setShowIdleWarning] = useState(false)
 
   useRegionalSettings(isAuthenticated)
-  useClearReconciliationDraftsOnSignOut(isAuthenticated)
+  useClearReconciliationDraftsOnSignOut(isAuthenticated, storageWaiting)
 
   const handleAutoLogout = useCallback(async () => {
     setShowIdleWarning(false)

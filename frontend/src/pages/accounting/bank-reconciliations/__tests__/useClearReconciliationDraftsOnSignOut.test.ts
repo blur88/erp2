@@ -50,4 +50,34 @@ describe('reconciliation drafts and sign-out', () => {
     expect(sessionStorage.getItem(KEY_A)).not.toBeNull()
     expect(sessionStorage.getItem(KEY_B)).not.toBeNull()
   })
+
+  // Storage has not said whether a session is stored: not signed in, and not
+  // signed-out either.
+  it('keeps drafts while the tab waits for session storage', () => {
+    const { rerender } = renderHook(({ auth, waiting }) => useClearReconciliationDraftsOnSignOut(auth, waiting), {
+      initialProps: { auth: false, waiting: true },
+    })
+    rerender({ auth: false, waiting: true })
+    expect(sessionStorage.getItem(KEY_A)).not.toBeNull()
+    expect(sessionStorage.getItem(KEY_B)).not.toBeNull()
+  })
+
+  it('keeps drafts when the wait ends with the session found', () => {
+    const { rerender } = renderHook(({ auth, waiting }) => useClearReconciliationDraftsOnSignOut(auth, waiting), {
+      initialProps: { auth: false, waiting: true },
+    })
+    rerender({ auth: true, waiting: false })
+    expect(sessionStorage.getItem(KEY_A)).not.toBeNull()
+    expect(sessionStorage.getItem(KEY_B)).not.toBeNull()
+  })
+
+  it('clears drafts when the wait ends with the tab signed-out', () => {
+    const { rerender } = renderHook(({ auth, waiting }) => useClearReconciliationDraftsOnSignOut(auth, waiting), {
+      initialProps: { auth: false, waiting: true },
+    })
+    rerender({ auth: false, waiting: false })
+    expect(sessionStorage.getItem(KEY_A)).toBeNull()
+    expect(sessionStorage.getItem(KEY_B)).toBeNull()
+    expect(sessionStorage.getItem('unrelated')).toBe('keep')
+  })
 })

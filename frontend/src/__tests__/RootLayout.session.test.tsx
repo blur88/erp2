@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { loadApp, storedSession } from '@/session/__tests__/appHarness'
+import { loadApp, storedSession, type LoadAppOptions } from '@/session/__tests__/appHarness'
 import { draftKey } from '@/pages/accounting/bank-reconciliations/reconciliationDraftStorage'
 
 const idleHandlers: { onTimeout?: () => void } = {}
@@ -107,5 +107,112 @@ describe('RootLayout reconciliation drafts', () => {
     // the other tab's own logout.
     expect(app.requests).toHaveLength(0)
     expect(other.calls).toEqual(['logout'])
+  })
+
+  // A reload behind a tab paused mid-transaction: the start-up read times out,
+  // so storage has not said whether the session this tab had is still stored.
+  describe('when storage did not answer at start', () => {
+    const waitingText = /still waiting for this browser\u2019s session storage/i
+
+    async function renderWaiting(stored: LoadAppOptions['stored']) {
+      const key = storeDraft('u1')
+      const app = await loadApp({ storage: 'busy', stored })
+      await Promise.all([app.rehydrated(), app.sessionReady()])
+      expect(app.sessionRuntime.status()).toBe('storage-waiting')
+
+      const { default: RootLayout } = await import('@/RootLayout')
+      render(
+        <Provider store={app.store}>
+          <MemoryRouter>
+            <RootLayout />
+          </MemoryRouter>
+        </Provider>
+      )
+      await screen.findByText(waitingText)
+      return { app, key }
+    }
+
+    const tryAgain = () => fireEvent.click(screen.getByRole('button', { name: /try again/i }))
+    const withSession = { record: { revision: 1, session: storedSession() } }
+
+    it('a tab that starts waiting keeps its drafts', async () => {
+      const { app, key } = await renderWaiting(withSession)
+
+      // Effects have run and the waiting screen is still what is shown.
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 20))
+      })
+      expect(screen.getByText(waitingText)).toBeInTheDocument()
+      expect(app.store.getState().auth.isAuthenticated).toBe(false)
+      expect(app.store.getState().auth.storageWaiting).toBe(true)
+      expect(sessionStorage.getItem(key)).not.toBeNull()
+    })
+
+    it('retry finds the session: the draft is still there and the tab is signed in', async () => {
+      const { app, key } = await renderWaiting(withSession)
+
+      tryAgain()
+
+      await waitFor(() => expect(app.store.getState().auth.isAuthenticated).toBe(true))
+      await waitFor(() => expect(screen.queryByText(waitingText)).not.toBeInTheDocument())
+      expect(app.sessionRuntime.status()).toBe('signed-in')
+      expect(app.sessionRuntime.claim()).toBe('sess-stored')
+      expect(sessionStorage.getItem(key)).not.toBeNull()
+    })
+
+    it('retry finds no session: the tab is signed-out and the draft is cleared', async () => {
+      const { app, key } = await renderWaiting({ record: { revision: 4, session: null } })
+      expect(sessionStorage.getItem(key)).not.toBeNull()
+
+      tryAgain()
+
+      await waitFor(() => expect(sessionStorage.getItem(key)).toBeNull())
+      expect(app.sessionRuntime.status()).toBe('signed-out')
+      expect(app.store.getState().auth.isAuthenticated).toBe(false)
+      expect(app.store.getState().auth.storageWaiting).toBe(false)
+    })
+
+    it('a retry that times out again still keeps the draft', async () => {
+      const { app, key } = await renderWaiting(withSession)
+
+      app.stillBusy()
+      tryAgain()
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 20))
+      })
+
+      expect(app.sessionRuntime.status()).toBe('storage-waiting')
+      expect(screen.getByText(waitingText)).toBeInTheDocument()
+      expect(sessionStorage.getItem(key)).not.toBeNull()
+    })
+
+    // The same as a tab that finds storage unusable at start: it holds no
+    // session and cannot learn of one, so it is not kept as signed-in work.
+    it('retry finds storage unusable: the draft is cleared, as at a start without storage', async () => {
+      const { app, key } = await renderWaiting(withSession)
+
+      const { StorageUnavailableError } = await import('@/session/types')
+      app.failNextRead(new StorageUnavailableError('read failed'))
+      tryAgain()
+
+      await waitFor(() => expect(sessionStorage.getItem(key)).toBeNull())
+      expect(app.sessionRuntime.status()).toBe('storage-unavailable')
+    })
+
+    it('a tab that finds storage unusable at start clears its drafts', async () => {
+      const key = storeDraft('u1')
+      const app = await loadApp({ storage: 'unavailable' })
+      await Promise.all([app.rehydrated(), app.sessionReady()])
+      const { default: RootLayout } = await import('@/RootLayout')
+      render(
+        <Provider store={app.store}>
+          <MemoryRouter>
+            <RootLayout />
+          </MemoryRouter>
+        </Provider>
+      )
+      await waitFor(() => expect(sessionStorage.getItem(key)).toBeNull())
+      expect(app.sessionRuntime.status()).toBe('storage-unavailable')
+    })
   })
 })
