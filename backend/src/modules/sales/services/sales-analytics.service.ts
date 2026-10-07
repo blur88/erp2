@@ -65,9 +65,12 @@ function applySalesOrderFilters<T extends ObjectLiteral>(
     qb.andWhere(`${alias}.createdByUserId = :salesRepId`, { salesRepId: query.salesRepId });
   }
 
+  // `isFulfilled` is a getter on the entity, not a column (#1355): in SQL,
+  // fulfilment is `status = FULFILLED`.
   if (query.fulfillmentStatus !== undefined) {
-    qb.andWhere(`${alias}.isFulfilled = :isFulfilled`, {
-      isFulfilled: query.fulfillmentStatus === 'fulfilled',
+    const operator = query.fulfillmentStatus === 'fulfilled' ? '=' : '<>';
+    qb.andWhere(`${alias}.status ${operator} :fulfilledFilterStatus`, {
+      fulfilledFilterStatus: SalesOrderStatus.FULFILLED,
     });
   }
 
@@ -173,20 +176,21 @@ export class SalesAnalyticsService {
     // Get pipeline data (status column removed, so we show fulfillment status instead)
     const stagesData = await queryBuilder
       .select([
-        'order.isFulfilled',
-        'COUNT(*) as orderCount',
-        'COALESCE(SUM(order.totalAmount), 0) as totalValue',
-        'COALESCE(AVG(order.totalAmount), 0) as averageValue',
+        'CASE WHEN order.status = :pipelineFulfilledStatus THEN true ELSE false END as "isFulfilled"',
+        'COUNT(*) as "orderCount"',
+        'COALESCE(SUM(order.totalAmount), 0) as "totalValue"',
+        'COALESCE(AVG(order.totalAmount), 0) as "averageValue"',
       ])
-      .groupBy('order.isFulfilled')
+      .setParameter('pipelineFulfilledStatus', SalesOrderStatus.FULFILLED)
+      .groupBy('"isFulfilled"')
       .getRawMany();
 
     const totalOrders = stagesData.reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
     const totalValue = stagesData.reduce((sum, stage) => sum + parseFloat(stage.totalValue), 0);
 
     const stages: PipelineStageDto[] = stagesData.map((stage) => ({
-      status: stage.order_isFulfilled ? 'fulfilled' : 'pending',
-      statusLabel: stage.order_isFulfilled ? 'Fulfilled' : 'Pending Fulfillment',
+      status: stage.isFulfilled ? 'fulfilled' : 'pending',
+      statusLabel: stage.isFulfilled ? 'Fulfilled' : 'Pending Fulfillment',
       orderCount: parseInt(stage.orderCount),
       totalValue: parseFloat(stage.totalValue),
       averageValue: parseFloat(stage.averageValue),
@@ -195,7 +199,7 @@ export class SalesAnalyticsService {
 
     // Calculate conversion rate (fulfilled orders / total orders)
     const fulfilledOrders = stagesData
-      .filter((stage) => stage.order_isFulfilled === true)
+      .filter((stage) => stage.isFulfilled === true)
       .reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
 
     const conversionRate = totalOrders > 0 ? (fulfilledOrders / totalOrders) * 100 : 0;
@@ -345,10 +349,11 @@ export class SalesAnalyticsService {
           'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
           'COUNT(*) as "totalOrders"',
           'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
-          'COUNT(CASE WHEN order.isFulfilled = true THEN 1 END) as "completedOrders"',
-          'COUNT(CASE WHEN order.isFulfilled = false THEN 1 END) as "confirmedOrders"',
+          'COUNT(CASE WHEN order.status = :metricsFulfilledStatus THEN 1 END) as "completedOrders"',
+          'COUNT(CASE WHEN order.status <> :metricsFulfilledStatus THEN 1 END) as "confirmedOrders"',
           '0 as "draftOrders"',
         ])
+        .setParameter('metricsFulfilledStatus', SalesOrderStatus.FULFILLED)
         .getRawOne(),
 
       // Fulfilled order statistics (replaces old invoice-based revenue)

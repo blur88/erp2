@@ -9,7 +9,7 @@ import { Repository, FindOptionsWhere } from 'typeorm';
 import { applyPagination } from '../../../common/pagination/apply-pagination';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Customer } from '../../../database/entities/customer.entity';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
@@ -468,7 +468,7 @@ export class CustomerService extends BaseCrudService<
       .createQueryBuilder('order')
       .where('order.customerId = :customerId', { customerId })
       .andWhere('order.deletedAt IS NULL')
-      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
+      .andWhere('order.status = :fulfilledStatus', { fulfilledStatus: SalesOrderStatus.FULFILLED })
       .select([
         'COUNT(*) as totalorders',
         'COALESCE(AVG(order.totalAmount), 0) as averageordervalue',
@@ -816,7 +816,7 @@ export class CustomerService extends BaseCrudService<
       .createQueryBuilder('order')
       .where('order.customerId = :customerId', { customerId })
       .andWhere('order.deletedAt IS NULL')
-      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
+      .andWhere('order.status = :fulfilledStatus', { fulfilledStatus: SalesOrderStatus.FULFILLED })
       .select([
         'COUNT(*) as totalorders',
         'COALESCE(SUM(order.totalAmount), 0) as totalsales',

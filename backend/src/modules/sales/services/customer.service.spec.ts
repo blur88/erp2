@@ -427,8 +427,8 @@ describe('CustomerService', () => {
 
       await service.updateCustomerMetrics('c1');
 
-      expect(qb.andWhere).toHaveBeenCalledWith('order.isFulfilled = :isFulfilled', {
-        isFulfilled: true,
+      expect(qb.andWhere).toHaveBeenCalledWith('order.status = :fulfilledStatus', {
+        fulfilledStatus: 'FULFILLED',
       });
       expect(customerRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ totalOrders: 2, totalSales: 300 }),
@@ -461,8 +461,8 @@ describe('CustomerService', () => {
 
       await service.getCustomerStatistics('c1');
 
-      expect(qb.andWhere).toHaveBeenCalledWith('order.isFulfilled = :isFulfilled', {
-        isFulfilled: true,
+      expect(qb.andWhere).toHaveBeenCalledWith('order.status = :fulfilledStatus', {
+        fulfilledStatus: 'FULFILLED',
       });
     });
   });

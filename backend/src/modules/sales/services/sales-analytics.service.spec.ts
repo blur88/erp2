@@ -704,8 +704,8 @@ describe('SalesAnalyticsService', () => {
         dateRange: undefined,
       } as any);
 
-      expect(orderChain.andWhere).toHaveBeenCalledWith('order.isFulfilled = :isFulfilled', {
-        isFulfilled: true,
+      expect(orderChain.andWhere).toHaveBeenCalledWith('order.status = :fulfilledFilterStatus', {
+        fulfilledFilterStatus: 'FULFILLED',
       });
     });
 
@@ -729,7 +729,7 @@ describe('SalesAnalyticsService', () => {
       } as any);
 
       const calls = orderChain.andWhere.mock.calls.filter(
-        (args: any[]) => args[0] === 'order.isFulfilled = :isFulfilled',
+        (args: any[]) => args[0] === 'order.status <> :fulfilledFilterStatus',
       );
       expect(calls.length).toBeGreaterThanOrEqual(2);
     });
@@ -754,7 +754,7 @@ describe('SalesAnalyticsService', () => {
       } as any);
 
       const orderCalls = orderChain.andWhere.mock.calls.filter(
-        (args: any[]) => args[0] === 'order.isFulfilled = :isFulfilled',
+        (args: any[]) => args[0] === 'order.status = :fulfilledFilterStatus',
       );
       expect(orderCalls.length).toBeGreaterThanOrEqual(3);
     });
