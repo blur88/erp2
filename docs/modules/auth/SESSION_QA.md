@@ -201,9 +201,13 @@ that four of them judged less than their names say (below), so read this run as
   which answered 28% to 67% of the tabs' own data requests with 429 across both
   recorded runs (issue #1353).
 - No tab needed more than two in-app actions; the slowest recovery took about
-  30 s. The company-data retry never failed, but of the 44 tab loads whose first
-  request was refused, 7 needed the third and last retry (all at ten or twenty
-  tabs). One more refusal there would have left the tab without that data.
+  30 s. The company-data retry never failed. Of the 44 tab loads whose first
+  request was refused, 31 got the data on the first retry, 8 on the second and 5
+  on the third and last (all five at ten or twenty tabs); one more refusal in
+  those five would have left the tab without that data. Counted by 429s received,
+  which is what the budget counts: a 401 that is refreshed and re-sent happens
+  inside one attempt and uses no retry. (Earlier versions of this document and of
+  the pull request said seven; that counted such re-sends as retries.)
 - A refused regional-settings request was never repeated (up to 14 of 20 tabs);
   formats were wrong in none, because the profile had stored them at sign-in.
 
@@ -265,12 +269,59 @@ window holds two or three rotations depending on where the uses fall against the
 expiries. Earlier runs saw three by timing (and, before the lease fix, because
 tabs rotated more often than they needed to). The case now keeps using the tabs
 until the third rotation is seen, bounded at six lifetimes, and its requirement
-is unchanged. Three development runs of the revised case passed, one of them
-needing 3.75 lifetimes.
+is unchanged. The revised case was then run three times in development against
+the same build; all three passed, one of them needing 3.75 lifetimes. Only the
+last of those three result files was kept, so the first two are an unretained
+observation, not retained evidence.
 
 The run is recorded here because it failed; it is not passing evidence for
 anything, and the cases that passed in it were run again on the commit that
 followed.
+
+## Recorded run on `29fdf87fb` (2026-10-07): exit status 0
+
+Same machine and Chromium. Configuration 15m / 60 before, 20s / 5 during, 15m / 60
+after. **15 of 15 cases passed**, with the corrected case 8 and with cases 5, 7 and
+9 to 11 judging what their names say; case 7 showed one rotation with both forced
+401s held and released together.
+
+**W1, as a non-administrator, all three rounds blocking at five tabs:**
+
+| Tabs | Round | Session-zone requests (refresh / logout / me) | 429 on them | End state | Complete on first load | In-app recovery actions | Business requests answered 429 |
+|---|---|---|---|---|---|---|---|
+| 5 | current token | 0 / 0 / 0 | 0 | 5/5 usable | 1 | 4 | 13 of 45 |
+| 5 | expired token | 1 / 0 / 0 | 0 | 5/5 usable | 0 | 5 | 41 of 73 |
+| 5 | sign-out while loading | 1 / 1 / 0 | 0 | 5/5 on the login page, no reload | | | 39 of 71 |
+| 10 | current token | 0 / 0 / 0 | 0 | 10/10 usable | 2 | 8 | 42 of 95 |
+| 10 | expired token | 1 / 0 / 0 | 0 | 10/10 usable | 1 | 9 | 73 of 140 |
+| 10 | sign-out while loading | 1 / 1 / 0 | 0 | 10/10 on the login page | | | 82 of 122 |
+| 20 | current token | 1 / 0 / 0 | 0 | 20/20 usable | 7 | 13 | 84 of 216 |
+| 20 | expired token | 1 / 0 / 0 | 0 | 20/20 usable | 6 | 14 | 83 of 196 |
+| 20 | sign-out while loading | 1 / 1 / 0 | 0 | 20/20 on the login page | | | 3 of 114 |
+
+No tab needed more than one in-app action. The company-data retry never failed:
+of the 32 tab loads whose first request was refused, 21 got the data on the first
+retry and 11 on the second; none needed the third. As above, this is not a
+capacity figure.
+
+**Latency:** M1 1.5 ms and M2 5.4 ms passed (blocking). Diagnostic, not judged:
+M3 64.2 / 277.6 ms, M4 90 / 366.3 ms; the former provisional targets were not met.
+
+A review of this commit found that a tab which starts in the waiting state cleared
+its unsaved reconciliation drafts as though it had been signed out, and that a
+cancelled sign-in whose cleanup transaction failed could leave its session in the
+shared record. Both were reproduced with failing tests and fixed in the commits
+that followed:
+
+- A tab in the waiting state keeps its drafts. They are cleared when the tab is
+  actually signed out, which includes a retry that finds no session, and when
+  storage is found unavailable.
+- A cancelled sign-in is reported as cancelled even when its cleanup times out,
+  and the same conditional cleanup is tried again: twice at the cancellation and
+  on up to three later reconciles of that tab. It still cannot clear a newer
+  session.
+
+The run that gates the merge is the one in the pull request.
 
 ## What is automated
 
@@ -321,8 +372,10 @@ CI has no NGINX and no browser; neither is a CI gate.
   to `DD/MM/YYYY` silently, and an ordinary user can only correct that by opening
   a page that requests the settings again, or by reloading. W1 does not exercise
   the empty-storage case.
-- `session_limit` (1 request per second, burst 20) was checked against a restored
-  window of 5, 10 and 20 tabs of one profile. Several users sharing one address
+- The capacity of `session_limit` (1 request per second, burst 20) is not
+  measured. A restored window of 5, 10 or 20 tabs of one profile sent it at most
+  two requests per round, so the workload never approached the burst and says
+  nothing about where the zone's limit lies. Several users sharing one address
   are unverified, and so is `limit_conn addr 10` with more than one profile behind
   an address.
 - A sign-out's publication to other tabs is delayed by a blocked transaction; the
@@ -333,7 +386,9 @@ CI has no NGINX and no browser; neither is a CI gate.
   resumes or closes; waiting operations time out with an error and sign nobody out.
 - A tab that waited for storage at start-up and then recovered a session has
   already rehydrated with nothing: it does not show that session's persisted
-  notifications, and its next write replaces them. A reload avoids it.
+  notifications, and the first notification change in that tab writes its own
+  list over the stored one. Reloading before that write brings the stored list
+  back; after it, the stored list is gone.
 - Rehydration of persisted notifications waits for the session runtime to start,
   which route loaders do. A route without a loader would rehydrate empty after
   redux-persist's 5 s timeout.
@@ -352,6 +407,14 @@ CI has no NGINX and no browser; neither is a CI gate.
 - A logout is a no-op once the captured token's row has been purged or its
   signing key retired; the session, if still live, stays live until it expires or
   is revoked another way.
+- A sign-in cancelled in the instant after its commit can leave its session in
+  the shared record if every cleanup attempt times out (five at most), if the tab
+  is closed or reloaded before one completes, or if the tab never reconciles
+  again. No tab claims that session; a tab opened later would start signed in on
+  it, and ends at its first request if the logout reached the server. It needs a
+  cancellation within milliseconds of the commit and a blocked transaction at the
+  same time. The number of attempts is a choice of the implementation, not of the
+  design.
 - A sign-in that loses the revision check, or is cancelled, must be submitted
   again. Revoking the server session it created is best effort: if that logout
   fails, the unadopted session can remain live until it expires.
