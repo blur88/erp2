@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createHarness, holdLoginResponses } from './twoTabs'
+import { createHarness, holdLoginResponses, type Tab } from './twoTabs'
 import { SessionChangedElsewhereError } from '../runtime'
 import { SessionEndedError, StorageTimeoutError, StorageUnavailableError } from '../types'
 
@@ -503,5 +503,234 @@ describe('session runtime — a start-up read that times out', () => {
     a.store.close()
     expect(a.runtime.status()).toBe('storage-unavailable')
     expect(a.events.ended).toEqual(['storage'])
+  })
+})
+
+// The sign-in commit completed, the attempt was cancelled, and the transaction
+// that clears the record did not complete: the record holds a session no tab
+// claims. A timeout means that transaction did not commit, so the same
+// conditional transaction is what is tried again, a fixed number of times.
+describe('session runtime \u2014 a cancelled sign-in whose cleanup does not complete', () => {
+  const timeout = () => new StorageTimeoutError('transaction timed out')
+
+  // A's first transaction (the sign-in commit) completes and the attempt is
+  // cancelled before the code after it; each of A's next transactions fails
+  // with what `failures` gives for it, uncommitted, and the rest run normally.
+  function cancelAfterCommit(h: ReturnType<typeof createHarness>, a: Tab, failures: (n: number) => Error | null) {
+    const inner = a.store.transact.bind(a.store)
+    const counter = { transactions: 0 }
+    vi.spyOn(a.store, 'transact').mockImplementation(async (decide, opts) => {
+      counter.transactions += 1
+      if (counter.transactions === 1) {
+        const result = await inner(decide, opts)
+        a.runtime.cancelSignIn()
+        return result
+      }
+      const failure = failures(counter.transactions - 1)
+      if (failure) throw failure
+      return inner(decide, opts)
+    })
+    return counter
+  }
+
+  // B holds S; A, signed-out, signs in over it and cancels after the commit.
+  async function cancelledSignIn(failures: (n: number) => Error | null) {
+    const h = createHarness()
+    const a = h.createTab('A')
+    await a.runtime.start()
+    const b = h.createTab('B')
+    await b.runtime.start()
+    await b.runtime.signIn({ usernameOrEmail: 'b', password: 'p' })
+    const s = { ...h.shared.state.record.session! }
+    const revision = h.shared.state.record.revision
+    const counter = cancelAfterCommit(h, a, failures)
+
+    const error: unknown = await a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' }).then(
+      () => null,
+      (e: unknown) => e,
+    )
+    const created = [...h.server.sessions.values()].find((x) => x.sessionId !== s.sessionId)!
+    return { h, a, b, s, revision, counter, error, created }
+  }
+
+  const firstFail = (count: number) => (n: number) => (n <= count ? timeout() : null)
+
+  const expectNeverClaimed = (a: Tab) => {
+    expect(a.runtime.claim()).toBeNull()
+    expect(a.runtime.status()).toBe('signed-out')
+    expect(a.events.sessionEstablished).not.toHaveBeenCalled()
+    expect(a.events.tokensUpdated).not.toHaveBeenCalled()
+    expect(a.events.sessionEnded).not.toHaveBeenCalled()
+  }
+
+  it('the caller is told the sign-in was cancelled, and the cleanup is tried once more at once', async () => {
+    const { h, a, s, revision, counter, error, created } = await cancelledSignIn(firstFail(1))
+
+    expect(error).toBeInstanceOf(SessionChangedElsewhereError)
+    expect((error as Error).message).toBe('sign-in cancelled')
+    // The commit, the cleanup that timed out, and the one that completed.
+    expect(counter.transactions).toBe(3)
+    expect(h.shared.state.record).toEqual({ revision: revision + 2, session: null })
+    expect(a.channelPost).toHaveBeenCalledTimes(1)
+    expect([...h.server.logoutCalls].sort()).toEqual([created.refreshToken, s.refreshToken].sort())
+    expectNeverClaimed(a)
+
+    // Nothing is left to do: a later reconcile opens no transaction.
+    await a.runtime.reconcileNow()
+    expect(counter.transactions).toBe(3)
+    expect(a.channelPost).toHaveBeenCalledTimes(1)
+  })
+
+  it('when both attempts time out the record is cleared the next time the tab reconciles', async () => {
+    const { h, a, b, s, revision, counter, error, created } = await cancelledSignIn(firstFail(2))
+
+    expect(error).toBeInstanceOf(SessionChangedElsewhereError)
+    expect(counter.transactions).toBe(3)
+    // Nothing was committed by either attempt: the record still holds the session.
+    expect(h.shared.state.record).toEqual({ revision: revision + 1, session: expect.objectContaining({ sessionId: created.sessionId }) })
+    expect(a.channelPost).not.toHaveBeenCalled()
+    expect([...h.server.logoutCalls].sort()).toEqual([created.refreshToken, s.refreshToken].sort())
+    expectNeverClaimed(a)
+
+    // A channel message (or a resume) is the tab's next reconcile.
+    a.deliverChannel()
+    await vi.waitFor(() => expect(h.shared.state.record.session).toBeNull())
+    await flush()
+
+    expect(counter.transactions).toBe(4)
+    // Incremented once by the cleanup.
+    expect(h.shared.state.record).toEqual({ revision: revision + 2, session: null })
+    expect(h.shared.state.slices).toBeNull()
+    expect(a.channelPost).toHaveBeenCalledTimes(1)
+    expectNeverClaimed(a)
+    // No logout is sent again.
+    expect(h.server.logoutCalls).toHaveLength(2)
+
+    // The pending cleanup is dropped once an attempt completed.
+    await a.runtime.reconcileNow()
+    a.deliverChannel()
+    await flush()
+    expect(counter.transactions).toBe(4)
+    expect(a.channelPost).toHaveBeenCalledTimes(1)
+
+    b.deliverChannel()
+    await flush()
+    expect(b.events.ended).toEqual(['elsewhere'])
+  })
+
+  it('a newer session committed before the retry is not cleared', async () => {
+    const { h, a, b, revision, counter, created } = await cancelledSignIn(firstFail(2))
+    expect(h.shared.state.record.session?.sessionId).toBe(created.sessionId)
+
+    // Another tab signs in over the unclaimed session before A reconciles.
+    await b.runtime.signIn({ usernameOrEmail: 'b2', password: 'p' })
+    const newer = b.runtime.claim()
+    expect(newer).toBeTruthy()
+    expect(newer).not.toBe(created.sessionId)
+    const committed = h.shared.state
+    expect(committed.record.revision).toBe(revision + 2)
+    const bEstablished = b.events.established
+
+    await a.runtime.reconcileNow()
+
+    // The attempt ran and wrote nothing: the stored state is the same object.
+    expect(counter.transactions).toBe(4)
+    expect(h.shared.state).toBe(committed)
+    expect(h.shared.state.record.session?.sessionId).toBe(newer)
+    expect(a.channelPost).not.toHaveBeenCalled()
+    expectNeverClaimed(a)
+    expect(b.runtime.claim()).toBe(newer)
+    expect(b.runtime.status()).toBe('signed-in')
+    expect(b.events.established).toBe(bEstablished)
+    expect(await b.runtime.canDeliver((await b.runtime.beginRequest()).ref)).toBe(true)
+
+    // It found nothing to clear, which settles it: no further attempt.
+    await a.runtime.reconcileNow()
+    expect(counter.transactions).toBe(4)
+    expect(h.shared.state).toBe(committed)
+  })
+
+  it('the attempts are bounded: two at the cancellation and three later, then none', async () => {
+    const { h, a, revision, counter, error, created } = await cancelledSignIn(() => timeout())
+    expect(error).toBeInstanceOf(SessionChangedElsewhereError)
+    expect(counter.transactions).toBe(1 + 2)
+
+    for (let i = 0; i < 10; i += 1) await a.runtime.reconcileNow()
+
+    expect(counter.transactions).toBe(1 + 2 + 3)
+    // Never committed, so never announced; and the tab never took the session.
+    expect(h.shared.state.record).toEqual({ revision: revision + 1, session: expect.objectContaining({ sessionId: created.sessionId }) })
+    expect(a.channelPost).not.toHaveBeenCalled()
+    expectNeverClaimed(a)
+  })
+
+  it('reconciles that overlap share one attempt', async () => {
+    const { h, a, revision, counter } = await cancelledSignIn(firstFail(2))
+
+    await Promise.all([a.runtime.reconcileNow(), a.runtime.reconcileNow(), a.runtime.reconcileNow()])
+
+    expect(counter.transactions).toBe(4)
+    expect(h.shared.state.record).toEqual({ revision: revision + 2, session: null })
+    expect(a.channelPost).toHaveBeenCalledTimes(1)
+  })
+
+  it('a new sign-in in the same tab drops the pending cleanup', async () => {
+    const { h, a, counter, created } = await cancelledSignIn(firstFail(2))
+    expect(counter.transactions).toBe(3)
+
+    // It commits over the unclaimed session, which is what the cleanup was for.
+    await expect(a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' })).resolves.toBeDefined()
+    expect(counter.transactions).toBe(4)
+    const claimed = a.runtime.claim()
+    expect(claimed).toBeTruthy()
+    expect(claimed).not.toBe(created.sessionId)
+    const committed = h.shared.state
+
+    await a.runtime.reconcileNow()
+    a.deliverChannel()
+    await flush()
+
+    expect(counter.transactions).toBe(4)
+    expect(h.shared.state).toBe(committed)
+    expect(a.runtime.claim()).toBe(claimed)
+    expect(a.runtime.status()).toBe('signed-in')
+    expect(a.events.ended).toEqual([])
+  })
+
+  it('a cleanup that finds storage unusable makes the tab storage-unavailable and is not tried again', async () => {
+    const { h, a, revision, counter, error, created } = await cancelledSignIn(() => new StorageUnavailableError('gone'))
+
+    expect(error).toBeInstanceOf(StorageUnavailableError)
+    expect(counter.transactions).toBe(2)
+    expect(a.runtime.status()).toBe('storage-unavailable')
+    expect(a.events.ended).toEqual(['storage'])
+    expect(a.runtime.claim()).toBeNull()
+    expect(a.events.sessionEstablished).not.toHaveBeenCalled()
+    expect(a.channelPost).not.toHaveBeenCalled()
+
+    // The tab writes nothing in that state.
+    await a.runtime.reconcileNow().catch(() => undefined)
+    expect(counter.transactions).toBe(2)
+    expect(h.shared.state.record).toEqual({ revision: revision + 1, session: expect.objectContaining({ sessionId: created.sessionId }) })
+  })
+
+  it('the same when it is the second attempt that finds storage unusable', async () => {
+    const { a, counter, error } = await cancelledSignIn((n) => (n === 1 ? timeout() : new StorageUnavailableError('gone')))
+
+    expect(error).toBeInstanceOf(StorageUnavailableError)
+    expect(counter.transactions).toBe(3)
+    expect(a.runtime.status()).toBe('storage-unavailable')
+
+    await a.runtime.reconcileNow().catch(() => undefined)
+    expect(counter.transactions).toBe(3)
+  })
+
+  it('storage closing while a cleanup is pending drops it', async () => {
+    const { a, counter } = await cancelledSignIn(firstFail(2))
+    a.store.close()
+    expect(a.runtime.status()).toBe('storage-unavailable')
+
+    await a.runtime.reconcileNow().catch(() => undefined)
+    expect(counter.transactions).toBe(3)
   })
 })

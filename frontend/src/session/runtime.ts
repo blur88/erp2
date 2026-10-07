@@ -76,6 +76,11 @@ export interface SessionRuntime {
 
 const LEASE_TTL_MS = 20000
 
+// How often the transaction that clears a cancelled sign-in's session is
+// attempted: when the cancellation is found, and then on later reconciles.
+const CLEANUP_ATTEMPTS_AT_CANCEL = 2
+const CLEANUP_ATTEMPTS_LATER = 3
+
 export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   const { store, http, events, channel, tabId, now } = deps
 
@@ -88,6 +93,10 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   let sessionAbort = new AbortController()
   let refreshInFlight: Promise<'retry' | 'ended'> | null = null
   let startRetryInFlight: Promise<void> | null = null
+  // A cancelled sign-in's session that the record may still hold, because no
+  // transaction clearing it has completed. Memory only: it ends with the tab.
+  let pendingCleanup: { sessionId: string; attemptsLeft: number } | null = null
+  let cleanupInFlight: { pending: object; settled: Promise<void> } | null = null
   let announceStarted: () => void = () => undefined
   const started = new Promise<void>((resolve) => {
     announceStarted = resolve
@@ -108,6 +117,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     if (status === 'storage-unavailable') return
     status = 'storage-unavailable'
     memory = null
+    pendingCleanup = null
     sessionAbort.abort()
     sessionAbort = new AbortController()
     events.sessionEnded('storage')
@@ -177,6 +187,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // Nothing to reconcile yet: what brings a tab here (a channel message, a
     // resume) is a reason to ask storage again.
     if (status === 'storage-waiting') return retryStart()
+    await attemptPendingCleanup()
     const stored = await readRecord()
     applyAdoption(reconcile(claim(), memory, stored.record), stored)
   }
@@ -240,6 +251,35 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   // ---- sign-in --------------------------------------------------------------
 
+  // One attempt at clearing a cancelled sign-in's session. It is the same
+  // conditional transaction each time, so one that runs after a newer session
+  // was committed writes nothing. An attempt that times out did not commit and
+  // leaves the cleanup pending while attempts remain; one that completes,
+  // whether it cleared the record or found nothing to clear, settles it.
+  // Never rejects.
+  const attemptPendingCleanup = (): Promise<void> => {
+    const pending = pendingCleanup
+    if (!pending) return Promise.resolve()
+    if (cleanupInFlight?.pending === pending) return cleanupInFlight.settled
+    pending.attemptsLeft -= 1
+    const settled = (async () => {
+      try {
+        const cleanup = await transact((s) => cancelledSignInCleanup(s, { sessionId: pending.sessionId }))
+        if (pendingCleanup === pending) pendingCleanup = null
+        if (cleanup.cleared) post()
+      } catch {
+        // Storage found unusable has already dropped it (the tab writes nothing
+        // in that state). Otherwise it stays for a later reconcile, if any
+        // attempt is left.
+        if (pendingCleanup === pending && pending.attemptsLeft <= 0) pendingCleanup = null
+      } finally {
+        if (cleanupInFlight?.pending === pending) cleanupInFlight = null
+      }
+    })()
+    cleanupInFlight = { pending, settled }
+    return settled
+  }
+
   const signIn = async (credentials: LoginCredentials): Promise<{ requiresPasswordChange: boolean }> => {
     // Storage has not said whether a session is stored: signing in now could
     // displace one. Nothing is read and nothing is sent.
@@ -287,12 +327,23 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
     // The commit completed and the attempt was cancelled after the transaction
     // decided. The record holds a session no tab claims: it is cleared, but only
-    // while it is still that session, so a newer one is never touched.
+    // while it is still that session, so a newer one is never touched. For the
+    // caller the sign-in was cancelled whether or not the cleanup completed; one
+    // that timed out is tried once more here and then when the tab reconciles.
     if (attempt !== currentAttempt) {
       logoutBestEffort(response.refreshToken)
       if (commit.displaced) logoutBestEffort(commit.displaced.refreshToken)
-      const cleanup = await transact((s) => cancelledSignInCleanup(s, { sessionId: response.sessionId }))
-      if (cleanup.cleared) post()
+      const cleanup = {
+        sessionId: response.sessionId,
+        attemptsLeft: CLEANUP_ATTEMPTS_AT_CANCEL + CLEANUP_ATTEMPTS_LATER,
+      }
+      pendingCleanup = cleanup
+      for (let n = 0; n < CLEANUP_ATTEMPTS_AT_CANCEL && pendingCleanup === cleanup; n += 1) {
+        await attemptPendingCleanup()
+      }
+      if ((status as RuntimeStatus) === 'storage-unavailable') {
+        throw new StorageUnavailableError('session storage unavailable')
+      }
       throw new SessionChangedElsewhereError('sign-in cancelled')
     }
 
@@ -308,6 +359,8 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     memory = session
     remember(session)
     status = 'signed-in'
+    // This commit replaced whatever an earlier cancelled attempt left stored.
+    pendingCleanup = null
     events.sessionEstablished(session)
     post()
 
