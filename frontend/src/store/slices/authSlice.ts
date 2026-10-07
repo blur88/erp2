@@ -1,29 +1,14 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '@/services/authApi';
+import { SessionChangedElsewhereError } from '@/session/runtime';
 import type { RootState } from '@/store';
+import { StorageTimeoutError, StorageUnavailableError } from '@/session/types';
+import type { ActiveSession, AuthUser, LoginCredentials } from '@/session/types';
+import { getErrorMessage } from '@/utils/errorMessage';
 
-// Auth-specific User interface matching backend
-export interface AuthUser {
-  id: string;
-  username: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  fullName?: string;
-  phoneNumber?: string;
-  role: 'admin' | 'manager' | 'sales_staff' | 'inventory_staff' | 'procurement_staff';
-  status: 'active' | 'inactive' | 'suspended';
-  isActive: boolean;
-  lastLoginAt?: Date | string;
-  lastLoginIp?: string;
-  failedLoginAttempts: number;
-  lockedUntil?: Date | string;
-  isLocked?: boolean;
-  notes?: string;
-  requiresPasswordChange?: boolean;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-}
+// Defined with the session record they are stored in; re-exported for the
+// existing imports from this slice.
+export type { AuthUser, LoginCredentials };
 
 export interface AuthResponse {
   accessToken: string;
@@ -31,12 +16,6 @@ export interface AuthResponse {
   user: AuthUser;
   expiresIn: number;
   requiresPasswordChange?: boolean;
-}
-
-export interface LoginCredentials {
-  usernameOrEmail: string;
-  password: string;
-  rememberMe?: boolean;
 }
 
 export interface RegisterData {
@@ -65,6 +44,12 @@ interface AuthState {
   lastActivityTime: number | null;
   inactivityTimeoutMinutes: number; // Configurable inactivity timeout
   rememberMe: boolean; // Track if user selected "Remember me"
+  sessionId: string | null;
+  generation: number;
+  storageUnavailable: boolean;
+  // The start-up read of the session record timed out: not signed-out, and
+  // storage not found broken. Written only from the session runtime's events.
+  storageWaiting: boolean;
 }
 
 const initialState: AuthState = {
@@ -77,6 +62,28 @@ const initialState: AuthState = {
   lastActivityTime: null,
   inactivityTimeoutMinutes: 30, // Default: 30 minutes
   rememberMe: false, // Default: false
+  sessionId: null,
+  generation: 0,
+  storageUnavailable: false,
+  storageWaiting: false,
+};
+
+// The message shown on the login form: the server's own wording when the
+// response carries one (wrong password, locked account, 426 reload required),
+// otherwise a sentence for the failures that never reach the server.
+const loginErrorMessage = (error: any): string => {
+  const serverMessage = getErrorMessage(error?.response?.data?.message, '');
+  if (serverMessage) return serverMessage;
+  if (error instanceof SessionChangedElsewhereError) {
+    return 'The session changed in another tab. Sign in again.';
+  }
+  if (error instanceof StorageUnavailableError) {
+    return 'Session storage is unavailable in this browser. Allow site data for this address, then reload.';
+  }
+  if (error instanceof StorageTimeoutError) {
+    return 'Session storage did not respond in time. Try again.';
+  }
+  return 'Login failed';
 };
 
 // Async thunks
@@ -84,23 +91,11 @@ export const login = createAsyncThunk(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
-      const response = await authApi.login(credentials);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
-    }
-  }
-);
-
-export const logout = createAsyncThunk(
-  'auth/logout',
-  async (refreshToken: string) => {
-    try {
-      await authApi.logout(refreshToken);
+      const { sessionRuntime } = await import('@/session');
+      await sessionRuntime.signIn(credentials);
       return null;
     } catch (error: any) {
-      // Even if logout fails on server, we still clear local state
-      return null;
+      return rejectWithValue(loginErrorMessage(error));
     }
   }
 );
@@ -122,6 +117,8 @@ export const changePassword = createAsyncThunk(
   async (data: ChangePasswordData, { rejectWithValue }) => {
     try {
       await authApi.changePassword(data);
+      const { sessionRuntime } = await import('@/session');
+      await sessionRuntime.passwordChanged();
       return null;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Password change failed');
@@ -134,21 +131,31 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    setCredentials: (state, action: PayloadAction<AuthResponse & { rememberMe?: boolean }>) => {
+    sessionEstablished: (state, action: PayloadAction<ActiveSession>) => {
       state.user = action.payload.user;
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
       state.error = null;
       state.lastActivityTime = Date.now();
-      if (action.payload.rememberMe !== undefined) {
-        state.rememberMe = action.payload.rememberMe;
-      }
+      state.rememberMe = action.payload.rememberMe;
+      state.sessionId = action.payload.sessionId;
+      state.generation = action.payload.generation;
     },
-    setAccessToken: (state, action: PayloadAction<string>) => {
-      state.accessToken = action.payload;
+    tokensUpdated: (
+      state,
+      action: PayloadAction<{
+        generation: number;
+        accessToken: string;
+        accessTokenExpiresAt: number;
+        refreshToken: string;
+      }>
+    ) => {
+      state.accessToken = action.payload.accessToken;
+      state.refreshToken = action.payload.refreshToken;
+      state.generation = action.payload.generation;
     },
-    clearAuth: (state) => {
+    sessionEnded: (state) => {
       state.user = null;
       state.accessToken = null;
       state.refreshToken = null;
@@ -156,6 +163,20 @@ const authSlice = createSlice({
       state.error = null;
       state.lastActivityTime = null;
       state.rememberMe = false;
+      state.sessionId = null;
+      state.generation = 0;
+    },
+    storageWaiting: (state, action: PayloadAction<boolean>) => {
+      state.storageWaiting = action.payload;
+    },
+    storageUnavailable: (state) => {
+      state.storageUnavailable = true;
+      state.storageWaiting = false;
+      state.user = null;
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.sessionId = null;
     },
     clearError: (state) => {
       state.error = null;
@@ -168,34 +189,15 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(login.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.user = action.payload.user;
-          state.accessToken = action.payload.accessToken;
-          state.refreshToken = action.payload.refreshToken;
-          state.isAuthenticated = true;
-          state.loading = false;
-          state.error = null;
-          state.lastActivityTime = Date.now();
-          // Store rememberMe from login thunk meta
-          state.rememberMe = (action.meta.arg as LoginCredentials).rememberMe || false;
-        }
+      .addCase(login.fulfilled, (state) => {
+        state.loading = false;
+        state.error = null;
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
       });
-
-    // Logout
-    builder.addCase(logout.fulfilled, (state) => {
-      state.user = null;
-      state.accessToken = null;
-      state.refreshToken = null;
-      state.isAuthenticated = false;
-      state.error = null;
-      state.rememberMe = false;
-    });
 
     // Get current user
     builder
@@ -205,19 +207,14 @@ const authSlice = createSlice({
       .addCase(getCurrentUser.fulfilled, (state, action) => {
         if (action.payload) {
           state.user = action.payload;
-          state.isAuthenticated = true;
           state.loading = false;
         }
       })
       .addCase(getCurrentUser.rejected, (state) => {
         state.loading = false;
-        state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
-        state.isAuthenticated = false;
       });
 
-    // Change password (logs out all sessions)
+    // Change password
     builder
       .addCase(changePassword.pending, (state) => {
         state.loading = true;
@@ -225,11 +222,6 @@ const authSlice = createSlice({
       })
       .addCase(changePassword.fulfilled, (state) => {
         state.loading = false;
-        state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
-        state.isAuthenticated = false;
-        state.rememberMe = false;
       })
       .addCase(changePassword.rejected, (state, action) => {
         state.loading = false;
@@ -238,12 +230,21 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setAccessToken, clearAuth, clearError } = authSlice.actions;
+export const {
+  sessionEstablished,
+  tokensUpdated,
+  sessionEnded,
+  storageUnavailable,
+  storageWaiting,
+  clearError,
+} = authSlice.actions;
 
 export const selectCurrentUser = (state: RootState) => state.auth.user;
 export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenticated;
 export const selectAccessToken = (state: RootState) => state.auth.accessToken;
 export const selectRefreshToken = (state: RootState) => state.auth.refreshToken;
 export const selectRememberMe = (state: RootState) => state.auth.rememberMe;
+export const selectStorageUnavailable = (state: RootState) => state.auth.storageUnavailable;
+export const selectStorageWaiting = (state: RootState) => state.auth.storageWaiting;
 
 export default authSlice.reducer;

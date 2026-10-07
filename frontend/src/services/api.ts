@@ -1,8 +1,11 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
+import { getSessionRuntime } from '@/session/registry'
+import { SessionEndedError, type SessionRef } from '@/session/types'
 
 // Get API base URL dynamically with VPN compatibility
 const getApiBaseUrl = () => {
+  if (typeof window === 'undefined') return '/api'
   // Try to get from window environment config first
   const envUrl = (window as any).__ENV__?.VITE_API_BASE_URL
   if (envUrl) return envUrl
@@ -19,177 +22,129 @@ const getApiBaseUrl = () => {
 // Create axios instance with enhanced error handling for VPN
 const api: AxiosInstance = axios.create({
   timeout: 30000,
-  // Add retry logic for network issues common with VPN
-  validateStatus: (status) => status >= 200 && status < 300, // Only accept 2xx status codes
+  validateStatus: (status) => status >= 200 && status < 300,
 })
 
-// Request interceptor to inject access token and set baseURL
+interface SessionConfig extends InternalAxiosRequestConfig {
+  __sessionRef?: SessionRef
+  // Sends so far, the original included. Absent until the first retry is issued.
+  __sends?: number
+  __refreshes?: number
+  // The signal the caller passed, kept apart from the combined one on `signal`
+  // so a retry combines it afresh. `null` when the caller passed none.
+  __callerSignal?: AbortSignal | null
+  __gateId?: number
+}
+
+// One original request is sent at most three times and triggers at most two refreshes.
+const MAX_SENDS = 3
+const MAX_REFRESHES = 2
+
+const timingEnabled = () =>
+  typeof sessionStorage !== 'undefined' && sessionStorage.getItem('erp-session-timing') === '1'
+
+// Gate reads currently waiting on the runtime, counted only while timing is on.
+// Each timing records how many were already in flight when it started, which is
+// what tells request contention apart from a slow read (SESSION_QA, latency).
+let gatesInFlight = 0
+// Pairs a request's gate-before with its gate-after; assigned only while timing is on.
+let gateSequence = 0
+
+const recordGate = (op: 'gate-before' | 'gate-after', ms: number, inFlight: number, id: number) => {
+  if (!timingEnabled()) return
+  const w = window as unknown as { __erpSessionTimings?: Array<{ op: string; ms: number; inFlight?: number; id?: number }> }
+  if (!w.__erpSessionTimings) w.__erpSessionTimings = []
+  if (w.__erpSessionTimings.length >= 5000) return
+  w.__erpSessionTimings.push({ op, ms, inFlight, id })
+}
+
+async function timedGate<T>(
+  op: 'gate-before' | 'gate-after',
+  config: SessionConfig,
+  gate: () => Promise<T>,
+): Promise<T> {
+  if (!timingEnabled()) return gate()
+  if (config.__gateId === undefined) config.__gateId = ++gateSequence
+  const id = config.__gateId
+  const inFlight = gatesInFlight
+  gatesInFlight += 1
+  const started = performance.now()
+  try {
+    return await gate()
+  } finally {
+    gatesInFlight -= 1
+    recordGate(op, performance.now() - started, inFlight, id)
+  }
+}
+
+// Request interceptor: reconcile before sending, attach token and abort signal.
 api.interceptors.request.use(
-  async (config: InternalAxiosRequestConfig) => {
-    // Set base URL
+  async (config: SessionConfig) => {
     if (!config.baseURL) {
       config.baseURL = getApiBaseUrl()
     }
 
-    // Inject Authorization header if access token exists
-    const store = await getStore()
-    const state = store.getState()
-    const accessToken = state.auth?.accessToken
+    const runtime = getSessionRuntime()
+    const { ref, accessToken, signal } = await timedGate('gate-before', config, () => runtime!.beginRequest())
 
-    if (accessToken && config.headers) {
+    // A retry goes out only under the session the request was first sent under.
+    if (config.__sessionRef && config.__sessionRef.sessionId !== ref.sessionId) {
+      throw new SessionEndedError('session changed before the retry')
+    }
+    config.__sessionRef = ref
+    if (config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`
     }
+    if (config.__callerSignal === undefined) {
+      config.__callerSignal = (config.signal as AbortSignal | undefined) ?? null
+    }
+    // The request aborts when either the caller's signal or the session's fires.
+    config.signal = config.__callerSignal ? AbortSignal.any([config.__callerSignal, signal]) : signal
 
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
-// Token refresh state management
-let isRefreshing = false
-let failedQueue: Array<{
-  resolve: (value?: any) => void
-  reject: (error?: any) => void
-}> = []
-
-let cachedStore: any = null
-const getStore = async () => {
-  if (!cachedStore) {
-    const storeModule = await import('@/store')
-    cachedStore = storeModule.store
-  }
-  return cachedStore
-}
-
-let cachedAuthActions: any = null
-const getAuthActions = async () => {
-  if (!cachedAuthActions) {
-    const authSliceModule = await import('@/store/slices/authSlice')
-    cachedAuthActions = {
-      setAccessToken: authSliceModule.setAccessToken,
-      clearAuth: authSliceModule.clearAuth,
-      setCredentials: authSliceModule.setCredentials,
-    }
-  }
-  return cachedAuthActions
-}
-
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error)
-    } else {
-      prom.resolve(token)
-    }
-  })
-
-  failedQueue = []
-}
-
-// Response interceptor with token refresh and error handling
+// Response interceptor: deliver only for the same session; refresh on 401.
 api.interceptors.response.use(
-  (response: AxiosResponse) => {
+  async (response: AxiosResponse) => {
+    const config = response.config as SessionConfig
+    if (config.__sessionRef) {
+      const ref = config.__sessionRef
+      const ok = await timedGate('gate-after', config, () => getSessionRuntime()!.canDeliver(ref))
+      if (!ok) throw new SessionEndedError('session ended before delivery')
+    }
     return response
   },
   async (error) => {
-    const originalRequest = error.config
+    const originalRequest = error.config as SessionConfig | undefined
 
-    // Enhanced error handling for VPN connectivity issues
-    if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED') {
-      console.warn('Network connectivity issue detected. This may be VPN-related.')
+    if (error.response?.status === 401 && originalRequest) {
+      const sends = originalRequest.__sends ?? 1
+      const refreshes = originalRequest.__refreshes ?? 0
+      const ref = originalRequest.__sessionRef
+      if (!ref) return Promise.reject(error)
 
-      // If using direct localhost and it fails, try relative path
-      if (error.config?.baseURL?.includes('localhost:3001')) {
-        try {
-          const retryConfig = { ...error.config, baseURL: '/api' }
-          return await api.request(retryConfig)
-        } catch (retryError) {
-          console.error('Retry with relative path also failed:', retryError)
+      const runtime = getSessionRuntime()!
+      if (sends < MAX_SENDS && refreshes < MAX_REFRESHES) {
+        const outcome = await runtime.handleUnauthorized(ref)
+        if (outcome === 'retry') {
+          originalRequest.__sends = sends + 1
+          originalRequest.__refreshes = refreshes + 1
+          return api.request(originalRequest)
         }
-      }
-    }
-
-    // Handle 401 Unauthorized - attempt token refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        // Queue the request while token is being refreshed
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
-        })
-          .then((token) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`
-            }
-            return api(originalRequest)
-          })
-          .catch((err) => {
-            return Promise.reject(err)
-          })
-      }
-
-      originalRequest._retry = true
-      isRefreshing = true
-
-      const store = await getStore()
-      const state = store.getState()
-      const refreshToken = state.auth?.refreshToken
-
-      if (!refreshToken) {
-        // No refresh token available, logout
-        const { clearAuth } = await getAuthActions()
-        store.dispatch(clearAuth())
-        window.location.href = '/login'
         return Promise.reject(error)
       }
 
-      try {
-        // Import authApi dynamically to avoid circular dependency
-        const { authApi } = await import('./authApi')
-        const response = await authApi.refreshToken(refreshToken)
-
-        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data
-
-        // Update tokens in Redux store
-        const { setAccessToken, setCredentials } = await getAuthActions()
-        store.dispatch(
-          setAccessToken(newAccessToken)
-        )
-
-        // Also update refresh token if it changed (token rotation)
-        if (newRefreshToken !== refreshToken) {
-          // This would require a new action, but for now we'll update via setCredentials
-          // The refresh endpoint returns full AuthResponse, so we can update everything
-          store.dispatch(setCredentials(response.data))
-        }
-
-        // Process queued requests with new token
-        processQueue(null, newAccessToken)
-
-        // Retry original request with new token
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
-        }
-        return api(originalRequest)
-      } catch (refreshError) {
-        // Token refresh failed, logout user
-        processQueue(refreshError, null)
-        const { clearAuth } = await getAuthActions()
-        store.dispatch(clearAuth())
-
-        // Force redirect to login page for invalid/expired tokens
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
-        }
-
-        return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
+      // The final send's 401: end the session only if it is still the one, at the
+      // generation, that send captured. If another tab advanced it, follow that.
+      if ((await runtime.endAfterFinalUnauthorized(ref)) === 'kept') {
+        await runtime.reconcileNow()
       }
+      return Promise.reject(error)
     }
 
-    // Handle 403 Forbidden
     if (error.response?.status === 403) {
       console.error('Access forbidden:', error.response.data?.message)
     }
@@ -197,6 +152,7 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
 
 // Generic API methods
 export class ApiService {

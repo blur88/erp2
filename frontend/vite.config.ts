@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config'
 import { createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { writeBuildSha } from './src/config/buildSha'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -28,9 +29,20 @@ export default defineConfig(({ mode }) => {
 
   return {
     customLogger: isVitest ? vitestLogger : undefined,
-    plugins: isVitest ? [] : [react()],
+    plugins: isVitest
+      ? []
+      : [
+          react(),
+          {
+            name: 'erp-build-sha',
+            transformIndexHtml(html: string) {
+              return writeBuildSha(html, process.env.VITE_BUILD_SHA)
+            },
+          },
+        ],
     define: {
       __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0'),
+      __BUILD_SHA__: JSON.stringify(process.env.VITE_BUILD_SHA ?? 'unknown'),
     },
     resolve: {
       alias: {

@@ -1,14 +1,12 @@
 import axios, { AxiosResponse } from 'axios';
 import type {
-  LoginCredentials,
-  RegisterData,
   ChangePasswordData,
-  AuthResponse,
   AuthUser,
 } from '@/store/slices/authSlice';
 
 // Get API base URL dynamically
-const getApiBaseUrl = () => {
+export const getApiBaseUrl = () => {
+  if (typeof window === 'undefined') return '/api';
   const envUrl = (window as any).__ENV__?.VITE_API_BASE_URL;
   if (envUrl) return envUrl;
 
@@ -19,53 +17,7 @@ const getApiBaseUrl = () => {
   return 'http://localhost:3001/api';
 };
 
-// Create a dedicated axios instance for auth (no interceptors to avoid circular dependency)
-const authAxios = axios.create({
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Set baseURL for each request
-authAxios.interceptors.request.use((config) => {
-  if (!config.baseURL) {
-    config.baseURL = getApiBaseUrl();
-  }
-  return config;
-});
-
 export const authApi = {
-  /**
-   * Login user with username/email and password
-   */
-  login: async (credentials: LoginCredentials): Promise<AxiosResponse<AuthResponse>> => {
-    return await authAxios.post<AuthResponse>('/auth/login', credentials);
-  },
-
-  /**
-   * Register new user
-   */
-  register: async (data: RegisterData): Promise<AxiosResponse<AuthResponse>> => {
-    return await authAxios.post<AuthResponse>('/auth/register', data);
-  },
-
-  /**
-   * Refresh access token using refresh token
-   */
-  refreshToken: async (refreshToken: string): Promise<AxiosResponse<AuthResponse>> => {
-    return await authAxios.post<AuthResponse>('/auth/refresh', { refreshToken });
-  },
-
-  /**
-   * Logout user and invalidate refresh token
-   * Note: This requires Authorization header via the main api instance
-   */
-  logout: async (refreshToken: string): Promise<AxiosResponse<void>> => {
-    const apiInstance = (await import('./api')).default;
-    return await apiInstance.post<void>('/auth/logout', { refreshToken });
-  },
-
   /**
    * Get current authenticated user
    * Note: This requires Authorization header via the main api instance
@@ -94,6 +46,11 @@ export const authApi = {
    * Returns true if admin user still requires password change
    */
   shouldShowDefaultCredentials: async (): Promise<AxiosResponse<{ showDefaultCredentials: boolean }>> => {
-    return await authAxios.get<{ showDefaultCredentials: boolean }>('/auth/show-default-credentials');
+    // Public route, called from the login page while signed out: it goes through
+    // bare axios, so there is no session gate and no Authorization header.
+    return await axios.get<{ showDefaultCredentials: boolean }>('/auth/show-default-credentials', {
+      baseURL: getApiBaseUrl(),
+      timeout: 30000,
+    });
   },
 };

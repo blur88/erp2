@@ -197,6 +197,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: /api
+        VITE_BUILD_SHA: ${VITE_BUILD_SHA:-unknown}
     image: erp-frontend:latest
     container_name: erp_frontend
     restart: unless-stopped

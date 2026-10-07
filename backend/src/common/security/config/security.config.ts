@@ -118,6 +118,7 @@ export class SecurityConfigBuilder {
         'Authorization',
         'X-Requested-With',
         'Range',
+        'X-ERP-Session-Protocol',
       ],
       credentials: true, // Allow cookies and auth headers
       maxAge: 86400, // Preflight cache for 24 hours

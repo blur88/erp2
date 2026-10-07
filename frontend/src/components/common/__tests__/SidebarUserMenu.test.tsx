@@ -13,6 +13,11 @@ vi.mock('@/store', async (importOriginal) => {
   return { ...actual, persistor: { purge: vi.fn().mockResolvedValue(undefined) } }
 })
 
+const signOut = vi.fn().mockResolvedValue(undefined)
+vi.mock('@/session', () => ({
+  sessionRuntime: { signOut: (...args: unknown[]) => signOut(...args) },
+}))
+
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -71,6 +76,7 @@ const renderMenu = (props = {}, authOverrides = {}) => {
 describe('SidebarUserMenu', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
+    signOut.mockClear()
   })
 
   it('renders nothing when user is null', () => {
@@ -108,15 +114,24 @@ describe('SidebarUserMenu', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/settings')
   })
 
-  it('Logout click closes menu, dispatches logout thunk, and navigates to login', async () => {
-    const { store } = renderMenu()
-    const dispatchSpy = vi.spyOn(store, 'dispatch')
+  it('Logout click calls sessionRuntime.signOut and navigates to login', async () => {
+    renderMenu()
     fireEvent.click(screen.getByRole('button', { name: /open user menu/i }))
     await screen.findByRole('menu')
     fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }))
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Function))
+    expect(signOut).toHaveBeenCalled()
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/login'))
+  })
+
+  it('Logout no longer purges redux-persist', async () => {
+    const { persistor } = await import('@/store')
+    renderMenu()
+    fireEvent.click(screen.getByRole('button', { name: /open user menu/i }))
+    await screen.findByRole('menu')
+    fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/login'))
+    expect((persistor as unknown as { purge: ReturnType<typeof vi.fn> }).purge).not.toHaveBeenCalled()
   })
 
   it('menu closes on Escape key', async () => {

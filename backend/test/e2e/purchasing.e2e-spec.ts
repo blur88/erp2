@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from '../utils/session-protocol';
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import request from "supertest";
@@ -70,7 +71,7 @@ describe("Purchasing (e2e)", () => {
     // fiscal period covering today's date (tests use today for orderDate).
 
     const loginRes = await request(app.getHttpServer())
-      .post("/auth/login")
+      .post("/auth/login").set(...SESSION_PROTOCOL)
       .send({
         usernameOrEmail: E2E_ADMIN_USERNAMES.purchasing,
         password: E2E_ADMIN_PASSWORD,

@@ -1,3 +1,4 @@
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { Test, TestingModule } from '@nestjs/testing';
 import { jest } from '@jest/globals';
 import { BalanceSheetGroupService } from '../src/modules/accounting/services/balance-sheet-group.service';
@@ -79,7 +80,7 @@ describe('Balance Sheet account groups (e2e)', () => {
     adminUsername = admin.username;
 
     const login = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ username: adminUsername, password: E2E_ADMIN_PASSWORD });
     token = login.body?.data?.accessToken ?? login.body?.accessToken;
     expect(typeof token).toBe('string');

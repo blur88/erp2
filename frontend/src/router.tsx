@@ -2,8 +2,10 @@ import React from 'react'
 import { Navigate, createBrowserRouter, redirect } from 'react-router-dom'
 import RouteErrorBoundary from './components/errors/RouteErrorBoundary'
 import MainLayout from './components/common/MainLayout'
+import RequireSession from './components/auth/RequireSession'
 import RootLayout from './RootLayout'
 import { store, persistor } from './store'
+import { sessionReady } from './session'
 import { authRoutes } from './pages/auth/auth.routes'
 import { dashboardRoutes } from './pages/dashboard/dashboard.routes'
 import { inventoryRoutes } from './pages/inventory/inventory.routes'
@@ -12,6 +14,7 @@ import { purchasingRoutes } from './pages/purchasing/purchasing.routes'
 import { settingsRoutes } from './pages/settings/settings.routes'
 import { auditLogsRoutes } from './pages/audit-logs/audit-logs.routes'
 import { accountingRoutes } from './pages/accounting/accounting.routes'
+import type { RootState } from './store'
 
 
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
@@ -29,10 +32,17 @@ function waitForRehydration(): Promise<void> {
 }
 
 async function authLoader({ request }: { request: Request }) {
-  await waitForRehydration()
+  await Promise.all([waitForRehydration(), sessionReady()])
 
-  const { auth } = store.getState()
+  const { auth } = store.getState() as unknown as RootState
   const url = new URL(request.url)
+
+  // RootLayout shows the storage-unavailable screen in place of every route,
+  // and the waiting screen while the start-up read has not been answered: a tab
+  // that does not know whether it is signed in is not sent to sign in.
+  if (auth.storageUnavailable || auth.storageWaiting) {
+    return null
+  }
 
   if (!auth.isAuthenticated) {
     return redirect('/login')
@@ -53,7 +63,11 @@ export const router = createBrowserRouter([
       ...authRoutes,
       {
         loader: authLoader,
-        element: <MainLayout />,
+        element: (
+          <RequireSession>
+            <MainLayout />
+          </RequireSession>
+        ),
         children: [
           { path: '/', element: <Navigate to="/dashboard" replace /> },
           ...dashboardRoutes,

@@ -10,6 +10,7 @@ import { resetSuiteBusinessRows } from './utils/shared-e2e-business-fixture';
 import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 import { AppModule } from '../src/app.module';
 import { User, UserRole, UserStatus } from '../src/database/entities/user.entity';
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 
 describe('Required field validation (e2e) — #973', () => {
   let app: INestApplication;
@@ -52,7 +53,7 @@ describe('Required field validation (e2e) — #973', () => {
     adminUserId = savedUser.id;
 
     const login = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ username, password: 'Admin@123!' });
     token = login.body?.data?.accessToken ?? login.body?.accessToken;
     expect(token).toBeTruthy();

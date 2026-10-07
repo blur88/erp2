@@ -172,6 +172,23 @@ curl http://localhost:3001/api/health
 - [ ] No JavaScript errors in browser console
 - [ ] Assets loaded correctly
 
+### Cross-tab sessions (#1345)
+
+Both #1345 PRs (server sessions and cross-tab sessions) ship together in the
+first production deployment.
+
+- [ ] `VITE_BUILD_SHA` exported before the frontend build (a plain
+      `docker compose build frontend` yields `unknown`): the served page's
+      `erp-build` meta tag must equal `git rev-parse HEAD`
+- [ ] The NGINX image is redeployed with them: #1345 changes `nginx.conf`, and an
+      old ingress in front of the new frontend throttles session upkeep
+      (`refresh`, `logout`, `/auth/me` now share `session_limit`, not
+      `login_limit`)
+- [ ] Users with an open tab must **reload**: the server now requires the
+      `X-ERP-Session-Protocol: 2` marker, and a tab running an older bundle gets
+      426 `CLIENT_RELOAD_REQUIRED` on sign-in, registration and refresh
+- [ ] After deploy, run `nginx/verify-rate-limits.sh` on the deployment host
+
 ---
 
 ## Post-Deployment Validation (30 minutes)

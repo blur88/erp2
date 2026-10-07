@@ -107,11 +107,17 @@ jobs:
             blur88/all:erp-backend
             blur88/all:erp-backend-v${{ needs.release.outputs.new_release_version }}
 
+      - name: Capture the release commit SHA
+        id: build_sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push frontend image
         uses: docker/build-push-action@v7.1.0
         with:
           context: ./frontend
           push: true
+          build-args: |
+            VITE_BUILD_SHA=${{ steps.build_sha.outputs.sha }}
           tags: |
             blur88/all:erp-frontend
             blur88/all:erp-frontend-v${{ needs.release.outputs.new_release_version }}

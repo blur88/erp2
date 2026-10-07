@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -21,7 +21,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
-import { changePassword, logout, ChangePasswordData } from '@/store/slices/authSlice';
+import { changePassword, ChangePasswordData, selectIsAuthenticated } from '@/store/slices/authSlice';
+import { sessionRuntime } from '@/session';
 
 // Password validation schema
 const passwordSchema = yup.object({
@@ -46,11 +47,30 @@ const MandatoryPasswordChangePage: React.FC = () => {
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error, user, refreshToken } = useAppSelector((state) => state.auth);
+  const { loading, error, user } = useAppSelector((state) => state.auth);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  // True from submission until it fails. A successful change ends the session
+  // itself, and the page then stays for its confirmation before it leaves.
+  const [changing, setChanging] = useState(false);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The page needs the session it changes the password of. When that ends for
+  // any other reason (ended or changed in another tab, a failed refresh, the
+  // Logout button below), the tab goes to the sign-in form. Nothing is requested.
+  useEffect(() => {
+    if (!isAuthenticated && !changing) navigate('/login', { replace: true });
+  }, [isAuthenticated, changing, navigate]);
+
+  useEffect(
+    () => () => {
+      if (leaveTimer.current !== null) clearTimeout(leaveTimer.current);
+    },
+    [],
+  );
 
   const {
     control,
@@ -68,33 +88,30 @@ const MandatoryPasswordChangePage: React.FC = () => {
   const onSubmit = async (data: ChangePasswordData) => {
     try {
       setSuccessMessage('');
+      setChanging(true);
       await dispatch(changePassword(data)).unwrap();
 
-      setSuccessMessage('Password changed successfully! Logging out all sessions...');
+      setSuccessMessage('Password changed successfully! All sessions have been signed out.');
 
-      // Wait a moment to show success message, then logout (backend will force re-login)
-      setTimeout(() => {
-        if (refreshToken) {
-          dispatch(logout(refreshToken));
-        }
+      leaveTimer.current = setTimeout(() => {
+        navigate('/login', { replace: true });
       }, 2000);
     } catch (err: any) {
       console.error('Password change error:', err);
+      setChanging(false);
     }
   };
 
+  // Signing out ends the session, and the effect above then leaves the page.
   const handleLogout = async () => {
     try {
-      if (refreshToken) {
-        await dispatch(logout(refreshToken)).unwrap();
-      }
-      // Navigate to login after logout
-      navigate('/login', { replace: true });
+      await sessionRuntime.signOut();
     } catch (error) {
-      // Even if logout fails, redirect to login
-      navigate('/login', { replace: true });
+      void error;
     }
   };
+
+  if (!isAuthenticated && !changing) return null;
 
   return (
     <Box

@@ -106,3 +106,14 @@ after the owner reviewed the browser evidence. The dismissal applies to the
 traced value. The retention of financial data in the draft and the cross-tab
 sign-out behaviour are not false positives; they stay recorded here, and the
 second is tracked in #1345.
+
+## Update (#1345, cross-tab sessions)
+
+The frontend PR for #1345 narrows the cross-tab gap. A tab now learns that the
+session ended elsewhere on a `BroadcastChannel` message, when it becomes visible
+or is restored, or on its next request, and it clears its `sessionStorage` drafts
+when it becomes signed-out. `sessionStorage` is still per tab, so a tab that has
+not yet learned of the sign-out keeps its drafts, and the sign-out's publication
+to other tabs can be delayed by a blocked IndexedDB transaction. The residual risk
+is therefore reduced but not eliminated, and is documented in
+`docs/modules/auth/SESSION_QA.md` under Known limits.

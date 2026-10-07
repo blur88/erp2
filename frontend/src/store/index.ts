@@ -5,11 +5,6 @@ import { persistStore, persistReducer } from 'redux-persist'
 // vitest can fire after the jsdom environment (and its localStorage) is torn
 // down — an unhandled ReferenceError that fails the whole run.
 const hasLocalStorage = () => typeof localStorage !== 'undefined'
-const storage = {
-  getItem: (key: string) => Promise.resolve(hasLocalStorage() ? localStorage.getItem(key) : null),
-  setItem: (key: string, value: string) => Promise.resolve(hasLocalStorage() ? localStorage.setItem(key, value) : undefined),
-  removeItem: (key: string) => Promise.resolve(hasLocalStorage() ? localStorage.removeItem(key) : undefined),
-}
 import { combineReducers } from '@reduxjs/toolkit'
 
 // Import slices
@@ -34,8 +29,31 @@ import { searchApiSlice } from './api/searchApi'
 import { accountingApiSlice } from './api/accountingApi'
 import { redisMonitoringApiSlice } from './api/redisMonitoringApi'
 import { PERSIST_KEY } from './persistKey'
+import { getSessionRuntime, startedSessionRuntime } from '@/session/registry'
+import { RESET_FOR_SESSION_END } from './sessionReset'
 
-const rootReducer = combineReducers({
+export { RESET_FOR_SESSION_END }
+
+// Every RTK Query API slice of the store, once. The middleware below and the
+// cache reset on a session end (`@/session`) both run over this list, and
+// `sessionReset.test.ts` fails if the reducer holds an API slice missing from it.
+export const apiSlices = [
+  auditLogApiSlice,
+  backupApiSlice,
+  priceListApiSlice,
+  userManagementApiSlice,
+  inventoryApiSlice,
+  purchasingApiSlice,
+  salesApiSlice,
+  settingsApiSlice,
+  paymentMethodsApiSlice,
+  printSettingsApiSlice,
+  searchApiSlice,
+  accountingApiSlice,
+  redisMonitoringApiSlice,
+]
+
+const slicedReducer = combineReducers({
   auth: authSlice,
   notifications: notificationSlice,
   inventory: inventorySlice,
@@ -58,65 +76,95 @@ const rootReducer = combineReducers({
   [redisMonitoringApiSlice.reducerPath]: redisMonitoringApiSlice.reducer,
 })
 
+const initialState = slicedReducer(undefined, { type: '@@INIT' } as never)
+
+// On a session end every slice except `auth` returns to its initial state. RTK
+// Query caches are also reset (the session-ending event dispatches
+// `util.resetApiState()` for each API slice; this only handles plain slices).
+const rootReducer = (state: ReturnType<typeof slicedReducer> | undefined, action: { type: string }) => {
+  if (action.type === RESET_FOR_SESSION_END && state) {
+    const next = { ...initialState }
+    next.auth = state.auth
+    return next
+  }
+  return slicedReducer(state, action as never)
+}
+
+// redux-persist storage backed by the session runtime's tagged slices store.
+// The runtime is registered lazily by `@/session` to avoid an import cycle.
+const storage = {
+  // `persistStore` below asks for the stored slices while this module is still
+  // being evaluated, before `@/session` has registered a runtime. The read waits
+  // for the runtime to exist and to have started, and never fails: whatever
+  // cannot be read rehydrates as nothing.
+  getItem: async (_key: string): Promise<string | null> => {
+    try {
+      return await (await startedSessionRuntime()).readSlices()
+    } catch {
+      return null
+    }
+  },
+  // The payload is stamped here, when redux-persist hands it over, with the
+  // session it was produced under. The write itself runs later and is skipped
+  // unless that session is still the tab's claim and the stored one (spec B2).
+  setItem: (_key: string, value: string) => writeSlices(value),
+  removeItem: (_key: string) => writeSlices(null),
+}
+
+function writeSlices(json: string | null): Promise<void> {
+  const runtime = getSessionRuntime()
+  const originSessionId = runtime?.claim() ?? null
+  // A signed-out payload never writes.
+  if (!runtime || originSessionId === null) return Promise.resolve()
+  return runtime.persistSlices(originSessionId, json)
+}
+
 // Persist configuration
 const persistConfig = {
   key: PERSIST_KEY,
-  storage,
-  whitelist: ['auth', 'notifications'],
-  version: 6,
+  storage: storage as never,
+  whitelist: ['notifications'],
+  version: 7,
   migrate: (state: any) => {
-    // Migration runs when persisted _persist.version !== persistConfig.version.
-    // For all existing v4 users, state.notifications is undefined (was not
-    // whitelisted), so the ?? [] fallback is the normal code path.
-    // On a cold start (no persisted state at all), redux-persist does not call
-    // migrate — REHYDRATE fires with payload === undefined instead.
     if (state) {
       const notifications: any[] = state.notifications?.notifications ?? []
       const capped = notifications.slice(0, 50) // newest-first invariant
       const unreadCount = capped.filter((n: any) => !n.read).length
 
       return Promise.resolve({
-        ...state,
-        notifications: {
-          notifications: capped,
-          unreadCount,
-        },
+        notifications: { notifications: capped, unreadCount },
       })
     }
     return Promise.resolve(state)
   },
 }
 
-const persistedReducer = persistReducer(persistConfig, rootReducer)
+const persistedReducer = persistReducer(persistConfig, rootReducer as never)
 
 export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
     serializableCheck: {
-      ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+      ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/FLUSH', 'persist/PURGE', RESET_FOR_SESSION_END],
       ignoredPaths: ['register'],
     },
-  }).concat(
-    auditLogApiSlice.middleware as any,
-    backupApiSlice.middleware as any,
-    priceListApiSlice.middleware as any,
-    userManagementApiSlice.middleware as any,
-    inventoryApiSlice.middleware as any,
-    purchasingApiSlice.middleware as any,
-    salesApiSlice.middleware as any,
-    settingsApiSlice.middleware as any,
-    paymentMethodsApiSlice.middleware as any,
-    printSettingsApiSlice.middleware as any,
-    searchApiSlice.middleware as any,
-    accountingApiSlice.middleware as any,
-    redisMonitoringApiSlice.middleware as any,
-  ),
+  }).concat(apiSlices.map((slice) => slice.middleware as any)),
 })
+
+// The legacy redux-persist key lived in localStorage. It is removed on first
+// load now that the shared record is in IndexedDB.
+if (hasLocalStorage()) {
+  try {
+    localStorage.removeItem(`persist:${PERSIST_KEY}`)
+  } catch {
+    /* ignore */
+  }
+}
 
 export const persistor = persistStore(store)
 
 setupListeners(store.dispatch)
 
-export type RootState = ReturnType<typeof store.getState>
+export type RootState = ReturnType<typeof slicedReducer>
 export type AppDispatch = typeof store.dispatch

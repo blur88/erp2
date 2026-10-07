@@ -1,6 +1,7 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
-import { axiosBaseQuery } from './baseQuery'
+import { axiosBaseQuery, toQueryError } from './baseQuery'
 import { normalizeSingle } from './normalizers'
+import { requestWithRetryOn429 } from '@/services/retryOn429'
 
 export interface CompanySettings {
   id: string
@@ -83,8 +84,17 @@ export const settingsApiSlice = createApi({
   tagTypes: ['CompanySettings', 'RegionalSettings', 'DocumentNumberSettings'],
   endpoints: (builder) => ({
     getCompanySettings: builder.query<CompanySettings, void>({
-      query: () => ({ url: '/settings/company' }),
-      transformResponse: normalizeSingle<CompanySettings>,
+      // The sidebar shows this on every page and nothing else requests it again
+      // for a non-administrator, so this one read is re-sent after a 429 from
+      // the ingress (services/retryOn429.ts). No other endpoint is.
+      queryFn: async (_arg, { signal }) => {
+        try {
+          const result = await requestWithRetryOn429({ url: '/settings/company', method: 'GET', signal })
+          return { data: normalizeSingle<CompanySettings>(result.data) }
+        } catch (err) {
+          return { error: toQueryError(err) }
+        }
+      },
       providesTags: ['CompanySettings'],
     }),
     updateCompanySettings: builder.mutation<CompanySettings, UpdateCompanySettingsDto>({

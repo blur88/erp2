@@ -11,17 +11,19 @@ import notificationReducer, {
   selectNotifications,
   selectUnreadCount,
 } from '../notificationSlice'
-import { logout } from '../authSlice'
+import { sessionEnded } from '../authSlice'
 
 // Mock authApi to avoid import errors
 vi.mock('@/services/authApi', () => ({
   default: {
-    login: vi.fn(),
-    logout: vi.fn(),
-    refreshToken: vi.fn(),
-    register: vi.fn(),
     changePassword: vi.fn(),
     getCurrentUser: vi.fn(),
+    shouldShowDefaultCredentials: vi.fn(),
+  },
+  authApi: {
+    changePassword: vi.fn(),
+    getCurrentUser: vi.fn(),
+    shouldShowDefaultCredentials: vi.fn(),
   },
 }))
 
@@ -57,15 +59,15 @@ describe('notificationSlice', () => {
     expect(typeof notifications[0].timestamp).toBe('string')
   })
 
-  it('should clear all notifications on logout.fulfilled', () => {
+  it('should clear all notifications on session end', () => {
     // Add some notifications
     store.dispatch(addNotification({ type: 'success', title: 'A', message: 'msg' }))
     store.dispatch(addNotification({ type: 'error', title: 'B', message: 'msg' }))
     expect(selectNotifications(store.getState())).toHaveLength(2)
     expect(selectUnreadCount(store.getState())).toBe(2)
 
-    // Simulate logout.fulfilled
-    store.dispatch({ type: logout.fulfilled.type })
+    // Simulate a session-ending event
+    store.dispatch(sessionEnded())
 
     expect(selectNotifications(store.getState())).toHaveLength(0)
     expect(selectUnreadCount(store.getState())).toBe(0)

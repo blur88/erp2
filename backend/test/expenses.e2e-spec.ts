@@ -23,6 +23,7 @@ import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 import request from 'supertest';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../src/database/entities/user.entity';
+import { SESSION_PROTOCOL } from './utils/session-protocol';
 
 async function seedAccounting(ds: DataSource) {
   const coa = ds.getRepository(ChartOfAccount);
@@ -186,7 +187,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
     docNumberSnapshot = await ds.query(`SELECT * FROM document_number_settings`);
 
     const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/auth/login').set(...SESSION_PROTOCOL)
       .send({ username, password: 'Admin@123!' });
     token = loginRes.body?.data?.accessToken ?? loginRes.body?.accessToken;
     expect(token).toBeTruthy();

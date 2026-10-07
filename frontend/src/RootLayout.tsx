@@ -1,11 +1,19 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Box, LinearProgress } from '@mui/material'
-import { useAppDispatch, useAppSelector } from './hooks/useRedux'
+import { useAppSelector } from './hooks/useRedux'
 import { useRegionalSettings } from '@/hooks/useRegionalSettings'
-import { clearAuth, logout as logoutAction, selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
+import {
+  selectIsAuthenticated,
+  selectRememberMe,
+  selectStorageUnavailable,
+  selectStorageWaiting,
+} from './store/slices/authSlice'
+import { sessionRuntime } from '@/session'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
+import StorageUnavailableScreen from './components/auth/StorageUnavailableScreen'
+import StorageWaitingScreen from './components/auth/StorageWaitingScreen'
 import { useClearReconciliationDraftsOnSignOut } from './pages/accounting/bank-reconciliations/useClearReconciliationDraftsOnSignOut'
 
 const IDLE_TIMEOUT = 12 * 60 * 60 * 1000
@@ -20,31 +28,26 @@ const PageLoader = () => (
 export default function RootLayout() {
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const rememberMe = useAppSelector(selectRememberMe)
-  const dispatch = useAppDispatch()
+  const storageUnavailable = useAppSelector(selectStorageUnavailable)
+  const storageWaiting = useAppSelector(selectStorageWaiting)
   const navigate = useNavigate()
   const location = useLocation()
 
   const [showIdleWarning, setShowIdleWarning] = useState(false)
 
   useRegionalSettings(isAuthenticated)
-  useClearReconciliationDraftsOnSignOut(isAuthenticated)
+  useClearReconciliationDraftsOnSignOut(isAuthenticated, storageWaiting)
 
   const handleAutoLogout = useCallback(async () => {
     setShowIdleWarning(false)
-    const state = (window as any).store?.getState()
-    const refreshToken = state?.auth?.refreshToken
-
     try {
-      if (refreshToken) {
-        await dispatch(logoutAction(refreshToken)).unwrap()
-      }
+      await sessionRuntime.signOut()
     } catch (error) {
       console.error('Server logout failed:', error)
     } finally {
-      dispatch(clearAuth())
       navigate('/login', { replace: true })
     }
-  }, [dispatch, navigate])
+  }, [navigate])
 
   const activityEvents = useMemo(() => ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'], [])
 
@@ -80,6 +83,43 @@ export default function RootLayout() {
       setShowIdleWarning(false)
     }
   }, [isAuthenticated])
+
+  // The route loaders ran while storage had not answered and let everything
+  // through to the waiting screen. When a retry finds a session, they run again
+  // for where the tab is, as at a normal start (the mandatory password change).
+  // A tab found signed-out is moved by the route it is on; the sign-in page
+  // moves a signed-in one itself.
+  const wasWaiting = useRef(storageWaiting)
+  useEffect(() => {
+    const recovered = wasWaiting.current && !storageWaiting
+    wasWaiting.current = storageWaiting
+    if (recovered && isAuthenticated && location.pathname !== '/login') {
+      navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true })
+    }
+  }, [storageWaiting, isAuthenticated, location, navigate])
+
+  const retryStart = useCallback(() => sessionRuntime.retryStart(), [])
+
+  // Fail closed (spec B8): without session storage the message takes the place
+  // of every route, public or protected, at startup or when it happens later.
+  if (storageUnavailable) {
+    return (
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+        <StorageUnavailableScreen />
+      </Box>
+    )
+  }
+
+  // The start-up read timed out (spec B3: a timeout settles nothing). Whether a
+  // session is stored is unknown, so no route renders: not the sign-in form,
+  // which would displace a stored session, and nothing that sends a request.
+  if (storageWaiting) {
+    return (
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+        <StorageWaitingScreen onRetry={retryStart} />
+      </Box>
+    )
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
