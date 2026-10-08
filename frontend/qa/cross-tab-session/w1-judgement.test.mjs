@@ -7,8 +7,10 @@
 // at all three as well.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { signOutOverlap, diagnostics } from './lib/ingress-log.mjs'
 import {
   BLOCKING_SIZES,
+  MAX_SIGN_OUT_ATTEMPTS,
   DEADLINE_MS,
   W1_SCOPE,
   blockingChecks,
@@ -54,6 +56,16 @@ function ab(round, n = 5, over = {}) {
   }
 }
 
+// The ingress log of a sign-out that overlapped a request the limiter was
+// holding: one delayed line still outstanding when the logout went out.
+const OVERLAP_ENTRIES = [
+  { remoteAddr: '10.1.1.34', method: 'GET', uri: '/api/dashboard/stats', status: 200, endMs: 2000, requestMs: 900, startMs: 1100, upstream: { kind: 'single', ms: 10 }, nonUpstreamMs: 890, limitReq: 'DELAYED', limitConn: 'PASSED', qaId: 'd1' },
+  { remoteAddr: '10.1.1.34', method: 'POST', uri: '/api/auth/logout', status: 204, endMs: 1560, requestMs: 20, startMs: 1500, upstream: { kind: 'single', ms: 8 }, nonUpstreamMs: 12, limitReq: 'PASSED', limitConn: 'PASSED', qaId: 'out1' },
+]
+
+// A sign-out round that behaved and overlapped a delayed request, which is what
+// a passing round now has to be. A good round without that evidence fails: the
+// run has then not shown what it exists to show.
 function c(n = 5, over = {}) {
   const requests = [req('refresh', 200, `N${n}c-1`), req('logout', 204, `N${n}c-1`)]
   return {
@@ -70,6 +82,10 @@ function c(n = 5, over = {}) {
     tabsOnLoginPage: n,
     everyTabOnLoginPage: true,
     tabs: Array.from({ length: n }, (_, i) => ({ tab: `N${n}c-${i + 1}`, onLoginPage: true, sameDocument: true, at: '/login' })),
+    attempt: 1,
+    ingress: diagnostics(OVERLAP_ENTRIES),
+    signOutOverlap: signOutOverlap(OVERLAP_ENTRIES),
+    outcome: 'overlap',
     ...over,
   }
 }
@@ -136,7 +152,7 @@ test('the deadline is inclusive: 15000 passes at N = 20, 15001 fails, null fails
 test('a tab left signed in at N = 10 fails the sign-out round at that size', () => {
   const tabs = c(10).tabs.map((t, i) => (i === 3 ? { ...t, onLoginPage: false, at: '/dashboard' } : t))
   const rounds = all([[10, 'c', { tabs, tabsOnLoginPage: 9, everyTabOnLoginPage: false }]])
-  assert.deepEqual(failed(rounds), ['N = 10 (c): every tab is on the login page after the sign-out, without a reload'])
+  assert.deepEqual(failed(rounds), ['N = 10 (c) attempt 1: every tab is on the login page after the sign-out, without a reload'])
 })
 
 test('a session-route 429 at N = 20 fails; business 429s do not', () => {
@@ -156,10 +172,10 @@ test('the token-state and logout gates apply at every size', () => {
     'N = 20 (b): every tab did start with an expired access token',
   ])
   assert.deepEqual(failed(all([[20, 'c', { requests: [req('refresh')], total: 1 }]])), [
-    'N = 20 (c): the sign-out sent a logout and it was answered 2xx',
+    'N = 20 (c) attempt 1: the sign-out sent a logout and it was answered 2xx',
   ])
   assert.deepEqual(failed(all([[20, 'c', { requests: [req('refresh'), req('logout', 500)], total: 2 }]])), [
-    'N = 20 (c): the sign-out sent a logout and it was answered 2xx',
+    'N = 20 (c) attempt 1: the sign-out sent a logout and it was answered 2xx',
   ])
 })
 
@@ -181,7 +197,7 @@ test('a round that was not run fails the checks of its own size', () => {
 test('a login page reached by reloading still fails', () => {
   const tabs = c(10).tabs.map((t, i) => (i === 0 ? { ...t, sameDocument: false } : t))
   const rounds = all([[10, 'c', { tabs, tabsOnLoginPage: 9, everyTabOnLoginPage: false }]])
-  assert.deepEqual(failed(rounds), ['N = 10 (c): every tab is on the login page after the sign-out, without a reload'])
+  assert.deepEqual(failed(rounds), ['N = 10 (c) attempt 1: every tab is on the login page after the sign-out, without a reload'])
 })
 
 test('how many tabs were still loading at the sign-out is reported and never required', () => {
@@ -227,4 +243,100 @@ test('the scope sentence says what W1 shows, and that the sizing note is a diagn
 test('business 429s stay a finding, not a gate', () => {
   const { findings } = nonBlockingFindings(all([[20, 'a', { dataRequests429: 40 }]]), 'sales_staff')
   assert.ok(findings.some((f) => /^N=20 \(a\): 40 of 60 data requests/.test(f)))
+})
+
+// --- the sign-out round: ingress evidence and a bounded number of attempts ---
+//
+// The round must be shown to have overlapped a request the limiter was still
+// holding, or the evidence for what a sign-out does to a delayed request is not
+// there. A round with no overlap is inconclusive, not passed, and may be set up
+// again a bounded number of times; a behavioural failure in any attempt is not
+// retried at all.
+
+test('the baseline with ingress evidence present passes every check', () => {
+  assert.deepEqual(failed(goodAll()), [])
+})
+
+test('one overlap across two attempts passes, and every attempt is judged', () => {
+  const rounds = goodAll().flatMap((r) => {
+    if (!(r.n === 10 && r.round === 'c')) return [r]
+    const missed = { ...r, attempt: 1, outcome: 'setup-missed', signOutOverlap: { verdict: 'no-overlap', delayedOutstanding: 0, logoutStartMs: 1500 } }
+    const hit = { ...r, attempt: 2, outcome: 'overlap' }
+    return [missed, hit]
+  })
+  assert.deepEqual(failed(rounds), [])
+  const labels = labelsOf(rounds).filter((l) => l.includes('overlapped'))
+  assert.equal(labels.length, 3, 'one overlap check per size')
+})
+
+test('three attempts with no overlap fail only the overlap check', () => {
+  const rounds = goodAll().flatMap((r) => {
+    if (!(r.n === 5 && r.round === 'c')) return [r]
+    return [1, 2, 3].map((attempt) => ({
+      ...r,
+      attempt,
+      outcome: 'setup-missed',
+      signOutOverlap: { verdict: 'no-overlap', delayedOutstanding: 0, logoutStartMs: 1500 },
+    }))
+  })
+  assert.deepEqual(failed(rounds), ['N = 5 (c): the sign-out overlapped at least one delayed request'])
+})
+
+test('a behavioural failure in the first attempt fails the run and names the attempt', () => {
+  const rounds = goodAll().flatMap((r) => {
+    if (!(r.n === 10 && r.round === 'c')) return [r]
+    const bad = {
+      ...r,
+      attempt: 1,
+      outcome: 'behaviour-failed',
+      count429: 1,
+      ingress: { ...r.ingress, rejectedBy: { limit_req: 1, limit_conn: 0, unattributed: 0 } },
+    }
+    const clean = { ...r, attempt: 2, outcome: 'overlap' }
+    return [bad, clean]
+  })
+  const labels = failed(rounds)
+  assert.deepEqual(labels, ['N = 10 (c) attempt 1: no 429 on refresh, logout or me'])
+  assert.match(labels[0], /attempt 1/)
+})
+
+test('a loading round without the ingress log does not fail a check, and is reported', () => {
+  const rounds = goodAll().map((r) => (r.n === 20 && r.round === 'a' ? { ...r, ingress: { unavailable: 'no ingress log' } } : r))
+  assert.deepEqual(failed(rounds), [])
+  const { findings } = nonBlockingFindings(rounds, 'sales_staff')
+  assert.ok(findings.some((f) => /ingress log/.test(f)), `no finding about the missing log: ${JSON.stringify(findings)}`)
+})
+
+test('a sign-out without the ingress log cannot pass W1', () => {
+  const rounds = goodAll().map((r) =>
+    r.n === 5 && r.round === 'c'
+      ? { ...r, ingress: { unavailable: 'no ingress log' }, outcome: 'setup-missed', signOutOverlap: { verdict: 'no-logout', delayedOutstanding: 0, logoutStartMs: null } }
+      : r,
+  )
+  const labels = failed(rounds)
+  assert.deepEqual(labels, ['N = 5 (c): the sign-out overlapped at least one delayed request'])
+})
+
+test('MAX_SIGN_OUT_ATTEMPTS is 3', () => {
+  assert.equal(MAX_SIGN_OUT_ATTEMPTS, 3)
+})
+
+test('for each mutation of the baseline the exact set of checks fails', () => {
+  // One failing check per mutation, and nothing else fails with it.
+  const cases = [
+    [[10, 'a', { recoveryActionsTotal: 1, tabsNeedingRecovery: 1 }], 'N = 10 (a): no in-app recovery action'],
+    [[20, 'b', { completedAfterMs: 15001 }], 'N = 20 (b): complete within the deadline'],
+    [[5, 'b', { everyTabUsable: false, tabsUsable: 4, tabsNotRecoverable: [{ tab: 't', whyNot: 'no rows' }] }],
+      'N = 5 (b): every tab usable for the non-administrator (data present, the shell\'s included, and an action working; no reload, no new sign-in, no administrator-only page)'],
+    [[20, 'a', { count429: 2 }], 'N = 20 (a): no 429 on refresh, logout or me'],
+    [[5, 'a', { accessTokenRemainingMsAtStart: -1 }], 'N = 5 (a): the access token was current when the tabs opened'],
+    [[20, 'b', { accessTokenExpiredAtStart: false }], 'N = 20 (b): every tab did start with an expired access token'],
+    [[10, 'c', { everyTabOnLoginPage: false, tabsOnLoginPage: 9 }], 'N = 10 (c) attempt 1: every tab is on the login page after the sign-out, without a reload'],
+  ]
+  for (const [patch, expected] of cases) {
+    const rounds = goodAll()
+    const i = rounds.findIndex((r) => r.n === patch[0] && r.round === patch[1])
+    rounds[i] = { ...rounds[i], ...patch[2] }
+    assert.deepEqual(failed(rounds), [expected])
+  }
 })

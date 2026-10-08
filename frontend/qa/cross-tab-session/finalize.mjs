@@ -78,6 +78,9 @@ writeFileSync(join(scratch, 'results.json'), JSON.stringify(results, null, 2))
 console.log('\n=== cross-tab session run ===')
 console.log(`commit ${results.commit}   exit status ${status}   stack restored: ${results.stackRestored ? 'yes' : 'NO'}`)
 if (!completed) console.log(`  RUN NOT COMPLETED: ${results.aborted}. What follows is what was written before it stopped.`)
+// Said here as well as in the cases file: the summary is what a reader sees
+// first, and a partial run must never be mistaken for recorded evidence.
+if (results.partial) console.log(`  NOT A RECORDED RUN: ${results.partial}`)
 for (const key of ['before', 'during', 'after']) {
   const c = results.configuration[key]
   console.log(`  ${key.padEnd(6)} ${c.missing ?? `access ${c.accessTokenExpiry}, grace ${c.refreshGraceSeconds}, build ${c.servedBuild || '(none)'}`}`)

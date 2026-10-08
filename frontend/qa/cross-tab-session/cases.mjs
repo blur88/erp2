@@ -57,11 +57,16 @@ async function main() {
     servedFrom: config.distDir
       ? 'DEVELOPMENT: page and assets from a local build (QA_DIST_DIR), API through the ingress. Not a recorded run.'
       : 'ingress',
+    // Three ways a run is not recorded evidence, all of which say so in the
+    // file rather than only in the exit status (#1353, Task 7's forced
+    // failures run through the first two).
     partial: only
       ? `only ${only.join(', ')}: not a recorded run`
-      : process.env.QA_W1_NS
-        ? `W1 sizes overridden to ${process.env.QA_W1_NS}: not a recorded run`
-        : false,
+      : config.suiteOverride
+        ? 'the suite ran from an override copy outside the repository: not a recorded run'
+        : process.env.QA_W1_NS
+          ? `W1 sizes overridden to ${process.env.QA_W1_NS}: not a recorded run`
+          : false,
     chromium: browser.version(),
     machine: machine(),
     configurationDuring: config.show,

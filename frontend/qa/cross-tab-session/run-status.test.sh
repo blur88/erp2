@@ -170,11 +170,24 @@ cat > "${FAKE}/bin/docker" <<'STUB'
 all="$*"
 case "${all}" in
   ps*) echo "erp_backend	Up" ;;
+  logs*)
+    # The ingress log follow: it stays open until it is stopped, exactly as
+    # the real one does, and the run has to be the one that stops it. Its own
+    # pid is written so the test can ask afterwards whether it is still there.
+    echo "logs-follow pid=$$" >> "${FAKE_LOG}"
+    exec sleep 300 ;; 
   *finalize.mjs*)
     echo "finalize status=$(printf '%s\n' "$@" | sed -n 's/^QA_RUN_STATUS=//p') completed=$(printf '%s\n' "$@" | sed -n 's/^QA_RUN_COMPLETED=//p') aborted=$(printf '%s\n' "$@" | sed -n 's/^QA_RUN_ABORTED=//p')" >> "${FAKE_LOG}"
     exit "${FAKE_FINALIZE_RC:-0}" ;;
   *QA_SCRIPT=cases.mjs*)
     echo "cases" >> "${FAKE_LOG}"
+    # What the cases container was asked to run, so that the override and the
+    # selection can be seen to have reached it.
+    printf '%s\n' "$@" | sed -n 's/^QA_SUITE_OVERRIDE=//p' | sed 's/^/override=/' >> "${FAKE_LOG}"
+    printf '%s\n' "$@" | sed -n 's/^QA_ONLY=//p' | sed 's/^/only=/' >> "${FAKE_LOG}"
+    printf '%s\n' "$@" | sed -n 's/^QA_INGRESS_LOG=//p' | sed 's/^/ingress-log=/' >> "${FAKE_LOG}"
+    # The suite's own mount: which copy the container was given.
+    printf '%s\n' "$@" | grep -o '[^ ]*qa-suite:/repo/frontend/qa/cross-tab-session:ro' | sed 's/^/mount=/' >> "${FAKE_LOG}"
     if [ "${FAKE_TERM_DURING_CASES:-0}" = "1" ]; then kill -TERM "${PPID}"; fi
     exit "${FAKE_CASES_RC:-0}" ;;
   *QA_SCRIPT=measure.mjs*) echo "measure" >> "${FAKE_LOG}"; exit "${FAKE_MEASURE_RC:-0}" ;;
@@ -241,6 +254,47 @@ else not_ok "run.sh: a failed restore after passing cases exits 3" "exit $(rc_of
 FAKE_FINALIZE_RC=1 run_sh finalize_fails_run
 if [ "$(rc_of finalize_fails_run)" != "0" ]; then ok "run.sh: results.json that cannot be written fails the run (exit $(rc_of finalize_fails_run))"
 else not_ok "run.sh: results.json that cannot be written fails the run" "exit 0"; fi
+
+# The ingress log is followed for the whole run and stopped with it, and the
+# path is handed to the cases.
+# The pid the ingress log follow ran as, from the log the stand-in wrote.
+logs_pid() { sed -n 's/^logs-follow pid=//p' "${TMP}/$1.log" | head -1; }
+still_running() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null; }
+
+run_sh ingress_log
+if [ "$(rc_of ingress_log)" = "0" ] && [ -n "$(logs_pid ingress_log)" ] \
+  && ! still_running "$(logs_pid ingress_log)" && log_has ingress_log '^ingress-log=/scratch/ingress-access.log$'; then
+  ok "run.sh: the ingress access log is followed, passed to the cases and stopped with the run"
+else not_ok "run.sh: the ingress access log is followed and stopped" "exit $(rc_of ingress_log); $(tr '\n' ';' < "${TMP}/ingress_log.log")"; fi
+
+# A run interrupted while the cases run must not leave the log follow behind.
+FAKE_TERM_DURING_CASES=1 run_sh ingress_log_term
+if [ "$(rc_of ingress_log_term)" = "143" ] && ! still_running "$(logs_pid ingress_log_term)"; then
+  ok "run.sh: a TERM while the cases run stops the ingress log follow too (exit $(rc_of ingress_log_term))"
+else not_ok "run.sh: a TERM while the cases run stops the ingress log follow" "exit $(rc_of ingress_log_term); $(tr '\n' ';' < "${TMP}/ingress_log_term.log")"; fi
+
+# A run from an override copy: the suite comes from there, the run still exits on
+# the cases' own status, and results.json is marked partial by the suite itself.
+OVERRIDE_DIR="${FAKE}/copy"
+mkdir -p "${OVERRIDE_DIR}"
+cp -r "${FQA}" "${OVERRIDE_DIR}/qa-suite"
+QA_SUITE_OVERRIDE="${OVERRIDE_DIR}/qa-suite" run_sh override
+if [ "$(rc_of override)" = "0" ] && log_has override '^override=set$' \
+  && grep -q "qa-suite:/repo/frontend/qa/cross-tab-session" "${TMP}/override.log"; then
+  ok "run.sh: QA_SUITE_OVERRIDE mounts the copy at the suite's path and passes the flag on (exit $(rc_of override))"
+else not_ok "run.sh: QA_SUITE_OVERRIDE mounts the copy" "exit $(rc_of override); $(tr '\n' ';' < "${TMP}/override.log")"; fi
+
+# A selection is passed through to the suite, and the cases' own exit status is
+# still what the run exits with.
+QA_ONLY=W1 run_sh only_w1
+if [ "$(rc_of only_w1)" = "0" ] && log_has only_w1 '^only=W1$'; then
+  ok "run.sh: QA_ONLY reaches the suite as --only and does not change the exit status"
+else not_ok "run.sh: QA_ONLY reaches the suite" "exit $(rc_of only_w1); $(tr '\n' ';' < "${TMP}/only_w1.log")"; fi
+
+FAKE_CASES_RC=1 QA_ONLY=W1 run_sh only_w1_fails
+if [ "$(rc_of only_w1_fails)" = "1" ]; then
+  ok "run.sh: a failing selection still exits 1: a partial run's status is its cases' status"
+else not_ok "run.sh: a failing selection exits 1" "exit $(rc_of only_w1_fails)"; fi
 
 run_sh loopback 127.0.1.1
 if [ "$(rc_of loopback)" = "1" ] && [ ! -s "${TMP}/loopback.log" ] && grep -q "refusing" "${TMP}/loopback.out"; then

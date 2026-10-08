@@ -31,6 +31,13 @@
 export const BLOCKING_SIZES = [5, 10, 20]
 export const DEADLINE_MS = { 5: 5000, 10: 10000, 20: 15000 }
 
+/**
+ * How many times a sign-out round may be set up again looking for the overlap
+ * it has to show. Only a setup that behaved and simply did not overlap may be
+ * repeated; a behavioural failure in any attempt fails the run at once.
+ */
+export const MAX_SIGN_OUT_ATTEMPTS = 3
+
 /** The one sentence about what W1 does and does not show. Printed with every summary and quoted in the README. */
 export const W1_SCOPE =
   'W1 shows that the tabs of a restored window coordinate their refresh, that a restored window puts little load on session_limit, ' +
@@ -125,12 +132,15 @@ export function blockingChecks(rounds, sizes) {
     for (const round of ['a', 'b', 'c']) {
       const r = of(n, round)
       // Pass: the round was run and no request to refresh, logout or me was
-      // answered 429, in the round itself or while its tabs were checked.
-      out.push({
-        label: `N = ${n} (${round}): no 429 on refresh, logout or me`,
-        ok: !!r && session429(r) === 0,
-        detail: r ? { count429: r.count429, duringUsabilityCheck: r.sessionRequests429DuringUsabilityCheck ?? 0 } : 'round not run',
-      })
+      // answered 429, in the round itself or while its tabs were checked. Round
+      // (c) is judged per attempt below, so that a failure names the attempt.
+      if (round !== 'c') {
+        out.push({
+          label: `N = ${n} (${round}): no 429 on refresh, logout or me`,
+          ok: !!r && session429(r) === 0,
+          detail: r ? { count429: r.count429, duringUsabilityCheck: r.sessionRequests429DuringUsabilityCheck ?? 0 } : 'round not run',
+        })
+      }
       if (round === 'c') continue
       // Pass: every tab has its data on screen, the shell's included, and an
       // action working, for the non-administrator, without a reload, a new
@@ -185,21 +195,50 @@ export function blockingChecks(rounds, sizes) {
       ok: !!b && b.accessTokenExpiredAtStart === true,
       detail: { accessTokenExpiredAtStart: b?.accessTokenExpiredAtStart ?? null },
     })
-    const c = of(n, 'c')
-    // Pass: the sign-out of round (c) sent its logout and the server answered
-    // it 2xx. Without one, "no 429 on logout" would say nothing.
-    const logouts = (c?.requests ?? []).filter((e) => e.path.replace(/\/$/, '') === '/api/auth/logout')
+    // The sign-out round is one entry per attempt, and every attempt's
+    // behavioural checks apply: an attempt that refused a session route, lost a
+    // tab or failed its logout failed the run, whether or not it also overlapped.
+    const attempts = rounds.filter((r) => r.n === n && r.round === 'c')
+    if (attempts.length === 0) {
+      out.push({ label: `N = ${n} (c): the sign-out sent a logout and it was answered 2xx`, ok: false, detail: 'round not run' })
+      out.push({ label: `N = ${n} (c): every tab is on the login page after the sign-out, without a reload`, ok: false, detail: 'round not run' })
+    }
+    for (const c of attempts) {
+      const at = `N = ${n} (c) attempt ${c.attempt ?? 1}`
+      out.push({
+        label: `${at}: no 429 on refresh, logout or me`,
+        ok: session429(c) === 0,
+        detail: { count429: c.count429 ?? 0, duringUsabilityCheck: c.sessionRequests429DuringUsabilityCheck ?? 0, outcome: c.outcome ?? null },
+      })
+      // Pass: the sign-out of the attempt sent its logout and the server
+      // answered it 2xx. Without one, "no 429 on logout" would say nothing.
+      const logouts = (c.requests ?? []).filter((e) => e.path.replace(/\/$/, '') === '/api/auth/logout')
+      out.push({
+        label: `${at}: the sign-out sent a logout and it was answered 2xx`,
+        ok: logouts.length >= 1 && logouts.every((e) => typeof e.status === 'number' && e.status >= 200 && e.status < 300),
+        detail: logouts.map((e) => e.status),
+      })
+      // Pass: after the sign-out every tab shows the login page, each in the
+      // document it first loaded (not reloaded).
+      out.push({
+        label: `${at}: every tab is on the login page after the sign-out, without a reload`,
+        ok: c.everyTabOnLoginPage === true && c.tabsOnLoginPage === n && Array.isArray(c.tabs) && c.tabs.length === n && c.tabs.every((t) => t.onLoginPage === true && t.sameDocument === true),
+        detail: c.tabs,
+      })
+    }
+    // Pass: at least one attempt was shown to overlap a request the limiter was
+    // still holding. A round where no attempt did is inconclusive, not passed:
+    // the run has then not shown what a sign-out does to a request the ingress
+    // is holding, which is what the round exists to show.
     out.push({
-      label: `N = ${n} (c): the sign-out sent a logout and it was answered 2xx`,
-      ok: logouts.length >= 1 && logouts.every((e) => typeof e.status === 'number' && e.status >= 200 && e.status < 300),
-      detail: logouts.map((e) => e.status),
-    })
-    // Pass: after the sign-out every tab shows the login page, each in the
-    // document it first loaded (not reloaded).
-    out.push({
-      label: `N = ${n} (c): every tab is on the login page after the sign-out, without a reload`,
-      ok: !!c && c.everyTabOnLoginPage === true && c.tabsOnLoginPage === n && Array.isArray(c.tabs) && c.tabs.length === n && c.tabs.every((t) => t.onLoginPage === true && t.sameDocument === true),
-      detail: c ? c.tabs : 'round not run',
+      label: `N = ${n} (c): the sign-out overlapped at least one delayed request`,
+      ok: attempts.length > 0 && attempts.some((c) => c.signOutOverlap?.verdict === 'overlap'),
+      detail: attempts.map((c) => ({
+        attempt: c.attempt ?? 1,
+        outcome: c.outcome ?? null,
+        ...(c.signOutOverlap ?? { verdict: 'not measured' }),
+        ingress: c.ingress ?? null,
+      })),
     })
   }
   return out
@@ -224,7 +263,16 @@ export function nonBlockingFindings(rounds, role) {
     // at every size, so neither is repeated here. What recovery took is not a
     // check of its own: it says how a failure came about, which the counts
     // alone do not.
-    if (r.round === 'c') continue
+    // A round with no ingress log has measured nothing: the figures are
+    // diagnostic, so this does not fail a check, but it is not silence either.
+    if (r.ingress && r.ingress.unavailable) {
+      findings.push(`${where}: the ingress log was not captured (${r.ingress.unavailable}), so this round's limiter verdicts were not measured`)
+    }
+    if (r.round === 'c') {
+      if (r.attempt !== undefined && r.attempt > 1) findings.push(`${where}: sign-out attempt ${r.attempt} (previous attempts behaved and did not overlap a delayed request)`)
+      if (r.outcome === 'setup-missed') findings.push(`${where}: the sign-out overlapped no delayed request, so this attempt was set up again`)
+      continue
+    }
     if (r.tabsNeedingRecovery > 0) {
       findings.push(
         `${where}: ${r.tabsNeedingRecovery} of ${r.n} tabs first showed missing data and the user had to act ` +

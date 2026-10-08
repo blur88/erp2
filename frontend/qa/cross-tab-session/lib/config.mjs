@@ -66,6 +66,13 @@ export function loadConfig() {
     userB: { usernameOrEmail: required('QA_USERNAME_2'), password: required('QA_PASSWORD_2') },
     // The user W1 signs in as: NOT an administrator (W1 stops if it is one).
     userC: { usernameOrEmail: required('QA_USERNAME_3'), password: required('QA_PASSWORD_3') },
+    // The ingress access log as run.sh captured it, or null when it was not
+    // captured. It is the only record of what each limiter decided about each
+    // request, and W1 reads it per round (#1353).
+    ingressLog: process.env.QA_INGRESS_LOG && existsSync(process.env.QA_INGRESS_LOG) ? process.env.QA_INGRESS_LOG : null,
+    // A run whose suite came from an override copy outside the repository, or
+    // which ran only some cases, is never recorded evidence.
+    suiteOverride: process.env.QA_SUITE_OVERRIDE ? true : false,
     // Development only: serve the page and its assets from a local build of the
     // checkout instead of from the ingress, so cases can be exercised without
     // rebuilding the frontend image. API calls still go through the ingress.
