@@ -22,12 +22,14 @@ const recorded = readFileSync(FIXTURE, 'utf8')
 const records = recorded.split('\n').filter(Boolean).map((line) => JSON.parse(line))
 
 /** Run the reducer over some decoder output and read back what it wrote. */
-function reduce(lines, { requireQaId = false } = {}) {
+function reduce(lines, { requireQaId = false, captureStderr = null, extra = [] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'reduce-test-'))
   const input = join(dir, 'in.ek.jsonl')
   const out = join(dir, 'out.jsonl')
   const err = join(dir, 'out.err')
   writeFileSync(input, lines.join('\n') + '\n')
+  const stderrFile = join(dir, 'capture.err')
+  if (captureStderr !== null) writeFileSync(stderrFile, captureStderr)
   let status = 0
   let stderr = ''
   try {
@@ -35,8 +37,9 @@ function reduce(lines, { requireQaId = false } = {}) {
       REDUCE,
       '--segment', 't',
       '--out', out,
-      '--tshark-stderr', join(dir, 'none'),
+      '--capture-stderr', captureStderr === null ? join(dir, 'none') : stderrFile,
       ...(requireQaId ? ['--require-qa-id'] : []),
+      ...extra,
     ], { input: readFileSync(input), stdio: ['pipe', 'pipe', 'pipe'] })
   } catch (err) {
     status = err.status ?? 1
@@ -47,7 +50,7 @@ function reduce(lines, { requireQaId = false } = {}) {
 }
 
 /** One decoder record, in the recorded file's shape. */
-function frame({ number, epochMs, stream, srcPort, dstPort, seq, len, http = {}, analysis = null }) {
+function frame({ number, epochMs, stream, srcPort, dstPort, seq, len, http = {}, analysis = null, ip = null, ipv6 = null }) {
   const layers = {
     frame: {
       frame_frame_number: String(number),
@@ -62,12 +65,15 @@ function frame({ number, epochMs, stream, srcPort, dstPort, seq, len, http = {},
     },
   }
   if (Object.keys(http).length) layers.http = http
+  if (ip) layers.ip = { ip_ip_src: ip[0], ip_ip_dst: ip[1] }
+  if (ipv6) layers.ipv6 = { ipv6_ipv6_src: ipv6[0], ipv6_ipv6_dst: ipv6[1] }
   if (analysis) layers['tcp.analysis'] = analysis
   return JSON.stringify({ timestamp: String(Math.floor(epochMs)), layers })
 }
 
-function requestHttp({ qaId, method = 'GET', uri = '/api/x', authorization = 'Bearer eyJhbGciOiJIUzI1NiJ9.Z2VuZXJhdGVk.c2ln' }) {
+function requestHttp({ qaId, method = 'GET', uri = '/api/x', authorization = 'Bearer eyJhbGciOiJIUzI1NiJ9.Z2VuZXJhdGVk.c2ln', padding = null }) {
   const lines = []
+  if (padding !== null) lines.push(`X-QA-Padding: ${padding}\r\n`)
   if (qaId) lines.push(`x-qa-request-id: ${qaId}\r\n`)
   lines.push(`Host: backend:3001\r\n`)
   return {
@@ -227,4 +233,112 @@ test('the health record says how the capture ended', () => {
   assert.ok(result.health.frames > 0)
   assert.equal(typeof result.health.dropped, 'object') // null: tshark reports drops only when it dropped
   assert.ok(result.health.reducer.startsWith('reduce.mjs'))
+})
+
+// --- what dumpcap says it dropped -------------------------------------------
+
+const DUMPCAP_OK =
+  "Capturing on 'any'\nFile: -\nPackets: 709 Packets captured: 709\n" +
+  "Packets received/dropped on interface 'any': 709/0 (pcap:0/dumpcap:0/flushed:0/ps_ifdrop:0) (100.0%)\n"
+
+const one = () => [frame({ number: 1, epochMs: 1000, stream: 0, srcPort: 40000, dstPort: 3001, seq: 1, len: 100, http: requestHttp({ qaId: 'a' }) })]
+
+test('an explicitly reported zero is read as zero dropped', () => {
+  const { health } = reduce(one(), { captureStderr: DUMPCAP_OK })
+  assert.equal(health.dropped, 0)
+  assert.equal(health.captured, 709)
+  assert.deepEqual(health.dropDetail, { received: 709, pcap: 0, dumpcap: 0, flushed: 0, ps_ifdrop: 0 })
+})
+
+test('a reported drop is read as that many', () => {
+  const text = DUMPCAP_OK.replace("709/0 (pcap:0/dumpcap:0", "709/3 (pcap:3/dumpcap:0")
+  assert.equal(reduce(one(), { captureStderr: text }).health.dropped, 3)
+})
+
+test('no drop line at all leaves the count unknown, never zero', () => {
+  // What tshark alone prints when nothing was dropped: a captured count and nothing about drops.
+  assert.equal(reduce(one(), { captureStderr: "Capturing on 'any'\n709 packets captured\n" }).health.dropped, null)
+  assert.equal(reduce(one(), { captureStderr: '' }).health.dropped, null)
+  assert.equal(reduce(one()).health.dropped, null) // no file
+})
+
+test('a malformed drop line leaves the count unknown', () => {
+  for (const bad of ["709/ (pcap:0/dumpcap:0/flushed:0/ps_ifdrop:0)", "709/x (pcap:0/dumpcap:0/flushed:0/ps_ifdrop:0)", "709/0"]) {
+    const text = `Packets received/dropped on interface 'any': ${bad}\n`
+    assert.equal(reduce(one(), { captureStderr: text }).health.dropped, null, bad)
+  }
+})
+
+test('a total that disagrees with its own parts is not believed', () => {
+  const text = "Packets received/dropped on interface 'any': 709/0 (pcap:2/dumpcap:0/flushed:0/ps_ifdrop:0) (100.0%)\n"
+  assert.equal(reduce(one(), { captureStderr: text }).health.dropped, null)
+})
+
+test('two interfaces reporting: the drops are added, and one unreadable line makes the whole count unknown', () => {
+  const two = "Packets received/dropped on interface 'eth0': 5/1 (pcap:1/dumpcap:0/flushed:0/ps_ifdrop:0) (83.3%)\n" +
+    "Packets received/dropped on interface 'lo': 5/2 (pcap:0/dumpcap:2/flushed:0/ps_ifdrop:0) (71.4%)\n"
+  assert.equal(reduce(one(), { captureStderr: two }).health.dropped, 3)
+  assert.equal(reduce(one(), { captureStderr: two + "Packets received/dropped on interface 'x': 5/\n" }).health.dropped, null)
+})
+
+// --- sizes, and whether the padding arrived -----------------------------------
+
+test('a request records the bytes each of its frames carried, and their sum', () => {
+  const lines = [
+    frame({ number: 1, epochMs: 1000, stream: 0, srcPort: 40000, dstPort: 3001, seq: 1, len: 1448 }),
+    frame({ number: 2, epochMs: 1001, stream: 0, srcPort: 40000, dstPort: 3001, seq: 1449, len: 1448 }),
+    frame({ number: 3, epochMs: 1002, stream: 0, srcPort: 40000, dstPort: 3001, seq: 2897, len: 600, http: requestHttp({ qaId: 'big' }) }),
+  ]
+  const r = byId(reduce(lines), 'big')
+  assert.deepEqual(r.frameBytes, [1448, 1448, 600])
+  assert.equal(r.bytes, 3496)
+  assert.equal(r.frameCount, 3)
+})
+
+test('the padding header is recorded by its length only', () => {
+  const padding = 'x'.repeat(4096)
+  const lines = [frame({ number: 1, epochMs: 1000, stream: 0, srcPort: 40000, dstPort: 3001, seq: 1, len: 4500, http: requestHttp({ qaId: 'pad', padding }) })]
+  const result = reduce(lines)
+  assert.equal(byId(result, 'pad').paddingBytes, 4096)
+  assert.ok(!result.text.includes('xxxxxxxx'), 'the padding itself is not written')
+})
+
+test('a request without the padding header says so', () => {
+  assert.equal(byId(reduce(one()), 'a').paddingBytes, null)
+})
+
+// --- where an unreadable request came from -----------------------------------
+
+test('a request with no qa id names both ends of its connection: IPv6', () => {
+  const lines = [frame({ number: 1, epochMs: 1000, stream: 0, srcPort: 51234, dstPort: 3001, seq: 1, len: 90, ipv6: ['::1', '::1'], http: requestHttp({ qaId: null, uri: '/api/health' }) })]
+  const [record] = reduce(lines, { requireQaId: true }).invalid
+  assert.equal(record.reason, 'missing-qa-id')
+  assert.equal(record.src, '[::1]:51234')
+  assert.equal(record.dst, '[::1]:3001')
+})
+
+test('a request with no qa id names both ends of its connection: IPv4', () => {
+  const lines = [frame({ number: 1, epochMs: 1000, stream: 0, srcPort: 51234, dstPort: 3001, seq: 1, len: 90, ip: ['172.18.0.5', '172.18.0.2'], http: requestHttp({ qaId: null }) })]
+  const [record] = reduce(lines, { requireQaId: true }).invalid
+  assert.equal(record.src, '172.18.0.5:51234')
+  assert.equal(record.dst, '172.18.0.2:3001')
+})
+
+test('an invalid record whose frame names no address says null, not a guess', () => {
+  const lines = [frame({ number: 1, epochMs: 1000, stream: 0, srcPort: 51234, dstPort: 3001, seq: 1, len: 90, http: requestHttp({ qaId: null }) })]
+  const [record] = reduce(lines, { requireQaId: true }).invalid
+  assert.equal(record.src, null)
+  assert.equal(record.dst, null)
+})
+
+// --- which offload settings the capture ran under --------------------------------
+
+test('the health record says whether segmentation offload was off at the sending end', () => {
+  assert.equal(reduce(one(), { extra: ['--sender-offload-off', '1', '--sender-iface', 'erp_nginx:eth0'] }).health.senderOffloadOff, true)
+  assert.equal(reduce(one(), { extra: ['--sender-offload-off', '0'] }).health.senderOffloadOff, false)
+  assert.equal(reduce(one(), { extra: ['--sender-offload-off', '1', '--sender-iface', 'erp_nginx:eth0'] }).health.senderIface, 'erp_nginx:eth0')
+})
+
+test('a capture that was not told about the sending end says it does not know', () => {
+  assert.equal(reduce(one()).health.senderOffloadOff, null)
 })

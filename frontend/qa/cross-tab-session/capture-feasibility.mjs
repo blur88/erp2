@@ -20,7 +20,7 @@ import { machine, servedBuild } from './lib/machine.mjs'
 import { captureSegment } from './lib/probe.mjs'
 import { captureUsable, correlate } from './lib/capture-evidence.mjs'
 import { windowBetween } from './lib/ingress-log.mjs'
-import { FEASIBILITY_PLAN, judgeFeasibility } from './lib/feasibility.mjs'
+import { EXPIRED_MESSAGE, FEASIBILITY_PLAN, judgeFeasibility } from './lib/feasibility.mjs'
 
 const { parseLine } = await import(pathToFileURL(join(REPO_ROOT, 'nginx/access-log.mjs')).href)
 
@@ -28,7 +28,11 @@ const ROUTE = '/api/settings/regional' // a read every role may make
 const SEGMENT = 'feasibility'
 const START = 'feasibility-start'
 const END = 'feasibility-end'
+const REFRESH = 'aux-refresh'
 const GARBAGE_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.not-a-real-token.signature'
+// The workload took about 10 s when it was first run; a current token with less
+// than this left when the first request goes out cannot cover it.
+const LIFETIME_NEEDED_MS = 15000
 
 const messageOf = (response) => {
   const m = response?.json?.message
@@ -78,22 +82,10 @@ async function main() {
     await page.goto(`${config.base}/manifest.json`, { waitUntil: 'load' })
 
     // An access token that has really expired: the first one, once its
-    // lifetime is over. Then a current one, by refreshing.
+    // lifetime is over.
     const untilExpired = first.accessTokenExpiresAt * 1000 + 1500 - Date.now()
     if (untilExpired > 0) await sleep(untilExpired)
-    const refreshed = await pageFetch(page, { method: 'POST', path: '/api/auth/refresh', qaId: 'pre-refresh', body: { refreshToken: first.refreshToken } })
-    const tokens = refreshed.json?.data ?? refreshed.json
-    if (refreshed.status < 200 || refreshed.status >= 300 || typeof tokens?.accessToken !== 'string') {
-      throw new Error(`the refresh before the run was answered ${refreshed.status}`)
-    }
-    const current = tokens.accessToken
     const expired = first.accessToken
-    record.tokens = {
-      currentFingerprint: fingerprint(current),
-      expiredFingerprint: fingerprint(expired),
-      garbageFingerprint: fingerprint(GARBAGE_TOKEN),
-      currentLifetimeLeftMsAtStart: tokens.accessTokenExpiresAt * 1000 - Date.now(),
-    }
 
     // The limiter's bucket is empty before the first request.
     await sleep(zones.drainWaitSeconds(zones.api.ratePerSecond, zones.api.burst) * 1000)
@@ -103,9 +95,28 @@ async function main() {
     let n = 0
     const id = (group) => `fz-${group}-${String((n += 1)).padStart(3, '0')}`
     const padding = { 'X-QA-Padding': 'x'.repeat(plan.paddingBytes) }
+    const token = {}
+    let current = null
 
     const capture = await captureSegment(config, SEGMENT, async () => {
       await pageFetch(page, { path: '/manifest.json', qaId: START })
+      // The current token, taken immediately before the workload so that its
+      // whole lifetime is ahead of it. The refresh is one identified request
+      // of its own, accounted for apart from the 200.
+      const refreshed = await pageFetch(page, { method: 'POST', path: '/api/auth/refresh', qaId: REFRESH, body: { refreshToken: first.refreshToken } })
+      const tokens = refreshed.json?.data ?? refreshed.json
+      if (refreshed.status < 200 || refreshed.status >= 300 || typeof tokens?.accessToken !== 'string') {
+        throw new Error(`the refresh before the workload was answered ${refreshed.status}`)
+      }
+      current = tokens.accessToken
+      const expiresAtMs = tokens.accessTokenExpiresAt * 1000
+      token.lifetimeLeftMsAtStart = expiresAtMs - Date.now()
+      token.lifetimeNeededMs = LIFETIME_NEEDED_MS
+      if (token.lifetimeLeftMsAtStart < LIFETIME_NEEDED_MS) {
+        throw new Error(`the current token has ${token.lifetimeLeftMsAtStart} ms left, less than the ${LIFETIME_NEEDED_MS} ms the workload needs`)
+      }
+
+      // The groups that need the current token come first.
       // Reused connections: one request at a time.
       for (let i = 0; i < plan.sequential; i += 1) await pageFetch(page, { path: ROUTE, qaId: id('seq'), bearer: current })
       // Concurrent traffic, enough of it that the limiter delays.
@@ -114,6 +125,8 @@ async function main() {
       }
       // Requests meant to span several frames.
       for (let i = 0; i < plan.padded; i += 1) await pageFetch(page, { path: ROUTE, qaId: id('pad'), bearer: current, headers: padding })
+      token.lifetimeLeftMsAfterLastValidRequest = expiresAtMs - Date.now()
+
       // Authentication errors, with what the backend said.
       for (let i = 0; i < plan.expired; i += 1) answers.expired.push(await pageFetch(page, { path: ROUTE, qaId: id('expired'), bearer: expired }))
       for (let i = 0; i < plan.garbage; i += 1) answers.garbage.push(await pageFetch(page, { path: ROUTE, qaId: id('garbage'), bearer: GARBAGE_TOKEN }))
@@ -121,15 +134,36 @@ async function main() {
       // The ingress writes its log once a second.
       await sleep(2500)
     })
-    record.currentLifetimeLeftMsAtEnd = tokens.accessTokenExpiresAt * 1000 - Date.now()
+    if (capture.failure) throw capture.failure
+    record.tokens = {
+      currentFingerprint: fingerprint(current),
+      expiredFingerprint: fingerprint(expired),
+      garbageFingerprint: fingerprint(GARBAGE_TOKEN),
+    }
+    record.token = token
 
     // ---- the three sources ---------------------------------------------------
-    const browserEntries = profile.since(mark).filter((e) => e.qaId && String(e.qaId).startsWith('fz-'))
+    const named = profile.since(mark).filter((e) => e.qaId && (String(e.qaId).startsWith('fz-') || e.qaId === REFRESH))
+    const browserEntries = named.filter((e) => e.qaId !== REFRESH)
     const harnessNamed = profile.since(mark).filter((e) => e.qaId && String(e.qaId).startsWith('app-'))
     const ingressAll = config.ingressLog && existsSync(config.ingressLog) ? readFileSync(config.ingressLog, 'utf8').split('\n').map(parseLine).filter(Boolean) : null
     const window = ingressAll ? windowBetween(ingressAll, START, END) : null
     const ingressEntries = window ? window.entries : []
-    const { matched, problems } = correlate(browserEntries, ingressEntries, capture)
+    // Correlated together, the refresh included: it is a request this run sent,
+    // so it must be in all three sources like the others. It is counted apart.
+    const all = correlate(named, ingressEntries, capture)
+    const matched = all.matched.filter((m) => m.qaId !== REFRESH)
+    const problems = all.problems
+    const refreshCorrelated = all.matched.some((m) => m.qaId === REFRESH)
+
+    // What each group was answered, from the browser's own record.
+    const groups = {}
+    for (const name of ['seq', 'burst', 'pad', 'expired', 'garbage']) {
+      const statuses = {}
+      for (const e of browserEntries.filter((x) => x.qaId.startsWith(`fz-${name}-`))) statuses[e.status] = (statuses[e.status] ?? 0) + 1
+      groups[name] = { intended: name === 'expired' || name === 'garbage' ? '401 expired' : '2xx', statuses }
+    }
+    for (const name of ['expired', 'garbage']) groups[name].messages = [...new Set(answers[name].map(messageOf))]
 
     const fingerprintMismatches = []
     const statusMismatches = []
@@ -166,9 +200,16 @@ async function main() {
         status401: browserEntries.filter((e) => e.status === 401).length,
         otherStatuses: [...new Set(browserEntries.map((e) => e.status).filter((s) => !(s >= 200 && s < 300) && s !== 401))],
       },
-      authenticationErrors: {
-        expired: [...new Set(answers.expired.map((a) => `${a.status} ${messageOf(a)}`))],
-        garbage: [...new Set(answers.garbage.map((a) => `${a.status} ${messageOf(a)}`))],
+      groups,
+      expectedMessage: EXPIRED_MESSAGE,
+      refresh: { qaId: REFRESH, correlated: refreshCorrelated },
+      // Whether the padding reached the backend, by its length there. What
+      // spanned several frames is judged separately, on the frames themselves.
+      paddedReachedUpstream: captured.filter((c) => c.qaId.startsWith('fz-pad-') && c.paddingBytes === plan.paddingBytes).length,
+      frames: {
+        padded: [...new Set(captured.filter((c) => c.qaId.startsWith('fz-pad-')).map((c) => JSON.stringify(c.frameBytes)))].slice(0, 6),
+        largestFrameBytes: Math.max(0, ...captured.flatMap((c) => c.frameBytes ?? [])),
+        offload: { receiverOff: capture.health?.groOff ?? null, senderIface: capture.health?.senderIface ?? null, senderOff: capture.health?.senderOffloadOff ?? null },
       },
       // Requests the profile sent in the segment that this script did not name.
       harnessNamedRequests: harnessNamed.map((e) => `${e.qaId} ${e.method} ${e.path} ${e.status}`),

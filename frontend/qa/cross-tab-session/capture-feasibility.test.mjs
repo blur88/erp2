@@ -11,6 +11,16 @@ const good = () => ({
   statusMismatches: [],
   categories: { reusedStreams: 6, requestsOnReusedStreams: 200, delayed: 80, multiFrame: 40, status2xx: 180, status401: 20 },
   capture: { usable: true, why: null },
+  paddedReachedUpstream: 40,
+  groups: {
+    seq: { intended: '2xx', statuses: { 200: 40 } },
+    burst: { intended: '2xx', statuses: { 200: 100 } },
+    pad: { intended: '2xx', statuses: { 200: 40 } },
+    expired: { intended: '401 expired', statuses: { 401: 10 }, messages: ['Invalid or expired token'] },
+    garbage: { intended: '401 expired', statuses: { 401: 10 }, messages: ['Invalid or expired token'] },
+  },
+  token: { lifetimeLeftMsAtStart: 19000, lifetimeLeftMsAfterLastValidRequest: 7000 },
+  refresh: { correlated: true },
 })
 
 const failuresOf = (change) => {
@@ -95,4 +105,60 @@ test('several things wrong are all named', () => {
     r.capture = { usable: false, why: 'no health record' }
   })
   assert.deepEqual(j.failures.map((f) => f.check).sort(), ['multi-frame requests were observed', 'the capture is usable'])
+})
+
+// --- each group got the answers it was sent for --------------------------------
+
+test('a valid-token group with one 401 in it fails, and names the group', () => {
+  const j = failuresOf((r) => (r.groups.pad.statuses = { 200: 39, 401: 1 }))
+  assert.deepEqual(j.failures.map((f) => f.check), ['every group got its intended statuses'])
+  assert.match(j.failures[0].detail, /pad/)
+})
+
+test('a burst request refused by the ingress is not an intended status', () => {
+  const j = failuresOf((r) => (r.groups.burst.statuses = { 200: 99, 429: 1 }))
+  assert.match(j.failures[0].detail, /burst/)
+})
+
+test('an authentication-error group answered 2xx fails', () => {
+  const j = failuresOf((r) => (r.groups.expired.statuses = { 200: 10 }))
+  assert.match(j.failures[0].detail, /expired/)
+})
+
+test('an authentication error with another message than the expiry one fails', () => {
+  const j = failuresOf((r) => (r.groups.garbage.messages = ['Session has been revoked or expired']))
+  assert.deepEqual(j.failures.map((f) => f.check), ['every group got its intended statuses'])
+})
+
+test('a group with fewer answers than it sent fails', () => {
+  const j = failuresOf((r) => (r.groups.seq.statuses = { 200: 39 }))
+  assert.match(j.failures[0].detail, /seq/)
+})
+
+// --- the token outlived the requests that needed it ------------------------------
+
+test('a token that had expired by the last request that needed it fails', () => {
+  const j = failuresOf((r) => (r.token.lifetimeLeftMsAfterLastValidRequest = -1))
+  assert.deepEqual(j.failures.map((f) => f.check), ['the current token outlived the requests that needed it'])
+})
+
+test('a token with exactly no time left is not enough; one millisecond is', () => {
+  assert.equal(failuresOf((r) => (r.token.lifetimeLeftMsAfterLastValidRequest = 0)).verdict, 'fail')
+  assert.equal(failuresOf((r) => (r.token.lifetimeLeftMsAfterLastValidRequest = 1)).verdict, 'pass')
+})
+
+test('an unknown remaining lifetime fails', () => {
+  assert.equal(failuresOf((r) => (r.token.lifetimeLeftMsAfterLastValidRequest = null)).verdict, 'fail')
+})
+
+// --- the padding, and the refresh ----------------------------------------------
+
+test('padding that did not reach the upstream on every padded request fails', () => {
+  const j = failuresOf((r) => (r.paddedReachedUpstream = 39))
+  assert.deepEqual(j.failures.map((f) => f.check), ['the padding reached the upstream on every padded request'])
+})
+
+test('the refresh before the workload is accounted for apart from the 200, and must correlate too', () => {
+  const j = failuresOf((r) => (r.refresh.correlated = false))
+  assert.deepEqual(j.failures.map((f) => f.check), ['the refresh before the workload is in all three sources'])
 })

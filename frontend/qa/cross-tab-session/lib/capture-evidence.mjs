@@ -81,8 +81,15 @@ function overlaps(record, fromMs, toMs) {
 export function captureUsable(capture, fromMs, toMs) {
   const { health, invalid } = capture
   if (!health) return { usable: false, why: 'the segment has no health record: it is still open or it did not end cleanly' }
-  if (typeof health.dropped === 'number' && health.dropped > 0) {
-    return { usable: false, why: `the capture tool dropped ${health.dropped} packets` }
+  // Only an explicitly reported zero is zero. A count the tool did not report,
+  // or one that is not a whole non-negative number, is unknown, and a capture
+  // that may have dropped packets cannot be evidence that a request was absent.
+  const dropped = health.dropped
+  if (typeof dropped !== 'number' || !Number.isInteger(dropped) || dropped < 0) {
+    return { usable: false, why: 'the capture tool did not report a readable dropped-packet count' }
+  }
+  if (dropped > 0) {
+    return { usable: false, why: `the capture tool dropped ${dropped} packets` }
   }
   const inside = invalid.filter((record) => overlaps(record, fromMs, toMs))
   if (inside.length > 0) {

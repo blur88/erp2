@@ -2,7 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { loadCapture, captureUsable, correlate } from './lib/capture-evidence.mjs'
 
-const HEALTH = { kind: 'health', frames: 10, captured: 10, dropped: null, analysis: {}, tshark: 'tshark 4.6.5' }
+// A finalised segment whose capture tool reported that it dropped nothing.
+const HEALTH = { kind: 'health', frames: 10, captured: 10, dropped: 0, analysis: {}, tshark: 'tshark 4.6.5' }
 
 const request = (qaId, extra = {}) => ({
   kind: 'request',
@@ -35,7 +36,7 @@ test('loadCapture reads the requests, what it could not read, and how it ended',
   const capture = captureOf(request('a-1'), request('a-2'), invalid('lost-segment', 900, 1100))
   assert.deepEqual([...capture.requests.keys()], ['a-1', 'a-2'])
   assert.equal(capture.invalid.length, 1)
-  assert.equal(capture.health.dropped, null)
+  assert.equal(capture.health.dropped, 0)
 })
 
 test('loadCapture refuses a second record with an id already seen', () => {
@@ -134,4 +135,30 @@ test('correlate does not call a status or token a match it is not', () => {
   const other = captureOf(request('a-2', { tokenFingerprint: 'ffffffffffff' }))
   const second = correlate([{ qaId: 'a-2', tokenFingerprint: 'abc123abc123' }], [{ qaId: 'a-2', status: 200 }], other)
   assert.equal(second.matched[0].tokenAgree, false)
+})
+
+// --- the drop count must be an explicitly reported zero -----------------------
+
+const finalised = (dropped) => ({ requests: new Map(), invalid: [], duplicates: [], health: { kind: 'health', dropped } })
+
+test('a capture whose tool reported zero drops may be judged', () => {
+  assert.deepEqual(captureUsable(finalised(0), 0, 10), { usable: true, why: null })
+})
+
+test('a capture with no reported drop count may not be judged', () => {
+  for (const dropped of [null, undefined]) {
+    const u = captureUsable(finalised(dropped), 0, 10)
+    assert.equal(u.usable, false, String(dropped))
+    assert.match(u.why, /did not report/)
+  }
+})
+
+test('a malformed drop count may not be judged', () => {
+  for (const dropped of ['0', NaN, -1, 0.5, Infinity, true, {}]) {
+    assert.equal(captureUsable(finalised(dropped), 0, 10).usable, false, String(dropped))
+  }
+})
+
+test('a reported drop still makes the capture unusable, and says how many', () => {
+  assert.match(captureUsable(finalised(3), 0, 10).why, /dropped 3 packets/)
 })

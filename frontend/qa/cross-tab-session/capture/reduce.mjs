@@ -11,16 +11,21 @@
 // entries for the headers it has no field of its own for.
 //
 // Written by capture/entrypoint.sh. Usage:
-//   reduce.mjs --segment <name> --out <file.jsonl> [--tshark-stderr <file>]
+//   reduce.mjs --segment <name> --out <file.jsonl> [--capture-stderr <file>]
 //              [--require-qa-id] [--iface <name> --gro-off 0|1]
+//              [--sender-iface <name> --sender-offload-off 0|1]
 //              [--tshark-version-file <file>]
 //
 // Output, one JSON object per line:
 //   { kind: 'request', qaId, method, uri, tokenFingerprint, stream, frames,
-//     frameCount, arrivedFirstMs, arrivedLastMs, status, answeredFrames,
-//     answeredFrameCount, answeredFirstMs, answeredLastMs, retransmitted }
-//   { kind: 'invalid', reason, stream, fromMs, toMs, detail }
-//   { kind: 'health', frames, captured, dropped, analysis, tshark, reducer }
+//     frameCount, frameBytes, bytes, paddingBytes, arrivedFirstMs,
+//     arrivedLastMs, status, answeredFrames, answeredFrameCount,
+//     answeredFirstMs, answeredLastMs, retransmitted }
+//   { kind: 'invalid', reason, stream, fromMs, toMs, detail, src, dst }
+//   { kind: 'health', frames, captured, dropped, dropDetail, analysis, tshark,
+//     reducer }
+// `dropped` is a number only when the capture tool reported one; a count it
+// did not report is null, never zero.
 // A missing health record means the capture did not end cleanly, and a segment
 // with one is the only thing that may be judged.
 
@@ -38,11 +43,15 @@ function arg(name, fallback = null) {
 }
 const segment = arg('segment', 'segment')
 const outPath = arg('out')
-const tsharkStderrPath = arg('tshark-stderr', null)
+const captureStderrPath = arg('capture-stderr', null)
 const tsharkVersionPath = arg('tshark-version-file', null)
 const requireQaId = argv.includes('--require-qa-id')
 const iface = arg('iface', null)
 const groOff = arg('gro-off', null) === '1'
+// The sending end (the ingress): null when the capture was not told.
+const senderIface = arg('sender-iface', null)
+const senderOffloadArg = arg('sender-offload-off', null)
+const senderOffloadOff = senderOffloadArg === null ? null : senderOffloadArg === '1'
 
 if (!outPath) {
   process.stderr.write('reduce.mjs: --out is required\n')
@@ -109,13 +118,16 @@ class Direction {
   }
 }
 
-// Which frames a message was reassembled from, and when each was captured.
+// Which frames a message was reassembled from, how many bytes each carried,
+// and when each was captured.
 function recordFrames(list) {
   const first = list[0]
   const last = list[list.length - 1]
   return {
     frames: list.map((f) => f.frame),
     frameCount: list.length,
+    frameBytes: list.map((f) => f.bytes),
+    bytes: list.reduce((sum, f) => sum + f.bytes, 0),
     firstFrame: first.frame,
     lastFrame: last.frame,
     firstMs: first.ms,
@@ -137,6 +149,22 @@ function directionFor(frame) {
 // Every request frame number, so the decoder's own pairing can be checked
 // against it and not merely trusted.
 const requestsByFrame = new Map()
+
+// Both ends of the connection a frame travelled on, as address:port. Null when
+// the decoder named no address: a guess would be worse than nothing.
+function endpoints(layers, srcPort, dstPort) {
+  const v4 = layers.ip
+  const v6 = layers.ipv6
+  const one = (address, port, bracket) =>
+    typeof address === 'string' && address !== '' ? `${bracket ? `[${address}]` : address}:${port}` : null
+  if (v4 && v4.ip_ip_src !== undefined) {
+    return { src: one(firstValue(v4.ip_ip_src), srcPort, false), dst: one(firstValue(v4.ip_ip_dst), dstPort, false) }
+  }
+  if (v6 && v6.ipv6_ipv6_src !== undefined) {
+    return { src: one(firstValue(v6.ipv6_ipv6_src), srcPort, true), dst: one(firstValue(v6.ipv6_ipv6_dst), dstPort, true) }
+  }
+  return { src: null, dst: null }
+}
 
 // A stream the decoder says lost a segment on, from when it says so. Nothing
 // read from that stream after that point is a message anyone may rely on, so no
@@ -161,12 +189,13 @@ function handleFrame(rec) {
   framesSeen += 1
 
   if (!Number.isFinite(frameNumber) || ms === null || !Number.isFinite(stream)) return
+  const ends = endpoints(layers, srcPort, dstPort)
 
   if (flag(analysis.tcp_analysis_retransmission)) analysisCounts.retransmission += 1
   if (flag(analysis.tcp_analysis_lost_segment)) {
     analysisCounts.lost_segment += 1
     doubtfulFrom.set(stream, ms)
-    invalid.push({ reason: 'lost-segment', stream, fromMs: ms, toMs: ms, detail: 'tcp.analysis.lost_segment' })
+    invalid.push({ reason: 'lost-segment', stream, fromMs: ms, toMs: ms, detail: 'tcp.analysis.lost_segment', ...ends })
   }
   if (flag(analysis.tcp_analysis_ack_lost_segment)) {
     analysisCounts.ack_lost_segment += 1
@@ -177,11 +206,12 @@ function handleFrame(rec) {
       fromMs: ms,
       toMs: ms,
       detail: 'tcp.analysis.ack_lost_segment: a segment acknowledged but never seen',
+      ...ends,
     })
   }
   if (flag(analysis.tcp_analysis_flags_tree) && layers['tcp.segment']?.tcp_segment_error) {
     analysisCounts.overlap += 1
-    invalid.push({ reason: 'segment-error', stream, fromMs: ms, toMs: ms, detail: 'tcp.segment.error' })
+    invalid.push({ reason: 'segment-error', stream, fromMs: ms, toMs: ms, detail: 'tcp.segment.error', ...ends })
   }
 
   const isRequest = http.http_http_request !== undefined && http.http_http_request_method !== undefined
@@ -211,12 +241,13 @@ function handleFrame(rec) {
       fromMs: ms,
       toMs: ms,
       detail: `tcp.seq ${seq} follows ${side.nextSeq}`,
+      ...ends,
     })
     side.pending = []
     side.nextSeq = seq
   }
   side.nextSeq = seq + dataLen
-  side.pending.push({ frame: frameNumber, ms })
+  side.pending.push({ frame: frameNumber, ms, bytes: dataLen })
 
   if (!isRequest && !isResponse) return
 
@@ -227,6 +258,10 @@ function handleFrame(rec) {
     const headerLines = [http.http_http_request_line ?? []].flat().map(String)
     const qaLine = headerLines.find((line) => /^x-qa-request-id:/i.test(line))
     const qaId = qaLine ? qaLine.slice(qaLine.indexOf(':') + 1).trim() : null
+    // The padding a feasibility request carries, by its length alone: whether
+    // it reached the backend is the question, and its content is never kept.
+    const paddingLine = headerLines.find((line) => /^x-qa-padding:/i.test(line))
+    const paddingBytes = paddingLine ? paddingLine.slice(paddingLine.indexOf(':') + 1).trim().length : null
     const auth = firstValue(http.http_http_authorization)
     const request = {
       kind: 'request',
@@ -240,6 +275,9 @@ function handleFrame(rec) {
       // what says it spanned several frames, whatever the times read.
       frames: frames.frames,
       frameCount: frames.frameCount,
+      frameBytes: frames.frameBytes,
+      bytes: frames.bytes,
+      paddingBytes,
       arrivedFirstMs: frames.firstMs,
       arrivedLastMs: frames.lastMs,
       status: null,
@@ -265,6 +303,7 @@ function handleFrame(rec) {
         fromMs: frames.firstMs,
         toMs: frames.lastMs,
         detail: `${request.method} ${request.uri}`,
+        ...ends,
       })
     }
     return
@@ -281,6 +320,7 @@ function handleFrame(rec) {
       fromMs: frames.firstMs,
       toMs: frames.lastMs,
       detail: `http.request_in ${Number.isFinite(inFrame) ? inFrame : '(absent)'}`,
+      ...ends,
     })
     return
   }
@@ -291,6 +331,7 @@ function handleFrame(rec) {
       fromMs: frames.firstMs,
       toMs: frames.lastMs,
       detail: 'a second response for one request on this stream',
+      ...ends,
     })
     return
   }
@@ -322,20 +363,49 @@ function markDuplicateQaIds() {
   }
 }
 
-/** tshark's own captured and dropped counts, read from the file its stderr went to. */
+/**
+ * What the capture tool says it captured and dropped, from the file its stderr
+ * went to. The tool is dumpcap, which ends with one line per interface:
+ *
+ *   Packets received/dropped on interface 'any': 709/0 (pcap:0/dumpcap:0/flushed:0/ps_ifdrop:0) (100.0%)
+ *
+ * `dropped` is a number only when every such line could be read in full and
+ * its total equals the sum of its parts. Anything else - no line, a line cut
+ * short, a total that disagrees with its parts - leaves it null: a count nobody
+ * reported is not a count of zero. (tshark on its own prints a drop line only
+ * when it dropped something, which is why it is not what captures here.)
+ */
 function readCaptureCounts() {
-  const counts = { captured: null, dropped: null }
-  if (!tsharkStderrPath) return counts
+  const counts = { captured: null, dropped: null, dropDetail: null }
+  if (!captureStderrPath) return counts
   let text = ''
   try {
-    text = readFileSync(tsharkStderrPath, 'utf8')
+    text = readFileSync(captureStderrPath, 'utf8')
   } catch {
     return counts
   }
-  const captured = /(\d+)\s+packets captured/.exec(text)
-  const dropped = /(\d+)\s+packets dropped/.exec(text)
+  const captured = /Packets captured:\s*(\d+)/.exec(text) ?? /(\d+)\s+packets captured/.exec(text)
   if (captured) counts.captured = Number(captured[1])
-  if (dropped) counts.dropped = Number(dropped[1])
+
+  const lines = text.split('\n').filter((line) => line.includes('Packets received/dropped on interface'))
+  if (lines.length === 0) return counts
+  const full = /^Packets received\/dropped on interface '[^']*': (\d+)\/(\d+) \(pcap:(\d+)\/dumpcap:(\d+)\/flushed:(\d+)\/ps_ifdrop:(\d+)\)/
+  const detail = { received: 0, pcap: 0, dumpcap: 0, flushed: 0, ps_ifdrop: 0 }
+  let dropped = 0
+  for (const line of lines) {
+    const m = full.exec(line.trim())
+    if (!m) return counts
+    const [received, total, pcap, dumpcap, flushed, ifdrop] = m.slice(1).map(Number)
+    if (total !== pcap + dumpcap + flushed + ifdrop) return counts
+    dropped += total
+    detail.received += received
+    detail.pcap += pcap
+    detail.dumpcap += dumpcap
+    detail.flushed += flushed
+    detail.ps_ifdrop += ifdrop
+  }
+  counts.dropped = dropped
+  counts.dropDetail = detail
   return counts
 }
 
@@ -395,6 +465,7 @@ async function main() {
     invalid: invalid.length,
     captured: counts.captured,
     dropped: counts.dropped,
+    dropDetail: counts.dropDetail,
     analysis: analysisCounts,
     tshark: readTsharkVersion(),
     reducer: REDUCER_VERSION,
@@ -403,6 +474,11 @@ async function main() {
     // Whether segmentation offload was off, so the frames a message spans are
     // the segments it was sent in and not one coalesced frame.
     groOff,
+    // And at the sending end, which is the one that decides: with segmentation
+    // offload on there, a request larger than the MTU crosses the bridge as one
+    // large frame and is never segmented at all, whatever this end is set to.
+    senderIface,
+    senderOffloadOff,
   })
 }
 
