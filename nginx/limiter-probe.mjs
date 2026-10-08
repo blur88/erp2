@@ -550,7 +550,12 @@ async function main() {
 // evidence for it, or unresolved.
 function assemble({ confSha256, toleranceMs }) {
   const [e0, e1, e2, e3, e4, e5] = experiments
-  const established = (finding, evidence) => ({ status: 'established', finding, evidence })
+  // `detail` is the same claim as the finding, in a form code can read: which
+  // handler runs when, and whether a delayed request is accounted while it
+  // waits. A verification phase asserts a limiter's field only where the detail
+  // says that handler ran, so these are derived from the observations and are
+  // absent when the observation is not there.
+  const established = (finding, evidence, detail = null) => ({ status: 'established', finding, evidence, detail })
   const unresolved = (why) => ({ status: 'unresolved', finding: '', evidence: [why] })
 
   const ORDER = [
@@ -569,6 +574,7 @@ function assemble({ confSha256, toleranceMs }) {
           `E1: ${e1.observations.refused} lines refused by limit_conn, all of them with lreq=${JSON.stringify(e1.observations.lreqOnConnRefused)}`,
           `E4: ${e4.observations.rejectedByLimitReq} lines refused by limit_req, all of them with lconn=${JSON.stringify(e4.observations.lconnOnReqRefused)}`,
         ],
+        { limitReqFirst: true },
       )
     : unresolved(
         `the source says limit_req runs first, but the experiments did not agree: E1 limit_conn refusals ${e1.observations.refused} with lreq ${JSON.stringify(e1.observations.lreqOnConnRefused)}; E4 limit_req refusals ${e4.observations.rejectedByLimitReq} with lconn ${JSON.stringify(e4.observations.lconnOnReqRefused)}`,
@@ -582,6 +588,7 @@ function assemble({ confSha256, toleranceMs }) {
           'src/http/modules/ngx_http_limit_req_module.c: a delayed request sets limit_req_status = DELAYED, write_event_handler = ngx_http_limit_req_delay, a timer, and returns NGX_AGAIN; ngx_http_limit_req_delay then resumes ngx_http_core_run_phases, where limit_req returns NGX_DECLINED because its status is set, so limit_conn runs next',
           `E3: ${e3.observations.delayed} of ${e3.observations.released} concurrent requests were delayed, ${e3.observations.connRefused} were refused by limit_conn, and the ${e3.observations.delayed} releases arrived ${JSON.stringify(e3.observations.releaseGapsMs)} ms apart against an expected ${e3.observations.expectedGapMs} ms`,
         ],
+        { delayedCountedByLimitConn: false },
       )
     : unresolved(
         `E3 released ${e3.observations.released} concurrent requests with the excess above delay=${api.delay}: ${e3.observations.delayed} delayed, ${e3.observations.connRefused} refused by limit_conn, release gaps ${JSON.stringify(e3.observations.releaseGapsMs)} ms against an expected ${1000 / api.ratePerSecond} ms; the source says a delayed request is not accounted by limit_conn until its delay expires`,
@@ -596,7 +603,20 @@ function assemble({ confSha256, toleranceMs }) {
           'src/http/modules/ngx_http_limit_conn_module.c: ngx_http_limit_conn_status_variable sets v->not_found while limit_conn_status is 0, so the log field writes "-"',
           `E1: ${e1.observations.refused} limit_conn refusals with lreq ${JSON.stringify(e1.observations.lreqOnConnRefused)}`,
           `E4: ${e4.observations.rejectedByLimitReq} limit_req refusals with lconn ${JSON.stringify(e4.observations.lconnOnReqRefused)}`,
+          `E2: ${e2.observations.delayed} delayed lines with lconn ${JSON.stringify(e2.observations.lconnOnDelayed)}`,
         ],
+        {
+          // On a request limit_req refused, limit_conn's handler was reached or
+          // it was not: E4's lines say. On a request limit_conn refused,
+          // limit_req had already run: E1's lines say. On a request limit_req
+          // delayed, limit_conn's handler runs once the delay expires: E2's
+          // lines say.
+          limitConnRunsOnMeteredRequests: e2.observations.delayed > 0 && e2.observations.lconnOnDelayed.PASSED === e2.observations.delayed,
+          limitConnRunsWhenLimitReqRefused:
+            e4.observations.rejectedByLimitReq > 0 && e4.observations.lconnOnReqRefused.PASSED === e4.observations.rejectedByLimitReq,
+          limitReqRunsWhenLimitConnRefused:
+            e1.observations.refused > 0 && e1.observations.lreqOnConnRefused.PASSED === e1.observations.refused,
+        },
       )
     : unresolved(
         `one of the two directions was not observed: limit_conn refusals ${e1.observations.refused} (lreq ${JSON.stringify(e1.observations.lreqOnConnRefused)}), limit_req refusals ${e4.observations.rejectedByLimitReq} (lconn ${JSON.stringify(e4.observations.lconnOnReqRefused)})`,
