@@ -533,6 +533,88 @@ records.
 The three records, with their ingress logs and reduced captures, are kept
 outside the repository.
 
+### Recorded run on `198943047` (2026-10-09): exit status 1
+
+The first recorded run on the new limiter configuration. Chromium 153, access
+lifetime 20 s and grace 5 during, 15m / 60 before and after; stack restored.
+**14 of 17 passed. Case 14, case 16 and W1 failed, and the latency measurement
+did not complete.** The forced-failure suites were not started: none has a
+passing baseline.
+
+**W1, as measured** (every figure from this run's `results-cases.json` and the
+ingress log it captured):
+
+| Tabs | Round | Complete after | Deadline | Usable / complete on first load | Recovery actions | Business 429 | Refused by `api_limit` | Delayed by `api_limit` | 401s | Upstream time, median / p95 / max |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 5 | current token | **8.70 s** | 5 s | 5 / 5 | 0 | 0 of 45 | 0 | 0 | 0 | 197 / 564 / 999 ms |
+| 5 | expired token | **8.91 s** | 5 s | 5 / 5 | 0 | 0 of 66 | 0 | 0 | 21 | 68 / 687 / 892 ms |
+| 10 | current token | **16.48 s** | 10 s | 10 / 10 | 0 | 0 of 90 | 0 | 0 | 0 | 114 / 361 / 705 ms |
+| 10 | expired token | **18.87 s** | 10 s | 10 / 10 | 0 | 0 of 180 | 0 | 114 | 90 | 47 / 232 / 875 ms |
+| 20 | current token | **44.34 s** | 15 s | 20 / 20 | 0 | 0 of 275 | 0 | 0 | 95 | 120 / 705 / 1392 ms |
+| 20 | expired token | **not complete** | 15 s | 0 / 0 | 0 | 0 of 155 | 0 | 0 | 152 | 33 / 265 / 453 ms |
+
+- No session-route 429 in any round. Every limiter rejection in the whole run (86)
+  was by `login_limit`; `api_limit` refused nothing.
+- Where the loading rounds completed, every tab was complete on first load with
+  no recovery action: the condition the old configuration failed in 4 of 5 tabs.
+- **Every completed loading round missed its deadline**, by a factor of 1.7 to 3.
+- In the ingress log, the first API request of a round arrived about 3 s after
+  the tabs were opened at five tabs, about 7 s at ten and about 10 s at twenty;
+  the last static file was served at 7.4 s, 17.0 s and 41.9 s.
+- At twenty tabs the current-token round took longer than the 20 s QA access
+  lifetime, so the token expired while the tabs were loading (95 answers 401,
+  and two refreshes 20 s apart, both 200).
+- **Twenty tabs, expired token:** a refresh was answered 200 at 18:37:36.4 UTC
+  and another, 10.1 s later, was answered 401. The session's `auth_sessions`
+  row has `revokeReason = replay` at 18:37:46. Every tab was signed out, the
+  round did not complete, and the sign-out round that followed found no
+  signed-in tab (`All promises were rejected`), which is the error W1 ended on.
+- Sign-out rounds that ran: five and ten tabs, every tab on the login page
+  without a reload in every attempt; an overlap with a delayed request was found
+  on attempt 2 at five tabs and attempt 3 at ten.
+
+**Diagnosis, in the order the plan gives:**
+
+1. *Rejection:* not the cause. `api_limit` refused no request and no business
+   request was answered 429.
+2. *Authentication:* the cause of the failure at twenty tabs (the replay
+   revocation above), and present at twenty tabs in the current-token round as
+   mid-load expiry. Not a factor at five and ten tabs with a current token,
+   which also missed their deadlines.
+3. *Backend latency and the rest of the load:* where the time is. With no
+   request refused or delayed at five tabs, the tabs still took 8.7 s. The limiter
+   did not delay a single request in four of the six rounds.
+
+**Not established:** why a second refresh token was presented 10.1 s after it had
+been superseded (the 5 s QA grace is what made that a replay; with the 60 s
+production grace the same gap would not have been one, which is an inference and
+not a test); how much of the completion time is the page starting up, the
+backend, or the measurement itself, which polls every tab's document every
+250 ms; and whether another machine would meet the deadlines. Two unrelated
+containers were restart-looping on the host throughout, as in earlier runs.
+
+**Defects in the suite, found by this run, not yet fixed:**
+
+- *Case 14* failed with `no configuration file provided`. `host-probe.sh`
+  resolves the repository from its own directory with one `..` too many
+  (changed on this branch), so `docker compose` runs from the wrong directory.
+  The case passed in every earlier recorded run.
+- *Case 16* stopped at a precondition: its profile is opened without
+  `keepAnswers`, so the settings it compares against were never kept. The case
+  has therefore still not exercised the expiry path at all.
+- *The sign-out attempt classifier* reads `round.overlap`, and W1 stores the
+  verdict as `round.signOutOverlap.verdict`. Every attempt was therefore
+  classified `setup-missed` and a further attempt made even after an overlap was
+  found (five tabs: overlap on attempt 2, attempt 3 still run). The unit tests
+  pass a field the workload never writes.
+- *W1's diagnostics* count `limit_req` rejections without the zone, so
+  `login_limit`'s rejections in a sign-out round appear under the same heading
+  as `api_limit`'s would. The zone here comes from the ingress error log.
+- *The latency measurement* ended with `writer did not open signed in` in M2 and
+  wrote no results. Not diagnosed.
+
+The deadlines are acceptance targets and are not changed here.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand
