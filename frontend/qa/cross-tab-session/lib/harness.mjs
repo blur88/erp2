@@ -327,6 +327,16 @@ export class Profile {
       hold.resolve()
       return undefined // deliberately neither continued nor fulfilled until the hold is let go
     }
+    // With { tagRequests: true }: one identifier per API request, so the same
+    // request can be found in the ingress log and in the upstream capture. The
+    // request is otherwise unchanged: the same URL, method, headers and body,
+    // with this one header added.
+    if (this.opts.tagRequests) {
+      const entry = this.byRequest.get(request)
+      const qaId = `app-${entry ? entry.seq : this.ctx.run.seq + 1}`
+      if (entry) entry.qaId = qaId
+      return route.continue({ headers: { ...request.headers(), 'x-qa-request-id': qaId } })
+    }
     return route.fallback()
   }
 
@@ -811,10 +821,19 @@ export async function pauseMidTransaction(page) {
 // protocol marker.
 // ---------------------------------------------------------------------------
 
-export async function pageFetch(page, { method = 'GET', path, body, marker = true, bearer }) {
+/**
+ * One request from the page's own context.
+ *
+ * `qaId` adds the identifier that ties this request to the ingress log and the
+ * upstream capture, and `headers` any further header the caller needs (a case
+ * that must control a header itself rather than let the harness set it). Neither
+ * changes the URL, the method or the body.
+ */
+export async function pageFetch(page, { method = 'GET', path, body, marker = true, bearer, qaId, headers: extra }) {
   return page.evaluate(
-    async ({ method, path, body, markerHeader, bearer }) => {
-      const headers = {}
+    async ({ method, path, body, markerHeader, bearer, qaId, extra }) => {
+      const headers = { ...extra }
+      if (qaId) headers['x-qa-request-id'] = qaId
       if (body !== undefined) headers['Content-Type'] = 'application/json'
       if (markerHeader) headers[markerHeader[0]] = markerHeader[1]
       if (bearer) headers.Authorization = `Bearer ${bearer}`
@@ -832,7 +851,15 @@ export async function pageFetch(page, { method = 'GET', path, body, marker = tru
       }
       return { status: response.status, json, text: json === null ? text.slice(0, 200) : null, date: response.headers.get('date') }
     },
-    { method, path, body, markerHeader: marker ? [MARKER, MARKER_VALUE] : null, bearer: bearer ?? null },
+    {
+      method,
+      path,
+      body,
+      markerHeader: marker ? [MARKER, MARKER_VALUE] : null,
+      bearer: bearer ?? null,
+      qaId: qaId ?? null,
+      extra: extra ?? null,
+    },
   )
 }
 
