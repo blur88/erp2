@@ -15,10 +15,13 @@
 # hand:   host-probe.sh <scratch-dir>
 set -euo pipefail
 
-# This script's own directory, not the checkout: an override copy of the suite
-# outside the repository answers the same requests with its own scripts.
+# run.sh always starts this script from the repository, never from an override
+# copy of the suite: `docker compose` below has to run where the compose file
+# is, which is three directories up from here (frontend/qa/cross-tab-session).
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "${HERE}/../../../.." && pwd)"
+ROOT="$(cd "${HERE}/../../.." && pwd)"
+# For the test that pins the line above: print it and stop.
+if [ "${1:-}" = "--print-root" ]; then echo "${ROOT}"; exit 0; fi
 SCRATCH="${1:-${ERP_SESSION_SCRATCH:-/tmp/opencode/erp-session-qa}}"
 DIR="${SCRATCH}/probe"
 mkdir -p "${DIR}"

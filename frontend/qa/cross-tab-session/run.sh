@@ -148,7 +148,9 @@ fi
 rm -f "${SCRATCH}"/results-cases.json "${SCRATCH}"/results-latency.json "${SCRATCH}"/results.json \
   "${SCRATCH}"/stack-during.json "${SCRATCH}"/stack-after.json "${SCRATCH}"/stack-before.recorded.json \
   "${SCRATCH}"/docker-ps-before-latency.txt \
-  "${SCRATCH}"/ingress-access.log "${SCRATCH}"/ingress-error.log
+  "${SCRATCH}"/ingress-access.log "${SCRATCH}"/ingress-error.log \
+  "${SCRATCH}"/ingress-access.latency.log "${SCRATCH}"/ingress-error.latency.log \
+  "${SCRATCH}"/measure-failure.json
 "${QA_DIR}/stack.sh" show > "${SCRATCH}/stack-before.json.tmp" || refuse "could not read the running configuration"
 mv "${SCRATCH}/stack-before.json.tmp" "${SCRATCH}/stack-before.json"
 cp "${SCRATCH}/stack-before.json" "${SCRATCH}/stack-before.recorded.json"
@@ -201,7 +203,13 @@ if [ "${RESTORE_FAILED}" -eq 0 ]; then
       rm -f "${SCRATCH}/docker-ps-before-latency.txt.tmp"
       echo "could not list the host's containers; the competing workload will be recorded as not captured" >&2
     fi
+    # The ingress log is followed through the measurement too, into a file of
+    # its own: a measurement that fails should leave what the ingress saw.
+    docker logs -f --since 0s erp_nginx > "${SCRATCH}/ingress-access.latency.log" 2> "${SCRATCH}/ingress-error.latency.log" &
+    INGRESS_PID=$!
     in_playwright measure.mjs stack-after.json || fail 1
+    kill "${INGRESS_PID}" 2>/dev/null || true
+    INGRESS_PID=""
   else
     fail 1
   fi

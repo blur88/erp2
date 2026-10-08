@@ -70,6 +70,7 @@ import {
   ACTION,
   COMPANY_SETTINGS,
   DASHBOARD,
+  KEEP_SHELL_ANSWERS,
   MAX_ACTION_TRIES,
   MAX_RECOVERY_ACTIONS,
   REGIONAL_SETTINGS,
@@ -271,7 +272,7 @@ export default {
     let shell = null
 
     for (const n of sizes) {
-      const profile = await ctx.profile({ keepAnswers: /^\/api\/settings\/(company|regional)$/ })
+      const profile = await ctx.profile({ keepAnswers: KEEP_SHELL_ANSWERS })
       const signIn = await profile.tab('/login', { label: 'sign-in', navigate: false })
       await ctx.signIn(signIn, config.userC)
       // The profile now holds a stored session. The signed-in tab is replaced

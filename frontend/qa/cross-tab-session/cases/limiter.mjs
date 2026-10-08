@@ -46,13 +46,20 @@ import { captureSegment } from '../lib/probe.mjs'
 import { loadCapture, captureUsable, correlate } from '../lib/capture-evidence.mjs'
 import { windowBetween } from '../lib/ingress-log.mjs'
 import { watchCompletion } from '../lib/completion.mjs'
-import { REGIONAL_SETTINGS, shellReference } from '../lib/usable.mjs'
+import { KEEP_SHELL_ANSWERS, REGIONAL_SETTINGS, shellReference } from '../lib/usable.mjs'
 import { CALIBRATION, EXPIRED_MESSAGE, MAX_SETUP_ATTEMPTS, monotonic, recoveryDeadline, judgeExpiryCrossing, maxConfiguredDelayMs } from '../lib/expiry-crossing.mjs'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const REPO_ROOT = new URL('../../../..', import.meta.url)
+
+// How the case's profile is opened. Every API request carries an identifier
+// (tagRequests, which needs intercept), and the answers to the two settings
+// routes are kept: the case's first precondition compares the holder tab's
+// shell against what the server said, and without keepAnswers there is nothing
+// to compare with (the recorded run on 198943047 stopped there).
+export const PROFILE_OPTIONS = { intercept: true, tagRequests: true, keepAnswers: KEEP_SHELL_ANSWERS }
 const { parseLine } = await import(pathToFileURL(join(REPO_ROOT.pathname, 'nginx/access-log.mjs')).href)
 
 /** /api/auth/me is on session_limit, which does not delay: a probe, not filler. */
@@ -159,7 +166,7 @@ export default [
         zones.drainWaitSeconds(zones.session.ratePerSecond, zones.session.burst) * 1000,
       )
 
-      const profile = await ctx.profile({ intercept: true, tagRequests: true })
+      const profile = await ctx.profile(PROFILE_OPTIONS)
       const holder = await profile.tab('/login', { label: 'holder' })
       await ctx.signIn(holder, config.userC)
       const shell = await shellReference(profile)

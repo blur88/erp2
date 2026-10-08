@@ -69,8 +69,31 @@ function timings(values) {
  * reached an upstream has no such figure at all, and is counted as unavailable
  * rather than as a zero.
  */
+// --- which zone a route is limited by ----------------------------------------
+//
+// $limit_req_status says that limit_req refused a request, not which zone did.
+// The zone follows from the route, by the same patterns nginx.conf uses for its
+// locations (ingress-log.test.mjs checks they are still the ones in the file).
+// POST /api/users is on two zones at once and the log cannot tell them apart.
+
+const SESSION_ROUTE = /^\/api\/auth\/(refresh|logout|me)\/?$/
+const CREDENTIAL_ROUTE = /^\/api\/(auth|login|register)/
+const USER_CREATE_ROUTE = /^\/api\/users\/?$/
+
+/** The limit_req zone a request's route is under, or null when none is. */
+export function limiterZoneOf(method, uri) {
+  const path = String(uri).split('?')[0]
+  if (SESSION_ROUTE.test(path)) return 'session_limit'
+  if (CREDENTIAL_ROUTE.test(path)) return 'login_limit'
+  if (method === 'POST' && USER_CREATE_ROUTE.test(path)) return 'api_limit or user_create_limit'
+  if (path === '/api' || path.startsWith('/api/')) return 'api_limit'
+  return null
+}
+
 export function diagnostics(entries) {
   const rejectedBy = { limit_req: 0, limit_conn: 0, unattributed: 0 }
+  // The same limit_req rejections, by the zone their route is under.
+  const rejectedByZone = { api_limit: 0, session_limit: 0, login_limit: 0, 'api_limit or user_create_limit': 0, unknown: 0 }
   let status401Total = 0
   let status401OnDelayed = 0
   let delayed = 0
@@ -84,8 +107,10 @@ export function diagnostics(entries) {
     if (e.status === 429) {
       // A 429 naming neither limiter was refused by something this log cannot
       // name, and is never given to one of them.
-      if (e.limitReq === 'REJECTED') rejectedBy.limit_req += 1
-      else if (e.limitConn === 'REJECTED') rejectedBy.limit_conn += 1
+      if (e.limitReq === 'REJECTED') {
+        rejectedBy.limit_req += 1
+        rejectedByZone[limiterZoneOf(e.method, e.uri) ?? 'unknown'] += 1
+      } else if (e.limitConn === 'REJECTED') rejectedBy.limit_conn += 1
       else rejectedBy.unattributed += 1
     }
     if (e.status === 401) {
@@ -103,6 +128,7 @@ export function diagnostics(entries) {
   return {
     lines: entries.length,
     rejectedBy,
+    rejectedByZone,
     status401: { total: status401Total, onDelayed: status401OnDelayed },
     delayed,
     upstreamMs: { ...timings(upstreamValues), none: upstreamNone, multiple: upstreamMultiple },
@@ -154,5 +180,6 @@ export function signOutAttemptOutcome(round) {
     (round.tabs ?? []).some((t) => t.onLoginPage !== true || t.sameDocument !== true) ||
     (Array.isArray(round.tabs) && round.tabs.length !== round.n)
   if (behaviourFailed) return 'behaviour-failed'
-  return round.overlap === 'overlap' ? 'overlap' : 'setup-missed'
+  // The verdict as W1 writes it on the attempt's record (signOutOverlap).
+  return round.signOutOverlap?.verdict === 'overlap' ? 'overlap' : 'setup-missed'
 }

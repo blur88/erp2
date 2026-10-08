@@ -210,7 +210,19 @@ async function main() {
   for (let i = 2; i <= 4; i += 1) readers.push(await profile.tab('/dashboard', { label: `m${i}` }))
   const writer = await profile.tab('/dashboard', { label: 'writer' })
   for (const page of [...readers, writer]) {
-    if (!(await showsSignedInUi(page))) throw new Error(`${profile.label(page)} did not open signed in`)
+    if (!(await showsSignedInUi(page))) {
+      // What the tabs showed and what they had last sent, kept for whoever
+      // reads the failure: on 198943047 this error left nothing to diagnose
+      // it from, and it did not happen again when the measurement was run alone.
+      const failure = {
+        what: `${profile.label(page)} did not open signed in`,
+        at: new URL(page.url()).pathname,
+        at_ms: Date.now(),
+        tabs: await ctx.diagnose(),
+      }
+      writeFileSync(join(config.scratch, 'measure-failure.json'), JSON.stringify(failure, null, 2))
+      throw new Error(failure.what)
+    }
   }
   await sleep(3000)
   const m2 = []

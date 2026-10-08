@@ -556,7 +556,12 @@ ingress log it captured):
 - No session-route 429 in any round. Every limiter rejection in the whole run (86)
   was by `login_limit`; `api_limit` refused nothing.
 - Where the loading rounds completed, every tab was complete on first load with
-  no recovery action: the condition the old configuration failed in 4 of 5 tabs.
+  no recovery action.
+- What this run establishes is that no business request was answered 429 under
+  the new configuration. It does **not** establish that delaying excess requests
+  is what made them disappear: there is no comparable run of the old
+  configuration on the same build and load, and in four of the six rounds the
+  limiter delayed nothing at all, so the delay was not exercised there.
 - **Every completed loading round missed its deadline**, by a factor of 1.7 to 3.
 - In the ingress log, the first API request of a round arrived about 3 s after
   the tabs were opened at five tabs, about 7 s at ten and about 10 s at twenty;
@@ -593,7 +598,7 @@ backend, or the measurement itself, which polls every tab's document every
 250 ms; and whether another machine would meet the deadlines. Two unrelated
 containers were restart-looping on the host throughout, as in earlier runs.
 
-**Defects in the suite, found by this run, not yet fixed:**
+**Defects in the suite, found by this run** (fixed afterwards under tests, see the end of this section):
 
 - *Case 14* failed with `no configuration file provided`. `host-probe.sh`
   resolves the repository from its own directory with one `..` too many
@@ -611,7 +616,33 @@ containers were restart-looping on the host throughout, as in earlier runs.
   `login_limit`'s rejections in a sign-out round appear under the same heading
   as `api_limit`'s would. The zone here comes from the ingress error log.
 - *The latency measurement* ended with `writer did not open signed in` in M2 and
-  wrote no results. Not diagnosed.
+  wrote no results.
+
+**The latency failure, looked into and not explained.** The run left nothing to
+diagnose it from: the ingress log was no longer being followed at that point and
+the measurement kept no record of what the tab showed. Run alone afterwards
+against the restored stack (same build, 2026-10-09), the measurement did **not**
+fail that way: all five tabs opened signed in and it completed. So the failure
+did not reproduce, and its cause is not established. That separate run did fail
+on its own blocking criterion: M1 median p95 8.6 ms against a threshold of 5 ms
+(M2 14.1 ms against 15 ms). The measurement now writes what every tab showed and
+last sent when a tab does not open signed in, and the ingress log is followed
+through it.
+
+**Fixed after the run, each under a test that failed first:**
+
+- `host-probe.sh` resolves the repository from three directories up, and a test
+  runs it and compares the result with the checkout.
+- Case 16 opens its profile keeping the two settings answers; the pattern is
+  shared with W1 and a test ties the case to it.
+- The sign-out classifier reads the verdict where W1 writes it. Its tests now
+  run on the three sign-out attempts this run recorded at five tabs, unchanged
+  (`fixtures/w1-signout-attempts-198943047.json`): the second, which had found
+  the overlap, is classified `overlap`.
+- Limiter rejections are counted per zone, from the route, with a test that the
+  route patterns are the ones in `nginx.conf`.
+
+None of this has been run against a stack yet.
 
 The deadlines are acceptance targets and are not changed here.
 

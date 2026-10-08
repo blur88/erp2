@@ -72,6 +72,9 @@ export const MAX_RECOVERY_ACTIONS = 3
 export const MAX_ACTION_TRIES = 3
 export const COMPANY_SETTINGS = '/api/settings/company'
 export const REGIONAL_SETTINGS = '/api/settings/regional'
+// The answers a profile must keep ({ keepAnswers }) for shellReference to have
+// anything to read: what the server said the shell's data is.
+export const KEEP_SHELL_ANSWERS = /^\/api\/settings\/(company|regional)$/
 // The names under which missing shell data is reported.
 export const COMPANY_DATA = 'company data (the sidebar\'s company name and logo)'
 export const REGIONAL_DATA = 'regional settings (the date, time and number formats in effect)'

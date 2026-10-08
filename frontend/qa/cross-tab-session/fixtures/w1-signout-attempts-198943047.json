@@ -1,0 +1,392 @@
+{
+ "from": "the recorded run on 198943047 (2026-10-09), results-cases.json, w1.recorded.rounds: the three sign-out attempts at five tabs, exactly as the workload wrote them",
+ "attempts": [
+  {
+   "n": 5,
+   "round": "c",
+   "attempt": 1,
+   "description": "one tab signs out while the others are still loading",
+   "tabsStillLoadingAtSignOut": 2,
+   "requests": [
+    {
+     "t": 1791483934.388,
+     "tab": "N5c-3",
+     "method": "POST",
+     "path": "/api/auth/refresh",
+     "status": 200
+    },
+    {
+     "t": 1791483939.822,
+     "tab": "N5c-3",
+     "method": "POST",
+     "path": "/api/auth/logout",
+     "status": 204
+    }
+   ],
+   "total": 2,
+   "byRoute": {
+    "refresh": 1,
+    "logout": 1,
+    "me": 0
+   },
+   "perTab": {
+    "N5c-3": 2
+   },
+   "busiestSecond": 1,
+   "peakDemandE": 1,
+   "admittedInFullByTheLimit": true,
+   "count429": 0,
+   "dataRequests": 46,
+   "dataRequests429": 0,
+   "dataRequestsFailed": [],
+   "tabsOnLoginPage": 5,
+   "everyTabOnLoginPage": true,
+   "tabs": [
+    {
+     "tab": "N5c-1",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-2",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-3",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-4",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-5",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    }
+   ],
+   "ingress": {
+    "lines": 68,
+    "rejectedBy": {
+     "limit_req": 1,
+     "limit_conn": 0,
+     "unattributed": 0
+    },
+    "status401": {
+     "total": 1,
+     "onDelayed": 0
+    },
+    "delayed": 0,
+    "upstreamMs": {
+     "n": 67,
+     "median": 109,
+     "p95": 485.3999999999996,
+     "max": 601,
+     "none": 1,
+     "multiple": 0
+    },
+    "approxNonUpstreamMs": {
+     "n": 67,
+     "median": 0,
+     "p95": 1,
+     "max": 1,
+     "unavailable": 1
+    }
+   },
+   "signOutOverlap": {
+    "verdict": "no-overlap",
+    "delayedOutstanding": 0,
+    "logoutStartMs": 1791483939821
+   },
+   "outcome": "setup-missed"
+  },
+  {
+   "n": 5,
+   "round": "c",
+   "attempt": 2,
+   "description": "one tab signs out while the others are still loading",
+   "tabsStillLoadingAtSignOut": 0,
+   "requests": [
+    {
+     "t": 1791483992.358,
+     "tab": "N5c-1",
+     "method": "POST",
+     "path": "/api/auth/refresh",
+     "status": 200
+    },
+    {
+     "t": 1791483994.179,
+     "tab": "N5c-2",
+     "method": "POST",
+     "path": "/api/auth/logout",
+     "status": 204
+    }
+   ],
+   "total": 2,
+   "byRoute": {
+    "refresh": 1,
+    "logout": 1,
+    "me": 0
+   },
+   "perTab": {
+    "N5c-1": 1,
+    "N5c-2": 1
+   },
+   "busiestSecond": 1,
+   "peakDemandE": 1,
+   "admittedInFullByTheLimit": true,
+   "count429": 0,
+   "dataRequests": 90,
+   "dataRequests429": 0,
+   "dataRequestsFailed": [
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED"
+   ],
+   "tabsOnLoginPage": 5,
+   "everyTabOnLoginPage": true,
+   "tabs": [
+    {
+     "tab": "N5c-1",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-2",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-3",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-4",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-5",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    }
+   ],
+   "ingress": {
+    "lines": 90,
+    "rejectedBy": {
+     "limit_req": 3,
+     "limit_conn": 0,
+     "unattributed": 0
+    },
+    "status401": {
+     "total": 55,
+     "onDelayed": 26
+    },
+    "delayed": 44,
+    "upstreamMs": {
+     "n": 87,
+     "median": 34,
+     "p95": 197.5,
+     "max": 452,
+     "none": 3,
+     "multiple": 0
+    },
+    "approxNonUpstreamMs": {
+     "n": 87,
+     "median": 21,
+     "p95": 257,
+     "max": 270,
+     "unavailable": 3
+    }
+   },
+   "signOutOverlap": {
+    "verdict": "overlap",
+    "delayedOutstanding": 5,
+    "logoutStartMs": 1791483994176
+   },
+   "outcome": "setup-missed"
+  },
+  {
+   "n": 5,
+   "round": "c",
+   "attempt": 3,
+   "description": "one tab signs out while the others are still loading",
+   "tabsStillLoadingAtSignOut": 2,
+   "requests": [
+    {
+     "t": 1791484047.568,
+     "tab": "N5c-3",
+     "method": "POST",
+     "path": "/api/auth/refresh",
+     "status": 200
+    },
+    {
+     "t": 1791484048.706,
+     "tab": "N5c-2",
+     "method": "POST",
+     "path": "/api/auth/logout",
+     "status": 204
+    }
+   ],
+   "total": 2,
+   "byRoute": {
+    "refresh": 1,
+    "logout": 1,
+    "me": 0
+   },
+   "perTab": {
+    "N5c-3": 1,
+    "N5c-2": 1
+   },
+   "busiestSecond": 1,
+   "peakDemandE": 1,
+   "admittedInFullByTheLimit": true,
+   "count429": 0,
+   "dataRequests": 80,
+   "dataRequests429": 0,
+   "dataRequestsFailed": [
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED",
+    "net::ERR_ABORTED"
+   ],
+   "tabsOnLoginPage": 5,
+   "everyTabOnLoginPage": true,
+   "tabs": [
+    {
+     "tab": "N5c-1",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-2",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-3",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-4",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    },
+    {
+     "tab": "N5c-5",
+     "onLoginPage": true,
+     "sameDocument": true,
+     "at": "/login"
+    }
+   ],
+   "ingress": {
+    "lines": 86,
+    "rejectedBy": {
+     "limit_req": 3,
+     "limit_conn": 0,
+     "unattributed": 0
+    },
+    "status401": {
+     "total": 55,
+     "onDelayed": 0
+    },
+    "delayed": 0,
+    "upstreamMs": {
+     "n": 83,
+     "median": 46,
+     "p95": 190.7999999999999,
+     "max": 321,
+     "none": 3,
+     "multiple": 0
+    },
+    "approxNonUpstreamMs": {
+     "n": 83,
+     "median": 0,
+     "p95": 1,
+     "max": 1,
+     "unavailable": 3
+    }
+   },
+   "signOutOverlap": {
+    "verdict": "no-overlap",
+    "delayedOutstanding": 0,
+    "logoutStartMs": 1791484048705
+   },
+   "outcome": "setup-missed"
+  }
+ ]
+}
