@@ -488,6 +488,9 @@ const single = (body) => (body && typeof body === 'object' && 'data' in body && 
  * tab the same question, and a second reader of the same answers would be a
  * second thing to keep right.
  */
+/** The reference a tab is judged against (judgeDashboard), from what shellReference returned. */
+export const referenceOf = (shell) => ({ companyName: shell.companyName, regional: shell.regional })
+
 export async function shellReference(profile, maxMs = 20000) {
   const deadline = Date.now() + maxMs
   while (Date.now() < deadline && !(profile.answers.has(COMPANY_SETTINGS) && profile.answers.has(REGIONAL_SETTINGS))) await sleep(100)

@@ -104,9 +104,12 @@ export async function loadZones() {
   // stops if it cannot be read (null here, a precondition there).
   const text = readFileSync(join(REPO_ROOT, 'nginx/nginx.conf'), 'utf8')
   const apiBurst = /limit_req\s+zone=api_limit\s+burst=(\d+)/.exec(text)
+  // The delay threshold on the same directive: case 16 derives the longest
+  // configured hold from burst, delay and rate. Absent (`nodelay`) it is null.
+  const apiDelay = /limit_req\s+zone=api_limit\s+burst=\d+\s+delay=(\d+)/.exec(text)
   const api =
     zones.api_limit && zones.api_limit.ratePerSecond > 0 && apiBurst
-      ? { ...zones.api_limit, burst: Number(apiBurst[1]) }
+      ? { ...zones.api_limit, burst: Number(apiBurst[1]), delay: apiDelay ? Number(apiDelay[1]) : null }
       : null
   return {
     session: zones.session_limit,

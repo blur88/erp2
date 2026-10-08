@@ -698,6 +698,60 @@ time. Nothing was stopped. Whether the completion times, or their threefold
 spread, are caused by that contention is **not** established by this
 measurement: there is no load taken on the same host while it was idle.
 
+### Recorded run on `db0cc890e` (2026-10-09): exit status 1
+
+The acceptance rerun on the same host, after the suite fixes. **15 of 17 passed.
+W1 and case 16 failed, and the latency measurement did not complete.** Stack
+restored. The host's one-minute load average ranged from 0.85 to 12.56 during
+the run (76 samples, 30 s apart); nothing was stopped, and no figure below is
+attributed to it.
+
+**What the fixes did:** case 14 passed. The sign-out classifier stopped at the
+attempt that found the overlap (five tabs, attempt 1). Limiter rejections are
+reported per zone: every one in W1 was `login_limit`, none `api_limit`.
+
+**W1:**
+
+| Tabs | Round | Complete after | Deadline | Usable / complete on first load | Recovery actions | Business 429 | Session-route 429 | Delayed by `api_limit` |
+|---|---|---|---|---|---|---|---|---|
+| 5 | current token | **6.55 s** | 5 s | 5 / 5 | 0 | 0 of 45 | 0 | 0 |
+| 5 | expired token | **8.45 s** | 5 s | 5 / 5 | 0 | 0 of 90 | 0 | 47 |
+| 10 | current token | **15.01 s** | 10 s | 10 / 10 | 0 | 0 of 90 | 0 | 0 |
+| 10 | expired token | **19.22 s** | 10 s | 10 / 10 | 0 | 0 of 180 | 0 | 126 |
+| 20 | current token | **33.26 s** | 15 s | 20 / 20 | 0 | 0 of 292 | 0 | 14 |
+| 20 | expired token | **31.53 s** | 15 s | 20 / 20 | 0 | 0 of 244 | 0 | 27 |
+
+- Every loading round completed this time, the twenty-tab expired-token round
+  included: 20 of 20 usable, and the session was not revoked. That the replay of
+  the earlier run did not recur here does not show it cannot (#1358).
+- Every tab in every loading round was complete on first load with no recovery
+  action, and no request was answered 429 by `api_limit` or on a session route.
+- **All six loading rounds missed their deadlines**, by a factor of 1.3 to 2.2.
+- **Sign-out rounds:** every tab reached the login page without a reload in all
+  seven attempts, with the logout answered 2xx and no session-route 429. An
+  overlap with a delayed request was found at five tabs (attempt 1) and **not**
+  at ten or twenty tabs in three attempts each, so those two checks failed as
+  inconclusive. In those six attempts no request was being delayed by
+  `api_limit` at the moment of the sign-out.
+
+Failed checks, exactly: the deadline check of all six loading rounds, and the
+overlap check at ten and at twenty tabs. Nothing else in W1 failed.
+
+**Case 16** failed in 44 s with `Cannot read properties of undefined (reading
+'companyName')`, during calibration. Two further defects in a case that had never
+run: it passed `shell.reference` where `shellReference` returns the reference's
+members directly, and it derived the longest configured hold from a limit read
+without its `delay`, so that figure was `null`. Both are fixed under tests after
+this run. **The case has still not exercised the expiry path.**
+
+**The latency measurement** failed differently from last time: `m3: the page
+load did not settle within 45 s`, in the four-tab loads. Twice in two recorded
+runs it has not completed, each time for another stated reason, and once run
+alone it did complete. Not explained.
+
+No forced-failure suite was started: neither W1 nor case 16 has a passing
+baseline.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand

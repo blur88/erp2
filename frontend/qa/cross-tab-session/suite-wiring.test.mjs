@@ -29,3 +29,29 @@ test('case 16 opens its profile keeping those answers: its first precondition re
   assert.equal(PROFILE_OPTIONS.intercept, true)
   assert.equal(PROFILE_OPTIONS.tagRequests, true)
 })
+
+// --- found by the recorded run on db0cc890e: case 16 again ----------------------
+
+test('what shellReference returns becomes the reference a tab is judged against', async () => {
+  const { referenceOf } = await import('./lib/usable.mjs')
+  // The shape shellReference returns: it has no `reference` member of its own.
+  const shell = { companyAnswered: true, companyName: 'ACME', regional: { dateFormat: 'DD/MM/YYYY' } }
+  assert.deepEqual(referenceOf(shell), { companyName: 'ACME', regional: { dateFormat: 'DD/MM/YYYY' } })
+  assert.equal(shell.reference, undefined)
+})
+
+test('the api_limit the suite reads from nginx.conf carries its delay, so the longest configured hold is a number', async () => {
+  const { loadZones } = await import('./lib/config.mjs')
+  const { maxConfiguredDelayMs } = await import('./lib/expiry-crossing.mjs')
+  const zones = await loadZones()
+  assert.ok(Number.isInteger(zones.api.delay) && zones.api.delay > 0, `delay is ${zones.api.delay}`)
+  assert.ok(zones.api.burst > zones.api.delay)
+  const hold = maxConfiguredDelayMs(zones.api)
+  assert.ok(Number.isFinite(hold) && hold > 0, `hold is ${hold}`)
+  assert.equal(hold, (1000 * (zones.api.burst - zones.api.delay)) / zones.api.ratePerSecond)
+})
+
+test('a limit read without its delay has no longest hold: an error, not NaN', async () => {
+  const { maxConfiguredDelayMs } = await import('./lib/expiry-crossing.mjs')
+  assert.throws(() => maxConfiguredDelayMs({ ratePerSecond: 20, burst: 40 }), /delay/)
+})

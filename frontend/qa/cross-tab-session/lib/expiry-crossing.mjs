@@ -42,6 +42,11 @@ export const EXPIRED_MESSAGE = 'Invalid or expired token'
 
 /** (burst - delay) / rate, in milliseconds: the most the limiter can hold a request. */
 export function maxConfiguredDelayMs(api) {
+  for (const key of ['burst', 'delay', 'ratePerSecond']) {
+    if (typeof api?.[key] !== 'number' || !Number.isFinite(api[key])) {
+      throw new Error(`the api_limit read from nginx.conf has no ${key}: the longest configured hold cannot be derived`)
+    }
+  }
   return (1000 * (api.burst - api.delay)) / api.ratePerSecond
 }
 

@@ -46,7 +46,7 @@ import { captureSegment } from '../lib/probe.mjs'
 import { loadCapture, captureUsable, correlate } from '../lib/capture-evidence.mjs'
 import { windowBetween } from '../lib/ingress-log.mjs'
 import { watchCompletion } from '../lib/completion.mjs'
-import { KEEP_SHELL_ANSWERS, REGIONAL_SETTINGS, shellReference } from '../lib/usable.mjs'
+import { KEEP_SHELL_ANSWERS, REGIONAL_SETTINGS, referenceOf, shellReference } from '../lib/usable.mjs'
 import { CALIBRATION, EXPIRED_MESSAGE, MAX_SETUP_ATTEMPTS, monotonic, recoveryDeadline, judgeExpiryCrossing, maxConfiguredDelayMs } from '../lib/expiry-crossing.mjs'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -199,7 +199,7 @@ export default [
         // The first 401 answered to this tab, on the browser's clock.
         const first401 = await waitForFirstStatus(profile, mark, tab, 401, 30000)
         const recoveryActionsBefore = 0
-        const finished = await watchCompletion(profile, mark, [tab], shell.reference, {
+        const finished = await watchCompletion(profile, mark, [tab], referenceOf(shell), {
           started: gotoAt,
           giveUpMs: Math.max(20000, config.accessSeconds * 1000 + 10000),
         })
@@ -293,7 +293,7 @@ export default [
           await tab.goto(`${config.base}/dashboard`, { waitUntil: 'commit' })
           const mark = profile.mark()
           const probes = probeWindow(holder, session.accessToken, T - PROBE_WINDOW_MS, T + PROBE_WINDOW_MS)
-          const finished = await watchCompletion(profile, mark, [tab], shell.reference, {
+          const finished = await watchCompletion(profile, mark, [tab], referenceOf(shell), {
             started: gotoAt,
             giveUpMs: deadline.deadlineMs + 30000,
           })
