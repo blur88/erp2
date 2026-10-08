@@ -646,6 +646,58 @@ None of this has been run against a stack yet.
 
 The deadlines are acceptance targets and are not changed here.
 
+### After the failed run: the replay revocation and the completion time (2026-10-09)
+
+Two investigations, both diagnostic. Neither changes the deadlines, the limiter
+values, the QA grace or any application code.
+
+**The replay revocation at twenty tabs** is tracked in issue #1358, which has the
+full record. In short: the server's audit row shows generation 7 presented while
+generation 8 was current, 9.9 s after another tab's refresh had superseded it and
+4.9 s past its grace; after that successful refresh no tab used the new access
+token for the 27 s until the revocation. An instrumented repeat of the round
+(`diagnose-replay.mjs`, three attempts, QA configuration unchanged) did **not**
+reproduce a replay. It did show a plain read of the session store from a sibling
+tab taking up to 21 s while twenty tabs loaded, a refresh lease held for its
+whole 20 s with no refresh sent under it, and `read timed out` errors from the
+session module in every attempt. Why the superseded token was presented late is
+not established; the leading hypothesis (the refreshing tab's new tokens did not
+reach shared storage in time) is in the issue with what would settle it.
+
+**Where five tabs' time goes** (`diagnose-completion.mjs`, the running stack on
+`e0983cf76`, access lifetime 15m, ten loads of five current-token tabs,
+alternating two ways of observing them; all times after the common trigger, for
+the last of the five tabs):
+
+| | Not observed while loading (5 loads) | Polled as W1 does (5 loads) |
+|---|---|---|
+| Navigation started | 0.02 to 0.11 s | 0.03 to 0.74 s |
+| `DOMContentLoaded` | 2.1 to 5.4 s | 2.0 to 7.7 s |
+| First API request sent | 3.6 to 12.4 s | 4.4 to 13.0 s |
+| "Dashboard" heading present | 7.2 to 22.3 s, median 18.8 s | 8.3 to 23.3 s, median 19.9 s |
+| W1's watcher says complete | — | 0.07 to 0.46 s after the heading |
+| Data requests; answered 429; answered 401 | 45; 0; 0 in every load | 45; 0; 0 in every load |
+| Long tasks on the main thread, summed over the five tabs | 21 to 77 s | 22 to 62 s |
+
+- **The measurement is not what makes it slow.** With nothing reading the tabs
+  while they load, the heading still took 7.2 to 22.3 s; W1's watcher reported
+  completion within half a second of the moment the tab itself recorded.
+- **Half or more of the time passes before any API request is sent.** The first
+  request left 3.6 to 12.4 s after the tabs were opened; the limiter and the
+  backend have nothing to act on until then.
+- No request was refused or answered 401 in any of the ten loads, so this is the
+  case that neither throttling nor authentication recovery explains.
+- The same build and load varied threefold between loads minutes apart (7.2 s
+  to 22.3 s unobserved).
+
+**Host contention, recorded and not attributed.** The host has four cores. Its
+load average was between 3.5 and 9.6 throughout these ten loads (sampled every
+15 s), and two unrelated containers were restart-looping, as in every run
+recorded here. Other long-running processes were using CPU on the host at the
+time. Nothing was stopped. Whether the completion times, or their threefold
+spread, are caused by that contention is **not** established by this
+measurement: there is no load taken on the same host while it was idle.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand
