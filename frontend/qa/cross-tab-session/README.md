@@ -258,6 +258,8 @@ grace value first.
   probe is sent only if the unmarked sign-in was refused: against a server that
   does not enforce the marker it would create a real user, and the case has
   already failed by then.
+- **Case 16 sends requests close to an access token's expiry**, so that the
+  ingress's delay carries them past it. See its own section below.
 
 ## W1: the restored window
 
@@ -493,6 +495,71 @@ data requests than its burst admits. They are counted for every round
 (`dataRequests429`), reported as findings and not judged. They are tracked in
 issue #1353. What they do to a tab is exactly what the usability check
 measures.
+
+## Case 16: a token that expires while the ingress delays the request
+
+The limiter delays excess `/api` requests rather than refusing them, so a
+request sent just before its access token expires can reach the backend after
+it has. W1's rounds cannot show this: they start every tab either with a
+current token or with one that has already expired, never with one that expires
+while the ingress is holding its request.
+
+**The claim, in three parts, and the evidence for each.**
+
+1. *L carried a known token.* The fingerprint of the stored access token, the
+   fingerprint in the browser's record of L, and the fingerprint in the capture's
+   record of L are equal. "Before the first refresh" is not evidence of
+   anything: it is the fingerprints that say the three records are of one
+   request with one token.
+2. *L's 401 was an expiry.* The backend's own message must be exactly
+   `Invalid or expired token` (`JwtAuthGuard.handleRequest`), which rules out
+   every rejection `JwtStrategy.validate` makes with a message of its own
+   (revoked session, missing user, inactive or locked account), **and** the
+   backend must have accepted the same fingerprint with a 2xx earlier in the
+   attempt, which rules out a malformed or wrongly signed token.
+3. *L had expired when it reached the backend*, not merely when authentication
+   ran: a request `X` with the same fingerprint, answered
+   `Invalid or expired token`, had its response completely leave the backend
+   before the first byte of L arrived.
+
+**The two orderings, each inside one clock.** No clock is compared with
+another and no offset between clocks is measured or claimed.
+
+- *Valid at send* (ingress clock, plus two causal steps): a request `P` with the
+  same fingerprint, answered 2xx, reached the ingress after L did
+  (`L.startMs + 5 ms ≤ P.startMs`). L left the browser before the ingress read
+  its first bytes; the backend judged P valid after the ingress read P's.
+- *Expired at arrival* (capture clock): `X.answeredLastMs + 1 ms ≤
+  L.arrivedFirstMs`. The backend had already judged that token expired before L
+  reached it. Both ends are the conservative ones: the last frame of X's
+  response, the first frame of L's request.
+
+`P` and `X` are `GET /api/auth/me` probes sent by the harness with the stored
+token. `/auth/me` is on `session_limit`, which does not delay.
+
+**The margins** (5 ms ingress, 1 ms capture) exist so that timestamp
+granularity cannot produce an ordering: `$msec` and `$request_time` are both
+written to the millisecond, and frame timestamps come from the kernel at
+microsecond resolution or better. They are not a bound on clock error.
+
+**Scope of the inference.** It holds for a controlled run with the backend's
+token verification configuration unchanged, recorded with the attempt, and with
+no clock stepping during it. The backward-movement check can reveal a clock
+that moved backwards and cannot show that none stepped: a forward step, or a
+backward one smaller than the gaps between records, passes it. "No clock
+discontinuity" is a stated prerequisite of the run, not something it proves.
+
+**What the case does not show.** One page, one role. It says nothing about
+behaviour when the limiter *rejects* a request, which is what
+`nginx/verify-rate-limits.sh` covers instead, and nothing about tabs other than
+the one it opens.
+
+The case is not described as validated here: it becomes evidence when a recorded
+run has passed it. `results.json` carries each attempt's verdict, its reason and
+the segment it used, and `finalize.mjs` judges every segment itself: a segment
+that never ended, one the capture tool dropped packets in, or one with an
+unreadable record inside the window invalidates an attempt the case called
+`pass`, whatever the case concluded.
 
 ## The latency measurement
 

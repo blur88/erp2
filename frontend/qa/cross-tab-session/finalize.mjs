@@ -13,10 +13,17 @@
 //                          the host's containers just before the measurement
 //                          (run.sh); recorded with M3 and M4 as the competing
 //                          workload
+//   upstream-arrivals.<segment>.jsonl
+//                          one capture segment per segment case 16 used; read
+//                          here, because a segment's health is only final once
+//                          the segment has ended, and a case that judged its own
+//                          evidence before the host probe had finalised it would
+//                          be judging a file that was still being written
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { competingWorkload, summaryLines } from './lib/latency-criteria.mjs'
 import { W1_SCOPE, observedLine } from './lib/w1-judgement.mjs'
+import { loadCapture, captureUsable } from './lib/capture-evidence.mjs'
 
 const scratch = process.env.QA_SCRATCH || process.cwd()
 const read = (name) => {
@@ -43,6 +50,42 @@ const restoreFailed = process.env.QA_RESTORE_FAILED === '1'
 // A run that did not complete never has exit status 0.
 const completed = process.env.QA_RUN_COMPLETED === '1'
 const aborted = process.env.QA_RUN_ABORTED || null
+
+/**
+ * Every capture segment case 16 used, judged here rather than by the case.
+ *
+ * A segment that never ended (no health record), one the capture tool dropped
+ * packets in, or one with an unreadable record inside the window of an attempt
+ * the case judged `pass` invalidates that evidence whatever the case concluded:
+ * the case cannot have known. A segment that is merely absent is recorded as
+ * absent, which is also not a pass.
+ */
+function judgeCaptureSegments(all) {
+  const segments = []
+  const entry = Array.isArray(all) ? all.find((c) => c && c.id === 16) : null
+  if (!entry || !Array.isArray(entry.recorded?.attempts)) return segments
+  for (const attempt of entry.recorded.attempts) {
+    const name = attempt.evidence?.segment
+    if (!name) continue
+    const path = join(scratch, `upstream-arrivals.${name}.jsonl`)
+    if (!existsSync(path)) {
+      segments.push({ segment: name, attempt: attempt.attempt, usable: false, why: 'the segment file was not written' })
+      continue
+    }
+    const capture = loadCapture(readFileSync(path, 'utf8').split('\n'))
+    const verdict = captureUsable(capture, 0, Number.MAX_SAFE_INTEGER)
+    segments.push({
+      segment: name,
+      attempt: attempt.attempt,
+      usable: verdict.usable,
+      why: verdict.why,
+      dropped: capture.health?.dropped ?? null,
+      unreadable: capture.invalid.length,
+      health: capture.health,
+    })
+  }
+  return segments
+}
 
 const results = {
   suite: 'cross-tab-session (#1345)',
@@ -71,8 +114,24 @@ const results = {
   limits: cases.limits ?? null,
   cases: cases.cases ?? cases,
   w1: cases.w1 ?? null,
+  // Case 16's segments, judged from the files themselves.
+  captureSegments: judgeCaptureSegments(cases.cases ?? []),
   latency,
 }
+
+// A segment that invalidates an attempt the case called `pass` fails the run,
+// whatever the case concluded.
+const caseSixteen = (Array.isArray(results.cases) ? results.cases.find((c) => c && c.id === 16) : null) ?? null
+const recordedAttempts = Array.isArray(caseSixteen?.recorded?.attempts) ? caseSixteen.recorded.attempts : []
+for (const segment of results.captureSegments) {
+  if (segment.usable === false) {
+    const attempt = recordedAttempts.find((a) => a.attempt === segment.attempt)
+    if (attempt && attempt.verdict === 'pass') {
+      results.captureSegmentsInvalidated = `${segment.segment} (attempt ${segment.attempt}): ${segment.why}`
+    }
+  }
+}
+if (results.captureSegmentsInvalidated && results.exitStatus === 0) results.exitStatus = 1
 writeFileSync(join(scratch, 'results.json'), JSON.stringify(results, null, 2))
 
 console.log('\n=== cross-tab session run ===')
@@ -91,6 +150,12 @@ if (Array.isArray(results.cases)) {
   console.log(`  ${passed} of ${results.cases.length} cases passed${results.partial ? ` (PARTIAL: ${results.partial})` : ''}`)
 } else {
   console.log(`  cases: ${cases.missing}`)
+}
+if (results.captureSegments.length > 0) {
+  for (const s of results.captureSegments) {
+    console.log(`  capture ${s.usable ? 'usable  ' : 'UNUSABLE'} ${s.segment} (attempt ${s.attempt})${s.why ? `: ${s.why}` : ''}`)
+  }
+  if (results.captureSegmentsInvalidated) console.log(`  CASE 16 EVIDENCE INVALID: ${results.captureSegmentsInvalidated}`)
 }
 if (results.w1) {
   const user = results.w1.recorded?.user

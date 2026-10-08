@@ -77,6 +77,7 @@ import {
   bringToWorkingState,
   customerListHasRows,
   roundUsability,
+  shellReference,
   shownMenuTitles,
 } from './usable.mjs'
 
@@ -221,7 +222,6 @@ const lostData = (r) =>
     .join('; ')
 
 /** The body of an answer whose envelope the application also strips (store/api/normalizers.ts, normalizeSingle). */
-const single = (body) => (body && typeof body === 'object' && 'data' in body && body.data != null && !Array.isArray(body.data) ? body.data : body)
 
 /**
  * What the server said the shell's data is, from the answers this profile
@@ -229,19 +229,6 @@ const single = (body) => (body && typeof body === 'object' && 'data' in body && 
  * not come or could not be read is reported as such, and W1 treats it as a
  * failed precondition.
  */
-async function shellReference(profile, maxMs = 20000) {
-  const deadline = Date.now() + maxMs
-  while (Date.now() < deadline && !(profile.answers.has(COMPANY_SETTINGS) && profile.answers.has(REGIONAL_SETTINGS))) await sleep(100)
-  const company = profile.answers.get(COMPANY_SETTINGS)
-  const regional = profile.answers.get(REGIONAL_SETTINGS)
-  const companyAnswered = Boolean(company && !company.unreadable)
-  return {
-    companyAnswered,
-    companyName: companyAnswered ? single(company.body)?.name || null : null,
-    regional: regional && !regional.unreadable ? single(regional.body) : null,
-  }
-}
-
 async function closeAll(pages) {
   for (const page of pages) await page.close()
 }

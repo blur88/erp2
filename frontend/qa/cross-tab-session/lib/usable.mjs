@@ -476,6 +476,28 @@ async function room(profile, api, { need = 15, maxMs = 20000 } = {}) {
   }
 }
 
+const single = (body) => (body && typeof body === 'object' && 'data' in body && body.data != null && !Array.isArray(body.data) ? body.data : body)
+
+/**
+ * What the sidebar and the formats are supposed to be: the company answer and
+ * the regional answer this profile received, as dashboardState judges a tab
+ * against them. Exported because both the loading rounds and case 16 ask every
+ * tab the same question, and a second reader of the same answers would be a
+ * second thing to keep right.
+ */
+export async function shellReference(profile, maxMs = 20000) {
+  const deadline = Date.now() + maxMs
+  while (Date.now() < deadline && !(profile.answers.has(COMPANY_SETTINGS) && profile.answers.has(REGIONAL_SETTINGS))) await sleep(100)
+  const company = profile.answers.get(COMPANY_SETTINGS)
+  const regional = profile.answers.get(REGIONAL_SETTINGS)
+  const companyAnswered = Boolean(company && !company.unreadable)
+  return {
+    companyAnswered,
+    companyName: companyAnswered ? single(company.body)?.name || null : null,
+    regional: regional && !regional.unreadable ? single(regional.body) : null,
+  }
+}
+
 /**
  * What the tab holds right now: its data judged against the reference
  * (judgeDashboard), and what the profile read from it. Exported because the
