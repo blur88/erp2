@@ -752,6 +752,50 @@ alone it did complete. Not explained.
 No forced-failure suite was started: neither W1 nor case 16 has a passing
 baseline.
 
+### Case 16 run alone, twice (2026-10-09): partial runs, not evidence
+
+`QA_ONLY=16` through `run.sh`, so each is marked partial and neither is a
+recorded run. They were made to find out why the case could not get started
+without spending a full run on each fault.
+
+- **`b03a4a96d`:** calibration completed for the first time (ten samples,
+  recovery deadline 4582 ms). The case then stopped at "a current access token is
+  answered 2xx" with a 401: it read the stored token after a drain wait longer
+  than its 20 s lifetime. Fixed afterwards: a current token is obtained through
+  the application, and the fillers are sent just before the tab and in a
+  continuous queue large enough to reach the limiter's delay threshold (the
+  plan's 30 fillers in batches of six could not; measured in the feasibility
+  run).
+- **`7a632336b`:** the case reached an attempt for the first time and reported
+  `fail`, "the tab completed after the recovery deadline". **That verdict is an
+  artefact of the case's own evidence code and says nothing about the
+  application.** What the attempt's ingress log and capture show:
+  - the limiter did delay (128 of the 160 fillers), so the filler change worked;
+  - the tab's own requests were not delayed: its first one arrived after the
+    fillers had finished, was answered 401 undelayed, and the tab refreshed and
+    had all its data answered 2xx about half a second later;
+  - all 17 probes were answered 401 and arrived within half a second of each
+    other, not spread across the expiry: the fillers, the probes and the tab
+    share one browser profile and so one pool of six connections, and the
+    probes and the tab queued behind the fillers;
+  - one request from the ingress had no identifier, a logo under `/uploads/`,
+    which the ingress also proxies to the backend and the harness does not tag,
+    so the capture segment was unusable.
+
+  And in the case's evidence code, read after this run: the completion result
+  of the attempt is never passed back to it, so "complete within the deadline"
+  is false for every attempt whatever happened; the delayed request is looked
+  for under a path the dashboard does not request; the response message is read
+  from a record that does not hold response bodies; and correlation is run over
+  the application's requests only, so every filler and probe is counted as a
+  problem (378 here).
+
+Case 16 has therefore **not yet produced a verdict that means anything**, in
+either direction. It needs its attempt and evidence logic rebuilt (the proof
+itself is unchanged), with the fillers sent from a second browser context so
+that they share the address and the limiter's bucket but not the tab's
+connections. That is not done.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand
