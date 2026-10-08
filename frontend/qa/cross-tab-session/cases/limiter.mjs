@@ -47,7 +47,7 @@ import { loadCapture, captureUsable, correlate } from '../lib/capture-evidence.m
 import { windowBetween } from '../lib/ingress-log.mjs'
 import { watchCompletion } from '../lib/completion.mjs'
 import { KEEP_SHELL_ANSWERS, REGIONAL_SETTINGS, referenceOf, shellReference } from '../lib/usable.mjs'
-import { CALIBRATION, EXPIRED_MESSAGE, MAX_SETUP_ATTEMPTS, monotonic, recoveryDeadline, judgeExpiryCrossing, maxConfiguredDelayMs } from '../lib/expiry-crossing.mjs'
+import { CALIBRATION, EXPIRED_MESSAGE, MAX_SETUP_ATTEMPTS, lifetimeEnough, monotonic, recoveryDeadline, judgeExpiryCrossing, maxConfiguredDelayMs } from '../lib/expiry-crossing.mjs'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -64,17 +64,46 @@ const { parseLine } = await import(pathToFileURL(join(REPO_ROOT.pathname, 'nginx
 
 /** /api/auth/me is on session_limit, which does not delay: a probe, not filler. */
 const ME = '/api/auth/me'
-const FILLERS = 30
-const FILLERS_IN_FLIGHT = 6
+// How many filler requests, and how long before the tab is due they start.
+// Measured in the capture feasibility run on d313d0e45: requests queued through
+// one profile reach the ingress at about 28 a second against a zone rate of 20,
+// so the limiter's excess needs about 2.4 s and some 70 requests to pass its
+// delay threshold, and stays above it only while the queue keeps coming. The
+// plan's first figures (30 fillers, six at a time, 1.2 s ahead) cannot raise
+// the excess that far.
+const FILLERS = 160
 const PROBE_EVERY_MS = 150
 const PROBE_WINDOW_MS = 1200
 /** How long before the token expires the fillers start, and the tab navigates. */
-const FILLER_LEAD_MS = 1200
+const FILLER_LEAD_MS = 3500
 const NAVIGATE_LEAD_MS = 300
 /** The first business request of a tab arrives this long after its goto (median). */
 const FALLBACK_LEAD_MS = 250
 
 const now = () => Date.now()
+// Time kept in hand, beyond the lead and the filler lead, when an attempt starts.
+const LIFETIME_MARGIN_MS = 3000
+
+/**
+ * A current access token in the profile's stored session, obtained the way the
+ * application obtains one: a tab of the profile is opened, meets its 401,
+ * refreshes and stores the result. (A refresh sent from here with a raw request
+ * would rotate the refresh token on the server and store nothing, leaving the
+ * profile holding a superseded one.) Returns the stored session afterwards.
+ */
+async function renewThroughTheApplication(ctx, profile, holder, label) {
+  const { config } = ctx
+  const from = profile.mark()
+  const temp = await profile.tab('/dashboard', { label })
+  let answered = false
+  for (const deadline = now() + 45000; !answered && now() < deadline; ) {
+    answered = profile.since(from, temp).some((e) => e.zone === 'business' && e.status >= 200 && e.status < 300)
+    if (!answered) await sleep(100)
+  }
+  await temp.close()
+  ctx.require(`a tab opened from the stored session got a data request answered 2xx (${label})`, answered)
+  return storedSession(holder)
+}
 const waitUntil = async (at) => {
   const ms = at - now()
   if (ms > 0) await sleep(ms)
@@ -120,11 +149,11 @@ async function probeWindow(holder, token, from, to) {
 }
 
 /** Filler requests on the business route, to push the limiter's excess up. */
+// Queued all at once: the profile's own connection limit decides how many are
+// in flight, and nothing waits between them (awaited batches leave gaps in
+// which the excess drains).
 async function fill(holder, token, ids) {
-  for (let i = 0; i < ids.length; i += FILLERS_IN_FLIGHT) {
-    const batch = ids.slice(i, i + FILLERS_IN_FLIGHT)
-    await Promise.all(batch.map((qaId) => pageFetch(holder, { path: REGIONAL_SETTINGS, qaId, bearer: token })))
-  }
+  await Promise.all(ids.map((qaId) => pageFetch(holder, { path: REGIONAL_SETTINGS, qaId, bearer: token })))
 }
 
 export default [
@@ -241,7 +270,9 @@ export default [
         expiredProbe.status === 401 && messageOf(expiredProbe) === EXPIRED_MESSAGE,
         { status: expiredProbe.status, message: messageOf(expiredProbe) },
       )
-      const fresh = await storedSession(holder)
+      // The drain wait above is longer than the QA access lifetime, so the
+      // stored token has expired by now: a current one is obtained first.
+      const fresh = await renewThroughTheApplication(ctx, profile, holder, 'renew-pre')
       const currentProbe = await pageFetch(holder, { path: ME, qaId: 'pre-current', bearer: fresh.accessToken })
       ctx.require('a current access token is answered 2xx', currentProbe.status >= 200 && currentProbe.status < 300, { status: currentProbe.status })
 
@@ -262,12 +293,21 @@ export default [
       for (let attemptNo = 1; attemptNo <= MAX_SETUP_ATTEMPTS; attemptNo += 1) {
         // Drained buckets, and a token with a full lifetime ahead of it.
         await sleep(drainMs)
-        let session = await storedSession(holder)
-        if (session.expiresAtMs - now() < deadline.deadlineMs + 5000) {
-          await pageFetch(holder, { method: 'POST', path: '/api/auth/refresh', qaId: `renew-${attemptNo}`, body: { refreshToken: session.refreshToken } })
-          session = await storedSession(holder)
-        }
+        const session = await renewThroughTheApplication(ctx, profile, holder, `renew-${attemptNo}`)
         const T = session.expiresAtMs
+        // Scheduled backwards from the expiry: a token already too close to it
+        // cannot start the attempt. That is a missed setup, not a behaviour.
+        if (!lifetimeEnough({ expiresAtMs: T, nowMs: now(), leadMs: lead, fillerLeadMs: FILLER_LEAD_MS, marginMs: LIFETIME_MARGIN_MS })) {
+          attempts.push({
+            attempt: attemptNo,
+            verdict: 'inconclusive',
+            reason: `the renewed token had ${T - now()} ms left, less than the attempt needs (lead ${lead} ms)`,
+            behaviour: 'ok',
+            evidence: null,
+          })
+          ctx.record('attempts', attempts)
+          continue
+        }
         const segment = `case16-${attemptNo}`
         const startQaId = `${segment}-start`
         const endQaId = `${segment}-end`
@@ -275,16 +315,19 @@ export default [
         const captured = await captureSegment(config, segment, async () => {
           await pageFetch(holder, { path: '/manifest.json', qaId: startQaId })
 
-          // Fillers first: thirty business requests, six at a time, so that the
+          // Fillers first: a continuous queue of business requests, so that the
           // limiter's excess is above its delay allowance when the tab's own
           // requests arrive. 429s on these are expected and are not a failure.
           const previousAllow429 = ctx.allow429
           ctx.allow429 = true
-          const fillerIds = Array.from({ length: FILLERS }, (_, i) => `fill-${String(i).padStart(2, '0')}`)
-          const fillerRun = fill(holder, session.accessToken, fillerIds)
+          const fillerIds = Array.from({ length: FILLERS }, (_, i) => `fill-${String(i).padStart(3, '0')}`)
+          // Sent FILLER_LEAD_MS before the tab is due, not when the segment
+          // starts: sent earlier, the limiter's excess has drained again by the
+          // time the tab's own requests arrive and nothing is delayed.
           await waitUntil(T - lead - FILLER_LEAD_MS)
-          await fillerRun
-          ctx.allow429 = previousAllow429
+          const fillerRun = fill(holder, session.accessToken, fillerIds).finally(() => {
+            ctx.allow429 = previousAllow429
+          })
 
           // Then the tab itself, and the probes that bracket the expiry.
           await waitUntil(T - lead - NAVIGATE_LEAD_MS)
@@ -298,6 +341,7 @@ export default [
             giveUpMs: deadline.deadlineMs + 30000,
           })
           await probes
+          await fillerRun
           await pageFetch(holder, { path: '/manifest.json', qaId: endQaId })
           await sleep(2500) // the log flushes every second
           return { finished, gotoAt, mark, tab, probes }

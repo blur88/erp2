@@ -50,6 +50,15 @@ export function maxConfiguredDelayMs(api) {
   return (1000 * (api.burst - api.delay)) / api.ratePerSecond
 }
 
+/** How much of a token's lifetime an attempt needs ahead of it when it starts. */
+export const lifetimeNeededMs = ({ leadMs, fillerLeadMs, marginMs }) => leadMs + fillerLeadMs + marginMs
+
+/** Whether a token expiring at `expiresAtMs` can still start an attempt at `nowMs`. */
+export function lifetimeEnough({ expiresAtMs, nowMs, leadMs, fillerLeadMs, marginMs }) {
+  if (typeof expiresAtMs !== 'number' || !Number.isFinite(expiresAtMs)) return false
+  return expiresAtMs - nowMs >= lifetimeNeededMs({ leadMs, fillerLeadMs, marginMs })
+}
+
 /**
  * The recovery deadline, from the unthrottled refresh-and-resend times measured
  * in the same run.

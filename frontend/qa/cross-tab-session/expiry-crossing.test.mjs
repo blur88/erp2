@@ -253,3 +253,30 @@ test('a good outcome never rescues missing evidence, and evidence never rescues 
   // Everything but one behaviour: fail.
   assert.equal(judgeExpiryCrossing(passing({ behaviour: { ...passing().behaviour, recoveryActions: 1 } })).verdict, 'fail')
 })
+
+// --- the lifetime an attempt needs ahead of it ------------------------------------
+//
+// An attempt schedules its fillers and its navigation backwards from the
+// token's expiry. A token already too close to expiry cannot be scheduled at
+// all, and one that has expired is not "current" for the probes either (the
+// partial run on b03a4a96d stopped on exactly that: the stored token was read
+// after a drain wait longer than its lifetime).
+
+test('the lifetime an attempt needs is its lead, the filler lead and a margin', async () => {
+  const { lifetimeNeededMs } = await import('./lib/expiry-crossing.mjs')
+  assert.equal(lifetimeNeededMs({ leadMs: 2000, fillerLeadMs: 1200, marginMs: 3000 }), 6200)
+})
+
+test('a token with less than that ahead of it cannot start an attempt', async () => {
+  const { lifetimeEnough } = await import('./lib/expiry-crossing.mjs')
+  const needs = { leadMs: 2000, fillerLeadMs: 1200, marginMs: 3000 }
+  assert.equal(lifetimeEnough({ expiresAtMs: 106200, nowMs: 100000, ...needs }), true)
+  assert.equal(lifetimeEnough({ expiresAtMs: 106199, nowMs: 100000, ...needs }), false)
+  assert.equal(lifetimeEnough({ expiresAtMs: 99000, nowMs: 100000, ...needs }), false) // already expired
+})
+
+test('an unknown expiry is not enough', async () => {
+  const { lifetimeEnough } = await import('./lib/expiry-crossing.mjs')
+  assert.equal(lifetimeEnough({ expiresAtMs: NaN, nowMs: 1, leadMs: 1, fillerLeadMs: 1, marginMs: 1 }), false)
+  assert.equal(lifetimeEnough({ expiresAtMs: undefined, nowMs: 1, leadMs: 1, fillerLeadMs: 1, marginMs: 1 }), false)
+})
