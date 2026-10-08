@@ -503,7 +503,7 @@ Four things about that capture were learned by running it (2026-10-09), and each
 - **The capture is scoped to the ingress's address** (`tcp port 3001 and host <address>`, both recorded in the health record). Port 3000 is the frontend container's own NGINX and reaches the backend without the ingress; a browser tab left open there polls `/api/health` every 30 s and would otherwise invalidate every segment. Inside the scope an unidentified request still invalidates. The capture is not evidence about traffic that bypasses the ingress.
 - **A request keeps the identifier its sender gave it.** In a profile opened with `tagRequests` the harness names only the requests that have none (`app-<seq>`); it used to rename all of them, which hid a case's own probes from that case.
 
-`capture-feasibility.sh <lan-ip>` is the run that validates this pipeline. It has been run twice and has not passed; `SESSION_QA.md` has both records.
+`capture-feasibility.sh <lan-ip>` is the run that validates this pipeline: two runs failed and the third, on `d313d0e45`, passed. It validates the pipeline only, not case 16, which has not been run. `SESSION_QA.md` has all three records.
 
 **The design relies on HTTP/1.1's per-profile connection limit.** Enabling HTTP/2 requires re-running W1 and reassessing both the queueing assumption and `limit_conn addr 10`, because each concurrent HTTP/2 request counts as a separate connection there. The trigger is HTTP/2, not HTTPS.
 

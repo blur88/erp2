@@ -374,11 +374,9 @@ limit must be less 65536`), so the rig never came up and no phase ran.
 When the limiter change was first recorded, nothing that needs the QA stack had
 been run on this host: `run.sh` refuses under 3 GB of free disk and the host had
 2.2 GB. Space was freed on 2026-10-09 and the capture feasibility run has since
-been run twice; **both runs failed** and are recorded in the next section. The
-rest of this list is still not run:
-
-- **The capture feasibility run** (Task 2 Step 5) has not passed. Until it does,
-  the capture pipeline is not validated, and neither W1 nor case 16 is run.
+been run three times: two failed and the third passed, all recorded in the next
+section. That run validates the capture pipeline and nothing else. The rest of
+this list is still not run:
 - **The recorded W1 run** on the new configuration. So the deadlines (5 s, 10 s,
   15 s at 5, 10 and 20 tabs), the zero-recovery-action condition and the
   sign-out's overlap with a delayed request are all **unverified**. The refusal
@@ -399,7 +397,7 @@ killing the reducer inside the container, and the container stops; and inside th
 container `memory.swap.max` reads 0 with every process's `VmSwap` at 0 kB, while
 the host does have 2 GB of swap - the claim rests on the cgroup, not on the host.
 
-### Capture feasibility: two runs, both failed (2026-10-09)
+### Capture feasibility: two failed runs and one that passed (2026-10-09)
 
 `frontend/qa/cross-tab-session/capture-feasibility.sh <lan-ip>` brings the stack
 up in the QA configuration, sends 200 identified requests inside one upstream
@@ -496,7 +494,43 @@ an identifier is still unreadable and still invalidates its segment. Traffic
 that reaches the backend another way - port 3000 is one - is outside the
 capture, and nothing here is evidence about it.
 
-Both failed records, with their ingress logs and reduced captures, are kept
+**Run 3, `d313d0e45`: exit status 0, every check passed.**
+
+| | Run 3 |
+|---|---|
+| Matched in browser, ingress log and capture | 200 of 200, 0 problems |
+| Token fingerprints agree; statuses agree | 200; 200 |
+| The refresh before the workload, counted apart | in all three sources |
+| Upstream streams, all reused | 6 |
+| Requests the ingress logged `DELAYED` (50 required) | 80 |
+| Requests reassembled from more than one frame | 40, each 1448 + 1448 + 1448 + 594 bytes; no frame over 1448 |
+| Padding header present at the backend | 40 of 40 |
+| Capture | usable: 841 frames received, 0 dropped (reported), 0 unreadable records, 0 retransmissions, lost or unseen segments |
+| Scope | `tcp port 3001 and host 172.18.0.4`; 200 of 200 from that address, none from another |
+| Answers | 40 + 100 + 40 x 200; 10 + 10 x 401, both groups `Invalid or expired token` |
+| Current token's lifetime | 19.2 s at the first request, 10.3 s left after the last one that needed it |
+| Offload during the segment | off at the backend and at `erp_nginx:eth0`; afterwards both ends read what they read before |
+
+The queue's timings, which the explanation above was waiting for: the 140 queued
+requests reached the ingress at 28 a second until the first delayed one, which
+was the 70th, 2.43 s after the first; from there to the end all but two were
+delayed (69 of the 140, over 5.72 s). The other 11 delayed requests were among
+the 401s sent straight after. An arrival rate of 28 a second against a zone rate
+of 20 leaves 8 a second of excess, which reaches the `delay` threshold of 20 in
+about two and a half seconds. That supports the second explanation and not the
+first. It also shows that queuing only the 100 burst requests continuously, with
+the padded ones sent afterwards one at a time, would again have delayed about 31
+of them: 69 requests passed before the first delay.
+
+What run 3 establishes: on this stack, for these 200 requests, the browser's
+record, the ingress log and the capture agree request by request, the capture
+reports what it dropped, and a request too large for one frame is reassembled
+from several. What it does not establish: anything about the expiry case
+(case 16), which uses this pipeline but has not been run; anything about traffic
+outside the capture's scope; or that a later segment will be free of unreadable
+records.
+
+The three records, with their ingress logs and reduced captures, are kept
 outside the repository.
 
 ### Explicitly unverified
