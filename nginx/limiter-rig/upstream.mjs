@@ -28,7 +28,10 @@ export function holdMsOf(headerValue) {
   if (typeof text !== 'string' || text.trim() === '') return 0
   const asked = Number(text)
   if (!Number.isFinite(asked) || asked <= 0) return 0
-  return Math.min(asked, MAX_HOLD_MS)
+  // An explicit comparison, not Math.min: the upper bound is then a guard on
+  // the value that reaches the timer.
+  if (asked > MAX_HOLD_MS) return MAX_HOLD_MS
+  return asked
 }
 
 const arrivals = []
