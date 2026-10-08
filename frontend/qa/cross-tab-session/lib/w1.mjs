@@ -28,18 +28,32 @@
 // had no way to get back. A tab that cannot be recovered is not usable, and
 // at N = 5 that fails W1. Nothing is retried to make it pass.
 //
-// Blocking, at N = 5 (lib/w1-judgement.mjs, blockingChecks): in all three
-// rounds no 429 on refresh, logout or me; in (a) and (b) every tab usable; in
-// (c) the logout sent and every tab on the login page without a reload. Not
-// blocking: everything at N = 10 and 20. 429s on business endpoints
-// (api_limit) are counted and not judged: they are tracked in issue #1353.
+// Blocking at N = 5, 10 and 20 (lib/w1-judgement.mjs, blockingChecks): in all
+// three rounds no 429 on refresh, logout or me; in (a) and (b) every tab
+// usable, no in-app recovery action, and the last tab holding its expected
+// data within the size's deadline (5 s, 10 s, 15 s from the tab-opening
+// trigger); in (a) the token current and in (b) expired when the tabs opened;
+// in (c) the logout sent and answered 2xx and every tab on the login page
+// without a reload. Not blocking: 429s on business endpoints (api_limit), which
+// are counted and reported at every size.
 //
 // W1 states no capacity. It reports what was observed at each size, and says
 // what that does and does not show (W1_SCOPE).
 import { accessFor, loadNavigation } from './access.mjs'
 import { sleep } from './config.mjs'
 import { USER_MENU, documentId, onLoginPage, readStored, showsSignedInUi, summarize } from './harness.mjs'
-import { HOW_ROUNDS_REACH_THE_SESSION_ZONE, W1_SCOPE, blockingChecks, byRoute, nonBlockingFindings, observed, observedLine } from './w1-judgement.mjs'
+import {
+  BLOCKING_SIZES,
+  DEADLINE_MS,
+  HOW_ROUNDS_REACH_THE_SESSION_ZONE,
+  W1_SCOPE,
+  blockingChecks,
+  byRoute,
+  nonBlockingFindings,
+  observed,
+  observedLine,
+} from './w1-judgement.mjs'
+import { watchCompletion } from './completion.mjs'
 import { busiestSecond, candidateBurst, peakDemand } from './stats.mjs'
 import {
   ACTION,
@@ -56,6 +70,21 @@ import {
 } from './usable.mjs'
 
 const AGREED_MAXIMUM_BURST = 60 // review, 2026-10-06: tuning up to 60 is agreed, beyond it is not
+// A diagnostic about session_limit, read from what W1 measured. It says how
+// close that zone came to its configured burst. It is not a capacity figure and
+// it authorises nothing: #1353 changes api_limit and leaves session_limit
+// exactly as it is, so this note is not a reason to change that zone.
+
+/** The completion figures a round record carries, with the deadline it is judged against. */
+function completionFields(finished, n) {
+  return {
+    completedAfterMs: finished.lastCompletedAfterMs,
+    completionPollMs: finished.pollMs,
+    deadlineMs: deadline(n),
+  }
+}
+
+const deadline = (n) => DEADLINE_MS[n]
 
 function measure(profile, mark, zone) {
   const entries = profile
@@ -301,16 +330,28 @@ export default {
       let mark = profile.mark()
       const remainingA = stored.session.accessTokenExpiresAt * 1000 - Date.now()
       let opened = await openTabs(profile, n, `N${n}a`)
-      await Promise.all(opened.pages.map(loaded))
-      await quiet(profile, mark)
-      // Measured first: the usability check below sends requests of its own.
+      // When each tab first held its expected data, on the clock that started
+      // at the tab-opening trigger, and judged against this size's deadline. The
+      // window runs past the deadline so a tab that misses it is measured, not
+      // cut off.
+      const watchedA = watchCompletion(profile, mark, opened.pages, shell.reference, {
+        started: opened.started,
+        giveUpMs: deadline(n) + 30000,
+      })
+      // Awaited with the loading and the quiet wait: the round's own requests
+      // are all in by then, and the usability check below sends requests of its
+      // own, which would otherwise be sampled as the round's completion.
+      const [, , completionA] = await Promise.all([Promise.all(opened.pages.map(loaded)), quiet(profile, mark), watchedA])
       let measured = measure(profile, mark, zone)
+      // endStates is what establishes that an action works, and it counts the
+      // recovery actions, so it runs after the round's own loading.
       let states = await endStates(profile, mark, opened.pages, api, shell)
       rounds.push({
         n,
         round: 'a',
         description: 'current access token',
         accessTokenRemainingMsAtStart: remainingA,
+        ...completionFields(completionA, n),
         ...measured,
         ...states,
       })
@@ -326,8 +367,11 @@ export default {
       const expiredAtStart = stored.session.accessTokenExpiresAt * 1000 < Date.now()
       mark = profile.mark()
       opened = await openTabs(profile, n, `N${n}b`)
-      await Promise.all(opened.pages.map(loaded))
-      await quiet(profile, mark)
+      const watchedB = watchCompletion(profile, mark, opened.pages, shell.reference, {
+        started: opened.started,
+        giveUpMs: deadline(n) + 30000,
+      })
+      const [, , completionB] = await Promise.all([Promise.all(opened.pages.map(loaded)), quiet(profile, mark), watchedB])
       measured = measure(profile, mark, zone)
       states = await endStates(profile, mark, opened.pages, api, shell)
       rounds.push({
@@ -335,6 +379,7 @@ export default {
         round: 'b',
         description: 'every tab starts with an expired access token',
         accessTokenExpiredAtStart: expiredAtStart,
+        ...completionFields(completionB, n),
         ...measured,
         ...states,
       })
@@ -378,7 +423,11 @@ export default {
       scope: W1_SCOPE,
       howEachRoundReachesTheSessionZone: HOW_ROUNDS_REACH_THE_SESSION_ZONE,
       blocking:
-        'At N = 5: no 429 on refresh, logout or me in rounds (a), (b) and (c); every tab usable in (a) and (b); in (c) the logout sent and every tab on the login page without a reload. Nothing at N = 10 or 20 blocks.',
+        `At N = ${BLOCKING_SIZES.join(', ')}: no 429 on refresh, logout or me in rounds (a), (b) and (c); in (a) and (b) every tab usable, ` +
+        'no in-app recovery action, and the last tab holding its expected data within the size\'s deadline ' +
+        `(${DEADLINE_MS[5] / 1000} s, ${DEADLINE_MS[10] / 1000} s, ${DEADLINE_MS[20] / 1000} s from the common tab-opening trigger); ` +
+        'in (a) the access token current and in (b) expired when the tabs opened; in (c) the logout sent and answered 2xx and every tab ' +
+        'on the login page without a reload. Not blocking: 429s on business endpoints, counted at every size.',
       observed: rounds.map((r) => observed(r, zone.burst)),
       // Every piece of data some tab's user could not get back, at any size.
       dataNotRecoverableByRole: noted.dataNotRecoverableByRole,
@@ -392,10 +441,15 @@ export default {
         largestPeakDemandAtN10: e,
         candidateBurst: candidate,
         withinAgreedMaximum: candidate <= AGREED_MAXIMUM_BURST,
+        // A diagnostic about session_limit and nothing else. #1353 changes
+        // api_limit; it does not authorise changing session_limit, and this
+        // note must not be read as a recommendation to do so.
         note:
-          candidate <= AGREED_MAXIMUM_BURST
+          (candidate <= AGREED_MAXIMUM_BURST
             ? 'set the burst, re-run the rate-limit checks twice, commit, and repeat the whole run'
-            : 'stop: the candidate exceeds 60; bring the counts and E to the repository owner',
+            : 'stop: the candidate exceeds 60; bring the counts and E to the repository owner') +
+          ' Diagnostic only: a reading of what the tabs did to session_limit, not a capacity figure, ' +
+          'and #1353 does not authorise changing that zone.',
       }
     }
     ctx.record('judgement', judgement)

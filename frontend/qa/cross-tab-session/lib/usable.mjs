@@ -476,7 +476,13 @@ async function room(profile, api, { need = 15, maxMs = 20000 } = {}) {
   }
 }
 
-async function dashboardState(profile, openMark, page, reference) {
+/**
+ * What the tab holds right now: its data judged against the reference
+ * (judgeDashboard), and what the profile read from it. Exported because the
+ * loading rounds ask the same question of every tab on their own clock, to know
+ * when the last of them first had its data.
+ */
+export async function dashboardState(profile, openMark, page, reference) {
   const dom = await readDom(page, DASHBOARD.heading)
   return { ...judgeDashboard(dom, profile.since(openMark, page), reference), companyNameInSidebar: dom.companyNameInSidebar, stored: dom.stored }
 }
