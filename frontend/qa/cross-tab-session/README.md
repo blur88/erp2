@@ -33,15 +33,21 @@ What a reader of those records needs to know about how the suite judges:
   page only an administrator can open does not count: the suite refuses such
   a step and the tab fails (see "Who W1 runs as").
 - **W1 states no capacity.** It reports what was observed at each size and
-  blocks at five tabs, in all three rounds (see "What W1 shows and what it
-  does not").
+  blocks at 5, 10 and 20 tabs, in all three rounds, on a deadline and on zero
+  in-app recovery actions (see "What W1 shows and what it does not").
+- **The sign-out round must overlap a request the ingress was holding.** A round
+  where no attempt did is inconclusive, not passed, and the run fails (see
+  "What blocks").
+- **Case 16 is not evidence until a recorded run has passed it.** Its unit tests
+  are evidence about the judgement, not about the behaviour (see "Case 16").
 
-Results of `cases.mjs --only ...` and of anything run with `QA_DIST_DIR` are
-development results. They say so in the file they write and are not evidence.
+Results of `cases.mjs --only ...`, of anything run with `QA_DIST_DIR`, and of
+anything run with `QA_SUITE_OVERRIDE` are development results. They say so in
+the file they write and are not evidence.
 
 ## What it does
 
-`cases.mjs` runs fifteen cases and one workload in headless Chromium. "Two
+`cases.mjs` runs sixteen cases and one workload in headless Chromium. "Two
 tabs" always means two pages of **one** browser context (one profile, one
 IndexedDB, one `BroadcastChannel` namespace). Each case states its pass
 condition in a comment above its `run()`.
@@ -147,7 +153,7 @@ back.
   password at first sign-in: that redirect blocks every case. Use accounts
   made for this purpose; the run signs them in about thirty times and ends
   their sessions.
-  - `QA_USERNAME` and `QA_USERNAME_2` are used by the fifteen cases and the
+  - `QA_USERNAME` and `QA_USERNAME_2` are used by the sixteen cases and the
     latency measurement. Both must be able to open the dashboard, the product
     list and sales orders.
   - `QA_USERNAME_3` is W1's user and must have the role **`sales_staff`**. It
@@ -465,36 +471,47 @@ Two more things about this check that a reader should know:
 
 ### What blocks
 
-At N = 5, all of (`lib/w1-judgement.mjs`, `blockingChecks`):
+At N = 5, 10 **and** 20 (`lib/w1-judgement.mjs`, `blockingChecks`):
 
 - in rounds (a), (b) and (c), no request to `refresh`, `logout` or `me` is
-  answered 429 (in the round itself or while its tabs are checked);
+  answered 429 (in the round itself or while its tabs are checked). For round (c)
+  the check names the attempt, so a failure says which one;
 - in rounds (a) and (b), every tab is usable for the non-administrator by the
   definition above: without a reload, a new sign-in or a page outside the
   role's set;
+- in rounds (a) and (b), **no in-app recovery action**: no tab was made usable by
+  the user navigating. "Without a user action" is this and not the absence of a
+  failure message, because the script's own recovery is a navigation through the
+  sidebar, which is a user action by any reading;
+- in rounds (a) and (b), the **last tab held its expected data within the size's
+  deadline** - 5 s, 10 s and 15 s from the common tab-opening trigger. A tab
+  that never did is a miss, not a small figure: the watch runs thirty seconds
+  past the deadline rather than being cut off at it, and a completion is read
+  only when the tab has its data *and* no business request without an answer;
 - round (a) started with a current access token and round (b) with an expired
   one;
 - in round (c), the sign-out sent its `logout` and it was answered 2xx, and
   every tab is on the login page afterwards in the document it first loaded
-  (no reload).
+  (no reload);
+- in round (c), **the sign-out overlapped at least one delayed request**: a
+  request the limiter was still holding, begun before the `logout` went out and
+  not ended when it began, both read from the ingress log and both on the
+  ingress's own clock. A round where no attempt did is inconclusive, not
+  passed, and the run fails. Such a round may be set up again - at most three
+  attempts, and only when every behavioural gate of the attempt passed. A
+  behavioural failure in any attempt ends it at once, and every attempt keeps
+  its own entry with its full measurements.
 
-Round (c) is where `logout` is sent, so it is the round that puts `logout`
-under the 429 criterion. How many tabs were still loading when the one tab
-signed out is recorded and printed (`tabsStillLoadingAtSignOut`) and no number
-is required: at five tabs the tabs load fast, and the summary line shows how
-much "while the others are still loading" held in that run.
+A size that was not run fails W1: the deadlines are acceptance targets at every
+size, and a size that is missing has met none of them.
 
-Everything at N = 10 and 20 is recorded and not blocking. If an N = 10 round
-has a 429 from `session_limit`, the judgement carries a candidate burst,
-`⌈1.25 × (E − 1)⌉`; above 60 it says to stop and take the figures to the
-repository owner.
-
-429s on business endpoints are a different limit (`api_limit`, 10 requests a
-second, burst 20 per address): several dashboards loading at once send more
-data requests than its burst admits. They are counted for every round
-(`dataRequests429`), reported as findings and not judged. They are tracked in
-issue #1353. What they do to a tab is exactly what the usability check
-measures.
+429s on business endpoints are a different limit (`api_limit`): several
+dashboards loading at once send more data requests than any per-address limit
+admits at once. Since #1353 that limit **delays** the excess rather than
+refusing it (20 r/s, `burst=40 delay=20`, provisional until these deadlines are
+met). Those 429s are counted and reported at every size and are not a gate: "429
+counts are diagnostic" means business requests only, and a 429 on a session
+route fails the run above.
 
 ## Case 16: a token that expires while the ingress delays the request
 

@@ -7,7 +7,7 @@ verified. The code lives in `frontend/src/session/` and `frontend/qa/cross-tab-s
 
 | Command | Purpose |
 |---|---|
-| `frontend/qa/cross-tab-session/run.sh "<lan-ip>"` | A whole recorded run: capture the running configuration, rebuild, start with the QA values, run the fifteen cases and W1, restore, measure latency, write `results.json`. |
+| `frontend/qa/cross-tab-session/run.sh "<lan-ip>"` | A whole recorded run: capture the running configuration, rebuild, start with the QA values, run the sixteen cases and W1, restore, measure latency, write `results.json`. |
 | `frontend/qa/cross-tab-session/stack.sh {show\|qa-up\|restore}` | The only supported way to start or recreate containers for a run. |
 | `nginx/verify-rate-limits.sh` | The ingress rate limits and CORS, from a container with its own address. Must pass twice in a row. |
 | `node --test nginx/verify-rate-limits.test.mjs` | The arithmetic the rate-limit script derives from the configuration. |
@@ -323,6 +323,97 @@ that followed:
 
 The run that gates the merge is the one in the pull request.
 
+## The limiter probe and what has not been run (#1353)
+
+`api_limit` was changed from `burst=20 nodelay` to `burst=40 delay=20` at 20 r/s,
+so that a restored window's excess requests wait instead of being refused. Every
+assertion about it is written against a recorded probe of the deployed build,
+because two handlers' interaction is not something to assume.
+
+### The probe: `nginx/limiter-probe-result.json`
+
+Recorded twice on `nginx/1.30.0` (the image the stack deploys) through the
+isolated rig, on this host, and merged; the two runs agreed on every status and
+every finding. Configuration `3fd4e04e77cf`, rate 20 r/s, burst 40, delay 20.
+
+| Answer | Status | Finding |
+|---|---|---|
+| `handlerOrder` | established | `limit_req` runs first, `limit_conn` second. `ngx_http_init_phase_handlers` fills the phase engine backwards, so the last handler registered runs first, and `auto/modules` registers `HTTP_LIMIT_CONN` before `HTTP_LIMIT_REQ`. Observed: 25 lines `lreq=PASSED lconn=REJECTED`, 19 lines `lreq=REJECTED lconn=-`. |
+| `delayedCountedByLimitConn` | established | A request delayed by `limit_req` is **not** counted by `limit_conn` while it is delayed: `limit_req` returns `NGX_AGAIN`, so `limit_conn`'s handler is not reached until the delay has expired. E3: 13 delayed, 0 refused, releases 47-54 ms apart against 50 ms expected. |
+| `handlerRunsAfterOther` | established | `limit_conn` does not run at all on a request `limit_req` refused (its field reads `-`), and `limit_req` has already passed on a request `limit_conn` refuses. |
+
+| State | Status | Evidence |
+|---|---|---|
+| immediate | reachable, **10 at one instant** | with each response held 500 ms: 1, 5 and 10 all admitted; 11, 15, 21 and 25 admitted 10 each, the rest `lconn=REJECTED`. This is `limit_conn addr 10`, not `delay + 1`. |
+| delayed | reachable | 59 lines `lreq=DELAYED`, all `lconn=PASSED`; arrivals 50.2, 49.2, 49.1 ms apart against `1/20 r/s` = 50 ms. |
+| rejected by `limit_req` | reachable | 18 lines `lreq=REJECTED lconn=-`; error log `limiting requests, excess: 40.980 by zone "api_limit"`. |
+| rejected by `limit_conn` | reachable | lines `lconn=REJECTED lreq=PASSED`; error log `limiting connections by zone "addr"`. |
+
+### The verification: `nginx/verify-rate-limits.sh`
+
+Phases G to J run on the rig, never against the running stack, and are planned
+from the probe result before anything is sent. Recorded on this host:
+
+| Run | Result |
+|---|---|
+| twice in a row, then again after the forced failures | exit 0 each time: G 10 admitted at one instant; H 43 delayed arrivals at 20.0 r/s; I 28 lines refused by `limit_req`; J 5 lines refused by `limit_conn` |
+| one state set to `unresolved` | exit 3, three phases run, `delayed` named blocked |
+| `confSha256` changed | exit 3, nothing judged |
+| probe result absent | exit 3, nothing judged |
+| `nodelay` in place of `delay=20` | exit 1, failing set exactly `{H}` |
+| `delay=1` for `delay=20` | exit 1, failing set exactly `{G}` |
+| `burst=100000` | exit 1, failing set exactly `{I}` |
+| `limit_conn addr 20` | exit 1, failing set exactly `{J}` |
+
+The last two rows are substitutions, with the reason: NGINX refuses to start on
+`delay=0` (`invalid delay value`) and on `limit_conn addr 100000` (`connection
+limit must be less 65536`), so the rig never came up and no phase ran.
+
+### What has NOT been run
+
+Everything that needs the QA stack, on this host, because `run.sh` refuses under
+3 GB of free disk and this host has 2.2 GB:
+
+- **The capture feasibility run** (Task 2 Step 5): 200 requests correlated one to
+  one across the browser, the ingress log and the capture. The pipeline is
+  proven by its own unit tests and by the retention checks below, not by that
+  run.
+- **The recorded W1 run** on the new configuration. So the deadlines (5 s, 10 s,
+  15 s at 5, 10 and 20 tabs), the zero-recovery-action condition and the
+  sign-out's overlap with a delayed request are all **unverified**. The refusal
+  figures in the runs recorded above describe the old `nodelay` configuration.
+- **Case 16**, the token that expires while the ingress delays its request: its
+  calibration, its attempts and its recovery deadline. Nothing about the expiry
+  path is established by the unit tests alone.
+- **The W1 and case 16 forced failures** (Task 7 Steps 6 and 7), which need a
+  passing baseline through the same invocation.
+
+The retention checks that were possible were done, with the QA-independent parts
+of the stack: `docker logs` on the capture container is refused; `docker inspect`
+shows log driver `none`, a read-only root, the tmpfs, `Memory == MemorySwap` and
+only `NET_RAW`/`NET_ADMIN`; the scratch directory holds only the reducer's files;
+a search of the scratch directory and of the capture's stderr file for the access
+token and the refresh token the traffic carried finds nothing, before and after
+killing the reducer inside the container, and the container stops; and inside the
+container `memory.swap.max` reads 0 with every process's `VmSwap` at 0 kB, while
+the host does have 2 GB of swap - the claim rests on the cgroup, not on the host.
+
+### Explicitly unverified
+
+Passing the acceptance target would establish none of these, and as things stand
+none of them is verified either:
+
+- several users behind one address, until a multi-user workload exists;
+- administrator behaviour: the blocking runs are the non-administrator ones only,
+  and an administrator's pages send different requests;
+- restores of arbitrary or mixed routes: W1 opens every tab on `/dashboard`;
+- recovery from a regional-settings request that is refused on its own, which
+  stays open under #1354;
+- browsers other than Chromium;
+- that the three provisional `api_limit` numbers are the right ones. They are
+  sizing hypotheses; W1 meeting its deadlines would show that they are adequate
+  for one profile at one role on one page, and nothing more.
+
 ## What is automated
 
 - Vitest on the in-memory store double: every commit rule, the reconciliation
@@ -363,10 +454,11 @@ CI has no NGINX and no browser; neither is a CI gate.
   hundreds of milliseconds per request on the QA machine (figures above). This
   cost is accepted, not removed. The figures come from one machine with a spinning
   disk and say nothing about others.
-- When several tabs load at once, the general `api_limit` refuses a third to two
-  thirds of their data requests (issue #1353). Tabs recover without a reload, but
-  mostly through one in-app navigation by the user, not by themselves. Only the
-  company data is retried automatically.
+- `api_limit` now delays excess `/api` requests instead of refusing them
+  (20 r/s, `burst=40 delay=20`, issue #1353), so the refusals recorded in the
+  runs above are what the old `burst=20 nodelay` did. **No recorded run has yet
+  been made on the new configuration**: see "The limiter probe and what has not
+  been run" below. What the new numbers buy is unverified until one is.
 - A refused regional-settings request is not retried. A profile that has signed
   in before keeps the formats it stored; a profile with empty storage falls back
   to `DD/MM/YYYY` silently, and an ordinary user can only correct that by opening
