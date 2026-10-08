@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
 import { join, normalize } from 'node:path'
 import { sleep } from './config.mjs'
+import { requestIdFor } from './request-id.mjs'
 
 export const SESSION_ZONE = /^\/api\/auth\/(refresh|logout|me)\/?$/
 export const LOGIN_ZONE = /^\/api\/(auth|login|register)/
@@ -333,7 +334,9 @@ export class Profile {
     // with this one header added.
     if (this.opts.tagRequests) {
       const entry = this.byRequest.get(request)
-      const qaId = `app-${entry ? entry.seq : this.ctx.run.seq + 1}`
+      // An identifier the sender set (a case's own probe) is kept; only a
+      // request without one gets the harness's (lib/request-id.mjs).
+      const qaId = requestIdFor(request.headers(), entry ? entry.seq : this.ctx.run.seq + 1)
       if (entry) entry.qaId = qaId
       return route.continue({ headers: { ...request.headers(), 'x-qa-request-id': qaId } })
     }
