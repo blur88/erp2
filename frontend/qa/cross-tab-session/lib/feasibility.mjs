@@ -8,11 +8,14 @@
 export const FEASIBILITY_PLAN = {
   // One after another, so the ingress reuses its upstream connections.
   sequential: 40,
-  // At once, so that the limiter delays a good share of them.
-  bursts: 5,
-  burstSize: 20,
+  // Queued continuously through the browser profile's own connection limit,
+  // so that the limiter delays a good share of them. (Until run 3 these went
+  // out as five batches of 20, each awaited before the next; on 913da9d22 that
+  // delayed 31 of the 200.)
+  burst: 100,
   // With a padding header, as a means of making the request span several
   // frames. What is judged is what the capture reassembled, not this size.
+  // Queued directly behind the burst, in the same continuous queue.
   padded: 40,
   paddingBytes: 4096,
   // 401s, from a token that has expired and from one that never was a token.
@@ -28,7 +31,7 @@ export const EXPIRED_MESSAGE = 'Invalid or expired token'
 // How many answers each group sends for, and what they must be.
 const GROUPS = {
   seq: { count: FEASIBILITY_PLAN.sequential, intended: '2xx' },
-  burst: { count: FEASIBILITY_PLAN.bursts * FEASIBILITY_PLAN.burstSize, intended: '2xx' },
+  burst: { count: FEASIBILITY_PLAN.burst, intended: '2xx' },
   pad: { count: FEASIBILITY_PLAN.padded, intended: '2xx' },
   expired: { count: FEASIBILITY_PLAN.expired, intended: '401 expired' },
   garbage: { count: FEASIBILITY_PLAN.garbage, intended: '401 expired' },
@@ -63,7 +66,7 @@ export function judgeFeasibility(record) {
   const need = (ok, check, detail) => {
     if (!ok) failures.push({ check, detail })
   }
-  const { sent, matched, problems, fingerprintMismatches, statusMismatches, categories, capture, groups, token, refresh, paddedReachedUpstream } = record
+  const { sent, matched, problems, fingerprintMismatches, statusMismatches, categories, capture, groups, token, refresh, paddedReachedUpstream, scope } = record
   need(sent === FEASIBILITY_PLAN.total, 'every planned request was sent', `${sent} of ${FEASIBILITY_PLAN.total}`)
   need(matched === sent && problems.length === 0, 'one-to-one correlation', `${matched} of ${sent} matched in browser, ingress and capture; ${problems.length} problem(s)`)
   need(fingerprintMismatches.length === 0, 'token fingerprints agree', `${fingerprintMismatches.length} request(s) differ`)
@@ -86,5 +89,11 @@ export function judgeFeasibility(record) {
   )
   // The refresh is identified and accounted for apart from the 200.
   need(refresh?.correlated === true, 'the refresh before the workload is in all three sources', 'not found once in each')
+  // The capture is evidence about ingress-to-backend traffic only, and says so.
+  need(
+    typeof scope?.ingressAddr === 'string' && scope.ingressAddr !== '' && scope.fromIngress === sent,
+    'every captured request came from the ingress address',
+    `${scope?.fromIngress} of ${sent} from ${scope?.ingressAddr ?? '(capture not scoped)'}`,
+  )
   return { verdict: failures.length === 0 ? 'pass' : 'fail', failures }
 }

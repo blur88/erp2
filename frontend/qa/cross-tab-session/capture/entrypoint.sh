@@ -25,8 +25,10 @@
 #     swap. A capture that reached that bound did not write a health record, and
 #     a segment without one is not judged.
 #
-# Environment: SEGMENT, SCRATCH (/scratch), and CAPTURE_FILTER when the caller
-# wants a different one.
+# Environment: SEGMENT, SCRATCH (/scratch); CAPTURE_FILTER and INGRESS_ADDR,
+# which upstream-capture.sh sets so that only traffic from the ingress's
+# address is captured. Without them the filter below takes everything on the
+# backend's port except loopback.
 set -eu
 
 SEGMENT="${SEGMENT:?SEGMENT is required}"
@@ -76,6 +78,7 @@ dumpcap -i any -f "${CAPTURE_FILTER}" -w - 2> "${DUMPCAP_ERR}" \
       --iface "${IFACE}" --gro-off "${GRO_OFF}" \
       ${SENDER_IFACE:+--sender-iface "${SENDER_IFACE}"} \
       ${SENDER_OFFLOAD_OFF:+--sender-offload-off "${SENDER_OFFLOAD_OFF}"} \
+      ${INGRESS_ADDR:+--ingress-addr "${INGRESS_ADDR}"} --filter "${CAPTURE_FILTER}" \
       ${REQUIRE_QA_ID:+--require-qa-id} 2>> "${ERR}" &
 REDUCER_PID=$!
 
@@ -87,6 +90,7 @@ while [ "$i" -lt 60 ]; do
     {
       echo "segment=${SEGMENT}"
       echo "filter=${CAPTURE_FILTER}"
+      echo "ingress_addr=${INGRESS_ADDR:-}"
       echo "iface=${IFACE}"
       echo "gro_off=${GRO_OFF}"
       echo "sender_iface=${SENDER_IFACE:-}"

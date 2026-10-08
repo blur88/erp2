@@ -27,6 +27,37 @@ SEGMENT_RE='^[a-z0-9-]{1,40}$'
 
 INGRESS_CONTAINER="${QA_INGRESS_CONTAINER:-erp_nginx}"
 
+# --- what is captured ----------------------------------------------------------
+#
+# Only traffic from the ingress's address on the network it shares with the
+# backend. The evidence this capture gives is about requests the ingress
+# forwarded; something that reaches the backend another way (the frontend
+# container's own proxy on port 3000, for one) is not that, and scoping the
+# capture keeps a browser tab left open there from invalidating every segment.
+# Inside the scope nothing is waved through: a request from the ingress without
+# an identifier is still reported as unreadable.
+#
+# This narrows what the capture covers. It says nothing about traffic that
+# bypasses the ingress.
+
+# The ingress's address on the one network it shares with the backend, checked
+# from inside the backend's network namespace to be directly reachable there.
+ingress_addr() {
+  local shared addr route
+  shared="$(comm -12 \
+    <(docker inspect "${BACKEND_CONTAINER}" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' | sed '/^$/d' | sort) \
+    <(docker inspect "${INGRESS_CONTAINER}" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' | sed '/^$/d' | sort))"
+  if [ -z "${shared}" ] || [ "$(printf '%s\n' "${shared}" | wc -l)" -ne 1 ]; then return 1; fi
+  addr="$(docker inspect "${INGRESS_CONTAINER}" --format "{{(index .NetworkSettings.Networks \"${shared}\").IPAddress}}")"
+  [[ "${addr}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  # On-link from the backend: a route with no gateway.
+  route="$(in_netns "${BACKEND_CONTAINER}" "ip -o route get ${addr}")"
+  case "${route}" in
+    *" via "*|"") return 1 ;;
+  esac
+  printf '%s' "${addr}"
+}
+
 # --- segmentation offload, at both ends --------------------------------------
 #
 # Whether a request larger than the MTU reaches the backend in several frames
@@ -135,6 +166,13 @@ cmd_start() {
   # place. Both go here.
   docker rm -f "erp_qa_capture_${segment}" >/dev/null 2>&1 || true
 
+  local addr
+  if ! addr="$(ingress_addr)"; then
+    echo "refusing: could not establish ${INGRESS_CONTAINER}'s address on the one network it shares with ${BACKEND_CONTAINER}" >&2
+    exit 1
+  fi
+  local filter="tcp port 3001 and host ${addr}"
+
   record_offload "${scratch}/upstream-arrivals.${segment}.offload"
   local sender_iface="" sender_off=0
   if sender_iface="$(sender_offload_off)"; then sender_off=1; else sender_iface=""; fi
@@ -151,6 +189,7 @@ cmd_start() {
     --label "qa.capture.segment=${segment}" \
     -e "SEGMENT=${segment}" -e "SCRATCH=/scratch" \
     -e "SENDER_OFFLOAD_OFF=${sender_off}" ${sender_iface:+-e "SENDER_IFACE=${sender_iface}"} \
+    -e "INGRESS_ADDR=${addr}" -e "CAPTURE_FILTER=${filter}" \
     ${require_qa_id:+-e REQUIRE_QA_ID=1} \
     -v "${CAPTURE_DIR}:/capture:ro" \
     -v "${scratch}:/scratch" \

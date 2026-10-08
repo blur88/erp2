@@ -371,13 +371,14 @@ limit must be less 65536`), so the rig never came up and no phase ran.
 
 ### What has NOT been run
 
-Everything that needs the QA stack, on this host, because `run.sh` refuses under
-3 GB of free disk and this host has 2.2 GB:
+When the limiter change was first recorded, nothing that needs the QA stack had
+been run on this host: `run.sh` refuses under 3 GB of free disk and the host had
+2.2 GB. Space was freed on 2026-10-09 and the capture feasibility run has since
+been run twice; **both runs failed** and are recorded in the next section. The
+rest of this list is still not run:
 
-- **The capture feasibility run** (Task 2 Step 5): 200 requests correlated one to
-  one across the browser, the ingress log and the capture. The pipeline is
-  proven by its own unit tests and by the retention checks below, not by that
-  run.
+- **The capture feasibility run** (Task 2 Step 5) has not passed. Until it does,
+  the capture pipeline is not validated, and neither W1 nor case 16 is run.
 - **The recorded W1 run** on the new configuration. So the deadlines (5 s, 10 s,
   15 s at 5, 10 and 20 tabs), the zero-recovery-action condition and the
   sign-out's overlap with a delayed request are all **unverified**. The refusal
@@ -397,6 +398,106 @@ token and the refresh token the traffic carried finds nothing, before and after
 killing the reducer inside the container, and the container stops; and inside the
 container `memory.swap.max` reads 0 with every process's `VmSwap` at 0 kB, while
 the host does have 2 GB of swap - the claim rests on the cgroup, not on the host.
+
+### Capture feasibility: two runs, both failed (2026-10-09)
+
+`frontend/qa/cross-tab-session/capture-feasibility.sh <lan-ip>` brings the stack
+up in the QA configuration, sends 200 identified requests inside one upstream
+capture segment and judges whether the browser's record, the ingress log and the
+capture agree request by request (`lib/feasibility.mjs`). It validates the
+evidence pipeline only. The script did not exist until `175326405`; before that
+this run was listed as not run because it could not have been.
+
+Both runs: Chromium 153 in the Playwright container, access lifetime 20 s, grace
+5, served build equal to the commit, stack restored to 15m / 60 afterwards.
+
+| | Run 1, `175326405` | Run 2, `913da9d22` |
+|---|---|---|
+| Exit status | 1 | 1 |
+| Matched in browser, ingress log and capture | 200 of 200, 1 problem | 200 of 200, 0 problems |
+| Token fingerprints agree, browser and capture | 200 | 200 |
+| Statuses agree across the three | 200 | 200 |
+| Upstream streams, all reused | 6 | 6 |
+| Requests the ingress logged `DELAYED` (50 required) | 69 | **31** |
+| Requests reassembled from more than one frame | **0** | 40 (the 40 padded ones, each 1448 + 1448 + 1448 + 594 bytes) |
+| Padding header present at the backend | not recorded | 40 of 40 |
+| Capture's dropped-packet count | **not reported** (`null`) | 0, reported (822 received) |
+| Unreadable records inside the segment | **1**, `missing-qa-id`, `GET /api/health` | 0 |
+| Answers by status | 136 x 2xx, 64 x 401 (20 x 401 intended) | 180 x 2xx, 20 x 401, every group as intended |
+| Current token's lifetime | expired during the run | 19.9 s at the first request, 9.2 s left after the last one that needed it |
+| Checks failed | correlation, multi-frame, capture usable | at least a quarter delayed |
+
+**Observed in run 1, and what was changed for run 2:**
+
+- The capture's health record had `dropped: null`, and `captureUsable` accepted
+  that. Observed separately in the capture image: `tshark` prints a drop line
+  only when it dropped something, while `dumpcap` always prints packets received
+  and dropped. `dumpcap` now captures and `tshark` reads its pipe; only an
+  explicitly reported zero is usable, and a missing, malformed or
+  self-contradicting count is not.
+- No request spanned more than one frame, including those carrying a 4 kB
+  header, with receive offload off at the backend's interface. Measured
+  afterwards on the running stack: with segmentation offload **on** at the
+  ingress's interface a padded request reached the backend as one frame of 4304
+  bytes; with it **off** there, the same request arrived as 1448 + 1448 + 1408.
+  A segment now turns it off at the ingress as well, and stopping the segment
+  puts back the settings recorded before it (the earlier code forced them `on`,
+  which is not a veth's default for receive offload).
+- 44 requests sent with the current token were answered 401. The script had
+  refreshed before the limiter's drain wait and the capture start, and the 20 s
+  token ran out during the run. The refresh is now inside the segment,
+  immediately before the workload, identified and counted apart from the 200.
+- One `GET /api/health` reached the backend with no identifier and with no line
+  in the ingress log. Its record kept no address, so **where that request came
+  from is not established**.
+
+**Observed after run 1, with addresses now recorded:** a `GET /api/health` with
+no identifier arrives at the backend about every 30 s from `172.18.0.3`, the
+frontend container, whose own access log shows it relaying a Firefox on another
+machine that has the application open at port 3000. Port 3000 is the frontend
+container's NGINX, which reaches the backend without passing the ingress.
+Inside the backend's namespace `localhost` resolves to `::1` first and the
+filter named only `127.0.0.1`; both loopbacks are excluded now, but no request
+has been observed arriving over IPv6 loopback, and the explanation first given
+for run 1's request (the backend's own health check) was a guess that the later
+observation does not support.
+
+**Observed in run 2:** all 31 delayed requests were among the 100 burst requests,
+which went out as five batches of 20, each awaited before the next. In the order
+the ingress read them, the batches had 0, 0, 1, 11 and 19 delayed; the batches
+began 0.00, 0.62, 1.48, 2.22 and 3.02 s after the first request, and an
+undelayed burst request took 0.2 to 0.33 s.
+
+**Explanations, not established:**
+
+- *Why 31.* The figures above are consistent with the burst reaching the
+  ingress only modestly faster than the zone's 20 r/s (six connections, each
+  request taking a fifth to a third of a second), so that the limiter's excess
+  needed about two seconds to reach its delay threshold. The explanation given
+  before those timings were read - that the pause between batches let the excess
+  drain so that each batch's first requests passed - is **not** what they show:
+  the first two batches had no delayed request at all, and the pauses were 0.06
+  to 0.21 s.
+- Run 1's 69 is not comparable: 44 of its requests were 401s, which the backend
+  answers faster.
+
+**Changed for run 3** (a correction to the feasibility workload; the total of
+200, the intended statuses and the minimum of 50 delayed are unchanged): the 100
+burst requests and the 40 padded ones are queued together and continuously
+through the profile's own connection limit, and the record now carries the
+queue's verdicts in arrival order, the time to the first delayed request and the
+arrival rate before it. Whether that reaches 50 is a prediction until run 3.
+
+**The capture's scope, from run 3 on:** only traffic from the ingress's address
+on the one network it shares with the backend (established from both
+containers' networks and checked to be on-link from the backend; the address
+and the filter are in every health record). A request from the ingress without
+an identifier is still unreadable and still invalidates its segment. Traffic
+that reaches the backend another way - port 3000 is one - is outside the
+capture, and nothing here is evidence about it.
+
+Both failed records, with their ingress logs and reduced captures, are kept
+outside the repository.
 
 ### Explicitly unverified
 

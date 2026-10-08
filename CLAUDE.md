@@ -496,6 +496,15 @@ The adapter settles a caller only from the transaction's own `complete` or `abor
 
 **The upstream capture** (`frontend/qa/cross-tab-session/upstream-capture.sh`, `capture/`) records when each request reaches the backend, for case 16's expiry proof. One container does the capture and the reduction, so no raw traffic leaves it: it runs with `--log-driver none`, a read-only root and a tmpfs `TMPDIR`, and keeps per request only an id, the method and URI, a 12-character token fingerprint, the status, the frame numbers and the times. What bounds it is the container's memory limit, set equal to its memory-plus-swap limit; `memory.swap.max` reads 0 inside it on cgroup v2, so it cannot use swap at all. A capture is judged only after it has ended, and a segment that never wrote a health record is not judged.
 
+Four things about that capture were learned by running it (2026-10-09), and each is easy to undo by accident:
+
+- **`dumpcap` captures, `tshark` only decodes.** `tshark` on its own prints a dropped-packet line only when it dropped something, so "nothing dropped" and "nothing reported" look the same. `dumpcap` always reports received and dropped. `captureUsable` accepts only an explicitly reported zero; a missing, malformed or self-contradicting count makes the capture unusable.
+- **Segmentation is decided where a request is sent.** With segmentation offload on at the ingress's interface, a 4304-byte request reached the backend as one frame; with it off there, as 1448 + 1448 + 1408. Turning receive offload off at the backend does nothing for this. A segment turns it off at both ends and puts back the settings it recorded beforehand, not `on`.
+- **The capture is scoped to the ingress's address** (`tcp port 3001 and host <address>`, both recorded in the health record). Port 3000 is the frontend container's own NGINX and reaches the backend without the ingress; a browser tab left open there polls `/api/health` every 30 s and would otherwise invalidate every segment. Inside the scope an unidentified request still invalidates. The capture is not evidence about traffic that bypasses the ingress.
+- **A request keeps the identifier its sender gave it.** In a profile opened with `tagRequests` the harness names only the requests that have none (`app-<seq>`); it used to rename all of them, which hid a case's own probes from that case.
+
+`capture-feasibility.sh <lan-ip>` is the run that validates this pipeline. It has been run twice and has not passed; `SESSION_QA.md` has both records.
+
 **The design relies on HTTP/1.1's per-profile connection limit.** Enabling HTTP/2 requires re-running W1 and reassessing both the queueing assumption and `limit_conn addr 10`, because each concurrent HTTP/2 request counts as a separate connection there. The trigger is HTTP/2, not HTTPS.
 
 `VITE_BUILD_SHA` must be exported for a build whose bundle is to be identified - a plain `docker compose build frontend` yields `unknown` - and a plain `docker compose up -d` resets the token lifetime and grace to the compose defaults.

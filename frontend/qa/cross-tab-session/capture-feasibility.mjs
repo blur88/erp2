@@ -119,12 +119,14 @@ async function main() {
       // The groups that need the current token come first.
       // Reused connections: one request at a time.
       for (let i = 0; i < plan.sequential; i += 1) await pageFetch(page, { path: ROUTE, qaId: id('seq'), bearer: current })
-      // Concurrent traffic, enough of it that the limiter delays.
-      for (let b = 0; b < plan.bursts; b += 1) {
-        await Promise.all(Array.from({ length: plan.burstSize }, () => pageFetch(page, { path: ROUTE, qaId: id('burst'), bearer: current })))
-      }
-      // Requests meant to span several frames.
-      for (let i = 0; i < plan.padded; i += 1) await pageFetch(page, { path: ROUTE, qaId: id('pad'), bearer: current, headers: padding })
+      // Concurrent traffic, queued all at once: the browser profile's own
+      // connection limit decides how many are in flight, and nothing waits
+      // between them. The padded requests (meant to span several frames) are
+      // queued directly behind, in the same queue.
+      await Promise.all([
+        ...Array.from({ length: plan.burst }, () => pageFetch(page, { path: ROUTE, qaId: id('burst'), bearer: current })),
+        ...Array.from({ length: plan.padded }, () => pageFetch(page, { path: ROUTE, qaId: id('pad'), bearer: current, headers: padding })),
+      ])
       token.lifetimeLeftMsAfterLastValidRequest = expiresAtMs - Date.now()
 
       // Authentication errors, with what the backend said.
@@ -182,6 +184,26 @@ async function main() {
     const ours = ingressEntries.filter((e) => e.qaId && e.qaId.startsWith('fz-'))
     const usable = captureUsable(capture, 0, Number.MAX_SAFE_INTEGER)
 
+    // The queued requests in the order the ingress read them, and what the
+    // limiter decided for each: this is the timing a claim about why requests
+    // were or were not delayed has to be read from.
+    const queued = ours.filter((e) => /^fz-(burst|pad)-/.test(e.qaId)).sort((x, y) => x.startMs - y.startMs)
+    const firstDelayed = queued.findIndex((e) => e.limitReq === 'DELAYED')
+    const before = firstDelayed > 0 ? queued.slice(0, firstDelayed) : []
+    const queueTimeline = {
+      verdicts: queued.map((e) => (e.limitReq === 'DELAYED' ? 'D' : e.limitReq === 'PASSED' ? '.' : '?')).join(''),
+      requests: queued.length,
+      delayed: queued.filter((e) => e.limitReq === 'DELAYED').length,
+      firstDelayedIndex: firstDelayed,
+      secondsToFirstDelayed: firstDelayed > 0 ? (queued[firstDelayed].startMs - queued[0].startMs) / 1000 : null,
+      arrivalRateBeforeFirstDelayed:
+        before.length > 1 ? Math.round(((before.length - 1) / ((before.at(-1).startMs - before[0].startMs) / 1000)) * 10) / 10 : null,
+      totalSeconds: queued.length > 1 ? (queued.at(-1).startMs - queued[0].startMs) / 1000 : null,
+      zoneRate: zones.api.rateText,
+    }
+    const ingressAddr = capture.health?.ingressAddr ?? null
+    const hostOf = (endpoint) => (typeof endpoint === 'string' ? endpoint.slice(0, endpoint.lastIndexOf(':')) : null)
+
     Object.assign(record, {
       sent: browserEntries.length,
       matched: matched.length,
@@ -201,6 +223,14 @@ async function main() {
         otherStatuses: [...new Set(browserEntries.map((e) => e.status).filter((s) => !(s >= 200 && s < 300) && s !== 401))],
       },
       groups,
+      queueTimeline,
+      scope: {
+        ingressAddr,
+        filter: capture.health?.filter ?? null,
+        fromIngress: ingressAddr === null ? 0 : captured.filter((c) => hostOf(c.src) === ingressAddr).length,
+        otherSources: [...new Set(captured.map((c) => hostOf(c.src)).filter((h) => h !== ingressAddr))],
+        note: 'The capture covers traffic from the ingress address only. Traffic that reaches the backend another way is outside it.',
+      },
       expectedMessage: EXPIRED_MESSAGE,
       refresh: { qaId: REFRESH, correlated: refreshCorrelated },
       // Whether the padding reached the backend, by its length there. What

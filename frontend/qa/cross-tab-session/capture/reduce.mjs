@@ -14,6 +14,7 @@
 //   reduce.mjs --segment <name> --out <file.jsonl> [--capture-stderr <file>]
 //              [--require-qa-id] [--iface <name> --gro-off 0|1]
 //              [--sender-iface <name> --sender-offload-off 0|1]
+//              [--ingress-addr <address> --filter <capture filter>]
 //              [--tshark-version-file <file>]
 //
 // Output, one JSON object per line:
@@ -52,6 +53,9 @@ const groOff = arg('gro-off', null) === '1'
 const senderIface = arg('sender-iface', null)
 const senderOffloadArg = arg('sender-offload-off', null)
 const senderOffloadOff = senderOffloadArg === null ? null : senderOffloadArg === '1'
+// What the capture was scoped to: null when it was not told.
+const ingressAddr = arg('ingress-addr', null)
+const captureFilter = arg('filter', null)
 
 if (!outPath) {
   process.stderr.write('reduce.mjs: --out is required\n')
@@ -271,6 +275,9 @@ function handleFrame(rec) {
       // The fingerprint only: the token itself is never written anywhere.
       tokenFingerprint: fingerprint(auth ? String(auth).replace(/^Bearer\s+/i, '') : null),
       stream,
+      // Both ends of the connection it arrived on.
+      src: ends.src,
+      dst: ends.dst,
       // The frame numbers the message was reassembled from: more than one is
       // what says it spanned several frames, whatever the times read.
       frames: frames.frames,
@@ -479,6 +486,11 @@ async function main() {
     // large frame and is never segmented at all, whatever this end is set to.
     senderIface,
     senderOffloadOff,
+    // What was captured at all: the filter, and the ingress address it names.
+    // Traffic that reaches the backend any other way is outside this capture
+    // and nothing here is evidence about it.
+    ingressAddr,
+    filter: captureFilter,
   })
 }
 

@@ -342,3 +342,25 @@ test('the health record says whether segmentation offload was off at the sending
 test('a capture that was not told about the sending end says it does not know', () => {
   assert.equal(reduce(one()).health.senderOffloadOff, null)
 })
+
+// --- what the capture was scoped to ------------------------------------------------
+
+test('a request record names both ends of its connection', () => {
+  const lines = [frame({ number: 1, epochMs: 1000, stream: 0, srcPort: 40000, dstPort: 3001, seq: 1, len: 100, ip: ['172.18.0.4', '172.18.0.2'], http: requestHttp({ qaId: 'a' }) })]
+  const r = byId(reduce(lines), 'a')
+  assert.equal(r.src, '172.18.0.4:40000')
+  assert.equal(r.dst, '172.18.0.2:3001')
+})
+
+test('the health record says which address and filter the capture was scoped to', () => {
+  const filter = 'tcp port 3001 and host 172.18.0.4'
+  const { health } = reduce(one(), { extra: ['--ingress-addr', '172.18.0.4', '--filter', filter] })
+  assert.equal(health.ingressAddr, '172.18.0.4')
+  assert.equal(health.filter, filter)
+})
+
+test('a capture that was not scoped says so', () => {
+  const { health } = reduce(one())
+  assert.equal(health.ingressAddr, null)
+  assert.equal(health.filter, null)
+})

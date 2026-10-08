@@ -21,6 +21,7 @@ const good = () => ({
   },
   token: { lifetimeLeftMsAtStart: 19000, lifetimeLeftMsAfterLastValidRequest: 7000 },
   refresh: { correlated: true },
+  scope: { ingressAddr: '172.18.0.4', filter: 'tcp port 3001 and host 172.18.0.4', fromIngress: 200 },
 })
 
 const failuresOf = (change) => {
@@ -31,7 +32,7 @@ const failuresOf = (change) => {
 
 test('the plan sends 200 requests', () => {
   const p = FEASIBILITY_PLAN
-  assert.equal(p.sequential + p.bursts * p.burstSize + p.padded + p.expired + p.garbage, 200)
+  assert.equal(p.sequential + p.burst + p.padded + p.expired + p.garbage, 200)
   assert.equal(p.total, 200)
 })
 
@@ -52,6 +53,7 @@ test('fewer requests sent than planned fails, even when all of them match', () =
   const j = failuresOf((r) => {
     r.sent = 150
     r.matched = 150
+    r.scope.fromIngress = 150
   })
   assert.deepEqual(j.failures.map((f) => f.check), ['every planned request was sent'])
 })
@@ -161,4 +163,16 @@ test('padding that did not reach the upstream on every padded request fails', ()
 test('the refresh before the workload is accounted for apart from the 200, and must correlate too', () => {
   const j = failuresOf((r) => (r.refresh.correlated = false))
   assert.deepEqual(j.failures.map((f) => f.check), ['the refresh before the workload is in all three sources'])
+})
+
+// --- the capture's scope ---------------------------------------------------------
+
+test('a capture that was not scoped to the ingress address fails', () => {
+  const j = failuresOf((r) => (r.scope = { ingressAddr: null, filter: null, fromIngress: 0 }))
+  assert.deepEqual(j.failures.map((f) => f.check), ['every captured request came from the ingress address'])
+})
+
+test('one of the 200 arriving from another address fails', () => {
+  const j = failuresOf((r) => (r.scope.fromIngress = 199))
+  assert.deepEqual(j.failures.map((f) => f.check), ['every captured request came from the ingress address'])
 })
