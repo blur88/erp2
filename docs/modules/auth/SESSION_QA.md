@@ -1439,6 +1439,89 @@ any of it:
   5 / 10 / 15 s harness deadlines they were first sized against were never met
   on the QA host and are no longer part of the acceptance.
 
+## Follow-ups from the reviews of #1352 (#1354, 2026-10-10)
+
+What changed, each under a test that failed first unless it says otherwise:
+
+- **A pending cleanup no longer defeats the same tab's next sign-in.** A
+  reconcile skips the cancelled sign-in cleanup while the tab has a sign-in
+  attempt of its own under way. Before, a channel message or a resume during
+  that login committed the cleanup, changed the revision the attempt had
+  captured, and the sign-in was refused. An attempt that the server refuses,
+  whose commit times out, or that is cancelled leaves the cleanup to the next
+  reconcile; each of the three is tested.
+- **A start-up read that fails with an error of no known class** makes the tab
+  storage-unavailable, at start and on a retry, where it used to show the sign-in
+  form. The tab's reconciliation drafts are cleared with it (Known limits).
+- **The waiting screen asks again by itself** every 10 s while visible.
+- **The mandatory password page** starts no leave timer when it was left while
+  its change was in flight, and its form stays disabled once the change has
+  succeeded.
+- **The cleanup retry's timing** is now exercised on the memory store's own queue
+  and timers, with another tab's transaction held at the head of the queue: each
+  of the two immediate attempts waits out its own 5 s timeout, the cancelled
+  sign-in's caller is answered only after both, and a reconcile waits for its
+  attempt before it reads. This covers existing behaviour, so it was not seen to
+  fail first; it fails when the reconcile is made not to wait. It is not a
+  browser run and not the IndexedDB adapter.
+- **`run.sh`** refuses `0.0.0.0`, `0` and a name that resolves there; finishes a
+  restore that a signal interrupts and does not run it a second time (the second
+  found no capture file and reported a restored stack as not restored); and
+  treats `HUP` as it treats `INT` and `TERM` (exit 129; before, the process died
+  with 129 while `results.json` said 1). Case 8's line "every use succeeded" is
+  now "at least twelve uses completed", which is what it checked.
+
+### Recorded run on `48c4d1888` (2026-10-10): exit status 1, on the latency measurement
+
+A full recorded run: the whole suite from the repository at HEAD, served build
+equal to HEAD, access lifetime 20 s and grace 5 during, stack restored to
+15m / 60 (read again with `stack.sh show` after the script had exited).
+
+**17 of 17 cases passed and W1 passed. The run failed on M2**, the second of the
+two blocking latency criteria: median p95 16.2 ms against 15 ms (repetitions
+16.2, 17.2 and 10.3 ms; maximum 68.3 ms). M1 passed at 2.9 ms against 5 ms.
+Diagnostic, not judged: M3 86.4 / 394.3 ms, M4 113.1 / 738 ms. No measured load
+was answered 429 (0 of 125, 0 of 500).
+
+M2 is a raw IndexedDB read made by the measurement's own page while four tabs
+read and a fifth writes; it does not go through the session runtime, and the
+adapter was not changed by this work. That is a reason to look at the machine
+first, not a finding: the cause of the miss is **not established**. What was
+observed of the machine, without it being offered as the cause: the host's
+container list taken before the measurement shows two containers of another
+project restarting in a loop, and `uptime` read by hand gave a one-minute load
+average of 9.45 half an hour before the run started and 6.26 a minute after it
+ended, on four cores. Earlier recorded runs gave M2 4.3 to 5.4 ms, and a
+measurement run alone on 2026-10-09 gave 14.1 ms.
+
+W1, all blocking checks passed at 5, 10 and 20 tabs:
+
+| N | Round | Session zone (refresh / logout / me) | Session 429s | Outcome | Recovery actions | Business 429s |
+|---|---|---|---|---|---|---|
+| 5 | current token | 0 / 0 / 0 | 0 | 5/5 usable, 5 complete on first load | 0 | 0 of 45 |
+| 5 | expired token | 1 / 0 / 0 | 0 | 5/5 usable, 5 complete on first load | 0 | 0 of 66 |
+| 5 | sign-out while loading | 1 / 1 / 0 | 0 | 5/5 on the login page | | 0 of 90 |
+| 10 | current token | 1 / 0 / 0 | 0 | 10/10 usable, 10 complete on first load | 0 | 0 of 160 |
+| 10 | expired token | 1 / 0 / 0 | 0 | 10/10 usable, 10 complete on first load | 0 | 0 of 124 |
+| 10 | sign-out while loading | 1 / 1 / 0 | 0 | 10/10 on the login page | | 0 of 81 |
+| 20 | current token | 1 / 0 / 0 | 0 | 20/20 usable, 20 complete on first load | 0 | 0 of 338 |
+| 20 | expired token | 2 / 0 / 0 | 0 | 20/20 usable, 20 complete on first load | 0 | 0 of 185 |
+| 20 | sign-out while loading | 1 / 1 / 0 | 0 | 20/20 on the login page | | 0 of 111 |
+
+Not blocking, reported: the last tab held its data after 15.0 and 19.3 s at five
+tabs, 28.8 and 17.8 s at ten, 36.6 and 30.1 s at twenty, against 5, 10 and 15 s
+(#1359). In the three sign-out rounds no request was being delayed at the moment
+of the sign-out, so those rounds show the sign-out and not its overlap with a
+delayed request; case 17 is where that overlap is judged, and it passed.
+
+What this run is and is not evidence for: the cases and W1 passed on the commit
+that carries the #1354 changes, and the run as a whole is a failure. None of the
+changes of #1354 has a browser case of its own: the suite has no case that
+cancels a sign-in after its commit, none that makes a start-up read fail with an
+unclassified error, and none for the waiting screen's own retry. Case 12 covers
+the adapter's timeout in general. Whether cases 1 and 3 and W1's blocking checks
+can fail in a browser is still not shown (#1363).
+
 ## What is automated
 
 - Vitest on the in-memory store double: every commit rule, the reconciliation

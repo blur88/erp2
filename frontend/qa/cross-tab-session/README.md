@@ -108,7 +108,7 @@ and less than 3 GB of free disk. It then:
 1. restores a capture left by an earlier run, and captures the running
    configuration with `stack.sh show`;
 2. has its traps in place before anything is changed: once the configuration
-   is captured, every way out of the script, a failed command and `INT` or
+   is captured, every way out of the script, a failed command and `HUP`, `INT` or
    `TERM` included, restores the stack and writes `results.json`;
 3. builds and starts the stack with `stack.sh qa-up`, which also checks the
    access lifetime by behaviour, and refuses unless the served `erp-build`
@@ -129,7 +129,7 @@ The exit status is that of the first failure; nothing later clears it
 | 0 | The script reached its last line and nothing failed. No other way out gives 0. |
 | 1 | A case, W1 or the latency measurement failed; or a refusal; or the script was aborted (a command failed outside any handled failure, or it stopped before its last line); or `results.json` could not be written. |
 | 3 | The stack was not restored, and nothing had failed before that. |
-| 130 / 143 | Interrupted (`INT`) / terminated (`TERM`). The stack is still restored and `results.json` still written. |
+| 129 / 130 / 143 | Hung up (`HUP`) / interrupted (`INT`) / terminated (`TERM`). The stack is still restored and `results.json` still written. A signal that arrives while the stack is being restored is acted on after the restore has finished. |
 
 `results.json` carries the same status, `completed` (whether the last line was
 reached) and, when it was not, `aborted` with the reason. A run that was
