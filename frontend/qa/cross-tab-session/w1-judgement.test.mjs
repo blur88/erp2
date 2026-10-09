@@ -139,26 +139,18 @@ test('one in-app recovery action at N = 10 fails its own check', () => {
   assert.ok(labelsOf(rounds).some((l) => l.includes('no in-app recovery action')))
 })
 
-test('the deadline blocks at five tabs only, and is inclusive: 8000 passes, 8001 fails, null fails', () => {
-  const deadlineFail = 'N = 5 (b): complete within the deadline'
-  assert.deepEqual(failed(all([[5, 'b', { completedAfterMs: 8000 }]])), [])
-  assert.deepEqual(failed(all([[5, 'b', { completedAfterMs: 8001 }]])), [deadlineFail])
-  assert.deepEqual(failed(all([[5, 'b', { completedAfterMs: null }]])), [deadlineFail])
-  assert.deepEqual(failed(all([[5, 'a', { completedAfterMs: 8001 }]])), ['N = 5 (a): complete within the deadline'])
-})
-
-test('at ten and twenty tabs the time is diagnostic: no check on it, and a finding that says so', () => {
-  for (const [n, ms] of [[10, 10001], [20, 15001], [20, null]]) {
+test('the time is diagnostic at every size: no check on it, and a finding that says so', () => {
+  for (const [n, ms] of [[5, 5001], [10, 10001], [20, 15001], [20, null]]) {
     const rounds = all([[n, 'b', { completedAfterMs: ms }]])
     assert.deepEqual(failed(rounds), [])
-    assert.ok(!labelsOf(rounds).some((l) => l.startsWith(`N = ${n} `) && l.includes('within the deadline')))
+    assert.ok(!labelsOf(rounds).some((l) => l.includes('within the deadline')))
     const { findings } = nonBlockingFindings(rounds, 'sales_staff')
     assert.ok(findings.some((f) => f.includes(`N=${n}`) && /diagnostic/.test(f) && /#1359/.test(f)), findings.join('\n'))
   }
-  // Five tabs: the finding is behind a failing check and is not called diagnostic.
-  const { findings } = nonBlockingFindings(all([[5, 'b', { completedAfterMs: 8001 }]]), 'sales_staff')
-  assert.ok(findings.some((f) => f.includes('8001 ms') && !/diagnostic/.test(f)))
+  // Inside the reference time there is nothing to report.
+  assert.ok(!nonBlockingFindings(all([[5, 'b', { completedAfterMs: 5000 }]]), 'sales_staff').findings.some((f) => /diagnostic/.test(f)))
 })
+
 
 test('a tab left signed in at N = 10 fails the sign-out round at that size', () => {
   const tabs = c(10).tabs.map((t, i) => (i === 3 ? { ...t, onLoginPage: false, at: '/dashboard' } : t))
@@ -247,7 +239,7 @@ test('the scope sentence says what W1 shows, and that the sizing note is a diagn
   assert.match(W1_SCOPE, /coordinate their refresh/)
   assert.match(W1_SCOPE, /does not measure the capacity of that zone, which is never approached/)
   assert.match(W1_SCOPE, /bounded by the general api_limit \(issue #1353\)/)
-  assert.match(W1_SCOPE, /deadline/)
+  assert.match(W1_SCOPE, /How long that takes is reported and does not block/)
 })
 
 test('business 429s stay a finding, not a gate', () => {
@@ -339,7 +331,6 @@ test('for each mutation of the baseline the exact set of checks fails', () => {
   // One failing check per mutation, and nothing else fails with it.
   const cases = [
     [[10, 'a', { recoveryActionsTotal: 1, tabsNeedingRecovery: 1 }], 'N = 10 (a): no in-app recovery action'],
-    [[5, 'b', { completedAfterMs: 8001 }], 'N = 5 (b): complete within the deadline'],
     [[5, 'b', { everyTabUsable: false, tabsUsable: 4, tabsNotRecoverable: [{ tab: 't', whyNot: 'no rows' }] }],
       'N = 5 (b): every tab usable for the non-administrator (data present, the shell\'s included, and an action working; no reload, no new sign-in, no administrator-only page)'],
     [[20, 'a', { count429: 2 }], 'N = 20 (a): no 429 on refresh, logout or me'],

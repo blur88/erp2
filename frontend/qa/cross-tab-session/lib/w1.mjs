@@ -45,7 +45,6 @@ import { USER_MENU, documentId, onLoginPage, pageFetch, readStored, showsSignedI
 import {
   BLOCKING_SIZES,
   DEADLINE_MS,
-  DEADLINE_BLOCKING_SIZES,
   HOW_ROUNDS_REACH_THE_SESSION_ZONE,
   MAX_SIGN_OUT_ATTEMPTS,
   W1_SCOPE,
@@ -505,10 +504,10 @@ export default {
       blocking:
         `At N = ${BLOCKING_SIZES.join(', ')}: no 429 on refresh, logout or me in rounds (a), (b) and (c); in (a) and (b) every tab usable, ` +
         'no in-app recovery action; ' +
-        `at N = ${DEADLINE_BLOCKING_SIZES.join(', ')} the last tab holding its expected data within ${DEADLINE_MS[5] / 1000} s of the common tab-opening trigger; ` +
+
         'in (a) the access token current and in (b) expired when the tabs opened; in (c) the logout sent and answered 2xx and every tab ' +
         'on the login page without a reload. Not blocking: 429s on business endpoints, counted at every size; ' +
-        `the completion time at N = 10 and 20, reported against ${DEADLINE_MS[10] / 1000} s and ${DEADLINE_MS[20] / 1000} s (#1359).`,
+        `the completion time, reported against ${DEADLINE_MS[5] / 1000} s, ${DEADLINE_MS[10] / 1000} s and ${DEADLINE_MS[20] / 1000} s (#1359).`,
       observed: rounds.map((r) => observed(r, zone.burst)),
       // Every piece of data some tab's user could not get back, at any size.
       dataNotRecoverableByRole: noted.dataNotRecoverableByRole,

@@ -34,7 +34,7 @@ const reference = { companyName: 'ACME', regional: { dateFormat: 'DD/MM/YYYY', t
 
 test('a dashboard with its heading, no failure notice, the company name and the regional formats is complete', () => {
   // The script's objects come from another realm: compare their content.
-  assert.deepEqual(JSON.parse(JSON.stringify(D.expectedData(snapshot(), reference))), { complete: true, why: [] })
+  assert.deepEqual(JSON.parse(JSON.stringify(D.expectedData(snapshot(), reference))), { complete: true, why: [], diagnostic: [] })
 })
 
 for (const [name, over, pattern] of [
@@ -44,7 +44,6 @@ for (const [name, over, pattern] of [
   ['no company name in the sidebar', { companyNameInSidebar: null }, /company/],
   ['another company name', { companyNameInSidebar: 'Other' }, /company/],
   ['a regional format that is not the server\'s', { stored: { ...snapshot().stored, dateFormat: 'MM/DD/YYYY' } }, /regional/],
-  ['a data request left failed', { api: { answered2xx: 8, leftFailed: ['GET /api/payments 429'], statusAvailable: true } }, /left failed/],
   ['no data request answered', { api: { answered2xx: 0, leftFailed: [], statusAvailable: true } }, /no data request/],
 ]) {
   test(`not complete: ${name}`, () => {
@@ -147,4 +146,11 @@ test('a reason never repeats the company name, the one on the page or the server
   const r = D.expectedData(snapshot({ companyNameInSidebar: 'Other' }), reference)
   assert.equal(r.complete, false)
   assert.doesNotMatch(r.why.join(' '), /ACME|Other/)
+})
+
+test('a refused data request does not decide anything: the outcome is the data on the page, and the refusal is only reported', () => {
+  const r = D.expectedData(snapshot({ api: { answered2xx: 8, leftFailed: ['/api/payments 429'], statusAvailable: true } }), reference)
+  assert.equal(r.complete, true)
+  assert.deepEqual(JSON.parse(JSON.stringify(r.why)), [])
+  assert.deepEqual(JSON.parse(JSON.stringify(r.diagnostic)), ['1 data request(s) left without a successful answer: /api/payments 429'])
 })

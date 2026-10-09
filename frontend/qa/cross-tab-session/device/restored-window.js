@@ -42,7 +42,7 @@ var QA_DEVICE = (() => {
   // itself shows: the dashboard has rendered, it does not say it could not load
   // something, the sidebar shows the server's company name, the regional formats
   // in effect are the server's, and - where the browser reports response
-  // statuses - a data request was answered and none is left failed.
+  // statuses - a data request was answered.
   function expectedData(snap, reference) {
     const why = []
     if (snap.path !== PATH) why.push(`the tab is at ${snap.path}, not on the dashboard`)
@@ -59,11 +59,15 @@ var QA_DEVICE = (() => {
       const have = snap.stored ? snap.stored[key] : undefined
       if (have !== String(value)) why.push(`the regional setting ${key} is ${have === null || have === undefined ? 'not stored' : `"${have}"`}, the server says "${value}"`)
     }
+    // A refused request decides nothing by itself: the acceptance is the outcome,
+    // the data on the page, and automatic retries are allowed. What was left
+    // without a successful answer is reported beside the verdict, not in it.
+    const diagnostic = []
     if (snap.api && snap.api.statusAvailable) {
-      if (snap.api.leftFailed.length > 0) why.push(`${snap.api.leftFailed.length} data request(s) left failed: ${snap.api.leftFailed.join('; ')}`)
+      if (snap.api.leftFailed.length > 0) diagnostic.push(`${snap.api.leftFailed.length} data request(s) left without a successful answer: ${snap.api.leftFailed.join('; ')}`)
       if (!(snap.api.answered2xx > 0)) why.push('no data request of the tab was answered 2xx')
     }
-    return { complete: why.length === 0, why }
+    return { complete: why.length === 0, why, diagnostic }
   }
 
   // --- pure: a loading round's verdict --------------------------------------------
@@ -299,6 +303,7 @@ var QA_DEVICE = (() => {
         completeBeforeObserved: x.state.completeBeforeObserved === true,
         completeAtEnd: end.complete,
         why: end.why,
+        requestsLeftFailed: end.diagnostic || [],
         userInteractions: x.userInteractions,
         reloaded: reloadedOf(x),
         measurement: { looks: x.looks, costMs: Math.round(x.lookMs) },

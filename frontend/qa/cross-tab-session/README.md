@@ -34,8 +34,9 @@ What a reader of those records needs to know about how the suite judges:
   a step and the tab fails (see "Who W1 runs as").
 - **W1 states no capacity.** It reports what was observed at each size and
   blocks at 5, 10 and 20 tabs, in all three rounds, on zero in-app recovery
-  actions; on a deadline it blocks at five tabs only, 8 s, and reports the time
-  at ten and twenty (see "What W1 shows and what it does not").
+  actions. The time it takes is reported against 5, 10 and 15 s and blocks at
+  no size, and a 429 on a business request is counted and does not block (see
+  "What W1 shows and what it does not").
 - **#1353's acceptance is not a run of this suite.** It is five tabs in the
   user's own Firefox, measured by `device/restored-window.js` (see "Device
   acceptance"). What the suite records in Chromium on the QA host is separate
@@ -488,12 +489,12 @@ At N = 5, 10 **and** 20 (`lib/w1-judgement.mjs`, `blockingChecks`):
   the user navigating. "Without a user action" is this and not the absence of a
   failure message, because the script's own recovery is a navigation through the
   sidebar, which is a user action by any reading;
-- in rounds (a) and (b) **at five tabs**, the **last tab held its expected data
-  within 8 s** of the common tab-opening trigger. At ten and twenty tabs the
-  time is reported against 10 s and 15 s and does not block (#1359). Until
-  2026-10-09 all three blocked, at 5, 10 and 15 s; the runs recorded before
-  then stay judged as they were. This is the harness's evidence, in Chromium on
-  the QA host; #1353's acceptance is the device measurement below. A tab
+- **not blocking since 2026-10-09:** in rounds (a) and (b), when the last tab
+  held its expected data, reported against 5 s, 10 s and 15 s from the common
+  tab-opening trigger (#1359). Until then all three blocked, and the runs
+  recorded before stay judged as they were. #1353's 8 s belongs to the device
+  measurement below; a figure taken in Chromium on the QA host is a different
+  environment and is not read against it. A tab
   that never did is a miss, not a small figure: the watch runs thirty seconds
   past the deadline rather than being cut off at it, and a completion is read
   only when the tab has its data *and* no business request without an answer;
@@ -538,8 +539,10 @@ console, not run by the harness, so nothing is installed on the device. It
 opens the five tabs from one click and watches each from inside its own page:
 a tab is complete when it is on the dashboard, its heading is rendered, no
 "Could not load" notice is shown, the sidebar shows the server's company name,
-the stored regional formats are the server's, and no data request was left
-failed. It counts key presses and clicks in the tabs (any makes the round
+the stored regional formats are the server's. A refused request decides
+nothing by itself: retries the application makes are allowed, and a request
+left without a successful answer is listed beside the verdict
+(`requestsLeftFailed`), not in it. It counts key presses and clicks in the tabs (any makes the round
 void), notices a reload, and reads only the expiry time of the stored token,
 never a token. `device-acceptance.test.mjs` tests its judgement without a
 browser.

@@ -1241,10 +1241,22 @@ Decided by the repository owner after the three recorded runs above, and
 What this does **not** do: it does not rejudge anything above. The three
 recorded runs failed 5 / 10 / 15 s and stay failures against the gates they
 were run under. The Chromium harness results and the short-lifetime results of
-cases 16 and 17 are separate evidence. In the harness, from this commit, the
-time blocks at five tabs only (8 s) and is reported at ten and twenty; no
-refusal and no recovery action still block at all three sizes. No harness run
-has been made under the amended gate.
+cases 16 and 17 are separate evidence.
+
+The acceptance is the outcome only: expected data within 8 s, zero recovery
+actions, bounded automatic retries allowed. **A refused business request is a
+diagnostic and no zero-refusal requirement exists**, on the device or in the
+harness. In the harness the time blocks at no size: it is Chromium on the QA
+host, a different environment, and is reported against 5 / 10 / 15 s (#1359).
+The harness's own checks on the session routes (no 429 on `refresh`, `logout`
+or `me`), on every tab being usable and on zero in-app recovery actions are
+separate from this acceptance and still block at 5, 10 and 20 tabs. No harness
+run has been made since the time stopped blocking.
+
+(Commit `06ef34ca6` briefly made the harness block at 8 s at five tabs and made
+the device script count a request left failed against a tab. Both were
+corrected in the next commit, before any device measurement and before any
+harness run under them.)
 
 The measurement is `frontend/qa/cross-tab-session/device/restored-window.js`
 (procedure in the suite's README, "Device acceptance").
@@ -1265,7 +1277,8 @@ works; the device and the browser build are not the user's.
 | 2 | expired token | expired 23.6 s before | **9.02 s** | fail | 97 (56 x 200, 41 x 401) | 0 | 65 |
 | 3 | current token | current | **9.35 s** | fail | not collected | not collected | not collected |
 
-- **Every loading round of every rehearsal missed 8 s.** In each, all five tabs
+- **Every loading round of every rehearsal missed 8 s.** These rehearsals
+  neither pass nor fail the device acceptance. In each, all five tabs
   did hold their expected data, with no interaction and no reload. Why this is
   slower than the harness's Chromium at five tabs (5.46 s and 6.80 s on
   `3fc7c3e9f`, as a different user) is **not established**.
@@ -1279,7 +1292,7 @@ works; the device and the browser build are not the user's.
   three. The 1 ms check showed nothing in any rehearsal, because no round
   passed for it to be applied to; it is tested without a browser in
   `device-acceptance.test.mjs`.
-- **Observed, outside #1353:** in both collected sign-out rounds one
+- **Observed, outside #1353 (filed as #1360):** in both collected sign-out rounds one
   `GET /api/auth/show-default-credentials` was refused with 429 by `login_limit`
   (five tabs arrive on the login page together; that zone is 5 r/m, burst 3).
   The login page treats a failed answer as "do not show the hint". Whether a

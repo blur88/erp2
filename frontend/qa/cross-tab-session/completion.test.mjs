@@ -62,8 +62,8 @@ test('the first sample of a tab that is already complete counts', () => {
   assert.equal(result.perTab[0].completedAfterMs, 250)
 })
 
-test('the deadlines are fixed: 8 s at five tabs (blocking), 10 s and 15 s at ten and twenty (diagnostic)', () => {
-  assert.deepEqual(DEADLINE_MS, { 5: 8000, 10: 10000, 20: 15000 })
-  assert.deepEqual(DEADLINE_BLOCKING_SIZES, [5])
+test('the reference times are 5 s, 10 s and 15 s, and none of them blocks', () => {
+  assert.deepEqual(DEADLINE_MS, { 5: 5000, 10: 10000, 20: 15000 })
+  assert.deepEqual(DEADLINE_BLOCKING_SIZES, [])
   assert.deepEqual(BLOCKING_SIZES, [5, 10, 20])
 })
