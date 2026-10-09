@@ -159,10 +159,16 @@ export function buildExpiryEvidence({ app, probes, fillers, ingress, capture, st
   }
   const distinct = new Set(Object.values(addresses).flat())
   const sources = new Set(captured.map((r) => hostOf(r.src)).filter(Boolean))
+  // A kind of request that never reached the ingress is said to be that: it is
+  // not the same finding as one that arrived from another address.
+  const nouns = { app: 'application', probes: 'probe', fillers: 'filler' }
+  const absent = Object.entries(addresses).filter(([, list]) => list.length === 0).map(([kind]) => nouns[kind])
   const sameBucket =
-    distinct.size === 1 && Object.values(addresses).every((list) => list.length === 1)
-      ? { ok: true, why: null, address: [...distinct][0] }
-      : { ok: false, why: `the application, the probes and the fillers reached the ingress from ${JSON.stringify(addresses)}: not one address, so not shown to be one limiter bucket` }
+    absent.length > 0
+      ? { ok: false, why: `no ${absent.join(' and no ')} request reached the ingress in this attempt, so one limiter bucket for all three is not shown` }
+      : distinct.size === 1
+        ? { ok: true, why: null, address: [...distinct][0] }
+        : { ok: false, why: `the application, the probes and the fillers reached the ingress from ${JSON.stringify(addresses)}: not one address, so not shown to be one limiter bucket` }
 
   const usable = ingress === null ? { usable: false, why: 'no ingress log' } : captureUsable(capture, 0, Number.MAX_SAFE_INTEGER)
   const selected = [proof.L, proof.X, proof.P].filter(Boolean)

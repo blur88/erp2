@@ -285,3 +285,41 @@ test('only the message of a rejection is kept, and only when it is a string', ()
   assert.equal(messageOfBody(null), null)
   assert.equal(messageOfBody('text'), null)
 })
+
+// --- found by the forced failure "probes never sent" (m16-s1, 1c093959f) -----------
+//
+// The attempt was inconclusive, rightly, but for a reason that was not true: it
+// said the three kinds of request did not share one address, because the
+// probes' list of addresses was empty. No probe arriving is not a probe arriving
+// from somewhere else.
+
+test('no probe at the ingress is reported as that, not as a second address', () => {
+  // Never sent: in no browser record, no ingress line and no capture record.
+  const a = crossing((x, { records }) => {
+    x.probes = []
+    x.ingress = x.ingress.filter((e) => !e.qaId.startsWith('probe-'))
+    x.capture = captureOf(records.filter((r) => !(r.kind === 'request' && r.qaId && r.qaId.startsWith('probe-'))))
+  })
+  const evidence = buildExpiryEvidence(a)
+  assert.equal(evidence.pipeline.sameBucket.ok, false)
+  assert.match(evidence.pipeline.sameBucket.why, /no probe request reached the ingress/)
+  assert.doesNotMatch(evidence.pipeline.sameBucket.why, /not one address/)
+  const v = judgeExpiryCrossing(evidence)
+  assert.deepEqual([v.verdict, v.behaviour], ['inconclusive', 'ok'])
+  assert.match(v.reason, /no probe request reached the ingress/)
+})
+
+test('no filler at the ingress is reported as that too', () => {
+  const a = crossing((x) => {
+    x.fillers = []
+    x.ingress = x.ingress.filter((e) => !e.qaId.startsWith('fill-'))
+  })
+  assert.match(buildExpiryEvidence(a).pipeline.sameBucket.why, /no filler request reached the ingress/)
+})
+
+test('two addresses are still reported as two addresses', () => {
+  const a = crossing((x) => {
+    x.ingress = x.ingress.map((e) => (e.qaId.startsWith('probe-') ? { ...e, remoteAddr: '172.18.0.77' } : e))
+  })
+  assert.match(buildExpiryEvidence(a).pipeline.sameBucket.why, /not one address/)
+})

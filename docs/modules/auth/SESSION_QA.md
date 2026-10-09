@@ -1155,6 +1155,72 @@ scenarios hold on this stack. What they are not: evidence about the completion
 deadlines; evidence that a restored window produces delay at a sign-out by
 itself (case 17's delay is induced); or more than one recorded run each.
 
+### Forced failures for cases 16 and 17 (2026-10-09), all on `1c093959f`
+
+Eleven runs, each through `run.sh` with a patched copy of the suite outside the
+repository (`QA_SUITE_OVERRIDE`) and one case (`QA_ONLY`), so each is a partial
+run and none is evidence of a pass. QA configuration during each (access 20 s,
+grace 5), stack restored after each. The expected result of every run was
+written down before it was started; stale-evidence runs, which show the case
+refusing to judge, are listed apart from behavioural ones. W1's forced failures
+were not run: W1 has no passing baseline.
+
+**The override baselines** (the unmodified copy through the same invocation):
+case 17 exit 0, all three sizes on the first attempt; case 16 exit 0, on its
+second attempt. They validate the override path itself, which had never been
+run: until `1c093959f` it mounted the copy in place of the repository, and the
+suite imports from `nginx/`, so a patched copy could not have started.
+
+**Case 17, sign-out under induced delay**
+
+| Run | Kind | Result | Against what was written down |
+|---|---|---|---|
+| Fillers never started | stale evidence | 5, 10, 20: inconclusive, "no filler request reached the ingress", one attempt each | as expected |
+| Ingress log withheld | stale evidence | 5, 10, 20: inconclusive, "the ingress log ... could not be read", one attempt each | as expected |
+| Logout answered 500 by the harness | behavioural | 5, 10, 20: `fail`, behaviour failed, "the logout was answered 500", one attempt each | as expected |
+| Sign-out after the fillers were stopped and a fixed 10 s | behavioural | 5 and 10: inconclusive in three attempts each, nothing pending. **20: passed** | not as expected at 20 |
+| Sign-out once the fillers were stopped and no application request had been pending for 3 s | behavioural, corrected | 5, 10, 20: inconclusive in three attempts each, 0 pending, logout 204 and every tab on the login page in all nine | as expected |
+
+- *Logout 500:* the logout check itself fired at all three sizes. There was no
+  precondition failure at ten or twenty tabs to be set apart as collateral.
+- *The deviation at twenty tabs was the mutation's, not the check's.* After the
+  fixed 10 s, 179 data requests were still pending at twenty tabs, 25 of them
+  delayed: the tabs had not finished loading, so the case found its evidence and
+  passed that size, correctly. The expectation was corrected in writing, with
+  that reason, before the corrected mutation was run; no judgement was changed.
+
+**Case 16, a token that expires while the ingress delays its request**
+
+| Run | Kind | Result | Against what was written down |
+|---|---|---|---|
+| Probes never sent | stale evidence | inconclusive in all five attempts | verdict as expected; the reason given was wrong (below) |
+| The capture's health record withheld | stale evidence | stopped at the precondition "a capture segment starts, stops and finalises with a health record ..."; no attempt made | as expected |
+| The application's requests not tagged | stale evidence | inconclusive in all five attempts, "the capture is not usable" | as expected |
+| Recovery deadline forced to 1 ms after calibration | behavioural | `fail` on the first attempt, behaviour failed, "the tab completed after the recovery deadline" (recovery 2084 ms); no second attempt | as expected, with the limit below |
+
+- *What the 1 ms run shows, and what it does not.* That attempt's crossing
+  evidence was **not** complete: its capture was unusable, and the last probe the
+  backend accepted reached the ingress before L did. So the run demonstrates that
+  a behavioural failure takes precedence over the evidence and ends the case. It
+  does **not** establish that the deadline check rejects an otherwise valid
+  crossing; the only coverage of that combination is the unit test on the
+  recorded fixture (evidence complete, recovery one millisecond past the
+  deadline, verdict `fail`).
+- *A wrong reason, fixed afterwards.* With no probes sent, the attempt said the
+  application, the probes and the fillers "did not share one address", because
+  the probes' list of addresses was empty. No probe arriving is not a probe
+  arriving from elsewhere. The check now says which kind of request never
+  reached the ingress; three tests pin it. The verdict was the right one.
+
+Kept outside the repository, for each run: the commit, the stack's configuration
+during it, the exact diff of its mutation against the suite, its log and its
+results; and the file of expectations with its dated correction.
+
+**An unexplained event, recorded apart:** one run of the unit suite reached its
+300 s limit without printing a result. Every file passes alone in seconds, and
+the six full runs made immediately afterwards each passed in about 10 s. Its
+cause was not found.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand
