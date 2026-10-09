@@ -31,12 +31,15 @@ export const persistedPayload = (slices: Record<string, unknown>, version = 7): 
 export interface LoadAppOptions {
   /**
    * 'unavailable': IndexedDB cannot be opened. 'busy': it opens, and the
-   * start-up read times out, as behind a tab paused mid-transaction.
+   * start-up read times out, as behind a tab paused mid-transaction. 'failing':
+   * it opens, and the start-up read rejects with an error of no known class.
    */
-  storage?: 'memory' | 'unavailable' | 'busy'
+  storage?: 'memory' | 'unavailable' | 'busy' | 'failing'
   stored?: Partial<StoredState>
   /** Runs after the mocks are in place and before any application module is imported. */
   beforeImport?: () => void
+  /** A request waits for what this returns before it is answered. */
+  holdRequest?: (config: InternalAxiosRequestConfig) => Promise<void> | undefined
 }
 
 export async function loadApp(options: LoadAppOptions = {}) {
@@ -59,6 +62,7 @@ export async function loadApp(options: LoadAppOptions = {}) {
       const memoryStore = createMemorySessionStore(shared)
       failNextRead = (error) => memoryStore.failNextRead(error)
       if (options.storage === 'busy') failNextRead(new StorageTimeoutError('read timed out'))
+      if (options.storage === 'failing') failNextRead(new Error('unclassified read failure'))
       // Like the real store, report each operation's duration when asked to.
       return {
         ...memoryStore,
@@ -77,6 +81,7 @@ export async function loadApp(options: LoadAppOptions = {}) {
   const previousAdapter = axios.defaults.adapter
   axios.defaults.adapter = (async (config: InternalAxiosRequestConfig) => {
     requests.push(config)
+    await options.holdRequest?.(config)
     let data: unknown = {}
     if (config.url === '/auth/login') {
       const sessionId = `sess-${++seq}`

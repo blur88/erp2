@@ -187,15 +187,22 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // Nothing to reconcile yet: what brings a tab here (a channel message, a
     // resume) is a reason to ask storage again.
     if (status === 'storage-waiting') return retryStart()
-    await attemptPendingCleanup()
+    // Not while this tab has a sign-in attempt of its own under way: a cleanup
+    // that committed now would change the revision that attempt captured and
+    // refuse its commit. That commit replaces the leftover session itself; an
+    // attempt that fails or is cancelled leaves the cleanup for the reconcile
+    // after it.
+    if (currentAttempt === 0) await attemptPendingCleanup()
     const stored = await readRecord()
     applyAdoption(reconcile(claim(), memory, stored.record), stored)
   }
 
   // ---- startup --------------------------------------------------------------
 
-  // What a tab is at start is what the stored record says. A read that fails
-  // puts it in the storage-unavailable state; one that times out says nothing.
+  // What a tab is at start is what the stored record says. A read that times
+  // out says nothing. One that fails in any other way, whatever the error's
+  // class, puts the tab in the storage-unavailable state: only a completed
+  // read can say that no session is stored.
   const readAtStart = async (): Promise<'settled' | 'timed-out'> => {
     try {
       const stored = await store.read()
@@ -209,9 +216,8 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       }
       return 'settled'
     } catch (err) {
-      if (err instanceof StorageUnavailableError) moveToStorageUnavailable()
-      else if (err instanceof StorageTimeoutError) return 'timed-out'
-      else status = 'signed-out'
+      if (err instanceof StorageTimeoutError) return 'timed-out'
+      moveToStorageUnavailable()
       return 'settled'
     }
   }
@@ -359,6 +365,8 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     memory = session
     remember(session)
     status = 'signed-in'
+    // The attempt is over, so it no longer holds back a cleanup.
+    currentAttempt = 0
     // This commit replaced whatever an earlier cancelled attempt left stored.
     pendingCleanup = null
     events.sessionEstablished(session)
@@ -572,7 +580,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     const target = memory?.sessionId ?? lastCredential?.sessionId ?? null
     memory = null
     lastCredential = null
-    status = 'signed-out'
+    if (status !== 'storage-unavailable' && status !== 'storage-waiting') status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
     events.sessionEnded('explicit')
