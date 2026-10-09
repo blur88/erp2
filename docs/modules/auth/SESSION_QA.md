@@ -872,7 +872,43 @@ tab was sent too late, so the request may already have carried an expired token
 to the ingress. That is a matter of setup, and the case now sends the tab
 earlier in the next attempt by what the last one observed
 (`nextNavigateLead`, bounded by the same five attempts). It changes nothing
-about what counts as evidence. **Case 16 has not passed.**
+about what counts as evidence.
+
+**Run alone again on `650ef081c` with that correction (partial, not evidence):
+the case passed on its third attempt.** Exit status 0 for the partial run. The
+recovery deadline, calculated and recorded before the attempts, was 4462 ms.
+
+| Attempt | Tab navigated before expiry by | Verdict | Why |
+|---|---|---|---|
+| 1 | lead + 300 ms | inconclusive | L reached the ingress 91 ms after the last probe the backend accepted |
+| 2 | lead + 541 ms | inconclusive | 46 ms after |
+| 3 | lead + 737 ms | **pass** | below |
+
+Attempt 3, every figure from its ingress log and capture segment:
+
+- **L** was the tab's `GET /api/settings/company`, chosen from the evidence:
+  delayed by the limiter (`DELAYED`), answered 401 `Invalid or expired token`,
+  carrying the stored token's fingerprint in the browser's record and in the
+  capture.
+- **Valid when sent:** probe P, same token, answered 200, reached the ingress
+  29 ms **after** L did (ingress clock; the margin is 5 ms).
+- **Expired at upstream arrival:** probe X, same token, answered 401
+  `Invalid or expired token`; its answer had left the backend 100 ms **before**
+  L's first byte arrived there (capture clock; the margin is 1 ms). L spent
+  about 390 ms between reaching the ingress and reaching the backend.
+- **Recovered by itself:** the tab held its data 1.69 s after its first 401,
+  with no recovery action and no 429 on a session route.
+- Capture usable (0 dropped, reported; nothing unreadable, unexplained or
+  missing), one address for the tab, the probes and the fillers, probes on
+  schedule (span 2.29 s, widest gap 195 ms).
+
+What this is and is not: the first time the case has shown the whole crossing,
+on evidence that passed every check. It was a **partial run**, so it is not a
+recorded baseline, and the forced failures of the case still need one made
+through a full recorded run. It is one passing attempt after two that missed
+the window by under 100 ms; the window is narrow (the limiter held L for about
+0.4 s) and probes are 150 ms apart, so a pass depends on timing that the
+attempts have to find. It shows one page and one role.
 
 ### Explicitly unverified
 
