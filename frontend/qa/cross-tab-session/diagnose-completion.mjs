@@ -33,6 +33,8 @@ import { KEEP_SHELL_ANSWERS, shellReference } from './lib/usable.mjs'
 const TABS = Number(process.env.QA_COMPLETION_TABS || 5)
 const REPETITIONS = Number(process.env.QA_COMPLETION_REPS || 6)
 const QUIET_MS = 60000
+// Which variants to rotate through; all three unless QA_COMPLETION_VARIANTS names fewer.
+const VARIANTS = (process.env.QA_COMPLETION_VARIANTS || 'bare,in-page,polled').split(',').map((v) => v.trim()).filter(Boolean)
 
 // Installed in every tab before any of the page's own code runs.
 const recorder = () => {
@@ -110,6 +112,17 @@ const readTab = async () => {
     longTasks: longEntries ? longEntries.length : null,
     longTaskMs: longEntries ? longEntries.reduce((s, e) => s + e.duration, 0) : null,
     hasCouldNotLoad: document.body ? /Could not load/.test(document.body.innerText || '') : null,
+    // What happens before the first data request: the scripts the page loads
+    // (whether from the network or the cache, and how big), and the long tasks
+    // on the main thread with when each ran.
+    scripts: scripts.map((e) => ({
+      name: new URL(e.name).pathname.split('/').pop(),
+      startMs: Math.round(e.startTime),
+      endMs: Math.round(e.responseEnd),
+      transferBytes: e.transferSize,
+      decodedBytes: e.decodedBodySize,
+    })),
+    longTaskList: longEntries ? longEntries.map((e) => ({ startMs: Math.round(e.startTime), ms: Math.round(e.duration) })) : null,
   }
 }
 
@@ -130,7 +143,8 @@ async function main() {
   const ctx = new CaseContext(run, 'completion-diagnosis')
   ctx.allow429 = true
   const out = {
-    what: 'diagnostic: five current-token tabs, observed two ways. Judges nothing.',
+    what: 'diagnostic: current-token tabs of one profile opened together, observed up to three ways. Judges nothing.',
+    variants: VARIANTS,
     startedAt: new Date().toISOString(),
     commit: process.env.QA_COMMIT || null,
     servedBuild: await servedBuild(config.base),
@@ -149,7 +163,7 @@ async function main() {
     await signIn.goto(`${config.base}/manifest.json`, { waitUntil: 'load' })
 
     const variants = []
-    for (let i = 0; i < REPETITIONS; i += 1) variants.push('bare', 'in-page', 'polled')
+    for (let i = 0; i < REPETITIONS; i += 1) variants.push(...VARIANTS)
     for (const [index, variant] of variants.entries()) {
       // An empty api_limit bucket, and nothing left running from the load before.
       await sleep(zones.drainWaitSeconds(zones.api.ratePerSecond, zones.api.burst) * 1000)
@@ -199,6 +213,15 @@ async function main() {
           longTasks: t.longTasks,
           longTaskMs: t.longTaskMs === null ? null : Math.round(t.longTaskMs),
           hasCouldNotLoad: t.hasCouldNotLoad,
+          // Relative to this tab's own navigation start.
+          own: {
+            domContentLoadedMs: t.domContentLoadedMs === null ? null : Math.round(t.domContentLoadedMs),
+            lastScriptEndMs: t.lastScriptEndMs === null ? null : Math.round(t.lastScriptEndMs),
+            firstApiStartMs: t.firstApiStartMs === null ? null : Math.round(t.firstApiStartMs),
+            longTaskMsBeforeFirstApi: t.longTaskList && t.firstApiStartMs !== null ? t.longTaskList.filter((x) => x.startMs < t.firstApiStartMs).reduce((sum, x) => sum + Math.min(x.ms, t.firstApiStartMs - x.startMs), 0) : null,
+            scripts: t.scripts,
+            longTaskList: t.longTaskList,
+          },
         })
       }
       const log = profile.since(mark).filter((e) => e.zone === 'business')

@@ -326,3 +326,39 @@ test('without both observations the lead is left as it was', () => {
 test('a tab that was already early enough is not moved', () => {
   assert.equal(nextNavigateLead({ currentMs: 900, lIngressStartMs: 11000, pIngressStartMs: 11872, maxMs: 2700 }), 900)
 })
+
+// --- the rule on the figures two partial runs recorded -----------------------------
+
+test('the leads of the run on 650ef081c are the rule applied to what each attempt observed', () => {
+  // Attempt 1: lead 300, L reached the ingress 91 ms after P. Attempt 2: lead 541, 46 ms after.
+  const second = nextNavigateLead({ currentMs: 300, lIngressStartMs: 1791517702989, pIngressStartMs: 1791517702898, maxMs: 2700 })
+  assert.equal(second, 541)
+  const third = nextNavigateLead({ currentMs: second, lIngressStartMs: 1791517786932, pIngressStartMs: 1791517786886, maxMs: 2700 })
+  assert.equal(third, 737)
+})
+
+test('on the five attempts of 721b7107f, which had no correction, the rule would have moved the tab every time', () => {
+  // L minus P at the ingress, as recorded: every one positive, so every attempt was sent too late.
+  for (const late of [214, 241, 682, 459, 88]) {
+    assert.equal(nextNavigateLead({ currentMs: 300, lIngressStartMs: 1000 + late, pIngressStartMs: 1000, maxMs: 2700 }), 300 + late + 150)
+  }
+})
+
+test('the lead never moves backwards and never passes its cap, whatever is observed', () => {
+  let lead = 300
+  for (const late of [500, -400, 900, 5000, -1, 0, 300]) {
+    const next = nextNavigateLead({ currentMs: lead, lIngressStartMs: 10_000 + late, pIngressStartMs: 10_000, maxMs: 2700 })
+    assert.ok(next >= lead, `${lead} -> ${next}`)
+    assert.ok(next <= 2700)
+    lead = next
+  }
+  assert.equal(lead, 2700)
+})
+
+test('the rule cannot turn an attempt into a pass: it returns a number of milliseconds and nothing else', () => {
+  assert.equal(typeof nextNavigateLead({ currentMs: 300, lIngressStartMs: 2, pIngressStartMs: 1, maxMs: 2700 }), 'number')
+})
+
+test('the number of attempts is still five', () => {
+  assert.equal(MAX_SETUP_ATTEMPTS, 5)
+})

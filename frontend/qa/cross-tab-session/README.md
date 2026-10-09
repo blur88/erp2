@@ -578,6 +578,72 @@ that never ended, one the capture tool dropped packets in, or one with an
 unreadable record inside the window invalidates an attempt the case called
 `pass`, whatever the case concluded.
 
+### How an attempt is run
+
+The proof above says what has to be observed. This is how an attempt goes about
+producing it, and what it checks about itself before its evidence is read. The
+logic is in `lib/expiry-evidence.mjs` and is tested on the records of a real
+attempt (`fixtures/case16-attempt-7a632336b.json`).
+
+- **Three browser contexts.** The application tab, the fillers and the probes
+  each run in a context of their own, and a context has its own pool of six
+  connections per origin. In one context the probes and the tab queue behind the
+  fillers: the tab then arrives after the limiter has stopped delaying, and the
+  probes arrive in a bunch (that is what the attempt in the fixture shows).
+- **One bucket, checked.** The limiter is keyed on the client address. Every
+  attempt reads from its ingress log that the tab, the probes and the fillers
+  reached the ingress from one address, and from the capture that everything
+  came from the ingress. If not, the attempt is inconclusive.
+- **Probes on schedule, checked.** From their arrival times at the ingress: they
+  must span most of their window with no neighbours far further apart than they
+  were sent. Bunched probes cannot bracket an expiry.
+- **Fillers.** 160, queued continuously, 3.5 s before the tab is due. Measured
+  in the feasibility run: requests queued through one context reach the ingress
+  at about 28 a second against a zone rate of 20, so the limiter's excess needs
+  about 70 requests and 2.4 s to pass its delay threshold.
+- **L, X and P come from the evidence.** L is whichever request of the tab the
+  limiter delayed and the backend refused, whatever its path; X and P are the
+  probes that bracket it. Only those three are correlated across the three
+  sources, but the checks over everything the attempt sent are kept: capture
+  health, unreadable records, a request no context sent, a request the ingress
+  forwarded that is missing from the capture.
+- **Recovery** is timed on the browser's clock from the tab's first 401 on a
+  data request to the tab holding its data, against the deadline calculated
+  and recorded before the first attempt.
+- **Only a 401's message is kept** from a response body, never another field.
+
+### The scheduling rule between attempts
+
+An attempt can show everything except *valid at send* when the tab is navigated
+too late: its request then reaches the ingress after the last probe the backend
+still accepted, and may already have carried an expired token there. That is a
+missed setup, not a behaviour, and the next attempt corrects for it:
+
+> next lead = current lead + (L's arrival at the ingress − P's arrival at the
+> ingress) + 150 ms, when that difference is positive; otherwise unchanged;
+> never more than the filler lead less 800 ms.
+
+`nextNavigateLead` in `lib/expiry-crossing.mjs`. The lead starts at 300 ms
+before the expiry, less the tab's measured time to its first request.
+
+What the rule does and does not do:
+
+- It changes **when the tab is sent**, from two arrival times the previous
+  attempt recorded on the ingress clock. It never looks at a verdict and cannot
+  produce one.
+- It changes nothing about what counts as evidence: the margins, the message
+  check, the fingerprints, the capture checks and the deadline are the same in
+  every attempt.
+- It only moves the tab earlier, and stops at its cap, so the tab is never sent
+  before the fillers have started.
+- **The bound is still five attempts.** A case that has not shown the crossing
+  in five is inconclusive, which fails the run. A behavioural failure in any
+  attempt ends the case as a fail at once and is never set up again.
+- The window it is aiming at is narrow: the limiter held L for about 0.4 s in
+  the attempts recorded so far, and probes are 150 ms apart. On `650ef081c` the
+  leads were 300, 541 and 737 ms and the third attempt showed the crossing; on
+  `721b7107f`, without the rule, none of five did.
+
 ## The latency measurement
 
 | | What | Status |
