@@ -222,7 +222,9 @@ describe('a tab whose session ends', () => {
 
 describe('the mandatory password-change page', () => {
   const PAGE = '/change-password-required'
-  const pageHeading = () => screen.findByRole('heading', { name: /password change required/i })
+  // The page is a lazy route, imported afresh in each test: under coverage that
+  // import alone has taken longer than the default second.
+  const pageHeading = () => screen.findByRole('heading', { name: /password change required/i }, { timeout: 5000 })
 
   async function openPage() {
     const tab = await openTab(PAGE, signedIn())
@@ -323,7 +325,7 @@ describe('the mandatory password-change page', () => {
     expect(visited).toEqual([PAGE, '/login'])
     expect(screen.getAllByRole('button', { name: /sign in/i })).toHaveLength(1)
     expect(app.requests.slice(sent).map((r) => r.url)).toEqual(['/auth/change-password'])
-  })
+  }, 15_000)
 
   it('a page left while its change is in flight starts no timer and navigates nowhere afterwards', async () => {
     let release: () => void = () => undefined
@@ -505,7 +507,8 @@ describe('storage did not answer at start', () => {
 
     fireEvent.click(tryAgain())
 
-    await screen.findByRole('heading', { name: /password change required/i })
+    // A lazy route's import, as above.
+    await screen.findByRole('heading', { name: /password change required/i }, { timeout: 5000 })
     expect(pathname()).toBe('/change-password-required')
     expect(document.querySelector('.app-shell-root')).toBeNull()
   })
