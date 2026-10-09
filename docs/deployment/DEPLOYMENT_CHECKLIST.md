@@ -189,6 +189,39 @@ first production deployment.
       426 `CLIENT_RELOAD_REQUIRED` on sign-in, registration and refresh
 - [ ] After deploy, run `nginx/verify-rate-limits.sh` on the deployment host
 
+### Ingress `/api` limit: excess requests are delayed, not refused (#1353)
+
+`nginx/nginx.conf` only; no backend, frontend or database change.
+
+- [ ] The NGINX image is **rebuilt and the container recreated**
+      (`docker compose build nginx && docker compose up -d nginx`): the
+      configuration is baked into the image, so a restart alone keeps the old one
+- [ ] `nginx -t` passes on the built image
+- [ ] `api_limit` reads `rate=20r/s` and `burst=40 delay=20` in the running
+      container (`docker compose exec nginx nginx -T | grep -E 'api_limit|limit_conn'`),
+      and `limit_conn_status 429` is present. The three limiter values are still
+      marked provisional in the file: the completion deadlines they were sized
+      against are tracked in #1359, not met on the host they were measured on
+- [ ] **The access log format changed** from `combined` to `limits`: the same
+      fields, followed by `msec=`, `rt=`, `urt=`, `lreq=`, `lconn=` and `qa=`.
+      Anything that parses the ingress access log by position still works for the
+      leading fields; anything that expects the line to end after the user agent
+      does not. The log is flushed every second (`flush=1s`)
+- [ ] After deploy, run `nginx/verify-rate-limits.sh` on the deployment host. Its
+      `api_limit` phases run on an isolated rig (`nginx/limiter-rig/rig.sh`, its
+      own network, no host ports) and never against the running stack; it needs
+      Docker and about a minute. Exit 0 and `api_limit verification complete`
+      is the pass; exit 3 means the recorded probe result does not match the
+      configuration and nothing was verified
+- [ ] A 429 no longer says which limiter refused a request: read `lreq=` and
+      `lconn=` on its access-log line (`REJECTED` names the limiter)
+- [ ] **Not covered by this change, and not verified:** several users behind one
+      address (they share one bucket, and more than ten simultaneous connections
+      from one address are refused by `limit_conn addr 10` with 429);
+      browsers other than Chromium; HTTP/2 (enabling it requires re-running the
+      restored-window workload and reassessing `limit_conn addr 10`)
+- [ ] Rollback is the previous NGINX image; nothing else depends on the change
+
 ---
 
 ## Post-Deployment Validation (30 minutes)
