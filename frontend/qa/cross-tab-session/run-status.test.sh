@@ -100,6 +100,35 @@ sleep 0.2
 expect_abort int "INT is a failed run"
 [ "$(rc_of int)" = "130" ] && ok "INT exits 130" || not_ok "INT exits 130" "got $(rc_of int)"
 
+scenario hup 'kill -HUP $$
+sleep 0.2
+'"${END}"
+expect_abort hup "HUP is a failed run"
+[ "$(rc_of hup)" = "129" ] && ok "HUP exits 129" || not_ok "HUP exits 129" "got $(rc_of hup)"
+
+# A signal that arrives while the stack is being put back, on the normal path
+# (run.sh's own restore step, not the EXIT trap). The restore must finish and
+# must not be run a second time: the second one finds no capture file, fails,
+# and reports a restored stack as not restored.
+for sig in TERM INT; do
+  want=143; [ "${sig}" = "INT" ] && want=130
+  scenario "restore_${sig}" 'run_restore() {
+  if [ -e "'"${TMP}/restore_${sig}.restore"'" ]; then echo again >> "'"${TMP}/restore_${sig}.restore"'"; return 1; fi
+  echo restored >> "'"${TMP}/restore_${sig}.restore"'"
+  kill -'"${sig}"' $$
+  sleep 0.2
+  return 0
+}
+restore_stack
+'"${END}"
+  expect_abort "restore_${sig}" "${sig} during the restore step: one restore, a failed run"
+  [ "$(rc_of "restore_${sig}")" = "${want}" ] && ok "${sig} during the restore step exits ${want}" \
+    || not_ok "${sig} during the restore step exits ${want}" "got $(rc_of "restore_${sig}")"
+  [[ "$(finalized "restore_${sig}")" == *"restoreFailed=0" ]] && ! grep -q "STACK NOT RESTORED" "${TMP}/restore_${sig}.out" \
+    && ok "${sig} during the restore step does not report a restored stack as not restored" \
+    || not_ok "${sig} during the restore step does not report a restored stack as not restored" "$(finalized "restore_${sig}"); $(tr '\n' ';' < "${TMP}/restore_${sig}.out")"
+done
+
 scenario early 'exit 0
 '"${END}"
 expect_abort early "leaving with 0 before the last line is a failed run"
@@ -326,12 +355,13 @@ if declare -F address_refusal > /dev/null || source "${HERE}/lib/run-guard.sh"; 
       myhost) echo 127.0.1.1 ;;
       lanhost) echo 10.1.1.34 ;;
       both) printf '10.1.1.34\n::1\n' ;;
+      anyhost) echo 0.0.0.0 ;;
       nowhere.invalid) : ;;
       *) getent ahosts "$1" 2>/dev/null | awk '{print $1}' | sort -u ;;
     esac
   }
   for refused in "" localhost LOCALHOST app.localhost 127.0.0.1 127.0.1.1 127.255.255.254 127.1 2130706433 \
-    ::1 "[::1]" 10.1.1.34:80 "http://10.1.1.34/" myhost both nowhere.invalid; do
+    ::1 "[::1]" 10.1.1.34:80 "http://10.1.1.34/" myhost both nowhere.invalid 0.0.0.0 0 0.1.2.3 anyhost; do
     if reason="$(address_refusal "${refused}")"; then ok "refuses '${refused}' (${reason})"; else not_ok "refuses '${refused}'" "it was accepted"; fi
   done
   for accepted in 10.1.1.34 192.168.1.20 10.127.0.1 172.16.127.1 lanhost; do

@@ -99,7 +99,9 @@ frontend/qa/cross-tab-session/run.sh "$(hostname -I | awk '{print $1}')"
 `run.sh` refuses a loopback address however it is written (`localhost` and
 names under it, anything in `127.0.0.0/8`, `::1`, and a host name that
 resolves to one of those or to nothing: a loopback origin is a secure context,
-where conditions differ), any port (port 3000 bypasses the ingress and its
+where conditions differ), the unspecified address (`0.0.0.0/8`, written as `0`
+too: the host reaches its own ingress through it and the browser container
+does not), any port (port 3000 bypasses the ingress and its
 limits), missing credentials, a working tree with any uncommitted change (tracked or untracked),
 and less than 3 GB of free disk. It then:
 

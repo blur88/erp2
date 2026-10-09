@@ -307,7 +307,9 @@ export default [
       ctx.record('uses', uses)
       ctx.record('refreshRequests', refreshes(profile, mark).map((e) => [e.tab, e.status]))
       ctx.record('generations', { before: before.session.generation, after: after.session?.generation })
-      ctx.check('every use succeeded', uses >= 12, { uses })
+      // A use that fails throws out of `exercise` and fails the case there; this
+      // line is only the count.
+      ctx.check('at least twelve uses completed', uses >= 12, { uses })
       ctx.check('the session is the same one', after.session?.sessionId === before.session.sessionId, after)
       ctx.check('the generation advanced at least three times', after.session?.generation >= before.session.generation + 3, after)
       ctx.check('tab A is signed in', await showsSignedInUi(a, 2000))
