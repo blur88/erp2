@@ -94,12 +94,21 @@ test('stopAllNodeFillers stops every generator still running: the way out on any
   const s = await serve()
   startNodeFillers({ base: s.base, path: '/api/x', prefix: 'fill-a', ratePerSecond: 100, maxInFlight: 6, maxTotal: 10_000, maxMs: 10_000 })
   startNodeFillers({ base: s.base, path: '/api/x', prefix: 'fill-b', ratePerSecond: 100, maxInFlight: 6, maxTotal: 10_000, maxMs: 10_000 })
-  await sleep(200)
-  await stopAllNodeFillers()
-  const count = s.seen.length
-  await sleep(300)
-  assert.equal(s.seen.length, count)
-  await s.close()
+  // The server is closed whatever is found: left open, it keeps the test
+  // process alive, and a failure here becomes a run that never ends.
+  try {
+    await sleep(200)
+    await stopAllNodeFillers()
+    // These servers answer at once, so a request sent just before the stop may
+    // still be on its way to the server when the stop returns. It was sent
+    // before, not after; it is given time to arrive before the count is taken.
+    await sleep(200)
+    const count = s.seen.length
+    await sleep(300)
+    assert.equal(s.seen.length, count)
+  } finally {
+    await s.close()
+  }
 })
 
 test('bounds are required: a generator without them is refused', () => {
