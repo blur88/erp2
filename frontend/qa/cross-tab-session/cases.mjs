@@ -20,6 +20,7 @@ import storage from './cases/storage.mjs'
 import marker from './cases/marker.mjs'
 import limiter from './cases/limiter.mjs'
 import induced from './cases/induced.mjs'
+import { stopAllNodeFillers } from './lib/node-fillers.mjs'
 import w1 from './lib/w1.mjs'
 
 export const cases = [...signout, ...switching, ...refresh, ...storage, ...marker, ...limiter, ...induced]
@@ -122,6 +123,9 @@ async function main() {
       error = err && err.stack ? err.stack : String(err)
       console.log(`    ERROR ${err && err.message ? err.message : err}`)
     }
+    // A case that was timed out, or threw, must not leave its load generator
+    // running into the next case.
+    await stopAllNodeFillers()
     const failedChecks = ctx.checks.filter((k) => !k.ok)
     let pass = error === null && failedChecks.length === 0 && ctx.unexpected429.length === 0
     const diagnosis = pass ? undefined : await ctx.diagnose()

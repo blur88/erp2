@@ -274,7 +274,11 @@ export class Profile {
     this.context.on('requestfinished', (request) => this.onFinished(request))
     this.context.on('requestfailed', (request) => {
       const entry = this.byRequest.get(request)
-      if (entry) entry.failed = request.failure()?.errorText ?? 'failed'
+      if (entry) {
+        entry.failed = request.failure()?.errorText ?? 'failed'
+        // When, on this clock: a case that attributes a cancellation needs it.
+        entry.failedAt = Date.now()
+      }
     })
 
     if (config.distDir) await this.serveLocalBuild(config)

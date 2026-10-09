@@ -665,30 +665,59 @@ workload does not produce. Since the amendment of 2026-10-09:
   overlap absent, or evidence missing.
 - **Case 17** is where the condition is a gate.
 
+**The evidence starts at the sign-out, not at the logout request.** The
+application aborts its in-flight requests when its session ends, before it sends
+the logout. That is valid behaviour, and it means a held request "outstanding
+when the logout reaches the ingress" is a state the application is built not to
+be in: the case's first run (`f2ce87c67`) looked for exactly that and found it
+once in nine attempts, by a race of a millisecond.
+
 It passes, at each of 5, 10 and 20 application tabs, only with all of:
 
-1. evidence from the ingress log of a request **of the application** (an
-   `app-*` identifier, not on a session route) that the limiter was delaying
-   (`DELAYED`) and that was outstanding when the logout reached the ingress
-   (`startMs < logout's startMs < endMs`, all on the ingress clock). A filler's
-   delay is not that evidence, and an estimate of the limiter's state is not a
-   substitute for the observation;
-2. the logout sent and answered 2xx, and no request to `refresh`, `logout` or
+1. the harness recorded when the sign-out was **initiated** (the click on
+   *Logout*), and a data request of the application that was still pending
+   immediately before it;
+2. **the same request**, by its identifier, has a line in the ingress log that
+   says the limiter was delaying it (`DELAYED`);
+3. what became of it is recorded: answered, or cancelled **by the sign-out**. A
+   cancellation is the sign-out's only when nothing else explains it: the
+   harness had not begun closing the tabs, the request's tab kept the document
+   it first loaded (so it was not a navigation), and the abort fell between the
+   sign-out and two seconds after the logout was answered. A request cancelled
+   before the sign-out was not pending at it and is not evidence, however close
+   to the logout the ingress shows it;
+4. the logout sent and answered 2xx, and no request to `refresh`, `logout` or
    `me` answered 429;
-3. every application tab on the login page, in the document it first loaded.
+5. every application tab on the login page, in the document it first loaded,
+   and none of them showing stale data of the session (the user menu or the
+   dashboard) two seconds later.
+
+Missing correlation is inconclusive: a pending request with no ingress line, or
+one the limiter did not delay, or one whose end was not recorded, proves
+nothing. A count of requests the ingress shows aborted in the 0.3 s before the
+logout is recorded with every attempt as corroboration; it decides nothing,
+because it cannot tell what cancelled them.
 
 Also read from every attempt's ingress log, and inconclusive when not so: that
 fillers reached the ingress at all, and that they and the application came from
 one address, which is what puts them in one limiter bucket.
 
-The fillers are unauthenticated `GET` requests to a route under `api_limit`, six
-kept in flight from three seconds before the tabs open until after the
-sign-out. The backend answers them 401 at once; what matters is that the
-ingress counts them.
+**The fillers are sent by the harness's own Node process**
+(`lib/node-fillers.mjs`), not by a browser: 40 unauthenticated `GET` requests a
+second to a route under `api_limit`, never more than 12 outstanding, each with
+its own `fill-*` identifier, bounded in number and in time, and stopped on every
+way out of an attempt and of the case. The backend answers them 401 at once;
+what matters is that the ingress counts them. Why not a browser context: at
+twenty tabs the browser is too busy for fillers sent from it to keep the
+limiter's excess up (on `f2ce87c67` the excess was above the delay threshold
+for 6 to 10% of the six seconds before the logout at twenty tabs, against 76 to
+93% at five). This changes the load generator, not the application workload the
+scenario makes its claim about.
 
-An attempt that behaved and simply found no application request outstanding at
-the logout may be set up again, at most three attempts per size. A behavioural
-failure fails at once and is never set up again. Every attempt is recorded.
+An attempt that behaved and lacked the evidence may be set up again, at most
+three attempts per size. No application delay observed is a missed setup, not
+an application failure. A behavioural failure fails at once and is never set up
+again. Every attempt is recorded.
 
 **What it does not show:** that a restored window makes the limiter delay by
 itself (on the evidence so far, at ten and twenty tabs it usually does not);
