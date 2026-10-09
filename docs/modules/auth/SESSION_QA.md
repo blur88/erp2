@@ -747,6 +747,64 @@ authentication recovery. It does not say how much is the application's own work
 and how much is this host's capacity; that needs another machine or an idle
 host. The deadlines are unchanged.
 
+### Five tabs on the quiet host, and where the time before the first request goes (2026-10-09)
+
+Both are diagnostic and read-only. The deadlines and the limiter configuration
+are unchanged, and nothing here is a proposal to change either.
+
+**Five tabs again, with the host quiet when the measurement began.** The running
+stack on `650ef081c`, 24 loads, eight per variant. One-minute load average 0.62
+at the start; the measurement's own browser work took it to between 2 and 4, peak
+5.30. Two unrelated containers were restart-looping as always; nothing was
+stopped. For the last of the five tabs, ranges with medians:
+
+| | Bare | Recorder in the tab | Recorder and W1's polling |
+|---|---|---|---|
+| First data request sent | 2.48 to 4.13 s, 2.86 | 2.38 to 3.77 s, 2.70 | 2.68 to 3.43 s, 3.20 |
+| Last data answer received | 4.10 to 5.32 s, 4.72 | 3.79 to 5.52 s, 4.40 | 3.85 to 4.29 s, 4.02 |
+| Largest contentful paint | 5.02 to 6.52 s, 5.60 | 4.82 to 6.34 s, 5.35 | 4.65 to 5.52 s, 5.09 |
+| W1's watcher says complete | — | — | 4.66 to 5.75 s, 5.18 |
+| Painted within 5 s | 0 of 8 | 3 of 8 | 2 of 8 |
+| Last answer within 5 s | 6 of 8 | 7 of 8 | 8 of 8 |
+
+Five tabs sit at the deadline on this host: unobserved, the last tab painted 0.02
+to 1.5 s after it in all eight loads, and the first load, begun at a load average
+of 0.62, at 5.91 s. With the host contended (3.5 to 9.6) the same build took 7 to
+23 s. So contention explains the large misses and does not explain the last half
+second. The variants ran at different points of the rotation, and their
+differences are within their own spread.
+
+**How it scales with the number of tabs.** Bare variant only, five loads at each
+size, load average 0.6 to 3.5. Medians; the first three columns are per tab,
+from that tab's own navigation, the last two for the last tab of the load:
+
+| Tabs | `DOMContentLoaded` | Last script loaded | First data request | Long tasks before it | Long tasks in all, per tab | Last data answer | Largest contentful paint |
+|---|---|---|---|---|---|---|---|
+| 1 | 0.47 s | 0.66 s | 0.75 s | 0.33 s | 0.83 s | 1.35 s | 1.75 s (1.59 to 1.94) |
+| 2 | 0.55 s | 0.85 s | 0.90 s | 0.42 s | 0.93 s | 1.89 s | 2.26 s (2.22 to 2.31) |
+| 3 | 0.78 s | 1.15 s | 1.30 s | 0.58 s | 1.51 s | 2.63 s | 3.20 s (3.04 to 3.89) |
+| 5 | 1.19 s | 1.88 s | 2.06 s | 1.04 s | 2.73 s | 3.92 s | 4.99 s (4.78 to 6.71) |
+
+- One tab alone sends its first data request 0.75 s after it is opened and has
+  painted its content by 1.75 s. Every phase stretches as tabs are added: the
+  same tab's main-thread long tasks take 0.83 s alone and 2.73 s among five.
+- Before its first data request a tab loads 26 scripts, then the dashboard's own
+  chunk and its charts: 1.59 MB of script once decoded, all from the browser's
+  cache in these loads (nothing transferred). Alone, those are in hand 0.1 s
+  after navigation; among five tabs the last arrives at about 1.9 s.
+- The first data request follows the last script by under 0.2 s at every size.
+  The time before it is the page starting up, and the limiter and the backend
+  have nothing to act on until it is over.
+
+**What is and is not established.** Established on this host: the miss at five
+tabs is not W1's measurement, the limiter, authentication recovery, or a refused
+request; the time before the first data request is page start-up; and start-up
+slows as more tabs start together. Not established: whether that slowing is the
+processor (five tabs' start-up on four cores, alongside the stack itself), the
+disk the browser's cache is read from, or something else; and what another
+machine would do. This is a question about the application's start-up cost or
+about the acceptance targets, and it is outside the ingress change.
+
 ### Recorded run on `db0cc890e` (2026-10-09): exit status 1
 
 The acceptance rerun on the same host, after the suite fixes. **15 of 17 passed.
