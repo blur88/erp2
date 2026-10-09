@@ -139,14 +139,25 @@ test('one in-app recovery action at N = 10 fails its own check', () => {
   assert.ok(labelsOf(rounds).some((l) => l.includes('no in-app recovery action')))
 })
 
-test('the deadline is inclusive: 15000 passes at N = 20, 15001 fails, null fails', () => {
-  const deadlineFail = 'N = 20 (b): complete within the deadline'
-  assert.deepEqual(failed(all([[20, 'b', { completedAfterMs: 15000 }]])), [])
-  assert.deepEqual(failed(all([[20, 'b', { completedAfterMs: 15001 }]])), [deadlineFail])
-  assert.deepEqual(failed(all([[20, 'b', { completedAfterMs: null }]])), [deadlineFail])
-  // The same deadline applies at every size.
-  assert.deepEqual(failed(all([[5, 'a', { completedAfterMs: 5001 }]])), ['N = 5 (a): complete within the deadline'])
-  assert.deepEqual(failed(all([[10, 'b', { completedAfterMs: 10001 }]])), ['N = 10 (b): complete within the deadline'])
+test('the deadline blocks at five tabs only, and is inclusive: 8000 passes, 8001 fails, null fails', () => {
+  const deadlineFail = 'N = 5 (b): complete within the deadline'
+  assert.deepEqual(failed(all([[5, 'b', { completedAfterMs: 8000 }]])), [])
+  assert.deepEqual(failed(all([[5, 'b', { completedAfterMs: 8001 }]])), [deadlineFail])
+  assert.deepEqual(failed(all([[5, 'b', { completedAfterMs: null }]])), [deadlineFail])
+  assert.deepEqual(failed(all([[5, 'a', { completedAfterMs: 8001 }]])), ['N = 5 (a): complete within the deadline'])
+})
+
+test('at ten and twenty tabs the time is diagnostic: no check on it, and a finding that says so', () => {
+  for (const [n, ms] of [[10, 10001], [20, 15001], [20, null]]) {
+    const rounds = all([[n, 'b', { completedAfterMs: ms }]])
+    assert.deepEqual(failed(rounds), [])
+    assert.ok(!labelsOf(rounds).some((l) => l.startsWith(`N = ${n} `) && l.includes('within the deadline')))
+    const { findings } = nonBlockingFindings(rounds, 'sales_staff')
+    assert.ok(findings.some((f) => f.includes(`N=${n}`) && /diagnostic/.test(f) && /#1359/.test(f)), findings.join('\n'))
+  }
+  // Five tabs: the finding is behind a failing check and is not called diagnostic.
+  const { findings } = nonBlockingFindings(all([[5, 'b', { completedAfterMs: 8001 }]]), 'sales_staff')
+  assert.ok(findings.some((f) => f.includes('8001 ms') && !/diagnostic/.test(f)))
 })
 
 test('a tab left signed in at N = 10 fails the sign-out round at that size', () => {
@@ -189,7 +200,6 @@ test('a round that was not run fails the checks of its own size', () => {
     'N = 20 (a): no 429 on refresh, logout or me',
     "N = 20 (a): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)",
     'N = 20 (a): no in-app recovery action',
-    'N = 20 (a): complete within the deadline',
     'N = 20 (a): the access token was current when the tabs opened',
   ])
 })
@@ -329,7 +339,7 @@ test('for each mutation of the baseline the exact set of checks fails', () => {
   // One failing check per mutation, and nothing else fails with it.
   const cases = [
     [[10, 'a', { recoveryActionsTotal: 1, tabsNeedingRecovery: 1 }], 'N = 10 (a): no in-app recovery action'],
-    [[20, 'b', { completedAfterMs: 15001 }], 'N = 20 (b): complete within the deadline'],
+    [[5, 'b', { completedAfterMs: 8001 }], 'N = 5 (b): complete within the deadline'],
     [[5, 'b', { everyTabUsable: false, tabsUsable: 4, tabsNotRecoverable: [{ tab: 't', whyNot: 'no rows' }] }],
       'N = 5 (b): every tab usable for the non-administrator (data present, the shell\'s included, and an action working; no reload, no new sign-in, no administrator-only page)'],
     [[20, 'a', { count429: 2 }], 'N = 20 (a): no 429 on refresh, logout or me'],

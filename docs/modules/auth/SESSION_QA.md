@@ -1221,6 +1221,73 @@ results; and the file of expectations with its dated correction.
 the six full runs made immediately afterwards each passed in about 10 s. Its
 cause was not found.
 
+### #1353's acceptance changed to a device measurement (2026-10-09): agreed, not yet run
+
+Decided by the repository owner after the three recorded runs above, and
+**before** any measurement against the new terms was made.
+
+| Term | Value |
+|---|---|
+| Workload | five tabs opened together, Firefox on the user's normal device, through the ingress (port 80) |
+| Outcome | every tab holds its expected data, no recovery click |
+| Deadline | **8 s**, current-token round and expired-token round alike; from the common tab-opening trigger to the last tab holding its data, client-observed, including authentication, retries and rendering |
+| If missed | investigate and report; the 8 s is not raised |
+| Configuration | normal: 15-minute access tokens, 60 s refresh grace |
+| Expired round | every application tab closed, the stored token's expiry read and verified, timer from the opening of the tabs |
+| Sign-out | one tab signs out; all five on the login page, no reload, nothing of the session shown |
+| Negative checks | a page that never completes is judged failed; a passing round judged against 1 ms fails |
+| Diagnostic | ingress figures; the 10- and 20-tab timings (#1359) |
+
+What this does **not** do: it does not rejudge anything above. The three
+recorded runs failed 5 / 10 / 15 s and stay failures against the gates they
+were run under. The Chromium harness results and the short-lifetime results of
+cases 16 and 17 are separate evidence. In the harness, from this commit, the
+time blocks at five tabs only (8 s) and is reported at ten and twenty; no
+refusal and no recovery action still block at all three sizes. No harness run
+has been made under the amended gate.
+
+The measurement is `frontend/qa/cross-tab-session/device/restored-window.js`
+(procedure in the suite's README, "Device acceptance").
+
+**The device measurement has not been run. #1353 has no acceptance result.**
+
+#### Rehearsals of the tool (not the acceptance)
+
+Three rehearsals in Playwright's Firefox 155.0, headless, in a container **on
+the server host** (4 logical processors, shared with the stack), signed in as
+the administrator, normal token configuration. They check that the script
+works; the device and the browser build are not the user's.
+
+| Rehearsal | Round | Token at start | Last tab complete | Against 8 s | `/api` requests | Refused | Delayed by `api_limit` |
+|---|---|---|---|---|---|---|---|
+| 1 | current token | current, 898 s left | **9.41 s** | fail | 55 (44 x 200, 11 x 304) | 0 | 0 |
+| 2 | current token | current, 899 s left | **9.29 s** | fail | 55 (45 x 200, 10 x 304) | 0 | 0 |
+| 2 | expired token | expired 23.6 s before | **9.02 s** | fail | 97 (56 x 200, 41 x 401) | 0 | 65 |
+| 3 | current token | current | **9.35 s** | fail | not collected | not collected | not collected |
+
+- **Every loading round of every rehearsal missed 8 s.** In each, all five tabs
+  did hold their expected data, with no interaction and no reload. Why this is
+  slower than the harness's Chromium at five tabs (5.46 s and 6.80 s on
+  `3fc7c3e9f`, as a different user) is **not established**.
+- The measurement's own cost was recorded in rehearsal 3: 12 to 20 looks per
+  tab, 14 to 44 ms per tab in total. It does not account for the miss.
+- The expired round's expiry was read from storage, not assumed: the token
+  state read `current` thirteen times at one-minute intervals, then `expired`.
+- Sign-out round: pass in all three (all five tabs on the login page 4.2 to
+  5.3 s after the trigger, no reload).
+- Negative checks: a page that is not the dashboard was judged failed, in all
+  three. The 1 ms check showed nothing in any rehearsal, because no round
+  passed for it to be applied to; it is tested without a browser in
+  `device-acceptance.test.mjs`.
+- **Observed, outside #1353:** in both collected sign-out rounds one
+  `GET /api/auth/show-default-credentials` was refused with 429 by `login_limit`
+  (five tabs arrive on the login page together; that zone is 5 r/m, burst 3).
+  The login page treats a failed answer as "do not show the hint". Whether a
+  sign-in made straight afterwards is refused was not tested.
+- Two defects of the tool were found by rehearsal 1 and fixed before the
+  others: a failure reason repeated the company name, and the 1 ms check
+  reported that it held when applied to a round that had already failed.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand
@@ -1232,7 +1299,7 @@ none of them is verified either:
 - restores of arbitrary or mixed routes: W1 opens every tab on `/dashboard`;
 - recovery from a regional-settings request that is refused on its own, which
   stays open under #1354;
-- browsers other than Chromium;
+- browsers other than Chromium, apart from the device measurement above once it is run;
 - that the three provisional `api_limit` numbers are the right ones. They are
   sizing hypotheses; W1 meeting its deadlines would show that they are adequate
   for one profile at one role on one page, and nothing more.

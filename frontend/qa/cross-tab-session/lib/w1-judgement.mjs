@@ -23,13 +23,23 @@
 // W1 states no capacity. It reports, per size and round, what was observed.
 
 /**
- * The sizes whose rounds block, and the deadline each one is judged against, in
+ * The sizes whose rounds block, and the time each one is read against, in
  * milliseconds from the common tab-opening trigger to the last tab holding its
- * expected data. Fixed, and not adjusted after a run: a target that moves with
- * the result is not a target.
+ * expected data. Fixed before a run, and not adjusted after one: a target that
+ * moves with the result is not a target.
+ *
+ * Since 2026-10-09 the time blocks at five tabs only, against the 8 s agreed
+ * for #1353 before its device acceptance was run. That acceptance is measured
+ * in Firefox on the user's device (device/restored-window.js), not here; this
+ * is the harness's own, separate, evidence. At ten and twenty tabs the time is
+ * reported against 10 s and 15 s as a diagnostic; those two are tracked in
+ * #1359. Every other check still blocks at all three sizes. The runs recorded
+ * before this change were judged against 5, 10 and 15 s, all blocking, and
+ * stay recorded as they were judged.
  */
 export const BLOCKING_SIZES = [5, 10, 20]
-export const DEADLINE_MS = { 5: 5000, 10: 10000, 20: 15000 }
+export const DEADLINE_MS = { 5: 8000, 10: 10000, 20: 15000 }
+export const DEADLINE_BLOCKING_SIZES = [5]
 
 // A natural sign-out is attempted once. Whether a delayed request overlapped it
 // is diagnostic since the amendment of 2026-10-09 (the condition is a blocking
@@ -39,8 +49,8 @@ export const MAX_SIGN_OUT_ATTEMPTS = 1
 /** The one sentence about what W1 does and does not show. Printed with every summary and quoted in the README. */
 export const W1_SCOPE =
   'W1 shows that the tabs of a restored window coordinate their refresh, that a restored window puts little load on session_limit, ' +
-  `and that at ${BLOCKING_SIZES.join(', ')} tabs every tab reaches its expected data within its deadline ` +
-  `(${DEADLINE_MS[5] / 1000}, ${DEADLINE_MS[10] / 1000} and ${DEADLINE_MS[20] / 1000} s) without the user acting. ` +
+  `and that at ${BLOCKING_SIZES.join(', ')} tabs every tab reaches its expected data without the user acting, ` +
+  `at ${DEADLINE_BLOCKING_SIZES.join(', ')} tabs within its deadline (${DEADLINE_MS[5] / 1000} s). ` +
   'It does not measure the capacity of that zone, which is never approached, and it does not establish how many tabs a restored window can hold: ' +
   'that is bounded by the general api_limit (issue #1353).'
 
@@ -169,8 +179,9 @@ export function blockingChecks(rounds, sizes) {
       // Pass: the last tab held its expected data within this size's deadline,
       // measured from the common tab-opening trigger. A tab that never did is a
       // miss, not a figure: giving up early would only make it look smaller.
+      // At the other sizes the time is a finding, not a check.
       const deadline = DEADLINE_MS[n]
-      out.push({
+      if (DEADLINE_BLOCKING_SIZES.includes(n)) out.push({
         label: `N = ${n} (${round}): complete within the deadline`,
         ok: !!r && r.completedAfterMs !== null && r.completedAfterMs !== undefined && r.completedAfterMs <= deadline,
         detail: r
@@ -327,10 +338,11 @@ export function nonBlockingFindings(rounds, role) {
     if (!r.everyTabUsable) {
       findings.push(`${where}: ${r.tabsNotRecoverable.length} of ${r.n} tabs were NOT usable: ${r.tabsNotRecoverable.map((t) => `${t.tab}: ${t.whyNot}`).join(' || ')}`)
     }
-    // A missed deadline is a failing check; the figures behind it are not in the
-    // check's label, so they are reported here too.
+    // A missed deadline is a failing check at five tabs and a diagnostic at ten
+    // and twenty; either way the figures are reported here.
     if (r.round !== 'c' && (r.completedAfterMs === null || r.completedAfterMs > (r.deadlineMs ?? DEADLINE_MS[r.n]))) {
-      findings.push(`${where}: the last tab held its expected data after ${r.completedAfterMs === null ? 'never' : `${r.completedAfterMs} ms`}, against a deadline of ${r.deadlineMs ?? DEADLINE_MS[r.n]} ms (polled every ${r.completionPollMs ?? '?'} ms)`)
+      const diagnostic = DEADLINE_BLOCKING_SIZES.includes(r.n) ? '' : ' - diagnostic at this size, not a failed check; tracked in #1359'
+      findings.push(`${where}: the last tab held its expected data after ${r.completedAfterMs === null ? 'never' : `${r.completedAfterMs} ms`}, against a deadline of ${r.deadlineMs ?? DEADLINE_MS[r.n]} ms (polled every ${r.completionPollMs ?? '?'} ms)${diagnostic}`)
     }
   }
   return { findings, dataNotRecoverableByRole: lost }

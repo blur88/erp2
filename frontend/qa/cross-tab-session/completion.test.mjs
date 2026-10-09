@@ -6,7 +6,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { completionOf } from './lib/completion.mjs'
-import { DEADLINE_MS, BLOCKING_SIZES } from './lib/w1-judgement.mjs'
+import { DEADLINE_MS,
+  DEADLINE_BLOCKING_SIZES, BLOCKING_SIZES } from './lib/w1-judgement.mjs'
 
 // One sample per poll per tab: { tab, atMs, complete, pending }.
 // `complete` is what lib/usable.mjs read from the tab, `pending` how many of
@@ -61,7 +62,8 @@ test('the first sample of a tab that is already complete counts', () => {
   assert.equal(result.perTab[0].completedAfterMs, 250)
 })
 
-test('the deadlines are fixed: 5 s, 10 s and 15 s', () => {
-  assert.deepEqual(DEADLINE_MS, { 5: 5000, 10: 10000, 20: 15000 })
+test('the deadlines are fixed: 8 s at five tabs (blocking), 10 s and 15 s at ten and twenty (diagnostic)', () => {
+  assert.deepEqual(DEADLINE_MS, { 5: 8000, 10: 10000, 20: 15000 })
+  assert.deepEqual(DEADLINE_BLOCKING_SIZES, [5])
   assert.deepEqual(BLOCKING_SIZES, [5, 10, 20])
 })

@@ -33,11 +33,16 @@ What a reader of those records needs to know about how the suite judges:
   page only an administrator can open does not count: the suite refuses such
   a step and the tab fails (see "Who W1 runs as").
 - **W1 states no capacity.** It reports what was observed at each size and
-  blocks at 5, 10 and 20 tabs, in all three rounds, on a deadline and on zero
-  in-app recovery actions (see "What W1 shows and what it does not").
-- **The sign-out round must overlap a request the ingress was holding.** A round
-  where no attempt did is inconclusive, not passed, and the run fails (see
-  "What blocks").
+  blocks at 5, 10 and 20 tabs, in all three rounds, on zero in-app recovery
+  actions; on a deadline it blocks at five tabs only, 8 s, and reports the time
+  at ten and twenty (see "What W1 shows and what it does not").
+- **#1353's acceptance is not a run of this suite.** It is five tabs in the
+  user's own Firefox, measured by `device/restored-window.js` (see "Device
+  acceptance"). What the suite records in Chromium on the QA host is separate
+  evidence.
+- **Whether a natural sign-out overlapped a request the ingress was holding is
+  diagnostic in W1.** The blocking form of that condition is case 17, with
+  induced delay.
 - **Case 16 is not evidence until a recorded run has passed it.** Its unit tests
   are evidence about the judgement, not about the behaviour (see "Case 16").
 
@@ -483,8 +488,12 @@ At N = 5, 10 **and** 20 (`lib/w1-judgement.mjs`, `blockingChecks`):
   the user navigating. "Without a user action" is this and not the absence of a
   failure message, because the script's own recovery is a navigation through the
   sidebar, which is a user action by any reading;
-- in rounds (a) and (b), the **last tab held its expected data within the size's
-  deadline** - 5 s, 10 s and 15 s from the common tab-opening trigger. A tab
+- in rounds (a) and (b) **at five tabs**, the **last tab held its expected data
+  within 8 s** of the common tab-opening trigger. At ten and twenty tabs the
+  time is reported against 10 s and 15 s and does not block (#1359). Until
+  2026-10-09 all three blocked, at 5, 10 and 15 s; the runs recorded before
+  then stay judged as they were. This is the harness's evidence, in Chromium on
+  the QA host; #1353's acceptance is the device measurement below. A tab
   that never did is a miss, not a small figure: the watch runs thirty seconds
   past the deadline rather than being cut off at it, and a completion is read
   only when the tab has its data *and* no business request without an answer;
@@ -512,6 +521,64 @@ refusing it (20 r/s, `burst=40 delay=20`, provisional until these deadlines are
 met). Those 429s are counted and reported at every size and are not a gate: "429
 counts are diagnostic" means business requests only, and a 429 on a session
 route fails the run above.
+
+## Device acceptance (#1353): five tabs, 8 seconds, the user's own Firefox
+
+What #1353 is accepted on, agreed on 2026-10-09 **before** the measurement was
+made: five tabs opened together in Firefox on the user's normal device, against
+the server, each holding its expected data within **8 s** of the common
+tab-opening trigger, with no recovery click, once with a current access token
+and once with an expired one; and a sign-out that takes all five tabs to the
+login page. The 8 s includes authentication, retries and rendering. It is not
+raised to fit a result. The stack runs its normal configuration (15-minute
+access tokens, 60 s refresh grace), not the QA values.
+
+`device/restored-window.js` is the measurement. It is pasted into the browser's
+console, not run by the harness, so nothing is installed on the device. It
+opens the five tabs from one click and watches each from inside its own page:
+a tab is complete when it is on the dashboard, its heading is rendered, no
+"Could not load" notice is shown, the sidebar shows the server's company name,
+the stored regional formats are the server's, and no data request was left
+failed. It counts key presses and clicks in the tabs (any makes the round
+void), notices a reload, and reads only the expiry time of the stored token,
+never a token. `device-acceptance.test.mjs` tests its judgement without a
+browser.
+
+**Procedure**
+
+1. Firefox on the device. Close every tab of the application. Sign in at
+   `http://<server>/` - port 80, the ingress; **not** port 3000, which reaches
+   the backend without it.
+2. Open `http://<server>/env-config.js` in a tab. Allow pop-ups for the site
+   (the address bar offers it at the first blocked window; if it did, close
+   what opened and press the button again - that round is void).
+3. Open the console (F12), paste the whole of `device/restored-window.js`,
+   press Enter. Firefox asks for `allow pasting` to be typed once first.
+4. Close the tab used to sign in. Press **1. Prepare**.
+5. Press **2. Current-token round** and do not touch the tabs it opens; it
+   closes them itself.
+6. Press **Negative check: the last loading round against 1 ms** (it shows
+   something only after a round that passed) and **Negative check: a page that
+   never completes**.
+7. Leave only the control tab open for more than 15 minutes. Press **Token
+   state now** until it reads `expired`; the round is void if it does not. Then
+   **3. Expired-token round**.
+8. Press **4. Sign-out round**. It signs the session out.
+9. Press **Copy result** and keep the JSON, with the Firefox version
+   (`about:support`) and what the device is.
+
+A round reads PASS, FAIL or VOID. A void round measured nothing and is
+repeated; a failed round is recorded and not repeated to get a better one.
+
+**What the ingress did meanwhile** (diagnostic; it never decides a round):
+
+```bash
+docker logs --since 2h erp_nginx 2>/dev/null | node frontend/qa/cross-tab-session/device-diagnostics.mjs
+```
+
+It finds each round by the two markers the script sent and reports the `/api`
+requests between them from that address: statuses, how many were delayed, and
+every refusal with the limiter and zone that made it.
 
 ## Case 16: a token that expires while the ingress delays the request
 
