@@ -1,0 +1,456 @@
+{
+  "script": "device-acceptance 1 (#1353)",
+  "target": {
+    "tabs": 5,
+    "deadlineMs": 8000
+  },
+  "origin": "http://10.1.1.34",
+  "startedAt": "2026-10-09T12:34:52.483Z",
+  "device": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:157.0) Gecko/20100101 Firefox/157.0",
+    "platform": "Win32",
+    "hardwareConcurrency": 8,
+    "deviceMemory": null,
+    "screen": "2560x1080",
+    "language": "en-US"
+  },
+  "rounds": [
+    {
+      "kind": "current-token",
+      "id": "device-current-token-1791549312830",
+      "triggerAt": "2026-10-09T12:35:12.845Z",
+      "token": {
+        "state": "current",
+        "remainingMs": 866170
+      },
+      "tabs": [
+        {
+          "tab": 1,
+          "opened": true,
+          "observedFromMs": 64,
+          "completedAfterMs": 604,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 25,
+            "costMs": 5
+          },
+          "dataRequests": 9,
+          "responseStatusesAvailable": true
+        },
+        {
+          "tab": 2,
+          "opened": false
+        },
+        {
+          "tab": 3,
+          "opened": false
+        },
+        {
+          "tab": 4,
+          "opened": false
+        },
+        {
+          "tab": 5,
+          "opened": false
+        }
+      ],
+      "judgement": {
+        "verdict": "void",
+        "deadlineMs": 8000,
+        "lastCompletedAfterMs": null,
+        "reasons": [],
+        "voids": [
+          "1 of 5 tabs were opened (allow pop-ups for this site and run it again)"
+        ]
+      }
+    },
+    {
+      "kind": "current-token",
+      "id": "device-current-token-1791549386196",
+      "triggerAt": "2026-10-09T12:36:26.205Z",
+      "token": {
+        "state": "current",
+        "remainingMs": 792804
+      },
+      "tabs": [
+        {
+          "tab": 1,
+          "opened": true,
+          "observedFromMs": 352,
+          "completedAfterMs": 2780,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 25,
+            "costMs": 2
+          },
+          "dataRequests": 9,
+          "responseStatusesAvailable": true
+        },
+        {
+          "tab": 2,
+          "opened": true,
+          "observedFromMs": 512,
+          "completedAfterMs": 2433,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 21,
+            "costMs": 2
+          },
+          "dataRequests": 9,
+          "responseStatusesAvailable": true
+        },
+        {
+          "tab": 3,
+          "opened": true,
+          "observedFromMs": 1657,
+          "completedAfterMs": 2484,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 11,
+            "costMs": 2
+          },
+          "dataRequests": 9,
+          "responseStatusesAvailable": true
+        },
+        {
+          "tab": 4,
+          "opened": true,
+          "observedFromMs": 1658,
+          "completedAfterMs": 3554,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 13,
+            "costMs": 4
+          },
+          "dataRequests": 9,
+          "responseStatusesAvailable": true
+        },
+        {
+          "tab": 5,
+          "opened": true,
+          "observedFromMs": 451,
+          "completedAfterMs": 1335,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 22,
+            "costMs": 4
+          },
+          "dataRequests": 9,
+          "responseStatusesAvailable": true
+        }
+      ],
+      "judgement": {
+        "verdict": "pass",
+        "deadlineMs": 8000,
+        "lastCompletedAfterMs": 3554,
+        "reasons": [],
+        "voids": []
+      }
+    },
+    {
+      "kind": "negative-check",
+      "negativeCheck": "round device-current-token-1791549386196 (pass against 8000 ms) judged against a 1 ms deadline",
+      "judgement": {
+        "verdict": "fail",
+        "deadlineMs": 1,
+        "lastCompletedAfterMs": 3554,
+        "reasons": [
+          "tab 1 had its expected data after 2780 ms, past the 1 ms deadline",
+          "tab 2 had its expected data after 2433 ms, past the 1 ms deadline",
+          "tab 3 had its expected data after 2484 ms, past the 1 ms deadline",
+          "tab 4 had its expected data after 3554 ms, past the 1 ms deadline",
+          "tab 5 had its expected data after 1335 ms, past the 1 ms deadline"
+        ],
+        "voids": []
+      },
+      "negativeCheckHolds": true
+    },
+    {
+      "kind": "negative-check",
+      "token": {
+        "state": "current",
+        "remainingMs": null
+      },
+      "tabs": [
+        {
+          "tab": 1,
+          "opened": true,
+          "completedAfterMs": null,
+          "completeAtEnd": false,
+          "why": [
+            "the tab could not be read"
+          ],
+          "userInteractions": 0,
+          "reloaded": false,
+          "completeBeforeObserved": false
+        },
+        {
+          "tab": 2,
+          "opened": true,
+          "completedAfterMs": null,
+          "completeAtEnd": false,
+          "why": [
+            "the tab could not be read"
+          ],
+          "userInteractions": 0,
+          "reloaded": false,
+          "completeBeforeObserved": false
+        },
+        {
+          "tab": 3,
+          "opened": true,
+          "completedAfterMs": null,
+          "completeAtEnd": false,
+          "why": [
+            "the tab could not be read"
+          ],
+          "userInteractions": 0,
+          "reloaded": false,
+          "completeBeforeObserved": false
+        },
+        {
+          "tab": 4,
+          "opened": true,
+          "completedAfterMs": null,
+          "completeAtEnd": false,
+          "why": [
+            "the tab could not be read"
+          ],
+          "userInteractions": 0,
+          "reloaded": false,
+          "completeBeforeObserved": false
+        },
+        {
+          "tab": 5,
+          "opened": true,
+          "completedAfterMs": null,
+          "completeAtEnd": false,
+          "why": [
+            "the tab could not be read"
+          ],
+          "userInteractions": 0,
+          "reloaded": false,
+          "completeBeforeObserved": false
+        }
+      ],
+      "negativeCheck": "a page that is not the dashboard",
+      "judgement": {
+        "verdict": "fail",
+        "deadlineMs": 8000,
+        "lastCompletedAfterMs": null,
+        "reasons": [
+          "tab 1 never had its expected data (the tab could not be read)",
+          "tab 2 never had its expected data (the tab could not be read)",
+          "tab 3 never had its expected data (the tab could not be read)",
+          "tab 4 never had its expected data (the tab could not be read)",
+          "tab 5 never had its expected data (the tab could not be read)"
+        ],
+        "voids": []
+      },
+      "negativeCheckHolds": true
+    },
+    {
+      "kind": "expired-token",
+      "id": "device-expired-token-1791550336532",
+      "triggerAt": "2026-10-09T12:52:16.542Z",
+      "token": {
+        "state": "expired",
+        "remainingMs": -157532
+      },
+      "tabs": [
+        {
+          "tab": 1,
+          "opened": true,
+          "observedFromMs": 335,
+          "completedAfterMs": 2790,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 27,
+            "costMs": 6
+          },
+          "dataRequests": 10,
+          "responseStatusesAvailable": true
+        },
+        {
+          "tab": 2,
+          "opened": true,
+          "observedFromMs": 576,
+          "completedAfterMs": 3509,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 19,
+            "costMs": 6
+          },
+          "dataRequests": 10,
+          "responseStatusesAvailable": true
+        },
+        {
+          "tab": 3,
+          "opened": true,
+          "observedFromMs": 1704,
+          "completedAfterMs": 2403,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 11,
+            "costMs": 1
+          },
+          "dataRequests": 10,
+          "responseStatusesAvailable": true
+        },
+        {
+          "tab": 4,
+          "opened": true,
+          "observedFromMs": 1704,
+          "completedAfterMs": 2458,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 13,
+            "costMs": 3
+          },
+          "dataRequests": 10,
+          "responseStatusesAvailable": true
+        },
+        {
+          "tab": 5,
+          "opened": true,
+          "observedFromMs": 437,
+          "completedAfterMs": 1701,
+          "completeBeforeObserved": false,
+          "completeAtEnd": true,
+          "why": [],
+          "requestsLeftFailed": [],
+          "userInteractions": 0,
+          "reloaded": false,
+          "measurement": {
+            "looks": 23,
+            "costMs": 6
+          },
+          "dataRequests": 10,
+          "responseStatusesAvailable": true
+        }
+      ],
+      "judgement": {
+        "verdict": "pass",
+        "deadlineMs": 8000,
+        "lastCompletedAfterMs": 3509,
+        "reasons": [],
+        "voids": []
+      }
+    },
+    {
+      "kind": "sign-out",
+      "id": "device-sign-out-1791550347632",
+      "triggerAt": "2026-10-09T12:52:27.642Z",
+      "signOutAtMs": 870,
+      "signedOutFrom": 5,
+      "tabs": [
+        {
+          "tab": 1,
+          "opened": true,
+          "onLoginPage": true,
+          "reloaded": false,
+          "staleUi": false,
+          "onLoginAfterMs": 993
+        },
+        {
+          "tab": 2,
+          "opened": true,
+          "onLoginPage": true,
+          "reloaded": false,
+          "staleUi": false,
+          "onLoginAfterMs": 990
+        },
+        {
+          "tab": 3,
+          "opened": true,
+          "onLoginPage": true,
+          "reloaded": false,
+          "staleUi": false,
+          "onLoginAfterMs": null
+        },
+        {
+          "tab": 4,
+          "opened": true,
+          "onLoginPage": true,
+          "reloaded": false,
+          "staleUi": false,
+          "onLoginAfterMs": null
+        },
+        {
+          "tab": 5,
+          "opened": true,
+          "onLoginPage": true,
+          "reloaded": false,
+          "staleUi": false,
+          "onLoginAfterMs": 884
+        }
+      ],
+      "judgement": {
+        "verdict": "pass",
+        "reasons": [],
+        "voids": []
+      }
+    }
+  ],
+  "reference": {
+    "companyHasAName": true,
+    "regional": {
+      "dateFormat": "DD-MM-YYYY",
+      "timeFormat": "24h",
+      "numberFormat": "1,234.56",
+      "currency": "MYR",
+      "timezone": "Asia/Kuala_Lumpur",
+      "startOfWeek": 1
+    }
+  }
+}

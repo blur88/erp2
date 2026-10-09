@@ -1261,7 +1261,7 @@ harness run under them.)
 The measurement is `frontend/qa/cross-tab-session/device/restored-window.js`
 (procedure in the suite's README, "Device acceptance").
 
-**The device measurement has not been run. #1353 has no acceptance result.**
+**The device measurement was run later the same day and passed; see "The device acceptance, run" below.** When this section was written it had not been.
 
 #### Rehearsals of the tool (not the acceptance)
 
@@ -1317,6 +1317,69 @@ database was left and `/login` showed the sign-in form. The rehearsals above
 had not met it because they signed in before the script ran. No round had been
 measured on the device when this happened, and the application behaved as
 designed for a store it cannot use.
+
+#### The device acceptance, run (2026-10-09): passed
+
+Run by the repository owner. **Firefox 157.0.1 (64-bit) on a Windows 11 PC, 32 GB
+of memory, 8 logical processors, 2560x1080**, at address 10.1.1.250, against
+`http://10.1.1.34` (port 80, the ingress). Script `device-acceptance 1` as of
+`1a5773b1a`. Stack: access tokens 15 m, refresh grace 60 s; the mounted
+`nginx.conf` has the repository file's hash. The complete result is
+`frontend/qa/cross-tab-session/fixtures/device-acceptance-2026-10-09.json`,
+as the script produced it.
+
+| Round | Token when the tabs opened | Tabs | Last tab complete | Against 8 s | Interactions / reloads | Verdict |
+|---|---|---|---|---|---|---|
+| Current token, first try | current, 866 s left | 1 of 5 opened (pop-ups blocked) | not measured | not judged | 0 / 0 | **void**, repeated |
+| Current token | current, 793 s left | 5 | **3.55 s** (1.34, 2.43, 2.48, 2.78, 3.55) | inside | 0 / 0 | **pass** |
+| Expired token | expired 157.5 s before, read from storage | 5 | **3.51 s** (1.70, 2.40, 2.46, 2.79, 3.51) | inside | 0 / 0 | **pass** |
+| Sign-out (tab 5 signed out 0.87 s after the trigger) | | 5 | all five on the login page, no reload, nothing of the session shown | | | **pass** |
+
+Every tab still held its expected data when the round was read at its end, no
+tab was complete before it was first observed, and no request was left without
+a successful answer in any tab. The one void round is the rule applied, not a
+retry of a failure: it measured one tab and was not judged. No round failed, so
+none was repeated to obtain a pass. The 8 s was not changed.
+
+Negative checks:
+
+- **The passing current-token round judged against 1 ms: fail**, all five tabs
+  named. The deadline decides.
+- **Five tabs of a page that is not the dashboard: judged failed**, but for a
+  weaker reason than in the rehearsals. On this Firefox each tab "could not be
+  read" (the script got nothing from `/manifest.json` as that browser displays
+  it), where the rehearsals read the tab and found it was not the dashboard.
+  It shows that a tab the script cannot read is never counted complete; it does
+  not show, on this device, that a readable wrong page is told from the right
+  one. That distinction is covered by `device-acceptance.test.mjs` and by the
+  rehearsals only.
+
+What the ingress recorded between each round's markers, from 10.1.1.250
+(diagnostic; it decides nothing):
+
+| Round | `/api` requests | Statuses | Delayed by `api_limit` | Refused |
+|---|---|---|---|---|
+| Current token (void) | 11 | 200 x 11 | 0 | 0 |
+| Current token | 55 | 200 x 40, 304 x 15 | 9 | 0 |
+| Expired token | 61 | 200 x 46, 304 x 10, 401 x 5 | 17 | 0 |
+| Sign-out | 8 | 200 x 2, 204 x 1, 304 x 4, 429 x 1 | 0 | 1: `GET /api/auth/show-default-credentials`, `limit_req`, `login_limit` (#1360) |
+
+Limits of this result:
+
+- One device, one browser, one run of each round, the administrator, every tab
+  on `/dashboard`, a warm cache. It is the acceptance that was agreed; it is not
+  a measurement of other devices, roles or pages.
+- For two of the five tabs in the sign-out round the moment they reached the
+  login page was not caught (`onLoginAfterMs` null); that they were on it at the
+  end, without a reload, was.
+- The frontend container was recreated at 12:22 UTC, twelve minutes before the
+  run, by someone other than this session. It served a bundle with the same
+  file name as during the rehearsals. The build's commit was not read.
+- The rehearsals in headless Firefox on the server host missed 8 s (9.0 to
+  9.4 s) and this device met it in 3.5 s. The difference is not explained, and
+  the rehearsals stay recorded as they were.
+- #1359 (start-up time with more tabs), #1358 (replay revocation at twenty tabs)
+  and #1360 are open and are not touched by this result.
 
 ### Explicitly unverified
 
