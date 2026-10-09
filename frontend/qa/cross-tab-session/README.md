@@ -33,15 +33,27 @@ What a reader of those records needs to know about how the suite judges:
   page only an administrator can open does not count: the suite refuses such
   a step and the tab fails (see "Who W1 runs as").
 - **W1 states no capacity.** It reports what was observed at each size and
-  blocks at five tabs, in all three rounds (see "What W1 shows and what it
-  does not").
+  blocks at 5, 10 and 20 tabs, in all three rounds, on zero in-app recovery
+  actions. The time it takes is reported against 5, 10 and 15 s and blocks at
+  no size, and a 429 on a business request is counted and does not block (see
+  "What W1 shows and what it does not").
+- **#1353's acceptance is not a run of this suite.** It is five tabs in the
+  user's own Firefox, measured by `device/restored-window.js` (see "Device
+  acceptance"). What the suite records in Chromium on the QA host is separate
+  evidence.
+- **Whether a natural sign-out overlapped a request the ingress was holding is
+  diagnostic in W1.** The blocking form of that condition is case 17, with
+  induced delay.
+- **Case 16 is not evidence until a recorded run has passed it.** Its unit tests
+  are evidence about the judgement, not about the behaviour (see "Case 16").
 
-Results of `cases.mjs --only ...` and of anything run with `QA_DIST_DIR` are
-development results. They say so in the file they write and are not evidence.
+Results of `cases.mjs --only ...`, of anything run with `QA_DIST_DIR`, and of
+anything run with `QA_SUITE_OVERRIDE` are development results. They say so in
+the file they write and are not evidence.
 
 ## What it does
 
-`cases.mjs` runs fifteen cases and one workload in headless Chromium. "Two
+`cases.mjs` runs sixteen cases and one workload in headless Chromium. "Two
 tabs" always means two pages of **one** browser context (one profile, one
 IndexedDB, one `BroadcastChannel` namespace). Each case states its pass
 condition in a comment above its `run()`.
@@ -147,7 +159,7 @@ back.
   password at first sign-in: that redirect blocks every case. Use accounts
   made for this purpose; the run signs them in about thirty times and ends
   their sessions.
-  - `QA_USERNAME` and `QA_USERNAME_2` are used by the fifteen cases and the
+  - `QA_USERNAME` and `QA_USERNAME_2` are used by the sixteen cases and the
     latency measurement. Both must be able to open the dashboard, the product
     list and sales orders.
   - `QA_USERNAME_3` is W1's user and must have the role **`sales_staff`**. It
@@ -258,6 +270,8 @@ grace value first.
   probe is sent only if the unmarked sign-in was refused: against a server that
   does not enforce the marker it would create a real user, and the case has
   already failed by then.
+- **Case 16 sends requests close to an access token's expiry**, so that the
+  ingress's delay carries them past it. See its own section below.
 
 ## W1: the restored window
 
@@ -463,36 +477,321 @@ Two more things about this check that a reader should know:
 
 ### What blocks
 
-At N = 5, all of (`lib/w1-judgement.mjs`, `blockingChecks`):
+At N = 5, 10 **and** 20 (`lib/w1-judgement.mjs`, `blockingChecks`):
 
 - in rounds (a), (b) and (c), no request to `refresh`, `logout` or `me` is
-  answered 429 (in the round itself or while its tabs are checked);
+  answered 429 (in the round itself or while its tabs are checked). For round (c)
+  the check names the attempt, so a failure says which one;
 - in rounds (a) and (b), every tab is usable for the non-administrator by the
   definition above: without a reload, a new sign-in or a page outside the
   role's set;
+- in rounds (a) and (b), **no in-app recovery action**: no tab was made usable by
+  the user navigating. "Without a user action" is this and not the absence of a
+  failure message, because the script's own recovery is a navigation through the
+  sidebar, which is a user action by any reading;
+- **not blocking since 2026-10-09:** in rounds (a) and (b), when the last tab
+  held its expected data, reported against 5 s, 10 s and 15 s from the common
+  tab-opening trigger (#1359). Until then all three blocked, and the runs
+  recorded before stay judged as they were. #1353's 8 s belongs to the device
+  measurement below; a figure taken in Chromium on the QA host is a different
+  environment and is not read against it. A tab
+  that never did is a miss, not a small figure: the watch runs thirty seconds
+  past the deadline rather than being cut off at it, and a completion is read
+  only when the tab has its data *and* no business request without an answer;
 - round (a) started with a current access token and round (b) with an expired
   one;
 - in round (c), the sign-out sent its `logout` and it was answered 2xx, and
   every tab is on the login page afterwards in the document it first loaded
-  (no reload).
+  (no reload);
+- in round (c), **the sign-out overlapped at least one delayed request**: a
+  request the limiter was still holding, begun before the `logout` went out and
+  not ended when it began, both read from the ingress log and both on the
+  ingress's own clock. A round where no attempt did is inconclusive, not
+  passed, and the run fails. Such a round may be set up again - at most three
+  attempts, and only when every behavioural gate of the attempt passed. A
+  behavioural failure in any attempt ends it at once, and every attempt keeps
+  its own entry with its full measurements.
 
-Round (c) is where `logout` is sent, so it is the round that puts `logout`
-under the 429 criterion. How many tabs were still loading when the one tab
-signed out is recorded and printed (`tabsStillLoadingAtSignOut`) and no number
-is required: at five tabs the tabs load fast, and the summary line shows how
-much "while the others are still loading" held in that run.
+A size that was not run fails W1: the deadlines are acceptance targets at every
+size, and a size that is missing has met none of them.
 
-Everything at N = 10 and 20 is recorded and not blocking. If an N = 10 round
-has a 429 from `session_limit`, the judgement carries a candidate burst,
-`⌈1.25 × (E − 1)⌉`; above 60 it says to stop and take the figures to the
-repository owner.
+429s on business endpoints are a different limit (`api_limit`): several
+dashboards loading at once send more data requests than any per-address limit
+admits at once. Since #1353 that limit **delays** the excess rather than
+refusing it (20 r/s, `burst=40 delay=20`, provisional until these deadlines are
+met). Those 429s are counted and reported at every size and are not a gate: "429
+counts are diagnostic" means business requests only, and a 429 on a session
+route fails the run above.
 
-429s on business endpoints are a different limit (`api_limit`, 10 requests a
-second, burst 20 per address): several dashboards loading at once send more
-data requests than its burst admits. They are counted for every round
-(`dataRequests429`), reported as findings and not judged. They are tracked in
-issue #1353. What they do to a tab is exactly what the usability check
-measures.
+## Device acceptance (#1353): five tabs, 8 seconds, the user's own Firefox
+
+What #1353 is accepted on, agreed on 2026-10-09 **before** the measurement was
+made: five tabs opened together in Firefox on the user's normal device, against
+the server, each holding its expected data within **8 s** of the common
+tab-opening trigger, with no recovery click, once with a current access token
+and once with an expired one; and a sign-out that takes all five tabs to the
+login page. The 8 s includes authentication, retries and rendering. It is not
+raised to fit a result. The stack runs its normal configuration (15-minute
+access tokens, 60 s refresh grace), not the QA values.
+
+`device/restored-window.js` is the measurement. It is pasted into the browser's
+console, not run by the harness, so nothing is installed on the device. It
+opens the five tabs from one click and watches each from inside its own page:
+a tab is complete when it is on the dashboard, its heading is rendered, no
+"Could not load" notice is shown, the sidebar shows the server's company name,
+the stored regional formats are the server's. A refused request decides
+nothing by itself: retries the application makes are allowed, and a request
+left without a successful answer is listed beside the verdict
+(`requestsLeftFailed`), not in it. It counts key presses and clicks in the tabs (any makes the round
+void), notices a reload, and reads only the expiry time of the stored token,
+never a token. `device-acceptance.test.mjs` tests its judgement without a
+browser.
+
+**Procedure**
+
+1. Firefox on the device. Close every tab of the application. Sign in at
+   `http://<server>/` - port 80, the ingress; **not** port 3000, which reaches
+   the backend without it.
+2. Open `http://<server>/env-config.js` in a tab. Allow pop-ups for the site
+   (the address bar offers it at the first blocked window; if it did, close
+   what opened and press the button again - that round is void).
+3. Open the console (F12), paste the whole of `device/restored-window.js`,
+   press Enter. Firefox asks for `allow pasting` to be typed once first.
+4. Close the tab used to sign in. Press **1. Prepare**.
+5. Press **2. Current-token round** and do not touch the tabs it opens; it
+   closes them itself.
+6. Press **Negative check: the last loading round against 1 ms** (it shows
+   something only after a round that passed) and **Negative check: a page that
+   never completes**.
+7. Leave only the control tab open for more than 15 minutes. Press **Token
+   state now** until it reads `expired`; the round is void if it does not. Then
+   **3. Expired-token round**.
+8. Press **4. Sign-out round**. It signs the session out.
+9. Press **Copy result** and keep the JSON, with the Firefox version
+   (`about:support`) and what the device is.
+
+A round reads PASS, FAIL or VOID. A void round measured nothing and is
+repeated; a failed round is recorded and not repeated to get a better one.
+
+**What the ingress did meanwhile** (diagnostic; it never decides a round):
+
+```bash
+docker logs --since 2h erp_nginx 2>/dev/null | node frontend/qa/cross-tab-session/device-diagnostics.mjs
+```
+
+It finds each round by the two markers the script sent and reports the `/api`
+requests between them from that address: statuses, how many were delayed, and
+every refusal with the limiter and zone that made it.
+
+## Case 16: a token that expires while the ingress delays the request
+
+The limiter delays excess `/api` requests rather than refusing them, so a
+request sent just before its access token expires can reach the backend after
+it has. W1's rounds cannot show this: they start every tab either with a
+current token or with one that has already expired, never with one that expires
+while the ingress is holding its request.
+
+**The claim, in three parts, and the evidence for each.**
+
+1. *L carried a known token.* The fingerprint of the stored access token, the
+   fingerprint in the browser's record of L, and the fingerprint in the capture's
+   record of L are equal. "Before the first refresh" is not evidence of
+   anything: it is the fingerprints that say the three records are of one
+   request with one token.
+2. *L's 401 was an expiry.* The backend's own message must be exactly
+   `Invalid or expired token` (`JwtAuthGuard.handleRequest`), which rules out
+   every rejection `JwtStrategy.validate` makes with a message of its own
+   (revoked session, missing user, inactive or locked account), **and** the
+   backend must have accepted the same fingerprint with a 2xx earlier in the
+   attempt, which rules out a malformed or wrongly signed token.
+3. *L had expired when it reached the backend*, not merely when authentication
+   ran: a request `X` with the same fingerprint, answered
+   `Invalid or expired token`, had its response completely leave the backend
+   before the first byte of L arrived.
+
+**The two orderings, each inside one clock.** No clock is compared with
+another and no offset between clocks is measured or claimed.
+
+- *Valid at send* (ingress clock, plus two causal steps): a request `P` with the
+  same fingerprint, answered 2xx, reached the ingress after L did
+  (`L.startMs + 5 ms ≤ P.startMs`). L left the browser before the ingress read
+  its first bytes; the backend judged P valid after the ingress read P's.
+- *Expired at arrival* (capture clock): `X.answeredLastMs + 1 ms ≤
+  L.arrivedFirstMs`. The backend had already judged that token expired before L
+  reached it. Both ends are the conservative ones: the last frame of X's
+  response, the first frame of L's request.
+
+`P` and `X` are `GET /api/auth/me` probes sent by the harness with the stored
+token. `/auth/me` is on `session_limit`, which does not delay.
+
+**The margins** (5 ms ingress, 1 ms capture) exist so that timestamp
+granularity cannot produce an ordering: `$msec` and `$request_time` are both
+written to the millisecond, and frame timestamps come from the kernel at
+microsecond resolution or better. They are not a bound on clock error.
+
+**Scope of the inference.** It holds for a controlled run with the backend's
+token verification configuration unchanged, recorded with the attempt, and with
+no clock stepping during it. The backward-movement check can reveal a clock
+that moved backwards and cannot show that none stepped: a forward step, or a
+backward one smaller than the gaps between records, passes it. "No clock
+discontinuity" is a stated prerequisite of the run, not something it proves.
+
+**What the case does not show.** One page, one role. It says nothing about
+behaviour when the limiter *rejects* a request, which is what
+`nginx/verify-rate-limits.sh` covers instead, and nothing about tabs other than
+the one it opens.
+
+The case is not described as validated here: it becomes evidence when a recorded
+run has passed it. `results.json` carries each attempt's verdict, its reason and
+the segment it used, and `finalize.mjs` judges every segment itself: a segment
+that never ended, one the capture tool dropped packets in, or one with an
+unreadable record inside the window invalidates an attempt the case called
+`pass`, whatever the case concluded.
+
+### How an attempt is run
+
+The proof above says what has to be observed. This is how an attempt goes about
+producing it, and what it checks about itself before its evidence is read. The
+logic is in `lib/expiry-evidence.mjs` and is tested on the records of a real
+attempt (`fixtures/case16-attempt-7a632336b.json`).
+
+- **Three browser contexts.** The application tab, the fillers and the probes
+  each run in a context of their own, and a context has its own pool of six
+  connections per origin. In one context the probes and the tab queue behind the
+  fillers: the tab then arrives after the limiter has stopped delaying, and the
+  probes arrive in a bunch (that is what the attempt in the fixture shows).
+- **One bucket, checked.** The limiter is keyed on the client address. Every
+  attempt reads from its ingress log that the tab, the probes and the fillers
+  reached the ingress from one address, and from the capture that everything
+  came from the ingress. If not, the attempt is inconclusive.
+- **Probes on schedule, checked.** From their arrival times at the ingress: they
+  must span most of their window with no neighbours far further apart than they
+  were sent. Bunched probes cannot bracket an expiry.
+- **Fillers.** 160, queued continuously, 3.5 s before the tab is due. Measured
+  in the feasibility run: requests queued through one context reach the ingress
+  at about 28 a second against a zone rate of 20, so the limiter's excess needs
+  about 70 requests and 2.4 s to pass its delay threshold.
+- **L, X and P come from the evidence.** L is whichever request of the tab the
+  limiter delayed and the backend refused, whatever its path; X and P are the
+  probes that bracket it. Only those three are correlated across the three
+  sources, but the checks over everything the attempt sent are kept: capture
+  health, unreadable records, a request no context sent, a request the ingress
+  forwarded that is missing from the capture.
+- **Recovery** is timed on the browser's clock from the tab's first 401 on a
+  data request to the tab holding its data, against the deadline calculated
+  and recorded before the first attempt.
+- **Only a 401's message is kept** from a response body, never another field.
+
+### The scheduling rule between attempts
+
+An attempt can show everything except *valid at send* when the tab is navigated
+too late: its request then reaches the ingress after the last probe the backend
+still accepted, and may already have carried an expired token there. That is a
+missed setup, not a behaviour, and the next attempt corrects for it:
+
+> next lead = current lead + (L's arrival at the ingress − P's arrival at the
+> ingress) + 150 ms, when that difference is positive; otherwise unchanged;
+> never more than the filler lead less 800 ms.
+
+`nextNavigateLead` in `lib/expiry-crossing.mjs`. The lead starts at 300 ms
+before the expiry, less the tab's measured time to its first request.
+
+What the rule does and does not do:
+
+- It changes **when the tab is sent**, from two arrival times the previous
+  attempt recorded on the ingress clock. It never looks at a verdict and cannot
+  produce one.
+- It changes nothing about what counts as evidence: the margins, the message
+  check, the fingerprints, the capture checks and the deadline are the same in
+  every attempt.
+- It only moves the tab earlier, and stops at its cap, so the tab is never sent
+  before the fillers have started.
+- **The bound is still five attempts.** A case that has not shown the crossing
+  in five is inconclusive, which fails the run. A behavioural failure in any
+  attempt ends the case as a fail at once and is never set up again.
+- The window it is aiming at is narrow: the limiter held L for about 0.4 s in
+  the attempts recorded so far, and probes are 150 ms apart. On `650ef081c` the
+  leads were 300, 541 and 737 ms and the third attempt showed the crossing; on
+  `721b7107f`, without the rule, none of five did.
+
+## Case 17: sign-out under induced delay
+
+**This is an induced-delay scenario.** It is not W1 and it is not a restored
+window. Filler traffic from another browser context keeps the ingress limiter
+delaying while several tabs of one signed-in profile load and one of them signs
+out.
+
+Why it exists apart from W1: W1's sign-out round was first required to show a
+delayed request outstanding at the sign-out. In the recorded runs that condition
+mostly never arose at ten and twenty tabs, because the tabs' own requests reach
+the ingress more slowly than the zone rate and the limiter delays almost
+nothing, whenever the sign-out happens. W1 was failing on a condition its
+workload does not produce. Since the amendment of 2026-10-09:
+
+- **W1's natural sign-out rounds** keep their session and end-state gates (no
+  429 on a session route, the logout answered 2xx, every tab on the login page
+  without a reload) and run once per size. Whether a delayed request overlapped
+  the sign-out is a **diagnostic** there, reported per size as an overlap,
+  overlap absent, or evidence missing.
+- **Case 17** is where the condition is a gate.
+
+**The evidence starts at the sign-out, not at the logout request.** The
+application aborts its in-flight requests when its session ends, before it sends
+the logout. That is valid behaviour, and it means a held request "outstanding
+when the logout reaches the ingress" is a state the application is built not to
+be in: the case's first run (`f2ce87c67`) looked for exactly that and found it
+once in nine attempts, by a race of a millisecond.
+
+It passes, at each of 5, 10 and 20 application tabs, only with all of:
+
+1. the harness recorded when the sign-out was **initiated** (the click on
+   *Logout*), and a data request of the application that was still pending
+   immediately before it;
+2. **the same request**, by its identifier, has a line in the ingress log that
+   says the limiter was delaying it (`DELAYED`);
+3. what became of it is recorded: answered, or cancelled **by the sign-out**. A
+   cancellation is the sign-out's only when nothing else explains it: the
+   harness had not begun closing the tabs, the request's tab kept the document
+   it first loaded (so it was not a navigation), and the abort fell between the
+   sign-out and two seconds after the logout was answered. A request cancelled
+   before the sign-out was not pending at it and is not evidence, however close
+   to the logout the ingress shows it;
+4. the logout sent and answered 2xx, and no request to `refresh`, `logout` or
+   `me` answered 429;
+5. every application tab on the login page, in the document it first loaded,
+   and none of them showing stale data of the session (the user menu or the
+   dashboard) two seconds later.
+
+Missing correlation is inconclusive: a pending request with no ingress line, or
+one the limiter did not delay, or one whose end was not recorded, proves
+nothing. A count of requests the ingress shows aborted in the 0.3 s before the
+logout is recorded with every attempt as corroboration; it decides nothing,
+because it cannot tell what cancelled them.
+
+Also read from every attempt's ingress log, and inconclusive when not so: that
+fillers reached the ingress at all, and that they and the application came from
+one address, which is what puts them in one limiter bucket.
+
+**The fillers are sent by the harness's own Node process**
+(`lib/node-fillers.mjs`), not by a browser: 40 unauthenticated `GET` requests a
+second to a route under `api_limit`, never more than 12 outstanding, each with
+its own `fill-*` identifier, bounded in number and in time, and stopped on every
+way out of an attempt and of the case. The backend answers them 401 at once;
+what matters is that the ingress counts them. Why not a browser context: at
+twenty tabs the browser is too busy for fillers sent from it to keep the
+limiter's excess up (on `f2ce87c67` the excess was above the delay threshold
+for 6 to 10% of the six seconds before the logout at twenty tabs, against 76 to
+93% at five). This changes the load generator, not the application workload the
+scenario makes its claim about.
+
+An attempt that behaved and lacked the evidence may be set up again, at most
+three attempts per size. No application delay observed is a missed setup, not
+an application failure. A behavioural failure fails at once and is never set up
+again. Every attempt is recorded.
+
+**What it does not show:** that a restored window makes the limiter delay by
+itself (on the evidence so far, at ten and twenty tabs it usually does not);
+anything about the completion deadlines; more than one page and one role.
 
 ## The latency measurement
 

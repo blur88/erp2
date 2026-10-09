@@ -10,14 +10,30 @@
 #   QA_USERNAME_2 / QA_PASSWORD_2   a second user, for the user-switch case
 #   QA_USERNAME_3 / QA_PASSWORD_3   the user W1 signs in as: NOT an
 #                                   administrator (role sales_staff; README)
+#
+# Two switches exist for the forced failures (#1353, Task 7). Both make the run
+# partial, and a partial run is never reported as recorded evidence:
+#   QA_SUITE_OVERRIDE=<dir>   run the copy of the suite that IS <dir> (the
+#                             directory holding its cases.mjs), outside the
+#                             repository, in place of the repository's
+#   QA_ONLY=<ids>             run only those cases
+# Everything else about the run is unchanged - same refusals, same capture, same
+# rebuild, same ingress log, same restore - which is what makes a patched run
+# comparable with the baseline it is compared against.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+# stack.sh and host-probe.sh always come from the repository: stack.sh resolves
+# the checkout from its own path and runs git and docker compose there, and an
+# override copy outside the repository has no checkout.
 QA_DIR="${ROOT}/frontend/qa/cross-tab-session"
+QA_SUITE_OVERRIDE="${QA_SUITE_OVERRIDE:-}"
+QA_ONLY="${QA_ONLY:-}"
 SCRATCH="${ERP_SESSION_SCRATCH:-/tmp/opencode/erp-session-qa}"
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.63.0-noble"
 PLAYWRIGHT_PACKAGE="playwright@1.63.0"
 LAN_IP="${1:-}"
+INGRESS_PID=""
 
 mkdir -p "${SCRATCH}"
 cd "${ROOT}"
@@ -39,15 +55,17 @@ run_restore() {
 
 run_finalize() {
   docker run --rm \
-    -v "${ROOT}:/repo:ro" -v "${SCRATCH}:/scratch" -w /scratch \
+    "${SUITE_MOUNTS[@]}" -v "${SCRATCH}:/scratch" -w /scratch \
     -e QA_SCRATCH=/scratch -e QA_RUN_STATUS="${STATUS}" -e QA_RESTORE_FAILED="${RESTORE_FAILED}" \
     -e QA_RUN_COMPLETED="${COMPLETED}" -e QA_RUN_ABORTED="${ABORTED}" \
     -e QA_COMMIT="$(git rev-parse HEAD)" \
+    -e QA_SUITE_OVERRIDE="${QA_SUITE_OVERRIDE:+set}" \
     "${PLAYWRIGHT_IMAGE}" node /repo/frontend/qa/cross-tab-session/finalize.mjs
 }
 
 run_stop_helpers() {
   if [ -n "${PROBE_PID}" ]; then kill "${PROBE_PID}" 2>/dev/null || true; PROBE_PID=""; fi
+  if [ -n "${INGRESS_PID}" ]; then kill "${INGRESS_PID}" 2>/dev/null || true; INGRESS_PID=""; fi
 }
 
 # In place before anything is changed: every way out of this script goes
@@ -67,10 +85,20 @@ refuse() { echo "refusing: $1" >&2; fail 1; exit 1; }
 # the page is still loaded by LAN IP through the ingress on port 80: the origin
 # is the same non-localhost, non-secure one, and nothing the cases test depends
 # on which network namespace the browser sits in.
+# What the suite's container sees as /repo. Always the repository, read-only:
+# the suite imports nginx/access-log.mjs and reads nginx.conf and the frontend's
+# navigation file, so a copy of the suite alone could not run. With
+# QA_SUITE_OVERRIDE the copy is laid over the suite's own path on top of that,
+# so nothing inside the suite has to know which one it is running from.
+SUITE_MOUNTS=(-v "${ROOT}:/repo:ro")
+if [ -n "${QA_SUITE_OVERRIDE}" ]; then
+  SUITE_MOUNTS+=(-v "${QA_SUITE_OVERRIDE%/}:/repo/frontend/qa/cross-tab-session:ro")
+fi
+
 in_playwright() {
   local script="$1" show="$2"
   docker run --rm \
-    -v "${ROOT}:/repo:ro" \
+    "${SUITE_MOUNTS[@]}" \
     -v "${SCRATCH}:/scratch" \
     -w /scratch \
     -e QA_BASE_URL="http://${LAN_IP}" \
@@ -79,6 +107,9 @@ in_playwright() {
     -e QA_COMMIT="$(git rev-parse HEAD)" \
     -e QA_SCRIPT="${script}" \
     -e QA_PLAYWRIGHT_PACKAGE="${PLAYWRIGHT_PACKAGE}" \
+    -e QA_INGRESS_LOG="/scratch/ingress-access.log" \
+    -e QA_SUITE_OVERRIDE="${QA_SUITE_OVERRIDE:+set}" \
+    -e QA_ONLY="${QA_ONLY}" \
     -e QA_USERNAME -e QA_PASSWORD -e QA_USERNAME_2 -e QA_PASSWORD_2 \
     -e QA_USERNAME_3 -e QA_PASSWORD_3 \
     "${PLAYWRIGHT_IMAGE}" \
@@ -88,6 +119,11 @@ in_playwright() {
         echo "installing ${QA_PLAYWRIGHT_PACKAGE} failed:" >&2
         tail -n 30 /scratch/playwright-install.log >&2
         exit 90
+      fi
+      # The suite is mounted at the same path whether it is the repository or
+      # the override copy, so nothing inside it has to know which one it is.
+      if [ -n "${QA_ONLY}" ]; then
+        exec node "/repo/frontend/qa/cross-tab-session/${QA_SCRIPT}" --only "${QA_ONLY}"
       fi
       exec node "/repo/frontend/qa/cross-tab-session/${QA_SCRIPT}"
     '
@@ -102,6 +138,9 @@ export QA_USERNAME QA_PASSWORD QA_USERNAME_2 QA_PASSWORD_2 QA_USERNAME_3 QA_PASS
 avail_kb="$(df -Pk "${ROOT}" | awk 'NR==2{print $4}')"
 if [ "${avail_kb}" -lt 3145728 ]; then refuse "free disk under 3 GB"; fi
 if [ -n "$(git status --porcelain)" ]; then refuse "dirty working tree"; fi
+if [ -n "${QA_SUITE_OVERRIDE}" ] && [ ! -f "${QA_SUITE_OVERRIDE%/}/cases.mjs" ]; then
+  refuse "QA_SUITE_OVERRIDE=${QA_SUITE_OVERRIDE} is not a copy of the suite (no cases.mjs in it)"
+fi
 
 # 2. Restore a leftover capture, then capture the running values. The capture
 #    is written to a temporary name first: a failed `show` must not leave an
@@ -111,7 +150,10 @@ if [ -f "${SCRATCH}/stack-before.json" ]; then
 fi
 rm -f "${SCRATCH}"/results-cases.json "${SCRATCH}"/results-latency.json "${SCRATCH}"/results.json \
   "${SCRATCH}"/stack-during.json "${SCRATCH}"/stack-after.json "${SCRATCH}"/stack-before.recorded.json \
-  "${SCRATCH}"/docker-ps-before-latency.txt
+  "${SCRATCH}"/docker-ps-before-latency.txt \
+  "${SCRATCH}"/ingress-access.log "${SCRATCH}"/ingress-error.log \
+  "${SCRATCH}"/ingress-access.latency.log "${SCRATCH}"/ingress-error.latency.log \
+  "${SCRATCH}"/measure-failure.json "${SCRATCH}"/latency-precondition-failed.json
 "${QA_DIR}/stack.sh" show > "${SCRATCH}/stack-before.json.tmp" || refuse "could not read the running configuration"
 mv "${SCRATCH}/stack-before.json.tmp" "${SCRATCH}/stack-before.json"
 cp "${SCRATCH}/stack-before.json" "${SCRATCH}/stack-before.recorded.json"
@@ -129,12 +171,20 @@ fi
 "${QA_DIR}/stack.sh" show > "${SCRATCH}/stack-during.json" || { fail 1; exit 1; }
 
 # 5. Cases and W1 in Playwright. The host probe answers the one database
-#    question case 14 has (see host-probe.sh).
+#    question case 14 has (see host-probe.sh), and starts and finalises the
+#    upstream capture segments case 16 asks for.
 "${QA_DIR}/host-probe.sh" "${SCRATCH}" > "${SCRATCH}/host-probe.log" 2>&1 &
 PROBE_PID=$!
+# The ingress's own access log, followed into the scratch directory: it is the
+# only record of what each limiter decided about each request, and W1 reads it
+# per round. flush=1s in nginx.conf is what makes following it enough.
+docker logs -f --since 0s erp_nginx > "${SCRATCH}/ingress-access.log" 2> "${SCRATCH}/ingress-error.log" &
+INGRESS_PID=$!
 in_playwright cases.mjs stack-during.json || fail 1
 kill "${PROBE_PID}" 2>/dev/null || true
 PROBE_PID=""
+kill "${INGRESS_PID}" 2>/dev/null || true
+INGRESS_PID=""
 
 # 6. Restore, then measure latency under the restored configuration. The
 #    measurement runs whether or not a case failed (it cannot clear the
@@ -156,7 +206,13 @@ if [ "${RESTORE_FAILED}" -eq 0 ]; then
       rm -f "${SCRATCH}/docker-ps-before-latency.txt.tmp"
       echo "could not list the host's containers; the competing workload will be recorded as not captured" >&2
     fi
+    # The ingress log is followed through the measurement too, into a file of
+    # its own: a measurement that fails should leave what the ingress saw.
+    docker logs -f --since 0s erp_nginx > "${SCRATCH}/ingress-access.latency.log" 2> "${SCRATCH}/ingress-error.latency.log" &
+    INGRESS_PID=$!
     in_playwright measure.mjs stack-after.json || fail 1
+    kill "${INGRESS_PID}" 2>/dev/null || true
+    INGRESS_PID=""
   else
     fail 1
   fi

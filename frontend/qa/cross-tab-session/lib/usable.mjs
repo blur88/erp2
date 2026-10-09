@@ -72,6 +72,9 @@ export const MAX_RECOVERY_ACTIONS = 3
 export const MAX_ACTION_TRIES = 3
 export const COMPANY_SETTINGS = '/api/settings/company'
 export const REGIONAL_SETTINGS = '/api/settings/regional'
+// The answers a profile must keep ({ keepAnswers }) for shellReference to have
+// anything to read: what the server said the shell's data is.
+export const KEEP_SHELL_ANSWERS = /^\/api\/settings\/(company|regional)$/
 // The names under which missing shell data is reported.
 export const COMPANY_DATA = 'company data (the sidebar\'s company name and logo)'
 export const REGIONAL_DATA = 'regional settings (the date, time and number formats in effect)'
@@ -476,7 +479,38 @@ async function room(profile, api, { need = 15, maxMs = 20000 } = {}) {
   }
 }
 
-async function dashboardState(profile, openMark, page, reference) {
+const single = (body) => (body && typeof body === 'object' && 'data' in body && body.data != null && !Array.isArray(body.data) ? body.data : body)
+
+/**
+ * What the sidebar and the formats are supposed to be: the company answer and
+ * the regional answer this profile received, as dashboardState judges a tab
+ * against them. Exported because both the loading rounds and case 16 ask every
+ * tab the same question, and a second reader of the same answers would be a
+ * second thing to keep right.
+ */
+/** The reference a tab is judged against (judgeDashboard), from what shellReference returned. */
+export const referenceOf = (shell) => ({ companyName: shell.companyName, regional: shell.regional })
+
+export async function shellReference(profile, maxMs = 20000) {
+  const deadline = Date.now() + maxMs
+  while (Date.now() < deadline && !(profile.answers.has(COMPANY_SETTINGS) && profile.answers.has(REGIONAL_SETTINGS))) await sleep(100)
+  const company = profile.answers.get(COMPANY_SETTINGS)
+  const regional = profile.answers.get(REGIONAL_SETTINGS)
+  const companyAnswered = Boolean(company && !company.unreadable)
+  return {
+    companyAnswered,
+    companyName: companyAnswered ? single(company.body)?.name || null : null,
+    regional: regional && !regional.unreadable ? single(regional.body) : null,
+  }
+}
+
+/**
+ * What the tab holds right now: its data judged against the reference
+ * (judgeDashboard), and what the profile read from it. Exported because the
+ * loading rounds ask the same question of every tab on their own clock, to know
+ * when the last of them first had its data.
+ */
+export async function dashboardState(profile, openMark, page, reference) {
   const dom = await readDom(page, DASHBOARD.heading)
   return { ...judgeDashboard(dom, profile.since(openMark, page), reference), companyNameInSidebar: dom.companyNameInSidebar, stored: dom.stored }
 }

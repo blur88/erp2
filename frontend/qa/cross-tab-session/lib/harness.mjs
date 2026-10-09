@@ -9,6 +9,8 @@ import { createHash } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
 import { join, normalize } from 'node:path'
 import { sleep } from './config.mjs'
+import { requestIdFor } from './request-id.mjs'
+import { messageOfBody } from './expiry-evidence.mjs'
 
 export const SESSION_ZONE = /^\/api\/auth\/(refresh|logout|me)\/?$/
 export const LOGIN_ZONE = /^\/api\/(auth|login|register)/
@@ -42,6 +44,9 @@ export function zoneOf(path) {
   if (LOGIN_ZONE.test(path)) return 'login'
   if (path.startsWith('/api/health')) return 'health'
   if (path.startsWith('/api/')) return 'business'
+  // Also proxied to the backend by the ingress (location /uploads), though not
+  // under /api: a request there reaches the backend like any other.
+  if (path.startsWith('/uploads/')) return 'upload'
   return 'static'
 }
 
@@ -269,11 +274,19 @@ export class Profile {
     this.context.on('requestfinished', (request) => this.onFinished(request))
     this.context.on('requestfailed', (request) => {
       const entry = this.byRequest.get(request)
-      if (entry) entry.failed = request.failure()?.errorText ?? 'failed'
+      if (entry) {
+        entry.failed = request.failure()?.errorText ?? 'failed'
+        // When, on this clock: a case that attributes a cancellation needs it.
+        entry.failedAt = Date.now()
+      }
     })
 
     if (config.distDir) await this.serveLocalBuild(config)
     if (this.opts.intercept) await this.context.route('**/api/**', (route) => this.onApiRoute(route))
+    // A profile that tags its requests tags everything the ingress forwards to
+    // the backend, /uploads/ included: an untagged one is unreadable to a
+    // capture that requires identifiers.
+    if (this.opts.intercept && this.opts.tagRequests) await this.context.route('**/uploads/**', (route) => this.onApiRoute(route))
   }
 
   // Development only (QA_DIST_DIR): documents and assets come from a local
@@ -326,6 +339,18 @@ export class Profile {
       hold.items.push({ route, entry, capturedAt: Date.now(), ...described })
       hold.resolve()
       return undefined // deliberately neither continued nor fulfilled until the hold is let go
+    }
+    // With { tagRequests: true }: one identifier per API request, so the same
+    // request can be found in the ingress log and in the upstream capture. The
+    // request is otherwise unchanged: the same URL, method, headers and body,
+    // with this one header added.
+    if (this.opts.tagRequests) {
+      const entry = this.byRequest.get(request)
+      // An identifier the sender set (a case's own probe) is kept; only a
+      // request without one gets the harness's (lib/request-id.mjs).
+      const qaId = requestIdFor(request.headers(), entry ? entry.seq : this.ctx.run.seq + 1)
+      if (entry) entry.qaId = qaId
+      return route.continue({ headers: { ...request.headers(), 'x-qa-request-id': qaId } })
     }
     return route.fallback()
   }
@@ -393,6 +418,21 @@ export class Profile {
         (body) => this.answers.set(entry.path, { body, at: Date.now() }),
         (err) => this.answers.set(entry.path, { unreadable: String(err && err.message ? err.message : err), at: Date.now() }),
       )
+    }
+    // With { keepRejections: true }: what the backend said when it refused a
+    // request with 401 - its message and nothing else of the body. A case that
+    // must tell an expiry from another rejection reads it; `messageRead`
+    // settles when it is there.
+    if (this.opts.keepRejections && entry.status === 401) {
+      entry.messageRead = response.json().then(
+        (body) => {
+          entry.message = messageOfBody(body)
+        },
+        () => {
+          entry.message = null
+        },
+      )
+      Object.defineProperty(entry, 'messageRead', { enumerable: false })
     }
     if (entry.status === 429) {
       if (entry.zone === 'login') this.ctx.run.loginZone429 += 1
@@ -811,10 +851,19 @@ export async function pauseMidTransaction(page) {
 // protocol marker.
 // ---------------------------------------------------------------------------
 
-export async function pageFetch(page, { method = 'GET', path, body, marker = true, bearer }) {
+/**
+ * One request from the page's own context.
+ *
+ * `qaId` adds the identifier that ties this request to the ingress log and the
+ * upstream capture, and `headers` any further header the caller needs (a case
+ * that must control a header itself rather than let the harness set it). Neither
+ * changes the URL, the method or the body.
+ */
+export async function pageFetch(page, { method = 'GET', path, body, marker = true, bearer, qaId, headers: extra }) {
   return page.evaluate(
-    async ({ method, path, body, markerHeader, bearer }) => {
-      const headers = {}
+    async ({ method, path, body, markerHeader, bearer, qaId, extra }) => {
+      const headers = { ...extra }
+      if (qaId) headers['x-qa-request-id'] = qaId
       if (body !== undefined) headers['Content-Type'] = 'application/json'
       if (markerHeader) headers[markerHeader[0]] = markerHeader[1]
       if (bearer) headers.Authorization = `Bearer ${bearer}`
@@ -832,7 +881,15 @@ export async function pageFetch(page, { method = 'GET', path, body, marker = tru
       }
       return { status: response.status, json, text: json === null ? text.slice(0, 200) : null, date: response.headers.get('date') }
     },
-    { method, path, body, markerHeader: marker ? [MARKER, MARKER_VALUE] : null, bearer: bearer ?? null },
+    {
+      method,
+      path,
+      body,
+      markerHeader: marker ? [MARKER, MARKER_VALUE] : null,
+      bearer: bearer ?? null,
+      qaId: qaId ?? null,
+      extra: extra ?? null,
+    },
   )
 }
 

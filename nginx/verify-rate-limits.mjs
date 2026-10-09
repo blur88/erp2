@@ -10,9 +10,16 @@
 //   GET  /api/auth/me             401 (no token)
 //   PATCH /api/auth/change-password 401 (no token)
 
-import { readFileSync } from 'node:fs'
+import http from 'node:http'
+import { readFileSync, existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { parseLine, attribute } from './access-log.mjs'
+// parseApiLimit lives with the probe that first read it and is re-exported here
+// so one file still holds everything a caller of the verification needs.
+import { parseApiLimit as readApiLimit } from './limiter-probe.mjs'
+export { readApiLimit as parseApiLimit }
 
 const CONCURRENCY = 6
 
@@ -97,7 +104,437 @@ export function candidateBurst(peakE) {
   return Math.ceil(1.25 * (peakE - 1))
 }
 
+// --- api_limit: phases written against the probe result ---------------------
+//
+// Every assertion below is derived from nginx/limiter-probe-result.json, which
+// is what the probe established about this build with this configuration. A
+// state the probe could not establish gets no phase and blocks verification; a
+// state it showed cannot be reached is documented and nothing is asserted about
+// it. Nothing here assumes a limiter's behaviour.
+
+const PHASE_OF_STATE = {
+  immediate: 'G',
+  delayed: 'H',
+  rejectedByLimitReq: 'I',
+  rejectedByLimitConn: 'J',
+}
+
+const LABEL_OF_PHASE = {
+  G: 'G immediate',
+  H: 'H delayed',
+  I: 'I rejected by limit_req',
+  J: 'J rejected by limit_conn',
+}
+
+const STATE_OF_PHASE = { G: 'immediate', H: 'delayed', I: 'rejectedByLimitReq', J: 'rejectedByLimitConn' }
+
+// Which answer has to have been established for a phase to be judged at all.
+// A phase that judges arrivals needs to know whether a delayed request holds a
+// connection, or some of the requests it waits for may have been refused
+// instead of forwarded.
+const NEEDS = {
+  immediate: [],
+  delayed: ['delayedCountedByLimitConn', 'handlerRunsAfterOther'],
+  rejectedByLimitReq: ['delayedCountedByLimitConn', 'handlerRunsAfterOther'],
+  rejectedByLimitConn: ['handlerRunsAfterOther'],
+}
+
+// Which answer decides whether the other limiter's field may be asserted on a
+// phase's lines, and what that answer has to say for it to be true. Absent the
+// answer, the field is only required not to contradict: `judgeRejection` then
+// accepts a null, which is what an unevaluated handler's field reads.
+const OTHER_FIELD = {
+  immediate: null,
+  delayed: 'limitConnRunsOnMeteredRequests',
+  rejectedByLimitReq: 'limitConnRunsWhenLimitReqRefused',
+  rejectedByLimitConn: 'limitReqRunsWhenLimitConnRefused',
+}
+
+/**
+ * Which phases can be judged from this probe result, and what blocks the rest.
+ *
+ * `probe` is null when the result file is missing, and is stale when its
+ * confSha256 is not this configuration's: a result recorded against other
+ * numbers says nothing about these, so nothing is judged and everything is
+ * blocked. Leaving an assertion out never turns a block into a pass.
+ */
+export function planPhases(probe, confSha256) {
+  const phases = []
+  const documented = []
+  const blocked = []
+  const stale = !probe || probe.confSha256 !== confSha256
+  const answer = (name) => (stale ? null : probe.answers?.[name])
+
+  for (const [state, id] of Object.entries(PHASE_OF_STATE)) {
+    const recorded = stale ? null : probe.states?.[state]
+    if (!recorded) {
+      blocked.push(state)
+      continue
+    }
+    if (recorded.status === 'unresolved') {
+      blocked.push(state)
+      continue
+    }
+    if (recorded.status === 'unreachable') {
+      documented.push(`${id} ${state}: ${recorded.explanation}`)
+      continue
+    }
+    const missing = NEEDS[state].filter((name) => answer(name)?.status !== 'established')
+    if (missing.length > 0) {
+      blocked.push(state)
+      continue
+    }
+    const detail = OTHER_FIELD[state]
+    phases.push({
+      id,
+      label: LABEL_OF_PHASE[id],
+      state,
+      // How many requests to release at one instant, as the probe measured it:
+      // not delay + 1, which the connection cap can make unreachable.
+      requests: state === 'immediate' ? recorded.maxSimultaneousImmediate : null,
+      assertOtherField: detail === null ? false : answer('handlerRunsAfterOther')?.detail?.[detail] === true,
+    })
+  }
+  return { phases, documented, blocked, complete: blocked.length === 0 }
+}
+
+// 0 all passed and complete, 1 a mismatch, 2 something too slow to judge,
+// 3 verification incomplete. 1 outranks 3 outranks 2.
+export function exitCodeFor({ mismatches = 0, incomplete = false, inconclusive = false } = {}) {
+  if (mismatches > 0) return 1
+  if (incomplete) return 3
+  if (inconclusive) return 2
+  return 0
+}
+
+/**
+ * Phase G: the combined limits admitted this many requests at one instant.
+ *
+ * `expected` is one { qaId, entry } per request sent, in the order they were
+ * sent, with `entry` the ingress log line for it or null when no line arrived.
+ * Every one must be PASSED by limit_req and must have reached the upstream
+ * inside the tolerance the unthrottled baseline gives. A request whose log line
+ * never arrived is not a pass and not a failure: the phase cannot say.
+ */
+export function judgeImmediate(expected, arrivals, n, toleranceMs) {
+  const wanted = expected.slice(0, n)
+  const missing = wanted.filter((e) => !e.entry).map((e) => e.qaId)
+  if (missing.length > 0) {
+    return { verdict: 'inconclusive', detail: `${missing.length} of ${n} admitted requests have no log line (${missing.slice(0, 3).join(', ')})` }
+  }
+  const lines = wanted.map((e) => e.entry)
+  const delayed = lines.filter((e) => e.limitReq === 'DELAYED' || e.limitReq === 'REJECTED')
+  if (delayed.length > 0) {
+    return { verdict: 'fail', detail: `${delayed.length} of ${n} were not immediate (${[...new Set(delayed.map((e) => e.limitReq))].join(', ')})` }
+  }
+  const connRefused = lines.filter((e) => e.limitConn === 'REJECTED')
+  if (connRefused.length > 0) {
+    return { verdict: 'fail', detail: `${connRefused.length} of ${n} were refused by limit_conn` }
+  }
+  const times = arrivals.slice(0, n).slice().sort((a, b) => a - b)
+  if (times.length < n) {
+    return { verdict: 'inconclusive', detail: `the upstream recorded ${times.length} arrivals for ${n} requests` }
+  }
+  const spread = times[times.length - 1] - times[0]
+  if (spread > toleranceMs) {
+    return { verdict: 'fail', detail: `the releases were ${Math.round(spread)} ms apart, beyond the ${Math.round(toleranceMs)} ms tolerance` }
+  }
+  return { verdict: 'pass', detail: `${n} admitted at one instant, all PASSED, arriving within ${Math.round(spread)} ms` }
+}
+
+/**
+ * Phase H: delayed forwarding conforms to the configured rate.
+ *
+ * The k-th delayed arrival after the first is expected k / rate seconds later.
+ * Fewer than five delayed arrivals cannot show a curve, so the phase says it
+ * cannot tell rather than passing on four points.
+ */
+export function judgeDelayCurve(arrivals, ratePerSecond, toleranceMs) {
+  const sorted = arrivals.slice().sort((a, b) => a - b)
+  if (sorted.length < 5) {
+    return { verdict: 'inconclusive', detail: `${sorted.length} delayed arrivals, fewer than the 5 a curve needs` }
+  }
+  const interval = 1000 / ratePerSecond
+  // The rate the arrivals actually show. Requests released together were not
+  // delayed at all, so a span of zero fails here rather than passing as a fast
+  // curve.
+  const span = sorted[sorted.length - 1] - sorted[0]
+  const observed = span > 0 ? ((sorted.length - 1) * 1000) / span : Infinity
+  const allowedRate = ratePerSecond * (1 + toleranceMs / interval)
+  if (observed > allowedRate) {
+    return {
+      verdict: 'fail',
+      detail:
+        span > 0
+          ? `${sorted.length} delayed arrivals were released at ${observed.toFixed(1)} r/s, above the ${allowedRate.toFixed(1)} r/s the configuration allows`
+          : `all ${sorted.length} delayed arrivals landed at the same instant: the limiter delayed none of them apart`,
+    }
+  }
+  let worst = { index: 0, error: 0 }
+  for (let k = 1; k < sorted.length; k += 1) {
+    const error = Math.abs(sorted[k] - sorted[0] - k * interval)
+    if (error > worst.error) worst = { index: k, error }
+  }
+  const allowed = interval + toleranceMs
+  if (worst.error > allowed) {
+    return {
+      verdict: 'fail',
+      detail: `the ${worst.index}th delayed arrival was ${Math.round(worst.error)} ms from k / rate, beyond ${Math.round(allowed)} ms`,
+    }
+  }
+  return {
+    verdict: 'pass',
+    detail: `${sorted.length} delayed arrivals at ${observed.toFixed(1)} r/s, worst point ${Math.round(worst.error)} ms from k / rate`,
+  }
+}
+
+/**
+ * A rejection phase: this limiter's own field, on this limiter's own lines.
+ *
+ * `assertOtherField` is true only where the probe established that the other
+ * limiter's handler runs in this state. Then its field must say the handler ran
+ * and did not refuse: PASSED or DELAYED, both of which mean it acted. False
+ * where the probe established the handler does not run at all, so a null field
+ * is what such a line must read.
+ *
+ * A 429 that names neither limiter is inconclusive, not a failure of either:
+ * something else refused it and this evidence cannot say which. No rejected
+ * line at all is a failure, whatever the statuses were.
+ */
+export function judgeRejection(entries, limiter, assertOtherField) {
+  const own = limiter === 'limit_req' ? 'limitReq' : 'limitConn'
+  const other = limiter === 'limit_req' ? 'limitConn' : 'limitReq'
+  // A 429 that names neither limiter comes first: while such a line is in the
+  // window there is no telling whether this limiter refused one of them, so the
+  // phase cannot say it did not.
+  const unattributed = entries.filter((e) => e.status === 429 && attribute(e) === 'unattributed')
+  if (unattributed.length > 0) {
+    return { verdict: 'inconclusive', detail: `${unattributed.length} 429 line(s) attribute as unattributed` }
+  }
+  const rejected = entries.filter((e) => e.status === 429 && e[own] === 'REJECTED')
+  if (rejected.length === 0) {
+    const byOther = entries.filter((e) => e.status === 429 && e[other] === 'REJECTED')
+    return {
+      verdict: 'fail',
+      detail: byOther.length > 0
+        ? `no line was refused by ${limiter}; ${byOther.length} were refused by ${limiter === 'limit_req' ? 'limit_conn' : 'limit_req'}`
+        : 'no line was refused by this limiter',
+    }
+  }
+  // The other handler running and not refusing reads PASSED or DELAYED: a
+  // delayed request has been metered and is on its way, which is not a refusal.
+  const RAN = ['PASSED', 'DELAYED']
+  const badOther = assertOtherField
+    ? rejected.filter((e) => !RAN.includes(e[other]))
+    : rejected.filter((e) => e[other] === 'REJECTED')
+  if (badOther.length > 0) {
+    const seen = [...new Set(badOther.map((e) => String(e[other])))]
+    return {
+      verdict: 'fail',
+      detail: assertOtherField
+        ? `${badOther.length} line(s) read ${other} ${JSON.stringify(seen)} where the probe showed that handler runs and does not refuse`
+        : `${badOther.length} line(s) read ${other}=REJECTED as well`,
+    }
+  }
+  return {
+    verdict: 'pass',
+    detail: `${rejected.length} line(s) refused by ${limiter}${assertOtherField ? `, ${other} ran on each` : ''}`,
+  }
+}
+
 // --- CLI -------------------------------------------------------------------
+
+const PROBE_RESULT = 'limiter-probe-result.json'
+
+function confSha256(confPath) {
+  return createHash('sha256').update(readFileSync(confPath)).digest('hex')
+}
+
+/**
+ * The api_limit phases, run against the rig (the shell wrapper starts it).
+ *
+ * Nothing here runs against the running stack: the phases change the bucket's
+ * state by design, and the recorded run must not see that. The phases are
+ * planned from the probe result before anything is sent, so a stale or missing
+ * result stops the run before it touches the limiter.
+ */
+async function apiLimitPhases({ confPath, api, rigDir }) {
+  // The repository's recorded result, which is what this file asserts against.
+  // PROBE_RESULT points elsewhere only to prove the run refuses a stale or
+  // altered one (the stale-evidence runs), never to assert something else.
+  const probePath = process.env.PROBE_RESULT || join(dirname(fileURLToPath(import.meta.url)), PROBE_RESULT)
+  let probe = null
+  if (existsSync(probePath)) {
+    try {
+      probe = JSON.parse(readFileSync(probePath, 'utf8'))
+    } catch {
+      probe = null
+    }
+  }
+  const plan = planPhases(probe, confSha256(confPath))
+  const base = process.env.VERIFY_BASE_URL || 'http://rig-nginx'
+  const drain = Math.ceil((api.burst + 1) / api.ratePerSecond) + 5
+
+  for (const state of plan.blocked) {
+    console.log(`[BLOCKED unresolved] ${state}`)
+  }
+  if (plan.phases.length === 0) {
+    console.log(`api_limit verification INCOMPLETE: ${plan.blocked.join(', ') || '(no phase could be planned)'}`)
+    return exitCodeFor({ incomplete: true })
+  }
+  console.log(`api_limit: ${api.rateText} burst ${api.burst} delay ${api.delay}; probe result ${probe.confSha256.slice(0, 12)}`)
+
+  const wait = (s) => new Promise((r) => setTimeout(r, s * 1000))
+  const logLines = () => {
+    const path = join(rigDir ?? '.', 'access.log')
+    if (!existsSync(path)) return []
+    return readFileSync(path, 'utf8').split('\n').map(parseLine).filter(Boolean)
+  }
+  const arrivalsFor = (ids) => {
+    // The rig's recording upstream is asked directly; arrival times are never
+    // read out of the ingress log.
+    return (async () => {
+      const res = await fetch(new URL('/__arrivals', process.env.RIG_UPSTREAM || 'http://backend:3002'))
+      const all = await res.json()
+      return all.filter((a) => ids.includes(a.qaId)).map((a) => a.arrivedMs)
+    })()
+  }
+  const clearArrivals = () =>
+    fetch(new URL('/__arrivals', process.env.RIG_UPSTREAM || 'http://backend:3002'), { method: 'DELETE' })
+
+  // What phase G measured: the largest number of requests one address has
+  // admitted at one instant, which phase J needs to exceed by enough to be
+  // refused.
+  const immediateCount = plan.phases.find((p) => p.id === 'G')?.requests ?? Math.max(1, api.delay - 10)
+
+  let mismatches = 0
+  let inconclusive = 0
+  const inconclusivePhases = []
+  const finish = (phase, j) => {
+    if (j.verdict === 'inconclusive') {
+      console.log(`[INCONCLUSIVE] ${phase.label}: ${j.detail}`)
+      inconclusive += 1
+      inconclusivePhases.push(phase.label)
+      return
+    }
+    console.log(`[${j.verdict === 'pass' ? 'PASS' : 'FAIL'}] ${phase.label}: ${j.detail}`)
+    if (j.verdict !== 'pass') mismatches += 1
+  }
+
+  const request = (qaId) =>
+    new Promise((resolve, reject) => {
+      const started = performance.now()
+      const req = http.request({ host: new URL(base).hostname, port: Number(new URL(base).port || 80), path: '/api/verify', agent: undefined, headers: { 'X-QA-Request-Id': qaId } }, (res) => {
+        res.resume()
+        res.on('end', () => resolve({ qaId, status: res.statusCode, ms: performance.now() - started }))
+      })
+      req.on('error', reject)
+      req.end()
+    })
+
+  const readFor = async (ids) => {
+    await wait(2) // the log is flushed every second
+    const lines = logLines()
+    return ids.map((qaId) => lines.find((l) => l.qaId === qaId) ?? null)
+  }
+
+  for (const phase of plan.phases) {
+   try {
+    await wait(drain)
+    await clearArrivals()
+    // The bucket must be empty before a phase, or it measures the previous one.
+    const check = await request(`drain-${Date.now()}`)
+    await wait(2)
+    const drained = logLines().filter((l) => l.qaId === check.qaId).pop()
+    if (!drained || drained.limitReq !== 'PASSED') {
+      console.log(`[INCONCLUSIVE] ${phase.label}: the bucket did not drain (last line reads ${drained ? drained.limitReq : 'nothing'})`)
+      inconclusive += 1
+      inconclusivePhases.push(phase.label)
+      continue
+    }
+
+    let ids = []
+    if (phase.state === 'immediate') {
+      ids = Array.from({ length: phase.requests }, (_, i) => `g-${String(i).padStart(3, '0')}`)
+      await Promise.all(ids.map((qaId) => request(qaId)))
+    } else if (phase.state === 'delayed') {
+      // More requests than the delay allowance, on one connection, so the
+      // limiter has to delay rather than refuse.
+      ids = Array.from({ length: api.burst + api.delay + 5 }, (_, i) => `h-${String(i).padStart(3, '0')}`)
+      const one = http.request({ host: new URL(base).hostname, port: Number(new URL(base).port || 80), path: '/api/verify', agent: undefined, headers: { 'X-QA-Request-Id': ids[0], Connection: 'keep-alive' } }, () => {})
+      one.on('error', () => {})
+      one.end()
+      for (const qaId of ids.slice(1)) await request(qaId)
+    } else if (phase.state === 'rejectedByLimitReq') {
+      // The excess has to pass the burst, and requests released one after
+      // another let it decay again between them (the probe measured this), so
+      // they go out at one instant with nothing held at the upstream.
+      ids = Array.from({ length: api.burst + api.delay + 10 }, (_, i) => `i-${String(i).padStart(3, '0')}`)
+      await Promise.all(ids.map((qaId) => request(qaId)))
+    } else {
+      // limit_conn: more connections in flight together than its cap, held at
+      // the upstream so they are in flight together. The excess stays inside the
+      // delay allowance, so these lines are about the connection cap only.
+      const count = immediateCount + 5
+      ids = Array.from({ length: count }, (_, i) => `j-${String(i).padStart(3, '0')}`)
+      await Promise.all(
+        ids.map(
+          (qaId) =>
+            new Promise((resolve, reject) => {
+              const req = http.request(
+                { host: new URL(base).hostname, port: Number(new URL(base).port || 80), path: '/api/verify', agent: undefined, headers: { 'X-QA-Request-Id': qaId, 'X-Rig-Hold-Ms': '1000' } },
+                (res) => {
+                  res.resume()
+                  res.on('end', resolve)
+                },
+              )
+              req.on('error', reject)
+              req.end()
+            }),
+        ),
+      )
+    }
+
+    const lines = await readFor(ids)
+    const present = lines.filter(Boolean)
+    if (phase.state === 'immediate') {
+      const arrivals = await arrivalsFor(ids)
+      finish(phase, judgeImmediate(ids.map((qaId, i) => ({ qaId, entry: lines[i] })), arrivals, phase.requests, probe.toleranceMs))
+    } else if (phase.state === 'delayed') {
+      const delayedLines = present.filter((l) => l.limitReq === 'DELAYED')
+      const refusedInstead = present.filter((l) => l.limitReq === 'REJECTED')
+      if (refusedInstead.length > 0) {
+        // The phase's claim is that excess requests are delayed. A refusal
+        // where a delay was due answers that, and it is an answer, not thin
+        // evidence: judgeDelayCurve is only reached with delays to measure.
+        finish(phase, {
+          verdict: 'fail',
+          detail: `${refusedInstead.length} request(s) were refused where this configuration delays them, and only ${delayedLines.length} were delayed`,
+        })
+      } else {
+        const arrivals = await arrivalsFor(ids)
+        const delayedIds = new Set(delayedLines.map((l) => l.qaId))
+        const delayedArrivals = arrivals.filter((_, i) => delayedIds.has(ids[i]))
+        finish(phase, judgeDelayCurve(delayedArrivals, api.ratePerSecond, probe.toleranceMs))
+      }
+    } else {
+      finish(phase, judgeRejection(present, phase.state === 'rejectedByLimitReq' ? 'limit_req' : 'limit_conn', phase.assertOtherField))
+    }
+   } catch (err) {
+    // The phase could not be carried out: it has neither passed nor failed.
+    console.log(`[INCONCLUSIVE] ${phase.label}: ${err && err.message ? err.message : 'the phase could not run'}`)
+    inconclusive += 1
+    inconclusivePhases.push(phase.label)
+   }
+  }
+
+  for (const note of plan.documented) console.log(`[DOCUMENTED unreachable] ${note}`)
+  // "Complete" means every phase was judged, not merely that none was blocked:
+  // a phase that could not judge leaves the abuse limit unverified.
+  const named = [...plan.blocked, ...inconclusivePhases.map((label) => `${label} (inconclusive)`)]
+  console.log(named.length === 0 ? 'api_limit verification complete' : `api_limit verification INCOMPLETE: ${named.join(', ')}`)
+  return exitCodeFor({ mismatches, incomplete: named.length > 0, inconclusive })
+}
 
 async function main() {
   const base = process.env.VERIFY_BASE_URL || 'http://nginx'
@@ -105,6 +542,12 @@ async function main() {
   const assumeArg = args.find((a) => a.startsWith('--assume-session'))
   const confPath = join(dirname(fileURLToPath(import.meta.url)), 'nginx.conf')
   const zones = parseZones(readFileSync(confPath, 'utf8'))
+
+  if (args.includes('--api-limit')) {
+    process.exit(
+      await apiLimitPhases({ confPath, api: readApiLimit(readFileSync(confPath, 'utf8')), rigDir: process.env.RIG_DIR }),
+    )
+  }
 
   if (assumeArg) {
     const spec = args[args.indexOf(assumeArg) + 1] || assumeArg.split('=')[1] || '1r/s:20'

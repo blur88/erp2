@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url'
 import { launchOptions, loadConfig, loadPlaywright, loadZones, sleep } from './lib/config.mjs'
 import { CaseContext, Run, pageFetch, readStored, showsSignedInUi } from './lib/harness.mjs'
 import { machine, servedBuild } from './lib/machine.mjs'
-import { BLOCKING_REPETITIONS, CRITERIA, blockingFigure, diagnosticFigure, judge, summaryLines } from './lib/latency-criteria.mjs'
+import { BLOCKING_REPETITIONS, CRITERIA, blockingFigure, describeUnsettled, diagnosticFigure, judge, summaryLines } from './lib/latency-criteria.mjs'
 import { median, summary } from './lib/stats.mjs'
 
 export { peakDemand } from './lib/stats.mjs'
@@ -124,6 +124,16 @@ function stopWriter(page) {
 
 // --- page loads --------------------------------------------------------------
 
+// The measurement could not be made: the workload it is for did not come
+// about. Kept apart from a measurement that was made and failed its criteria.
+class PreconditionFailed extends Error {
+  constructor(message, detail) {
+    super(message)
+    this.name = 'PreconditionFailed'
+    this.detail = detail
+  }
+}
+
 /** The load has played out: nothing pending from this tab and nothing new for 1.5 s. */
 async function settled(profile, mark, page) {
   const deadline = Date.now() + 45000
@@ -132,7 +142,10 @@ async function settled(profile, mark, page) {
     const pending = mine.some((e) => e.status === null && !e.failed)
     const lastAt = mine.reduce((m, e) => Math.max(m, e.respondedAt ?? e.issuedAt), 0)
     if (mine.length > 0 && !pending && Date.now() - lastAt > 1500) return
-    if (Date.now() > deadline) throw new Error(`${profile.label(page)}: the page load did not settle within 45 s`)
+    if (Date.now() > deadline) {
+      const why = describeUnsettled(mine, Date.now())
+      throw new PreconditionFailed(`${profile.label(page)}: the page load did not settle within 45 s (${why.reason})`, { tab: profile.label(page), ...why })
+    }
     await sleep(100)
   }
 }
@@ -210,7 +223,19 @@ async function main() {
   for (let i = 2; i <= 4; i += 1) readers.push(await profile.tab('/dashboard', { label: `m${i}` }))
   const writer = await profile.tab('/dashboard', { label: 'writer' })
   for (const page of [...readers, writer]) {
-    if (!(await showsSignedInUi(page))) throw new Error(`${profile.label(page)} did not open signed in`)
+    if (!(await showsSignedInUi(page))) {
+      // What the tabs showed and what they had last sent, kept for whoever
+      // reads the failure: on 198943047 this error left nothing to diagnose
+      // it from, and it did not happen again when the measurement was run alone.
+      const failure = {
+        what: `${profile.label(page)} did not open signed in`,
+        at: new URL(page.url()).pathname,
+        at_ms: Date.now(),
+        tabs: await ctx.diagnose(),
+      }
+      writeFileSync(join(config.scratch, 'measure-failure.json'), JSON.stringify(failure, null, 2))
+      throw new PreconditionFailed(failure.what, { tab: profile.label(page), at: failure.at })
+    }
   }
   await sleep(3000)
   const m2 = []
@@ -360,6 +385,16 @@ async function main() {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((error) => {
     console.error(error)
+    // A precondition that failed is recorded as that, in a file of its own:
+    // there is then no results-latency.json, and nobody may read a latency
+    // figure out of this run.
+    if (error instanceof PreconditionFailed) {
+      const scratch = process.env.QA_SCRATCH || process.cwd()
+      writeFileSync(
+        join(scratch, 'latency-precondition-failed.json'),
+        JSON.stringify({ what: error.message, detail: error.detail, at: new Date().toISOString(), note: 'The latency measurement did not run its intended workload. This is not a latency result.' }, null, 2),
+      )
+    }
     process.exit(1)
   })
 }

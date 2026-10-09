@@ -28,23 +28,49 @@
 // had no way to get back. A tab that cannot be recovered is not usable, and
 // at N = 5 that fails W1. Nothing is retried to make it pass.
 //
-// Blocking, at N = 5 (lib/w1-judgement.mjs, blockingChecks): in all three
-// rounds no 429 on refresh, logout or me; in (a) and (b) every tab usable; in
-// (c) the logout sent and every tab on the login page without a reload. Not
-// blocking: everything at N = 10 and 20. 429s on business endpoints
-// (api_limit) are counted and not judged: they are tracked in issue #1353.
+// Blocking at N = 5, 10 and 20 (lib/w1-judgement.mjs, blockingChecks): in all
+// three rounds no 429 on refresh, logout or me; in (a) and (b) every tab
+// usable, no in-app recovery action, and the last tab holding its expected
+// data within the size's deadline (5 s, 10 s, 15 s from the tab-opening
+// trigger); in (a) the token current and in (b) expired when the tabs opened;
+// in (c) the logout sent and answered 2xx and every tab on the login page
+// without a reload. Not blocking: 429s on business endpoints (api_limit), which
+// are counted and reported at every size.
 //
 // W1 states no capacity. It reports what was observed at each size, and says
 // what that does and does not show (W1_SCOPE).
 import { accessFor, loadNavigation } from './access.mjs'
 import { sleep } from './config.mjs'
-import { USER_MENU, documentId, onLoginPage, readStored, showsSignedInUi, summarize } from './harness.mjs'
-import { HOW_ROUNDS_REACH_THE_SESSION_ZONE, W1_SCOPE, blockingChecks, byRoute, nonBlockingFindings, observed, observedLine } from './w1-judgement.mjs'
+import { USER_MENU, documentId, onLoginPage, pageFetch, readStored, showsSignedInUi, summarize } from './harness.mjs'
+import {
+  BLOCKING_SIZES,
+  DEADLINE_MS,
+  HOW_ROUNDS_REACH_THE_SESSION_ZONE,
+  MAX_SIGN_OUT_ATTEMPTS,
+  W1_SCOPE,
+  blockingChecks,
+  byRoute,
+  nonBlockingFindings,
+  observed,
+  observedLine,
+} from './w1-judgement.mjs'
+import { watchCompletion } from './completion.mjs'
+import { diagnostics, signOutOverlap, signOutAttemptOutcome, windowBetween } from './ingress-log.mjs'
+import { existsSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+// The ingress log's own reader, from the repository's nginx directory: one
+// format, one parser, and the limiter's verdict read the same way everywhere.
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../../..')
+const { parseLine } = await import(pathToFileURL(join(REPO_ROOT, 'nginx/access-log.mjs')).href)
 import { busiestSecond, candidateBurst, peakDemand } from './stats.mjs'
 import {
   ACTION,
   COMPANY_SETTINGS,
   DASHBOARD,
+  KEEP_SHELL_ANSWERS,
   MAX_ACTION_TRIES,
   MAX_RECOVERY_ACTIONS,
   REGIONAL_SETTINGS,
@@ -52,10 +78,49 @@ import {
   bringToWorkingState,
   customerListHasRows,
   roundUsability,
+  shellReference,
   shownMenuTitles,
 } from './usable.mjs'
 
 const AGREED_MAXIMUM_BURST = 60 // review, 2026-10-06: tuning up to 60 is agreed, beyond it is not
+// A diagnostic about session_limit, read from what W1 measured. It says how
+// close that zone came to its configured burst. It is not a capacity figure and
+// it authorises nothing: #1353 changes api_limit and leaves session_limit
+// exactly as it is, so this note is not a reason to change that zone.
+
+/**
+ * The ingress's own verdicts for a round, read from the log run.sh captured.
+ *
+ * The markers are sent from the holder tab on /manifest.json, which `location /`
+ * serves and api_limit does not meter, so a marker costs no limiter budget and
+ * cannot be refused. The log is flushed every second, so the wait is longer than
+ * that. A round whose markers are missing, or whose log was never captured, says
+ * so rather than reporting figures it does not have.
+ */
+function ingressFor(config, holder, settle) {
+  const path = config.ingressLog
+  return {
+    marker: (qaId) => pageFetch(holder, { path: '/manifest.json', qaId }),
+    // Read after the log has had time to flush; null means there is no log to
+    // read, which the caller records as such.
+    read: async () => {
+      await settle()
+      if (!path || !existsSync(path)) return null
+      return readFileSync(path, 'utf8').split('\n').map(parseLine).filter(Boolean)
+    },
+  }
+}
+
+/** The completion figures a round record carries, with the deadline it is judged against. */
+function completionFields(finished, n) {
+  return {
+    completedAfterMs: finished.lastCompletedAfterMs,
+    completionPollMs: finished.pollMs,
+    deadlineMs: deadline(n),
+  }
+}
+
+const deadline = (n) => DEADLINE_MS[n]
 
 function measure(profile, mark, zone) {
   const entries = profile
@@ -158,7 +223,6 @@ const lostData = (r) =>
     .join('; ')
 
 /** The body of an answer whose envelope the application also strips (store/api/normalizers.ts, normalizeSingle). */
-const single = (body) => (body && typeof body === 'object' && 'data' in body && body.data != null && !Array.isArray(body.data) ? body.data : body)
 
 /**
  * What the server said the shell's data is, from the answers this profile
@@ -166,19 +230,6 @@ const single = (body) => (body && typeof body === 'object' && 'data' in body && 
  * not come or could not be read is reported as such, and W1 treats it as a
  * failed precondition.
  */
-async function shellReference(profile, maxMs = 20000) {
-  const deadline = Date.now() + maxMs
-  while (Date.now() < deadline && !(profile.answers.has(COMPANY_SETTINGS) && profile.answers.has(REGIONAL_SETTINGS))) await sleep(100)
-  const company = profile.answers.get(COMPANY_SETTINGS)
-  const regional = profile.answers.get(REGIONAL_SETTINGS)
-  const companyAnswered = Boolean(company && !company.unreadable)
-  return {
-    companyAnswered,
-    companyName: companyAnswered ? single(company.body)?.name || null : null,
-    regional: regional && !regional.unreadable ? single(regional.body) : null,
-  }
-}
-
 async function closeAll(pages) {
   for (const page of pages) await page.close()
 }
@@ -221,7 +272,7 @@ export default {
     let shell = null
 
     for (const n of sizes) {
-      const profile = await ctx.profile({ keepAnswers: /^\/api\/settings\/(company|regional)$/ })
+      const profile = await ctx.profile({ keepAnswers: KEEP_SHELL_ANSWERS })
       const signIn = await profile.tab('/login', { label: 'sign-in', navigate: false })
       await ctx.signIn(signIn, config.userC)
       // The profile now holds a stored session. The signed-in tab is replaced
@@ -285,6 +336,19 @@ export default {
         ctx.require('a data request of that tab was answered 2xx', answered)
       }
 
+      // The ingress's verdicts for this round, read from the log run.sh
+      // captured. Without it the round records that it has none, which is not
+      // the same as a round whose figures are all zero.
+      const ingress = ingressFor(ctx.config, holder, () => sleep(2500))
+      const readWindow = async (startQaId, endQaId) => {
+        const entries = await ingress.read()
+        if (entries === null) return { unavailable: 'no ingress log' }
+        const window = windowBetween(entries, startQaId, endQaId)
+        if (window === null) return { unavailable: 'the round\'s markers were not in the ingress log' }
+        return diagnostics(window.entries)
+      }
+      const ingressFields = (figures) => ({ ingress: figures })
+
       // ---- (a) current access token --------------------------------------
       await sleep(drainMs)
       // The drain wait is longer than the QA lifetime, so the token is renewed
@@ -300,17 +364,33 @@ export default {
       await sleep(3000)
       let mark = profile.mark()
       const remainingA = stored.session.accessTokenExpiresAt * 1000 - Date.now()
+      await ingress.marker(`mark-a-${n}-in`)
       let opened = await openTabs(profile, n, `N${n}a`)
-      await Promise.all(opened.pages.map(loaded))
-      await quiet(profile, mark)
-      // Measured first: the usability check below sends requests of its own.
+      // When each tab first held its expected data, on the clock that started
+      // at the tab-opening trigger, and judged against this size's deadline. The
+      // window runs past the deadline so a tab that misses it is measured, not
+      // cut off.
+      const watchedA = watchCompletion(profile, mark, opened.pages, shell.reference, {
+        started: opened.started,
+        giveUpMs: deadline(n) + 30000,
+      })
+      // Awaited with the loading and the quiet wait: the round's own requests
+      // are all in by then, and the usability check below sends requests of its
+      // own, which would otherwise be sampled as the round's completion.
+      const [, , completionA] = await Promise.all([Promise.all(opened.pages.map(loaded)), quiet(profile, mark), watchedA])
+      await ingress.marker(`mark-a-${n}-out`)
+      const ingressA = await readWindow(`mark-a-${n}-in`, `mark-a-${n}-out`)
       let measured = measure(profile, mark, zone)
+      // endStates is what establishes that an action works, and it counts the
+      // recovery actions, so it runs after the round's own loading.
       let states = await endStates(profile, mark, opened.pages, api, shell)
       rounds.push({
         n,
         round: 'a',
         description: 'current access token',
         accessTokenRemainingMsAtStart: remainingA,
+        ...completionFields(completionA, n),
+        ...ingressFields(ingressA),
         ...measured,
         ...states,
       })
@@ -325,9 +405,15 @@ export default {
       stored = summarize(await readStored(holder))
       const expiredAtStart = stored.session.accessTokenExpiresAt * 1000 < Date.now()
       mark = profile.mark()
+      await ingress.marker(`mark-b-${n}-in`)
       opened = await openTabs(profile, n, `N${n}b`)
-      await Promise.all(opened.pages.map(loaded))
-      await quiet(profile, mark)
+      const watchedB = watchCompletion(profile, mark, opened.pages, shell.reference, {
+        started: opened.started,
+        giveUpMs: deadline(n) + 30000,
+      })
+      const [, , completionB] = await Promise.all([Promise.all(opened.pages.map(loaded)), quiet(profile, mark), watchedB])
+      await ingress.marker(`mark-b-${n}-out`)
+      const ingressB = await readWindow(`mark-b-${n}-in`, `mark-b-${n}-out`)
       measured = measure(profile, mark, zone)
       states = await endStates(profile, mark, opened.pages, api, shell)
       rounds.push({
@@ -335,6 +421,8 @@ export default {
         round: 'b',
         description: 'every tab starts with an expired access token',
         accessTokenExpiredAtStart: expiredAtStart,
+        ...completionFields(completionB, n),
+        ...ingressFields(ingressB),
         ...measured,
         ...states,
       })
@@ -342,32 +430,68 @@ export default {
       await closeAll(opened.pages)
 
       // ---- (c) one tab signs out while the others are loading ------------
-      await sleep(drainMs)
-      mark = profile.mark()
-      opened = await openTabs(profile, n, `N${n}c`)
-      // Which document each tab loaded: a tab that reaches the login page by
-      // being reloaded has another one afterwards.
-      const documents = await Promise.all(opened.pages.map(documentId))
-      const first = await Promise.any(
-        opened.pages.map((page) => page.locator(USER_MENU).first().waitFor({ state: 'visible', timeout: 60000 }).then(() => page)),
-      )
-      const shown = await Promise.all(opened.pages.map((page) => page.locator(USER_MENU).count()))
-      await ctx.signOut(first)
-      const ended = await Promise.all(opened.pages.map((page) => onLoginPage(page, 60000)))
-      await quiet(profile, mark)
-      const same = await Promise.all(opened.pages.map(async (page, i) => (await documentId(page)) === documents[i]))
-      rounds.push({
-        n,
-        round: 'c',
-        description: 'one tab signs out while the others are still loading',
-        tabsStillLoadingAtSignOut: shown.filter((count) => count === 0).length,
-        ...measure(profile, mark, zone),
-        // On the login page AND still the document the tab first loaded.
-        tabsOnLoginPage: ended.filter((on, i) => on && same[i]).length,
-        everyTabOnLoginPage: ended.every((on, i) => on && same[i]),
-        tabs: opened.pages.map((page, i) => ({ tab: profile.label(page), onLoginPage: ended[i], sameDocument: same[i], at: new URL(page.url()).pathname })),
-      })
-      report(rounds.at(-1), zone.burst)
+      //
+      // One attempt (MAX_SIGN_OUT_ATTEMPTS is 1 since the amendment of
+      // 2026-10-09). Whether a delayed request overlapped the sign-out is
+      // recorded as a diagnostic and decides nothing: that condition is tested
+      // by the induced-delay scenario (case 17), not by this natural round.
+      for (let attempt = 1; attempt <= MAX_SIGN_OUT_ATTEMPTS; attempt += 1) {
+        // The attempt before it signed the profile out, so a retry signs in
+        // again: the tabs below need a stored session to open with.
+        if (attempt > 1) await ctx.signIn(signIn, config.userC)
+        await sleep(drainMs)
+        mark = profile.mark()
+        await ingress.marker(`mark-c-${n}-${attempt}-in`)
+        opened = await openTabs(profile, n, `N${n}c`)
+        // Which document each tab loaded: a tab that reaches the login page by
+        // being reloaded has another one afterwards.
+        const documents = await Promise.all(opened.pages.map(documentId))
+        const first = await Promise.any(
+          opened.pages.map((page) => page.locator(USER_MENU).first().waitFor({ state: 'visible', timeout: 60000 }).then(() => page)),
+        )
+        const shown = await Promise.all(opened.pages.map((page) => page.locator(USER_MENU).count()))
+        await ctx.signOut(first)
+        const ended = await Promise.all(opened.pages.map((page) => onLoginPage(page, 60000)))
+        await quiet(profile, mark)
+        await ingress.marker(`mark-c-${n}-${attempt}-out`)
+        const attemptEntries = await ingress.read()
+        const window = attemptEntries === null
+          ? null
+          : windowBetween(attemptEntries, `mark-c-${n}-${attempt}-in`, `mark-c-${n}-${attempt}-out`)
+        const same = await Promise.all(opened.pages.map(async (page, i) => (await documentId(page)) === documents[i]))
+        const entry = {
+          n,
+          round: 'c',
+          attempt,
+          description: 'one tab signs out while the others are still loading',
+          tabsStillLoadingAtSignOut: shown.filter((count) => count === 0).length,
+          ...measure(profile, mark, zone),
+          // On the login page AND still the document the tab first loaded.
+          tabsOnLoginPage: ended.filter((on, i) => on && same[i]).length,
+          everyTabOnLoginPage: ended.every((on, i) => on && same[i]),
+          tabs: opened.pages.map((page, i) => ({ tab: profile.label(page), onLoginPage: ended[i], sameDocument: same[i], at: new URL(page.url()).pathname })),
+          ingress: window === null
+            ? { unavailable: attemptEntries === null ? 'no ingress log' : 'the attempt\'s markers were not in the ingress log' }
+            : diagnostics(window.entries),
+          signOutOverlap: window === null
+            ? { verdict: 'no-logout', delayedOutstanding: 0, logoutStartMs: null }
+            : signOutOverlap(window.entries),
+        }
+        // What this attempt was, judged from its own entry: a behavioural
+        // failure ends the loop, and so does an overlap. Only setup-missed goes
+        // round again.
+        entry.outcome = signOutAttemptOutcome(entry)
+        rounds.push(entry)
+        report(rounds.at(-1), zone.burst)
+        await closeAll(opened.pages)
+        if (entry.outcome !== 'setup-missed') break
+        ctx.record('signOutAttempt', {
+          n,
+          attempt,
+          outcome: entry.outcome,
+          why: 'the attempt behaved and overlapped no delayed request; set up again',
+        })
+      }
       await ctx.close()
     }
 
@@ -378,7 +502,12 @@ export default {
       scope: W1_SCOPE,
       howEachRoundReachesTheSessionZone: HOW_ROUNDS_REACH_THE_SESSION_ZONE,
       blocking:
-        'At N = 5: no 429 on refresh, logout or me in rounds (a), (b) and (c); every tab usable in (a) and (b); in (c) the logout sent and every tab on the login page without a reload. Nothing at N = 10 or 20 blocks.',
+        `At N = ${BLOCKING_SIZES.join(', ')}: no 429 on refresh, logout or me in rounds (a), (b) and (c); in (a) and (b) every tab usable, ` +
+        'no in-app recovery action; ' +
+
+        'in (a) the access token current and in (b) expired when the tabs opened; in (c) the logout sent and answered 2xx and every tab ' +
+        'on the login page without a reload. Not blocking: 429s on business endpoints, counted at every size; ' +
+        `the completion time, reported against ${DEADLINE_MS[5] / 1000} s, ${DEADLINE_MS[10] / 1000} s and ${DEADLINE_MS[20] / 1000} s (#1359).`,
       observed: rounds.map((r) => observed(r, zone.burst)),
       // Every piece of data some tab's user could not get back, at any size.
       dataNotRecoverableByRole: noted.dataNotRecoverableByRole,
@@ -392,10 +521,15 @@ export default {
         largestPeakDemandAtN10: e,
         candidateBurst: candidate,
         withinAgreedMaximum: candidate <= AGREED_MAXIMUM_BURST,
+        // A diagnostic about session_limit and nothing else. #1353 changes
+        // api_limit; it does not authorise changing session_limit, and this
+        // note must not be read as a recommendation to do so.
         note:
-          candidate <= AGREED_MAXIMUM_BURST
+          (candidate <= AGREED_MAXIMUM_BURST
             ? 'set the burst, re-run the rate-limit checks twice, commit, and repeat the whole run'
-            : 'stop: the candidate exceeds 60; bring the counts and E to the repository owner',
+            : 'stop: the candidate exceeds 60; bring the counts and E to the repository owner') +
+          ' Diagnostic only: a reading of what the tabs did to session_limit, not a capacity figure, ' +
+          'and #1353 does not authorise changing that zone.',
       }
     }
     ctx.record('judgement', judgement)
