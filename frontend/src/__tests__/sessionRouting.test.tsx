@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, afterEach, beforeAll, beforeEach } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { RouterProvider } from 'react-router-dom'
@@ -8,6 +8,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/server'
 import { loadApp, storedSession, type LoadAppOptions } from '@/session/__tests__/appHarness'
+
+// Every test here imports the application afresh, lazy routes included. Under
+// the coverage run those imports have taken longer than the default second a
+// `findBy` or `waitFor` allows, in a different wait each time. A longer limit
+// only changes how long a wait that is going to fail takes to fail.
+configure({ asyncUtilTimeout: 5000 })
 
 // The top bar's health indicator polls the server and expects its reply's shape.
 vi.mock('@/components/common/SystemStatus', () => ({ default: () => null }))
@@ -85,7 +91,9 @@ beforeEach(() => {
 
 // The login page, mounted once: its form is up and its one request was made.
 const loginForm = async () => {
-  const submit = await screen.findByRole('button', { name: /sign in/i })
+  // A lazy route: the page it replaces stays on screen while it is imported,
+  // which under coverage has taken longer than the default second.
+  const submit = await screen.findByRole('button', { name: /sign in/i }, { timeout: 5000 })
   await waitFor(() => expect(publicRequests).toHaveLength(1))
   expect(publicRequests[0].headers.get('authorization')).toBeNull()
   return submit
