@@ -968,6 +968,66 @@ the window by under 100 ms; the window is narrow (the limiter held L for about
 0.4 s) and probes are 150 ms apart, so a pass depends on timing that the
 attempts have to find. It shows one page and one role.
 
+### Sign-out under induced delay, case 17, run alone on `f2ce87c67` (2026-10-09): partial, not evidence
+
+Design amendment of 2026-10-09: W1's natural sign-out rounds keep their session
+and end-state gates and report the overlap as a diagnostic; the overlap is gated
+by a separate, **induced-delay** scenario, in which filler traffic from another
+browser context keeps the limiter delaying. It does not show that a restored
+window produces that delay by itself.
+
+First run of the case, `QA_ONLY=17`, so a partial run. **Five tabs passed on the
+third attempt; ten and twenty tabs were inconclusive in all three attempts.**
+Exit status 1.
+
+**Behaviour, in all nine attempts:** the logout was answered 204, every
+application tab reached the login page in the document it first loaded, and no
+request to `refresh`, `logout` or `me` was answered 429. One address for the
+application and the fillers in every attempt.
+
+**What the ingress log shows about the delay and the sign-out:**
+
+| Tabs, attempt | Application requests delayed | Aborted by the client while delayed (never forwarded / forwarded) | Of those, within 0.3 s before the logout | Outstanding when the logout arrived | Application requests after the logout | Longest hold |
+|---|---|---|---|---|---|---|
+| 5, 1 | 18 | 1 (1 / 0) | 1 | 0 | 0 | 342 ms |
+| 5, 2 | 18 | 7 (7 / 0) | 7 | 0 | 0 | 377 ms |
+| 5, 3 | 27 | 5 (5 / 0) | 4 | **1** | 0 | 386 ms |
+| 10, 1 | 40 | 5 (5 / 0) | 5 | 0 | 0 | 343 ms |
+| 10, 2 | 32 | 5 (1 / 4) | 5 | 0 | 0 | 458 ms |
+| 10, 3 | 22 | 0 | 0 | 0 | 0 | 346 ms |
+| 20, 1 | 3 | 0 | 0 | 0 | 0 | 70 ms |
+| 20, 2 | 14 | 3 (3 / 0) | 3 | 0 | 0 | 183 ms |
+| 20, 3 | 0 | 0 | 0 | 0 | 0 | — |
+
+- **The delay was induced at five and ten tabs** (18 to 40 application requests
+  delayed per attempt), weakly at twenty (0 to 14). At twenty tabs the fillers
+  reached the ingress at about 21 a second in the three seconds before the
+  logout and at 8 to 15 at the smaller sizes; why the limiter delayed the
+  application less at twenty is not established.
+- **A hold is short.** The limiter held an application request for at most
+  0.34 to 0.46 s at five and ten tabs; a filler's median hold was about 45 ms.
+- **The application aborts its own in-flight requests when it signs out, before
+  the logout is sent.** In six of the nine attempts, one to seven application
+  requests that the limiter was delaying end in the log with status 499 (closed
+  by the client), all within 0.3 s before the logout's arrival, most of them
+  never forwarded to the backend. No application data request arrives after the
+  logout in any attempt. (`frontend/src/session/runtime.ts` aborts the session's
+  requests when the session ends.)
+- So a delayed application request **outstanding at the moment the logout
+  reaches the ingress** is something the application's own ordering all but
+  excludes: the one attempt that had it (five tabs, attempt 3) was a request
+  that reached the ingress in the same millisecond as the logout and was aborted
+  30 ms later.
+
+**What follows, and what does not.** The case's evidence condition, as written
+(`startMs < logout's startMs < endMs`), tests for a state the application is
+built not to be in. The log does show what a sign-out does to an application
+request the ingress is holding: it is aborted by the client, the logout follows,
+and nothing of the application arrives afterwards. Whether an aborted held
+request is the evidence the scenario should require is a decision about the
+scenario, not made here. Nothing in this run is a behavioural failure, and
+nothing in it bears on the completion deadlines.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand
