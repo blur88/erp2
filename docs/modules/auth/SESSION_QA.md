@@ -1301,6 +1301,23 @@ works; the device and the browser build are not the user's.
   others: a failure reason repeated the company name, and the 1 ms check
   reported that it held when applied to a round that had already failed.
 
+#### A defect of the tool found on the device (2026-10-09), before any round was run
+
+On the user's Firefox, **Prepare** was pressed at `http://10.1.1.34` where no
+session had been stored yet. The script read the token state with
+`indexedDB.open('erp-session')`, which **creates** a database that does not
+exist: empty, at version 1, without the application's `kv` store. The
+application opens the same name at the same version, gets no upgrade, finds no
+store, and showed "Session storage unavailable" at that address.
+
+Reproduced in Playwright Firefox 155.0 with a fresh profile: with the script as
+it was, the database `erp-session` existed afterwards and `/login` showed the
+storage-unavailable screen; with the creation aborted in `onupgradeneeded`, no
+database was left and `/login` showed the sign-in form. The rehearsals above
+had not met it because they signed in before the script ran. No round had been
+measured on the device when this happened, and the application behaved as
+designed for a store it cannot use.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand

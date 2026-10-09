@@ -164,7 +164,14 @@ var QA_DEVICE = (() => {
   function readSession() {
     return new Promise((resolve) => {
       const open = indexedDB.open('erp-session')
-      open.onerror = () => resolve(null)
+      // Opening a database that does not exist creates it, empty and without
+      // the application's store, and the application then finds its storage
+      // broken. Where there is none, the creation is aborted and nothing is left.
+      open.onupgradeneeded = () => open.transaction.abort()
+      open.onerror = (event) => {
+        event.preventDefault()
+        resolve(null)
+      }
       open.onsuccess = () => {
         const db = open.result
         if (!db.objectStoreNames.contains('kv')) {
