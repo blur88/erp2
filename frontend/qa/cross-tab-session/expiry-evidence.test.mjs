@@ -27,8 +27,14 @@ const ingressById = (entries) => new Map(entries.filter((e) => e.qaId).map((e) =
 // The browser's records as the harness keeps them, derived here from the
 // ingress lines (the run did not persist them): id, status, token fingerprint,
 // zone, and the message of a 401.
-const browserFrom = (ingress, capture, prefix, extra = {}) =>
-  ingress
+const browserFrom = (ingress, capture, prefix, extra = {}) => [
+  // A request the context sent inside the capture segment but before the
+  // attempt's first marker (the holder tab's health poll): the harness has a
+  // record of it, so the derived records do too.
+  ...[...capture.requests.values()]
+    .filter((r) => r.qaId && r.qaId.startsWith(prefix) && !ingress.some((e) => e.qaId === r.qaId))
+    .map((r) => ({ qaId: r.qaId, method: r.method, path: r.uri.split('?')[0], zone: r.uri.startsWith('/api/health') ? 'health' : 'business', status: r.status, token: r.tokenFingerprint, message: null })),
+  ...ingress
     .filter((e) => e.qaId.startsWith(prefix))
     .map((e) => ({
       qaId: e.qaId,
@@ -39,7 +45,8 @@ const browserFrom = (ingress, capture, prefix, extra = {}) =>
       token: capture.requests.get(e.qaId)?.tokenFingerprint ?? null,
       message: e.status === 401 ? EXPIRED_MESSAGE : null,
       ...extra,
-    }))
+    })),
+]
 
 const DEADLINE = { deadlineMs: 4040, accepted: true, why: null }
 const API = { ratePerSecond: 20, burst: 40, delay: 20 }
