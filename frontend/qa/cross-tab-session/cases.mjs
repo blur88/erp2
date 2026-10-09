@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Cross-tab session browser cases (#1345): the fourteen cases of the spec's
+// Cross-tab session browser cases (#1345, and 16 and 17 from #1353): the fourteen cases of the spec's
 // "Browser script" table, case 15 and workload W1. Each is { id, name,
 // run(ctx) } and states its pass condition in a comment above run().
 //
@@ -19,9 +19,10 @@ import refresh from './cases/refresh.mjs'
 import storage from './cases/storage.mjs'
 import marker from './cases/marker.mjs'
 import limiter from './cases/limiter.mjs'
+import induced from './cases/induced.mjs'
 import w1 from './lib/w1.mjs'
 
-export const cases = [...signout, ...switching, ...refresh, ...storage, ...marker, ...limiter]
+export const cases = [...signout, ...switching, ...refresh, ...storage, ...marker, ...limiter, ...induced]
   .sort((x, y) => x.id - y.id)
   .concat([w1])
 
@@ -52,7 +53,12 @@ const W1_LIMIT_MS = 75 * 60 * 1000
 // judges, so the common case is the calibration alone.
 const LIMITER_CASE_LIMIT_MS = 21 * 60 * 1000
 
-const limitFor = (id) => (id === 'W1' ? W1_LIMIT_MS : id === 16 ? LIMITER_CASE_LIMIT_MS : CASE_LIMIT_MS)
+// Case 17, sign-out under induced delay: three sizes, at most three attempts
+// each, every attempt a 26 s drain wait, a sign-in and a load that may wait up
+// to 120 s for a signed-in tab and 90 s for the login pages.
+const INDUCED_CASE_LIMIT_MS = 40 * 60 * 1000
+
+const limitFor = (id) => (id === 'W1' ? W1_LIMIT_MS : id === 16 ? LIMITER_CASE_LIMIT_MS : id === 17 ? INDUCED_CASE_LIMIT_MS : CASE_LIMIT_MS)
 
 function selection(argv) {
   const i = argv.indexOf('--only')

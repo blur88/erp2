@@ -31,12 +31,10 @@
 export const BLOCKING_SIZES = [5, 10, 20]
 export const DEADLINE_MS = { 5: 5000, 10: 10000, 20: 15000 }
 
-/**
- * How many times a sign-out round may be set up again looking for the overlap
- * it has to show. Only a setup that behaved and simply did not overlap may be
- * repeated; a behavioural failure in any attempt fails the run at once.
- */
-export const MAX_SIGN_OUT_ATTEMPTS = 3
+// A natural sign-out is attempted once. Whether a delayed request overlapped it
+// is diagnostic since the amendment of 2026-10-09 (the condition is a blocking
+// case of its own, case 17, with induced delay), so nothing is set up again.
+export const MAX_SIGN_OUT_ATTEMPTS = 1
 
 /** The one sentence about what W1 does and does not show. Printed with every summary and quoted in the README. */
 export const W1_SCOPE =
@@ -226,32 +224,15 @@ export function blockingChecks(rounds, sizes) {
         detail: c.tabs,
       })
     }
-    // Pass: at least one attempt was shown to overlap a request the limiter was
-    // still holding. A round where no attempt did is inconclusive, not passed:
-    // the run has then not shown what a sign-out does to a request the ingress
-    // is holding, which is what the round exists to show.
-    // The gate is unchanged: only an overlap passes it. What it was when it did
-    // not pass is said in the detail, because the three are different findings.
-    const gate = signOutGate(attempts)
-    out.push({
-      label: `N = ${n} (c): the sign-out overlapped at least one delayed request`,
-      ok: gate.state === 'overlap',
-      detail: {
-        gate,
-        attempts: attempts.map((c) => ({
-          attempt: c.attempt ?? 1,
-          outcome: c.outcome ?? null,
-          ...(c.signOutOverlap ?? { verdict: 'not measured' }),
-          ingress: c.ingress ?? null,
-        })),
-      },
-    })
+    // Whether a delayed request overlapped the sign-out is not judged here:
+    // see signOutGate and nonBlockingFindings.
   }
   return out
 }
 
 /**
- * What a size's sign-out attempts amounted to, for the overlap gate:
+ * What a size's sign-out attempts amounted to, with respect to the limiter
+ * (a diagnostic in W1; the gate itself belongs to case 17):
  *
  *   overlap           an attempt overlapped a request the limiter was holding
  *   behaviour-failed  the sign-out itself misbehaved in some attempt
@@ -304,8 +285,16 @@ export function nonBlockingFindings(rounds, role) {
       findings.push(`${where}: the ingress log was not captured (${r.ingress.unavailable}), so this round's limiter verdicts were not measured`)
     }
     if (r.round === 'c') {
-      if (r.attempt !== undefined && r.attempt > 1) findings.push(`${where}: sign-out attempt ${r.attempt} (previous attempts behaved and did not overlap a delayed request)`)
-      if (r.outcome === 'setup-missed') findings.push(`${where}: the sign-out overlapped no delayed request, so this attempt was set up again`)
+      // Diagnostic: what the natural sign-out was, with respect to the limiter.
+      // Not a verdict; the condition is tested by the induced-delay scenario.
+      const gate = signOutGate([r])
+      const said = {
+        overlap: 'the sign-out overlapped a request the limiter was delaying',
+        'overlap-absent': `overlap absent: no request was being delayed when the sign-out happened (${r.ingress?.delayed ?? 0} delayed in the whole round)`,
+        'evidence-missing': 'evidence missing: the ingress log could not be read for this round, so whether a delayed request overlapped is not known',
+        'behaviour-failed': 'the sign-out misbehaved (see its blocking checks)',
+      }[gate.state]
+      findings.push(`${where}: ${said}`)
       continue
     }
     if (r.tabsNeedingRecovery > 0) {

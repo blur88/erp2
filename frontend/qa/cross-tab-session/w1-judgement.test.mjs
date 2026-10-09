@@ -257,7 +257,7 @@ test('the baseline with ingress evidence present passes every check', () => {
   assert.deepEqual(failed(goodAll()), [])
 })
 
-test('one overlap across two attempts passes, and every attempt is judged', () => {
+test('every recorded sign-out entry of a size is judged on its behaviour, whatever its overlap', () => {
   const rounds = goodAll().flatMap((r) => {
     if (!(r.n === 10 && r.round === 'c')) return [r]
     const missed = { ...r, attempt: 1, outcome: 'setup-missed', signOutOverlap: { verdict: 'no-overlap', delayedOutstanding: 0, logoutStartMs: 1500 } }
@@ -265,11 +265,14 @@ test('one overlap across two attempts passes, and every attempt is judged', () =
     return [missed, hit]
   })
   assert.deepEqual(failed(rounds), [])
-  const labels = labelsOf(rounds).filter((l) => l.includes('overlapped'))
-  assert.equal(labels.length, 3, 'one overlap check per size')
+  assert.equal(labelsOf(rounds).filter((l) => l.includes('overlapped')).length, 0, 'no overlap check in W1')
+  assert.ok(labelsOf(rounds).some((l) => /N = 10 \(c\) attempt 1/.test(l)) && labelsOf(rounds).some((l) => /N = 10 \(c\) attempt 2/.test(l)))
 })
 
-test('three attempts with no overlap fail only the overlap check', () => {
+// Amendment of 2026-10-09: whether a delayed request overlapped a natural
+// sign-out is diagnostic in W1. The condition is tested, as a blocking case of
+// its own, by the induced-delay scenario (case 17).
+test('a natural sign-out that overlapped no delayed request fails nothing in W1', () => {
   const rounds = goodAll().flatMap((r) => {
     if (!(r.n === 5 && r.round === 'c')) return [r]
     return [1, 2, 3].map((attempt) => ({
@@ -279,7 +282,7 @@ test('three attempts with no overlap fail only the overlap check', () => {
       signOutOverlap: { verdict: 'no-overlap', delayedOutstanding: 0, logoutStartMs: 1500 },
     }))
   })
-  assert.deepEqual(failed(rounds), ['N = 5 (c): the sign-out overlapped at least one delayed request'])
+  assert.deepEqual(failed(rounds), [])
 })
 
 test('a behavioural failure in the first attempt fails the run and names the attempt', () => {
@@ -307,18 +310,19 @@ test('a loading round without the ingress log does not fail a check, and is repo
   assert.ok(findings.some((f) => /ingress log/.test(f)), `no finding about the missing log: ${JSON.stringify(findings)}`)
 })
 
-test('a sign-out without the ingress log cannot pass W1', () => {
+test('a natural sign-out without the ingress log fails nothing in W1, and is reported', () => {
   const rounds = goodAll().map((r) =>
     r.n === 5 && r.round === 'c'
       ? { ...r, ingress: { unavailable: 'no ingress log' }, outcome: 'setup-missed', signOutOverlap: { verdict: 'no-logout', delayedOutstanding: 0, logoutStartMs: null } }
       : r,
   )
-  const labels = failed(rounds)
-  assert.deepEqual(labels, ['N = 5 (c): the sign-out overlapped at least one delayed request'])
+  assert.deepEqual(failed(rounds), [])
+  const { findings } = nonBlockingFindings(rounds, 'sales_staff')
+  assert.ok(findings.some((f) => /N=5 \(c\).*evidence missing/.test(f)), JSON.stringify(findings))
 })
 
-test('MAX_SIGN_OUT_ATTEMPTS is 3', () => {
-  assert.equal(MAX_SIGN_OUT_ATTEMPTS, 3)
+test('a natural sign-out is attempted once: nothing in it is set up again', () => {
+  assert.equal(MAX_SIGN_OUT_ATTEMPTS, 1)
 })
 
 test('for each mutation of the baseline the exact set of checks fails', () => {
@@ -395,11 +399,28 @@ test('no attempt at all is evidence-missing', () => {
   assert.equal(signOutGate([]).state, 'evidence-missing')
 })
 
-test('the gate is not weakened: only an overlap passes it', () => {
-  for (const [attempts, ok] of [[at(5), true], [at(10), false]]) {
-    const rounds = attempts
-    const check = blockingChecks(rounds, [attempts[0].n]).find((c) => /overlapped at least one delayed request/.test(c.label))
-    assert.equal(check.ok, ok)
-    assert.equal(check.detail.gate.state, ok ? 'overlap' : 'overlap-absent')
+test('W1 has no blocking check about the overlap any more, at any size', () => {
+  for (const attempts of [at(5), at(10)]) {
+    const checks = blockingChecks(attempts, [attempts[0].n])
+    assert.equal(checks.filter((c) => /overlap/.test(c.label)).length, 0)
   }
+})
+
+test('the sign-out round\'s other gates are as they were: the recorded ten-tab attempts pass them', () => {
+  const checks = blockingChecks(at(10), [10]).filter((c) => / \(c\)/.test(c.label))
+  assert.ok(checks.length >= 3)
+  assert.deepEqual(checks.filter((c) => !c.ok).map((c) => c.label), [])
+})
+
+test('what the natural sign-out was is reported per size, as a finding and not a verdict', () => {
+  const five = nonBlockingFindings(at(5), 'sales_staff').findings
+  const ten = nonBlockingFindings(at(10), 'sales_staff').findings
+  assert.ok(five.some((f) => /N=5 \(c\).*overlapped a request the limiter was delaying/.test(f)), JSON.stringify(five))
+  assert.ok(ten.some((f) => /N=10 \(c\).*overlap absent/.test(f)), JSON.stringify(ten))
+})
+
+test('a sign-out that misbehaved still fails W1 on its own check', () => {
+  const [first] = at(10)
+  const stuck = { ...first, everyTabOnLoginPage: false, tabsOnLoginPage: 9, tabs: first.tabs.map((t, i) => (i === 0 ? { ...t, onLoginPage: false } : t)) }
+  assert.ok(blockingChecks([stuck], [10]).some((c) => !c.ok && /login page/.test(c.label)))
 })

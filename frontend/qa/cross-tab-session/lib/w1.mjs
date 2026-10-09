@@ -431,10 +431,10 @@ export default {
 
       // ---- (c) one tab signs out while the others are loading ------------
       //
-      // Every attempt is measured in full and recorded before anything is
-      // decided, and no attempt is dropped, replaced or summarised away. Only an
-      // attempt that behaved and simply did not overlap a delayed request may be
-      // set up again, and at most MAX_SIGN_OUT_ATTEMPTS of them in all.
+      // One attempt (MAX_SIGN_OUT_ATTEMPTS is 1 since the amendment of
+      // 2026-10-09). Whether a delayed request overlapped the sign-out is
+      // recorded as a diagnostic and decides nothing: that condition is tested
+      // by the induced-delay scenario (case 17), not by this natural round.
       for (let attempt = 1; attempt <= MAX_SIGN_OUT_ATTEMPTS; attempt += 1) {
         // The attempt before it signed the profile out, so a retry signs in
         // again: the tabs below need a stored session to open with.

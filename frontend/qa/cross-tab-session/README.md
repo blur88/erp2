@@ -644,6 +644,56 @@ What the rule does and does not do:
   leads were 300, 541 and 737 ms and the third attempt showed the crossing; on
   `721b7107f`, without the rule, none of five did.
 
+## Case 17: sign-out under induced delay
+
+**This is an induced-delay scenario.** It is not W1 and it is not a restored
+window. Filler traffic from another browser context keeps the ingress limiter
+delaying while several tabs of one signed-in profile load and one of them signs
+out.
+
+Why it exists apart from W1: W1's sign-out round was first required to show a
+delayed request outstanding at the sign-out. In the recorded runs that condition
+mostly never arose at ten and twenty tabs, because the tabs' own requests reach
+the ingress more slowly than the zone rate and the limiter delays almost
+nothing, whenever the sign-out happens. W1 was failing on a condition its
+workload does not produce. Since the amendment of 2026-10-09:
+
+- **W1's natural sign-out rounds** keep their session and end-state gates (no
+  429 on a session route, the logout answered 2xx, every tab on the login page
+  without a reload) and run once per size. Whether a delayed request overlapped
+  the sign-out is a **diagnostic** there, reported per size as an overlap,
+  overlap absent, or evidence missing.
+- **Case 17** is where the condition is a gate.
+
+It passes, at each of 5, 10 and 20 application tabs, only with all of:
+
+1. evidence from the ingress log of a request **of the application** (an
+   `app-*` identifier, not on a session route) that the limiter was delaying
+   (`DELAYED`) and that was outstanding when the logout reached the ingress
+   (`startMs < logout's startMs < endMs`, all on the ingress clock). A filler's
+   delay is not that evidence, and an estimate of the limiter's state is not a
+   substitute for the observation;
+2. the logout sent and answered 2xx, and no request to `refresh`, `logout` or
+   `me` answered 429;
+3. every application tab on the login page, in the document it first loaded.
+
+Also read from every attempt's ingress log, and inconclusive when not so: that
+fillers reached the ingress at all, and that they and the application came from
+one address, which is what puts them in one limiter bucket.
+
+The fillers are unauthenticated `GET` requests to a route under `api_limit`, six
+kept in flight from three seconds before the tabs open until after the
+sign-out. The backend answers them 401 at once; what matters is that the
+ingress counts them.
+
+An attempt that behaved and simply found no application request outstanding at
+the logout may be set up again, at most three attempts per size. A behavioural
+failure fails at once and is never set up again. Every attempt is recorded.
+
+**What it does not show:** that a restored window makes the limiter delay by
+itself (on the evidence so far, at ten and twenty tabs it usually does not);
+anything about the completion deadlines; more than one page and one role.
+
 ## The latency measurement
 
 | | What | Status |
