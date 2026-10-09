@@ -24,7 +24,7 @@ describe('reconciliation drafts and sign-out', () => {
   })
 
   it('clears drafts when the session goes from signed-in to signed-out', () => {
-    const { rerender } = renderHook(({ auth }) => useClearReconciliationDraftsOnSignOut(auth), {
+    const { rerender } = renderHook(({ auth }) => useClearReconciliationDraftsOnSignOut(auth, false), {
       initialProps: { auth: true },
     })
     expect(sessionStorage.getItem(KEY_A)).not.toBeNull()
@@ -36,14 +36,14 @@ describe('reconciliation drafts and sign-out', () => {
   })
 
   it('clears drafts on load when the tab is not signed in (browser-restored tab after sign-out)', () => {
-    renderHook(() => useClearReconciliationDraftsOnSignOut(false))
+    renderHook(() => useClearReconciliationDraftsOnSignOut(false, false))
     expect(sessionStorage.getItem(KEY_A)).toBeNull()
     expect(sessionStorage.getItem(KEY_B)).toBeNull()
     expect(sessionStorage.getItem('unrelated')).toBe('keep')
   })
 
   it('keeps drafts on load and on re-render while the tab stays signed in (reload of a signed-in tab)', () => {
-    const { rerender } = renderHook(({ auth }) => useClearReconciliationDraftsOnSignOut(auth), {
+    const { rerender } = renderHook(({ auth }) => useClearReconciliationDraftsOnSignOut(auth, false), {
       initialProps: { auth: true },
     })
     rerender({ auth: true })

@@ -303,6 +303,11 @@ describe('the mandatory password-change page', () => {
     expect(await screen.findByText(/password changed successfully/i)).toBeInTheDocument()
     expect(app.store.getState().auth.isAuthenticated).toBe(false)
     expect(app.shared.state.record.session).toBeNull()
+    // The form is finished with: a second submission during the confirmation
+    // would be refused (the session is over) and would leave at once.
+    expect(screen.getByRole('button', { name: /change password/i })).toBeDisabled()
+    expect(screen.getByLabelText(/current password/i)).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
     await act(async () => {
       await new Promise((r) => setTimeout(r, 300))
     })
@@ -319,6 +324,45 @@ describe('the mandatory password-change page', () => {
     expect(screen.getAllByRole('button', { name: /sign in/i })).toHaveLength(1)
     expect(app.requests.slice(sent).map((r) => r.url)).toEqual(['/auth/change-password'])
   })
+
+  it('a page left while its change is in flight starts no timer and navigates nowhere afterwards', async () => {
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    window.history.replaceState(null, '', PAGE)
+    const { app, router, visited } = await openTab(PAGE, {
+      ...signedIn(),
+      holdRequest: (config) => (config.url === '/auth/change-password' ? held : undefined),
+    })
+    await pageHeading()
+
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: 'OldPass@123' } })
+    fireEvent.change(screen.getByLabelText(/^new password/i), { target: { value: 'NewPass@123' } })
+    fireEvent.change(screen.getByLabelText(/confirm/i), { target: { value: 'NewPass@123' } })
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
+    await waitFor(() => expect(app.requests.some((r) => r.url === '/auth/change-password')).toBe(true))
+
+    // The user leaves (browser Back) before the server answers.
+    await act(async () => {
+      await router.navigate(PROTECTED_PATH)
+    })
+    expect(screen.queryByRole('heading', { name: /password change required/i })).not.toBeInTheDocument()
+
+    await act(async () => {
+      release()
+    })
+    // The change ended the session; the shell's own guard takes the tab to /login.
+    await waitFor(() => expect(pathname()).toBe('/login'), { timeout: 4000 })
+    const settled = [...visited]
+    expect(settled.filter((x) => x === '/login')).toHaveLength(1)
+
+    // Past the page's two-second confirmation: nothing navigates again.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 2300))
+    })
+    expect(visited).toEqual(settled)
+  }, 15_000)
 
   it('a change refused because the session ended elsewhere goes to /login', async () => {
     const { app, visited } = await openPage()
