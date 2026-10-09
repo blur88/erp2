@@ -38,6 +38,8 @@ const read = (name) => {
 
 const cases = read('results-cases.json')
 const latency = read('results-latency.json')
+// Written by measure.mjs when the measurement could not be made at all.
+const latencyPrecondition = read('latency-precondition-failed.json')
 const status = Number(process.env.QA_RUN_STATUS ?? 1)
 
 // The competing workload belongs with the diagnostic figures it explains. A
@@ -117,6 +119,7 @@ const results = {
   // Case 16's segments, judged from the files themselves.
   captureSegments: judgeCaptureSegments(cases.cases ?? []),
   latency,
+  latencyPreconditionFailed: latencyPrecondition.missing ? null : latencyPrecondition,
 }
 
 // A segment that invalidates an attempt the case called `pass` fails the run,
@@ -181,7 +184,7 @@ if (results.w1) {
 } else {
   console.log('  W1: not run')
 }
-if (latency.missing) console.log(`  latency: ${latency.missing}`)
+if (latency.missing) console.log(`  latency: ${latency.missing}${latencyPrecondition.missing ? '' : ` - a precondition failed, which is not a latency result: ${latencyPrecondition.what}`}`)
 else {
   const failures = [...(latency.blockingFailures ?? []), ...(latency.diagnosticsNotRecorded ?? [])]
   console.log(`  latency ${latency.pass ? 'pass (M1 and M2 only; M3 and M4 are diagnostic and were not judged)' : 'FAIL'}${failures.length ? `: ${failures.join('; ')}` : ''}`)

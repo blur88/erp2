@@ -194,3 +194,31 @@ test('the competing workload flags restarting containers and never reads a missi
   assert.equal('containers' in missing, false)
   assert.match(missing.note, /unknown/)
 })
+
+// --- why a page load did not settle (a precondition failure, not a measurement) -----
+
+import { describeUnsettled } from './lib/latency-criteria.mjs'
+
+test('a load that did not settle because the tab sent nothing says so', () => {
+  const d = describeUnsettled([], 50_000)
+  assert.equal(d.reason, 'the tab sent no API request')
+  assert.deepEqual(d.pending, [])
+})
+
+test('a load that did not settle because requests were never answered names them, with their age', () => {
+  const entries = [
+    { method: 'GET', path: '/api/a', status: 200, issuedAt: 1_000, respondedAt: 1_100 },
+    { method: 'GET', path: '/api/b', status: null, issuedAt: 2_000 },
+    { method: 'POST', path: '/api/c', status: null, failed: 'net::ERR_ABORTED', issuedAt: 2_500 },
+  ]
+  const d = describeUnsettled(entries, 50_000)
+  assert.equal(d.reason, '1 request(s) had no answer')
+  assert.deepEqual(d.pending, [{ method: 'GET', path: '/api/b', ageMs: 48_000 }])
+  assert.equal(d.requests, 3)
+})
+
+test('a load that did not settle because requests kept coming says how recently', () => {
+  const entries = [{ method: 'GET', path: '/api/a', status: 200, issuedAt: 49_000, respondedAt: 49_400 }]
+  const d = describeUnsettled(entries, 50_000)
+  assert.equal(d.reason, 'requests kept arriving: the last answer was 600 ms before the time ran out')
+})

@@ -340,3 +340,66 @@ test('for each mutation of the baseline the exact set of checks fails', () => {
     assert.deepEqual(failed(rounds), [expected])
   }
 })
+
+// --- what a sign-out gate that did not pass actually was ---------------------------
+//
+// The three cannot be told apart from "the check failed": no delayed request
+// happened to be outstanding at the sign-out; the evidence to look for one was
+// missing; or the sign-out itself misbehaved. Run on the attempts the recorded
+// run on db0cc890e wrote.
+
+import { readFileSync as readFixture } from 'node:fs'
+import { signOutGate } from './lib/w1-judgement.mjs'
+
+const recordedSignOuts = JSON.parse(readFixture(new URL('./fixtures/w1-signout-attempts-db0cc890e.json', import.meta.url), 'utf8')).attempts
+const at = (n) => recordedSignOuts.filter((a) => a.n === n)
+
+test('five tabs in the recorded run: the overlap was found', () => {
+  const gate = signOutGate(at(5))
+  assert.equal(gate.state, 'overlap')
+  assert.equal(gate.attempts, 1)
+})
+
+test('ten tabs in the recorded run: every attempt behaved, the evidence was there, and no delayed request was outstanding', () => {
+  const gate = signOutGate(at(10))
+  assert.equal(gate.state, 'overlap-absent')
+  assert.equal(gate.attempts, 3)
+  assert.deepEqual(gate.perAttempt.map((a) => a.state), ['overlap-absent', 'overlap-absent', 'overlap-absent'])
+})
+
+test('an attempt without its ingress evidence is evidence-missing, not overlap-absent', () => {
+  const attempts = at(10).map((a) => ({ ...a, ingress: { unavailable: 'no ingress log' }, signOutOverlap: { verdict: 'no-logout', delayedOutstanding: 0, logoutStartMs: null } }))
+  assert.equal(signOutGate(attempts).state, 'evidence-missing')
+})
+
+test('an attempt whose markers were not in the log is evidence-missing too', () => {
+  const attempts = at(10).map((a) => ({ ...a, ingress: { unavailable: "the attempt's markers were not in the ingress log" } }))
+  assert.equal(signOutGate(attempts).state, 'evidence-missing')
+})
+
+test('a sign-out that misbehaved is behaviour-failed, whatever else the attempts were', () => {
+  const [first, ...rest] = at(10)
+  const stuck = { ...first, everyTabOnLoginPage: false, tabsOnLoginPage: 9, outcome: 'behaviour-failed' }
+  const gate = signOutGate([stuck, ...rest])
+  assert.equal(gate.state, 'behaviour-failed')
+  assert.equal(gate.perAttempt[0].state, 'behaviour-failed')
+})
+
+test('a mixture without an overlap is reported by its worst part: missing evidence outranks an absent overlap', () => {
+  const [first, ...rest] = at(10)
+  const gate = signOutGate([{ ...first, ingress: { unavailable: 'no ingress log' } }, ...rest])
+  assert.equal(gate.state, 'evidence-missing')
+})
+
+test('no attempt at all is evidence-missing', () => {
+  assert.equal(signOutGate([]).state, 'evidence-missing')
+})
+
+test('the gate is not weakened: only an overlap passes it', () => {
+  for (const [attempts, ok] of [[at(5), true], [at(10), false]]) {
+    const rounds = attempts
+    const check = blockingChecks(rounds, [attempts[0].n]).find((c) => /overlapped at least one delayed request/.test(c.label))
+    assert.equal(check.ok, ok)
+    assert.equal(check.detail.gate.state, ok ? 'overlap' : 'overlap-absent')
+  }
+})

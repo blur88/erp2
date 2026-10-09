@@ -299,3 +299,30 @@ test('checks over everything the attempt sent: each makes the attempt inconclusi
   assert.equal(withPipeline({ probesOnSchedule: { ok: false, why: 'bunched' } }).verdict, 'inconclusive')
   assert.equal(withPipeline({ unexplained: [], missingFromCapture: 0, sameBucket: { ok: true }, probesOnSchedule: { ok: true } }).verdict, 'pass')
 })
+
+// --- setting the next attempt up from what the last one observed -------------------
+//
+// In the validation run on 721b7107f all five attempts had everything except
+// P: the tab's request reached the ingress 88 to 682 ms after the last probe
+// the backend still accepted. That is the tab being sent too late, which is a
+// matter of setup, and a bounded number of attempts may correct it.
+
+import { nextNavigateLead } from './lib/expiry-crossing.mjs'
+
+test('a tab whose request arrived after the last accepted probe is sent that much earlier, plus a margin', () => {
+  // L reached the ingress 214 ms after P did (attempt 1 of that run).
+  assert.equal(nextNavigateLead({ currentMs: 300, lIngressStartMs: 12086, pIngressStartMs: 11872, maxMs: 2700 }), 300 + 214 + 150)
+})
+
+test('the correction is capped: the tab is never sent before the fillers have started', () => {
+  assert.equal(nextNavigateLead({ currentMs: 2400, lIngressStartMs: 12686, pIngressStartMs: 11872, maxMs: 2700 }), 2700)
+})
+
+test('without both observations the lead is left as it was', () => {
+  assert.equal(nextNavigateLead({ currentMs: 300, lIngressStartMs: null, pIngressStartMs: 11872, maxMs: 2700 }), 300)
+  assert.equal(nextNavigateLead({ currentMs: 300, lIngressStartMs: 12086, pIngressStartMs: undefined, maxMs: 2700 }), 300)
+})
+
+test('a tab that was already early enough is not moved', () => {
+  assert.equal(nextNavigateLead({ currentMs: 900, lIngressStartMs: 11000, pIngressStartMs: 11872, maxMs: 2700 }), 900)
+})

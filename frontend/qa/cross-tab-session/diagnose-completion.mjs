@@ -5,17 +5,20 @@
 // refused or delayed and no 401, so neither throttling nor authentication
 // recovery explains it. It judges nothing and changes nothing.
 //
-// Two ways of observing the same load, alternated:
-//   polled    W1's own watcher (lib/completion.mjs): every tab's document is
-//             read from outside every 250 ms while it loads
-//   in-page   nothing touches the tabs while they load. A script installed
-//             before the page's own records, inside each tab: navigation and
-//             document milestones, the first and last API request, when the
-//             "Dashboard" heading first appeared, the last change to the
-//             document, and the long tasks on the main thread. The tabs are
-//             read once, after they have gone quiet.
-// The in-page record is taken in both variants, so the polled loads have both
-// figures and the two variants can be compared on the same in-page figures.
+// Three ways of observing the same load, in rotation:
+//   bare      nothing is added to the tabs and nothing touches them while they
+//             load. They are read once, after they have gone quiet, from what
+//             the browser records anyway: navigation and resource timing, the
+//             paint entries, and the largest contentful paint.
+//   in-page   as bare, plus a script installed in each tab before the page's
+//             own: a MutationObserver that notes when the "Dashboard" heading
+//             first appeared and the last change to the document, and a
+//             long-task observer.
+//   polled    as in-page, plus W1's own watcher (lib/completion.mjs): every
+//             tab's document is read from outside every 250 ms while it loads.
+// What the browser records anyway is read in all three, so the cost of each
+// layer of observation can be read off the same figures: the last API answer
+// and the largest contentful paint.
 //
 // Run directly against a running stack (no QA configuration needed: the token
 // is current either way). Writes <scratch>/completion-diagnosis.json.
@@ -28,8 +31,8 @@ import { watchCompletion } from './lib/completion.mjs'
 import { KEEP_SHELL_ANSWERS, shellReference } from './lib/usable.mjs'
 
 const TABS = Number(process.env.QA_COMPLETION_TABS || 5)
-const REPETITIONS = Number(process.env.QA_COMPLETION_REPS || 5)
-const QUIET_MS = 20000
+const REPETITIONS = Number(process.env.QA_COMPLETION_REPS || 6)
+const QUIET_MS = 60000
 
 // Installed in every tab before any of the page's own code runs.
 const recorder = () => {
@@ -57,10 +60,34 @@ const recorder = () => {
   }
 }
 
-// Read once from a quiet tab: everything relative to the tab's own navigation start.
-const readTab = () => {
+// Read once from a quiet tab: everything relative to the tab's own navigation
+// start. The paint figures come from the browser's own buffered entries, so
+// they are there whether or not anything was installed in the tab.
+const readTab = async () => {
+  const buffered = (type) =>
+    new Promise((resolve) => {
+      try {
+        const seen = []
+        const observer = new PerformanceObserver((list) => seen.push(...list.getEntries()))
+        observer.observe({ type, buffered: true })
+        setTimeout(() => {
+          seen.push(...observer.takeRecords())
+          observer.disconnect()
+          resolve(seen)
+        }, 0)
+      } catch {
+        resolve(null)
+      }
+    })
+  const lcpEntries = await buffered('largest-contentful-paint')
+  const longEntries = await buffered('longtask')
+  const paint = performance.getEntriesByType('paint')
   const nav = performance.getEntriesByType('navigation')[0]
-  const api = performance.getEntriesByType('resource').filter((e) => new URL(e.name).pathname.startsWith('/api/'))
+  // The load's own data requests. The status indicator's poll of /api/health
+  // repeats every 30 s for as long as the tab is open and is not part of it.
+  const api = performance
+    .getEntriesByType('resource')
+    .filter((e) => new URL(e.name).pathname.startsWith('/api/') && !new URL(e.name).pathname.startsWith('/api/health'))
   const scripts = performance.getEntriesByType('resource').filter((e) => e.initiatorType === 'script' || e.name.endsWith('.js'))
   const r = window.__qaCompletion || {}
   const max = (xs) => (xs.length ? Math.max(...xs) : null)
@@ -77,8 +104,11 @@ const readTab = () => {
     apiDurationMs: { max: max(api.map((e) => e.duration)), total: api.reduce((s, e) => s + e.duration, 0) },
     headingAtMs: r.headingAtMs ?? null,
     lastMutationAtMs: r.lastMutationAtMs ?? null,
-    longTasks: r.longTasks ?? null,
-    longTaskMs: r.longTaskMs ?? null,
+    firstContentfulPaintMs: paint.find((e) => e.name === 'first-contentful-paint')?.startTime ?? null,
+    largestContentfulPaintMs: lcpEntries && lcpEntries.length ? Math.max(...lcpEntries.map((e) => e.startTime)) : null,
+    // From the browser's buffer, which holds a limited number of entries.
+    longTasks: longEntries ? longEntries.length : null,
+    longTaskMs: longEntries ? longEntries.reduce((s, e) => s + e.duration, 0) : null,
     hasCouldNotLoad: document.body ? /Could not load/.test(document.body.innerText || '') : null,
   }
 }
@@ -113,20 +143,24 @@ async function main() {
   }
   try {
     const profile = await ctx.profile({ keepAnswers: KEEP_SHELL_ANSWERS })
-    await profile.context.addInitScript(recorder)
     const signIn = await profile.tab('/login', { label: 'sign-in', navigate: false })
     await ctx.signIn(signIn, config.userC)
     const reference = await shellReference(profile)
     await signIn.goto(`${config.base}/manifest.json`, { waitUntil: 'load' })
 
     const variants = []
-    for (let i = 0; i < REPETITIONS; i += 1) variants.push('in-page', 'polled')
+    for (let i = 0; i < REPETITIONS; i += 1) variants.push('bare', 'in-page', 'polled')
     for (const [index, variant] of variants.entries()) {
       // An empty api_limit bucket, and nothing left running from the load before.
       await sleep(zones.drainWaitSeconds(zones.api.ratePerSecond, zones.api.burst) * 1000)
       const mark = profile.mark()
       const pages = []
-      for (let i = 0; i < TABS; i += 1) pages.push(await profile.tab('/dashboard', { label: `l${index + 1}-${i + 1}`, navigate: false }))
+      for (let i = 0; i < TABS; i += 1) {
+        const page = await profile.tab('/dashboard', { label: `l${index + 1}-${i + 1}`, navigate: false })
+        // Per tab, so that a bare load has nothing installed in it at all.
+        if (variant !== 'bare') await page.addInitScript(recorder)
+        pages.push(page)
+      }
       const loadBefore = loadavg()
       const started = Date.now()
       // As W1 does it: the navigations are committed, then the watcher starts.
@@ -158,6 +192,8 @@ async function main() {
           lastApiEndMs: abs(t.lastApiEndMs),
           headingAtMs: abs(t.headingAtMs),
           lastMutationAtMs: abs(t.lastMutationAtMs),
+          firstContentfulPaintMs: abs(t.firstContentfulPaintMs),
+          largestContentfulPaintMs: abs(t.largestContentfulPaintMs),
           apiRequests: t.apiRequests,
           apiDurationMaxMs: t.apiDurationMs.max === null ? null : Math.round(t.apiDurationMs.max),
           longTasks: t.longTasks,
@@ -182,6 +218,8 @@ async function main() {
           lastApiEnd: last('lastApiEndMs'),
           heading: last('headingAtMs'),
           lastMutation: last('lastMutationAtMs'),
+          firstContentfulPaint: last('firstContentfulPaintMs'),
+          largestContentfulPaint: last('largestContentfulPaintMs'),
         },
         // Data arrived and rendered, seen from inside the tabs: the heading is
         // there and the last API answer has been received, in every tab.
@@ -195,7 +233,7 @@ async function main() {
         tabs,
       })
       const l = out.loads.at(-1)
-      console.log(`load ${l.load} ${variant}: in-page complete ${l.inPageCompleteMs} ms, polled ${l.polledCompleteMs}, first API ${l.last.firstApiStart}, last API ${l.last.lastApiEnd}, heading ${l.last.heading}, long tasks ${l.longTaskMsTotal} ms, loadavg ${loadBefore}`)
+      console.log(`load ${l.load} ${variant}: first API ${l.last.firstApiStart}, last API ${l.last.lastApiEnd}, LCP ${l.last.largestContentfulPaint}, heading ${l.last.heading}, polled ${l.polledCompleteMs}, long tasks ${l.longTaskMsTotal} ms, loadavg ${loadBefore}`)
       for (const page of pages) await page.close()
     }
   } catch (err) {

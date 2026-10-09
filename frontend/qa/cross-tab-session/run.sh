@@ -150,7 +150,7 @@ rm -f "${SCRATCH}"/results-cases.json "${SCRATCH}"/results-latency.json "${SCRAT
   "${SCRATCH}"/docker-ps-before-latency.txt \
   "${SCRATCH}"/ingress-access.log "${SCRATCH}"/ingress-error.log \
   "${SCRATCH}"/ingress-access.latency.log "${SCRATCH}"/ingress-error.latency.log \
-  "${SCRATCH}"/measure-failure.json
+  "${SCRATCH}"/measure-failure.json "${SCRATCH}"/latency-precondition-failed.json
 "${QA_DIR}/stack.sh" show > "${SCRATCH}/stack-before.json.tmp" || refuse "could not read the running configuration"
 mv "${SCRATCH}/stack-before.json.tmp" "${SCRATCH}/stack-before.json"
 cp "${SCRATCH}/stack-before.json" "${SCRATCH}/stack-before.recorded.json"

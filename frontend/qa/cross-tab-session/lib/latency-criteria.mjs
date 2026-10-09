@@ -217,3 +217,22 @@ export function competingWorkload(text) {
         : 'No container was restarting on the host when the list was taken.',
   }
 }
+
+// --- why a page load did not settle ---------------------------------------------
+//
+// The measurement waits for a load to play out before it reads it. A load that
+// never does is a precondition that failed, not a latency figure: the workload
+// the measurement is for was not the one that ran. What exactly held it up is
+// said here, so that the failure can be told from a slow answer.
+
+/** Why the entries of one tab's load are not "settled" at `nowMs`. */
+export function describeUnsettled(entries, nowMs) {
+  const pending = entries
+    .filter((e) => e.status === null && !e.failed)
+    .map((e) => ({ method: e.method, path: e.path, ageMs: nowMs - e.issuedAt }))
+  const base = { requests: entries.length, pending }
+  if (entries.length === 0) return { ...base, reason: 'the tab sent no API request' }
+  if (pending.length > 0) return { ...base, reason: `${pending.length} request(s) had no answer` }
+  const lastAt = entries.reduce((m, e) => Math.max(m, e.respondedAt ?? e.issuedAt), 0)
+  return { ...base, reason: `requests kept arriving: the last answer was ${nowMs - lastAt} ms before the time ran out` }
+}

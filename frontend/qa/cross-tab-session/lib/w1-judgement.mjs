@@ -230,18 +230,53 @@ export function blockingChecks(rounds, sizes) {
     // still holding. A round where no attempt did is inconclusive, not passed:
     // the run has then not shown what a sign-out does to a request the ingress
     // is holding, which is what the round exists to show.
+    // The gate is unchanged: only an overlap passes it. What it was when it did
+    // not pass is said in the detail, because the three are different findings.
+    const gate = signOutGate(attempts)
     out.push({
       label: `N = ${n} (c): the sign-out overlapped at least one delayed request`,
-      ok: attempts.length > 0 && attempts.some((c) => c.signOutOverlap?.verdict === 'overlap'),
-      detail: attempts.map((c) => ({
-        attempt: c.attempt ?? 1,
-        outcome: c.outcome ?? null,
-        ...(c.signOutOverlap ?? { verdict: 'not measured' }),
-        ingress: c.ingress ?? null,
-      })),
+      ok: gate.state === 'overlap',
+      detail: {
+        gate,
+        attempts: attempts.map((c) => ({
+          attempt: c.attempt ?? 1,
+          outcome: c.outcome ?? null,
+          ...(c.signOutOverlap ?? { verdict: 'not measured' }),
+          ingress: c.ingress ?? null,
+        })),
+      },
     })
   }
   return out
+}
+
+/**
+ * What a size's sign-out attempts amounted to, for the overlap gate:
+ *
+ *   overlap           an attempt overlapped a request the limiter was holding
+ *   behaviour-failed  the sign-out itself misbehaved in some attempt
+ *   evidence-missing  an attempt could not be examined (no ingress log, or its
+ *                     markers were not in it), or there was no attempt
+ *   overlap-absent    every attempt behaved and could be examined, and no
+ *                     delayed request was outstanding at the sign-out
+ *
+ * Only the first passes the gate, as before. The others are reported apart because they
+ * are different findings: the last says nothing went wrong and nothing was
+ * shown, the two before it say something did.
+ */
+export function signOutGate(attempts) {
+  const one = (c) => {
+    if (c.outcome === 'behaviour-failed') return 'behaviour-failed'
+    if (!c.ingress || c.ingress.unavailable) return 'evidence-missing'
+    return c.signOutOverlap?.verdict === 'overlap' ? 'overlap' : 'overlap-absent'
+  }
+  const perAttempt = attempts.map((c) => ({ attempt: c.attempt ?? 1, state: one(c), delayedInAttempt: c.ingress?.delayed ?? null }))
+  const has = (state) => perAttempt.some((a) => a.state === state)
+  // An overlap is an overlap whatever another attempt did: a misbehaving
+  // attempt fails its own checks, and this gate is about the overlap alone,
+  // exactly as before. Without one, the worst of what the attempts were.
+  const state = has('overlap') ? 'overlap' : has('behaviour-failed') ? 'behaviour-failed' : perAttempt.length === 0 || has('evidence-missing') ? 'evidence-missing' : 'overlap-absent'
+  return { state, attempts: perAttempt.length, perAttempt }
 }
 
 /** Everything observed that does not block, one sentence each. `role` names the user in the sentences. */

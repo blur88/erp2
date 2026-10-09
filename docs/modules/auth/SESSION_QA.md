@@ -790,11 +790,40 @@ without spending a full run on each fault.
   the application's requests only, so every filler and probe is counted as a
   problem (378 here).
 
-Case 16 has therefore **not yet produced a verdict that means anything**, in
-either direction. It needs its attempt and evidence logic rebuilt (the proof
-itself is unchanged), with the fillers sent from a second browser context so
-that they share the address and the limiter's bucket but not the tab's
-connections. That is not done.
+Case 16 had therefore **not yet produced a verdict that meant anything**, in
+either direction. The `fail` above is an invalid harness verdict; the attempt's
+ingress lines and reduced capture are kept as a test fixture
+(`fixtures/case16-attempt-7a632336b.json`), on which the rebuilt evidence code
+finds that attempt inconclusive with a recovery of 1.56 s.
+
+**Rebuilt, then run alone on `721b7107f` (partial, not evidence).** The proof and
+the criteria are unchanged. The fillers and the probes each run in a browser
+context of their own; the attempt's completion is handed to the judgement and
+recovery is timed from the tab's first 401; L, X and P are selected from what was
+observed; only a 401's message is kept; `/uploads/` requests are tagged. Result:
+five attempts, **all inconclusive, none failed**, each for the same single
+reason.
+
+| | All five attempts |
+|---|---|
+| Capture | usable: 0 dropped (reported), 0 unreadable records, nothing unexplained, nothing missing |
+| One address for the tab, the probes and the fillers | yes (`172.18.0.1`), so one limiter bucket |
+| Probes on schedule | yes: spans of 2.39 to 2.41 s, widest gap 188 to 237 ms |
+| Requests of the tab delayed by the limiter and answered 401 | 9 in every attempt |
+| The tab recovered by itself | yes: 2.15 to 2.28 s from its first 401, against a deadline of 3.95 s; no recovery action |
+| L's and X's message | `Invalid or expired token`, both, every attempt |
+| **Expired at upstream arrival** | **shown in every attempt**: a probe with the same token had been answered "expired", its answer gone 23 to 130 ms before L's first byte reached the backend |
+| **Valid when sent** | **not shown in any attempt**: L reached the ingress 88 to 682 ms *after* the last probe the backend still accepted |
+
+So the harness now works end to end, and what it has shown five times is a
+request delayed by the limiter that reached the backend after its token had
+expired, followed by the tab recovering inside the deadline. What it has not
+shown is that the token was still valid when that request left the browser: the
+tab was sent too late, so the request may already have carried an expired token
+to the ingress. That is a matter of setup, and the case now sends the tab
+earlier in the next attempt by what the last one observed
+(`nextNavigateLead`, bounded by the same five attempts). It changes nothing
+about what counts as evidence. **Case 16 has not passed.**
 
 ### Explicitly unverified
 

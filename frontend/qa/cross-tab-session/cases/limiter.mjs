@@ -48,7 +48,7 @@ import { buildExpiryEvidence } from '../lib/expiry-evidence.mjs'
 import { windowBetween } from '../lib/ingress-log.mjs'
 import { watchCompletion } from '../lib/completion.mjs'
 import { KEEP_SHELL_ANSWERS, REGIONAL_SETTINGS, referenceOf, shellReference } from '../lib/usable.mjs'
-import { CALIBRATION, EXPIRED_MESSAGE, MAX_SETUP_ATTEMPTS, lifetimeEnough, monotonic, recoveryDeadline, judgeExpiryCrossing, maxConfiguredDelayMs } from '../lib/expiry-crossing.mjs'
+import { CALIBRATION, EXPIRED_MESSAGE, MAX_SETUP_ATTEMPTS, lifetimeEnough, nextNavigateLead, recoveryDeadline, judgeExpiryCrossing, maxConfiguredDelayMs } from '../lib/expiry-crossing.mjs'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -305,6 +305,9 @@ export default [
       const probePage = await probeProfile.tab('/manifest.json', { label: 'probes' })
 
       const attempts = []
+      // How long before the expiry the tab is navigated. Corrected between
+      // attempts from what the last one observed (nextNavigateLead).
+      let navigateLead = NAVIGATE_LEAD_MS
       const settle = (verdict) => {
         ctx.check(
           'an access token valid when sent had expired when its delayed request reached the backend, and the tab recovered by itself within the recorded deadline',
@@ -351,7 +354,7 @@ export default [
           const fillerRun = fill(fillPage, session.accessToken, fillerIds)
 
           // Then the tab itself.
-          await waitUntil(T - lead - NAVIGATE_LEAD_MS)
+          await waitUntil(T - lead - navigateLead)
           const tab = await profile.tab('/dashboard', { label: `L-${attemptNo}`, navigate: false })
           const mark = profile.mark()
           const gotoAt = now()
@@ -385,8 +388,17 @@ export default [
           verdict: verdict.verdict,
           reason: verdict.reason,
           behaviour: verdict.behaviour,
+          navigateLeadMs: navigateLead,
           evidence: evidence ? summaryOf(evidence, captured, segment) : null,
         })
+        if (evidence) {
+          navigateLead = nextNavigateLead({
+            currentMs: navigateLead,
+            lIngressStartMs: evidence.L?.ingress?.startMs ?? null,
+            pIngressStartMs: evidence.P?.ingress?.startMs ?? null,
+            maxMs: FILLER_LEAD_MS - 800,
+          })
+        }
         // Every attempt so far, not just this one: finalize.mjs reads the
         // segment of each from here.
         ctx.record('attempts', attempts)

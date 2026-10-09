@@ -50,6 +50,21 @@ export function maxConfiguredDelayMs(api) {
   return (1000 * (api.burst - api.delay)) / api.ratePerSecond
 }
 
+/**
+ * How long before the expiry the tab is navigated in the next attempt, from
+ * what the last one observed. When the tab's request reached the ingress after
+ * the last probe the backend still accepted, the tab was sent too late to show
+ * the token was valid when the request left; the next attempt sends it earlier
+ * by that much and a margin. A setup correction, bounded by the attempts and by
+ * `maxMs`. It changes nothing about what counts as evidence.
+ */
+export function nextNavigateLead({ currentMs, lIngressStartMs, pIngressStartMs, maxMs }) {
+  if (typeof lIngressStartMs !== 'number' || typeof pIngressStartMs !== 'number') return currentMs
+  const late = lIngressStartMs - pIngressStartMs
+  if (late <= 0) return currentMs
+  return Math.min(maxMs, currentMs + late + 150)
+}
+
 /** How much of a token's lifetime an attempt needs ahead of it when it starts. */
 export const lifetimeNeededMs = ({ leadMs, fillerLeadMs, marginMs }) => leadMs + fillerLeadMs + marginMs
 
