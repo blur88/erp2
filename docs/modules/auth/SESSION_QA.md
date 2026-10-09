@@ -698,6 +698,55 @@ time. Nothing was stopped. Whether the completion times, or their threefold
 spread, are caused by that contention is **not** established by this
 measurement: there is no load taken on the same host while it was idle.
 
+### Five tabs, three ways of observing them (2026-10-09, second measurement)
+
+The first measurement above could not separate the application from the
+observation: its unobserved variant still had a recorder installed in every tab.
+This one adds a **bare** variant, with nothing installed in the tabs and nothing
+touching them while they load; the tabs are read once afterwards, from what the
+browser records anyway. `diagnose-completion.mjs`, the running stack on
+`721b7107f`, access lifetime 15m, 18 loads of five current-token tabs in
+rotation. All times after the common trigger, for the last of the five tabs;
+ranges with medians.
+
+| | Bare (6 loads) | Recorder in the tab (6) | Recorder and W1's polling (6) |
+|---|---|---|---|
+| `DOMContentLoaded` | 1.33 to 1.73 s, 1.48 | 1.27 to 1.95 s, 1.47 | 1.24 to 2.14 s, 1.67 |
+| First data request sent | 2.23 to 3.65 s, **2.95** | 2.61 to 4.30 s, 2.94 | 2.20 to 4.88 s, 2.98 |
+| Last data answer received | 4.29 to 5.47 s, **4.59** | 4.42 to 5.84 s, 4.65 | 4.15 to 6.35 s, 4.58 |
+| Largest contentful paint | 5.29 to 6.70 s, **5.52** | 5.44 to 6.55 s, 5.72 | 5.14 to 7.32 s, 5.52 |
+| "Dashboard" heading present | not recorded | 5.31 to 6.44 s, 5.64 | 5.06 to 7.20 s, 5.38 |
+| W1's watcher says complete | — | — | 5.11 to 7.27 s, **5.61** |
+| Long tasks, summed over the five tabs | 12.0 to 19.0 s | 13.1 to 16.4 s | 11.9 to 21.7 s |
+| Data requests; 429; 401 | 45; 0; 0 | 45; 0; 0 | 45; 0; 0 |
+
+- **Observation is not what the time is made of.** The three variants' medians
+  for the last answer (4.59, 4.65, 4.58 s) and for the largest contentful paint
+  (5.52, 5.72, 5.52 s) lie inside each variant's own spread. W1's watcher
+  reports 0.05 to 0.36 s after the heading the tab itself recorded.
+- **With nothing observing them, the five tabs did not paint their content
+  within 5 s in any of the six bare loads** (5.29 to 6.70 s). The last data
+  answer was in by 5 s in four of the six.
+- **Where the time goes, bare, by medians:** about 2.9 s before the first data
+  request is sent, about 1.6 s from the first request to the last answer, and
+  about 0.9 s from the last answer to the paint (0.9 to 1.6 s).
+- No request was refused or answered 401 in any of the 18 loads, and the
+  limiter has nothing to act on for the first 2.9 s.
+
+**Host contention, recorded and not attributed.** One-minute load average 1.26
+to 5.46 on four cores during these loads (sampled every 15 s), two unrelated
+containers restart-looping, other long-running processes present. Nothing was
+stopped. The first measurement, taken at 3.5 to 9.6, has the heading at 7.2 to
+23.3 s for the same build and load. The two together show the times moving with
+the host's state; they are not a controlled comparison, and there is still no
+measurement on this host while idle.
+
+What this does and does not settle: the miss at five tabs is in the application
+and the browser on this host, not in W1's measurement, the limiter, or
+authentication recovery. It does not say how much is the application's own work
+and how much is this host's capacity; that needs another machine or an idle
+host. The deadlines are unchanged.
+
 ### Recorded run on `db0cc890e` (2026-10-09): exit status 1
 
 The acceptance rerun on the same host, after the suite fixes. **15 of 17 passed.
