@@ -1028,6 +1028,57 @@ request is the evidence the scenario should require is a decision about the
 scenario, not made here. Nothing in this run is a behavioural failure, and
 nothing in it bears on the completion deadlines.
 
+### Case 17 revised and run alone on `e7ccd9a6c` (2026-10-09): partial, not evidence
+
+Second amendment to the scenario, after the run above. The evidence is taken at
+the **start of the sign-out** and not when the logout reaches the ingress: the
+harness records when the sign-out was initiated and which data requests of the
+application were pending immediately before it; the same request, by its
+identifier, must have an ingress line saying the limiter was delaying it; and
+what became of it is recorded, a cancellation counting only when it is the
+sign-out's and not the harness closing the tab, a navigation, or anything else.
+A signed-out tab showing stale data is a behavioural failure. The window before
+the logout is recorded as corroboration and decides nothing. The earlier run's
+attempts are **not** re-counted under this definition; they stand as recorded.
+
+The fillers now come from the harness's own Node process (40 a second, at most
+12 outstanding, bounded and stopped on every exit). Diagnosis that led to it,
+from the earlier run's ingress log: replaying the zone's bucket from the logged
+arrivals, the excess was above the delay threshold for 76 to 93% of the six
+seconds before the logout at five tabs, 43 to 54% at ten and 6 to 10% at twenty,
+where browser-context fillers arrived with gaps of up to 0.46 s.
+
+**Result: passed at 5, 10 and 20 tabs, each on its first attempt.** Exit status
+0 for the partial run.
+
+| | 5 tabs | 10 tabs | 20 tabs |
+|---|---|---|---|
+| Data requests of the application pending when the sign-out was initiated | 31 | 43 | 103 |
+| Of those, delayed by the limiter per the ingress log (same identifier) | 12 | 18 | 17 |
+| Of those: cancelled by the sign-out / answered | 9 / 3 | 14 / 4 | 12 / 5 |
+| Any pending request with another fate (cleanup, navigation, other, unknown) | none | none | none |
+| Cancellations fell, after the sign-out was initiated | 0.25 to 0.71 s | 0.32 to 1.81 s | 0.00 to 2.35 s |
+| Logout answered, after the sign-out was initiated | 0.88 s, 204 | 2.19 s, 204 | 2.98 s, 204 |
+| Tabs on the login page, same document, no stale data | 5 of 5 | 10 of 10 | 20 of 20 |
+| 429 on `refresh`, `logout` or `me` | 0 | 0 | 0 |
+| Fillers at the ingress: sent / delayed / refused | 206 / 166 / 0 | 311 / 270 / 0 | 580 / 514 / 0 |
+| Address of the application and of the fillers | one | one | one |
+| Corroboration only: aborted while delayed in the 0.3 s before the logout; outstanding when it arrived | 6; 0 | 7; 0 | 3; 0 |
+
+- The requests that are the evidence came from four tabs at five and ten tabs
+  and from seven at twenty, the signing-out tab's own among them.
+- About half of them had already been forwarded to the backend when they were
+  cancelled or answered; the rest were still being held by the limiter.
+- No generator was left running after the case.
+
+What this is: the first time the scenario has shown, at all three sizes, a data
+request of the application that was pending when a tab signed out, was being
+delayed by the ingress, and was then cancelled by the sign-out or answered, with
+the sign-out itself behaving. What it is not: a recorded baseline (a partial
+run); evidence that a restored window produces that delay by itself (the delay
+was induced); or anything about the completion deadlines, which are unmet on
+this host and unchanged.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand
