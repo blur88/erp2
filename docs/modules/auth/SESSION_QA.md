@@ -33,8 +33,8 @@ measurements and the accounts the suite needs.
 A document in the repository cannot hold the results of a run on its own commit.
 So:
 
-- **This document** records the first recorded run, on commit `582096992`, with
-  everything it found, including what failed.
+- **This document** records every recorded run, from the first on commit
+  `582096992` onwards, each with everything it found, including what failed.
 - **The run that gates the merge** is made on the final commit of the branch and
   recorded in the body of the pull request that closes #1345, with the SHA it
   describes.
@@ -156,9 +156,11 @@ recovery through a page only an administrator can open does not count.
   open. Its expected data includes what the shell shows on every page.
 - **The suite's own judgement was checked by forcing it to fail**, in development
   mode on a patched copy of the suite or of the frontend build, not in a recorded
-  run: with recovery
-  disabled it reports unusable tabs; with the company retry exhausted it names the
-  company data as unrecoverable; an administrator-only step is refused.
+  run. Three conditions were forced: a recovery step pointed at an
+  administrator-only page is refused and nothing is clicked; with every company
+  request refused the retries are used up and the company data is named as
+  unrecoverable; with the regional request refused and the stored formats removed
+  the regional settings are named as unrecoverable.
 
 Development results under the new definition (a local build of `81958c8bd` served
 through request interception, API through the real ingress; **not a recorded
@@ -201,9 +203,9 @@ that four of them judged less than their names say (below), so read this run as
   which answered 28% to 67% of the tabs' own data requests with 429 across both
   recorded runs (issue #1353).
 - No tab needed more than two in-app actions; the slowest recovery took about
-  30 s. The company-data retry never failed. Of the 44 tab loads whose first
-  request was refused, 31 got the data on the first retry, 8 on the second and 5
-  on the third and last (all five at ten or twenty tabs); one more refusal in
+  30 s. The company-data retry never failed. Of the 44 tab loads that met at
+  least one refusal, 31 got the data on the first retry, 8 on the second and 5
+  on the third and last (all five at twenty tabs, in the expired-token round); one more refusal in
   those five would have left the tab without that data. Counted by 429s received,
   which is what the budget counts: a 401 that is refreshed and re-sent happens
   inside one attempt and uses no retry. (Earlier versions of this document and of
@@ -244,6 +246,10 @@ change to the code it protects:
   this browser's session storage. Another tab may be busy." with a retry, sends no
   request and offers no sign-in. This is a third state, distinct from signed-out
   and from storage-unavailable: storage did not answer; it was not found broken.
+  Since #1354 the screen also asks again by itself every 10 s while the tab is
+  visible, not while it is hidden, and at once when it is shown again; the
+  button and the automatic retry share one request. Before that a tab left
+  visible stayed on the screen until it was clicked, resumed or sent a message.
 - **The suite:** an interrupted or aborted run now exits non-zero; case 7 holds
   both forced 401s and requires exactly one rotation; cases 9 to 11 judge the held
   refresh's answer against the grace; case 5 checks a tab that held the first
@@ -266,8 +272,8 @@ on the same session, and the session rotated twice; the case required three.
 The flaw was in the case. It ran for a fixed three and a half access-token
 lifetimes, but a refresh happens only at the first use after an expiry, so that
 window holds two or three rotations depending on where the uses fall against the
-expiries. Earlier runs saw three by timing (and, before the lease fix, because
-tabs rotated more often than they needed to). The case now keeps using the tabs
+expiries. The two earlier recorded runs saw three; why they did was not
+established. The case now keeps using the tabs
 until the third rotation is seen, bounded at six lifetimes, and its requirement
 is unchanged. The revised case was then run three times in development against
 the same build; all three passed, one of them needing 3.75 lifetimes. Only the
@@ -300,7 +306,7 @@ after. **15 of 15 cases passed**, with the corrected case 8 and with cases 5, 7 
 | 20 | sign-out while loading | 1 / 1 / 0 | 0 | 20/20 on the login page | | | 3 of 114 |
 
 No tab needed more than one in-app action. The company-data retry never failed:
-of the 32 tab loads whose first request was refused, 21 got the data on the first
+of the 32 tab loads that met at least one refusal, 21 got the data on the first
 retry and 11 on the second; none needed the third. As above, this is not a
 capacity figure.
 
@@ -317,8 +323,9 @@ that followed:
   actually signed out, which includes a retry that finds no session, and when
   storage is found unavailable.
 - A cancelled sign-in is reported as cancelled even when its cleanup times out,
-  and the same conditional cleanup is tried again: twice at the cancellation and
-  on up to three later reconciles of that tab. It still cannot clear a newer
+  and the same conditional cleanup is attempted again: two attempts at the
+  cancellation in all (one retry), and one on each of up to three later
+  reconciles of that tab. It still cannot clear a newer
   session.
 
 The run that gates the merge is the one in the pull request.
@@ -1498,10 +1505,18 @@ CI has no NGINX and no browser; neither is a CI gate.
   already rehydrated with nothing: it does not show that session's persisted
   notifications, and the first notification change in that tab writes its own
   list over the stored one. Reloading before that write brings the stored list
-  back; after it, the stored list is gone.
+  back; after it, the stored list is gone. Tracked in #1362.
 - Rehydration of persisted notifications waits for the session runtime to start,
   which route loaders do. A route without a loader would rehydrate empty after
   redux-persist's 5 s timeout.
+- **A start-up read that fails with an error of no known class loses the tab's
+  unsaved reconciliation drafts.** Only a completed read can say that no session
+  is stored, so any failure that is not a timeout puts the tab in the
+  storage-unavailable state, at start and on a retry from the waiting screen, and
+  that state clears drafts. The alternative, staying in the waiting state and
+  keeping them, was declined on 2026-10-09: the tab cannot verify its session
+  and fails closed. The IndexedDB adapter raises only the two known classes, so
+  this is reachable only through a defect.
 - **One tab's idle timeout signs out every tab of the profile.** Activity is
   tracked per tab, and sign-out now reaches every tab. A tab left open and
   untouched reaches its timeout and signs out the tab the user is working in: the
@@ -1518,9 +1533,12 @@ CI has no NGINX and no browser; neither is a CI gate.
   signing key retired; the session, if still live, stays live until it expires or
   is revoked another way.
 - A sign-in cancelled in the instant after its commit can leave its session in
-  the shared record if every cleanup attempt times out (five at most), if the tab
-  is closed or reloaded before one completes, or if the tab never reconciles
-  again. No tab claims that session; a tab opened later would start signed in on
+  the shared record if every cleanup attempt times out (five at most), if an
+  attempt finds storage unusable (the tab becomes storage-unavailable and writes
+  nothing from then on), if the tab is closed or reloaded before one completes,
+  or if the tab never reconciles again. While the same tab has another sign-in
+  under way its reconciles do not attempt the cleanup: that sign-in's commit
+  replaces the leftover session, and if it fails the next reconcile attempts it. No tab claims that session; a tab opened later would start signed in on
   it, and ends at its first request if the logout reached the server. It needs a
   cancellation within milliseconds of the commit and a blocked transaction at the
   same time. The number of attempts is a choice of the implementation, not of the
