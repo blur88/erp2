@@ -13,7 +13,8 @@
 #
 # Two switches exist for the forced failures (#1353, Task 7). Both make the run
 # partial, and a partial run is never reported as recorded evidence:
-#   QA_SUITE_OVERRIDE=<dir>   run a copy of the suite from <dir>, outside the
+#   QA_SUITE_OVERRIDE=<dir>   run the copy of the suite that IS <dir> (the
+#                             directory holding its cases.mjs), outside the
 #                             repository, in place of the repository's
 #   QA_ONLY=<ids>             run only those cases
 # Everything else about the run is unchanged - same refusals, same capture, same
@@ -54,7 +55,7 @@ run_restore() {
 
 run_finalize() {
   docker run --rm \
-    -v "$(suite_path)" -v "${SCRATCH}:/scratch" -w /scratch \
+    "${SUITE_MOUNTS[@]}" -v "${SCRATCH}:/scratch" -w /scratch \
     -e QA_SCRATCH=/scratch -e QA_RUN_STATUS="${STATUS}" -e QA_RESTORE_FAILED="${RESTORE_FAILED}" \
     -e QA_RUN_COMPLETED="${COMPLETED}" -e QA_RUN_ABORTED="${ABORTED}" \
     -e QA_COMMIT="$(git rev-parse HEAD)" \
@@ -84,21 +85,20 @@ refuse() { echo "refusing: $1" >&2; fail 1; exit 1; }
 # the page is still loaded by LAN IP through the ingress on port 80: the origin
 # is the same non-localhost, non-secure one, and nothing the cases test depends
 # on which network namespace the browser sits in.
-# The suite as it is mounted into the container. With QA_SUITE_OVERRIDE the
-# copy is mounted at the same path, so nothing inside the suite has to know
-# which one it is running from.
-suite_path() {
-  if [ -n "${QA_SUITE_OVERRIDE}" ]; then
-    printf '%s/qa-suite:/repo/frontend/qa/cross-tab-session:ro' "${QA_SUITE_OVERRIDE%/}"
-  else
-    printf '%s:/repo:ro' "${ROOT}"
-  fi
-}
+# What the suite's container sees as /repo. Always the repository, read-only:
+# the suite imports nginx/access-log.mjs and reads nginx.conf and the frontend's
+# navigation file, so a copy of the suite alone could not run. With
+# QA_SUITE_OVERRIDE the copy is laid over the suite's own path on top of that,
+# so nothing inside the suite has to know which one it is running from.
+SUITE_MOUNTS=(-v "${ROOT}:/repo:ro")
+if [ -n "${QA_SUITE_OVERRIDE}" ]; then
+  SUITE_MOUNTS+=(-v "${QA_SUITE_OVERRIDE%/}:/repo/frontend/qa/cross-tab-session:ro")
+fi
 
 in_playwright() {
   local script="$1" show="$2"
   docker run --rm \
-    -v "$(suite_path)" \
+    "${SUITE_MOUNTS[@]}" \
     -v "${SCRATCH}:/scratch" \
     -w /scratch \
     -e QA_BASE_URL="http://${LAN_IP}" \
@@ -138,6 +138,9 @@ export QA_USERNAME QA_PASSWORD QA_USERNAME_2 QA_PASSWORD_2 QA_USERNAME_3 QA_PASS
 avail_kb="$(df -Pk "${ROOT}" | awk 'NR==2{print $4}')"
 if [ "${avail_kb}" -lt 3145728 ]; then refuse "free disk under 3 GB"; fi
 if [ -n "$(git status --porcelain)" ]; then refuse "dirty working tree"; fi
+if [ -n "${QA_SUITE_OVERRIDE}" ] && [ ! -f "${QA_SUITE_OVERRIDE%/}/cases.mjs" ]; then
+  refuse "QA_SUITE_OVERRIDE=${QA_SUITE_OVERRIDE} is not a copy of the suite (no cases.mjs in it)"
+fi
 
 # 2. Restore a leftover capture, then capture the running values. The capture
 #    is written to a temporary name first: a failed `show` must not leave an

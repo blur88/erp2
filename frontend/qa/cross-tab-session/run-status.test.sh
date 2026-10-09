@@ -187,7 +187,10 @@ case "${all}" in
     printf '%s\n' "$@" | sed -n 's/^QA_ONLY=//p' | sed 's/^/only=/' >> "${FAKE_LOG}"
     printf '%s\n' "$@" | sed -n 's/^QA_INGRESS_LOG=//p' | sed 's/^/ingress-log=/' >> "${FAKE_LOG}"
     # The suite's own mount: which copy the container was given.
-    printf '%s\n' "$@" | grep -o '[^ ]*qa-suite:/repo/frontend/qa/cross-tab-session:ro' | sed 's/^/mount=/' >> "${FAKE_LOG}"
+    printf '%s\n' "$@" | grep -o '[^ ]*:/repo/frontend/qa/cross-tab-session:ro' | sed 's/^/mount=/' >> "${FAKE_LOG}"
+    # And the repository itself: the suite imports from nginx/ and reads the
+    # frontend's navigation file, so a copy of the suite alone cannot run.
+    printf '%s\n' "$@" | grep -o '[^ ]*:/repo:ro' | sed 's/^/repo-mount=/' >> "${FAKE_LOG}"
     if [ "${FAKE_TERM_DURING_CASES:-0}" = "1" ]; then kill -TERM "${PPID}"; fi
     exit "${FAKE_CASES_RC:-0}" ;;
   *QA_SCRIPT=measure.mjs*) echo "measure" >> "${FAKE_LOG}"; exit "${FAKE_MEASURE_RC:-0}" ;;
@@ -278,11 +281,24 @@ else not_ok "run.sh: a TERM while the cases run stops the ingress log follow" "e
 OVERRIDE_DIR="${FAKE}/copy"
 mkdir -p "${OVERRIDE_DIR}"
 cp -r "${FQA}" "${OVERRIDE_DIR}/qa-suite"
+# The stand-in tree has no cases of its own; a copy of the suite does.
+: > "${OVERRIDE_DIR}/qa-suite/cases.mjs"
 QA_SUITE_OVERRIDE="${OVERRIDE_DIR}/qa-suite" run_sh override
 if [ "$(rc_of override)" = "0" ] && log_has override '^override=set$' \
-  && grep -q "qa-suite:/repo/frontend/qa/cross-tab-session" "${TMP}/override.log"; then
-  ok "run.sh: QA_SUITE_OVERRIDE mounts the copy at the suite's path and passes the flag on (exit $(rc_of override))"
+  && log_has override "^mount=${OVERRIDE_DIR}/qa-suite:/repo/frontend/qa/cross-tab-session:ro\$"; then
+  ok "run.sh: QA_SUITE_OVERRIDE mounts exactly the copy it names at the suite's path and passes the flag on (exit $(rc_of override))"
 else not_ok "run.sh: QA_SUITE_OVERRIDE mounts the copy" "exit $(rc_of override); $(tr '\n' ';' < "${TMP}/override.log")"; fi
+# The copy is laid over the repository, not mounted instead of it: the suite
+# imports nginx/access-log.mjs and reads nginx.conf and the navigation file.
+if log_has override '^repo-mount=.*:/repo:ro$'; then
+  ok "run.sh: with QA_SUITE_OVERRIDE the repository is still mounted, under the copy"
+else not_ok "run.sh: with QA_SUITE_OVERRIDE the repository is still mounted" "$(tr '\n' ';' < "${TMP}/override.log")"; fi
+# A directory that is not a copy of the suite is refused before anything is changed.
+mkdir -p "${FAKE}/not-a-suite"
+QA_SUITE_OVERRIDE="${FAKE}/not-a-suite" run_sh override_bad
+if [ "$(rc_of override_bad)" = "1" ] && ! log_has override_bad '^cases$'; then
+  ok "run.sh: QA_SUITE_OVERRIDE naming a directory without the suite is refused (exit $(rc_of override_bad))"
+else not_ok "run.sh: a bad QA_SUITE_OVERRIDE is refused" "exit $(rc_of override_bad); $(tr '\n' ';' < "${TMP}/override_bad.log")"; fi
 
 # A selection is passed through to the suite, and the cases' own exit status is
 # still what the run exits with.
