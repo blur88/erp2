@@ -109,6 +109,7 @@ const passing = (over = {}) => ({
     qaId: 'L-1',
     limitReq: 'DELAYED',
     status: 401,
+    message: EXPIRED_MESSAGE,
     browserTokenFingerprint: 'aaaaaaaaaaaa',
     capture: captureRecord(),
     ingress: { startMs: 4_000, status: 401, limitReq: 'DELAYED' },
@@ -279,4 +280,22 @@ test('an unknown expiry is not enough', async () => {
   const { lifetimeEnough } = await import('./lib/expiry-crossing.mjs')
   assert.equal(lifetimeEnough({ expiresAtMs: NaN, nowMs: 1, leadMs: 1, fillerLeadMs: 1, marginMs: 1 }), false)
   assert.equal(lifetimeEnough({ expiresAtMs: undefined, nowMs: 1, leadMs: 1, fillerLeadMs: 1, marginMs: 1 }), false)
+})
+
+// --- added with the rebuild of the case (2026-10-09) -------------------------------
+
+test('L answered 401 with another message is not shown to be an expiry', () => {
+  for (const message of ['Session has been revoked or expired', 'User not found', null]) {
+    const verdict = judgeExpiryCrossing(passing({ L: { ...passing().L, message } }))
+    assert.deepEqual([verdict.verdict, verdict.behaviour], ['inconclusive', 'ok'], String(message))
+  }
+})
+
+test('checks over everything the attempt sent: each makes the attempt inconclusive', () => {
+  const withPipeline = (extra) => judgeExpiryCrossing(passing({ pipeline: { ...passing().pipeline, ...extra } }))
+  assert.equal(withPipeline({ unexplained: ['x GET /api/y'] }).verdict, 'inconclusive')
+  assert.equal(withPipeline({ missingFromCapture: 1 }).verdict, 'inconclusive')
+  assert.equal(withPipeline({ sameBucket: { ok: false, why: 'two addresses' } }).verdict, 'inconclusive')
+  assert.equal(withPipeline({ probesOnSchedule: { ok: false, why: 'bunched' } }).verdict, 'inconclusive')
+  assert.equal(withPipeline({ unexplained: [], missingFromCapture: 0, sameBucket: { ok: true }, probesOnSchedule: { ok: true } }).verdict, 'pass')
 })

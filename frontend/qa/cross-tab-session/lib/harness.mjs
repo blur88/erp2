@@ -10,6 +10,7 @@ import { existsSync, statSync } from 'node:fs'
 import { join, normalize } from 'node:path'
 import { sleep } from './config.mjs'
 import { requestIdFor } from './request-id.mjs'
+import { messageOfBody } from './expiry-evidence.mjs'
 
 export const SESSION_ZONE = /^\/api\/auth\/(refresh|logout|me)\/?$/
 export const LOGIN_ZONE = /^\/api\/(auth|login|register)/
@@ -43,6 +44,9 @@ export function zoneOf(path) {
   if (LOGIN_ZONE.test(path)) return 'login'
   if (path.startsWith('/api/health')) return 'health'
   if (path.startsWith('/api/')) return 'business'
+  // Also proxied to the backend by the ingress (location /uploads), though not
+  // under /api: a request there reaches the backend like any other.
+  if (path.startsWith('/uploads/')) return 'upload'
   return 'static'
 }
 
@@ -275,6 +279,10 @@ export class Profile {
 
     if (config.distDir) await this.serveLocalBuild(config)
     if (this.opts.intercept) await this.context.route('**/api/**', (route) => this.onApiRoute(route))
+    // A profile that tags its requests tags everything the ingress forwards to
+    // the backend, /uploads/ included: an untagged one is unreadable to a
+    // capture that requires identifiers.
+    if (this.opts.intercept && this.opts.tagRequests) await this.context.route('**/uploads/**', (route) => this.onApiRoute(route))
   }
 
   // Development only (QA_DIST_DIR): documents and assets come from a local
@@ -406,6 +414,21 @@ export class Profile {
         (body) => this.answers.set(entry.path, { body, at: Date.now() }),
         (err) => this.answers.set(entry.path, { unreadable: String(err && err.message ? err.message : err), at: Date.now() }),
       )
+    }
+    // With { keepRejections: true }: what the backend said when it refused a
+    // request with 401 - its message and nothing else of the body. A case that
+    // must tell an expiry from another rejection reads it; `messageRead`
+    // settles when it is there.
+    if (this.opts.keepRejections && entry.status === 401) {
+      entry.messageRead = response.json().then(
+        (body) => {
+          entry.message = messageOfBody(body)
+        },
+        () => {
+          entry.message = null
+        },
+      )
+      Object.defineProperty(entry, 'messageRead', { enumerable: false })
     }
     if (entry.status === 429) {
       if (entry.zone === 'login') this.ctx.run.loginZone429 += 1

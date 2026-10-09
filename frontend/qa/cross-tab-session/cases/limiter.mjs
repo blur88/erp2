@@ -43,7 +43,8 @@
 import { sleep } from '../lib/config.mjs'
 import { fingerprint, pageFetch, readStored, summarize } from '../lib/harness.mjs'
 import { captureSegment } from '../lib/probe.mjs'
-import { loadCapture, captureUsable, correlate } from '../lib/capture-evidence.mjs'
+import { captureUsable } from '../lib/capture-evidence.mjs'
+import { buildExpiryEvidence } from '../lib/expiry-evidence.mjs'
 import { windowBetween } from '../lib/ingress-log.mjs'
 import { watchCompletion } from '../lib/completion.mjs'
 import { KEEP_SHELL_ANSWERS, REGIONAL_SETTINGS, referenceOf, shellReference } from '../lib/usable.mjs'
@@ -59,7 +60,14 @@ const REPO_ROOT = new URL('../../../..', import.meta.url)
 // routes are kept: the case's first precondition compares the holder tab's
 // shell against what the server said, and without keepAnswers there is nothing
 // to compare with (the recorded run on 198943047 stopped there).
-export const PROFILE_OPTIONS = { intercept: true, tagRequests: true, keepAnswers: KEEP_SHELL_ANSWERS }
+export const PROFILE_OPTIONS = { intercept: true, tagRequests: true, keepRejections: true, keepAnswers: KEEP_SHELL_ANSWERS }
+// The fillers and the probes each run in a browser context of their own: a
+// context has its own pool of six connections per origin, so neither queues
+// behind the other or behind the application tab. They leave the same machine,
+// and the limiter is keyed on the address, so they are meant to land in the
+// application's bucket; that is checked from the ingress log of every attempt
+// (one address for all three), not assumed.
+export const SIDE_OPTIONS = { intercept: true, tagRequests: true, keepRejections: true }
 const { parseLine } = await import(pathToFileURL(join(REPO_ROOT.pathname, 'nginx/access-log.mjs')).href)
 
 /** /api/auth/me is on session_limit, which does not delay: a probe, not filler. */
@@ -129,22 +137,23 @@ function readIngress(config) {
 }
 
 /** The first entry the ingress log has for one request id, or null. */
-const lineFor = (entries, qaId) => (entries ?? []).find((e) => e.qaId === qaId) ?? null
 
 /** The browser's own record of one request id. */
-const entryFor = (profile, qaId) => profile.log.find((e) => e.qaId === qaId) ?? null
 
 /** `me` probes at 150 ms across the window, each with its own id. */
-async function probeWindow(holder, token, from, to) {
+async function probeWindow(holder, token, from, to, attemptNo) {
   const ids = []
+  const sends = []
   for (let at = from; at <= to; at += PROBE_EVERY_MS) {
     await waitUntil(at)
-    const qaId = `probe-${String(ids.length).padStart(3, '0')}`
+    const qaId = `probe-${attemptNo}-${String(ids.length).padStart(3, '0')}`
     ids.push(qaId)
-    // Answered 401 near the expiry and 2xx after it: that is the bracket, and it
-    // is the backend's own answer rather than a clock read here.
-    await pageFetch(holder, { path: ME, qaId, bearer: token })
+    // Sent on schedule and not awaited one by one: a slow answer must not push
+    // the next probe back. Answered 2xx before the expiry and 401 after it:
+    // that is the bracket, and it is the backend's own answer.
+    sends.push(pageFetch(holder, { path: ME, qaId, bearer: token }))
   }
+  await Promise.all(sends)
   return ids
 }
 
@@ -289,7 +298,20 @@ export default [
       if (!trialUsable.usable) return
 
       // ---- the attempts -----------------------------------------------------
+      // Two more browser contexts, each with connections of its own.
+      const fillProfile = await ctx.profile(SIDE_OPTIONS)
+      const fillPage = await fillProfile.tab('/manifest.json', { label: 'fillers' })
+      const probeProfile = await ctx.profile(SIDE_OPTIONS)
+      const probePage = await probeProfile.tab('/manifest.json', { label: 'probes' })
+
       const attempts = []
+      const settle = (verdict) => {
+        ctx.check(
+          'an access token valid when sent had expired when its delayed request reached the backend, and the tab recovered by itself within the recorded deadline',
+          verdict.verdict === 'pass',
+          { verdict: verdict.verdict, reason: verdict.reason, attempts },
+        )
+      }
       for (let attemptNo = 1; attemptNo <= MAX_SETUP_ATTEMPTS; attemptNo += 1) {
         // Drained buckets, and a token with a full lifetime ahead of it.
         await sleep(drainMs)
@@ -311,71 +333,76 @@ export default [
         const segment = `case16-${attemptNo}`
         const startQaId = `${segment}-start`
         const endQaId = `${segment}-end`
+        const marks = { app: profile.mark(), fill: fillProfile.mark(), probe: probeProfile.mark() }
 
         const captured = await captureSegment(config, segment, async () => {
           await pageFetch(holder, { path: '/manifest.json', qaId: startQaId })
 
-          // Fillers first: a continuous queue of business requests, so that the
-          // limiter's excess is above its delay allowance when the tab's own
-          // requests arrive. 429s on these are expected and are not a failure.
-          const previousAllow429 = ctx.allow429
-          ctx.allow429 = true
-          const fillerIds = Array.from({ length: FILLERS }, (_, i) => `fill-${String(i).padStart(3, '0')}`)
-          // Sent FILLER_LEAD_MS before the tab is due, not when the segment
-          // starts: sent earlier, the limiter's excess has drained again by the
-          // time the tab's own requests arrive and nothing is delayed.
-          await waitUntil(T - lead - FILLER_LEAD_MS)
-          const fillerRun = fill(holder, session.accessToken, fillerIds).finally(() => {
-            ctx.allow429 = previousAllow429
-          })
+          // The probes run on their own schedule, in their own context, from
+          // before the fillers start to after the expiry.
+          const probes = probeWindow(probePage, session.accessToken, T - PROBE_WINDOW_MS, T + PROBE_WINDOW_MS, attemptNo)
 
-          // Then the tab itself, and the probes that bracket the expiry.
+          // The fillers, FILLER_LEAD_MS before the tab is due: a continuous
+          // queue, in their own context, so that the limiter's excess is above
+          // its delay threshold when the tab's own requests arrive. 429s on
+          // them are expected and are not a failure.
+          await waitUntil(T - lead - FILLER_LEAD_MS)
+          const fillerIds = Array.from({ length: FILLERS }, (_, i) => `fill-${attemptNo}-${String(i).padStart(3, '0')}`)
+          const fillerRun = fill(fillPage, session.accessToken, fillerIds)
+
+          // Then the tab itself.
           await waitUntil(T - lead - NAVIGATE_LEAD_MS)
           const tab = await profile.tab('/dashboard', { label: `L-${attemptNo}`, navigate: false })
+          const mark = profile.mark()
           const gotoAt = now()
           await tab.goto(`${config.base}/dashboard`, { waitUntil: 'commit' })
-          const mark = profile.mark()
-          const probes = probeWindow(holder, session.accessToken, T - PROBE_WINDOW_MS, T + PROBE_WINDOW_MS)
           const finished = await watchCompletion(profile, mark, [tab], referenceOf(shell), {
             started: gotoAt,
             giveUpMs: deadline.deadlineMs + 30000,
           })
+          // The tab's first 401 on a data request, on the browser's clock:
+          // recovery is timed from it.
+          const first401 = profile
+            .since(mark, tab)
+            .filter((e) => e.zone === 'business' && e.status === 401)
+            .map((e) => e.respondedAt ?? e.issuedAt)
+            .sort((x, y) => x - y)[0] ?? null
           await probes
           await fillerRun
           await pageFetch(holder, { path: '/manifest.json', qaId: endQaId })
           await sleep(2500) // the log flushes every second
-          return { finished, gotoAt, mark, tab, probes }
+          return { gotoAt, first401At: first401, completedAfterMs: finished.lastCompletedAfterMs, mark, tab }
         })
 
-        const inside = captured.failure ?? null
         // Whatever happened, the attempt is recorded before anything is decided.
-        const evidence = buildEvidence({ ctx, config, profile, captured, session, deadline, segment, startQaId, endQaId, inside })
-        const verdict = inside
-          ? { verdict: 'inconclusive', reason: `the attempt did not finish: ${inside.message ?? inside}`, behaviour: 'ok' }
+        const measured = captured.result
+        const evidence = measured ? await evidenceOf({ ctx, config, captured, measured, session, deadline, marks, profiles: { app: profile, fill: fillProfile, probe: probeProfile }, startQaId, endQaId }) : null
+        const verdict = !measured
+          ? { verdict: 'inconclusive', reason: `the attempt did not finish: ${captured.failure?.message ?? captured.failure ?? 'no result'}`, behaviour: 'ok' }
           : judgeExpiryCrossing(evidence)
-        attempts.push({ attempt: attemptNo, verdict: verdict.verdict, reason: verdict.reason, behaviour: verdict.behaviour, evidence: evidence.summary })
+        attempts.push({
+          attempt: attemptNo,
+          verdict: verdict.verdict,
+          reason: verdict.reason,
+          behaviour: verdict.behaviour,
+          evidence: evidence ? summaryOf(evidence, captured, segment) : null,
+        })
         // Every attempt so far, not just this one: finalize.mjs reads the
         // segment of each from here.
         ctx.record('attempts', attempts)
+        if (measured?.tab) await measured.tab.close().catch(() => undefined)
+        // A pass ends the case. So does a fail: a behavioural failure is never
+        // set up again. Only an attempt that behaved and lacked its evidence is.
         if (verdict.verdict !== 'inconclusive') {
-          ctx.check(
-            'an access token valid when sent had expired when its delayed request reached the backend, and the tab recovered by itself within the recorded deadline',
-            verdict.verdict === 'pass',
-            { verdict: verdict.verdict, reason: verdict.reason, attempts },
-          )
+          settle(verdict)
           return
         }
       }
-      ctx.check('an access token valid when sent had expired when its delayed request reached the backend, and the tab recovered by itself within the recorded deadline', false, {
-        verdict: 'inconclusive',
-        reason: `no attempt showed the crossing in ${attempts.length} tries`,
-        attempts,
-      })
+      settle({ verdict: 'inconclusive', reason: `no attempt showed the crossing in ${attempts.length} tries` })
     },
   },
 ]
 
-/** The backend's message from a refused response, as the body carries it. */
 function messageOf(response) {
   const body = response.json
   if (!body) return null
@@ -420,98 +447,55 @@ function recoveryActionsFor(profile, mark, page) {
   return Math.max(0, mine.length - 1)
 }
 
-/**
- * The evidence one attempt rests on, from the three sources: the browser's own
- * log, the ingress log, and the capture. Anything any of them cannot supply is
- * null here, and a null is what makes the judgement inconclusive.
- */
-function buildEvidence({ ctx, config, profile, captured, session, deadline, segment, startQaId, endQaId, inside }) {
+/** The harness records of one context since a mark, in the shape the evidence code reads, with every 401's message read. */
+async function recordsOf(profile, mark, page = undefined) {
+  const entries = profile.since(mark, page).filter((e) => e.qaId)
+  await Promise.all(entries.map((e) => e.messageRead).filter(Boolean))
+  return entries.map((e) => ({
+    qaId: e.qaId,
+    method: e.method,
+    path: e.path,
+    zone: e.zone,
+    status: e.status ?? null,
+    token: e.token ?? null,
+    message: e.message ?? null,
+    issuedAt: e.issuedAt,
+    respondedAt: e.respondedAt ?? null,
+  }))
+}
+
+/** Everything the attempt observed, handed to lib/expiry-evidence.mjs. */
+async function evidenceOf({ ctx, config, captured, measured, session, deadline, marks, profiles, startQaId, endQaId }) {
   const ingressEntries = readIngress(config)
   const window = ingressEntries === null ? null : windowBetween(ingressEntries, startQaId, endQaId)
-  const capture = captured.health ? captured : loadCapture([])
-
-  // The application tab's own request, and the two probes.
-  const appEntries = profile.log.filter((e) => e.qaId && String(e.qaId).startsWith('app-'))
-  const Lentry = appEntries.find((e) => String(e.path) === '/api/dashboard/stats') ?? null
-  const probes = profile.log.filter((e) => e.qaId && String(e.qaId).startsWith('probe-'))
-  const Xentry = probes.filter((e) => e.status === 401).at(-1) ?? null
-  const Pentry = probes.filter((e) => e.status >= 200 && e.status < 300).at(-1) ?? null
-
-  const { matched, problems } = correlate(appEntries, window ? window.entries : [], capture)
-  const from = window ? window.entries[0]?.startMs ?? 0 : 0
-  const to = window ? window.entries.at(-1)?.startMs ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER
-  const usable = captureUsable(capture, from, to)
-  const clockFrames = [...capture.requests.values()].flatMap((r) => r.frames ?? []).map((n) => n)
-  const clock = monotonic(clockFrames, window ? window.entries : [])
-
-  const one = (qaId) => {
-    if (!qaId) return null
-    const browser = entryFor(profile, qaId)
-    const ingress = lineFor(ingressEntries, qaId)
-    const capturedRecord = capture.requests.get(qaId) ?? null
-    return {
-      qaId,
-      status: browser ? browser.status : null,
-      message: messageOf(browser ?? {}),
-      browserTokenFingerprint: browser ? browser.token : null,
-      capture: capturedRecord,
-      ingress,
-    }
-  }
-
-  const L = Lentry ? one(Lentry.qaId) : null
-  const X = Xentry ? one(Xentry.qaId) : null
-  const P = Pentry ? one(Pentry.qaId) : null
-  const earlierAccepted = !!P && P.status >= 200 && P.status < 300
-
-  const evidence = {
-    api: ctx.zones.api,
+  const app = await recordsOf(profiles.app, marks.app)
+  return buildExpiryEvidence({
+    app,
+    probes: await recordsOf(profiles.probe, marks.probe),
+    fillers: await recordsOf(profiles.fill, marks.fill),
+    ingress: window === null ? null : window.entries,
+    capture: captured,
+    storedFingerprint: session.fingerprint,
     deadline,
-    behaviour: {
-      // The tab completed inside the deadline and no user action was needed. The
-      // measurement is the harness's, and a tab that never completed is a
-      // failure of behaviour rather than missing evidence.
-      completeWithinDeadline: inside ? false : (inside?.finished?.lastCompletedAfterMs ?? null) !== null,
-      tabComplete: inside ? false : (inside?.finished?.lastCompletedAfterMs ?? null) !== null,
-      recoveryActions: 0,
-      sessionRoute429: 0,
-    },
-    pipeline: {
-      ingressAvailable: ingressEntries !== null,
-      captureFinalised: capture.health !== null,
-      captureUsable: usable.usable,
-      correlateProblems: problems,
-      monotonic: clock,
-    },
-    stored: { accessTokenFingerprint: session.fingerprint },
-    L: L
-      ? {
-          qaId: L.qaId,
-          status: L.status,
-          message: L.message,
-          limitReq: L.ingress ? L.ingress.limitReq : null,
-          browserTokenFingerprint: L.browserTokenFingerprint,
-          capture: L.capture,
-          ingress: L.ingress ? { startMs: L.ingress.startMs, status: L.ingress.status, limitReq: L.ingress.limitReq } : null,
-          earlierAcceptedSameToken: earlierAccepted,
-        }
-      : null,
-    X: X ? { ...X } : null,
-    P: P ? { ...P } : null,
-  }
-  if (inside?.finished) {
-    evidence.behaviour.recoveryActions = inside.recoveryActions ?? 0
-  }
-  evidence.summary = {
+    api: ctx.zones.api,
+    completion: { gotoAt: measured.gotoAt, first401At: measured.first401At, completedAfterMs: measured.completedAfterMs, recoveryActions: 0 },
+    sessionRoute429: app.filter((e) => e.zone === 'session' && e.status === 429).length,
+    probePlan: { everyMs: PROBE_EVERY_MS, windowMs: 2 * PROBE_WINDOW_MS },
+  })
+}
+
+/** What is kept of an attempt's evidence in the results: enough to read the verdict from. */
+function summaryOf(evidence, captured, segment) {
+  const short = (e) => (e ? { qaId: e.qaId, path: e.path, status: e.status, message: e.message, limitReq: e.ingress?.limitReq ?? null, ingressStartMs: e.ingress?.startMs ?? null, arrivedFirstMs: e.capture?.arrivedFirstMs ?? null, answeredLastMs: e.capture?.answeredLastMs ?? null } : null)
+  return {
     segment,
-    matched: matched.length,
-    problems: problems.length,
-    usable: usable.usable,
-    usableWhy: usable.why,
-    health: capture.health,
-    L: L ? { qaId: L.qaId, status: L.status, limitReq: L.ingress?.limitReq ?? null } : null,
-    X: X ? { qaId: X.qaId, status: X.status, message: X.message } : null,
-    P: P ? { qaId: P.qaId, status: P.status } : null,
+    behaviour: evidence.behaviour,
+    pipeline: { ...evidence.pipeline, unexplained: evidence.pipeline.unexplained.slice(0, 10) },
+    candidates: evidence.candidates,
+    health: captured.health,
+    stopError: captured.stopError,
+    L: short(evidence.L),
+    X: short(evidence.X),
+    P: short(evidence.P),
   }
-  return evidence
 }

@@ -179,6 +179,20 @@ export function judgeExpiryCrossing(evidence) {
       }
     }
   }
+  // Checks over everything the attempt sent, not only the three requests the
+  // proof names: correlating fewer requests must not hide missing evidence.
+  if ((pipeline.unexplained ?? []).length > 0) {
+    return { verdict: 'inconclusive', reason: `${pipeline.unexplained.length} unexplained request(s) reached the backend that no browser context of the attempt sent (${pipeline.unexplained.slice(0, 3).join('; ')})`, behaviour: 'ok' }
+  }
+  if ((pipeline.missingFromCapture ?? 0) > 0) {
+    return { verdict: 'inconclusive', reason: `${pipeline.missingFromCapture} request(s) the ingress forwarded are not in the capture`, behaviour: 'ok' }
+  }
+  if (pipeline.sameBucket?.ok === false) {
+    return { verdict: 'inconclusive', reason: pipeline.sameBucket.why, behaviour: 'ok' }
+  }
+  if (pipeline.probesOnSchedule?.ok === false) {
+    return { verdict: 'inconclusive', reason: `the probes did not run on schedule: ${pipeline.probesOnSchedule.why}`, behaviour: 'ok' }
+  }
   if (pipeline.monotonic?.ok === false) {
     return { verdict: 'inconclusive', reason: `the clocks moved backwards: ${pipeline.monotonic.why}`, behaviour: 'ok' }
   }
@@ -196,6 +210,11 @@ export function judgeExpiryCrossing(evidence) {
   }
   if (L.status !== 401) {
     return { verdict: 'inconclusive', reason: `L was answered ${L.status}, not 401`, behaviour: 'ok' }
+  }
+  // Status alone is not an expiry: the message must be the one the guard gives
+  // for a token it will not accept, not one of the strategy's own rejections.
+  if (L.message !== EXPIRED_MESSAGE) {
+    return { verdict: 'inconclusive', reason: `L was answered "${L.message}", which is not "${EXPIRED_MESSAGE}": the 401 is not shown to be an expiry`, behaviour: 'ok' }
   }
   if (L.browserTokenFingerprint !== stored) {
     return { verdict: 'inconclusive', reason: "L's token is not the stored access token's fingerprint", behaviour: 'ok' }

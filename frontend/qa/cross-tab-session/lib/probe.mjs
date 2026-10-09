@@ -56,8 +56,9 @@ export async function captureSegment(config, name, fn, { requireQaId = true } = 
   const path = join(config.scratch, `upstream-arrivals.${name}.jsonl`)
   await ask(config, `capture-start ${name}${requireQaId ? ' require' : ''}`)
   let failure = null
+  let result = null
   try {
-    await fn()
+    result = await fn()
   } catch (err) {
     failure = err
   }
@@ -73,6 +74,9 @@ export async function captureSegment(config, name, fn, { requireQaId = true } = 
     ...capture,
     name,
     path,
+    // What `fn` returned: the attempt's own measurements, handed back so that
+    // whoever judges the segment judges them and not their absence.
+    result,
     // Which of the two went wrong, if either: a case records it and the
     // judgement calls the attempt inconclusive.
     failure,
