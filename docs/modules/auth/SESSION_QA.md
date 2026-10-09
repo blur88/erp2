@@ -1372,30 +1372,65 @@ Limits of this result:
 - For two of the five tabs in the sign-out round the moment they reached the
   login page was not caught (`onLoginAfterMs` null); that they were on it at the
   end, without a reload, was.
-- The frontend container was recreated at 12:22 UTC, twelve minutes before the
-  run, by someone other than this session. It served a bundle with the same
-  file name as during the rehearsals. The build's commit was not read.
+- Which build was served is established below by content, not by a label: the
+  page reports `erp-build: unknown`.
 - The rehearsals in headless Firefox on the server host missed 8 s (9.0 to
   9.4 s) and this device met it in 3.5 s. The difference is not explained, and
   the rehearsals stay recorded as they were.
 - #1359 (start-up time with more tabs), #1358 (replay revocation at twenty tabs)
   and #1360 are open and are not touched by this result.
 
+##### Which frontend build the device ran against
+
+The frontend image was rebuilt and its container recreated at 12:22:57 UTC,
+twelve minutes before the run, by someone other than the session that recorded
+this, without `VITE_BUILD_SHA`; the page therefore reports `erp-build:
+unknown`. The rehearsals earlier in the day ran against the image before it
+(`346f8a63...`, no longer present). Established afterwards, on 2026-10-09:
+
+| Check | Result |
+|---|---|
+| Container during the run | `erp_frontend`, image `sha256:4611e9ee9e2d...`, started 12:23:00 UTC, 0 restarts, still that container when checked |
+| The frontend tree of `3a97404f7` (`git archive`, so committed files only) built with the repository's Dockerfile, `VITE_API_BASE_URL=/api`, `VITE_BUILD_SHA=unknown` | 294 files in `dist` |
+| Those 294 against the files in the container's `/usr/share/nginx/html` | **all 294 identical by SHA-256**; the container has one more file, `50x.html`, which comes from the NGINX base image |
+| The same 294 paths fetched through the ingress on port 80 | **all 294 identical** to the container's |
+| The container's NGINX site configuration and entrypoint against `3a97404f7` | identical |
+
+So what the device loaded is byte-for-byte what `3a97404f7` builds with the
+build identifier unset. What this does not say: which commit the image was
+actually built from (no file under `frontend/` outside `frontend/qa/` differs
+between `main` and `3a97404f7`, so every commit of the branch builds the same
+application), and it rests on the build being reproducible, which the match
+itself shows for this case. The backend container (created 10:03 UTC the same
+day) was not tied to a commit; the branch changes nothing under `backend/`. The
+ingress configuration was compared by hash and is the repository's.
+
 ### Explicitly unverified
 
-Passing the acceptance target would establish none of these, and as things stand
-none of them is verified either:
+#1353 was accepted on one thing: the repository owner's administrator
+dashboard workflow in Firefox 157 on one Windows 11 PC, five tabs opened
+together, each holding its expected data within 8 s without a recovery click,
+with a current and with an expired token, and a five-tab sign-out. That is
+verified, once. None of the following is, and the acceptance does not depend on
+any of it:
 
 - several users behind one address, until a multi-user workload exists;
-- administrator behaviour: the blocking runs are the non-administrator ones only,
-  and an administrator's pages send different requests;
-- restores of arbitrary or mixed routes: W1 opens every tab on `/dashboard`;
+- other roles on a device: the harness's blocking runs are a `sales_staff`
+  user in Chromium on the QA host, the device run is the administrator, and
+  neither stands in for the other;
+- restores of arbitrary or mixed routes: every tab was opened on `/dashboard`;
 - recovery from a regional-settings request that is refused on its own, which
   stays open under #1354;
-- browsers other than Chromium, apart from the device measurement above once it is run;
+- other browsers, devices and Firefox versions on a device; a cold cache;
+- more than five tabs within any time (#1359), and the replay revocation seen
+  at twenty tabs (#1358);
+- on the device, that a readable page which is not the dashboard is told from
+  the dashboard (see the negative checks above);
 - that the three provisional `api_limit` numbers are the right ones. They are
-  sizing hypotheses; W1 meeting its deadlines would show that they are adequate
-  for one profile at one role on one page, and nothing more.
+  sizing hypotheses. The device result shows they did not get in the way of
+  that workload (0 refusals, 9 and 17 requests delayed) and nothing more. The
+  5 / 10 / 15 s harness deadlines they were first sized against were never met
+  on the QA host and are no longer part of the acceptance.
 
 ## What is automated
 
