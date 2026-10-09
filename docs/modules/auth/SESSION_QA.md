@@ -1079,6 +1079,82 @@ run); evidence that a restored window produces that delay by itself (the delay
 was induced); or anything about the completion deadlines, which are unmet on
 this host and unchanged.
 
+### Recorded run on `3fc7c3e9f` (2026-10-09): exit status 1; cases 16 and 17 have recorded baselines
+
+A full recorded run: the whole suite from the repository at HEAD, served build
+equal to HEAD, access lifetime 20 s and grace 5 during, stack restored to
+15m / 60. **17 of 18 passed. Cases 1 to 17 passed; W1 failed. The latency
+measurement completed and passed** (M1 and M2). One-minute load average 0.21 to
+8.73 during the run, recorded and not given as a cause.
+
+**The run's result is a failure, and it is W1's:** exactly the six completion
+deadlines, and nothing else.
+
+| Tabs | Round | Complete after | Deadline | Usable / complete on first load | Recovery actions | Business 429 | Session-route 429 | Delayed by `api_limit` |
+|---|---|---|---|---|---|---|---|---|
+| 5 | current token | **5.46 s** | 5 s | 5 / 5 | 0 | 0 of 45 | 0 | 0 |
+| 5 | expired token | **6.80 s** | 5 s | 5 / 5 | 0 | 0 of 90 | 0 | 62 |
+| 10 | current token | **10.96 s** | 10 s | 10 / 10 | 0 | 0 of 90 | 0 | 34 |
+| 10 | expired token | **17.15 s** | 10 s | 10 / 10 | 0 | 0 of 180 | 0 | 148 |
+| 20 | current token | **25.86 s** | 15 s | 20 / 20 | 0 | 0 of 266 | 0 | 117 |
+| 20 | expired token | **22.73 s** | 15 s | 20 / 20 | 0 | 0 of 186 | 0 | 0 |
+
+Every other W1 check passed: every tab usable and complete on first load, no
+recovery action, no 429 from `api_limit` or on a session route, the token state
+each round claims, and in the natural sign-out rounds the logout answered 2xx
+and every tab on the login page without a reload. The session was not revoked.
+The natural sign-out's overlap, now a diagnostic: overlap at five tabs, overlap
+absent at ten and twenty. This is the third recorded run on this host to miss
+every deadline. The deadlines are unchanged, and W1 has no passing baseline.
+
+**Per-case baselines.** By the rule agreed before the run, cases 16 and 17 each
+qualify individually from this run only if the run is a full recorded one, the
+case's own prerequisites and evidence passed, its final capture-health check
+passed, and no shared setup failure or session loss affected it. An unrelated
+failure does not invalidate their evidence; W1 ran after both.
+
+**Case 16: baseline established.** Recovery deadline 3120 ms, calculated and
+recorded before the attempts.
+
+- *Attempt 1, inconclusive.* The capture segment held one unreadable record: a
+  response from the backend with no request, at the very start of the segment
+  (its request had been sent before the capture began). The attempt was not
+  judged on it. The tab had recovered in 2.24 s.
+- *Attempt 2, pass.* L was the tab's `GET /api/settings/company`: delayed by the
+  limiter, answered 401 `Invalid or expired token`, the stored token's
+  fingerprint in the browser's record and in the capture. *Valid when sent:* a
+  same-token probe answered 200 reached the ingress 51 ms after L did (margin
+  5 ms). *Expired at upstream arrival:* a same-token probe answered
+  `Invalid or expired token` had left the backend 50 ms before L's first byte
+  arrived (margin 1 ms). *Recovered by itself:* data 1.65 s after the tab's
+  first 401, no recovery action, no session-route 429. One address for the tab,
+  the probes and the fillers; probes on schedule; nothing unexplained or
+  missing.
+- *Final capture-health check:* the passing attempt's segment is usable, with
+  0 dropped (reported) and 0 unreadable records. The first attempt's segment is
+  reported unusable, which is what made that attempt inconclusive.
+
+**Case 17: baseline established.** Each size passed on its first attempt.
+
+| | 5 tabs | 10 tabs | 20 tabs |
+|---|---|---|---|
+| Data requests pending when the sign-out was initiated | 18 | 50 | 52 |
+| Of those, delayed by the limiter (same identifier in the ingress log) | 14 | 14 | 9 |
+| Of those: cancelled by the sign-out / answered | 12 / 2 | 10 / 4 | 2 / 7 |
+| Pending requests with any other fate | none | none | none |
+| Logout; tabs on login, same document, no stale data | 204; 5 of 5 | 204; 10 of 10 | 204; 20 of 20 |
+| Session-route 429 | 0 | 0 | 0 |
+| Fillers at the ingress: sent / delayed / refused | 190 / 138 / 12 | 298 / 257 / 0 | 538 / 481 / 0 |
+| Address of the application and of the fillers | one | one | one |
+
+At five tabs twelve fillers were refused by `api_limit` (the excess passed the
+burst); no application request's verdict depends on that.
+
+What the two baselines are: recorded evidence, from a full run, that the two
+scenarios hold on this stack. What they are not: evidence about the completion
+deadlines; evidence that a restored window produces delay at a sign-out by
+itself (case 17's delay is induced); or more than one recorded run each.
+
 ### Explicitly unverified
 
 Passing the acceptance target would establish none of these, and as things stand
