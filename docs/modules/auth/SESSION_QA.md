@@ -1531,6 +1531,57 @@ unclassified error, and none for the waiting screen's own retry. Case 12 covers
 the adapter's timeout in general. Whether cases 1 and 3 and W1's blocking checks
 can fail in a browser is still not shown (#1363).
 
+### Recorded run on `388a4c839` (2026-10-10): exit status 0
+
+The second and last run for #1354, on the commit that carries the fixes from the
+review of #1366. Those fixes touch the same paths of the session runtime (the
+cleanup guard, the start-up read, `signOut` and `passwordChanged`), so the run on
+`48c4d1888` no longer described the code to be merged; that, more than M2, is
+what this run was for.
+
+A full recorded run, 12:13 to 12:59: the whole suite from the repository at
+HEAD, served build equal to HEAD, access lifetime 20 s and grace 5 during, stack
+restored to 15m / 60 (read again with `stack.sh show` after the script had
+exited). A first invocation at 10:54 was refused before anything was changed,
+"free disk under 3 GB" (2.6 GB); unused Docker build cache was pruned and the
+run started with 4.03 GB free. That refusal is not a run.
+
+**17 of 17 cases passed, W1 passed, and M1 and M2 passed.**
+
+| | `48c4d1888` (failed) | `388a4c839` (passed) |
+|---|---|---|
+| Cases | 17 of 17 | 17 of 17 |
+| W1 | pass | pass |
+| M1, median p95 (threshold 5 ms) | 2.9 ms | 1.7 ms |
+| M2, median p95 (threshold 15 ms) | **16.2 ms** (16.2, 17.2, 10.3) | 4.5 ms (7.8, 4.4, 4.5) |
+| M3, one / four tabs (diagnostic) | 86.4 / 394.3 ms | 70.3 / 260.6 ms |
+| M4, one / four tabs (diagnostic) | 113.1 / 738 ms | 102.3 / 425.6 ms |
+| One-minute load average | 9.45 half an hour before, 6.26 a minute after (read by hand) | 0.63 at the start, 6.79 at the end (recorded by the invoking script) |
+| Containers restarting before the measurement | two, of another project | none |
+
+**What the two runs do and do not show about M2.** On a host with no other
+container restarting and a low load at the start, M2 was 4.5 ms, in the range of
+the earlier recorded runs (4.3 to 5.4 ms). That is consistent with the miss on
+`48c4d1888` having been the machine's. It does not establish it: two runs differ
+in the commit as well as in the host, nothing was varied on purpose, and the
+load at the end of this run was as high as it was around the failed one. Those
+containers were not stopped by this work; they were no longer running when this
+run was made. The threshold is unchanged.
+
+W1, all blocking checks passed at 5, 10 and 20 tabs: every tab usable and
+complete on first load, no recovery action, no 429 on a session route (at most
+two requests to that zone in a round), no business 429 (0 of 45, 90, 90, 90, 122,
+90, 261, 192, 183). Not blocking, reported: the last tab held its data after 5.8
+and 6.9 s at five tabs, 11.1 and 11.0 s at ten, 24.3 and 21.4 s at twenty,
+against 5, 10 and 15 s (#1359). In the sign-out rounds the sign-out overlapped a
+request the limiter was delaying at five and at ten tabs, and not at twenty.
+
+Case 8 again passed at 3.5 lifetimes (#1367).
+
+As with the run before it, this is evidence that the existing cross-tab
+behaviour holds on this commit, and not evidence for the #1354 changes
+themselves, none of which has a browser case.
+
 ## What is automated
 
 - Vitest on the in-memory store double: every commit rule, the reconciliation
