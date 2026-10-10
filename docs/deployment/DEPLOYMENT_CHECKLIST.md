@@ -290,6 +290,13 @@ if it reports drift, the migration will not run a second time, so the same
       Docker and about a minute. Exit 0 and `api_limit verification complete`
       is the pass; exit 3 means the recorded probe result does not match the
       configuration and nothing was verified
+- [ ] #1360 changes `nginx.conf` again (the login page's
+      `show-default-credentials` request moves from `login_limit` to
+      `api_limit`), so the NGINX image must be rebuilt and the container
+      recreated: the configuration is baked into the image. Until then a
+      sign-out with several tabs open can still leave the next sign-in refused
+      for a few seconds. `nginx/verify-rate-limits.sh` ends with phase K, which
+      checks this on its own rig
 - [ ] A 429 no longer says which limiter refused a request: read `lreq=` and
       `lconn=` on its access-log line (`REJECTED` names the limiter)
 - [ ] **Not covered by this change, and not verified:** several users behind one
