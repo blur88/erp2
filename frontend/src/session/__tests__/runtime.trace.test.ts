@@ -23,8 +23,15 @@ describe('session runtime — trace of the refresh path', () => {
       'refresh-sent',
       'refresh-answered',
       'token-commit',
+      'pending-dropped',
       'lease-release',
     ])
+    // One release function, one actual release: installing the entry took the
+    // lease over, so the refresh skipped it and the entry releases it instead.
+    expect(a.trace.at(-1)).toMatchObject({ type: 'lease-release', outcome: 'skipped-pending' })
+    await vi.waitFor(() =>
+      expect(a.trace.filter((e) => e.type === 'lease-release' && e.outcome === 'released')).toHaveLength(1),
+    )
     expect(new Set(a.trace.map((e) => e.refreshId)).size).toBe(1)
     expect(a.trace.find((e) => e.type === 'refresh-sent')).toMatchObject({ presentedGeneration: 1 })
     expect(a.trace.find((e) => e.type === 'refresh-answered')).toMatchObject({ status: 'ok', returnedGeneration: 2 })
@@ -44,21 +51,19 @@ describe('session runtime — trace of the refresh path', () => {
     const ref = (await a.runtime.beginRequest()).ref
 
     // The response is gated so the lease is taken before the store is held: the
-    // transaction that stalls is the commit, not the acquisition.
+    // transactions that stall are the commits, not the acquisition. Both inline
+    // attempts run, so the hold is released only once the caller has given up.
     const gate = holdRefreshResponses(h.server)
     const attempt = a.runtime.handleUnauthorized(ref)
     await vi.waitFor(() => expect(gate.waiting()).toBe(1))
     const hold = a.store.holdNextTransaction()
     gate.release()
 
-    await vi.waitFor(() => expect(a.trace.some((e) => e.type === 'token-commit' && e.outcome === 'timeout')).toBe(true), {
-      timeout: 9000,
-    })
+    await expect(attempt).rejects.toBeInstanceOf(StorageTimeoutError)
     hold.release()
 
-    await expect(attempt).rejects.toBeInstanceOf(StorageTimeoutError)
-    expect(a.trace.filter((e) => e.type === 'token-commit')).toHaveLength(1)
-  }, 20000)
+    expect(a.trace.filter((e) => e.type === 'token-commit')).toMatchObject([{ outcome: 'timeout' }, { outcome: 'timeout' }])
+  }, 30000)
 
   it('nothing is emitted and nothing throws when onTrace is not supplied', async () => {
     const h = createHarness()
