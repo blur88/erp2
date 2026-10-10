@@ -12,6 +12,7 @@ import {
   type SignInCommitResult,
 } from './decisions'
 import { reconcile, type ReconcileAction } from './reconcile'
+import type { TraceBody, TraceEvent } from './trace'
 import type { SessionStore } from './store/sessionStore'
 import {
   SessionEndedError,
@@ -45,6 +46,8 @@ export interface RuntimeDeps {
   channel: { post(): void; subscribe(fn: () => void): () => void } | null
   tabId: string
   now: () => number
+  /** Opt-in trace of the refresh path. When absent nothing is recorded. */
+  onTrace?: (event: TraceEvent) => void
 }
 
 // 'storage-waiting': the start-up read timed out. Storage did not answer, so the
@@ -97,6 +100,10 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   // transaction clearing it has completed. Memory only: it ends with the tab.
   let pendingCleanup: { sessionId: string; attemptsLeft: number } | null = null
   let cleanupInFlight: { pending: object; settled: Promise<void> } | null = null
+  // Trace state. `refreshId` numbers the refreshes of this runtime so the events
+  // of one refresh can be joined; it is 0 outside a refresh.
+  let refreshIdCounter = 0
+  let currentRefreshId = 0
   let announceStarted: () => void = () => undefined
   const started = new Promise<void>((resolve) => {
     announceStarted = resolve
@@ -108,6 +115,10 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   }
   const post = () => channel?.post()
   const isEligible = (sessionId: string) => claim() === sessionId
+  // A no-op unless the runtime was given an `onTrace` dependency.
+  const trace = (body: TraceBody): void => {
+    deps.onTrace?.({ ...body, tabId, at: now(), refreshId: currentRefreshId })
+  }
   // Best effort: a logout that fails changes nothing in the browser.
   const logoutBestEffort = (refreshToken: string) => {
     void http.logout(refreshToken).catch(() => undefined)
@@ -425,10 +436,32 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     return claim() === ref.sessionId && stored.record.session?.sessionId === ref.sessionId
   }
 
-  const acquireLease = async (): Promise<boolean> =>
-    (await transact((s) => leaseAcquire(s, { owner: tabId, now: now(), ttlMs: LEASE_TTL_MS }))).acquired
+  const acquireLease = async (): Promise<boolean> => {
+    const startedAt = now()
+    const acquiredAt = now()
+    const acquired = (
+      await transact((s) => leaseAcquire(s, { owner: tabId, now: acquiredAt, ttlMs: LEASE_TTL_MS }))
+    ).acquired
+    trace({
+      type: 'lease-acquire',
+      acquired,
+      expiresAt: acquired ? acquiredAt + LEASE_TTL_MS : null,
+      ms: now() - startedAt,
+    })
+    return acquired
+  }
 
   const doRefresh = async (): Promise<'retry' | 'ended'> => {
+    refreshIdCounter += 1
+    currentRefreshId = refreshIdCounter
+    try {
+      return await runRefresh()
+    } finally {
+      currentRefreshId = 0
+    }
+  }
+
+  const runRefresh = async (): Promise<'retry' | 'ended'> => {
     const startedWith = memory
     if (!startedWith) return 'ended'
 
@@ -438,14 +471,27 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // finds nothing to adopt, so the tab's own tokens are compared with the ones
     // the refresh was started for. Sending anyway would rotate a second time.
     const settled = async (): Promise<'retry' | 'ended' | null> => {
+      const startedAt = now()
       const stored = await readRecord()
       applyAdoption(reconcile(claim(), memory, stored.record), stored)
-      if (status !== 'signed-in' || !memory) return 'ended'
-      const movedOn =
-        memory.sessionId !== startedWith.sessionId ||
-        memory.generation > startedWith.generation ||
-        memory.accessTokenExpiresAt > startedWith.accessTokenExpiresAt
-      return movedOn ? 'retry' : null
+      let result: 'retry' | 'ended' | 'proceed'
+      if (status !== 'signed-in' || !memory) {
+        result = 'ended'
+      } else {
+        const movedOn =
+          memory.sessionId !== startedWith.sessionId ||
+          memory.generation > startedWith.generation ||
+          memory.accessTokenExpiresAt > startedWith.accessTokenExpiresAt
+        result = movedOn ? 'retry' : 'proceed'
+      }
+      trace({
+        type: 'settled-read',
+        storedGeneration: stored.record.session?.generation ?? null,
+        memoryGeneration: memory?.generation ?? null,
+        result,
+        ms: now() - startedAt,
+      })
+      return result === 'proceed' ? null : result
     }
 
     const first = await settled()
@@ -472,7 +518,19 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
       return await sendRefresh(memory)
     } finally {
-      if (holdsLease) await transact((s) => leaseRelease(s, { owner: tabId })).catch(() => undefined)
+      if (holdsLease) {
+        const startedAt = now()
+        try {
+          const released = await transact((s) => leaseRelease(s, { owner: tabId }))
+          trace({
+            type: 'lease-release',
+            outcome: released.released ? 'released' : 'not-owner',
+            ms: now() - startedAt,
+          })
+        } catch {
+          trace({ type: 'lease-release', outcome: 'failed', ms: now() - startedAt })
+        }
+      }
     }
   }
 
@@ -481,11 +539,14 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     const capturedGeneration = session.generation
     const refreshToken = session.refreshToken
 
+    trace({ type: 'refresh-sent', presentedGeneration: capturedGeneration })
+    const sentAt = now()
     let response
     try {
       response = await http.refresh(refreshToken)
     } catch (err) {
       if (err instanceof RefreshRejectedError) {
+        trace({ type: 'refresh-answered', status: 'rejected', returnedGeneration: null, ms: now() - sentAt })
         const after = await readRecord()
         applyAdoption(reconcile(claim(), memory, after.record), after)
         const stored = after.record.session
@@ -505,12 +566,34 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
         await reconcileNow()
         return claim() !== null ? 'retry' : 'ended'
       }
+      trace({ type: 'refresh-answered', status: 'error', returnedGeneration: null, ms: now() - sentAt })
       throw err
     }
+    trace({ type: 'refresh-answered', status: 'ok', returnedGeneration: response.generation, ms: now() - sentAt })
 
-    const outcome = await transact((s) =>
-      tokenCommit(s, { claim: claim(), requestSessionId, response }),
-    )
+    const committedAt = now()
+    let outcome
+    try {
+      outcome = await transact((s) => tokenCommit(s, { claim: claim(), requestSessionId, response }))
+    } catch (err) {
+      trace({
+        type: 'token-commit',
+        trigger: 'inline',
+        attempt: 1,
+        triggeredBy: null,
+        outcome: err instanceof StorageUnavailableError ? 'unavailable' : 'timeout',
+        ms: now() - committedAt,
+      })
+      throw err
+    }
+    trace({
+      type: 'token-commit',
+      trigger: 'inline',
+      attempt: 1,
+      triggeredBy: null,
+      outcome: outcome.outcome,
+      ms: now() - committedAt,
+    })
 
     if (outcome.outcome === 'discarded' || outcome.outcome === 'session-mismatch') {
       const after = await readRecord()

@@ -2,6 +2,7 @@ import { vi } from 'vitest'
 import { createSessionRuntime, type SessionRuntime, type RuntimeEvents } from '../runtime'
 import type { AuthHttp } from '../authHttp'
 import { RefreshRejectedError } from '../authHttp'
+import type { TraceEvent } from '../trace'
 import {
   createSharedMemory,
   createMemorySessionStore,
@@ -243,12 +244,15 @@ export interface Tab {
     waiting: boolean[]
   }
   deliverChannel(): void
+  /** Trace events, when the harness was created with `trace: true`. */
+  trace: TraceEvent[]
 }
 
-export function createHarness(opts?: { accessLifetimeMs?: number; graceMs?: number; channel?: boolean }) {
+export function createHarness(opts?: { accessLifetimeMs?: number; graceMs?: number; channel?: boolean; trace?: boolean }) {
   const server = createServer(opts)
   const shared: SharedMemory = createSharedMemory()
   const useChannel = opts?.channel !== false
+  const useTrace = opts?.trace === true
 
   const createTab = (tabId: string): Tab => {
     let notify: (() => void) | null = null
@@ -285,6 +289,7 @@ export function createHarness(opts?: { accessLifetimeMs?: number; graceMs?: numb
     }
 
     const store = createMemorySessionStore(shared)
+    const trace: TraceEvent[] = []
     const runtime = createSessionRuntime({
       store,
       http: makeHttp(server),
@@ -292,9 +297,10 @@ export function createHarness(opts?: { accessLifetimeMs?: number; graceMs?: numb
       channel,
       tabId,
       now: () => clock.value,
+      onTrace: useTrace ? (event) => void trace.push(event) : undefined,
     })
 
-    return { runtime, store, channelPost, events, deliverChannel: () => notify?.() }
+    return { runtime, store, channelPost, events, deliverChannel: () => notify?.(), trace }
   }
 
   return { server, shared, createTab }
