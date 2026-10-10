@@ -1889,3 +1889,255 @@ instrumentation — every round's trace, server rows and verdict are already
 produced automatically — it is producing a storage stall of the 12 to 21 s the
 recorded run needed, when twenty rounds here reached 5.3 s at most. #1370 also
 owns the grace window; this record only points at it.
+
+## Start-up with several tabs: what the time is spent on (#1359, 2026-10-10)
+
+A diagnostic. It judges nothing, changes no product code and no deadline, and
+proposes no fix. The question it was run to answer is the one the 2026-10-09
+section above left open: when several tabs of one profile start together on the
+QA host, is the extra time before a tab's first data request spent on the
+processor, on the disk under the browser's cache, or on something else.
+
+**Answer, for this host and this browser: the processor.** A tab needs about
+1.2 s of processor time before it sends its first data request, on more than one
+thread. Five tabs need five times that, the host has four processors that other
+work also uses, and the load takes as long as that division says. Nothing was
+read from a disk, and a profile kept on the spinning disk, on a RAM disk, or
+read cold from the device made no difference outside the spread between loads.
+
+### What was run
+
+| | |
+|---|---|
+| Script | `frontend/qa/cross-tab-session/diagnose-completion.mjs`, with the options added on this branch (stagger, kept profile, cold files, the `traced` variant, and the kernel's counters per load) |
+| Served build | `4f551274e59c52ced4618687528448b51baf707e`, read from the page. The branch changes nothing under `frontend/src`, so this is the branch's bundle |
+| Stack | the running stack, 15-minute access tokens, 60 s grace; only the frontend container was rebuilt and recreated |
+| Browser | Chromium 153.0.8010.12 headless shell (Playwright 1.63.0 in Docker), started with `--disable-dev-shm-usage` and its own profile directory under `/tmp`, which is the container's overlay file system on `sda` |
+| Host | AMD Ryzen 3 3200G, 4 processors, 9.7 GiB, kernel 6.8.0-138-generic, spinning `sda` |
+| Load | tabs of one signed-in profile opened on `/dashboard` with a current token, bare variant (nothing installed in the tabs) |
+| When | 14:30 to 15:24 UTC, two rounds of the same twenty runs in the same order; 5 loads per run (6 with a kept profile, 3 traced) |
+| Host load | one-minute load average 0.6 to 5.9 at the start of a run, most of it the measurement itself. Other processes were running (an editor session at 15 to 18 % of a processor, the stack, two unrelated containers); nothing was stopped |
+
+Each run is one `docker run` of the Playwright image against the ingress:
+
+```bash
+docker run --rm <flags> -v <repo>:/repo:ro -v <scratch>:/scratch -w /scratch \
+  -e QA_BASE_URL=http://10.1.1.34 -e QA_SCRATCH=/scratch \
+  -e QA_STACK_SHOW=/scratch/stack-during.json \
+  -e QA_COMPLETION_TABS=<n> -e QA_COMPLETION_REPS=<loads> \
+  -e QA_COMPLETION_VARIANTS=bare <options> -e QA_USERNAME ... \
+  mcr.microsoft.com/playwright:v1.63.0-noble \
+  node /repo/frontend/qa/cross-tab-session/diagnose-completion.mjs
+```
+
+| Run | `<flags>` | `<options>` |
+|---|---|---|
+| base | none | none |
+| 1 or 2 processors | `--cpuset-cpus 0` / `--cpuset-cpus 0-1` | none |
+| browser's files in RAM | `--tmpfs /tmp:exec,size=2g` | none |
+| profile kept on the disk | none | `QA_COMPLETION_PROFILE_DIR=/scratch/profile-disk` (ext4 on `sda`) |
+| the same, read cold | none | that, and `QA_COMPLETION_COLD_FILES=1` |
+| profile kept in RAM | `--shm-size=2g` | `QA_COMPLETION_PROFILE_DIR=/dev/shm/profile-ram` |
+| staggered | none | `QA_COMPLETION_STAGGER_MS=1000` / `2500` |
+| traced | none | `QA_COMPLETION_VARIANTS=traced` |
+
+Every load records, from the trigger to the last tab's first data request: the
+processor time the container used (`cpu.stat`), by kind of process; how long its
+tasks were stalled waiting for a processor and for I/O (the cgroup's pressure
+stall counters, "some"); the bytes it read from a device (`io.stat`); and the
+host's busy and I/O-wait shares.
+
+### The base load, again
+
+Medians of five loads, round 1 / round 2. "First data request" is the last
+tab's, after the common trigger.
+
+| Tabs | First data request | Last data answer | Largest contentful paint | Processor time used until the first request | Stalled for a processor | Host busy |
+|---|---|---|---|---|---|---|
+| 1 | 0.77 / 0.74 s | 1.33 / 1.28 s | 1.69 / 1.60 s | 1.63 / 1.55 s | 0.14 / 0.13 s | 60 % |
+| 2 | 0.97 / 1.09 s | 1.90 / 2.08 s | 2.36 / 2.48 s | 2.98 / 3.42 s | 0.34 / 0.44 s | 81 / 84 % |
+| 3 | 1.42 / 1.47 s | 2.65 / 2.82 s | 3.31 / 3.38 s | 5.02 / 5.37 s | 0.76 / 0.78 s | 92 % |
+| 5 | 3.38 / 3.28 s | 4.57 / 4.24 s | 5.49 / 5.26 s | 10.89 / 10.70 s | 2.46 / 2.38 s | 97 % |
+
+One, two and three tabs reproduce the 2026-10-09 table. **Five tabs do not
+reproduce its 2.06 s**: the first request was at 2.8 to 3.5 s in all ten loads
+here, and at 2.6 to 4.3 s in twenty more taken afterwards (below). The other 2026-10-09
+measurements of five tabs have 2.86 and 2.95 s. Why that one set of five loads
+was faster is not known; the host's other work is the obvious candidate and was
+not recorded then.
+
+One tab alone already uses two processors' worth: 1.6 s of processor time in
+0.77 s. At five tabs the host is 97 % busy for the whole of the wait.
+
+### Disk
+
+| Five tabs | First data request, round 1 / round 2 (range over both) | Read from a device | Stalled for I/O | Host I/O wait |
+|---|---|---|---|---|
+| base (cache in memory, browser's files on the disk) | 3.38 / 3.28 s (2.77 to 3.51) | 0 | 0.00 s | 0 |
+| browser's files in RAM | 2.93 / 3.15 s (2.46 to 3.37) | 0 | 0.00 s | 0 |
+| profile kept on the disk | 3.00 / 2.83 s (2.21 to 3.95) | 0 | 0.00 s | 0 |
+| profile kept in RAM | 2.99 / 2.74 s (2.35 to 4.32) | 0 | 0.00 s | 0 |
+| profile on the disk, read cold | 3.09 / 3.05 s (2.37 to 3.67) | 2.0 MB | 0.02 s | 0 |
+
+At one tab the five are 0.67 to 0.77 s.
+
+- The harness's usual context keeps its cache in memory, so the loads the issue
+  measured never read a script from a disk. The 2026-10-09 question about "the
+  disk the browser's cache is read from" did not apply to them.
+- With a kept profile the scripts came from the profile's cache on the disk
+  (nothing transferred in any load), and the kernel served them from its page
+  cache: no byte was read from the device.
+- **The control:** with the profile's files dropped from the page cache before
+  every load, each load read 2.0 MB from the device, so the option does what it
+  says. It cost 0.02 s of I/O stall and the first request did not move.
+- The four alternatives are 0.2 to 0.5 s below the base medians and their
+  ranges overlap it. Moving `/tmp` to RAM also moves the browser's shared
+  memory files and its own profile, so that run is "nothing of the browser on
+  the disk", not the cache alone; none of it shows as I/O in the counters. The
+  runs were made in a fixed order, so a difference of this size between them is
+  not attributed.
+
+### Processor
+
+| | 1 processor | 2 processors | 4 processors (base) |
+|---|---|---|---|
+| One tab: first data request | 1.15 / 1.13 s | 0.77 / 0.77 s | 0.77 / 0.74 s |
+| One tab: processor time used | 1.22 / 1.22 s | 1.23 / 1.24 s | 1.63 / 1.55 s |
+| Five tabs: first data request | 6.28 / 6.36 s | 3.76 / 3.96 s | 3.38 / 3.28 s |
+| Five tabs: processor time used | 6.37 / 6.45 s | 7.58 / 7.98 s | 10.89 / 10.70 s |
+| Five tabs: share of its processors the container used | 100 % | 99 / 98 % | 78 / 81 % |
+| Five tabs: stalled for a processor | 6.35 / 6.44 s | 3.63 / 3.96 s | 2.46 / 2.38 s |
+| Five tabs: largest contentful paint | 12.6 / 12.7 s | 7.1 / 6.9 s | 5.5 / 5.3 s |
+
+- **The control:** one tab on one processor is slower (1.15 s against 0.77 s),
+  so the restriction moves the figure, and one tab does use more than one
+  processor when it can.
+- On one processor five tabs take 6.3 s and use 6.4 s of processor time: the
+  wait is the work, with nothing else in it. That is 1.27 s per tab, the same
+  as one tab alone on one processor (1.22 s).
+- On two processors, 7.6 to 8.0 s of processor time in 3.8 to 4.0 s: again the
+  work divided by the processors.
+- On four, the container got 78 to 81 % of them while the host was 97 % busy;
+  the rest went to other processes. 10.8 s of work over 3.2 processors is 3.4 s.
+- The work counted grows from 6.4 to 10.8 s because the count runs to the
+  *last* tab's first request. With more processors the tabs spread out (median
+  tab 2.2 to 2.6 s, last tab 3.3 s), and the earlier tabs are by then rendering
+  the dashboard, which is counted too. On one processor all five arrive within
+  0.1 s of each other.
+- `--cpuset-cpus` changes where the threads may run as well as how much
+  processor there is. The reading above does not rest on it alone: the stall
+  counters and the busy share say the same at four processors, where nothing
+  was restricted.
+
+By kind of process, five tabs at four processors, to the first request:
+renderers 8.3 to 8.5 s, the browser process 0.8 s, the network service 0.6 s,
+the GPU process 0.4 s, the measuring script 0.5 s.
+
+**The measuring script's own cost.** It reads the counters every 200 ms in the
+same container. Four more runs of five loads, alternating a 200 ms interval with
+none at all during the load: 3.52 and 3.01 s with, 3.01 and 2.99 s without.
+Not distinguishable.
+
+### Starting together against starting apart
+
+Five tabs, each measured from its own navigation; the slowest tab of the load,
+medians, round 1 / round 2.
+
+| | First data request | Largest contentful paint |
+|---|---|---|
+| Opened together | 3.35 / 3.27 s | 5.46 / 5.24 s |
+| 1.0 s apart | 1.49 / 1.46 s | 2.76 / 2.87 s |
+| 2.5 s apart | 0.77 / 0.77 s | 1.71 / 1.61 s |
+| One tab alone | 0.76 / 0.74 s | 1.69 / 1.60 s |
+
+Opened 2.5 s apart, the fifth tab of a profile that already has four open starts
+exactly as a tab alone does. So open tabs of the same profile cost a new tab
+nothing by being there: not the shared session record, not the cache, not the
+number of processes. What costs is starting at the same moment. At 1.0 s apart a
+tab is still starting when the next one begins (one tab takes 1.7 s to paint),
+and the figures sit in between.
+
+This separates "together" from "many"; it does not by itself say which shared
+thing the tabs compete for. The processor table does.
+
+### Inside a tab: the main thread before the first data request
+
+From the browser's trace (`traced`), medians over the tabs of three loads,
+round 1 / round 2. Tracing itself costs: the traced five-tab load used 11.7 to
+13.3 s of processor time against 10.8 s.
+
+| | One tab | Five tabs |
+|---|---|---|
+| From navigation to the first data request | 0.85 / 0.76 s | 2.69 / 2.73 s |
+| Main thread running its tasks (processor time) | 0.64 / 0.58 s | 0.86 / 0.87 s |
+| In a task and not running | 0.06 / 0.05 s | 0.95 / 1.16 s |
+| Nothing to run | 0.15 / 0.14 s | 0.81 / 0.77 s |
+
+- Among five tabs the main thread spends about a second inside tasks without
+  running: it had work and no processor.
+- It also has nothing to run for 0.8 s instead of 0.15 s. What it was waiting
+  for was not traced. The scripts reach it through the browser process and the
+  network service, which were short of a processor as well; that is the likely
+  reason and it is an inference.
+- Its own processor time grows from 0.6 to 0.87 s. Not explained; five
+  processes competing for the processors' caches would do it.
+- Of the 0.6 s alone, by the trace's own event names (they nest, so they do not
+  add up): evaluating the modules 0.23 to 0.26 s, compiling 0.16 to 0.17 s,
+  parsing 0.10 s. Running the application's scripts for the first time is most
+  of what the main thread does before the first request.
+- The main thread is about half of a tab's 1.2 s. The other half is the
+  renderer's other threads and the tab's share of the browser, network and GPU
+  processes; it was counted per process and not broken down further.
+
+### What this establishes, and what it does not
+
+Established, on this host, in headless Chromium:
+
+- The time before the first data request is processor time. A tab costs about
+  1.2 s of it (1.9 to 2.5 s to its last data answer), and tabs that start together
+  share the processors there are. Five tabs on this host's four processors, which
+  the stack and everything else on the host also use, come to about 3 s before
+  the first request and 5.3 to 5.5 s to the paint.
+- It is not the disk, with the cache in memory or with a kept profile, warm or
+  read cold from the device.
+- It is not something tabs of one profile do to each other apart from starting
+  at the same moment.
+
+Not established:
+
+- **Any other machine or browser.** The work per tab is the application's and
+  goes wherever it is opened; how long it takes depends on that machine's
+  processors and on what else they are doing. The one device measurement there
+  is (Firefox 157 on a Windows 11 PC, 3.5 s for five tabs to hold their data)
+  is one configuration that met its acceptance, not a statement about others.
+  Firefox was not measured here at all.
+- A machine restarted with nothing in the page cache: the browser's own files
+  were always cached. Only the profile's files were read cold.
+- Why one 2026-10-09 set of five-tab loads had the first request at 2.06 s.
+- What the main thread waits for while it has nothing to run, and what the
+  renderer's other threads spend their half on.
+- Ten and twenty tabs. By the division above they would take proportionally
+  longer on this host; that was not run.
+
+### Recommendation
+
+The issue asked what the slowing is, and that is answered: this host has four
+slow processors, and the application asks about 1.2 s of one before a tab's
+first request. Nothing found here is a defect between tabs, in the session
+module, in the cache or in the ingress.
+
+Whether to do anything is a separate decision and needs its own approval:
+
+- **Leave it.** The device acceptance of #1353 passed with room, and the 5 / 10 /
+  15 s harness figures block nothing. #1359 can be closed with this record, or
+  kept only as the place those figures are reported.
+- **Reduce the work per tab.** Start-up time with several tabs is the work per
+  tab times the tabs over the processors, so the only lever in the application
+  is the work. `router.tsx` imports every page but one eagerly and `main.tsx`
+  loads the whole component library, the date pickers and two data layers before
+  anything renders; a tab compiles and runs 1.59 MB of script to show one page.
+  How much of the 1.2 s that would remove was not measured, and a change of that
+  kind should state its target first. It would be measured with the base and
+  one-processor runs above, which are the least noisy figures here.
+
+The deadlines are unchanged by this record.
