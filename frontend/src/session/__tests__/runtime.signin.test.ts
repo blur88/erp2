@@ -459,14 +459,40 @@ describe('session runtime — a start-up read that times out', () => {
     expect(a.runtime.claim()).toBeNull()
   })
 
-  it('passwordChanged in that state keeps the tab waiting', async () => {
+  it('passwordChanged and signOut in that state end nothing: no event, no transaction, no post', async () => {
     const { a } = await startedWhileBusy()
+    const transact = vi.spyOn(a.store, 'transact')
 
     await a.runtime.passwordChanged()
+    await a.runtime.signOut()
 
-    // Storage has still not said whether a session is stored: no sign-in form.
+    // Storage has still not said whether a session is stored, and this tab
+    // holds none: nobody was signed out, so nothing says so.
     expect(a.runtime.status()).toBe('storage-waiting')
     expect(a.events.waiting).toEqual([true])
+    expect(a.events.ended).toEqual([])
+    expect(transact).not.toHaveBeenCalled()
+    expect(a.channelPost).not.toHaveBeenCalled()
+  })
+
+  // Storage answered. What the application then does with the answer is not
+  // storage's failure.
+  it('a start whose read succeeded is not storage-unavailable when a listener throws', async () => {
+    const h = createHarness()
+    const b = h.createTab('B')
+    await b.runtime.start()
+    await b.runtime.signIn({ usernameOrEmail: 'b', password: 'p' })
+    const a = h.createTab('A')
+    a.events.sessionEstablished.mockImplementationOnce(() => {
+      throw new Error('a reducer threw')
+    })
+
+    await expect(a.runtime.start()).rejects.toThrow('a reducer threw')
+
+    expect(a.runtime.status()).not.toBe('storage-unavailable')
+    expect(a.events.ended).toEqual([])
+    // Whoever waits for the start is still answered.
+    await expect(a.runtime.whenStarted()).resolves.toBeUndefined()
   })
 
   it('a retry that times out again stays where it is', async () => {
@@ -810,6 +836,61 @@ describe('session runtime \u2014 a cancelled sign-in whose cleanup does not comp
 
     expect(counter.transactions).toBe(4)
     expect(h.shared.state.record).toEqual({ revision: revision + 2, session: null })
+  })
+
+  it('a later sign-in whose first read fails does not hold the cleanup back afterwards', async () => {
+    const { h, a, revision, counter } = await cancelledSignIn(firstFail(2))
+    a.store.failNextRead(new StorageTimeoutError('read timed out'))
+    await expect(a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' })).rejects.toBeInstanceOf(StorageTimeoutError)
+    expect(h.server.sessions.size).toBe(2)
+
+    // The attempt is over although it never reached the server.
+    await a.runtime.reconcileNow()
+
+    expect(counter.transactions).toBe(4)
+    expect(h.shared.state.record).toEqual({ revision: revision + 2, session: null })
+  })
+
+  // The cancelled attempt's own second cleanup would start while the next
+  // sign-in is on the wire, after that sign-in captured the revision.
+  it('the cancelled attempt\u2019s own retry does not start while the same tab signs in again', async () => {
+    const h = createHarness()
+    const a = h.createTab('A')
+    await a.runtime.start()
+    const b = h.createTab('B')
+    await b.runtime.start()
+    await b.runtime.signIn({ usernameOrEmail: 'b', password: 'p' })
+
+    const inner = a.store.transact.bind(a.store)
+    let transactions = 0
+    let login: ReturnType<typeof holdLoginResponses> | null = null
+    let second: Promise<unknown> | null = null
+    vi.spyOn(a.store, 'transact').mockImplementation(async (decide, opts) => {
+      transactions += 1
+      if (transactions === 1) {
+        const result = await inner(decide, opts)
+        a.runtime.cancelSignIn()
+        return result
+      }
+      if (transactions === 2) {
+        // The first cleanup is under way when the user submits again.
+        login = holdLoginResponses(h.server)
+        second = a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' })
+        await vi.waitFor(() => expect(login!.waiting()).toBe(1))
+        throw timeout()
+      }
+      return inner(decide, opts)
+    })
+
+    await expect(a.runtime.signIn({ usernameOrEmail: 'a', password: 'p' })).rejects.toThrow('sign-in cancelled')
+    // The commit and the one cleanup that timed out; no second cleanup.
+    expect(transactions).toBe(2)
+
+    login!.release()
+    await expect(second).resolves.toBeDefined()
+    expect(transactions).toBe(3)
+    expect(a.runtime.status()).toBe('signed-in')
+    expect(h.shared.state.record.session?.sessionId).toBe(a.runtime.claim())
   })
 
   // The store's own queue and its own timers, not a rejected `transact`: a

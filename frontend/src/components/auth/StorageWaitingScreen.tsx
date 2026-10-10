@@ -12,9 +12,9 @@ const AUTO_RETRY_MS = 10_000;
 const StorageWaitingScreen: React.FC<{ onRetry: () => Promise<void> }> = ({ onRetry }) => {
   const [retrying, setRetrying] = useState(false);
   const mounted = useRef(true);
-  // One retry at a time, whether the button, the timer or a return to the tab
-  // asked for it.
-  const inFlight = useRef(false);
+  // One request at a time, whether the button, the timer or a return to the
+  // tab asked for it: whoever asks second joins the one under way.
+  const inFlight = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -23,24 +23,32 @@ const StorageWaitingScreen: React.FC<{ onRetry: () => Promise<void> }> = ({ onRe
     };
   }, []);
 
-  const handleRetry = useCallback(async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
+  const ask = useCallback((): Promise<void> => {
+    if (!inFlight.current) {
+      const request = onRetry().finally(() => {
+        if (inFlight.current === request) inFlight.current = null;
+      });
+      inFlight.current = request;
+    }
+    return inFlight.current;
+  }, [onRetry]);
+
+  // The button says it is trying; a retry nobody pressed for does not touch it.
+  const handleRetry = async () => {
     setRetrying(true);
     try {
-      await onRetry();
+      await ask();
     } finally {
-      inFlight.current = false;
       // An answer replaces this screen; only a second timeout leaves it mounted.
       if (mounted.current) setRetrying(false);
     }
-  }, [onRetry]);
+  };
 
   // Only while the tab is visible: a hidden tab asks nothing, and asks at once
   // when it is shown again.
   useEffect(() => {
     const retryQuietly = () => {
-      void handleRetry().catch(() => undefined);
+      void ask().catch(() => undefined);
     };
     let timer: ReturnType<typeof setInterval> | null = null;
     const stop = () => {
@@ -65,7 +73,7 @@ const StorageWaitingScreen: React.FC<{ onRetry: () => Promise<void> }> = ({ onRe
       stop();
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [handleRetry]);
+  }, [ask]);
 
   return (
     <Box

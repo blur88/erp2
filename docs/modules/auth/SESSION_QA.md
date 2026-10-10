@@ -1453,7 +1453,16 @@ What changed, each under a test that failed first unless it says otherwise:
 - **A start-up read that fails with an error of no known class** makes the tab
   storage-unavailable, at start and on a retry, where it used to show the sign-in
   form. The tab's reconciliation drafts are cleared with it (Known limits).
-- **The waiting screen asks again by itself** every 10 s while visible.
+  The cancelled attempt's own second cleanup is held back the same way, and an
+  attempt whose first read fails no longer leaves the tab looking as if a
+  sign-in were still under way (both found by the review of #1366).
+- **The waiting screen asks again by itself** every 10 s while visible. An
+  automatic retry leaves the button as it is; pressing it joins the request
+  under way.
+- **`signOut()` and `passwordChanged()` do nothing in the waiting state:** no
+  event, no transaction, no channel message. The tab holds no session there.
+- **A listener that throws at start** is no longer reported as broken storage:
+  only the read itself is judged.
 - **The mandatory password page** starts no leave timer when it was left while
   its change was in flight, and its form stays disabled once the change has
   succeeded.

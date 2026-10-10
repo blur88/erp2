@@ -94,7 +94,7 @@ describe('StorageWaitingScreen', () => {
       expect(onRetry).not.toHaveBeenCalled()
     })
 
-    it('automatic and manual retries share one request', async () => {
+    it('automatic and manual retries share one request, and an automatic one leaves the button alone', async () => {
       vi.useFakeTimers()
       let finish: () => void = () => undefined
       const onRetry = vi.fn(
@@ -105,16 +105,22 @@ describe('StorageWaitingScreen', () => {
       )
       render(<StorageWaitingScreen onRetry={onRetry} />)
 
-      // An automatic retry is under way: the button says so and does not ask again.
+      // An automatic retry is under way. The button neither changes nor is
+      // disabled: nobody pressed it, and disabling it would take the focus
+      // from someone who is on it, every ten seconds.
       await act(() => vi.advanceTimersByTimeAsync(10_000))
       expect(onRetry).toHaveBeenCalledTimes(1)
-      expect(screen.getByRole('button', { name: /trying/i })).toBeDisabled()
-      fireEvent.click(screen.getByRole('button', { name: /trying/i }))
-      // Nor does the next tick, nor a return to the tab, while it is unanswered.
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled()
+      // The next tick and a return to the tab do not ask again while it is unanswered.
       await act(() => vi.advanceTimersByTimeAsync(10_000))
       setVisibility('hidden')
       setVisibility('visible')
       expect(onRetry).toHaveBeenCalledTimes(1)
+
+      // Pressing the button now joins that request and says so.
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+      expect(onRetry).toHaveBeenCalledTimes(1)
+      expect(screen.getByRole('button', { name: /trying/i })).toBeDisabled()
 
       await act(async () => {
         finish()

@@ -129,6 +129,22 @@ restore_stack
     || not_ok "${sig} during the restore step does not report a restored stack as not restored" "$(finalized "restore_${sig}"); $(tr '\n' ';' < "${TMP}/restore_${sig}.out")"
 done
 
+# The same when the run had already recorded an abort reason before the
+# restore: the signal still stops the run after the restore has finished.
+scenario restore_TERM_aborted 'ABORTED="an earlier reason"
+run_restore() {
+  echo restored >> "'"${TMP}/restore_TERM_aborted.restore"'"
+  kill -TERM $$
+  sleep 0.2
+  return 0
+}
+restore_stack
+echo "went on after the restore" > "'"${TMP}/restore_TERM_aborted.wenton"'"
+'"${END}"
+[ ! -e "${TMP}/restore_TERM_aborted.wenton" ] && [ "$(rc_of restore_TERM_aborted)" = "143" ] \
+  && ok "a signal during the restore stops the run afterwards even when an abort reason was already recorded" \
+  || not_ok "a signal during the restore stops the run afterwards even when an abort reason was already recorded" "exit $(rc_of restore_TERM_aborted); went on: $([ -e "${TMP}/restore_TERM_aborted.wenton" ] && echo yes || echo no)"
+
 scenario early 'exit 0
 '"${END}"
 expect_abort early "leaving with 0 before the last line is a failed run"
@@ -356,6 +372,7 @@ if declare -F address_refusal > /dev/null || source "${HERE}/lib/run-guard.sh"; 
       lanhost) echo 10.1.1.34 ;;
       both) printf '10.1.1.34\n::1\n' ;;
       anyhost) echo 0.0.0.0 ;;
+      0.qa.lan) echo 10.1.1.34 ;;
       nowhere.invalid) : ;;
       *) getent ahosts "$1" 2>/dev/null | awk '{print $1}' | sort -u ;;
     esac
@@ -364,7 +381,7 @@ if declare -F address_refusal > /dev/null || source "${HERE}/lib/run-guard.sh"; 
     ::1 "[::1]" 10.1.1.34:80 "http://10.1.1.34/" myhost both nowhere.invalid 0.0.0.0 0 0.1.2.3 anyhost; do
     if reason="$(address_refusal "${refused}")"; then ok "refuses '${refused}' (${reason})"; else not_ok "refuses '${refused}'" "it was accepted"; fi
   done
-  for accepted in 10.1.1.34 192.168.1.20 10.127.0.1 172.16.127.1 lanhost; do
+  for accepted in 10.1.1.34 192.168.1.20 10.127.0.1 172.16.127.1 lanhost 0.qa.lan; do
     if reason="$(address_refusal "${accepted}")"; then not_ok "accepts '${accepted}'" "refused: ${reason}"; else ok "accepts '${accepted}'"; fi
   done
 fi

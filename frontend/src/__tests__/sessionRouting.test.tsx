@@ -91,9 +91,7 @@ beforeEach(() => {
 
 // The login page, mounted once: its form is up and its one request was made.
 const loginForm = async () => {
-  // A lazy route: the page it replaces stays on screen while it is imported,
-  // which under coverage has taken longer than the default second.
-  const submit = await screen.findByRole('button', { name: /sign in/i }, { timeout: 5000 })
+  const submit = await screen.findByRole('button', { name: /sign in/i })
   await waitFor(() => expect(publicRequests).toHaveLength(1))
   expect(publicRequests[0].headers.get('authorization')).toBeNull()
   return submit
@@ -230,9 +228,7 @@ describe('a tab whose session ends', () => {
 
 describe('the mandatory password-change page', () => {
   const PAGE = '/change-password-required'
-  // The page is a lazy route, imported afresh in each test: under coverage that
-  // import alone has taken longer than the default second.
-  const pageHeading = () => screen.findByRole('heading', { name: /password change required/i }, { timeout: 5000 })
+  const pageHeading = () => screen.findByRole('heading', { name: /password change required/i })
 
   async function openPage() {
     const tab = await openTab(PAGE, signedIn())
@@ -363,7 +359,7 @@ describe('the mandatory password-change page', () => {
       release()
     })
     // The change ended the session; the shell's own guard takes the tab to /login.
-    await waitFor(() => expect(pathname()).toBe('/login'), { timeout: 4000 })
+    await waitFor(() => expect(pathname()).toBe('/login'))
     const settled = [...visited]
     expect(settled.filter((x) => x === '/login')).toHaveLength(1)
 
@@ -515,8 +511,7 @@ describe('storage did not answer at start', () => {
 
     fireEvent.click(tryAgain())
 
-    // A lazy route's import, as above.
-    await screen.findByRole('heading', { name: /password change required/i }, { timeout: 5000 })
+    await screen.findByRole('heading', { name: /password change required/i })
     expect(pathname()).toBe('/change-password-required')
     expect(document.querySelector('.app-shell-root')).toBeNull()
   })

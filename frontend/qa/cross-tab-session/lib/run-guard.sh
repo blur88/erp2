@@ -29,6 +29,7 @@ ABORTED=""
 RESTORED=0
 RESTORE_FAILED=0
 IN_EXIT=0
+SIGNALS_NOTED=0
 HAS_CAPTURE=0
 FINALIZED_FOR=""
 FINALIZE_FAILED=0
@@ -41,7 +42,7 @@ fail() { if [ "${STATUS}" -eq 0 ]; then STATUS="$1"; fi; }
 # file, fails, and reports a restored stack as not restored. On the normal
 # path the run stops once the restore has returned.
 restore_stack() {
-  local before="${ABORTED}"
+  local before="${SIGNALS_NOTED}"
   trap 'note_signal HUP 129' HUP
   trap 'note_signal INT 130' INT
   trap 'note_signal TERM 143' TERM
@@ -53,7 +54,7 @@ restore_stack() {
   RESTORED=1
   if [ "${IN_EXIT}" -eq 0 ]; then
     install_signal_traps
-    if [ "${ABORTED}" != "${before}" ]; then exit "${STATUS}"; fi
+    if [ "${SIGNALS_NOTED}" -ne "${before}" ]; then exit "${STATUS}"; fi
   fi
 }
 
@@ -85,7 +86,8 @@ on_signal() {
 # The same signals during the cleanup: recorded, and the cleanup goes on. A
 # restore cut short would leave the stack in the QA configuration.
 note_signal() {
-  if [ -z "${ABORTED}" ]; then ABORTED="interrupted by $1 during cleanup"; fi
+  SIGNALS_NOTED=$((SIGNALS_NOTED + 1))
+  if [ -z "${ABORTED}" ]; then ABORTED="interrupted by $1 while the stack was being restored or cleaned up"; fi
   fail "$2"
 }
 
@@ -143,9 +145,13 @@ is_loopback_ip() {
 # 0.0.0.0/8, and `::`. On the host these reach the local ingress, so the stack
 # would be changed; the browser container cannot reach them, so the run could
 # only fail afterwards.
+# Numeric forms only: a host name may begin with `0.` and is judged by what it
+# resolves to.
 is_unspecified_ip() {
   case "$1" in
-    0|0.*|::|::ffff:0.*) return 0 ;;
+    ::|::ffff:0.*) return 0 ;;
+    *[!0-9.]*|"") return 1 ;;
+    0|0.*) return 0 ;;
     *) return 1 ;;
   esac
 }
