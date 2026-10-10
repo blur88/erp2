@@ -2093,6 +2093,10 @@ round 1 / round 2. Tracing itself costs: the traced five-tab load used 11.7 to
 
 Established, on this host, in headless Chromium:
 
+- Contention for the processor explains the slowing measured on this host. The
+  attribution is not complete: about 0.8 s in which a tab's main thread had
+  nothing to run among five tabs is unexplained (above), and is attributed to
+  the processor only by inference.
 - The time before the first data request is processor time. A tab costs about
   1.2 s of it (1.9 to 2.5 s to its last data answer), and tabs that start together
   share the processors there are. Five tabs on this host's four processors, which
@@ -2105,9 +2109,10 @@ Established, on this host, in headless Chromium:
 
 Not established:
 
-- **Any other machine or browser.** The work per tab is the application's and
-  goes wherever it is opened; how long it takes depends on that machine's
-  processors and on what else they are doing. The one device measurement there
+- **Any other machine or browser.** The application does this start-up work
+  wherever it is opened, but what a person sees of it on another machine was
+  not measured: it depends on that machine's processors and on what else they
+  are doing. The one device measurement there
   is (Firefox 157 on a Windows 11 PC, 3.5 s for five tabs to hold their data)
   is one configuration that met its acceptance, not a statement about others.
   Firefox was not measured here at all.
@@ -2119,25 +2124,23 @@ Not established:
 - Ten and twenty tabs. By the division above they would take proportionally
   longer on this host; that was not run.
 
-### Recommendation
+### Recommendation and decision
 
-The issue asked what the slowing is, and that is answered: this host has four
-slow processors, and the application asks about 1.2 s of one before a tab's
-first request. Nothing found here is a defect between tabs, in the session
-module, in the cache or in the ingress.
+The issue asked what the slowing is, and for this host that is answered
+sufficiently, without every interval of the trace being resolved: four slow
+processors, and an application that asks about 1.2 s of one before a tab's first
+request. Nothing found here is a defect between tabs, in the session module, in
+the cache or in the ingress.
 
-Whether to do anything is a separate decision and needs its own approval:
+Reducing the work per tab is a plausible improvement to the application, and no
+more than that here. `router.tsx` imports every page but one eagerly and
+`main.tsx` loads the whole component library, the date pickers and two data
+layers before anything renders; a tab compiles and runs 1.59 MB of script to
+show one page. **What splitting the routes would save was not measured**, and
+the unexplained 0.8 s means the trace does not account for the whole wait.
 
-- **Leave it.** The device acceptance of #1353 passed with room, and the 5 / 10 /
-  15 s harness figures block nothing. #1359 can be closed with this record, or
-  kept only as the place those figures are reported.
-- **Reduce the work per tab.** Start-up time with several tabs is the work per
-  tab times the tabs over the processors, so the only lever in the application
-  is the work. `router.tsx` imports every page but one eagerly and `main.tsx`
-  loads the whole component library, the date pickers and two data layers before
-  anything renders; a tab compiles and runs 1.59 MB of script to show one page.
-  How much of the 1.2 s that would remove was not measured, and a change of that
-  kind should state its target first. It would be measured with the base and
-  one-processor runs above, which are the least noisy figures here.
-
-The deadlines are unchanged by this record.
+**Decided (repository owner, 2026-10-10):** #1359 is closed with this record
+once it is merged. The deadlines are unchanged. No start-up optimisation is
+approved. If one is wanted it begins as a separate task that states its start-up
+target first; the base and one-processor runs above are the least noisy figures
+to measure it with.
