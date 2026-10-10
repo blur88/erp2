@@ -79,10 +79,13 @@ function timings(values) {
 const SESSION_ROUTE = /^\/api\/auth\/(refresh|logout|me)\/?$/
 const CREDENTIAL_ROUTE = /^\/api\/(auth|login|register)/
 const USER_CREATE_ROUTE = /^\/api\/users\/?$/
+// `location = ...` in nginx.conf (#1360): an exact match, taken before any regex.
+const HINT_ROUTE = '/api/auth/show-default-credentials'
 
 /** The limit_req zone a request's route is under, or null when none is. */
 export function limiterZoneOf(method, uri) {
   const path = String(uri).split('?')[0]
+  if (path === HINT_ROUTE) return 'api_limit'
   if (SESSION_ROUTE.test(path)) return 'session_limit'
   if (CREDENTIAL_ROUTE.test(path)) return 'login_limit'
   if (method === 'POST' && USER_CREATE_ROUTE.test(path)) return 'api_limit or user_create_limit'

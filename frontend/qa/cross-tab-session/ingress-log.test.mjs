@@ -202,7 +202,12 @@ test('a top-level `overlap` field, which the workload never writes, is not read'
 
 test('a refused request is given the zone its route is limited by', () => {
   assert.equal(limiterZoneOf('POST', '/api/auth/login'), 'login_limit')
-  assert.equal(limiterZoneOf('GET', '/api/auth/show-default-credentials'), 'login_limit')
+  // #1360: the hint has an exact-match location on api_limit. The match is
+  // exact, so a trailing slash is still the credential block's.
+  assert.equal(limiterZoneOf('GET', '/api/auth/show-default-credentials'), 'api_limit')
+  assert.equal(limiterZoneOf('GET', '/api/auth/show-default-credentials?x=1'), 'api_limit')
+  assert.equal(limiterZoneOf('GET', '/api/auth/show-default-credentials/'), 'login_limit')
+  assert.equal(limiterZoneOf('PATCH', '/api/auth/change-password'), 'login_limit')
   assert.equal(limiterZoneOf('POST', '/api/auth/refresh'), 'session_limit')
   assert.equal(limiterZoneOf('POST', '/api/auth/logout/'), 'session_limit')
   assert.equal(limiterZoneOf('GET', '/api/auth/me?x=1'), 'session_limit')

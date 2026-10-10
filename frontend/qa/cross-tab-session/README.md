@@ -182,8 +182,10 @@ back.
   12 s per address): `ctx.signIn` waits and retries on 429 for up to 90 s, and
   `results.json` records how many waits there were (`signInWaits`). The limit is
   not raised or bypassed. The login page's own `show-default-credentials`
-  request is in the same zone, so each visit to the login page spends from the
-  same budget; 429s in that zone are counted (`loginZone429`), not failed.
+  request is no longer in that zone (#1360: it has an exact-match location on
+  `api_limit`), so a visit to the login page spends nothing from the sign-in
+  budget; the runs recorded before that change did spend from it. 429s in the
+  zone are counted (`loginZone429`), not failed.
 - `host-probe.sh`, which `run.sh` starts and stops. Case 14 has to show that a
   refused sign-in created no session, no API route exposes a user's session
   count, and the Playwright container cannot reach `psql`; the probe answers
