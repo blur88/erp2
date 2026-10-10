@@ -436,19 +436,26 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     return claim() === ref.sessionId && stored.record.session?.sessionId === ref.sessionId
   }
 
-  const acquireLease = async (): Promise<boolean> => {
+  // Each acquisition has one release path, and one release function, which
+  // always passes the expiresAt captured at the acquisition.
+  const acquireLease = async (): Promise<{ expiresAt: number } | null> => {
     const startedAt = now()
-    const acquiredAt = now()
-    const acquired = (
-      await transact((s) => leaseAcquire(s, { owner: tabId, now: acquiredAt, ttlMs: LEASE_TTL_MS }))
-    ).acquired
-    trace({
-      type: 'lease-acquire',
-      acquired,
-      expiresAt: acquired ? acquiredAt + LEASE_TTL_MS : null,
-      ms: now() - startedAt,
-    })
-    return acquired
+    const outcome = await transact((s) => leaseAcquire(s, { owner: tabId, now: now(), ttlMs: LEASE_TTL_MS }))
+    const lease = outcome.acquired && outcome.expiresAt !== null ? { expiresAt: outcome.expiresAt } : null
+    trace({ type: 'lease-acquire', acquired: lease !== null, expiresAt: lease?.expiresAt ?? null, ms: now() - startedAt })
+    return lease
+  }
+
+  // Best effort: a release that fails leaves the lease to expire, and one that
+  // finds a different lease under the same owner releases nothing.
+  const releaseLease = async (lease: { expiresAt: number }): Promise<void> => {
+    const startedAt = now()
+    try {
+      const released = await transact((s) => leaseRelease(s, { owner: tabId, expiresAt: lease.expiresAt }))
+      trace({ type: 'lease-release', outcome: released.released ? 'released' : 'not-owner', ms: now() - startedAt })
+    } catch {
+      trace({ type: 'lease-release', outcome: 'failed', ms: now() - startedAt })
+    }
   }
 
   const doRefresh = async (): Promise<'retry' | 'ended'> => {
@@ -500,15 +507,15 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // The lease covers the refresh request itself: the tab that holds it sends,
     // the others wait to adopt its tokens. A tab that outwaits the lease proceeds
     // without it, and only the owner ever releases it.
-    let holdsLease = await acquireLease()
+    let lease = await acquireLease()
     try {
-      if (!holdsLease) {
+      if (!lease) {
         const maxRounds = Math.max(1, Math.floor(LEASE_TTL_MS / 250))
-        for (let round = 0; round < maxRounds && !holdsLease; round += 1) {
+        for (let round = 0; round < maxRounds && !lease; round += 1) {
           await new Promise((r) => setTimeout(r, 250))
           const again = await settled()
           if (again) return again
-          holdsLease = await acquireLease()
+          lease = await acquireLease()
         }
       }
 
@@ -518,19 +525,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
       return await sendRefresh(memory)
     } finally {
-      if (holdsLease) {
-        const startedAt = now()
-        try {
-          const released = await transact((s) => leaseRelease(s, { owner: tabId }))
-          trace({
-            type: 'lease-release',
-            outcome: released.released ? 'released' : 'not-owner',
-            ms: now() - startedAt,
-          })
-        } catch {
-          trace({ type: 'lease-release', outcome: 'failed', ms: now() - startedAt })
-        }
-      }
+      if (lease) await releaseLease(lease)
     }
   }
 

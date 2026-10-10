@@ -139,18 +139,27 @@ export function slicesWrite(
   }
 }
 
-export function leaseAcquire(s: StoredState, a: { owner: string; now: number; ttlMs: number }): Decision<{ acquired: boolean }> {
+// The expiry the acquisition wrote is returned with it: the owner is the tab
+// id, so on its own it cannot say which acquisition a release is releasing.
+export function leaseAcquire(
+  s: StoredState,
+  a: { owner: string; now: number; ttlMs: number },
+): Decision<{ acquired: boolean; expiresAt: number | null }> {
   if (s.refreshLease !== null && s.refreshLease.expiresAt > a.now) {
-    return { result: { acquired: false } }
+    return { result: { acquired: false, expiresAt: null } }
   }
+  const expiresAt = a.now + a.ttlMs
   return {
-    write: { refreshLease: { owner: a.owner, expiresAt: a.now + a.ttlMs } },
-    result: { acquired: true },
+    write: { refreshLease: { owner: a.owner, expiresAt } },
+    result: { acquired: true, expiresAt },
   }
 }
 
-export function leaseRelease(s: StoredState, a: { owner: string }): Decision<{ released: boolean }> {
-  if (s.refreshLease === null || s.refreshLease.owner !== a.owner) {
+// Released only by the acquisition that took it: the stored lease must match
+// both owner and expiry. Releasing on the owner alone could release a lease the
+// same tab took for newer work.
+export function leaseRelease(s: StoredState, a: { owner: string; expiresAt: number }): Decision<{ released: boolean }> {
+  if (s.refreshLease === null || s.refreshLease.owner !== a.owner || s.refreshLease.expiresAt !== a.expiresAt) {
     return { result: { released: false } }
   }
   return { write: { refreshLease: null }, result: { released: true } }
