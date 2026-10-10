@@ -147,7 +147,8 @@ export function holdLoginResponses(server: FakeServer): RefreshGate {
 // Delays a store's next transaction before it is queued. Unlike
 // `holdNextTransaction`, which holds it at the head of the shared queue, the
 // other tabs' reads and transactions go on running meanwhile.
-export function delayNextTransaction(store: MemorySessionStore) {  const inner = store.transact.bind(store)
+export function delayNextTransaction(store: MemorySessionStore) {
+  const inner = transactThrough(store)
   let release: () => void = () => undefined
   const gate = new Promise<void>((resolve) => {
     release = resolve
@@ -184,11 +185,23 @@ export function now(): number {
 // StorageTimeoutError without their decision ever running, so they write
 // nothing. Reads, and every other tab, are untouched — this is a transaction
 // that could not be written, not storage that stopped answering.
+
+// `vi.spyOn` returns the *same* spy for a method that is already spied, so a
+// gate installed while another is still up would capture the spy as its "inner"
+// implementation and end up calling itself. Gates therefore chain from the
+// implementation that is really there, and one gate's restore takes the whole
+// chain with it.
+function transactThrough(store: MemorySessionStore): MemorySessionStore['transact'] {
+  const current = store.transact
+  const implementation = vi.isMockFunction(current) ? current.getMockImplementation() : null
+  return (implementation ?? current) as MemorySessionStore['transact']
+}
+
 export function abortTransactions(
   store: MemorySessionStore,
   count: number,
 ): { aborted(): number; restore(): void } {
-  const inner = store.transact.bind(store)
+  const inner = transactThrough(store)
   let left = count
   let aborted = 0
   const spy = vi.spyOn(store, 'transact').mockImplementation(async (decide, opts) => {
@@ -210,7 +223,7 @@ export function deliverNextTransactionLate(store: MemorySessionStore): {
   release(): void
   restore(): void
 } {
-  const inner = store.transact.bind(store)
+  const inner = transactThrough(store)
   let reached = false
   let committed = false
   let release: () => void = () => undefined

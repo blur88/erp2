@@ -114,7 +114,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   let currentAttempt = 0
   let signInAbort: AbortController | null = null
   let sessionAbort = new AbortController()
-  let refreshInFlight: Promise<'retry' | 'ended'> | null = null
+  let refreshInFlight: { sessionId: string | null; settled: Promise<'retry' | 'ended'> } | null = null
   let startRetryInFlight: Promise<void> | null = null
   // A cancelled sign-in's session that the record may still hold, because no
   // transaction clearing it has completed. Memory only: it ends with the tab.
@@ -197,6 +197,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   const clearLocally = (reason: 'explicit' | 'failure' | 'elsewhere') => {
     memory = null
+    if (pendingTokenCommit) resolvePending(pendingTokenCommit, 'claim-changed')
     status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
@@ -465,6 +466,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     }
     memory = session
     remember(session)
+    if (pendingTokenCommit) resolvePending(pendingTokenCommit, 'claim-changed')
     status = 'signed-in'
     // The attempt is over, so it no longer holds back a cleanup.
     currentAttempt = 0
@@ -719,80 +721,46 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
     // The response is installed as this tab's pending commit before any storage
     // call, and only while it is still the session this tab claims and no entry
-    // is already waiting. From here the response is kept: it is never dropped
-    // because an attempt failed.
-    if (isEligible(requestSessionId) && pendingTokenCommit === null) {
-      const entry: PendingTokenCommit = {
-        sessionId: requestSessionId,
-        refreshId: currentRefreshId,
-        response,
-        lease,
-        attempts: 0,
-      }
-      pendingTokenCommit = entry
-      onLeaseTakenOver()
-      let lastError: unknown = null
-      for (let n = 0; n < TOKEN_COMMIT_ATTEMPTS_INLINE && pendingTokenCommit === entry; n += 1) {
-        try {
-          await attemptPendingTokenCommit('inline', null)
-        } catch (err) {
-          lastError = err
-          // Storage found unusable has already dropped the entry and failed the
-          // tab closed; there is nothing to retry.
-          if (err instanceof StorageUnavailableError) throw err
-        }
-      }
-      if (pendingTokenCommit === entry) {
-        // The request fails with the storage error, as it does today, and the
-        // session is kept: the entry holds the tokens and the lease.
-        throw lastError ?? new StorageTimeoutError('token commit did not land')
-      }
+    // is already waiting.
+    //
+    // When either does not hold, the response is not retained and no commit is
+    // attempted: the tab makes a plain read of the record and applies the
+    // adoption it implies. That is a read and an adoption, not reconcileNow(),
+    // which would attempt a pending commit belonging to the replacement session.
+    // So a 200 that arrives after a sign-out or after the session was replaced
+    // creates no pending state and cannot overwrite an entry of newer work.
+    if (!isEligible(requestSessionId) || pendingTokenCommit !== null) {
+      const after = await readRecord()
+      applyAdoption(reconcile(claim(), memory, after.record), after)
       return status !== 'signed-in' ? 'ended' : 'retry'
     }
 
-    const committedAt = now()
-    let outcome
-    try {
-      outcome = await transact((s) => tokenCommit(s, { claim: claim(), requestSessionId, response }))
-    } catch (err) {
-      trace({
-        type: 'token-commit',
-        trigger: 'inline',
-        attempt: 1,
-        triggeredBy: null,
-        outcome: err instanceof StorageUnavailableError ? 'unavailable' : 'timeout',
-        ms: now() - committedAt,
-      })
-      throw err
+    const entry: PendingTokenCommit = {
+      sessionId: requestSessionId,
+      refreshId: currentRefreshId,
+      response,
+      lease,
+      attempts: 0,
     }
-    trace({
-      type: 'token-commit',
-      trigger: 'inline',
-      attempt: 1,
-      triggeredBy: null,
-      outcome: outcome.outcome,
-      ms: now() - committedAt,
-    })
-
-    if (outcome.outcome === 'discarded' || outcome.outcome === 'session-mismatch') {
-      const after = await readRecord()
-      applyAdoption(reconcile(claim(), memory, after.record), after)
-      if (status !== 'signed-in') return 'ended'
-      return 'retry'
+    pendingTokenCommit = entry
+    onLeaseTakenOver()
+    let lastError: unknown = null
+    for (let n = 0; n < TOKEN_COMMIT_ATTEMPTS_INLINE && pendingTokenCommit === entry; n += 1) {
+      try {
+        await attemptPendingTokenCommit('inline', null)
+      } catch (err) {
+        lastError = err
+        // Storage found unusable has already dropped the entry and failed the
+        // tab closed; there is nothing to retry.
+        if (err instanceof StorageUnavailableError) throw err
+      }
     }
-
-    if (isEligible(requestSessionId) && memory) {
-      memory = { ...memory, ...response }
-      remember(memory)
-      events.tokensUpdated({
-        generation: response.generation,
-        accessToken: response.accessToken,
-        accessTokenExpiresAt: response.accessTokenExpiresAt,
-        refreshToken: response.refreshToken,
-      })
-      post()
+    if (pendingTokenCommit === entry) {
+      // The request fails with the storage error, as it does today, and the
+      // session is kept: the entry holds the tokens and the lease.
+      throw lastError ?? new StorageTimeoutError('token commit did not land')
     }
-    return 'retry'
+    return status !== 'signed-in' ? 'ended' : 'retry'
   }
 
   const handleUnauthorized = async (ref: SessionRef): Promise<'retry' | 'ended'> => {
@@ -803,17 +771,21 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // The tab adopted or refreshed since this request was sent: its 401 is for a
     // token the tab no longer uses, so retry with the current one.
     if (memory && memory.generation > ref.generation) return 'retry'
-    if (!refreshInFlight) {
+    // One refresh at a time, and only for the session it was started for: a
+    // refresh under way for a session this tab has since signed out of cannot be
+    // reused for the session that replaced it.
+    if (!refreshInFlight || refreshInFlight.sessionId !== claim()) {
+      const forSession = claim()
       const promise = (async () => {
         try {
           return await doRefresh()
         } finally {
-          refreshInFlight = null
+          if (refreshInFlight?.settled === promise) refreshInFlight = null
         }
       })()
-      refreshInFlight = promise
+      refreshInFlight = { sessionId: forSession, settled: promise }
     }
-    const outcome = await refreshInFlight
+    const outcome = await refreshInFlight.settled
     // The tab may have switched sessions while the refresh was in flight.
     return claim() === ref.sessionId ? outcome : 'ended'
   }
@@ -838,15 +810,26 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   // ---- endings --------------------------------------------------------------
 
+  // The credential a logout is sent with. While an entry is pending, `memory`
+  // holds the superseded refresh token and the entry holds the current one, so
+  // the best-effort logout must carry the entry's: the other is what the server
+  // has already superseded.
+  const logoutCredential = (): { sessionId: string; refreshToken: string } | null => {
+    const target = memory?.sessionId ?? lastCredential?.sessionId ?? null
+    const entry = pendingTokenCommit !== null && pendingTokenCommit.sessionId === target ? pendingTokenCommit : null
+    if (entry) return { sessionId: entry.sessionId, refreshToken: entry.response.refreshToken }
+    if (memory) return { sessionId: memory.sessionId, refreshToken: memory.refreshToken }
+    return lastCredential
+  }
+
   const signOut = async (): Promise<void> => {
     // A waiting tab holds no session and has not been told of one: there is
     // nothing to end, so nothing is announced, written or posted.
     if (status === 'storage-waiting') return
-    const captured = memory
-      ? { sessionId: memory.sessionId, refreshToken: memory.refreshToken }
-      : lastCredential
+    const captured = logoutCredential()
     memory = null
     lastCredential = null
+    if (pendingTokenCommit) resolvePending(pendingTokenCommit, 'claim-changed')
     if (status !== 'storage-unavailable') status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
@@ -862,9 +845,10 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   const passwordChanged = async (): Promise<void> => {
     if (status === 'storage-waiting') return
-    const target = memory?.sessionId ?? lastCredential?.sessionId ?? null
+    const target = logoutCredential()?.sessionId ?? null
     memory = null
     lastCredential = null
+    if (pendingTokenCommit) resolvePending(pendingTokenCommit, 'claim-changed')
     if (status !== 'storage-unavailable') status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
