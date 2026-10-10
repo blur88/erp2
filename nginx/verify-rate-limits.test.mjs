@@ -19,6 +19,9 @@ import {
   peakDemand,
   candidateBurst,
   judgeBurst,
+  parseHintLocation,
+  judgeHintConf,
+  judgeHintThenLogin,
 } from './verify-rate-limits.mjs'
 
 const conf = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'nginx.conf'), 'utf8')
@@ -340,4 +343,131 @@ test('exit codes: 1 outranks 3 outranks 2', () => {
   assert.deepEqual(exitCodeFor({ mismatches: 0, incomplete: true, inconclusive: true }), 3)
   assert.deepEqual(exitCodeFor({ mismatches: 0, incomplete: false, inconclusive: true }), 2)
   assert.deepEqual(exitCodeFor({ mismatches: 0, incomplete: false, inconclusive: false }), 0)
+})
+
+// --- #1360: the default-credentials hint is not on the credential budget -----
+
+const HINT_BLOCK = (limit) => `
+        location /api {
+            limit_req zone=api_limit burst=40 delay=20;
+        }
+        location = /api/auth/show-default-credentials {
+            ${limit}
+            if ($request_method = 'OPTIONS') {
+                return 204;
+            }
+        }
+        location ~ ^/api/(auth|login|register) {
+            limit_req zone=login_limit burst=3 nodelay;
+        }
+`
+const ZONES = `
+    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=20r/s;
+    limit_req_zone $binary_remote_addr zone=login_limit:10m rate=5r/m;
+`
+
+test('the real nginx.conf gives the hint its own exact-match location on api_limit', () => {
+  const j = judgeHintConf(conf)
+  assert.equal(j.verdict, 'pass', j.detail)
+})
+
+test('parseHintLocation reads the limit_req lines of the exact-match block, past a nested block', () => {
+  const text = ZONES + HINT_BLOCK('limit_req zone=api_limit burst=40 delay=20;')
+  assert.deepEqual(parseHintLocation(text), [{ zone: 'api_limit', burst: 40, delay: 20 }])
+  assert.equal(parseHintLocation(ZONES + 'location /api { limit_req zone=api_limit burst=40 delay=20; }'), null)
+})
+
+test('judgeHintConf fails a hint location that is missing, on another zone, or sized differently from /api', () => {
+  assert.equal(judgeHintConf(ZONES + 'location /api { limit_req zone=api_limit burst=40 delay=20; }\nlocation ~ ^/api/(auth|login|register) { limit_req zone=login_limit burst=3 nodelay; }').verdict, 'fail')
+  assert.equal(judgeHintConf(ZONES + HINT_BLOCK('limit_req zone=login_limit burst=3 nodelay;')).verdict, 'fail')
+  assert.equal(judgeHintConf(ZONES + HINT_BLOCK('limit_req zone=api_limit burst=80 delay=20;')).verdict, 'fail')
+  assert.equal(judgeHintConf(ZONES + HINT_BLOCK('')).verdict, 'fail')
+  assert.equal(judgeHintConf(ZONES + HINT_BLOCK('limit_req zone=api_limit burst=40 delay=20;')).verdict, 'pass')
+})
+
+test('judgeHintConf fails when the credential block is no longer 5r/m burst 3', () => {
+  const text = (ZONES + HINT_BLOCK('limit_req zone=api_limit burst=40 delay=20;')).replace('zone=login_limit burst=3', 'zone=login_limit burst=8')
+  assert.equal(judgeHintConf(text).verdict, 'fail')
+})
+
+// One observed request: its access-log line and whether the upstream saw it.
+const seen = (qaId, limitReq, startMs, over = {}) => ({
+  qaId,
+  arrived: limitReq !== 'REJECTED',
+  entry: { qaId, remoteAddr: '172.30.0.4', status: limitReq === 'REJECTED' ? 429 : 200, limitReq, limitConn: limitReq === 'REJECTED' ? null : 'PASSED', startMs },
+  ...over,
+})
+const LOGIN = { ratePerSecond: 5 / 60, rateText: '5r/m', burst: 3 }
+const separated = () => ({
+  hints: [0, 1, 2, 3, 4].map((i) => seen(`k-hint-${i}`, 'PASSED', 1000 + i)),
+  logins: [0, 1, 2, 3, 4].map((i) => seen(`k-login-${i}`, i < 4 ? 'PASSED' : 'REJECTED', 1020 + i * 5)),
+})
+const shared = () => ({
+  hints: [0, 1, 2, 3, 4].map((i) => seen(`k-hint-${i}`, i < 4 ? 'PASSED' : 'REJECTED', 1000 + i)),
+  logins: [0, 1, 2, 3, 4].map((i) => seen(`k-login-${i}`, 'REJECTED', 1020 + i * 5)),
+})
+
+test('hints on their own budget: every hint and four logins reach the upstream, the fifth login is refused', () => {
+  const j = judgeHintThenLogin(separated(), LOGIN)
+  assert.equal(j.verdict, 'pass', j.detail)
+  assert.equal(j.pattern, 'separated')
+  assert.equal(j.windowMs, 40)
+})
+
+test('hints on the credential budget: four hints pass, one is refused, and every login is refused', () => {
+  const j = judgeHintThenLogin(shared(), LOGIN)
+  assert.equal(j.verdict, 'fail')
+  assert.equal(j.pattern, 'shared')
+  assert.match(j.detail, /first login .*refused by limit_req/)
+})
+
+test('a failure that is not the shared-budget pattern is named other', () => {
+  // All hints pass but the login budget admits only three.
+  const o = separated()
+  o.logins[3] = seen('k-login-3', 'REJECTED', 1035)
+  const j = judgeHintThenLogin(o, LOGIN)
+  assert.equal(j.verdict, 'fail')
+  assert.equal(j.pattern, 'other')
+  // Every login admitted: the credential limit is gone.
+  const p = separated()
+  p.logins[4] = seen('k-login-4', 'PASSED', 1040)
+  assert.deepEqual([judgeHintThenLogin(p, LOGIN).verdict, judgeHintThenLogin(p, LOGIN).pattern], ['fail', 'other'])
+  // The log says passed but the upstream never saw it.
+  const q = separated()
+  q.logins[0].arrived = false
+  assert.deepEqual([judgeHintThenLogin(q, LOGIN).verdict, judgeHintThenLogin(q, LOGIN).pattern], ['fail', 'other'])
+  // The shared pattern needs the logins refused too.
+  const r = shared()
+  r.logins[0] = seen('k-login-0', 'PASSED', 1020)
+  assert.equal(judgeHintThenLogin(r, LOGIN).pattern, 'other')
+})
+
+test('a hint metered by no limiter at all does not pass', () => {
+  const o = separated()
+  o.hints[2].entry.limitReq = null
+  const j = judgeHintThenLogin(o, LOGIN)
+  assert.equal(j.verdict, 'fail')
+  assert.equal(j.pattern, 'other')
+})
+
+test('the sequence cannot be judged when a line is missing, addresses differ, a 429 is unattributed, or it ran too long', () => {
+  const a = separated()
+  a.logins[1].entry = null
+  assert.equal(judgeHintThenLogin(a, LOGIN).verdict, 'inconclusive')
+
+  const b = separated()
+  b.logins[2].entry.remoteAddr = '172.30.0.9'
+  assert.equal(judgeHintThenLogin(b, LOGIN).verdict, 'inconclusive')
+
+  const c = separated()
+  c.logins[4].entry.limitReq = null
+  assert.equal(judgeHintThenLogin(c, LOGIN).verdict, 'inconclusive')
+
+  // One slot refills every 12 s; a quarter of that is the most the sequence may take.
+  const d = separated()
+  d.logins[4].entry.startMs = 1000 + 3000
+  assert.equal(judgeHintThenLogin(d, LOGIN).verdict, 'inconclusive')
+  const e = shared()
+  e.logins[4].entry.startMs = 1000 + 3000
+  assert.deepEqual([judgeHintThenLogin(e, LOGIN).verdict, judgeHintThenLogin(e, LOGIN).pattern], ['inconclusive', null])
 })

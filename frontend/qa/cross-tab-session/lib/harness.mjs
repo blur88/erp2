@@ -39,6 +39,11 @@ function presentedRefresh(request) {
   return typeof body?.refreshToken === 'string' ? fingerprint(body.refreshToken) : 'no refreshToken in the body'
 }
 
+// These are the harness's own groups, not NGINX zones. Since #1360 the login
+// page's show-default-credentials request is metered by api_limit, and it is
+// still grouped 'login' here: it is the login page's request, not one a signed-in
+// tab's data depends on, so it is not a 'business' request for forced 401s or
+// for W1. A 429 on it is therefore still counted in loginZone429.
 export function zoneOf(path) {
   if (SESSION_ZONE.test(path)) return 'session'
   if (LOGIN_ZONE.test(path)) return 'login'

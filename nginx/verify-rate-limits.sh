@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # On-demand check of the auth rate limits and CORS through the running ingress,
-# and of api_limit's admission, delay and rejection on an isolated rig.
+# of api_limit's admission, delay and rejection on an isolated rig, and (phase
+# K, nginx/verify-hint-budget.sh) that the login page's default-credentials
+# hint does not spend the credential budget.
 #
 # The checks run from a one-off container attached to the stack's network, so
 # the client address (and therefore the rate-limit key) is not shared with any
@@ -99,6 +101,23 @@ else
   fi
   rig_down
   trap - EXIT
+fi
+
+echo "== Phase K: the default-credentials hint is off the credential budget (#1360) =="
+if [ "$#" -gt 0 ]; then
+  echo "skipping: phase K takes no arguments"
+else
+  # A rig of its own, started fresh: the phase needs an empty limiter, and
+  # phases G-J leave theirs spent.
+  set +e
+  RIG_DIR="${RIG_DIR}" RIG_CONF="${RIG_CONF}" "${ROOT}/nginx/verify-hint-budget.sh"
+  hint_status=$?
+  set -e
+  case "${hint_status}" in
+    0) ;;
+    2) INCONCLUSIVE=1 ;;
+    *) MISMATCH=1 ;;
+  esac
 fi
 
 # 1 outranks 3 outranks 2.

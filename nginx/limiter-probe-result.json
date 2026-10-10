@@ -1,8 +1,8 @@
 {
   "nginxVersion": "nginx/1.30.0",
   "nginxConfigureArgs": "--prefix=/etc/nginx --sbin-path=/usr/sbin/nginx --modules-path=/usr/lib/nginx/modules --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/run/nginx.pid --lock-path=/run/nginx.lock --http-client-body-temp-path=/var/cache/nginx/client_temp --http-proxy-temp-path=/var/cache/nginx/proxy_temp --http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp --http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp --http-scgi-temp-path=/var/cache/nginx/scgi_temp --with-perl_modules_path=/usr/lib/perl5/vendor_perl --user=nginx --group=nginx --with-compat --with-file-aio --with-threads --with-http_addition_module --with-http_auth_request_module --with-http_dav_module --with-http_flv_module --with-http_gunzip_module --with-http_gzip_static_module --with-http_mp4_module --with-http_random_index_module --with-http_realip_module --with-http_secure_link_module --with-http_slice_module --with-http_ssl_module --with-http_stub_status_module --with-http_sub_module --with-http_v2_module --with-http_v3_module --with-mail --with-mail_ssl_module --with-stream --with-stream_realip_module --with-stream_ssl_module --with-stream_ssl_preread_module --with-cc-opt='-Os -fstack-clash-protection -Wformat -Werror=format-security -fno-plt -g' --with-ld-opt='-Wl,--as-needed,-O1,--sort-common -Wl,-z,pack-relative-relocs'",
-  "confSha256": "3fd4e04e77cfc62f418f2955acab0cada1be0bb7bf47a082525be76c50f6509b",
-  "recordedAt": "2026-10-08T12:22:33.434Z",
+  "confSha256": "2995a231fb9929446dc16998be604830f0146990bd2a2a3678185cd1a379412b",
+  "recordedAt": "2026-10-10T16:14:55.223Z",
   "rig": {
     "baseUrl": "http://rig-nginx",
     "image": "erp-limiter-rig-nginx:latest",
@@ -14,7 +14,7 @@
     "burst": 40,
     "delay": 20
   },
-  "toleranceMs": 60,
+  "toleranceMs": 55,
   "answers": {
     "handlerOrder": {
       "status": "established",
@@ -41,7 +41,7 @@
         "src/http/modules/ngx_http_limit_req_module.c: ngx_http_limit_req_init pushes ngx_http_limit_req_handler onto phases[NGX_HTTP_PREACCESS_PHASE].handlers",
         "src/http/modules/ngx_http_limit_conn_module.c: ngx_http_limit_conn_init pushes ngx_http_limit_conn_handler onto the same array",
         "src/http/modules/ngx_http_limit_req_module.c: a delayed request sets limit_req_status = DELAYED, write_event_handler = ngx_http_limit_req_delay, a timer, and returns NGX_AGAIN; ngx_http_limit_req_delay then resumes ngx_http_core_run_phases, where limit_req returns NGX_DECLINED because its status is set, so limit_conn runs next",
-        "E3: 14 of 35 concurrent requests were delayed, 0 were refused by limit_conn, and the 14 releases arrived [49.717,49.76,52.277,47.992,49.666,49.915,49.799,50.323,49.879,49.618,50.695,49.848,49.823] ms apart against an expected 50 ms",
+        "E3: 14 of 35 concurrent requests were delayed, 0 were refused by limit_conn, and the 14 releases arrived [49.684,49.882,49.768,49.916,50.739,49.733,52.773,47.177,50.083,49.561,50.728,49.932,49.511] ms apart against an expected 50 ms",
         "a second run agreed: established"
       ],
       "detail": {
@@ -83,13 +83,13 @@
         "E5 held 21: 21 lines, 11 refused by limit_conn, 0 refused by limit_req, 10 arrivals",
         "E5 held 25: 25 lines, 15 refused by limit_conn, 0 refused by limit_req, 10 arrivals",
         "E5 no hold 1: 1 lines, 0 refused by limit_conn, 1 arrivals over 0 ms",
-        "E5 no hold 5: 5 lines, 0 refused by limit_conn, 5 arrivals over 13.102 ms",
-        "E5 no hold 10: 10 lines, 0 refused by limit_conn, 10 arrivals over 6.311 ms",
-        "E5 no hold 11: 11 lines, 1 refused by limit_conn, 10 arrivals over 8.882 ms",
-        "E5 no hold 15: 15 lines, 4 refused by limit_conn, 11 arrivals over 9.052 ms",
-        "E5 no hold 21: 21 lines, 0 refused by limit_conn, 21 arrivals over 15.351 ms",
-        "E5 no hold 25: 25 lines, 10 refused by limit_conn, 15 arrivals over 200.53 ms",
-        "E0 unthrottled round-trip baseline: max 9.551 ms, so a release is \"at one instant\" within 60 ms of its first arrival",
+        "E5 no hold 5: 5 lines, 0 refused by limit_conn, 5 arrivals over 4.085 ms",
+        "E5 no hold 10: 10 lines, 0 refused by limit_conn, 10 arrivals over 5.072 ms",
+        "E5 no hold 11: 11 lines, 0 refused by limit_conn, 11 arrivals over 7.469 ms",
+        "E5 no hold 15: 15 lines, 1 refused by limit_conn, 14 arrivals over 7.54 ms",
+        "E5 no hold 21: 21 lines, 8 refused by limit_conn, 13 arrivals over 9.663 ms",
+        "E5 no hold 25: 25 lines, 11 refused by limit_conn, 14 arrivals over 197.06 ms",
+        "E0 unthrottled round-trip baseline: max 5.375 ms, so a release is \"at one instant\" within 55 ms of its first arrival",
         "a second run agreed: reachable"
       ],
       "explanation": null,
@@ -135,7 +135,7 @@
       },
       "clientRoundTripMs": {
         "n": 20,
-        "max": 10
+        "max": 5
       },
       "limitReq": {
         "PASSED": 20
@@ -149,28 +149,28 @@
       "errorLogSamples": [],
       "observations": {
         "samples": [
-          9.551,
-          3.55,
-          3.813,
-          3.356,
-          2.932,
-          2.745,
-          2.812,
-          2.933,
-          2.637,
-          1.96,
-          1.703,
-          1.612,
-          1.753,
-          3.197,
-          1.783,
-          1.875,
-          2.034,
-          2.004,
-          1.759,
-          4.383
+          5.375,
+          3.591,
+          2.573,
+          3.047,
+          3.986,
+          3.01,
+          3.343,
+          3.202,
+          2.52,
+          2.818,
+          2.13,
+          2.117,
+          2.063,
+          3.343,
+          1.876,
+          1.733,
+          1.711,
+          2.16,
+          1.53,
+          1.866
         ],
-        "maxMs": 9.551,
+        "maxMs": 5.375,
         "medianMs": 3,
         "fieldValues": {
           "limitReq": {
@@ -196,7 +196,7 @@
       },
       "clientRoundTripMs": {
         "n": 12,
-        "max": 2050
+        "max": 2027
       },
       "limitReq": {
         "PASSED": 12
@@ -209,8 +209,8 @@
       "arrivals": 10,
       "errorLogRefusals": 2,
       "errorLogSamples": [
-        "2026/10/08 12:18:41 [error] 21#21: *17 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e1 HTTP/1.1\", host: \"rig-nginx\"",
-        "2026/10/08 12:18:41 [error] 21#21: *18 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e1 HTTP/1.1\", host: \"rig-nginx\""
+        "2026/10/10 16:11:03 [error] 21#21: *17 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e1 HTTP/1.1\", host: \"rig-nginx\"",
+        "2026/10/10 16:11:03 [error] 21#21: *18 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e1 HTTP/1.1\", host: \"rig-nginx\""
       ],
       "observations": {
         "refused": 2,
@@ -235,7 +235,7 @@
       },
       "clientRoundTripMs": {
         "n": 80,
-        "max": 205
+        "max": 202
       },
       "limitReq": {
         "PASSED": 21,
@@ -265,349 +265,349 @@
             "k": 1,
             "qaId": "e2-022",
             "expectedAfterMs": 100,
-            "afterFirstArrivalMs": 50.0517578125
+            "afterFirstArrivalMs": 49.5341796875
           },
           {
             "k": 2,
             "qaId": "e2-023",
             "expectedAfterMs": 150,
-            "afterFirstArrivalMs": 99.340087890625
+            "afterFirstArrivalMs": 99.637939453125
           },
           {
             "k": 3,
             "qaId": "e2-024",
             "expectedAfterMs": 200,
-            "afterFirstArrivalMs": 149.4658203125
+            "afterFirstArrivalMs": 149.62744140625
           },
           {
             "k": 4,
             "qaId": "e2-025",
             "expectedAfterMs": 250,
-            "afterFirstArrivalMs": 199.788330078125
+            "afterFirstArrivalMs": 199.77587890625
           },
           {
             "k": 5,
             "qaId": "e2-026",
             "expectedAfterMs": 300,
-            "afterFirstArrivalMs": 250.225341796875
+            "afterFirstArrivalMs": 249.9052734375
           },
           {
             "k": 6,
             "qaId": "e2-027",
             "expectedAfterMs": 350,
-            "afterFirstArrivalMs": 299.830810546875
+            "afterFirstArrivalMs": 299.853759765625
           },
           {
             "k": 7,
             "qaId": "e2-028",
             "expectedAfterMs": 400,
-            "afterFirstArrivalMs": 349.884521484375
+            "afterFirstArrivalMs": 349.423583984375
           },
           {
             "k": 8,
             "qaId": "e2-029",
             "expectedAfterMs": 450,
-            "afterFirstArrivalMs": 399.98681640625
+            "afterFirstArrivalMs": 399.57958984375
           },
           {
             "k": 9,
             "qaId": "e2-030",
             "expectedAfterMs": 500,
-            "afterFirstArrivalMs": 449.338623046875
+            "afterFirstArrivalMs": 449.41943359375
           },
           {
             "k": 10,
             "qaId": "e2-031",
             "expectedAfterMs": 550,
-            "afterFirstArrivalMs": 499.395263671875
+            "afterFirstArrivalMs": 499.432373046875
           },
           {
             "k": 11,
             "qaId": "e2-032",
             "expectedAfterMs": 600,
-            "afterFirstArrivalMs": 549.91796875
+            "afterFirstArrivalMs": 549.59423828125
           },
           {
             "k": 12,
             "qaId": "e2-033",
             "expectedAfterMs": 650,
-            "afterFirstArrivalMs": 599.828125
+            "afterFirstArrivalMs": 599.064697265625
           },
           {
             "k": 13,
             "qaId": "e2-034",
             "expectedAfterMs": 700,
-            "afterFirstArrivalMs": 650.176513671875
+            "afterFirstArrivalMs": 649.4462890625
           },
           {
             "k": 14,
             "qaId": "e2-035",
             "expectedAfterMs": 750,
-            "afterFirstArrivalMs": 699.319091796875
+            "afterFirstArrivalMs": 699.25390625
           },
           {
             "k": 15,
             "qaId": "e2-036",
             "expectedAfterMs": 800,
-            "afterFirstArrivalMs": 749.5341796875
+            "afterFirstArrivalMs": 749.324951171875
           },
           {
             "k": 16,
             "qaId": "e2-037",
             "expectedAfterMs": 850,
-            "afterFirstArrivalMs": 800.0966796875
+            "afterFirstArrivalMs": 799.335693359375
           },
           {
             "k": 17,
             "qaId": "e2-038",
             "expectedAfterMs": 900,
-            "afterFirstArrivalMs": 849.75537109375
+            "afterFirstArrivalMs": 849.85595703125
           },
           {
             "k": 18,
             "qaId": "e2-039",
             "expectedAfterMs": 950,
-            "afterFirstArrivalMs": 900.921142578125
+            "afterFirstArrivalMs": 899.79443359375
           },
           {
             "k": 19,
             "qaId": "e2-040",
             "expectedAfterMs": 1000,
-            "afterFirstArrivalMs": 952.3759765625
+            "afterFirstArrivalMs": 949.75244140625
           },
           {
             "k": 20,
             "qaId": "e2-041",
             "expectedAfterMs": 1050,
-            "afterFirstArrivalMs": 1002.94287109375
+            "afterFirstArrivalMs": 999.80908203125
           },
           {
             "k": 21,
             "qaId": "e2-042",
             "expectedAfterMs": 1100,
-            "afterFirstArrivalMs": 1049.742919921875
+            "afterFirstArrivalMs": 1049.916259765625
           },
           {
             "k": 22,
             "qaId": "e2-043",
             "expectedAfterMs": 1150,
-            "afterFirstArrivalMs": 1099.29736328125
+            "afterFirstArrivalMs": 1098.95849609375
           },
           {
             "k": 23,
             "qaId": "e2-044",
             "expectedAfterMs": 1200,
-            "afterFirstArrivalMs": 1149.6611328125
+            "afterFirstArrivalMs": 1149.152099609375
           },
           {
             "k": 24,
             "qaId": "e2-045",
             "expectedAfterMs": 1250,
-            "afterFirstArrivalMs": 1199.719970703125
+            "afterFirstArrivalMs": 1199.119140625
           },
           {
             "k": 25,
             "qaId": "e2-046",
             "expectedAfterMs": 1300,
-            "afterFirstArrivalMs": 1249.729736328125
+            "afterFirstArrivalMs": 1249.07080078125
           },
           {
             "k": 26,
             "qaId": "e2-047",
             "expectedAfterMs": 1350,
-            "afterFirstArrivalMs": 1299.45361328125
+            "afterFirstArrivalMs": 1299.770751953125
           },
           {
             "k": 27,
             "qaId": "e2-048",
             "expectedAfterMs": 1400,
-            "afterFirstArrivalMs": 1350.496826171875
+            "afterFirstArrivalMs": 1349.082763671875
           },
           {
             "k": 28,
             "qaId": "e2-049",
             "expectedAfterMs": 1450,
-            "afterFirstArrivalMs": 1399.810302734375
+            "afterFirstArrivalMs": 1399.28759765625
           },
           {
             "k": 29,
             "qaId": "e2-050",
             "expectedAfterMs": 1500,
-            "afterFirstArrivalMs": 1449.369140625
+            "afterFirstArrivalMs": 1449.709716796875
           },
           {
             "k": 30,
             "qaId": "e2-051",
             "expectedAfterMs": 1550,
-            "afterFirstArrivalMs": 1499.552734375
+            "afterFirstArrivalMs": 1499.734619140625
           },
           {
             "k": 31,
             "qaId": "e2-052",
             "expectedAfterMs": 1600,
-            "afterFirstArrivalMs": 1550.0126953125
+            "afterFirstArrivalMs": 1549.940185546875
           },
           {
             "k": 32,
             "qaId": "e2-053",
             "expectedAfterMs": 1650,
-            "afterFirstArrivalMs": 1599.458740234375
+            "afterFirstArrivalMs": 1598.97265625
           },
           {
             "k": 33,
             "qaId": "e2-054",
             "expectedAfterMs": 1700,
-            "afterFirstArrivalMs": 1649.892333984375
+            "afterFirstArrivalMs": 1648.966064453125
           },
           {
             "k": 34,
             "qaId": "e2-055",
             "expectedAfterMs": 1750,
-            "afterFirstArrivalMs": 1699.7978515625
+            "afterFirstArrivalMs": 1699.120849609375
           },
           {
             "k": 35,
             "qaId": "e2-056",
             "expectedAfterMs": 1800,
-            "afterFirstArrivalMs": 1750.067138671875
+            "afterFirstArrivalMs": 1749.053955078125
           },
           {
             "k": 36,
             "qaId": "e2-057",
             "expectedAfterMs": 1850,
-            "afterFirstArrivalMs": 1800.253662109375
+            "afterFirstArrivalMs": 1799.234130859375
           },
           {
             "k": 37,
             "qaId": "e2-058",
             "expectedAfterMs": 1900,
-            "afterFirstArrivalMs": 1849.59423828125
+            "afterFirstArrivalMs": 1849.564453125
           },
           {
             "k": 38,
             "qaId": "e2-059",
             "expectedAfterMs": 1950,
-            "afterFirstArrivalMs": 1899.664794921875
+            "afterFirstArrivalMs": 1899.709716796875
           },
           {
             "k": 39,
             "qaId": "e2-060",
             "expectedAfterMs": 2000,
-            "afterFirstArrivalMs": 1949.7998046875
+            "afterFirstArrivalMs": 1949.94580078125
           },
           {
             "k": 40,
             "qaId": "e2-061",
             "expectedAfterMs": 2050,
-            "afterFirstArrivalMs": 2000.0703125
+            "afterFirstArrivalMs": 1999.274658203125
           },
           {
             "k": 41,
             "qaId": "e2-062",
             "expectedAfterMs": 2100,
-            "afterFirstArrivalMs": 2049.823974609375
+            "afterFirstArrivalMs": 2051.54248046875
           },
           {
             "k": 42,
             "qaId": "e2-063",
             "expectedAfterMs": 2150,
-            "afterFirstArrivalMs": 2099.8974609375
+            "afterFirstArrivalMs": 2099.44677734375
           },
           {
             "k": 43,
             "qaId": "e2-064",
             "expectedAfterMs": 2200,
-            "afterFirstArrivalMs": 2150.102783203125
+            "afterFirstArrivalMs": 2149.611083984375
           },
           {
             "k": 44,
             "qaId": "e2-065",
             "expectedAfterMs": 2250,
-            "afterFirstArrivalMs": 2199.4833984375
+            "afterFirstArrivalMs": 2199.6826171875
           },
           {
             "k": 45,
             "qaId": "e2-066",
             "expectedAfterMs": 2300,
-            "afterFirstArrivalMs": 2251.30029296875
+            "afterFirstArrivalMs": 2249.473388671875
           },
           {
             "k": 46,
             "qaId": "e2-067",
             "expectedAfterMs": 2350,
-            "afterFirstArrivalMs": 2302.375244140625
+            "afterFirstArrivalMs": 2299.429443359375
           },
           {
             "k": 47,
             "qaId": "e2-068",
             "expectedAfterMs": 2400,
-            "afterFirstArrivalMs": 2350.1318359375
+            "afterFirstArrivalMs": 2349.55029296875
           },
           {
             "k": 48,
             "qaId": "e2-069",
             "expectedAfterMs": 2450,
-            "afterFirstArrivalMs": 2400.439208984375
+            "afterFirstArrivalMs": 2399.708251953125
           },
           {
             "k": 49,
             "qaId": "e2-070",
             "expectedAfterMs": 2500,
-            "afterFirstArrivalMs": 2449.778076171875
+            "afterFirstArrivalMs": 2449.698486328125
           },
           {
             "k": 50,
             "qaId": "e2-071",
             "expectedAfterMs": 2550,
-            "afterFirstArrivalMs": 2500.053466796875
+            "afterFirstArrivalMs": 2499.747802734375
           },
           {
             "k": 51,
             "qaId": "e2-072",
             "expectedAfterMs": 2600,
-            "afterFirstArrivalMs": 2550.295654296875
+            "afterFirstArrivalMs": 2549.861572265625
           },
           {
             "k": 52,
             "qaId": "e2-073",
             "expectedAfterMs": 2650,
-            "afterFirstArrivalMs": 2599.336181640625
+            "afterFirstArrivalMs": 2599.1865234375
           },
           {
             "k": 53,
             "qaId": "e2-074",
             "expectedAfterMs": 2700,
-            "afterFirstArrivalMs": 2649.52197265625
+            "afterFirstArrivalMs": 2649.20361328125
           },
           {
             "k": 54,
             "qaId": "e2-075",
             "expectedAfterMs": 2750,
-            "afterFirstArrivalMs": 2699.792724609375
+            "afterFirstArrivalMs": 2699.571044921875
           },
           {
             "k": 55,
             "qaId": "e2-076",
             "expectedAfterMs": 2800,
-            "afterFirstArrivalMs": 2749.375244140625
+            "afterFirstArrivalMs": 2749.620361328125
           },
           {
             "k": 56,
             "qaId": "e2-077",
             "expectedAfterMs": 2850,
-            "afterFirstArrivalMs": 2800.32373046875
+            "afterFirstArrivalMs": 2799.562744140625
           },
           {
             "k": 57,
             "qaId": "e2-078",
             "expectedAfterMs": 2900,
-            "afterFirstArrivalMs": 2850.217041015625
+            "afterFirstArrivalMs": 2849.434326171875
           },
           {
             "k": 58,
             "qaId": "e2-079",
             "expectedAfterMs": 2950,
-            "afterFirstArrivalMs": 2900.416259765625
+            "afterFirstArrivalMs": 2899.248291015625
           }
         ],
         "curveAccepted": true
@@ -623,7 +623,7 @@
       },
       "clientRoundTripMs": {
         "n": 35,
-        "max": 657
+        "max": 664
       },
       "limitReq": {
         "PASSED": 21,
@@ -643,19 +643,19 @@
         "lreqOnConnRefused": {},
         "admittedAndDelayed": 14,
         "releaseGapsMs": [
-          49.717,
-          49.76,
-          52.277,
-          47.992,
-          49.666,
-          49.915,
-          49.799,
-          50.323,
-          49.879,
-          49.618,
-          50.695,
-          49.848,
-          49.823
+          49.684,
+          49.882,
+          49.768,
+          49.916,
+          50.739,
+          49.733,
+          52.773,
+          47.177,
+          50.083,
+          49.561,
+          50.728,
+          49.932,
+          49.511
         ],
         "expectedGapMs": 50,
         "releasesWereSpread": true,
@@ -674,7 +674,7 @@
       },
       "clientRoundTripMs": {
         "n": 123,
-        "max": 1001
+        "max": 992
       },
       "limitReq": {
         "PASSED": 22,
@@ -689,10 +689,10 @@
       "arrivals": 104,
       "errorLogRefusals": 19,
       "errorLogSamples": [
-        "2026/10/08 12:19:22 [error] 21#21: *78 limiting requests, excess: 40.400 by zone \"api_limit\", client: 172.22.0.4, server: localhost, request: \"GET /api/e4b HTTP/1.1\", host: \"rig-nginx\"",
-        "2026/10/08 12:19:22 [error] 21#21: *79 limiting requests, excess: 40.380 by zone \"api_limit\", client: 172.22.0.4, server: localhost, request: \"GET /api/e4b HTTP/1.1\", host: \"rig-nginx\"",
-        "2026/10/08 12:19:22 [error] 21#21: *80 limiting requests, excess: 40.340 by zone \"api_limit\", client: 172.22.0.4, server: localhost, request: \"GET /api/e4b HTTP/1.1\", host: \"rig-nginx\"",
-        "2026/10/08 12:19:22 [error] 21#21: *81 limiting requests, excess: 40.340 by zone \"api_limit\", client: 172.22.0.4, server: localhost, request: \"GET /api/e4b HTTP/1.1\", host: \"rig-nginx\""
+        "2026/10/10 16:11:44 [error] 21#21: *78 limiting requests, excess: 40.220 by zone \"api_limit\", client: 172.22.0.4, server: localhost, request: \"GET /api/e4b HTTP/1.1\", host: \"rig-nginx\"",
+        "2026/10/10 16:11:44 [error] 21#21: *79 limiting requests, excess: 40.220 by zone \"api_limit\", client: 172.22.0.4, server: localhost, request: \"GET /api/e4b HTTP/1.1\", host: \"rig-nginx\"",
+        "2026/10/10 16:11:44 [error] 21#21: *80 limiting requests, excess: 40.220 by zone \"api_limit\", client: 172.22.0.4, server: localhost, request: \"GET /api/e4b HTTP/1.1\", host: \"rig-nginx\"",
+        "2026/10/10 16:11:44 [error] 21#21: *81 limiting requests, excess: 40.220 by zone \"api_limit\", client: 172.22.0.4, server: localhost, request: \"GET /api/e4b HTTP/1.1\", host: \"rig-nginx\""
       ],
       "observations": {
         "rejectedByLimitReq": 19,
@@ -725,32 +725,32 @@
       "establishes": "maxSimultaneousImmediate: the largest count the combined limits admitted with every request PASSED and every request reaching the upstream",
       "sent": 176,
       "statuses": {
-        "200": 129,
-        "429": 47
+        "200": 124,
+        "429": 52
       },
       "clientRoundTripMs": {
         "n": 176,
-        "max": 531
+        "max": 521
       },
       "limitReq": {
         "PASSED": 168,
         "DELAYED": 8
       },
       "limitConn": {
-        "PASSED": 129,
-        "REJECTED": 47
+        "PASSED": 124,
+        "REJECTED": 52
       },
       "logLines": 176,
       "arrivals": 10,
-      "errorLogRefusals": 47,
+      "errorLogRefusals": 52,
       "errorLogSamples": [
-        "2026/10/08 12:20:25 [error] 21#21: *149 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e5 HTTP/1.1\", host: \"rig-nginx\"",
-        "2026/10/08 12:20:37 [error] 21#21: *169 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e5 HTTP/1.1\", host: \"rig-nginx\"",
-        "2026/10/08 12:20:37 [error] 21#21: *170 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e5 HTTP/1.1\", host: \"rig-nginx\"",
-        "2026/10/08 12:20:37 [error] 21#21: *171 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e5 HTTP/1.1\", host: \"rig-nginx\""
+        "2026/10/10 16:12:59 [error] 21#21: *169 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e5 HTTP/1.1\", host: \"rig-nginx\"",
+        "2026/10/10 16:13:11 [error] 21#21: *192 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e5 HTTP/1.1\", host: \"rig-nginx\"",
+        "2026/10/10 16:13:11 [error] 21#21: *194 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e5 HTTP/1.1\", host: \"rig-nginx\"",
+        "2026/10/10 16:13:11 [error] 21#21: *195 limiting connections by zone \"addr\", client: 172.22.0.4, server: localhost, request: \"GET /api/e5 HTTP/1.1\", host: \"rig-nginx\""
       ],
       "observations": {
-        "toleranceMs": 60,
+        "toleranceMs": 55,
         "noHold": {
           "perSize": [
             {
@@ -768,7 +768,7 @@
               "count": 5,
               "logLines": 5,
               "arrivals": 5,
-              "arrivalSpanMs": 13.102,
+              "arrivalSpanMs": 4.085,
               "refusedByConn": 0,
               "refusedByReq": 0,
               "delayed": 0,
@@ -779,7 +779,7 @@
               "count": 10,
               "logLines": 10,
               "arrivals": 10,
-              "arrivalSpanMs": 6.311,
+              "arrivalSpanMs": 5.072,
               "refusedByConn": 0,
               "refusedByReq": 0,
               "delayed": 0,
@@ -789,20 +789,20 @@
             {
               "count": 11,
               "logLines": 11,
-              "arrivals": 10,
-              "arrivalSpanMs": 8.882,
-              "refusedByConn": 1,
+              "arrivals": 11,
+              "arrivalSpanMs": 7.469,
+              "refusedByConn": 0,
               "refusedByReq": 0,
               "delayed": 0,
-              "allAdmitted": false,
-              "allImmediate": false
+              "allAdmitted": true,
+              "allImmediate": true
             },
             {
               "count": 15,
               "logLines": 15,
-              "arrivals": 11,
-              "arrivalSpanMs": 9.052,
-              "refusedByConn": 4,
+              "arrivals": 14,
+              "arrivalSpanMs": 7.54,
+              "refusedByConn": 1,
               "refusedByReq": 0,
               "delayed": 0,
               "allAdmitted": false,
@@ -811,27 +811,27 @@
             {
               "count": 21,
               "logLines": 21,
-              "arrivals": 21,
-              "arrivalSpanMs": 15.351,
-              "refusedByConn": 0,
+              "arrivals": 13,
+              "arrivalSpanMs": 9.663,
+              "refusedByConn": 8,
               "refusedByReq": 0,
               "delayed": 0,
-              "allAdmitted": true,
-              "allImmediate": true
+              "allAdmitted": false,
+              "allImmediate": false
             },
             {
               "count": 25,
               "logLines": 25,
-              "arrivals": 15,
-              "arrivalSpanMs": 200.53,
-              "refusedByConn": 10,
+              "arrivals": 14,
+              "arrivalSpanMs": 197.06,
+              "refusedByConn": 11,
               "refusedByReq": 0,
               "delayed": 4,
               "allAdmitted": false,
               "allImmediate": false
             }
           ],
-          "maxCount": 21
+          "maxCount": 11
         },
         "held": {
           "perSize": [
@@ -850,7 +850,7 @@
               "count": 5,
               "logLines": 5,
               "arrivals": 5,
-              "arrivalSpanMs": 1.319,
+              "arrivalSpanMs": 1.169,
               "refusedByConn": 0,
               "refusedByReq": 0,
               "delayed": 0,
@@ -861,7 +861,7 @@
               "count": 10,
               "logLines": 10,
               "arrivals": 10,
-              "arrivalSpanMs": 5.197,
+              "arrivalSpanMs": 11.048,
               "refusedByConn": 0,
               "refusedByReq": 0,
               "delayed": 0,
@@ -872,7 +872,7 @@
               "count": 11,
               "logLines": 11,
               "arrivals": 10,
-              "arrivalSpanMs": 9.513,
+              "arrivalSpanMs": 3.352,
               "refusedByConn": 1,
               "refusedByReq": 0,
               "delayed": 0,
@@ -883,7 +883,7 @@
               "count": 15,
               "logLines": 15,
               "arrivals": 10,
-              "arrivalSpanMs": 6.347,
+              "arrivalSpanMs": 5.086,
               "refusedByConn": 5,
               "refusedByReq": 0,
               "delayed": 0,
@@ -894,7 +894,7 @@
               "count": 21,
               "logLines": 21,
               "arrivals": 10,
-              "arrivalSpanMs": 7.467,
+              "arrivalSpanMs": 6.126,
               "refusedByConn": 11,
               "refusedByReq": 0,
               "delayed": 0,
@@ -905,7 +905,7 @@
               "count": 25,
               "logLines": 25,
               "arrivals": 10,
-              "arrivalSpanMs": 6.239,
+              "arrivalSpanMs": 3.322,
               "refusedByConn": 15,
               "refusedByReq": 0,
               "delayed": 4,
@@ -920,7 +920,7 @@
     }
   ],
   "mergedFrom": [
-    "2026-10-08T12:22:33.434Z",
-    "2026-10-08T12:27:01.967Z"
+    "2026-10-10T16:14:55.223Z",
+    "2026-10-10T16:19:15.186Z"
   ]
 }

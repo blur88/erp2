@@ -11,6 +11,7 @@ verified. The code lives in `frontend/src/session/` and `frontend/qa/cross-tab-s
 | `frontend/qa/cross-tab-session/stack.sh {show\|qa-up\|restore}` | The only supported way to start or recreate containers for a run. |
 | `nginx/verify-rate-limits.sh` | The ingress rate limits and CORS, from a container with its own address. Must pass twice in a row. |
 | `node --test nginx/verify-rate-limits.test.mjs` | The arithmetic the rate-limit script derives from the configuration. |
+| `nginx/verify-hint-budget.sh` | Phase K alone, on a rig of its own: the login page's hint does not spend the sign-in budget (#1360). `verify-rate-limits.sh` runs it last. |
 | `frontend/qa/cross-tab-session/diagnose-latency.mjs` | A diagnostic, not a gate: where the reconcile gate's time goes during a page load. |
 
 `run.sh` refuses a `localhost` address, any port, a dirty working tree, missing
@@ -342,6 +343,11 @@ because two handlers' interaction is not something to assume.
 Recorded twice on `nginx/1.30.0` (the image the stack deploys) through the
 isolated rig, on this host, and merged; the two runs agreed on every status and
 every finding. Configuration `3fd4e04e77cf`, rate 20 r/s, burst 40, delay 20.
+
+Re-recorded on 2026-10-10 for #1360, which adds a location to `nginx.conf` and
+so changes its hash: configuration `2995a231fb99`, same image, two runs merged,
+every answer `established` and every state `reachable` as before, immediate
+admission still 10. The figures in the tables below are the first recording's.
 
 | Answer | Status | Finding |
 |---|---|---|
@@ -1310,7 +1316,8 @@ works; the device and the browser build are not the user's.
   `GET /api/auth/show-default-credentials` was refused with 429 by `login_limit`
   (five tabs arrive on the login page together; that zone is 5 r/m, burst 3).
   The login page treats a failed answer as "do not show the hint". Whether a
-  sign-in made straight afterwards is refused was not tested.
+  sign-in made straight afterwards is refused was not tested. (Since fixed at
+  the ingress; see "The login page's hint and the sign-in budget" below.)
 - Two defects of the tool were found by rehearsal 1 and fixed before the
   others: a failure reason repeated the company name, and the 1 ms check
   reported that it held when applied to a round that had already failed.
@@ -2144,3 +2151,84 @@ once it is merged. The deadlines are unchanged. No start-up optimisation is
 approved. If one is wanted it begins as a separate task that states its start-up
 target first; the base and one-processor runs above are the least noisy figures
 to measure it with.
+
+## The login page's hint and the sign-in budget (#1360, 2026-10-10)
+
+Every login page asks `GET /api/auth/show-default-credentials` when it mounts.
+The route was under `login_limit` (5 r/m, burst 3) with `login`, so a sign-out
+with several tabs open sent one request per tab into the sign-in budget at the
+same instant. It now has an exact-match location in `nginx/nginx.conf`, metered
+by `api_limit` with the numbers `location /api` uses. `login_limit` and the
+credential block are unchanged.
+
+There are two kinds of observation here, and they are not the same evidence.
+
+**Browser observations (2026-10-09, before the change).** The two sign-out
+rounds recorded above and in #1360: Playwright Firefox 155.0, five tabs, one
+hint request refused by `login_limit` in each. No sign-in was attempted after
+either sign-out. **No browser run has been made since the change.**
+
+**Rig observations (2026-10-10, commit `3650eb2f9`).** `nginx/1.30.0`, the
+image the stack deploys, in front of the recording upstream. Each run starts a
+fresh rig, so the limiter is empty, and sends everything from one client
+container (`172.22.0.4` in every run). The sequence is five hints released
+together, then five `POST /api/auth/login` one after another with no wait.
+"Admitted" means the request reached the upstream, which answers 200 to
+anything; whether credentials would authenticate is not part of it. The times
+are the ingress's own (`$msec - $request_time`), first request to last.
+
+| Command | Configuration | Hints | Logins | Span | Exit |
+|---|---|---|---|---|---|
+| `nginx/verify-hint-budget.sh` | `3fd4e04e77cf` (before the change) | 4 admitted, 1 `lreq=REJECTED` | 0 admitted, 5 `lreq=REJECTED` | 25 ms | 1, judged `shared` |
+| `nginx/verify-hint-budget.sh --expect-shared` | `3fd4e04e77cf` (working tree, before the change) | 4 admitted, 1 refused | 0 admitted, 5 refused | 26 ms | 0 |
+| `RIG_CONF=<main's nginx.conf> nginx/verify-hint-budget.sh --expect-shared` | `3fd4e04e77cf` (`git show main:nginx/nginx.conf`) | 4 admitted, 1 refused | 0 admitted, 5 refused | 27 ms | 0 |
+| `nginx/verify-hint-budget.sh` | `2995a231fb99` (the change) | 5 admitted, all `lreq=PASSED` | 4 admitted, the fifth `lreq=REJECTED lconn=-` | 36 ms | 0, judged `separated` |
+| `nginx/verify-hint-budget.sh --expect-shared` | `2995a231fb99` | 5 admitted | 4 admitted, 1 refused | 33 ms | 1 |
+| `nginx/verify-rate-limits.sh`, twice in a row | `2995a231fb99`, through the recreated `erp_nginx` for A to F | phase K: 5 admitted | phase K: 4 admitted, 1 refused | 33 ms, 30 ms | 0, 0 |
+
+What the rows show:
+
+- **Before the change, the first sign-in after five hints is refused by
+  `limit_req`** and does not reach the upstream. This answers the first half
+  of #1360's question 1 on the rig, not in a browser.
+- **After it, all five hints and the sign-in are admitted**, and the hints read
+  `lreq=PASSED`, so a limiter did meter them.
+- **`login_limit` is still enforced and still whole**: with five hints sent
+  first, exactly four logins are admitted and the fifth is refused. Phases A, D
+  and E (login and change-password, 4 of 10 admitted, through the running
+  ingress) passed in both full runs.
+- **The phase can fail for the right reason.** `--expect-shared` exits 0 only
+  on the pattern above (four hints admitted, one refused, every login refused);
+  any other failure exits 1, as the fifth row shows on the fixed configuration.
+- **The counts are reliable because no slot refills during the sequence.** One
+  slot returns every 12 s; the longest sequence took 36 ms. The judgement
+  refuses to judge a sequence of 3 s or more.
+
+`verify-rate-limits.sh` passed twice in a row (16:19:44 to 16:23:31 and
+16:23:31 to 16:27:17 UTC): phase 0, A to F, G to J against the re-recorded
+probe result, and K. Unit tests: `node --test nginx/*.test.mjs
+nginx/limiter-rig/*.test.mjs frontend/qa/cross-tab-session/*.test.mjs`, 490
+passed, 0 failed.
+
+### Derived, not measured
+
+- **How long a sign-in stays refused.** With the old configuration the bucket
+  is full after four admitted hints, and one slot returns every 12 s, so the
+  arithmetic says a sign-in is refused for up to about 12 s. Nothing here
+  waited and retried, so that figure is not a measurement.
+- **Four tabs would have been enough.** By the same arithmetic four hints fill
+  the bucket with none of them refused. Only five were sent.
+
+### Not established
+
+- Anything in a browser after the change: that five tabs signed out together
+  show the hint in each and can sign in at once. This is follow-up work.
+- The behaviour behind the running ingress under real traffic. Phase K runs on
+  the rig only; through the running stack, only phases A to F were run.
+- The hint now spends from the address's `api_limit` bucket, which the signed-in
+  application's requests share. Five requests against 20 immediate and 40 in
+  all is small, and at a sign-out little else is being sent, but no workload
+  was run to show it.
+- The QA harness (`run.sh`, W1, the cases) has not been run on this change. Its
+  `zoneOf` still groups the hint with the login page's requests on purpose, so
+  a 429 on it would still be counted in `loginZone429`.

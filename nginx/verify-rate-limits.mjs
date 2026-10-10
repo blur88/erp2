@@ -342,6 +342,131 @@ export function judgeRejection(entries, limiter, assertOtherField) {
   }
 }
 
+// --- #1360: the default-credentials hint and the credential budget -----------
+//
+// Every login page asks GET /api/auth/show-default-credentials on mount, so a
+// sign-out with several tabs open sends one per tab at the same instant. While
+// that route was metered by login_limit those requests spent the budget a
+// POST /api/auth/login needs. It has an exact-match location on api_limit now;
+// what follows checks the configuration says so and that the limiter agrees.
+
+export const HINT_PATH = '/api/auth/show-default-credentials'
+
+/**
+ * The limit_req directives of the hint's exact-match location, or null when
+ * the configuration has no such location. Braces are counted, because the
+ * block holds a nested `if { }`.
+ */
+export function parseHintLocation(confText) {
+  const open = /location\s*=\s*\/api\/auth\/show-default-credentials\s*\{/.exec(confText)
+  if (!open) return null
+  let depth = 1
+  let i = open.index + open[0].length
+  const start = i
+  while (i < confText.length && depth > 0) {
+    if (confText[i] === '{') depth += 1
+    else if (confText[i] === '}') depth -= 1
+    i += 1
+  }
+  const body = confText.slice(start, i - 1)
+  const limits = []
+  const re = /limit_req\s+zone=([a-z_]+)\s+burst=(\d+)(?:\s+(nodelay)|\s+delay=(\d+))?;/g
+  let m
+  while ((m = re.exec(body)) !== null) {
+    limits.push({ zone: m[1], burst: Number(m[2]), delay: m[3] ? 0 : m[4] === undefined ? null : Number(m[4]) })
+  }
+  return limits
+}
+
+/**
+ * The configuration's half of the check: the hint has its own location, that
+ * location is metered by api_limit with the numbers /api uses (the zone is one
+ * bucket per address, and two sizes for it would be two different limits), and
+ * the credential block is still 5r/m burst 3.
+ */
+export function judgeHintConf(confText) {
+  const limits = parseHintLocation(confText)
+  if (limits === null) return { verdict: 'fail', detail: `no exact-match location for ${HINT_PATH}` }
+  if (limits.length !== 1 || limits[0].zone !== 'api_limit') {
+    return { verdict: 'fail', detail: `the hint location's limit_req lines are ${JSON.stringify(limits)}, expected one on api_limit` }
+  }
+  const api = readApiLimit(confText)
+  if (limits[0].burst !== api.burst || limits[0].delay !== api.delay) {
+    return {
+      verdict: 'fail',
+      detail: `the hint location is burst ${limits[0].burst} delay ${limits[0].delay}, /api is burst ${api.burst} delay ${api.delay}`,
+    }
+  }
+  const login = parseZones(confText).login_limit
+  if (!login || login.rateText !== '5r/m' || login.burst !== 3) {
+    return { verdict: 'fail', detail: `login_limit is ${login ? `${login.rateText} burst ${login.burst}` : 'absent'}, expected 5r/m burst 3` }
+  }
+  return {
+    verdict: 'pass',
+    detail: `hint on api_limit burst ${api.burst} delay ${api.delay}; login_limit ${login.rateText} burst ${login.burst}`,
+  }
+}
+
+/**
+ * Five hints at one instant, then logins one after another, from one address
+ * against an empty limiter.
+ *
+ * Each observation is `{ qaId, entry, arrived }`: the request's access-log line
+ * and whether the recording upstream saw it. "Admitted" means it reached the
+ * upstream, whatever the upstream would answer.
+ *
+ *   separated  every hint admitted, the first burst + 1 logins admitted and the
+ *              rest refused by limit_req: the hints spent none of login_limit,
+ *              and login_limit is still enforced. The only pass.
+ *   shared     burst + 1 hints admitted, the rest refused by limit_req, and
+ *              every login refused by limit_req: the hints emptied the bucket
+ *              the logins needed. This is #1360, and what the unfixed
+ *              configuration must show.
+ *   other      any other failure. It says nothing about #1360.
+ *
+ * The counts are exact only while no slot refills, so the whole sequence, by
+ * the ingress clock, has to fit in a quarter of the refill interval (3 s of
+ * 12 s); beyond that it is not judged.
+ */
+export function judgeHintThenLogin({ hints, logins }, login) {
+  const all = [...hints, ...logins]
+  const cannot = (detail) => ({ verdict: 'inconclusive', pattern: null, windowMs: null, detail })
+  const missing = all.filter((o) => !o.entry)
+  if (missing.length > 0) return cannot(`no access-log line for ${missing.map((o) => o.qaId).join(', ')}`)
+  const addresses = [...new Set(all.map((o) => o.entry.remoteAddr))]
+  if (addresses.length !== 1) return cannot(`the requests came from ${addresses.length} addresses: ${addresses.join(', ')}`)
+  const unattributed = all.filter((o) => o.entry.status === 429 && attribute(o.entry) === 'unattributed')
+  if (unattributed.length > 0) return cannot(`${unattributed.length} 429 line(s) attribute as unattributed`)
+  const starts = all.map((o) => o.entry.startMs)
+  const windowMs = Math.max(...starts) - Math.min(...starts)
+  const limitMs = (intervalSeconds(login.ratePerSecond) * 1000) / 4
+  if (windowMs >= limitMs) {
+    return { ...cannot(`the sequence took ${windowMs} ms; it is judged only under ${limitMs} ms, a quarter of the refill interval`), windowMs }
+  }
+
+  const admitted = (o) => o.arrived && o.entry.status !== 429 && (o.entry.limitReq === 'PASSED' || o.entry.limitReq === 'DELAYED')
+  const refused = (o) => !o.arrived && o.entry.status === 429 && o.entry.limitReq === 'REJECTED'
+  const n = login.burst + 1
+  const count = (list) => `${list.filter(admitted).length} admitted, ${list.filter(refused).length} refused by limit_req`
+  const facts =
+    `hints ${count(hints)} of ${hints.length}; logins ${count(logins)} of ${logins.length}; ` +
+    `${windowMs} ms from first to last request, from ${addresses[0]}`
+
+  if (hints.every(admitted) && logins.length > n && logins.slice(0, n).every(admitted) && logins.slice(n).every(refused)) {
+    return { verdict: 'pass', pattern: 'separated', windowMs, detail: facts }
+  }
+  if (
+    hints.length > n &&
+    hints.filter(admitted).length === n &&
+    hints.filter(refused).length === hints.length - n &&
+    logins.length > 0 &&
+    logins.every(refused)
+  ) {
+    return { verdict: 'fail', pattern: 'shared', windowMs, detail: `the hints spent the credential budget and the first login was refused by limit_req: ${facts}` }
+  }
+  return { verdict: 'fail', pattern: 'other', windowMs, detail: facts }
+}
+
 // --- CLI -------------------------------------------------------------------
 
 const PROBE_RESULT = 'limiter-probe-result.json'
@@ -536,6 +661,92 @@ async function apiLimitPhases({ confPath, api, rigDir }) {
   return exitCodeFor({ mismatches, incomplete: named.length > 0, inconclusive })
 }
 
+/**
+ * Phase K, run against a rig of its own (nginx/verify-hint-budget.sh starts
+ * it), so the limiter is empty and every request comes from this container.
+ *
+ * With `expectShared` the run is the proof that the phase can fail for the
+ * right reason: it is pointed at the configuration from before #1360 and
+ * succeeds only when the judgement is the shared pattern. Any other failure is
+ * not that proof and exits 1.
+ */
+async function hintBudgetPhase({ confPath, rigDir, expectShared }) {
+  const base = new URL(process.env.VERIFY_BASE_URL || 'http://rig-nginx')
+  const upstream = process.env.RIG_UPSTREAM || 'http://backend:3002'
+  const login = parseZones(readFileSync(confPath, 'utf8')).login_limit
+  const HINTS = 5
+  const wait = (s) => new Promise((r) => setTimeout(r, s * 1000))
+
+  let mismatches = 0
+  if (!expectShared) {
+    // The repository's file. Under expectShared the rig serves another one,
+    // which this container cannot see, so nothing is said about it.
+    const c = judgeHintConf(readFileSync(confPath, 'utf8'))
+    console.log(`[${c.verdict === 'pass' ? 'PASS' : 'FAIL'}] K configuration: ${c.detail}`)
+    if (c.verdict !== 'pass') mismatches += 1
+  }
+
+  const send = (method, path, qaId, body) =>
+    new Promise((resolve, reject) => {
+      const text = body ? JSON.stringify(body) : null
+      const headers = { 'X-QA-Request-Id': qaId, 'X-ERP-Session-Protocol': '2' }
+      if (text) {
+        headers['Content-Type'] = 'application/json'
+        headers['Content-Length'] = Buffer.byteLength(text)
+      }
+      const req = http.request({ host: base.hostname, port: Number(base.port || 80), method, path, agent: undefined, headers }, (res) => {
+        res.resume()
+        res.on('end', () => resolve({ qaId, status: res.statusCode }))
+      })
+      req.on('error', reject)
+      req.end(text ?? undefined)
+    })
+
+  const hintIds = Array.from({ length: HINTS }, (_, i) => `k-hint-${i}`)
+  const loginIds = Array.from({ length: login.burst + 2 }, (_, i) => `k-login-${i}`)
+  const credentials = { username: '__verify_no_such_user__', password: 'x' }
+  try {
+    const t0 = performance.now()
+    await Promise.all(hintIds.map((qaId) => send('GET', HINT_PATH, qaId)))
+    // No wait: the first login is what a user who signs in at once would send.
+    for (const qaId of loginIds) await send('POST', '/api/auth/login', qaId, credentials)
+    const clientMs = Math.round(performance.now() - t0)
+
+    await wait(2) // the log is flushed every second
+    const logPath = join(rigDir ?? '.', 'access.log')
+    const lines = existsSync(logPath) ? readFileSync(logPath, 'utf8').split('\n').map(parseLine).filter(Boolean) : []
+    const arrived = new Set((await (await fetch(new URL('/__arrivals', upstream))).json()).map((a) => a.qaId))
+    const observe = (qaId) => ({ qaId, entry: lines.find((l) => l.qaId === qaId) ?? null, arrived: arrived.has(qaId) })
+    const hints = hintIds.map(observe)
+    const logins = loginIds.map(observe)
+    for (const o of [...hints, ...logins]) {
+      const e = o.entry
+      console.log(`  ${o.qaId}: ${e ? `${e.method} ${e.uri} ${e.status} lreq=${e.limitReq ?? '-'} lconn=${e.limitConn ?? '-'} start=${e.startMs}` : 'no line'} upstream=${o.arrived ? 'arrived' : 'absent'}`)
+    }
+    const j = judgeHintThenLogin({ hints, logins }, login)
+    const detail = `${j.detail}; ${clientMs} ms by the client's clock; login_limit ${login.rateText} burst ${login.burst}`
+
+    if (expectShared) {
+      if (j.pattern === 'shared') {
+        console.log(`[PASS] K red proof: the configuration under test shows #1360 (${detail})`)
+        return 0
+      }
+      console.log(`[FAIL] K red proof: expected the shared pattern, judged ${j.verdict}/${j.pattern} (${detail})`)
+      return 1
+    }
+    if (j.verdict === 'inconclusive') {
+      console.log(`[INCONCLUSIVE] K hints then login: ${detail}`)
+      return exitCodeFor({ mismatches, inconclusive: true })
+    }
+    console.log(`[${j.verdict === 'pass' ? 'PASS' : 'FAIL'}] K hints then login (${j.pattern}): ${detail}`)
+    if (j.verdict !== 'pass') mismatches += 1
+  } catch (err) {
+    console.log(`[INCONCLUSIVE] K hints then login: ${err && err.message ? err.message : 'the phase could not run'}`)
+    return expectShared ? 1 : exitCodeFor({ mismatches, inconclusive: true })
+  }
+  return exitCodeFor({ mismatches })
+}
+
 async function main() {
   const base = process.env.VERIFY_BASE_URL || 'http://nginx'
   const args = process.argv.slice(2)
@@ -547,6 +758,10 @@ async function main() {
     process.exit(
       await apiLimitPhases({ confPath, api: readApiLimit(readFileSync(confPath, 'utf8')), rigDir: process.env.RIG_DIR }),
     )
+  }
+
+  if (args.includes('--hint-budget')) {
+    process.exit(await hintBudgetPhase({ confPath, rigDir: process.env.RIG_DIR, expectShared: args.includes('--expect-shared') }))
   }
 
   if (assumeArg) {
