@@ -9,7 +9,7 @@ import { Repository, FindOptionsWhere } from 'typeorm';
 import { applyPagination } from '../../../common/pagination/apply-pagination';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Customer } from '../../../database/entities/customer.entity';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
@@ -36,6 +36,7 @@ import {
   BulkOperationResponse,
 } from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
+import { recalculateCustomerMetrics } from './customer-metrics';
 import { AuditLogService } from '../../audit-logs/services';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
 
@@ -468,7 +469,7 @@ export class CustomerService extends BaseCrudService<
       .createQueryBuilder('order')
       .where('order.customerId = :customerId', { customerId })
       .andWhere('order.deletedAt IS NULL')
-      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
+      .andWhere('order.status = :status', { status: SalesOrderStatus.FULFILLED })
       .select([
         'COUNT(*) as totalorders',
         'COALESCE(AVG(order.totalAmount), 0) as averageordervalue',
@@ -798,39 +799,19 @@ export class CustomerService extends BaseCrudService<
   }
 
   /**
-   * Update customer metrics for a specific customer based on their sales orders
+   * Recalculate a customer's stored order metrics from their fulfilled sales
+   * orders. Fulfil and unfulfil do this inside their own transaction
+   * (recalculateCustomerMetrics); this is the on-demand route.
    */
   async updateCustomerMetrics(customerId: string): Promise<void> {
-    const customer = await this.customerRepository.findOne({
-      where: { id: customerId },
-      withDeleted: true,
-    });
-    if (!customer) {
+    const found = await this.customerRepository.manager.transaction((manager) =>
+      recalculateCustomerMetrics(manager, customerId),
+    );
+    if (!found) {
       throw new NotFoundException(
         `Customer not found for metric update (customerId: ${customerId}) — possible orphaned order`,
       );
     }
-
-    // Calculate actual totals from sales orders
-    const orderStats = await this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.customerId = :customerId', { customerId })
-      .andWhere('order.deletedAt IS NULL')
-      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
-      .select([
-        'COUNT(*) as totalorders',
-        'COALESCE(SUM(order.totalAmount), 0) as totalsales',
-        'MIN(order.orderDate) as firstorderdate',
-        'MAX(order.orderDate) as lastorderdate',
-      ])
-      .getRawOne();
-
-    customer.totalOrders = parseInt(orderStats.totalorders) || 0;
-    customer.totalSales = parseFloat(orderStats.totalsales) || 0;
-    customer.firstPurchaseDate = orderStats.firstorderdate;
-    customer.lastPurchaseDate = orderStats.lastorderdate;
-
-    await this.customerRepository.save(customer);
   }
 
   // Internal helper methods

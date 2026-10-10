@@ -189,6 +189,79 @@ first production deployment.
       426 `CLIENT_RELOAD_REQUIRED` on sign-in, registration and refresh
 - [ ] After deploy, run `nginx/verify-rate-limits.sh` on the deployment host
 
+### Customer order metrics are recalculated at deploy (#1355)
+
+Migration `RecalculateCustomerMetricsFromFulfilledOrders1791611629594` **rewrites
+production data**: `customers.totalOrders`, `totalSales`, `firstPurchaseDate` and
+`lastPurchaseDate`, for every customer whose stored values differ from their
+fulfilled (`status = 'FULFILLED'`, `"deletedAt" IS NULL`) sales orders. A
+customer with no such order is reset to `0`, `0`, `NULL`, `NULL`. Rows that are
+already correct are not written, and `updatedAt` is not changed. `down()` does
+nothing: the replaced values are not recorded anywhere, so **the pre-deploy
+backup is the only way back to them**.
+
+How many production rows this changes is **not known**. Nothing has maintained
+these columns since 2026-05-26 (`596857366`), so drift is expected, but it has
+only been observed on a development database. Measure it first:
+
+- [ ] Before deploy, run the read-only preflight and record both numbers in the
+      deployment record:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+SELECT count(*) AS customers,
+       count(*) FILTER (
+         WHERE (c."totalOrders", c."totalSales", c."firstPurchaseDate", c."lastPurchaseDate")
+               IS DISTINCT FROM
+               (COALESCE(s.n, 0), COALESCE(s.total, 0), s.first_date, s.last_date)
+       ) AS will_be_rewritten
+  FROM customers c
+  LEFT JOIN (
+    SELECT "customerId", count(*)::int AS n, sum("totalAmount") AS total,
+           min("orderDate")::timestamptz AS first_date,
+           max("orderDate")::timestamptz AS last_date
+      FROM sales_orders
+     WHERE "deletedAt" IS NULL AND status = 'FULFILLED'
+     GROUP BY "customerId"
+  ) s ON s."customerId" = c.id;
+SQL
+```
+
+- [ ] After deploy, run the same query: `will_be_rewritten` must be `0`. From
+      then on fulfil and unfulfil keep it at `0`.
+
+**Cost.** One statement. Measured 2026-10-10 on PostgreSQL 18.3 on the
+development host, on synthetic data in a scratch database: 20,000 customers and
+192,000 sales orders (80,000 fulfilled), every customer row rewritten, 1.84 s.
+That is not a production measurement; production row counts are not known here.
+
+**Concurrent order writes.** The migration takes `LOCK TABLE sales_orders IN
+SHARE MODE` before it reads. It waits for every open transaction that has
+written an order, and order writes (create, edit, payment, fulfil, cancel) wait
+until it commits; reads continue. That is what keeps a fulfilment from
+committing between the migration's read and its write and then being
+overwritten from the older read. No maintenance window is needed for the result
+to be correct. Two things follow from the lock:
+
+- [ ] An open transaction that has written an order and never finishes blocks
+      the migration, and every order write queues behind it. If
+      `Running database migrations...` does not complete, look in
+      `pg_stat_activity` for an `idle in transaction` session.
+- [ ] Only **one** backend may run against the database, and it must be the new
+      image. The lock protects the migration itself; it cannot protect against
+      an older backend that keeps fulfilling orders afterwards without
+      recalculating. Both compose files define a single `backend` service with
+      the fixed name `erp_backend`, so `docker compose up -d backend` stops the
+      old container before the new one runs its migrations, and the only queue
+      worker (backups) lives in that same process. Confirm with
+      `docker ps --filter name=backend` that no other backend container, on
+      this host or another, points at this database.
+
+**Rolling back to the previous image** leaves the recalculated values in place
+and stops maintaining them again. After rolling forward, re-run the preflight;
+if it reports drift, the migration will not run a second time, so the same
+`UPDATE` has to be applied by hand.
+
 ### Ingress `/api` limit: excess requests are delayed, not refused (#1353)
 
 `nginx/nginx.conf` only; no backend, frontend or database change.
