@@ -571,6 +571,37 @@ describe('session runtime — a pending token commit', () => {
     expect(h.server.refreshCalls).toBe(before)
   })
 
+  it('[11] (response gate) a read that times out after an inline commit was discarded rejects, and is not a retry', async () => {
+    const h = createHarness()
+    const tab = await signedInTab(h)
+    const ref = (await tab.runtime.beginRequest()).ref
+    const gate = holdRefreshResponses(h.server)
+
+    // A's 200 is held while another tab moves the stored record two generations on.
+    const attempt = tab.runtime.handleUnauthorized(ref)
+    await vi.waitFor(() => expect(gate.waiting()).toBe(1))
+    const b = h.createTab('B')
+    await b.runtime.start()
+    advance(20001)
+    for (let n = 0; n < 2; n += 1) {
+      const waiting = gate.waiting()
+      const refreshed = b.runtime.handleUnauthorized((await b.runtime.beginRequest()).ref)
+      await vi.waitFor(() => expect(gate.waiting()).toBe(waiting + 1))
+      gate.releaseOne(waiting)
+      await refreshed
+    }
+    expect(storedGeneration(h)).toBeGreaterThanOrEqual(3)
+    const before = h.server.refreshCalls
+
+    // A's commit is discarded, and the read that must follow it times out. The
+    // entry is gone, so this is not a commit to retry: nothing was reconciled.
+    tab.store.failNextRead(new StorageTimeoutError('read timed out'))
+    gate.release()
+    await expect(attempt).rejects.toBeInstanceOf(StorageTimeoutError)
+    expect(h.server.refreshCalls).toBe(before)
+    expect(tab.runtime.status()).toBe('signed-in')
+  })
+
   it('[13] each acquisition is released at most once', async () => {
     const countReleases = (tab: Tab) => ({
       acquired: tab.trace.filter((e) => e.type === 'lease-acquire' && e.acquired).length,

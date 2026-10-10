@@ -123,9 +123,9 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   let pendingTokenCommit: PendingTokenCommit | null = null
   let tokenCommitInFlight: { pending: PendingTokenCommit; settled: Promise<void> } | null = null
   // Trace state. `refreshId` numbers the refreshes of this runtime so the events
-  // of one refresh can be joined; it is 0 outside a refresh.
+  // of one refresh can be joined. Each refresh carries its own id as an
+  // argument; there is no "current" one, because two can be under way at once.
   let refreshIdCounter = 0
-  let currentRefreshId = 0
   let announceStarted: () => void = () => undefined
   const started = new Promise<void>((resolve) => {
     announceStarted = resolve
@@ -144,7 +144,6 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   const traceAs = (refreshId: number, body: TraceBody): void => {
     deps.onTrace?.({ ...body, tabId, at: now(), refreshId })
   }
-  const trace = (body: TraceBody): void => traceAs(currentRefreshId, body)
   // Best effort: a logout that fails changes nothing in the browser.
   const logoutBestEffort = (refreshToken: string) => {
     void http.logout(refreshToken).catch(() => undefined)
@@ -511,11 +510,11 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   // Each acquisition has one release path, and one release function, which
   // always passes the expiresAt captured at the acquisition.
-  const acquireLease = async (): Promise<{ expiresAt: number } | null> => {
+  const acquireLease = async (refreshId: number): Promise<{ expiresAt: number } | null> => {
     const startedAt = now()
     const outcome = await transact((s) => leaseAcquire(s, { owner: tabId, now: now(), ttlMs: LEASE_TTL_MS }))
     const lease = outcome.acquired && outcome.expiresAt !== null ? { expiresAt: outcome.expiresAt } : null
-    trace({ type: 'lease-acquire', acquired: lease !== null, expiresAt: lease?.expiresAt ?? null, ms: now() - startedAt })
+    traceAs(refreshId, { type: 'lease-acquire', acquired: lease !== null, expiresAt: lease?.expiresAt ?? null, ms: now() - startedAt })
     return lease
   }
 
@@ -588,17 +587,16 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     return settled
   }
 
-  const doRefresh = async (): Promise<'retry' | 'ended'> => {
+  // Refreshes for different sessions can overlap in one tab (a refresh still in
+  // flight for a session the tab has since replaced), so the id is captured here
+  // and passed to everything this refresh traces or installs. It is never read
+  // from shared state.
+  const doRefresh = (): Promise<'retry' | 'ended'> => {
     refreshIdCounter += 1
-    currentRefreshId = refreshIdCounter
-    try {
-      return await runRefresh()
-    } finally {
-      currentRefreshId = 0
-    }
+    return runRefresh(refreshIdCounter)
   }
 
-  const runRefresh = async (): Promise<'retry' | 'ended'> => {
+  const runRefresh = async (refreshId: number): Promise<'retry' | 'ended'> => {
     const startedWith = memory
     if (!startedWith) return 'ended'
 
@@ -607,7 +605,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // lands moves memory past that snapshot, so `settled()` below returns
     // 'retry' and no second refresh is sent. A timeout here rejects the caller.
     if (pendingTokenCommit) {
-      await attemptPendingTokenCommit('refresh', currentRefreshId)
+      await attemptPendingTokenCommit('refresh', refreshId)
     }
 
     // Reconciles, then says whether this refresh is already settled. The tab can
@@ -629,7 +627,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
           memory.accessTokenExpiresAt > startedWith.accessTokenExpiresAt
         result = movedOn ? 'retry' : 'proceed'
       }
-      trace({
+      traceAs(refreshId, {
         type: 'settled-read',
         storedGeneration: stored.record.session?.generation ?? null,
         memoryGeneration: memory?.generation ?? null,
@@ -645,7 +643,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // The lease covers the refresh request itself: the tab that holds it sends,
     // the others wait to adopt its tokens. A tab that outwaits the lease proceeds
     // without it, and only the owner ever releases it.
-    let lease = await acquireLease()
+    let lease = await acquireLease(refreshId)
     // Installing an entry that records this lease transfers its ownership: from
     // then on the entry releases it, once, when it is removed.
     let takenOverByEntry = false
@@ -656,7 +654,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
           await new Promise((r) => setTimeout(r, 250))
           const again = await settled()
           if (again) return again
-          lease = await acquireLease()
+          lease = await acquireLease(refreshId)
         }
       }
 
@@ -664,15 +662,15 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       if (second) return second
       if (!memory) return 'ended'
 
-      return await sendRefresh(memory, lease, () => {
+      return await sendRefresh(memory, lease, refreshId, () => {
         takenOverByEntry = true
       })
     } finally {
       if (lease) {
         if (takenOverByEntry) {
-          trace({ type: 'lease-release', outcome: 'skipped-pending', ms: 0 })
+          traceAs(refreshId, { type: 'lease-release', outcome: 'skipped-pending', ms: 0 })
         } else {
-          await releaseLease(lease, currentRefreshId)
+          await releaseLease(lease, refreshId)
         }
       }
     }
@@ -681,20 +679,21 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   const sendRefresh = async (
     session: ActiveSession,
     lease: { expiresAt: number } | null,
+    refreshId: number,
     onLeaseTakenOver: () => void,
   ): Promise<'retry' | 'ended'> => {
     const requestSessionId = session.sessionId
     const capturedGeneration = session.generation
     const refreshToken = session.refreshToken
 
-    trace({ type: 'refresh-sent', presentedGeneration: capturedGeneration })
+    traceAs(refreshId, { type: 'refresh-sent', presentedGeneration: capturedGeneration })
     const sentAt = now()
     let response
     try {
       response = await http.refresh(refreshToken)
     } catch (err) {
       if (err instanceof RefreshRejectedError) {
-        trace({ type: 'refresh-answered', status: 'rejected', returnedGeneration: null, ms: now() - sentAt })
+        traceAs(refreshId, { type: 'refresh-answered', status: 'rejected', returnedGeneration: null, ms: now() - sentAt })
         const after = await readRecord()
         applyAdoption(reconcile(claim(), memory, after.record), after)
         const stored = after.record.session
@@ -714,10 +713,10 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
         await reconcileNow()
         return claim() !== null ? 'retry' : 'ended'
       }
-      trace({ type: 'refresh-answered', status: 'error', returnedGeneration: null, ms: now() - sentAt })
+      traceAs(refreshId, { type: 'refresh-answered', status: 'error', returnedGeneration: null, ms: now() - sentAt })
       throw err
     }
-    trace({ type: 'refresh-answered', status: 'ok', returnedGeneration: response.generation, ms: now() - sentAt })
+    traceAs(refreshId, { type: 'refresh-answered', status: 'ok', returnedGeneration: response.generation, ms: now() - sentAt })
 
     // The response is installed as this tab's pending commit before any storage
     // call, and only while it is still the session this tab claims and no entry
@@ -737,7 +736,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
     const entry: PendingTokenCommit = {
       sessionId: requestSessionId,
-      refreshId: currentRefreshId,
+      refreshId,
       response,
       lease,
       attempts: 0,
@@ -749,10 +748,14 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       try {
         await attemptPendingTokenCommit('inline', null)
       } catch (err) {
-        lastError = err
+        // Only a commit that timed out with this entry still pending is retried.
         // Storage found unusable has already dropped the entry and failed the
-        // tab closed; there is nothing to retry.
-        if (err instanceof StorageUnavailableError) throw err
+        // tab closed. And an attempt whose commit settled (discarded, or a
+        // session mismatch) has cleared the entry before the read that must
+        // follow it: an error from that read means nothing was reconciled, so
+        // it reaches the caller instead of reading as a retry.
+        if (!(err instanceof StorageTimeoutError) || pendingTokenCommit !== entry) throw err
+        lastError = err
       }
     }
     if (pendingTokenCommit === entry) {
