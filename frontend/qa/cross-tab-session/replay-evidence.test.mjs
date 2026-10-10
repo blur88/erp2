@@ -19,6 +19,7 @@ function round(overrides = {}) {
     openedAt: 1_000_000,
     endedAt: 1_060_000,
     sessionEnded: false,
+    tabCount: 2,
     filler: { type: 'settled-read', storedGeneration: 999, memoryGeneration: 999, result: 'proceed', ms: 0 },
     traces: [
       {
@@ -112,6 +113,46 @@ for (const [name, serverRows] of [
     assert.ok(judged.missing.length > 0)
   })
 }
+
+for (const [name, serverRows, reason] of [
+  ['without an audit array', (() => { const r = rows(); delete r.audit; return r })(), 'server-rows-schema'],
+  ['with audit that is not an array', rows({ audit: {} }), 'server-rows-schema'],
+  ['without a refreshTokens array', (() => { const r = rows({ audit: [] }); delete r.refreshTokens; return r })(), 'server-rows-schema'],
+  ['without a sessions array', (() => { const r = rows({ audit: [] }); delete r.sessions; return r })(), 'server-rows-schema'],
+  ['with an audit row that has no sessionId', rows({ audit: [{ id: 'a', createdAt: iso(1_030_200), presentedGeneration: 7, currentGeneration: 8 }] }), 'server-rows-schema'],
+  ['with an audit row whose time is unreadable', rows({ audit: [{ id: 'a', createdAt: 'never', sessionId: 'sess-qa-1', presentedGeneration: 7, currentGeneration: 8 }] }), 'server-rows-schema'],
+  ['with an audit row whose generations are not integers', rows({ audit: [{ id: 'a', createdAt: iso(1_030_200), sessionId: 'sess-qa-1', presentedGeneration: '7', currentGeneration: null }] }), 'server-rows-schema'],
+]) {
+  test(`server rows ${name} are undetermined, never no-replay`, () => {
+    const judged = judgeRound(round(), serverRows)
+    assert.equal(judged.verdict, 'undetermined')
+    assert.deepEqual(judged.missing, [reason])
+  })
+}
+
+for (const [name, mutate, failed] of [
+  ['no tab roster', (r) => { delete r.tabCount }, 'tab-roster-unknown'],
+  ['a tab roster of zero', (r) => { r.tabCount = 0; r.traces = [] }, 'tab-roster-unknown'],
+  ['no traces at all for a roster of two', (r) => { r.traces = [] }, 'tab-roster-mismatch'],
+  ['fewer traces than the roster', (r) => { r.tabCount = 3 }, 'tab-roster-mismatch'],
+  ['more traces than the roster', (r) => { r.tabCount = 1 }, 'tab-roster-mismatch'],
+  ['two traces under one tab label', (r) => { r.traces[1].tab = 'X' }, 'tab-roster-mismatch'],
+]) {
+  test(`${name} is an incomplete round`, () => {
+    const r = round()
+    mutate(r)
+    const result = completeness(r)
+    assert.equal(result.complete, false)
+    assert.ok(result.failed.includes(failed), `failed: ${result.failed}`)
+  })
+}
+
+test('a replay judged on zero collected tabs is supporting-unconfirmed, not replay-other-path', () => {
+  const r = round({ traces: [], sessionRequests: [] })
+  const judged = judgeRound(r, rows())
+  assert.equal(judged.verdict, 'supporting-unconfirmed')
+  assert.ok(judged.missing.includes('tab-roster-mismatch'))
+})
 
 test('a round with no recorded sessionId is undetermined', () => {
   const judged = judgeRound(round({ sessionId: null }), rows())

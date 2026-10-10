@@ -121,6 +121,15 @@ export function completeness(attempt) {
   const traces = tracesOf(attempt)
   if (!Array.isArray(attempt?.traces)) failed.add('tab-not-collected')
 
+  // The roster: how many tabs the round opened. Without it nothing says a tab
+  // is missing, and a round with no trace at all would pass every check below.
+  const expected = attempt?.tabCount
+  if (!Number.isInteger(expected) || expected < 1) {
+    failed.add('tab-roster-unknown')
+  } else if (traces.length !== expected || new Set(traces.map((t) => t?.tab)).size !== expected) {
+    failed.add('tab-roster-mismatch')
+  }
+
   for (const trace of traces) {
     // The trace lives in `window`: a page that was replaced has lost it.
     if (trace.collected !== true) {
@@ -143,6 +152,26 @@ export function completeness(attempt) {
   return { complete: failed.size === 0, failed: [...failed] }
 }
 
+// The shape replay-server-rows.sh writes. An object that says `ok` and lacks
+// what a verdict is read from is not an empty result: no audit array is not
+// "no replay rows".
+function serverRowsWellFormed(serverRows) {
+  if (!Array.isArray(serverRows.audit) || !Array.isArray(serverRows.refreshTokens) || !Array.isArray(serverRows.sessions)) {
+    return false
+  }
+  return serverRows.audit.every(
+    (row) =>
+      row !== null &&
+      typeof row === 'object' &&
+      row.id != null &&
+      typeof row.sessionId === 'string' &&
+      row.sessionId !== '' &&
+      toMs(row.createdAt) !== null &&
+      Number.isInteger(row.presentedGeneration) &&
+      Number.isInteger(row.currentGeneration),
+  )
+}
+
 /**
  * Whether the server rows can be read as this round's. A failed or missing
  * query, or one whose interval does not cover the round, says nothing about the
@@ -151,6 +180,7 @@ export function completeness(attempt) {
 export function serverRowsUsable(attempt, serverRows) {
   if (serverRows === null || typeof serverRows !== 'object') return { usable: false, reason: 'server-rows-missing' }
   if (serverRows.ok !== true) return { usable: false, reason: 'server-rows-not-ok' }
+  if (!serverRowsWellFormed(serverRows)) return { usable: false, reason: 'server-rows-schema' }
   if (typeof attempt?.sessionId !== 'string' || attempt.sessionId === '') {
     return { usable: false, reason: 'round-session-id-missing' }
   }

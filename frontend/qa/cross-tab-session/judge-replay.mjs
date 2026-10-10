@@ -12,7 +12,7 @@
 // Judges only. It reads nothing and writes nothing but that one file.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { judgeRound } from './lib/replay-evidence.mjs'
+import { completeness, judgeRound } from './lib/replay-evidence.mjs'
 
 const [, , diagnosisPath, rowsPath] = process.argv
 
@@ -34,18 +34,32 @@ function readServerRows(path) {
 
 const serverRows = readServerRows(rowsPath)
 
-const rounds = (Array.isArray(diagnosis.attempts) ? diagnosis.attempts : []).map((attempt, index) => ({
-  attempt: attempt.attempt ?? index + 1,
-  sessionId: attempt.sessionId ?? null,
-  openedAt: attempt.openedAt ?? null,
-  endedAt: attempt.endedAt ?? null,
-  ...judgeRound(attempt, serverRows),
-}))
+// The roster each round's traces are checked against is the round's own
+// `tabCount`. A diagnosis recorded before rounds carried it has the run's tab
+// count at the top (`tabs`), which is the same number for every round of it.
+const withRoster = (attempt) =>
+  attempt.tabCount === undefined && Number.isInteger(diagnosis.tabs) ? { ...attempt, tabCount: diagnosis.tabs } : attempt
+
+const rounds = (Array.isArray(diagnosis.attempts) ? diagnosis.attempts : []).map((recorded, index) => {
+  const attempt = withRoster(recorded)
+  return {
+    attempt: attempt.attempt ?? index + 1,
+    sessionId: attempt.sessionId ?? null,
+    openedAt: attempt.openedAt ?? null,
+    endedAt: attempt.endedAt ?? null,
+    tabCount: attempt.tabCount ?? null,
+    // Reported for every round, whatever its verdict: a `no-replay` is read from
+    // the server rows alone, and this says whether the trace beside it is whole.
+    completeness: completeness(attempt),
+    ...judgeRound(attempt, serverRows),
+  }
+})
 
 for (const round of rounds) {
   const detail = []
   if (round.missing.length) detail.push(`missing ${round.missing.join(', ')}`)
   if (round.supports.length) detail.push(`supports ${round.supports.join(', ')}`)
+  if (!round.completeness.complete) detail.push(`trace incomplete: ${round.completeness.failed.join(', ')}`)
   console.log(
     `attempt ${round.attempt}: ${round.verdict}${detail.length ? ` (${detail.join('; ')})` : ''}`,
   )

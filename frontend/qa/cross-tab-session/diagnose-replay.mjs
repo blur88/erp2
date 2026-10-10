@@ -189,6 +189,8 @@ async function main() {
       out.attempts.push({
         attempt, openedAt: opened, endedAt: ended,
         sessionId: before.sessionId,
+        // The roster the round's traces are checked against.
+        tabCount: TABS,
         before, after,
         sessionEnded: after.generation === null,
         sessionRequests, perTab,
