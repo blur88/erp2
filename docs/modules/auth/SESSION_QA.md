@@ -1880,10 +1880,12 @@ session in every tab" remains a known limit of the 2026-10-05 design; the
 pending token commit narrows the window in which a *refresh response is lost*,
 and does nothing about a presentation that is late in the first place.
 
-**The remainder is tracked in the follow-up issue the pull request links**, which
-carries what the twenty rounds answered, what they did not, and the next
-evidence that would settle it. In short: no round on either build produced a
-commit timeout, so the defect the fix removes was never exercised in a browser
-here, and the path that produced the recorded run is still unexplained. The
-follow-up is also where the grace window itself belongs; this record only points
-at it.
+**The remainder is tracked in #1370**, which carries what the twenty rounds
+answered, what they did not, and the next evidence that would settle it. In
+short: no round on either build produced a commit timeout, so the defect the fix
+removes was never exercised in a browser here, and the path that produced the
+recorded run is still unexplained. The binding constraint is no longer
+instrumentation — every round's trace, server rows and verdict are already
+produced automatically — it is producing a storage stall of the 12 to 21 s the
+recorded run needed, when twenty rounds here reached 5.3 s at most. #1370 also
+owns the grace window; this record only points at it.
