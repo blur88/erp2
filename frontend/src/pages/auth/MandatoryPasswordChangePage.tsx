@@ -57,6 +57,10 @@ const MandatoryPasswordChangePage: React.FC = () => {
   // itself, and the page then stays for its confirmation before it leaves.
   const [changing, setChanging] = useState(false);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mounted = useRef(true);
+  // Set by a successful change. The session is over, so the form is finished
+  // with: a second submission would be refused and would cut the confirmation short.
+  const changed = successMessage !== '';
 
   // The page needs the session it changes the password of. When that ends for
   // any other reason (ended or changed in another tab, a failed refresh, the
@@ -65,12 +69,13 @@ const MandatoryPasswordChangePage: React.FC = () => {
     if (!isAuthenticated && !changing) navigate('/login', { replace: true });
   }, [isAuthenticated, changing, navigate]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       if (leaveTimer.current !== null) clearTimeout(leaveTimer.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const {
     control,
@@ -90,6 +95,9 @@ const MandatoryPasswordChangePage: React.FC = () => {
       setSuccessMessage('');
       setChanging(true);
       await dispatch(changePassword(data)).unwrap();
+      // Left while the change was in flight: the cleanup above has already run,
+      // so a timer started now would navigate from wherever the tab is.
+      if (!mounted.current) return;
 
       setSuccessMessage('Password changed successfully! All sessions have been signed out.');
 
@@ -201,7 +209,7 @@ const MandatoryPasswordChangePage: React.FC = () => {
                   margin="normal"
                   error={!!errors.currentPassword}
                   helperText={errors.currentPassword?.message}
-                  disabled={loading}
+                  disabled={loading || changed}
                   slotProps={{
                     input: {
                       endAdornment: (
@@ -233,7 +241,7 @@ const MandatoryPasswordChangePage: React.FC = () => {
                   margin="normal"
                   error={!!errors.newPassword}
                   helperText={errors.newPassword?.message}
-                  disabled={loading}
+                  disabled={loading || changed}
                   slotProps={{
                     input: {
                       endAdornment: (
@@ -265,7 +273,7 @@ const MandatoryPasswordChangePage: React.FC = () => {
                   margin="normal"
                   error={!!errors.newPasswordConfirmation}
                   helperText={errors.newPasswordConfirmation?.message}
-                  disabled={loading}
+                  disabled={loading || changed}
                   slotProps={{
                     input: {
                       endAdornment: (
@@ -338,7 +346,7 @@ const MandatoryPasswordChangePage: React.FC = () => {
               fullWidth
               variant="contained"
               size="large"
-              disabled={loading}
+              disabled={loading || changed}
               sx={{ mt: 2, mb: 2 }}
             >
               {loading ? 'Changing Password...' : 'Change Password'}
@@ -350,7 +358,7 @@ const MandatoryPasswordChangePage: React.FC = () => {
               variant="outlined"
               color="secondary"
               onClick={handleLogout}
-              disabled={loading}
+              disabled={loading || changed}
             >
               Logout
             </Button>

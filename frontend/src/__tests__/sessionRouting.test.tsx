@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, afterEach, beforeAll, beforeEach } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { RouterProvider } from 'react-router-dom'
@@ -8,6 +8,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/server'
 import { loadApp, storedSession, type LoadAppOptions } from '@/session/__tests__/appHarness'
+
+// Every test here imports the application afresh, lazy routes included. Under
+// the coverage run those imports have taken longer than the default second a
+// `findBy` or `waitFor` allows, in a different wait each time. A longer limit
+// only changes how long a wait that is going to fail takes to fail.
+configure({ asyncUtilTimeout: 5000 })
 
 // The top bar's health indicator polls the server and expects its reply's shape.
 vi.mock('@/components/common/SystemStatus', () => ({ default: () => null }))
@@ -303,6 +309,11 @@ describe('the mandatory password-change page', () => {
     expect(await screen.findByText(/password changed successfully/i)).toBeInTheDocument()
     expect(app.store.getState().auth.isAuthenticated).toBe(false)
     expect(app.shared.state.record.session).toBeNull()
+    // The form is finished with: a second submission during the confirmation
+    // would be refused (the session is over) and would leave at once.
+    expect(screen.getByRole('button', { name: /change password/i })).toBeDisabled()
+    expect(screen.getByLabelText(/current password/i)).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
     await act(async () => {
       await new Promise((r) => setTimeout(r, 300))
     })
@@ -318,7 +329,46 @@ describe('the mandatory password-change page', () => {
     expect(visited).toEqual([PAGE, '/login'])
     expect(screen.getAllByRole('button', { name: /sign in/i })).toHaveLength(1)
     expect(app.requests.slice(sent).map((r) => r.url)).toEqual(['/auth/change-password'])
-  })
+  }, 15_000)
+
+  it('a page left while its change is in flight starts no timer and navigates nowhere afterwards', async () => {
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    window.history.replaceState(null, '', PAGE)
+    const { app, router, visited } = await openTab(PAGE, {
+      ...signedIn(),
+      holdRequest: (config) => (config.url === '/auth/change-password' ? held : undefined),
+    })
+    await pageHeading()
+
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: 'OldPass@123' } })
+    fireEvent.change(screen.getByLabelText(/^new password/i), { target: { value: 'NewPass@123' } })
+    fireEvent.change(screen.getByLabelText(/confirm/i), { target: { value: 'NewPass@123' } })
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
+    await waitFor(() => expect(app.requests.some((r) => r.url === '/auth/change-password')).toBe(true))
+
+    // The user leaves (browser Back) before the server answers.
+    await act(async () => {
+      await router.navigate(PROTECTED_PATH)
+    })
+    expect(screen.queryByRole('heading', { name: /password change required/i })).not.toBeInTheDocument()
+
+    await act(async () => {
+      release()
+    })
+    // The change ended the session; the shell's own guard takes the tab to /login.
+    await waitFor(() => expect(pathname()).toBe('/login'))
+    const settled = [...visited]
+    expect(settled.filter((x) => x === '/login')).toHaveLength(1)
+
+    // Past the page's two-second confirmation: nothing navigates again.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 2300))
+    })
+    expect(visited).toEqual(settled)
+  }, 15_000)
 
   it('a change refused because the session ended elsewhere goes to /login', async () => {
     const { app, visited } = await openPage()

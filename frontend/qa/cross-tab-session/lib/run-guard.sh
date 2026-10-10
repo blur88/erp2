@@ -8,6 +8,7 @@
 #     it and nothing later clears it (fail).
 #   - 0 is possible only when the script reached its last line, which sets
 #     COMPLETED=1. Leaving any other way is a failure:
+#       129  hung up (HUP)
 #       130  interrupted (INT)
 #       143  terminated (TERM)
 #       1    aborted: a command failed outside any handled failure (set -e),
@@ -27,19 +28,34 @@ COMPLETED=0
 ABORTED=""
 RESTORED=0
 RESTORE_FAILED=0
+IN_EXIT=0
+SIGNALS_NOTED=0
 HAS_CAPTURE=0
 FINALIZED_FOR=""
 FINALIZE_FAILED=0
 
 fail() { if [ "${STATUS}" -eq 0 ]; then STATUS="$1"; fi; }
 
+# A signal during the restore is recorded and the restore goes on, wherever
+# it was called from. Acting on it at once would leave by the EXIT trap with
+# RESTORED still 0, which restores a second time: that one finds no capture
+# file, fails, and reports a restored stack as not restored. On the normal
+# path the run stops once the restore has returned.
 restore_stack() {
+  local before="${SIGNALS_NOTED}"
+  trap 'note_signal HUP 129' HUP
+  trap 'note_signal INT 130' INT
+  trap 'note_signal TERM 143' TERM
   if ! run_restore; then
     RESTORE_FAILED=1
     echo "STACK NOT RESTORED: see the capture file" >&2
     fail 3
   fi
   RESTORED=1
+  if [ "${IN_EXIT}" -eq 0 ]; then
+    install_signal_traps
+    if [ "${SIGNALS_NOTED}" -ne "${before}" ]; then exit "${STATUS}"; fi
+  fi
 }
 
 # results.json is written on every exit that got as far as a capture, so a
@@ -59,7 +75,7 @@ finalize() {
   fi
 }
 
-# INT and TERM before the cleanup: a failing status first, then the normal
+# HUP, INT and TERM before the cleanup: a failing status first, then the normal
 # exit path, which restores and writes the results.
 on_signal() {
   if [ -z "${ABORTED}" ]; then ABORTED="interrupted by $1"; fi
@@ -70,7 +86,8 @@ on_signal() {
 # The same signals during the cleanup: recorded, and the cleanup goes on. A
 # restore cut short would leave the stack in the QA configuration.
 note_signal() {
-  if [ -z "${ABORTED}" ]; then ABORTED="interrupted by $1 during cleanup"; fi
+  SIGNALS_NOTED=$((SIGNALS_NOTED + 1))
+  if [ -z "${ABORTED}" ]; then ABORTED="interrupted by $1 while the stack was being restored or cleaned up"; fi
   fail "$2"
 }
 
@@ -78,7 +95,9 @@ note_signal() {
 on_exit() {
   local code="$1"
   set +e
+  IN_EXIT=1
   trap - EXIT
+  trap 'note_signal HUP 129' HUP
   trap 'note_signal INT 130' INT
   trap 'note_signal TERM 143' TERM
   if [ "${COMPLETED}" -ne 1 ]; then
@@ -99,10 +118,15 @@ on_exit() {
   exit "${STATUS}"
 }
 
-install_status_traps() {
-  trap 'on_exit $?' EXIT
+install_signal_traps() {
+  trap 'on_signal HUP 129' HUP
   trap 'on_signal INT 130' INT
   trap 'on_signal TERM 143' TERM
+}
+
+install_status_traps() {
+  trap 'on_exit $?' EXIT
+  install_signal_traps
 }
 
 # --- the address the run is given ------------------------------------------
@@ -118,11 +142,25 @@ is_loopback_ip() {
   esac
 }
 
+# 0.0.0.0/8, and `::`. On the host these reach the local ingress, so the stack
+# would be changed; the browser container cannot reach them, so the run could
+# only fail afterwards.
+# Numeric forms only: a host name may begin with `0.` and is judged by what it
+# resolves to.
+is_unspecified_ip() {
+  case "$1" in
+    ::|::ffff:0.*) return 0 ;;
+    *[!0-9.]*|"") return 1 ;;
+    0|0.*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # Prints why the address must be refused and returns 0; returns 1 for an
 # address the run may use. Refused: an empty value, a URL, a port, an IPv6
 # literal, `localhost` and names under it, anything in 127.0.0.0/8 or ::1
-# however it is written, and a name that resolves to one of those or to
-# nothing. The page must be loaded from a LAN address: a loopback origin is a
+# however it is written, the unspecified address (0.0.0.0/8, however it is
+# written), and a name that resolves to one of those or to nothing. The page must be loaded from a LAN address: a loopback origin is a
 # secure context and behaves differently.
 address_refusal() {
   local given="$1" lower resolved r
@@ -135,12 +173,14 @@ address_refusal() {
     *:*) echo "no port and no IPv6 literal allowed in ${given}"; return 0 ;;
   esac
   if is_loopback_ip "${lower}"; then echo "use a LAN IP, not ${given} (loopback)"; return 0; fi
+  if is_unspecified_ip "${lower}"; then echo "use a LAN IP, not ${given} (the unspecified address)"; return 0; fi
   # Resolved even when it looks like an address: 127.1, 0177.0.0.1 and
   # 2130706433 are all the loopback address.
   resolved="$(resolve_host "${lower}")"
   if [ -z "${resolved}" ]; then echo "${given} does not resolve to an address"; return 0; fi
   for r in ${resolved}; do
     if is_loopback_ip "${r}"; then echo "use a LAN IP, not ${given} (it resolves to the loopback address ${r})"; return 0; fi
+    if is_unspecified_ip "${r}"; then echo "use a LAN IP, not ${given} (it resolves to the unspecified address ${r})"; return 0; fi
   done
   return 1
 }

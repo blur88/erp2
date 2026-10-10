@@ -199,6 +199,43 @@ describe('RootLayout reconciliation drafts', () => {
       expect(app.sessionRuntime.status()).toBe('storage-unavailable')
     })
 
+    // An error that is neither a timeout nor the storage-unavailable class
+    // still did not say "no session". The tab fails closed, and failing closed
+    // costs the drafts: this is the deliberate loss, not an oversight.
+    it('a retry that fails with an unclassified error: storage-unavailable, no sign-in form, and the draft is lost', async () => {
+      const { app, key } = await renderWaiting(withSession)
+      expect(sessionStorage.getItem(key)).not.toBeNull()
+
+      app.failNextRead(new Error('something else'))
+      tryAgain()
+
+      await waitFor(() => expect(sessionStorage.getItem(key)).toBeNull())
+      expect(app.sessionRuntime.status()).toBe('storage-unavailable')
+      expect(app.store.getState().auth.storageUnavailable).toBe(true)
+      expect(app.store.getState().auth.storageWaiting).toBe(false)
+      expect(await screen.findByText(/cannot store your session/i)).toBeInTheDocument()
+      expect(document.querySelector('form')).toBeNull()
+    })
+
+    it('a start whose read fails with an unclassified error: the same, and the draft is lost', async () => {
+      const key = storeDraft('u1')
+      const app = await loadApp({ storage: 'failing', stored: withSession })
+      await Promise.all([app.rehydrated(), app.sessionReady()])
+      const { default: RootLayout } = await import('@/RootLayout')
+      render(
+        <Provider store={app.store}>
+          <MemoryRouter>
+            <RootLayout />
+          </MemoryRouter>
+        </Provider>
+      )
+      await waitFor(() => expect(sessionStorage.getItem(key)).toBeNull())
+      expect(app.sessionRuntime.status()).toBe('storage-unavailable')
+      expect(app.store.getState().auth.storageUnavailable).toBe(true)
+      expect(await screen.findByText(/cannot store your session/i)).toBeInTheDocument()
+      expect(document.querySelector('form')).toBeNull()
+    })
+
     it('a tab that finds storage unusable at start clears its drafts', async () => {
       const key = storeDraft('u1')
       const app = await loadApp({ storage: 'unavailable' })

@@ -194,43 +194,51 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   // ---- startup --------------------------------------------------------------
 
-  // What a tab is at start is what the stored record says. A read that fails
-  // puts it in the storage-unavailable state; one that times out says nothing.
+  // What a tab is at start is what the stored record says. A read that times
+  // out says nothing. One that fails in any other way, whatever the error's
+  // class, puts the tab in the storage-unavailable state: only a completed
+  // read can say that no session is stored.
   const readAtStart = async (): Promise<'settled' | 'timed-out'> => {
+    let stored: StoredState
+    // Only the read: what the application does with the answer is not a
+    // failure of storage, and is not reported as one.
     try {
-      const stored = await store.read()
-      if (stored.record.session) {
-        memory = { ...stored.record.session }
-        remember(memory)
-        status = 'signed-in'
-        events.sessionEstablished(memory)
-      } else {
-        status = 'signed-out'
-      }
-      return 'settled'
+      stored = await store.read()
     } catch (err) {
-      if (err instanceof StorageUnavailableError) moveToStorageUnavailable()
-      else if (err instanceof StorageTimeoutError) return 'timed-out'
-      else status = 'signed-out'
+      if (err instanceof StorageTimeoutError) return 'timed-out'
+      moveToStorageUnavailable()
       return 'settled'
     }
+    if (stored.record.session) {
+      memory = { ...stored.record.session }
+      remember(memory)
+      status = 'signed-in'
+      events.sessionEstablished(memory)
+    } else {
+      status = 'signed-out'
+    }
+    return 'settled'
   }
 
   const start = async (): Promise<void> => {
-    if ((await readAtStart()) === 'timed-out') {
-      status = 'storage-waiting'
-      events.storageWaiting(true)
+    try {
+      if ((await readAtStart()) === 'timed-out') {
+        status = 'storage-waiting'
+        events.storageWaiting(true)
+      }
+    } finally {
+      // Also when a listener threw: whoever waits for the start is not left
+      // waiting for ever by an error that is reported to the caller of start().
+      store.onClosed(() => moveToStorageUnavailable())
+
+      if (channel) {
+        channel.subscribe(() => {
+          void reconcileNow().catch(() => undefined)
+        })
+      }
+
+      announceStarted()
     }
-
-    store.onClosed(() => moveToStorageUnavailable())
-
-    if (channel) {
-      channel.subscribe(() => {
-        void reconcileNow().catch(() => undefined)
-      })
-    }
-
-    announceStarted()
   }
 
   const retryStart = (): Promise<void> => {
@@ -257,10 +265,19 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   // leaves the cleanup pending while attempts remain; one that completes,
   // whether it cleared the record or found nothing to clear, settles it.
   // Never rejects.
+  //
+  // None is started while this tab has a sign-in attempt of its own under way,
+  // whoever asks: a reconcile, or the cancelled attempt's own retry. A cleanup
+  // that committed then would change the revision that attempt captured and
+  // refuse its commit. That commit replaces the leftover session itself; an
+  // attempt that fails or is cancelled leaves the cleanup for the reconcile
+  // after it. One already queued when the attempt began is no danger: the
+  // attempt's read is queued behind it and sees what it wrote.
   const attemptPendingCleanup = (): Promise<void> => {
     const pending = pendingCleanup
     if (!pending) return Promise.resolve()
     if (cleanupInFlight?.pending === pending) return cleanupInFlight.settled
+    if (currentAttempt !== 0) return Promise.resolve()
     pending.attemptsLeft -= 1
     const settled = (async () => {
       try {
@@ -287,7 +304,15 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     const attempt = ++attemptCounter
     currentAttempt = attempt
     signInAbort = new AbortController()
-    const captured = await readRecord()
+    let captured: StoredState
+    try {
+      captured = await readRecord()
+    } catch (err) {
+      // The attempt ended here. Left current, it would hold the cleanup back
+      // for as long as the tab stays on the sign-in page.
+      if (attempt === currentAttempt) currentAttempt = 0
+      throw err
+    }
     const capturedRevision = captured.record.revision
 
     let response: Awaited<ReturnType<AuthHttp['login']>>
@@ -359,6 +384,8 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     memory = session
     remember(session)
     status = 'signed-in'
+    // The attempt is over, so it no longer holds back a cleanup.
+    currentAttempt = 0
     // This commit replaced whatever an earlier cancelled attempt left stored.
     pendingCleanup = null
     events.sessionEstablished(session)
@@ -550,12 +577,15 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   // ---- endings --------------------------------------------------------------
 
   const signOut = async (): Promise<void> => {
+    // A waiting tab holds no session and has not been told of one: there is
+    // nothing to end, so nothing is announced, written or posted.
+    if (status === 'storage-waiting') return
     const captured = memory
       ? { sessionId: memory.sessionId, refreshToken: memory.refreshToken }
       : lastCredential
     memory = null
     lastCredential = null
-    if (status !== 'storage-unavailable' && status !== 'storage-waiting') status = 'signed-out'
+    if (status !== 'storage-unavailable') status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
     events.sessionEnded('explicit')
@@ -569,10 +599,11 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   }
 
   const passwordChanged = async (): Promise<void> => {
+    if (status === 'storage-waiting') return
     const target = memory?.sessionId ?? lastCredential?.sessionId ?? null
     memory = null
     lastCredential = null
-    status = 'signed-out'
+    if (status !== 'storage-unavailable') status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
     events.sessionEnded('explicit')
