@@ -38,6 +38,12 @@ export interface RuntimeEvents {
   sessionEnded(reason: 'explicit' | 'failure' | 'elsewhere' | 'storage'): void
   /** The start-up read timed out (`true`), or a later one settled what it left open (`false`). */
   storageWaiting(waiting: boolean): void
+  /**
+   * A tab left 'storage-waiting' recovered a session that has slices stored
+   * under its tag. Sent in the same turn as `sessionEstablished`, from the same
+   * read, so nothing this tab writes for the session can be without them.
+   */
+  slicesRecovered(json: string): void
 }
 
 export interface RuntimeDeps {
@@ -280,7 +286,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   // out says nothing. One that fails in any other way, whatever the error's
   // class, puts the tab in the storage-unavailable state: only a completed
   // read can say that no session is stored.
-  const readAtStart = async (): Promise<'settled' | 'timed-out'> => {
+  const readAtStart = async (recovering = false): Promise<'settled' | 'timed-out'> => {
     let stored: StoredState
     // Only the read: what the application does with the answer is not a
     // failure of storage, and is not reported as one.
@@ -296,6 +302,14 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       remember(memory)
       status = 'signed-in'
       events.sessionEstablished(memory)
+      // redux-persist rehydrated while this tab was waiting and was given
+      // nothing (`readSlices`), and it rehydrates once. The slices are handed
+      // over here, before anything is awaited: this tab's first write for the
+      // session then carries them instead of replacing them (#1362). The tag
+      // rule is the one `readSlices` applies.
+      if (recovering && stored.slices?.sessionId === memory.sessionId) {
+        events.slicesRecovered(stored.slices.json)
+      }
     } else {
       status = 'signed-out'
     }
@@ -328,7 +342,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     if (!startRetryInFlight) {
       startRetryInFlight = (async () => {
         try {
-          const outcome = await readAtStart()
+          const outcome = await readAtStart(true)
           // Storage may have closed under the read; that already settled it.
           if (outcome === 'settled' && (status as RuntimeStatus) !== 'storage-unavailable') events.storageWaiting(false)
         } finally {

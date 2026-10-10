@@ -9,7 +9,7 @@ import { combineReducers } from '@reduxjs/toolkit'
 
 // Import slices
 import authSlice from './slices/authSlice'
-import notificationSlice from './slices/notificationSlice'
+import notificationSlice, { notificationsRestored } from './slices/notificationSlice'
 import inventorySlice from './slices/inventorySlice'
 import salesSlice from './slices/salesSlice'
 import backupSlice from './slices/backupSlice'
@@ -119,6 +119,30 @@ function writeSlices(json: string | null): Promise<void> {
   return runtime.persistSlices(originSessionId, json)
 }
 
+// The stored notifications as the slice holds them. Synchronous on purpose:
+// `restoreSlices` must not wait between a recovery and its dispatch.
+function normalizedNotifications(notifications: any[]) {
+  const capped = notifications.slice(0, 50) // newest-first invariant
+  const unreadCount = capped.filter((n: any) => !n.read).length
+  return { notifications: capped, unreadCount }
+}
+
+// Hands the slices stored for a session to a tab that rehydrated without them
+// (`slicesRecovered`, #1362). `json` is what redux-persist wrote: each slice
+// serialized on its own inside the serialized whole. Stored data that cannot be
+// read restores nothing and is not an error of the session or of its storage.
+export function restoreSlices(json: string): void {
+  let stored: unknown
+  try {
+    stored = JSON.parse(JSON.parse(json).notifications).notifications
+  } catch {
+    return
+  }
+  if (!Array.isArray(stored)) return
+  const usable = stored.filter((n) => n !== null && typeof n === 'object' && typeof n.id === 'string')
+  store.dispatch(notificationsRestored(normalizedNotifications(usable).notifications))
+}
+
 // Persist configuration
 const persistConfig = {
   key: PERSIST_KEY,
@@ -127,12 +151,8 @@ const persistConfig = {
   version: 7,
   migrate: (state: any) => {
     if (state) {
-      const notifications: any[] = state.notifications?.notifications ?? []
-      const capped = notifications.slice(0, 50) // newest-first invariant
-      const unreadCount = capped.filter((n: any) => !n.read).length
-
       return Promise.resolve({
-        notifications: { notifications: capped, unreadCount },
+        notifications: normalizedNotifications(state.notifications?.notifications ?? []),
       })
     }
     return Promise.resolve(state)

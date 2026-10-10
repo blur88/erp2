@@ -8,6 +8,7 @@ import notificationReducer, {
   removeNotification,
   markAsRead,
   markAllAsRead,
+  notificationsRestored,
   selectNotifications,
   selectUnreadCount,
 } from '../notificationSlice'
@@ -221,5 +222,49 @@ describe('notificationSlice', () => {
     })
     store.dispatch(markAllAsRead())
     expect(selectUnreadCount(store.getState())).toBe(0)
+  })
+  describe('notificationsRestored', () => {
+    const at = (id: string, second: number, read = false): Notification => ({
+      id,
+      type: 'info',
+      title: id,
+      message: 'm',
+      timestamp: new Date(Date.UTC(2026, 0, 1, 0, 0, second)).toISOString(),
+      read,
+    })
+    const held = (notifications: Notification[]) =>
+      createTestStore({ notifications: { notifications, unreadCount: notifications.filter((n) => !n.read).length } })
+    const ids = (s: ReturnType<typeof createTestStore>) => selectNotifications(s.getState()).map((n) => n.id)
+
+    it('adds the stored list to what the tab holds, newest first', () => {
+      const s = held([at('own-new', 30), at('own-old', 10)])
+      s.dispatch(notificationsRestored([at('stored-new', 20), at('stored-old', 5, true)]))
+      expect(ids(s)).toEqual(['own-new', 'stored-new', 'own-old', 'stored-old'])
+      expect(selectUnreadCount(s.getState())).toBe(3)
+    })
+
+    it('keeps the tab\u2019s copy when both hold an id', () => {
+      const s = held([at('shared', 10, true)])
+      s.dispatch(notificationsRestored([at('shared', 10, false), at('shared', 10, false)]))
+      expect(selectNotifications(s.getState())).toEqual([at('shared', 10, true)])
+      expect(selectUnreadCount(s.getState())).toBe(0)
+    })
+
+    it('caps the merged list at 50 and counts unread over what is kept', () => {
+      const s = held([at('own', 59)])
+      s.dispatch(notificationsRestored(Array.from({ length: 55 }, (_, i) => at(`stored-${i}`, 55 - i, i === 0))))
+      const list = selectNotifications(s.getState())
+      expect(list).toHaveLength(50)
+      expect(list[0].id).toBe('own')
+      expect(list[49].id).toBe('stored-48')
+      expect(selectUnreadCount(s.getState())).toBe(49)
+    })
+
+    it('into an empty list installs the stored one', () => {
+      const s = held([])
+      s.dispatch(notificationsRestored([at('a', 2), at('b', 1, true)]))
+      expect(ids(s)).toEqual(['a', 'b'])
+      expect(selectUnreadCount(s.getState())).toBe(1)
+    })
   })
 })

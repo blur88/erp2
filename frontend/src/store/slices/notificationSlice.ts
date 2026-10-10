@@ -58,6 +58,23 @@ const notificationSlice = createSlice({
       })
       state.unreadCount = 0
     },
+    // The list stored for the session, handed to a tab that rehydrated with
+    // nothing because storage had not answered yet (#1362). It is merged, not
+    // installed: what the tab holds wins on a shared id, so a change made here
+    // (marking one read) is not undone by the stored copy.
+    notificationsRestored: (state, action: PayloadAction<Notification[]>) => {
+      const held = new Set(state.notifications.map((n) => n.id))
+      const merged = [...state.notifications]
+      for (const notification of action.payload) {
+        if (held.has(notification.id)) continue
+        held.add(notification.id)
+        merged.push(notification)
+      }
+      // Stable, so equal timestamps keep the tab's own entries first.
+      merged.sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0))
+      state.notifications = merged.slice(0, 50) // newest-first invariant
+      state.unreadCount = state.notifications.filter((n) => !n.read).length
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -82,6 +99,7 @@ export const {
   removeNotification,
   markAsRead,
   markAllAsRead,
+  notificationsRestored,
 } = notificationSlice.actions
 
 // Selectors

@@ -144,6 +144,7 @@ export async function loadApp(options: LoadAppOptions = {}) {
         tokensUpdated: () => undefined,
         sessionEnded: () => undefined,
         storageWaiting: () => undefined,
+        slicesRecovered: () => undefined,
       },
       channel: null,
       tabId: 'other-tab',

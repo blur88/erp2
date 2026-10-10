@@ -1660,11 +1660,11 @@ CI has no NGINX and no browser; neither is a CI gate.
 - A legitimate refresh delayed past grace revokes its session in every tab.
 - A tab paused mid-transaction blocks other tabs' session operations until it
   resumes or closes; waiting operations time out with an error and sign nobody out.
-- A tab that waited for storage at start-up and then recovered a session has
-  already rehydrated with nothing: it does not show that session's persisted
-  notifications, and the first notification change in that tab writes its own
-  list over the stored one. Reloading before that write brings the stored list
-  back; after it, the stored list is gone. Tracked in #1362.
+- A tab that waited for storage at start-up and then recovered a session is
+  handed that session's stored notifications at the recovery and merges them
+  with any it raised while waiting (#1362). The merge happens once, at the
+  recovery: two tabs that are both running still store one tagged list, and the
+  last writer wins there.
 - Rehydration of persisted notifications waits for the session runtime to start,
   which route loaders do. A route without a loader would rehydrate empty after
   redux-persist's 5 s timeout.

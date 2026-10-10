@@ -354,6 +354,7 @@ export function createHarness(opts?: {
       storageWaiting: vi.fn((waiting: boolean) => {
         events.waiting.push(waiting)
       }),
+      slicesRecovered: vi.fn(),
     }
 
     const store = createMemorySessionStore(shared, { defaultTimeoutMs: opts?.storageTimeoutMs })
