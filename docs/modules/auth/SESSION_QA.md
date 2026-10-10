@@ -1802,3 +1802,60 @@ reached. **That is a statement about these ten rounds, not about the defect:**
 the defect exists whenever a refresh's commit transaction times out, and these
 rounds are evidence that it did not occur here, not that it cannot occur. Clean
 rounds do not establish causality, in either direction.
+
+### Fixed build: ten instrumented rounds (2026-10-10)
+
+Same procedure, same reading rule and same budget, on the commit that carries
+the fix. Ten of ten again in one invocation; `run-one.sh` exited 0 and the stack
+was restored (15m / 60).
+
+| | |
+|---|---|
+| Commit | `980e9fb35` (`fix(session): a pending token commit is bound to the claim and lease that started it`) |
+| Served build | `980e9fb359de71594e8705177733a9c35706d832` — equal to HEAD, checked before the run |
+| Chromium | 153.0.8010.12, same host and machine as the unfixed rounds |
+| Command | `QA_REPLAY_ATTEMPTS=10 QA_REPLAY_TABS=20 run-one.sh 10.1.1.34 diagnose-replay.mjs` |
+
+`pending-dropped` is listed by reason, `token-commit` by trigger, as the plan
+requires. Every entry that was installed landed on its first inline attempt in
+every round: there were no second attempts, no reconcile-triggered attempts and
+no final-401 attempts, because no attempt ever failed and no round ended in a
+replay.
+
+| Round | Verdict | `missing` | `supports` | Longest sibling read | `token-commit` by trigger | `pending-dropped` by reason | Timeouts |
+|---|---|---|---|---|---|---|---|
+| 1 | no-replay | — | — | 2924 ms | inline: 1 | written: 1 | 0 |
+| 2 | no-replay | — | — | 5344 ms | inline: 1 | written: 1 | 0 |
+| 3 | no-replay | — | — | 4609 ms | inline: 2 | written: 2 | 0 |
+| 4 | no-replay | — | — | 1950 ms | inline: 1 | written: 1 | 0 |
+| 5 | no-replay | — | — | 4349 ms | inline: 1 | written: 1 | 0 |
+| 6 | no-replay | — | — | 3445 ms | inline: 2 | written: 2 | 0 |
+| 7 | no-replay | — | — | 4157 ms | inline: 1 | written: 1 | 0 |
+| 8 | no-replay | — | — | 3876 ms | inline: 2 | written: 2 | 0 |
+| 9 | no-replay | — | — | 3910 ms | inline: 2 | written: 2 | 0 |
+| 10 | no-replay | — | — | 4511 ms | inline: 1 | written: 1 | 0 |
+
+Every round was judged on complete evidence again: 20 of 20 tabs collected, flag
+set on all of them, no page replaced or reloaded, no buffer at its cap, and every
+recorded `POST /auth/refresh` paired one-to-one with a `refresh-sent`, both
+cross-checks passing. **No replay occurred on the fixed build, so no round is a
+failed round.**
+
+### The overall finding
+
+Across twenty instrumented rounds, ten on each build, the incident of #1358 was
+**not observed**: no round produced a replay, on either build. Hypothesis 1 was
+therefore neither observed nor supported — there was no commit timeout anywhere
+in any of the twenty rounds, so nothing supports it either. The fix is recorded
+as fixing a defect that reading the client establishes independently of those
+runs; **the twenty clean rounds, and in particular the ten clean rounds on the
+fixed build, do not show that the fix prevented the incident.** They are
+consistent with it and establish nothing about it. The recorded run on
+`198943047` still has no established cause, and the remainder is tracked in the
+follow-up issue the pull request links.
+
+What the rounds do establish is bounded and worth stating: at 20 tabs with an
+expired access token and a 5 s grace, on this host, with the longest stored-record
+read between 1835 ms and 5344 ms, no commit timed out and no session was revoked
+as replay. The recorded run needed stalls of 12 to 21 s, which this host did not
+produce in twenty rounds.
