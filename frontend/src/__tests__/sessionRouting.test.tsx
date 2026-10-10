@@ -25,6 +25,7 @@ vi.mock('@/components/common/SystemStatus', () => ({ default: () => null }))
 const PROTECTED_PATH = '/no-such-page'
 
 let dispose: (() => void) | null = null
+let stopObserving: (() => void) | null = null
 
 async function openTab(path: string, options: LoadAppOptions = {}) {
   window.history.replaceState(null, '', path)
@@ -109,6 +110,8 @@ beforeAll(async () => {
 }, 120_000)
 
 afterEach(() => {
+  stopObserving?.()
+  stopObserving = null
   dispose?.()
   dispose = null
   vi.doUnmock('@/session/store/indexedDbSessionStore')
@@ -508,11 +511,35 @@ describe('storage did not answer at start', () => {
     const session = storedSession({ user: { id: 'u1', username: 'stored', requiresPasswordChange: true } as never })
     await openTab(PROTECTED_PATH, busy({ record: { revision: 1, session } }))
     await screen.findByText(waitingText)
+    // The shell reaches the document only once the lazy page under it has
+    // loaded; until then the Suspense fallback stands in for both. Loaded
+    // beforehand, the page cannot lose that race and hide the shell (#1361).
+    await import('@/pages/NotFoundPage')
+
+    // The shell absent at the end says nothing about whether it was mounted on
+    // the way there, so every node added from here on is looked at: the node
+    // itself and everything under it.
+    let shellRendered = false
+    const scan = (mutations: MutationRecord[]) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (!(node instanceof Element)) continue
+          if (node.matches('.app-shell-root') || node.querySelector('.app-shell-root')) shellRendered = true
+        }
+      }
+    }
+    const observer = new MutationObserver(scan)
+    observer.observe(document.body, { childList: true, subtree: true })
+    stopObserving = () => observer.disconnect()
 
     fireEvent.click(tryAgain())
 
-    await screen.findByRole('heading', { name: /password change required/i })
+    // The page is a lazy import; under load it has taken more than four seconds.
+    await screen.findByRole('heading', { name: /password change required/i }, { timeout: 10_000 })
     expect(pathname()).toBe('/change-password-required')
+    // Records not yet delivered to the callback.
+    scan(observer.takeRecords())
+    expect(shellRendered).toBe(false)
     expect(document.querySelector('.app-shell-root')).toBeNull()
   })
 })
