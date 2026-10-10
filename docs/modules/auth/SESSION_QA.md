@@ -659,7 +659,11 @@ Two investigations, both diagnostic. Neither changes the deadlines, the limiter
 values, the QA grace or any application code.
 
 **The replay revocation at twenty tabs** is tracked in issue #1358, which has the
-full record. In short: the server's audit row shows generation 7 presented while
+full record, and its instrumented rounds are in *Replay revocation at twenty
+tabs: instrumented rounds (2026-10-10)* below: ten on the instrumented unfixed
+build and ten on the fixed one, twenty `no-replay` verdicts in total, so the
+cause of the recorded run is still not established. In short: the server's audit
+row shows generation 7 presented while
 generation 8 was current, 9.9 s after another tab's refresh had superseded it and
 4.9 s past its grace; after that successful refresh no tab used the new access
 token for the 27 s until the revocation. An instrumented repeat of the round
@@ -837,7 +841,10 @@ reported per zone: every one in W1 was `login_limit`, none `api_limit`.
 
 - Every loading round completed this time, the twenty-tab expired-token round
   included: 20 of 20 usable, and the session was not revoked. That the replay of
-  the earlier run did not recur here does not show it cannot (#1358).
+  the earlier run did not recur here does not show it cannot; twenty instrumented
+  rounds on 2026-10-10 (ten unfixed, ten fixed) did not reproduce it either, and
+  neither does that show it cannot (#1358; see *Replay revocation at twenty
+  tabs*).
 - Every tab in every loading round was complete on first load with no recovery
   action, and no request was answered 429 by `api_limit` or on a session route.
 - **All six loading rounds missed their deadlines**, by a factor of 1.3 to 2.2.
@@ -1430,7 +1437,9 @@ any of it:
   stays open under #1354;
 - other browsers, devices and Firefox versions on a device; a cold cache;
 - more than five tabs within any time (#1359), and the replay revocation seen
-  at twenty tabs (#1358);
+  at twenty tabs (#1358). Its cause is still unestablished after twenty
+  instrumented rounds on 2026-10-10, and the fix for the dropped-refresh-response
+  defect it uncovered does not close that gap;
 - on the device, that a readable page which is not the dashboard is told from
   the dashboard (see the negative checks above);
 - that the three provisional `api_limit` numbers are the right ones. They are
@@ -1859,3 +1868,22 @@ expired access token and a 5 s grace, on this host, with the longest stored-reco
 read between 1835 ms and 5344 ms, no commit timed out and no session was revoked
 as replay. The recorded run needed stalls of 12 to 21 s, which this host did not
 produce in twenty rounds.
+
+### What the twenty rounds do not close
+
+**The grace-window limitation is unchanged by any of this.** Another tab that
+outwaits the refresh lease can still read the superseded generation and present
+it. Inside the grace window the server recovers it; at the QA grace of 5 s, with
+the storage stalls of 12 to 21 s that the recorded run on `198943047` needed,
+it can still be a replay. "A legitimate refresh delayed past grace revokes that
+session in every tab" remains a known limit of the 2026-10-05 design; the
+pending token commit narrows the window in which a *refresh response is lost*,
+and does nothing about a presentation that is late in the first place.
+
+**The remainder is tracked in the follow-up issue the pull request links**, which
+carries what the twenty rounds answered, what they did not, and the next
+evidence that would settle it. In short: no round on either build produced a
+commit timeout, so the defect the fix removes was never exercised in a browser
+here, and the path that produced the recorded run is still unexplained. The
+follow-up is also where the grace window itself belongs; this record only points
+at it.
