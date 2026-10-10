@@ -1693,3 +1693,112 @@ CI has no NGINX and no browser; neither is a CI gate.
   without revoking them.
 - Production is clear-text HTTP; credentials and tokens are readable on the
   network.
+
+## Replay revocation at twenty tabs: instrumented rounds (2026-10-10)
+
+Ten rounds on the **instrumented, unfixed** build, before the fix was started.
+The fix is written only after these are run and recorded, so that the rounds
+cannot be read as evidence about it.
+
+### How a round is read
+
+Fixed before any round was run (`docs/superpowers/specs/2026-10-10-pending-token-commit-design.md`,
+*Runs*). Every round gets exactly one of five verdicts, and the rules are
+exhaustive and decided in this order:
+
+- **`undetermined`** — the server rows for the round are missing, the query
+  failed, or its interval does not cover the round; or the session ended in the
+  browser's record with no audit row for it. **A missing or failed server query
+  never reads as no replay.**
+- **`no-replay`** — the server rows were read successfully for the round's
+  session and interval, they hold no replay row, and the session did not end.
+- **`hypothesis-1-observed`** — a replay row exists, the round's trace is
+  complete, the request-to-audit match is unique, and the trace connects all of:
+  tab X's `refresh-answered` 200 returning generation G+1; the `token-commit`
+  for that same `refreshId` ending in `timeout`, **at a time before tab Y's stale
+  presentation**; no write of G+1 between X's answer and Y's presentation (no
+  `token-commit` by any tab wrote it and no stored-record snapshot shows it in
+  that interval); tab Y's `settled-read` showing stored generation G in that
+  interval; tab Y's `refresh-sent` presenting G; and the audit row with
+  `presentedGeneration` G and `currentGeneration` G+1.
+- **`replay-other-path`** — a replay row exists, the trace is complete, the match
+  is unique, and **no commit timed out anywhere in the round**. The path the
+  trace does show is recorded and tracked.
+- **`supporting-unconfirmed`** — every other replay, which is any replay whose
+  cause cannot be established. Its reasons are recorded in two separate lists:
+  *missing evidence* (an incomplete trace, a missing or reloaded tab, a
+  truncated buffer, an unpaired request, a failed cross-check, an ambiguous join,
+  a link of the chain not found) and *support for hypothesis 1* (`commit-timeout`,
+  and each link of the chain that was found). A round with missing evidence and
+  no timed-out commit is still this verdict, with no support listed.
+
+Two readings are deliberately unwilling. A round that fails any completeness
+check cannot establish a cause and is recorded as such. An ambiguous join — two
+tabs presenting the same generation close enough that more than one request fits
+the row — is never resolved by choosing the likeliest candidate.
+
+> Note on `replay-other-path`: the design's *Runs* section words this verdict as
+> "no commit timed out **before the stale presentation**". Taken literally, a
+> commit that timed out *after* the presentation would be `replay-other-path`,
+> which asserts more than the trace shows: the trace saw a dropped response but
+> cannot say it caused this replay. That is exactly what
+> `supporting-unconfirmed` is for, and it is the round whose `supports` most
+> needs to say `commit-timeout`. The verdict is therefore decided as "no commit
+> timed out anywhere in the round", which is what the plan's own test for a
+> timeout after the presentation requires. The five verdicts stay exhaustive and
+> mutually exclusive.
+
+### The run
+
+| | |
+|---|---|
+| Commit | `e434e39b7` (`test(qa): trace collection and a verdict for the replay diagnostic`) |
+| Served build | `e434e39b773caef24be0fca4ce9837f4b4a465d5` — equal to HEAD, checked by `run-one.sh` before the run |
+| Chromium | 153.0.8010.12 (Playwright 1.63.0 in Docker) |
+| Configuration during | access 20s, refresh grace 5s, as the round requires |
+| Configuration before and after | 15m / 60 — `stack.sh show` before and `restore` after |
+| Host | AMD Ryzen 3 3200G, 4 CPUs, 9.7 GiB, kernel 6.8.0-138-generic, spinning `sda` |
+| Command | `QA_REPLAY_ATTEMPTS=10 QA_REPLAY_TABS=20 run-one.sh 10.1.1.34 diagnose-replay.mjs` |
+| Rounds | 10 of 10 in one invocation; `run-one.sh` exited 0 |
+
+**On "host load range":** the suite records the machine, not a load average —
+`lib/machine.mjs` has never sampled one, and none of the earlier records carry
+one. The load-sensitive figure this run does carry is the stored-record read
+latency, below, which is what varies with host load at twenty tabs (that
+variance is #1359).
+
+| Round | Verdict | `missing` | `supports` | Longest sibling read | `token-commit` timeouts | Reads over 1 s |
+|---|---|---|---|---|---|---|
+| 1 | no-replay | — | — | 4362 ms | 0 | 5 of 84 |
+| 2 | no-replay | — | — | 5179 ms | 0 | 4 of 74 |
+| 3 | no-replay | — | — | 3902 ms | 0 | 5 of 77 |
+| 4 | no-replay | — | — | 3211 ms | 0 | 3 of 77 |
+| 5 | no-replay | — | — | 3139 ms | 0 | 5 of 77 |
+| 6 | no-replay | — | — | 3144 ms | 0 | 3 of 85 |
+| 7 | no-replay | — | — | 5256 ms | 0 | 5 of 78 |
+| 8 | no-replay | — | — | 3923 ms | 0 | 5 of 78 |
+| 9 | no-replay | — | — | 1835 ms | 0 | 4 of 91 |
+| 10 | no-replay | — | — | 4352 ms | 0 | 4 of 83 |
+
+Every round was judged on complete evidence: all 20 tabs' traces were collected
+from the document the round ran in, all 20 reported the timing flag as set, none
+was replaced or reloaded, no buffer reached its cap, and every recorded
+`POST /auth/refresh` paired with exactly one `refresh-sent` and the reverse, both
+cross-checks passing. `no-replay` does not require completeness, so this is
+stated separately: had any of it failed, it would have been recorded and the
+round would still count against the budget.
+
+### What this run established
+
+**Ten of ten `no-replay`. Hypothesis 1 was not observed on the unfixed build,
+and nothing in these rounds supports it either.** There was no commit timeout in
+any round — zero `token-commit` `timeout` events across all ten — so the drop
+this work fixes did not happen here. The server rows were read for every round's
+interval and hold no `SESSION_REPLAY_REVOKED` row for it.
+
+The recorded run on `198943047` needed storage stalls of 12 to 21 s. The longest
+read this run produced was 5256 ms, so the shape of the incident was never
+reached. **That is a statement about these ten rounds, not about the defect:**
+the defect exists whenever a refresh's commit transaction times out, and these
+rounds are evidence that it did not occur here, not that it cannot occur. Clean
+rounds do not establish causality, in either direction.
