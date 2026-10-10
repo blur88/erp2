@@ -296,9 +296,38 @@ describe('lease', () => {
 
   it('releases only the owner', () => {
     const s = state({ refreshLease: { owner: 'A', expiresAt: 101 } })
-    expect(leaseRelease(s, { owner: 'B' }).result.released).toBe(false)
-    expect(leaseRelease(s, { owner: 'A' }).result.released).toBe(true)
-    expect(leaseRelease(s, { owner: 'A' }).write).toEqual({ refreshLease: null })
+    expect(leaseRelease(s, { owner: 'B', expiresAt: 101 }).result.released).toBe(false)
+    expect(leaseRelease(s, { owner: 'A', expiresAt: 101 }).result.released).toBe(true)
+    expect(leaseRelease(s, { owner: 'A', expiresAt: 101 }).write).toEqual({ refreshLease: null })
+  })
+
+  it('acquire returns the expiresAt it wrote, so the release can name it', () => {
+    const acquired = leaseAcquire(state(), { owner: 'A', now: 100, ttlMs: 20000 })
+    expect(acquired.result).toEqual({ acquired: true, expiresAt: 20100 })
+    expect(acquired.write?.refreshLease).toEqual({ owner: 'A', expiresAt: 20100 })
+    const refused = leaseAcquire(state({ refreshLease: { owner: 'B', expiresAt: 101 } }), {
+      owner: 'A',
+      now: 100,
+      ttlMs: 20000,
+    })
+    expect(refused.result).toEqual({ acquired: false, expiresAt: null })
+  })
+
+  it('leaseRelease does nothing for the same owner under a later lease', () => {
+    // The owner is the tab id, so the owner alone cannot say which acquisition
+    // is being released: a lease the same tab took for newer work must survive
+    // an older attempt's release.
+    const s = state({ refreshLease: { owner: 'A', expiresAt: 2000 } })
+    expect(leaseRelease(s, { owner: 'A', expiresAt: 1000 })).toEqual({ result: { released: false } })
+  })
+
+  it('leaseRelease does nothing for another owner under the same expiry', () => {
+    const s = state({ refreshLease: { owner: 'A', expiresAt: 1000 } })
+    expect(leaseRelease(s, { owner: 'B', expiresAt: 1000 })).toEqual({ result: { released: false } })
+  })
+
+  it('leaseRelease does nothing when there is no lease', () => {
+    expect(leaseRelease(state(), { owner: 'A', expiresAt: 1000 })).toEqual({ result: { released: false } })
   })
 })
 

@@ -985,6 +985,43 @@ node --test frontend/qa/cross-tab-session/diagnose-latency.test.mjs   # the arit
 directory. Four tabs loading at once exceed `api_limit`'s burst, so those
 figures include 429s; the summary counts them per variant.
 
+## Replay rounds: the trace, the server rows and the verdict (#1358)
+
+Three files read one recorded replay round and say what it established. None of
+them changes anything in the application.
+
+| File | What it is |
+|---|---|
+| `diagnose-replay.mjs` | Runs the round and records it. Opens its profile with `{ timing: true }`, so the `erp-session-timing` flag is set in the page and the runtime's opt-in trace is on. Each attempt gains `sessionId` (read by the holder tab before the tabs are opened), `endedAt` beside `openedAt`, and `traces`: one entry per tab with `flagSet`, `timeOriginAtOpen`, `timeOriginAtEnd`, `collected` and `events`. |
+| `replay-server-rows.sh` | A read-only query of what the server recorded: the `SESSION_REPLAY_REVOKED` audit rows since a given instant, and for those sessions their `refresh_tokens` and `auth_sessions` rows. `SELECT` only; no token, hash or key column is named. `readAt` is the database's `now()` in the same query. It prints one JSON object on stdout, and a query that fails prints **nothing** and exits non-zero. |
+| `lib/replay-evidence.mjs` | Pure. Joins the trace, the request record and the server rows, and gives the round one of five verdicts. Its own tests are `replay-evidence.test.mjs`. |
+
+`judge-replay.mjs` is the command line over them: it takes the diagnosis and,
+optionally, the server rows, prints one line per round and writes
+`replay-verdicts.json` beside the diagnosis. A second argument that is absent,
+unreadable or not JSON is read as *no rows were read*, which is `undetermined`
+and never `no-replay`.
+
+### The command sequence
+
+```bash
+QA_REPLAY_ATTEMPTS=10 QA_REPLAY_TABS=20 run-one.sh <lan-ip> diagnose-replay.mjs
+replay-server-rows.sh <start-iso> > "$SCRATCH/server-rows-N.json"
+node judge-replay.mjs "$SCRATCH/replay-diagnosis.json" "$SCRATCH/server-rows-N.json"
+```
+
+`QA_REPLAY_ATTEMPTS` and `QA_REPLAY_TABS` used to be read by the script but
+never reached the container; `run-one.sh` now passes both by name.
+
+### What a reloaded tab costs
+
+**The trace lives in `window`, so a tab that was replaced or reloaded during the
+round has lost it.** Its attempt records `collected: false` (or a changed
+`timeOrigin`) and the round is marked incomplete, so it cannot establish a
+cause. A round with 20 tabs is therefore only as good as its quietest tab, and
+the reading of a round that failed a completeness check says which check it
+failed rather than guessing which candidate fits.
+
 ## `results.json`
 
 Written to the scratch directory (`ERP_SESSION_SCRATCH`, default

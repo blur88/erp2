@@ -2,6 +2,7 @@ import { vi } from 'vitest'
 import { createSessionRuntime, type SessionRuntime, type RuntimeEvents } from '../runtime'
 import type { AuthHttp } from '../authHttp'
 import { RefreshRejectedError } from '../authHttp'
+import type { TraceEvent } from '../trace'
 import {
   createSharedMemory,
   createMemorySessionStore,
@@ -9,6 +10,7 @@ import {
   type SharedMemory,
 } from '../store/memorySessionStore'
 import type { TokenResponse } from '../types'
+import { StorageTimeoutError } from '../types'
 
 export interface FakeSession {
   sessionId: string
@@ -146,7 +148,7 @@ export function holdLoginResponses(server: FakeServer): RefreshGate {
 // `holdNextTransaction`, which holds it at the head of the shared queue, the
 // other tabs' reads and transactions go on running meanwhile.
 export function delayNextTransaction(store: MemorySessionStore) {
-  const inner = store.transact.bind(store)
+  const inner = transactThrough(store)
   let release: () => void = () => undefined
   const gate = new Promise<void>((resolve) => {
     release = resolve
@@ -177,6 +179,66 @@ export function delayNextTransaction(store: MemorySessionStore) {
 
 export function now(): number {
   return clock.value
+}
+
+// This store's next `count` transactions abort: they reject with a
+// StorageTimeoutError without their decision ever running, so they write
+// nothing. Reads, and every other tab, are untouched — this is a transaction
+// that could not be written, not storage that stopped answering.
+
+// `vi.spyOn` returns the *same* spy for a method that is already spied, so a
+// gate installed while another is still up would capture the spy as its "inner"
+// implementation and end up calling itself. Gates therefore chain from the
+// implementation that is really there, and one gate's restore takes the whole
+// chain with it.
+function transactThrough(store: MemorySessionStore): MemorySessionStore['transact'] {
+  const current = store.transact
+  const implementation = vi.isMockFunction(current) ? current.getMockImplementation() : null
+  return (implementation ?? current) as MemorySessionStore['transact']
+}
+
+export function abortTransactions(
+  store: MemorySessionStore,
+  count: number,
+): { aborted(): number; restore(): void } {
+  const inner = transactThrough(store)
+  let left = count
+  let aborted = 0
+  const spy = vi.spyOn(store, 'transact').mockImplementation(async (decide, opts) => {
+    if (left > 0) {
+      left -= 1
+      aborted += 1
+      throw new StorageTimeoutError('transaction timed out')
+    }
+    return inner(decide, opts)
+  })
+  return { aborted: () => aborted, restore: () => spy.mockRestore() }
+}
+
+// This store's next transaction runs and commits at once; only its result
+// reaches the caller late. No timeout fires anywhere: this is a completion that
+// arrives after the caller has moved on, not an abort.
+export function deliverNextTransactionLate(store: MemorySessionStore): {
+  committed(): boolean
+  release(): void
+  restore(): void
+} {
+  const inner = transactThrough(store)
+  let reached = false
+  let committed = false
+  let release: () => void = () => undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const spy = vi.spyOn(store, 'transact').mockImplementation(async (decide, opts) => {
+    if (reached) return inner(decide, opts)
+    reached = true
+    const result = await inner(decide, opts)
+    committed = true
+    await gate
+    return result
+  })
+  return { committed: () => committed, release: () => release(), restore: () => spy.mockRestore() }
 }
 
 export function makeHttp(server: FakeServer): AuthHttp {
@@ -243,12 +305,22 @@ export interface Tab {
     waiting: boolean[]
   }
   deliverChannel(): void
+  /** Trace events, when the harness was created with `trace: true`. */
+  trace: TraceEvent[]
 }
 
-export function createHarness(opts?: { accessLifetimeMs?: number; graceMs?: number; channel?: boolean }) {
+export function createHarness(opts?: {
+  accessLifetimeMs?: number
+  graceMs?: number
+  channel?: boolean
+  trace?: boolean
+  /** The memory store's own transaction timeout. Only the stall gate sets it. */
+  storageTimeoutMs?: number
+}) {
   const server = createServer(opts)
   const shared: SharedMemory = createSharedMemory()
   const useChannel = opts?.channel !== false
+  const useTrace = opts?.trace === true
 
   const createTab = (tabId: string): Tab => {
     let notify: (() => void) | null = null
@@ -284,7 +356,8 @@ export function createHarness(opts?: { accessLifetimeMs?: number; graceMs?: numb
       }),
     }
 
-    const store = createMemorySessionStore(shared)
+    const store = createMemorySessionStore(shared, { defaultTimeoutMs: opts?.storageTimeoutMs })
+    const trace: TraceEvent[] = []
     const runtime = createSessionRuntime({
       store,
       http: makeHttp(server),
@@ -292,9 +365,10 @@ export function createHarness(opts?: { accessLifetimeMs?: number; graceMs?: numb
       channel,
       tabId,
       now: () => clock.value,
+      onTrace: useTrace ? (event) => void trace.push(event) : undefined,
     })
 
-    return { runtime, store, channelPost, events, deliverChannel: () => notify?.() }
+    return { runtime, store, channelPost, events, deliverChannel: () => notify?.(), trace }
   }
 
   return { server, shared, createTab }

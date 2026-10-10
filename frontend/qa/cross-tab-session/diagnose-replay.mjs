@@ -12,9 +12,14 @@
 //     generation, the fingerprints of both tokens, the access expiry, the
 //     refresh lease (owner and expiry), and how long the read itself took;
 //   - per tab: its first request, its first 2xx data answer, how many 401s it
-//     got, and what its console and page errors said.
+//     got, and what its console and page errors said;
+//   - the trace of the refresh path from each tab's own document
+//     (window.__erpSessionTrace), read at the end of the attempt, with the
+//     document's time origin at both ends and whether the timing flag was set.
 //
 // Run by run-one.sh against the QA stack. Writes <scratch>/replay-diagnosis.json.
+// The server's own rows for the round are read afterwards by
+// replay-server-rows.sh, and judge-replay.mjs joins the two.
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchOptions, loadConfig, loadPlaywright, loadZones, sleep } from './lib/config.mjs'
@@ -28,6 +33,8 @@ const WATCH_MS = 60000
 const snapshot = (stored) => {
   const session = stored?.record?.session ?? null
   return {
+    // The session id, not a token: it scopes the round's server rows.
+    sessionId: session?.sessionId ?? null,
     generation: session?.generation ?? null,
     accessFingerprint: fingerprint(session?.accessToken ?? null),
     refreshFingerprint: fingerprint(session?.refreshToken ?? null),
@@ -35,6 +42,33 @@ const snapshot = (stored) => {
     lease: stored?.refreshLease ?? null,
   }
 }
+
+// The trace lives in `window`, so it belongs to one document: a page that was
+// replaced or reloaded during the attempt has lost it, and the attempt says so
+// rather than reporting an empty trace as a complete one.
+const readTrace = (page) =>
+  page
+    .evaluate(() => {
+      const events = window.__erpSessionTrace
+      let flagSet = false
+      try {
+        flagSet = sessionStorage.getItem('erp-session-timing') === '1'
+      } catch {
+        flagSet = false
+      }
+      return {
+        flagSet,
+        timeOriginAtEnd: performance.timeOrigin,
+        events: Array.isArray(events) ? events.slice() : [],
+      }
+    })
+    .catch(() => null)
+
+const readTimeOrigin = (page) =>
+  page
+    .evaluate(() => performance.timeOrigin)
+    .catch(() => null)
+
 
 async function main() {
   const config = loadConfig()
@@ -56,7 +90,9 @@ async function main() {
     attempts: [],
   }
   try {
-    const profile = await ctx.profile({})
+    // `timing: true` sets the flag the runtime's trace is opt-in behind; without
+    // it the flag is unset in the page and the trace is empty.
+    const profile = await ctx.profile({ timing: true })
     const holder = await profile.tab('/login', { label: 'holder', navigate: false })
     await ctx.signIn(holder, config.userC)
     await holder.goto(`${config.base}/manifest.json`, { waitUntil: 'load' })
@@ -87,6 +123,7 @@ async function main() {
       for (let i = 0; i < TABS; i += 1) pages.push(await profile.tab('/dashboard', { label: `t${i + 1}`, navigate: false }))
       const opened = Date.now()
       await Promise.all(pages.map((page) => page.goto(`${config.base}/dashboard`, { waitUntil: 'commit' }).catch(() => null)))
+      const openedOrigins = await Promise.all(pages.map((page) => readTimeOrigin(page)))
 
       // Until the session has ended, or nothing has been sent for five seconds
       // after at least one data request was answered 2xx, or the time is up.
@@ -100,6 +137,22 @@ async function main() {
       }
       sampling = false
       await sampler
+
+      // The trace, out of each tab's own document, before the page is closed.
+      const traces = await Promise.all(
+        pages.map(async (page, index) => {
+          const read = await readTrace(page)
+          return {
+            tab: profile.label(page),
+            flagSet: read?.flagSet ?? false,
+            timeOriginAtOpen: openedOrigins[index] ?? null,
+            timeOriginAtEnd: read?.timeOriginAtEnd ?? null,
+            collected: read !== null,
+            events: read?.events ?? [],
+          }
+        }),
+      )
+      const ended = Date.now()
 
       const log = profile.since(mark)
       const sessionRequests = log
@@ -134,9 +187,14 @@ async function main() {
       }
       const after = snapshot(await readStored(holder))
       out.attempts.push({
-        attempt, openedAt: opened, before, after,
+        attempt, openedAt: opened, endedAt: ended,
+        sessionId: before.sessionId,
+        // The roster the round's traces are checked against.
+        tabCount: TABS,
+        before, after,
         sessionEnded: after.generation === null,
         sessionRequests, perTab,
+        traces,
         storedChanges: changes,
         storedReadMs: { n: samples.length, max: Math.max(0, ...samples.map((s) => s.readMs)), over1s: samples.filter((s) => s.readMs > 1000).length },
         dataAnswers: {

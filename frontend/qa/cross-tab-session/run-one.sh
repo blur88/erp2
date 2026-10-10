@@ -93,6 +93,7 @@ docker run --rm \
   -e QA_PLAYWRIGHT_PACKAGE="${PLAYWRIGHT_PACKAGE}" \
   -e QA_INGRESS_LOG=/scratch/ingress-access.log \
   -e QA_ONE_SCRIPT="${SCRIPT}" \
+  -e QA_REPLAY_ATTEMPTS -e QA_REPLAY_TABS \
   -e QA_USERNAME -e QA_PASSWORD -e QA_USERNAME_2 -e QA_PASSWORD_2 -e QA_USERNAME_3 -e QA_PASSWORD_3 \
   "${PLAYWRIGHT_IMAGE}" \
   bash -c '

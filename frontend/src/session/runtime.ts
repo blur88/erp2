@@ -12,6 +12,7 @@ import {
   type SignInCommitResult,
 } from './decisions'
 import { reconcile, type ReconcileAction } from './reconcile'
+import type { TraceBody, TraceEvent } from './trace'
 import type { SessionStore } from './store/sessionStore'
 import {
   SessionEndedError,
@@ -21,6 +22,7 @@ import {
   type LoginCredentials,
   type SessionRef,
   type StoredState,
+  type TokenResponse,
 } from './types'
 
 export class SessionChangedElsewhereError extends Error {}
@@ -45,6 +47,8 @@ export interface RuntimeDeps {
   channel: { post(): void; subscribe(fn: () => void): () => void } | null
   tabId: string
   now: () => number
+  /** Opt-in trace of the refresh path. When absent nothing is recorded. */
+  onTrace?: (event: TraceEvent) => void
 }
 
 // 'storage-waiting': the start-up read timed out. Storage did not answer, so the
@@ -76,10 +80,29 @@ export interface SessionRuntime {
 
 const LEASE_TTL_MS = 20000
 
+// How many times a 200's commit is attempted before the request gives up on it.
+// The response is kept either way; the number is not part of the design.
+const TOKEN_COMMIT_ATTEMPTS_INLINE = 2
+
 // How often the transaction that clears a cancelled sign-in's session is
 // attempted: when the cancellation is found, and then on later reconciles.
 const CLEANUP_ATTEMPTS_AT_CANCEL = 2
 const CLEANUP_ATTEMPTS_LATER = 3
+
+// A 200 this tab has received and has not yet committed. It is held outside
+// `memory`, so a tab whose generation is higher than the stored one never ends
+// itself on these tokens, and `memory` and Redux keep the old generation until a
+// commit completes. Memory only: it ends with the tab.
+type PendingTokenCommit = {
+  sessionId: string
+  refreshId: number
+  response: TokenResponse
+  /** The lease this refresh holds, or null when it outwaited the lease. */
+  lease: { expiresAt: number } | null
+  attempts: number
+}
+
+type PendingDropReason = 'written' | 'discarded' | 'session-mismatch' | 'claim-changed' | 'storage-unavailable'
 
 export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   const { store, http, events, channel, tabId, now } = deps
@@ -91,12 +114,18 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   let currentAttempt = 0
   let signInAbort: AbortController | null = null
   let sessionAbort = new AbortController()
-  let refreshInFlight: Promise<'retry' | 'ended'> | null = null
+  let refreshInFlight: { sessionId: string | null; settled: Promise<'retry' | 'ended'> } | null = null
   let startRetryInFlight: Promise<void> | null = null
   // A cancelled sign-in's session that the record may still hold, because no
   // transaction clearing it has completed. Memory only: it ends with the tab.
   let pendingCleanup: { sessionId: string; attemptsLeft: number } | null = null
   let cleanupInFlight: { pending: object; settled: Promise<void> } | null = null
+  let pendingTokenCommit: PendingTokenCommit | null = null
+  let tokenCommitInFlight: { pending: PendingTokenCommit; settled: Promise<void> } | null = null
+  // Trace state. `refreshId` numbers the refreshes of this runtime so the events
+  // of one refresh can be joined. Each refresh carries its own id as an
+  // argument; there is no "current" one, because two can be under way at once.
+  let refreshIdCounter = 0
   let announceStarted: () => void = () => undefined
   const started = new Promise<void>((resolve) => {
     announceStarted = resolve
@@ -108,9 +137,50 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   }
   const post = () => channel?.post()
   const isEligible = (sessionId: string) => claim() === sessionId
+  // A no-op unless the runtime was given an `onTrace` dependency. `traceAs` is
+  // for an event that belongs to a refresh other than the one running now — an
+  // entry's later attempts, and its lease release — so it names that refresh
+  // rather than relying on what the current one happens to be by then.
+  const traceAs = (refreshId: number, body: TraceBody): void => {
+    deps.onTrace?.({ ...body, tabId, at: now(), refreshId })
+  }
   // Best effort: a logout that fails changes nothing in the browser.
   const logoutBestEffort = (refreshToken: string) => {
     void http.logout(refreshToken).catch(() => undefined)
+  }
+
+  // Best effort: a release that fails leaves the lease to expire, and one that
+  // finds a different lease under the same owner releases nothing. It is traced
+  // under the refresh the lease belongs to, which is not always the one running
+  // now: an entry released after its refresh ended still belongs to it.
+  const releaseLease = async (lease: { expiresAt: number }, refreshId: number): Promise<void> => {
+    const startedAt = now()
+    try {
+      const released = await transact((s) => leaseRelease(s, { owner: tabId, expiresAt: lease.expiresAt }))
+      traceAs(refreshId, {
+        type: 'lease-release',
+        outcome: released.released ? 'released' : 'not-owner',
+        ms: now() - startedAt,
+      })
+    } catch {
+      traceAs(refreshId, { type: 'lease-release', outcome: 'failed', ms: now() - startedAt })
+    }
+  }
+
+  // The entry is removed for a settled commit, a claim change or storage
+  // becoming unavailable, and for no other reason: running out of attempts would
+  // recreate the loss it exists to prevent. Only the entry that is still current
+  // is removed, so a late attempt cannot clear a newer one.
+  const resolvePending = (entry: PendingTokenCommit, reason: PendingDropReason): void => {
+    if (pendingTokenCommit !== entry) return
+    pendingTokenCommit = null
+    traceAs(entry.refreshId, { type: 'pending-dropped', reason })
+    // The entry owns the lease from the moment it is installed, and releases it
+    // once. A tab that failed closed writes nothing at all, so it releases
+    // nothing either.
+    const lease = entry.lease
+    entry.lease = null
+    if (lease !== null && reason !== 'storage-unavailable') void releaseLease(lease, entry.refreshId)
   }
 
   const moveToStorageUnavailable = () => {
@@ -118,6 +188,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     status = 'storage-unavailable'
     memory = null
     pendingCleanup = null
+    if (pendingTokenCommit) resolvePending(pendingTokenCommit, 'storage-unavailable')
     sessionAbort.abort()
     sessionAbort = new AbortController()
     events.sessionEnded('storage')
@@ -125,6 +196,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   const clearLocally = (reason: 'explicit' | 'failure' | 'elsewhere') => {
     memory = null
+    if (pendingTokenCommit) resolvePending(pendingTokenCommit, 'claim-changed')
     status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
@@ -188,6 +260,16 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // resume) is a reason to ask storage again.
     if (status === 'storage-waiting') return retryStart()
     await attemptPendingCleanup()
+    // A pending commit is this tab's own uncommitted tokens: one attempt, and a
+    // timed-out attempt is not an error of the reconcile. The entry stays, and
+    // the read below still happens and is still applied.
+    if (pendingTokenCommit) {
+      try {
+        await attemptPendingTokenCommit('reconcile', null)
+      } catch {
+        /* the entry stays for a later trigger */
+      }
+    }
     const stored = await readRecord()
     applyAdoption(reconcile(claim(), memory, stored.record), stored)
   }
@@ -383,6 +465,7 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     }
     memory = session
     remember(session)
+    if (pendingTokenCommit) resolvePending(pendingTokenCommit, 'claim-changed')
     status = 'signed-in'
     // The attempt is over, so it no longer holds back a cleanup.
     currentAttempt = 0
@@ -425,12 +508,105 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     return claim() === ref.sessionId && stored.record.session?.sessionId === ref.sessionId
   }
 
-  const acquireLease = async (): Promise<boolean> =>
-    (await transact((s) => leaseAcquire(s, { owner: tabId, now: now(), ttlMs: LEASE_TTL_MS }))).acquired
+  // Each acquisition has one release path, and one release function, which
+  // always passes the expiresAt captured at the acquisition.
+  const acquireLease = async (refreshId: number): Promise<{ expiresAt: number } | null> => {
+    const startedAt = now()
+    const outcome = await transact((s) => leaseAcquire(s, { owner: tabId, now: now(), ttlMs: LEASE_TTL_MS }))
+    const lease = outcome.acquired && outcome.expiresAt !== null ? { expiresAt: outcome.expiresAt } : null
+    traceAs(refreshId, { type: 'lease-acquire', acquired: lease !== null, expiresAt: lease?.expiresAt ?? null, ms: now() - startedAt })
+    return lease
+  }
 
-  const doRefresh = async (): Promise<'retry' | 'ended'> => {
+  // One attempt at the entry's commit, shared while one is in flight. It
+  // resolves when the attempt settled, whatever it did; it rejects only with the
+  // storage error, and a StorageUnavailableError has already failed the tab
+  // closed by the time it arrives. An attempt that times out leaves the entry
+  // for the next trigger: it is never dropped for running out of attempts.
+  const attemptPendingTokenCommit = async (
+    trigger: 'inline' | 'reconcile' | 'refresh' | 'final-401',
+    triggeredBy: number | null,
+  ): Promise<void> => {
+    const entry = pendingTokenCommit
+    if (!entry) return
+    if (tokenCommitInFlight?.pending === entry) return tokenCommitInFlight.settled
+    entry.attempts += 1
+    const attempt = entry.attempts
+    const settled = (async () => {
+      const startedAt = now()
+      // Every attempt on this entry is traced under the refresh that received
+      // the response, whatever triggered it.
+      const refreshId = entry.refreshId
+      try {
+        let outcome
+        try {
+          outcome = await transact((s) =>
+            tokenCommit(s, { claim: claim(), requestSessionId: entry.sessionId, response: entry.response }),
+          )
+        } catch (err) {
+          traceAs(refreshId, {
+            type: 'token-commit',
+            trigger,
+            attempt,
+            triggeredBy,
+            outcome: err instanceof StorageUnavailableError ? 'unavailable' : 'timeout',
+            ms: now() - startedAt,
+          })
+          throw err
+        }
+        traceAs(refreshId, { type: 'token-commit', trigger, attempt, triggeredBy, outcome: outcome.outcome, ms: now() - startedAt })
+
+        if (outcome.outcome === 'discarded' || outcome.outcome === 'session-mismatch') {
+          resolvePending(entry, outcome.outcome)
+          // Clearing the entry does not establish that this tab's tokens are
+          // eligible, so the record is read again and applied before any caller
+          // of this attempt can send anything.
+          const after = await readRecord()
+          applyAdoption(reconcile(claim(), memory, after.record), after)
+          return
+        }
+
+        // A commit that wrote is applied only for the entry that is still
+        // current, and only for a claim that is still this session.
+        if (pendingTokenCommit !== entry || !memory || !isEligible(entry.sessionId)) return
+        memory = { ...memory, ...entry.response }
+        remember(memory)
+        events.tokensUpdated({
+          generation: entry.response.generation,
+          accessToken: entry.response.accessToken,
+          accessTokenExpiresAt: entry.response.accessTokenExpiresAt,
+          refreshToken: entry.response.refreshToken,
+        })
+        post()
+        resolvePending(entry, 'written')
+      } finally {
+        if (tokenCommitInFlight?.pending === entry) tokenCommitInFlight = null
+      }
+    })()
+    tokenCommitInFlight = { pending: entry, settled }
+    return settled
+  }
+
+  // Refreshes for different sessions can overlap in one tab (a refresh still in
+  // flight for a session the tab has since replaced), so the id is captured here
+  // and passed to everything this refresh traces or installs. It is never read
+  // from shared state.
+  const doRefresh = (): Promise<'retry' | 'ended'> => {
+    refreshIdCounter += 1
+    return runRefresh(refreshIdCounter)
+  }
+
+  const runRefresh = async (refreshId: number): Promise<'retry' | 'ended'> => {
     const startedWith = memory
     if (!startedWith) return 'ended'
+
+    // A pending commit is this tab's own uncommitted tokens, and it is attempted
+    // before anything is compared, after `startedWith` was taken. A commit that
+    // lands moves memory past that snapshot, so `settled()` below returns
+    // 'retry' and no second refresh is sent. A timeout here rejects the caller.
+    if (pendingTokenCommit) {
+      await attemptPendingTokenCommit('refresh', refreshId)
+    }
 
     // Reconciles, then says whether this refresh is already settled. The tab can
     // take newer tokens on another path while this one waits for the lease (a
@@ -438,14 +614,27 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // finds nothing to adopt, so the tab's own tokens are compared with the ones
     // the refresh was started for. Sending anyway would rotate a second time.
     const settled = async (): Promise<'retry' | 'ended' | null> => {
+      const startedAt = now()
       const stored = await readRecord()
       applyAdoption(reconcile(claim(), memory, stored.record), stored)
-      if (status !== 'signed-in' || !memory) return 'ended'
-      const movedOn =
-        memory.sessionId !== startedWith.sessionId ||
-        memory.generation > startedWith.generation ||
-        memory.accessTokenExpiresAt > startedWith.accessTokenExpiresAt
-      return movedOn ? 'retry' : null
+      let result: 'retry' | 'ended' | 'proceed'
+      if (status !== 'signed-in' || !memory) {
+        result = 'ended'
+      } else {
+        const movedOn =
+          memory.sessionId !== startedWith.sessionId ||
+          memory.generation > startedWith.generation ||
+          memory.accessTokenExpiresAt > startedWith.accessTokenExpiresAt
+        result = movedOn ? 'retry' : 'proceed'
+      }
+      traceAs(refreshId, {
+        type: 'settled-read',
+        storedGeneration: stored.record.session?.generation ?? null,
+        memoryGeneration: memory?.generation ?? null,
+        result,
+        ms: now() - startedAt,
+      })
+      return result === 'proceed' ? null : result
     }
 
     const first = await settled()
@@ -454,15 +643,18 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // The lease covers the refresh request itself: the tab that holds it sends,
     // the others wait to adopt its tokens. A tab that outwaits the lease proceeds
     // without it, and only the owner ever releases it.
-    let holdsLease = await acquireLease()
+    let lease = await acquireLease(refreshId)
+    // Installing an entry that records this lease transfers its ownership: from
+    // then on the entry releases it, once, when it is removed.
+    let takenOverByEntry = false
     try {
-      if (!holdsLease) {
+      if (!lease) {
         const maxRounds = Math.max(1, Math.floor(LEASE_TTL_MS / 250))
-        for (let round = 0; round < maxRounds && !holdsLease; round += 1) {
+        for (let round = 0; round < maxRounds && !lease; round += 1) {
           await new Promise((r) => setTimeout(r, 250))
           const again = await settled()
           if (again) return again
-          holdsLease = await acquireLease()
+          lease = await acquireLease(refreshId)
         }
       }
 
@@ -470,22 +662,38 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
       if (second) return second
       if (!memory) return 'ended'
 
-      return await sendRefresh(memory)
+      return await sendRefresh(memory, lease, refreshId, () => {
+        takenOverByEntry = true
+      })
     } finally {
-      if (holdsLease) await transact((s) => leaseRelease(s, { owner: tabId })).catch(() => undefined)
+      if (lease) {
+        if (takenOverByEntry) {
+          traceAs(refreshId, { type: 'lease-release', outcome: 'skipped-pending', ms: 0 })
+        } else {
+          await releaseLease(lease, refreshId)
+        }
+      }
     }
   }
 
-  const sendRefresh = async (session: ActiveSession): Promise<'retry' | 'ended'> => {
+  const sendRefresh = async (
+    session: ActiveSession,
+    lease: { expiresAt: number } | null,
+    refreshId: number,
+    onLeaseTakenOver: () => void,
+  ): Promise<'retry' | 'ended'> => {
     const requestSessionId = session.sessionId
     const capturedGeneration = session.generation
     const refreshToken = session.refreshToken
 
+    traceAs(refreshId, { type: 'refresh-sent', presentedGeneration: capturedGeneration })
+    const sentAt = now()
     let response
     try {
       response = await http.refresh(refreshToken)
     } catch (err) {
       if (err instanceof RefreshRejectedError) {
+        traceAs(refreshId, { type: 'refresh-answered', status: 'rejected', returnedGeneration: null, ms: now() - sentAt })
         const after = await readRecord()
         applyAdoption(reconcile(claim(), memory, after.record), after)
         const stored = after.record.session
@@ -505,32 +713,57 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
         await reconcileNow()
         return claim() !== null ? 'retry' : 'ended'
       }
+      traceAs(refreshId, { type: 'refresh-answered', status: 'error', returnedGeneration: null, ms: now() - sentAt })
       throw err
     }
+    traceAs(refreshId, { type: 'refresh-answered', status: 'ok', returnedGeneration: response.generation, ms: now() - sentAt })
 
-    const outcome = await transact((s) =>
-      tokenCommit(s, { claim: claim(), requestSessionId, response }),
-    )
-
-    if (outcome.outcome === 'discarded' || outcome.outcome === 'session-mismatch') {
+    // The response is installed as this tab's pending commit before any storage
+    // call, and only while it is still the session this tab claims and no entry
+    // is already waiting.
+    //
+    // When either does not hold, the response is not retained and no commit is
+    // attempted: the tab makes a plain read of the record and applies the
+    // adoption it implies. That is a read and an adoption, not reconcileNow(),
+    // which would attempt a pending commit belonging to the replacement session.
+    // So a 200 that arrives after a sign-out or after the session was replaced
+    // creates no pending state and cannot overwrite an entry of newer work.
+    if (!isEligible(requestSessionId) || pendingTokenCommit !== null) {
       const after = await readRecord()
       applyAdoption(reconcile(claim(), memory, after.record), after)
-      if (status !== 'signed-in') return 'ended'
-      return 'retry'
+      return status !== 'signed-in' ? 'ended' : 'retry'
     }
 
-    if (isEligible(requestSessionId) && memory) {
-      memory = { ...memory, ...response }
-      remember(memory)
-      events.tokensUpdated({
-        generation: response.generation,
-        accessToken: response.accessToken,
-        accessTokenExpiresAt: response.accessTokenExpiresAt,
-        refreshToken: response.refreshToken,
-      })
-      post()
+    const entry: PendingTokenCommit = {
+      sessionId: requestSessionId,
+      refreshId,
+      response,
+      lease,
+      attempts: 0,
     }
-    return 'retry'
+    pendingTokenCommit = entry
+    onLeaseTakenOver()
+    let lastError: unknown = null
+    for (let n = 0; n < TOKEN_COMMIT_ATTEMPTS_INLINE && pendingTokenCommit === entry; n += 1) {
+      try {
+        await attemptPendingTokenCommit('inline', null)
+      } catch (err) {
+        // Only a commit that timed out with this entry still pending is retried.
+        // Storage found unusable has already dropped the entry and failed the
+        // tab closed. And an attempt whose commit settled (discarded, or a
+        // session mismatch) has cleared the entry before the read that must
+        // follow it: an error from that read means nothing was reconciled, so
+        // it reaches the caller instead of reading as a retry.
+        if (!(err instanceof StorageTimeoutError) || pendingTokenCommit !== entry) throw err
+        lastError = err
+      }
+    }
+    if (pendingTokenCommit === entry) {
+      // The request fails with the storage error, as it does today, and the
+      // session is kept: the entry holds the tokens and the lease.
+      throw lastError ?? new StorageTimeoutError('token commit did not land')
+    }
+    return status !== 'signed-in' ? 'ended' : 'retry'
   }
 
   const handleUnauthorized = async (ref: SessionRef): Promise<'retry' | 'ended'> => {
@@ -541,17 +774,21 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
     // The tab adopted or refreshed since this request was sent: its 401 is for a
     // token the tab no longer uses, so retry with the current one.
     if (memory && memory.generation > ref.generation) return 'retry'
-    if (!refreshInFlight) {
+    // One refresh at a time, and only for the session it was started for: a
+    // refresh under way for a session this tab has since signed out of cannot be
+    // reused for the session that replaced it.
+    if (!refreshInFlight || refreshInFlight.sessionId !== claim()) {
+      const forSession = claim()
       const promise = (async () => {
         try {
           return await doRefresh()
         } finally {
-          refreshInFlight = null
+          if (refreshInFlight?.settled === promise) refreshInFlight = null
         }
       })()
-      refreshInFlight = promise
+      refreshInFlight = { sessionId: forSession, settled: promise }
     }
-    const outcome = await refreshInFlight
+    const outcome = await refreshInFlight.settled
     // The tab may have switched sessions while the refresh was in flight.
     return claim() === ref.sessionId ? outcome : 'ended'
   }
@@ -576,15 +813,26 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   // ---- endings --------------------------------------------------------------
 
+  // The credential a logout is sent with. While an entry is pending, `memory`
+  // holds the superseded refresh token and the entry holds the current one, so
+  // the best-effort logout must carry the entry's: the other is what the server
+  // has already superseded.
+  const logoutCredential = (): { sessionId: string; refreshToken: string } | null => {
+    const target = memory?.sessionId ?? lastCredential?.sessionId ?? null
+    const entry = pendingTokenCommit !== null && pendingTokenCommit.sessionId === target ? pendingTokenCommit : null
+    if (entry) return { sessionId: entry.sessionId, refreshToken: entry.response.refreshToken }
+    if (memory) return { sessionId: memory.sessionId, refreshToken: memory.refreshToken }
+    return lastCredential
+  }
+
   const signOut = async (): Promise<void> => {
     // A waiting tab holds no session and has not been told of one: there is
     // nothing to end, so nothing is announced, written or posted.
     if (status === 'storage-waiting') return
-    const captured = memory
-      ? { sessionId: memory.sessionId, refreshToken: memory.refreshToken }
-      : lastCredential
+    const captured = logoutCredential()
     memory = null
     lastCredential = null
+    if (pendingTokenCommit) resolvePending(pendingTokenCommit, 'claim-changed')
     if (status !== 'storage-unavailable') status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
@@ -600,9 +848,10 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
 
   const passwordChanged = async (): Promise<void> => {
     if (status === 'storage-waiting') return
-    const target = memory?.sessionId ?? lastCredential?.sessionId ?? null
+    const target = logoutCredential()?.sessionId ?? null
     memory = null
     lastCredential = null
+    if (pendingTokenCommit) resolvePending(pendingTokenCommit, 'claim-changed')
     if (status !== 'storage-unavailable') status = 'signed-out'
     sessionAbort.abort()
     sessionAbort = new AbortController()
@@ -618,6 +867,18 @@ export function createSessionRuntime(deps: RuntimeDeps): SessionRuntime {
   }
 
   const endAfterFinalUnauthorized = async (ref: SessionRef): Promise<'ended' | 'kept'> => {
+    // While an entry is pending, the stored session and the request's are both
+    // the superseded generation, so the comparison below would end a session
+    // whose newer tokens this tab is holding. One attempt first; if the entry is
+    // still pending afterwards, the session is kept and nothing is written.
+    if (pendingTokenCommit) {
+      try {
+        await attemptPendingTokenCommit('final-401', null)
+      } catch {
+        /* the entry stays, and with it the session */
+      }
+      if (pendingTokenCommit) return 'kept'
+    }
     const ended = await transact((s) => failureEndCommit(s, ref))
     if (ended.ended) {
       clearLocally('failure')

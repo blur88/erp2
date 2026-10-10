@@ -1,0 +1,123 @@
+import { describe, it, expect, vi } from 'vitest'
+import { createHarness, advance, holdRefreshResponses } from './twoTabs'
+import { StorageTimeoutError } from '../types'
+
+async function signedInTab(h: ReturnType<typeof createHarness>, id = 'A') {
+  const tab = h.createTab(id)
+  await tab.runtime.start()
+  await tab.runtime.signIn({ usernameOrEmail: 'u', password: 'p' })
+  return tab
+}
+
+describe('session runtime — trace of the refresh path', () => {
+  it('a refresh emits its events in order under one refreshId, and none holds a token', async () => {
+    const h = createHarness({ trace: true })
+    const a = await signedInTab(h)
+    const ref = (await a.runtime.beginRequest()).ref
+    await a.runtime.handleUnauthorized(ref)
+
+    expect(a.trace.map((e) => e.type)).toEqual([
+      'settled-read',
+      'lease-acquire',
+      'settled-read',
+      'refresh-sent',
+      'refresh-answered',
+      'token-commit',
+      'pending-dropped',
+      'lease-release',
+    ])
+    // One release function, one actual release: installing the entry took the
+    // lease over, so the refresh skipped it and the entry releases it instead.
+    expect(a.trace.at(-1)).toMatchObject({ type: 'lease-release', outcome: 'skipped-pending' })
+    await vi.waitFor(() =>
+      expect(a.trace.filter((e) => e.type === 'lease-release' && e.outcome === 'released')).toHaveLength(1),
+    )
+    expect(new Set(a.trace.map((e) => e.refreshId)).size).toBe(1)
+    expect(a.trace.find((e) => e.type === 'refresh-sent')).toMatchObject({ presentedGeneration: 1 })
+    expect(a.trace.find((e) => e.type === 'refresh-answered')).toMatchObject({ status: 'ok', returnedGeneration: 2 })
+    expect(a.trace.find((e) => e.type === 'token-commit')).toMatchObject({
+      outcome: 'written-both',
+      trigger: 'inline',
+      attempt: 1,
+      triggeredBy: null,
+    })
+    // The fake server's token prefixes: nothing in a trace is a token.
+    expect(JSON.stringify(a.trace)).not.toMatch(/rt-|at-/)
+  })
+
+  it('a commit that times out is traced as timeout', async () => {
+    const h = createHarness({ trace: true })
+    const a = await signedInTab(h)
+    const ref = (await a.runtime.beginRequest()).ref
+
+    // The response is gated so the lease is taken before the store is held: the
+    // transactions that stall are the commits, not the acquisition. Both inline
+    // attempts run, so the hold is released only once the caller has given up.
+    const gate = holdRefreshResponses(h.server)
+    const attempt = a.runtime.handleUnauthorized(ref)
+    await vi.waitFor(() => expect(gate.waiting()).toBe(1))
+    const hold = a.store.holdNextTransaction()
+    gate.release()
+
+    await expect(attempt).rejects.toBeInstanceOf(StorageTimeoutError)
+    hold.release()
+
+    expect(a.trace.filter((e) => e.type === 'token-commit')).toMatchObject([{ outcome: 'timeout' }, { outcome: 'timeout' }])
+  }, 30000)
+
+  it('nothing is emitted and nothing throws when onTrace is not supplied', async () => {
+    const h = createHarness()
+    const a = await signedInTab(h)
+    const ref = (await a.runtime.beginRequest()).ref
+
+    expect(await a.runtime.handleUnauthorized(ref)).toBe('retry')
+    expect(a.trace).toEqual([])
+    expect(h.shared.state.record.session?.generation).toBe(2)
+  })
+
+  it('a second refresh has a different refreshId', async () => {
+    const h = createHarness({ trace: true })
+    const a = await signedInTab(h)
+
+    await a.runtime.handleUnauthorized((await a.runtime.beginRequest()).ref)
+    await a.runtime.handleUnauthorized((await a.runtime.beginRequest()).ref)
+
+    const answers = a.trace.filter((e) => e.type === 'refresh-answered')
+    expect(answers).toHaveLength(2)
+    expect(answers[0]?.refreshId).not.toBe(answers[1]?.refreshId)
+    expect(answers[1]).toMatchObject({ returnedGeneration: 3 })
+  })
+
+  it('two refreshes that overlap across a session replacement each keep their own refreshId', async () => {
+    const h = createHarness({ trace: true })
+    const a = await signedInTab(h)
+    const gate = holdRefreshResponses(h.server)
+
+    // Session 1's refresh is in flight when the tab signs out and in again.
+    const first = a.runtime.handleUnauthorized((await a.runtime.beginRequest()).ref)
+    await vi.waitFor(() => expect(gate.waiting()).toBe(1))
+    await a.runtime.signOut()
+    await a.runtime.signIn({ usernameOrEmail: 'other', password: 'p' })
+    advance(20001) // session 1's lease runs out
+
+    const second = a.runtime.handleUnauthorized((await a.runtime.beginRequest()).ref)
+    await vi.waitFor(() => expect(gate.waiting()).toBe(2))
+    const sent = a.trace.filter((e) => e.type === 'refresh-sent').map((e) => e.refreshId)
+    expect(sent).toHaveLength(2)
+    expect(sent[0]).not.toBe(sent[1])
+
+    // The newer refresh is answered first, then the older one.
+    gate.releaseOne(1)
+    await second
+    gate.releaseOne(0)
+    await first
+
+    const answered = a.trace.filter((e) => e.type === 'refresh-answered').map((e) => e.refreshId)
+    expect(answered).toEqual([sent[1], sent[0]])
+    // No event of either refresh is attributed to nothing, or to the other.
+    expect(a.trace.every((e) => sent.includes(e.refreshId))).toBe(true)
+    const ofSecond = a.trace.filter((e) => e.refreshId === sent[1]).map((e) => e.type)
+    expect(ofSecond).toEqual(expect.arrayContaining(['refresh-sent', 'refresh-answered', 'token-commit', 'lease-release']))
+    expect(a.trace.filter((e) => e.refreshId === sent[0]).some((e) => e.type === 'token-commit')).toBe(false)
+  })
+})

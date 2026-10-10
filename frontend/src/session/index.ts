@@ -1,6 +1,7 @@
 import { createAuthHttp } from './authHttp'
 import { openIndexedDbSessionStore } from './store/indexedDbSessionStore'
 import { createSessionRuntime, type RuntimeEvents, type SessionRuntime } from './runtime'
+import type { TraceEvent } from './trace'
 import { attachResumeReconcile } from './resumeReconcile'
 import { registerSessionRuntime } from './registry'
 import type { SessionStore } from './store/sessionStore'
@@ -40,6 +41,14 @@ const recordTiming = (op: 'read' | 'transact', ms: number) => {
   if (!w.__erpSessionTimings) w.__erpSessionTimings = []
   if (w.__erpSessionTimings.length >= 5000) return
   w.__erpSessionTimings.push({ op, ms })
+}
+
+const recordTrace = (event: TraceEvent) => {
+  if (!timingEnabled) return
+  const w = window as unknown as { __erpSessionTrace?: TraceEvent[] }
+  if (!w.__erpSessionTrace) w.__erpSessionTrace = []
+  if (w.__erpSessionTrace.length >= 5000) return
+  w.__erpSessionTrace.push(event)
 }
 
 const events: RuntimeEvents = {
@@ -101,6 +110,7 @@ export const sessionRuntime: SessionRuntime = createSessionRuntime({
   channel: makeChannel(),
   tabId: `tab-${Math.random().toString(36).slice(2)}`,
   now: () => Date.now(),
+  onTrace: timingEnabled ? recordTrace : undefined,
 })
 
 let startPromise: Promise<void> | null = null
