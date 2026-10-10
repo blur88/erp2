@@ -49,6 +49,7 @@ describe('CustomerService', () => {
           useValue: {
             findOne: (jest.fn as unknown as any)(),
             save: (jest.fn as unknown as any)(),
+            update: (jest.fn as unknown as any)(),
             find: (jest.fn as unknown as any)(),
             createQueryBuilder: (jest.fn as unknown as any)(),
           },
@@ -505,10 +506,12 @@ describe('CustomerService', () => {
         .mockResolvedValueOnce(existing) // findOne for update — loads the customer
         .mockResolvedValueOnce(null) // slug uniqueness check: 'new-name' is free
         .mockResolvedValue(updated);
-      customerRepository.save.mockResolvedValue(updated);
-
       const result = await service.update('c1', { name: 'New Name' });
 
+      expect(customerRepository.update).toHaveBeenCalledWith('c1', {
+        name: 'New Name',
+        slug: 'new-name',
+      });
       expect(result.slug).toBe('new-name');
     });
 
@@ -527,10 +530,12 @@ describe('CustomerService', () => {
         .mockResolvedValueOnce(collision) // 'acme-corp' taken by c2
         .mockResolvedValueOnce(null) // 'acme-corp-1' free
         .mockResolvedValue(updated);
-      customerRepository.save.mockResolvedValue(updated);
-
       const result = await service.update('c1', { name: 'Acme Corp' });
 
+      expect(customerRepository.update).toHaveBeenCalledWith('c1', {
+        name: 'Acme Corp',
+        slug: 'acme-corp-1',
+      });
       expect(result.slug).toBe('acme-corp-1');
     });
 
@@ -539,15 +544,43 @@ describe('CustomerService', () => {
         slug: 'acme-corp',
         name: 'Acme Corp',
       });
-      customerRepository.findOne
-        .mockResolvedValueOnce(existing) // findOne for update
-        .mockResolvedValueOnce(existing) // slug check: finds 'acme-corp' but id matches excludeId
-        .mockResolvedValue(existing);
-      customerRepository.save.mockResolvedValue(existing);
+      customerRepository.findOne.mockResolvedValue(existing);
 
       const result = await service.update('c1', { name: 'Acme Corp' });
 
+      // The name is unchanged, so no slug is generated or written.
+      expect(customerRepository.update).toHaveBeenCalledWith('c1', { name: 'Acme Corp' });
       expect(result.slug).toBe('acme-corp');
+    });
+  });
+
+  describe('update writes only the supplied columns (#1355)', () => {
+    it('never saves the loaded entity, and never writes the derived order metrics', async () => {
+      const existing = createCustomer('c1', { name: 'Acme', totalOrders: 5, totalSales: 500 });
+      customerRepository.findOne.mockResolvedValue(existing);
+
+      await service.update('c1', {
+        notes: 'edited',
+        email: undefined,
+        // Not in UpdateCustomerDto; refused even if a caller passes them.
+        totalOrders: 0,
+        totalSales: 0,
+        firstPurchaseDate: null,
+        lastPurchaseDate: null,
+      } as any);
+
+      expect(customerRepository.update).toHaveBeenCalledWith('c1', { notes: 'edited' });
+      expect(customerRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('writes nothing when the edit supplies nothing', async () => {
+      const existing = createCustomer('c1', { name: 'Acme' });
+      customerRepository.findOne.mockResolvedValue(existing);
+
+      await service.update('c1', {});
+
+      expect(customerRepository.update).not.toHaveBeenCalled();
+      expect(customerRepository.save).not.toHaveBeenCalled();
     });
   });
 });

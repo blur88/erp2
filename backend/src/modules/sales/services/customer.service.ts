@@ -60,6 +60,14 @@ const CUSTOMER_SORTABLE_FIELDS = [
   'updatedAt',
 ] as const;
 
+/** Derived from fulfilled orders by recalculateCustomerMetrics; never written by an edit. */
+const CUSTOMER_METRIC_COLUMNS: ReadonlySet<string> = new Set([
+  'totalOrders',
+  'totalSales',
+  'firstPurchaseDate',
+  'lastPurchaseDate',
+]);
+
 @Injectable()
 export class CustomerService extends BaseCrudService<
   Customer,
@@ -381,11 +389,28 @@ export class CustomerService extends BaseCrudService<
 
     const nameChanged =
       updateCustomerDto.name !== undefined && updateCustomerDto.name !== customer.name;
-    Object.assign(customer, updateCustomerDto);
-    if (nameChanged) {
-      customer.slug = await this.generateUniqueSlug(customer.name, id);
+
+    // Write only the columns this edit supplies. save(customer) would compare
+    // the entity loaded above with the row as it is now and write back every
+    // column that differs, including the four order metrics: a fulfilment that
+    // committed in between would have its recalculated metrics replaced by the
+    // values this request read (#1355). The metrics are never part of an edit.
+    const changes: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updateCustomerDto)) {
+      if (value !== undefined && !CUSTOMER_METRIC_COLUMNS.has(key)) {
+        changes[key] = value;
+      }
     }
-    const savedCustomer = await this.customerRepository.save(customer);
+    if (nameChanged) {
+      changes.slug = await this.generateUniqueSlug(updateCustomerDto.name, id);
+    }
+    if (Object.keys(changes).length > 0) {
+      await this.customerRepository.update(id, changes);
+    }
+    const savedCustomer = await this.customerRepository.findOne({ where: { id } });
+    if (!savedCustomer) {
+      throw new NotFoundException('Customer not found');
+    }
 
     // Log audit trail
     await this.auditLogService.log(

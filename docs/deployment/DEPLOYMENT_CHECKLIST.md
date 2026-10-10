@@ -250,12 +250,16 @@ to be correct. Two things follow from the lock:
 - [ ] Only **one** backend may run against the database, and it must be the new
       image. The lock protects the migration itself; it cannot protect against
       an older backend that keeps fulfilling orders afterwards without
-      recalculating. Both compose files define a single `backend` service with
-      the fixed name `erp_backend`, so `docker compose up -d backend` stops the
-      old container before the new one runs its migrations, and the only queue
-      worker (backups) lives in that same process. Confirm with
-      `docker ps --filter name=backend` that no other backend container, on
-      this host or another, points at this database.
+      recalculating. This is a **deployment inventory check**, not something a
+      command on one host can show: list every place a backend for this
+      database could be running (this host, any other host, a container
+      outside compose, a process outside Docker such as `npm run start:dev`
+      pointed at this database) and confirm each is stopped or on the new
+      image. What the repository itself guarantees is narrower: both compose
+      files define a single `backend` service with the fixed name
+      `erp_backend`, so within one compose project `docker compose up -d
+      backend` stops the old container before the new one runs its migrations,
+      and the only queue worker (backups) lives in that same process.
 
 **Rolling back to the previous image** leaves the recalculated values in place
 and stops maintaining them again. After rolling forward, re-run the preflight;

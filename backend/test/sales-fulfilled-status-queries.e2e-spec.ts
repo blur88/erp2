@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -13,6 +14,7 @@ import {
   SalesOrderStatus,
 } from '../src/database/entities/sales-order.entity';
 import { DiscountType, SalesOrderItem } from '../src/database/entities/sales-order-item.entity';
+import { CustomerService } from '../src/modules/sales/services/customer.service';
 import { recalculateCustomerMetrics } from '../src/modules/sales/services/customer-metrics';
 import { SalesOrderFulfillmentService } from '../src/modules/sales/services/sales-order-fulfillment.service';
 import { SalesOrderPaymentService } from '../src/modules/sales/services/sales-order-payment.service';
@@ -51,6 +53,7 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
   let ds: DataSource;
   let token: string;
   let fulfillment: SalesOrderFulfillmentService;
+  let customers: CustomerService;
   let payment: SalesOrderPaymentService;
   let product: Product;
   let paymentMethod: PaymentMethodEntity;
@@ -175,6 +178,7 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
 
     ds = app.get(DataSource);
     fulfillment = app.get(SalesOrderFulfillmentService);
+    customers = app.get(CustomerService);
     payment = app.get(SalesOrderPaymentService);
 
     await seedSuiteAdmin(ds, USERNAME);
@@ -488,6 +492,158 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
         first: '2026-01-05',
         last: '2026-01-05',
       });
+    });
+  });
+  describe('a customer edit does not write stale metrics back', () => {
+    it('keeps the metrics of a fulfilment that commits between the edit\'s read and its write', async () => {
+      const customer = await seedCustomer('edited');
+      const order = await seedReadyOrder(customer.id, '2026-01-05', 3); // 300
+
+      // generateUniqueSlug runs after update() has loaded the customer and
+      // before it writes, so the fulfilment commits exactly in that gap.
+      const original = (customers as any).generateUniqueSlug.bind(customers);
+      const gap = jest
+        .spyOn(customers as any, 'generateUniqueSlug')
+        .mockImplementationOnce(async (...args: any[]) => {
+          await fulfillment.fulfillOrder(order.id);
+          return original(...args);
+        });
+      try {
+        const renamed = `Fulfilled Metrics edited-renamed ${run}`;
+        const result = await customers.update(customer.id, { name: renamed, notes: 'edited' });
+
+        expect(gap).toHaveBeenCalledTimes(1);
+        expect(await storedMetrics(customer.id)).toEqual({
+          totalOrders: 1,
+          totalSales: '300.0000',
+          first: '2026-01-05',
+          last: '2026-01-05',
+        });
+        // The edit itself is applied, and the response carries what is stored.
+        const [row] = await ds.query(`SELECT name, notes, slug FROM customers WHERE id = $1`, [
+          customer.id,
+        ]);
+        expect(row.name).toBe(renamed);
+        expect(row.notes).toBe('edited');
+        expect(result.name).toBe(renamed);
+        expect(result.slug).toBe(row.slug);
+        expect(result.totalOrders).toBe(1);
+        expect(result.totalSales).toBe(300);
+      } finally {
+        gap.mockRestore();
+      }
+    });
+  });
+
+  describe('a failed metrics write rolls the whole transition back', () => {
+    // A trigger that refuses any write to the four metric columns of ONE
+    // customer: the failure happens in the metrics UPDATE itself, after the
+    // status, stock and posting writes of the same transaction.
+    const fn = `fm_refuse_metrics_${process.pid}`;
+    const REFUSED = 'metrics write refused by test trigger';
+
+    async function refuseMetricsFor(customerId: string): Promise<void> {
+      await ds.query(
+        `CREATE FUNCTION ${fn}() RETURNS trigger LANGUAGE plpgsql AS $$
+         BEGIN RAISE EXCEPTION '${REFUSED}'; END $$`,
+      );
+      await ds.query(
+        `CREATE TRIGGER ${fn} BEFORE UPDATE OF "totalOrders", "totalSales", "firstPurchaseDate", "lastPurchaseDate"
+           ON customers FOR EACH ROW WHEN (NEW.id = '${customerId}') EXECUTE FUNCTION ${fn}()`,
+      );
+    }
+
+    async function allowMetrics(): Promise<void> {
+      await ds.query(`DROP TRIGGER IF EXISTS ${fn} ON customers`);
+      await ds.query(`DROP FUNCTION IF EXISTS ${fn}()`);
+    }
+
+    /** Everything a fulfil or unfulfil writes, read back from the tables. */
+    async function effects(orderId: string, customerId: string) {
+      const [o] = await ds.query(
+        `SELECT status, "fulfilledAt" IS NOT NULL AS "hasFulfilledAt" FROM sales_orders WHERE id = $1`,
+        [orderId],
+      );
+      const [p] = await ds.query(`SELECT "stockQuantity" FROM products WHERE id = $1`, [
+        product.id,
+      ]);
+      const [m] = await ds.query(
+        `SELECT count(*)::int AS n FROM stock_movements
+          WHERE "referenceType" = 'sales_order' AND "referenceId" = $1`,
+        [orderId],
+      );
+      const journals: { id: string }[] = await ds.query(
+        `SELECT id FROM journal_entry WHERE "sourceDocumentId" = $1 ORDER BY id`,
+        [orderId],
+      );
+      const [a] = await ds.query(
+        `SELECT count(*)::int AS n FROM audit_logs WHERE "entityId" = $1`,
+        [orderId],
+      );
+      return {
+        status: o.status,
+        hasFulfilledAt: o.hasFulfilledAt,
+        stock: Number(p.stockQuantity),
+        stockMovements: m.n,
+        journalIds: journals.map((j) => j.id),
+        auditRows: a.n,
+        metrics: await storedMetrics(customerId),
+      };
+    }
+
+    afterEach(allowMetrics);
+
+    it('fulfil: status, stock, postings and metrics are all as they were', async () => {
+      const customer = await seedCustomer('refused-fulfil');
+      const order = await seedReadyOrder(customer.id, '2026-01-05', 4);
+      const before = await effects(order.id, customer.id);
+      expect(before.status).toBe(SalesOrderStatus.READY);
+      expect(before.stockMovements).toBe(0);
+
+      await refuseMetricsFor(customer.id);
+      await expect(fulfillment.fulfillOrder(order.id)).rejects.toThrow(REFUSED);
+      await allowMetrics();
+
+      expect(await effects(order.id, customer.id)).toEqual(before);
+
+      // The same order fulfils once the write is allowed: the refusal above was
+      // the only thing in its way.
+      await fulfillment.fulfillOrder(order.id);
+      const after = await effects(order.id, customer.id);
+      expect(after.status).toBe(SalesOrderStatus.FULFILLED);
+      expect(after.stock).toBe(before.stock - 4);
+      expect(after.stockMovements).toBeGreaterThan(0);
+      expect(after.journalIds.length).toBeGreaterThan(before.journalIds.length);
+      expect(after.metrics.totalOrders).toBe(1);
+    });
+
+    it('unfulfil: status, stock, postings and metrics are all as they were', async () => {
+      const customer = await seedCustomer('refused-unfulfil');
+      const order = await seedReadyOrder(customer.id, '2026-01-05', 5);
+      await fulfillment.fulfillOrder(order.id);
+      const before = await effects(order.id, customer.id);
+      expect(before.status).toBe(SalesOrderStatus.FULFILLED);
+      expect(before.hasFulfilledAt).toBe(true);
+      expect(before.metrics).toEqual({
+        totalOrders: 1,
+        totalSales: '500.0000',
+        first: '2026-01-05',
+        last: '2026-01-05',
+      });
+
+      await refuseMetricsFor(customer.id);
+      await expect(fulfillment.unfulfillOrder(order.id)).rejects.toThrow(REFUSED);
+      await allowMetrics();
+
+      expect(await effects(order.id, customer.id)).toEqual(before);
+
+      await fulfillment.unfulfillOrder(order.id);
+      const after = await effects(order.id, customer.id);
+      expect(after.status).toBe(SalesOrderStatus.READY);
+      expect(after.stock).toBe(before.stock + 5);
+      expect(after.stockMovements).toBe(0);
+      expect(after.journalIds.length).toBeGreaterThan(before.journalIds.length);
+      expect(after.metrics.totalOrders).toBe(0);
     });
   });
 });
