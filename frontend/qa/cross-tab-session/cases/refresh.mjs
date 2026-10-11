@@ -282,7 +282,13 @@ export default [
     // uses fall against the expiries (a recorded run at 2ef0e4a12 saw two and
     // failed a fixed-length version of this case with every use succeeding).
     // The uses go on until the third rotation is seen; six lifetimes are more
-    // than three longest cycles, so running out of them is a real failure.
+    // than three longest cycles, so running out of them is a real failure, and
+    // the rotation line then says that this is what happened.
+    //
+    // A use that fails throws out of `exercise`. The error is thrown on after
+    // the records are written, so the case fails with the use's own message
+    // (which tab, which page, which requests and their statuses) and still
+    // says how far it had got.
     async run(ctx) {
       const lifetime = ctx.config.accessSeconds
       ctx.require('the access lifetime is the short QA one', lifetime <= 60, { accessSeconds: lifetime })
@@ -295,23 +301,52 @@ export default [
       const step = (lifetime * 1000) / 4
       const rotations = async () => (summarize(await readStored(a)).session?.generation ?? 0) - before.session.generation
       let uses = 0
+      let stopped = 'six lifetimes passed'
+      let failedUse = null
       for (let i = 0; Date.now() < atMost; i += 1) {
-        if (Date.now() >= atLeast && (await rotations()) >= 3) break
+        if (Date.now() >= atLeast && (await rotations()) >= 3) {
+          stopped = 'the third rotation was seen'
+          break
+        }
         const started = Date.now()
-        await exercise(profile, i % 2 === 0 ? a : b)
+        try {
+          await exercise(profile, i % 2 === 0 ? a : b)
+        } catch (err) {
+          stopped = 'a use failed'
+          failedUse = { use: i + 1, tab: i % 2 === 0 ? 'A' : 'B', error: err }
+          break
+        }
         uses += 1
         await sleepUntil(started + step)
       }
-      ctx.record('lifetimesUsed', Math.round(((Date.now() - startedAt) / (lifetime * 1000)) * 100) / 100)
+      const lifetimesUsed = Math.round(((Date.now() - startedAt) / (lifetime * 1000)) * 100) / 100
+      ctx.record('lifetimesUsed', lifetimesUsed)
       const after = summarize(await readStored(a))
       ctx.record('uses', uses)
+      ctx.record('stopped', stopped)
       ctx.record('refreshRequests', refreshes(profile, mark).map((e) => [e.tab, e.status]))
       ctx.record('generations', { before: before.session.generation, after: after.session?.generation })
-      // A use that fails throws out of `exercise` and fails the case there; this
-      // line is only the count.
+      if (failedUse) {
+        ctx.record('failedUse', { use: failedUse.use, tab: failedUse.tab, afterCompletedUses: uses })
+        throw failedUse.error
+      }
+      // A use that fails has thrown above; this line is only the count.
       ctx.check('at least twelve uses completed', uses >= 12, { uses })
       ctx.check('the session is the same one', after.session?.sessionId === before.session.sessionId, after)
-      ctx.check('the generation advanced at least three times', after.session?.generation >= before.session.generation + 3, after)
+      const rotated = (after.session?.generation ?? before.session.generation) - before.session.generation
+      ctx.check('the generation advanced at least three times', rotated >= 3, {
+        rotations: rotated,
+        needed: 3,
+        stopped,
+        lifetimesUsed,
+        boundLifetimes: 6,
+        uses,
+        why:
+          rotated >= 3
+            ? null
+            : `the two tabs were used ${uses} times over ${lifetimesUsed} access-token lifetimes, the bound is 6, and the session rotated ${rotated} time(s)`,
+        stored: after,
+      })
       ctx.check('tab A is signed in', await showsSignedInUi(a, 2000))
       ctx.check('tab B is signed in', await showsSignedInUi(b, 2000))
     },
