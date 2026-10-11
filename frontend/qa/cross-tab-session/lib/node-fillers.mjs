@@ -20,8 +20,23 @@ const running = new Set()
  * Starts sending `ratePerSecond` unauthenticated GETs a second to `base + path`,
  * each with `x-qa-request-id: <prefix>-<n>`, never more than `maxInFlight`
  * outstanding, never more than `maxTotal` in all, never for longer than
- * `maxMs`. Returns { stop }, which ends it, aborts what is outstanding and
- * resolves with what was sent.
+ * `maxMs`. Returns { stop, finished }: `stop` ends it, aborts what is
+ * outstanding and resolves with what was sent; `finished` resolves with the
+ * same summary once it has ended, however it ended.
+ *
+ * The three ways it ends, in `stoppedBy`:
+ * - `maxTotal`: the count was reached. Nothing more is started, and the
+ *   requests already started are left to be answered; it ends when the last of
+ *   them has settled, with none aborted (#1365).
+ * - `maxMs`: the deadline, counted from the start and not moved by reaching
+ *   `maxTotal`. What is outstanding is aborted, including requests it was
+ *   waiting for after `maxTotal`.
+ * - `stop`: `stop()` or `stopAllNodeFillers()`, which abort in the same way,
+ *   also during that wait.
+ *
+ * A request has no timeout of its own. `maxMs` is required, and it is the only
+ * thing that bounds the wait after `maxTotal` against a server that does not
+ * answer: without it that wait would last until an explicit stop.
  */
 export function startNodeFillers({ base, path, prefix, ratePerSecond, maxInFlight, maxTotal, maxMs }) {
   if (!(ratePerSecond > 0)) throw new Error('ratePerSecond must be positive')
@@ -34,7 +49,12 @@ export function startNodeFillers({ base, path, prefix, ratePerSecond, maxInFligh
   const summary = { sent: 0, answered: 0, aborted: 0, failed: 0, statuses: {}, stoppedBy: null, startedAt: Date.now(), stoppedAt: null }
   const outstanding = new Set()
   let stopped = false
+  let draining = false // maxTotal reached: nothing more is started, what is outstanding is awaited
   const startedAt = Date.now()
+  let settle
+  const finished = new Promise((resolve) => {
+    settle = resolve
+  })
 
   const end = (why) => {
     if (stopped) return
@@ -44,6 +64,7 @@ export function startNodeFillers({ base, path, prefix, ratePerSecond, maxInFligh
     clearInterval(timer)
     abort.abort()
     running.delete(handle)
+    void Promise.allSettled([...outstanding]).then(() => settle({ ...summary, config: { ratePerSecond, maxInFlight, maxTotal, maxMs } }))
   }
 
   const sendOne = () => {
@@ -58,7 +79,10 @@ export function startNodeFillers({ base, path, prefix, ratePerSecond, maxInFligh
         if (err && err.name === 'AbortError') summary.aborted += 1
         else summary.failed += 1
       })
-      .finally(() => outstanding.delete(request))
+      .finally(() => {
+        outstanding.delete(request)
+        if (draining && outstanding.size === 0) end('maxTotal')
+      })
     outstanding.add(request)
   }
 
@@ -70,11 +94,16 @@ export function startNodeFillers({ base, path, prefix, ratePerSecond, maxInFligh
     if (stopped) return
     const now = Date.now()
     if (now - startedAt >= maxMs) return end('maxMs')
+    if (draining) return // the tick goes on only for the deadline above
     due += ((now - last) / 1000) * ratePerSecond
     last = now
     while (due >= 1 && !stopped) {
       due -= 1
-      if (summary.sent >= maxTotal) return end('maxTotal')
+      if (summary.sent >= maxTotal) {
+        if (outstanding.size === 0) return end('maxTotal')
+        draining = true
+        return
+      }
       if (outstanding.size >= maxInFlight) {
         due = Math.min(due, 1) // not owed later: a full pipe is the bound, not a debt
         break
@@ -85,10 +114,10 @@ export function startNodeFillers({ base, path, prefix, ratePerSecond, maxInFligh
   timer.unref?.()
 
   const handle = {
-    async stop() {
+    finished,
+    stop() {
       end('stop')
-      await Promise.allSettled([...outstanding])
-      return { ...summary, config: { ratePerSecond, maxInFlight, maxTotal, maxMs } }
+      return finished
     },
   }
   running.add(handle)
