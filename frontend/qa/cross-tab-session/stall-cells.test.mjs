@@ -36,3 +36,60 @@ test('an unknown cell is an error', () => {
   assert.throws(() => cellSettings('H13'), /unknown cell/)
   assert.deepEqual(cellSettings('P'), CELLS.P)
 })
+
+// --- what one invocation of the driver may be told ---------------------------------
+import { stallOptions } from './lib/stall-cells.mjs'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
+const env = (overrides = {}) => ({ QA_STALL_CELL: 'H21', QA_STALL_KIND: 'recorded', ...overrides })
+
+test('a recorded invocation runs the cell as the matrix has it, ten rounds, gated', () => {
+  assert.deepEqual(stallOptions(env()), {
+    cell: 'H21', kind: 'recorded', rounds: 10, settings: CELLS.H21,
+    mechanism: { gate: true, barrierMs: 10000, nudgePath: '/inventory/products' },
+  })
+})
+
+test('the mechanism is read from the environment', () => {
+  const options = stallOptions(env({ QA_STALL_GATE: '0', QA_STALL_BARRIER_MS: '4000', QA_STALL_NUDGE_PATH: '/sales/orders', QA_STALL_ROUNDS: '3' }))
+  assert.deepEqual(options.mechanism, { gate: false, barrierMs: 4000, nudgePath: '/sales/orders' })
+  assert.equal(options.rounds, 3)
+})
+
+test('calibration may change the hold and force the probe on; the cell table is not touched', () => {
+  const options = stallOptions(env({ QA_STALL_KIND: 'calibration', QA_STALL_HOLD_MS: '12000', QA_STALL_PROBE: '1' }))
+  assert.deepEqual(options.settings, { ...CELLS.H21, holdMs: 12000, probe: true })
+  assert.equal(CELLS.H21.holdMs, 21000)
+})
+
+for (const [name, overrides, message] of [
+  ['a hold override', { QA_STALL_HOLD_MS: '12000' }, /QA_STALL_HOLD_MS.*calibration/],
+  ['a probe override', { QA_STALL_PROBE: '1' }, /QA_STALL_PROBE.*calibration/],
+]) {
+  test(`a recorded invocation refuses ${name}`, () => {
+    assert.throws(() => stallOptions(env(overrides)), message)
+  })
+}
+
+for (const [name, overrides, message] of [
+  ['an unknown cell', { QA_STALL_CELL: 'H13' }, /unknown cell/],
+  ['no kind', { QA_STALL_KIND: undefined }, /QA_STALL_KIND/],
+  ['a kind that is neither', { QA_STALL_KIND: 'practice' }, /QA_STALL_KIND/],
+  ['zero rounds', { QA_STALL_ROUNDS: '0' }, /QA_STALL_ROUNDS/],
+  ['a gate that is not 0 or 1', { QA_STALL_GATE: 'yes' }, /QA_STALL_GATE/],
+  ['a nudge path that is not a path', { QA_STALL_NUDGE_PATH: 'inventory' }, /QA_STALL_NUDGE_PATH/],
+]) {
+  test(`${name} is refused`, () => {
+    assert.throws(() => stallOptions(env(overrides)), message)
+  })
+}
+
+test('the driver itself refuses a hold override on a recorded invocation, before it needs a stack', () => {
+  const run = spawnSync(process.execPath, [fileURLToPath(new URL('./diagnose-stall.mjs', import.meta.url))], {
+    env: { PATH: process.env.PATH, QA_STALL_CELL: 'H21', QA_STALL_KIND: 'recorded', QA_STALL_HOLD_MS: '12000' },
+    encoding: 'utf8',
+  })
+  assert.equal(run.status, 2)
+  assert.match(run.stderr, /QA_STALL_HOLD_MS/)
+})
