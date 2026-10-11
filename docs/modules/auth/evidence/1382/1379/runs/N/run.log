@@ -1,0 +1,291 @@
+ Image erp-frontend:latest Building 
+ Image erp-nginx:latest Building 
+ Image erp-backend:latest Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.52kB done
+#1 DONE 0.0s
+
+#2 [frontend internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.40kB done
+#2 DONE 0.2s
+
+#3 [backend internal] load build definition from Dockerfile
+#3 transferring dockerfile: 2.19kB 0.0s done
+#3 DONE 0.2s
+
+#4 [frontend internal] load metadata for docker.io/library/nginx:1.30.0-alpine3.23-slim
+#4 DONE 0.0s
+
+#5 [nginx internal] load build definition from Dockerfile
+#5 transferring dockerfile: 109B done
+#5 DONE 0.2s
+
+#6 [backend internal] load metadata for docker.io/library/node:24.16.0-alpine3.23
+#6 DONE 0.0s
+
+#7 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#7 ...
+
+#4 [nginx internal] load metadata for docker.io/library/nginx:1.30.0-alpine3.23-slim
+#4 DONE 0.0s
+
+#8 [nginx internal] load .dockerignore
+#8 transferring context: 2B done
+#8 DONE 0.1s
+
+#9 [nginx 1/2] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#9 DONE 0.0s
+
+#10 [backend internal] load .dockerignore
+#10 transferring context: 1.01kB done
+#10 DONE 0.2s
+
+#11 [backend deps 1/4] FROM docker.io/library/node:24.16.0-alpine3.23
+#11 DONE 0.0s
+
+#12 [nginx internal] load build context
+#12 transferring context: 13.73kB done
+#12 DONE 0.1s
+
+#13 [backend internal] load build context
+#13 ...
+
+#14 [nginx 2/2] COPY nginx.conf /etc/nginx/nginx.conf
+#14 CACHED
+
+#15 [nginx] exporting to image
+#15 exporting layers done
+#15 writing image sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f done
+#15 naming to docker.io/library/erp-nginx:latest done
+#15 DONE 0.0s
+
+#13 [backend internal] load build context
+#13 ...
+
+#16 [nginx] resolving provenance for metadata file
+#16 DONE 0.0s
+
+#13 [backend internal] load build context
+#13 transferring context: 4.06MB 0.5s done
+#13 DONE 0.6s
+
+#17 [backend deps 2/4] WORKDIR /app
+#17 CACHED
+
+#18 [backend production  9/10] RUN chmod +x docker-entrypoint.sh
+#18 CACHED
+
+#19 [backend production  7/10] COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
+#19 CACHED
+
+#20 [backend builder 4/5] COPY . .
+#20 CACHED
+
+#21 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#21 CACHED
+
+#22 [backend production  8/10] COPY --chown=nestjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
+#22 CACHED
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 CACHED
+
+#24 [backend production  2/10] RUN apk update && apk upgrade &&     apk add --no-cache curl postgresql18-client dumb-init &&     rm -rf /var/cache/apk/* &&     rm -rf /usr/local/lib/node_modules/npm &&     rm -f /usr/local/bin/npm /usr/local/bin/npx
+#24 CACHED
+
+#25 [backend production  5/10] COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+#25 CACHED
+
+#26 [backend deps 3/4] COPY package*.json ./
+#26 CACHED
+
+#27 [backend builder 3/5] COPY --from=deps /app/node_modules ./node_modules
+#27 CACHED
+
+#28 [backend production  6/10] COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+#28 CACHED
+
+#29 [backend production  3/10] RUN addgroup -g 1001 -S nodejs &&     adduser -S nestjs -u 1001 -G nodejs
+#29 CACHED
+
+#30 [backend production  4/10] WORKDIR /app
+#30 CACHED
+
+#31 [backend production 10/10] RUN mkdir -p uploads logs backups/{postgresql,redis,settings,archives,temp,uploads} &&     chown -R nestjs:nodejs uploads logs backups
+#31 CACHED
+
+#32 [backend] exporting to image
+#32 exporting layers done
+#32 writing image sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4 done
+#32 naming to docker.io/library/erp-backend:latest done
+#32 DONE 0.0s
+
+#7 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#7 ...
+
+#33 [backend] resolving provenance for metadata file
+#33 DONE 0.0s
+
+#7 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#7 DONE 1.8s
+
+#34 [frontend internal] load .dockerignore
+#34 transferring context: 755B done
+#34 DONE 0.1s
+
+#35 [frontend builder 1/7] FROM docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+#35 DONE 0.0s
+
+#9 [frontend production 1/6] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#9 DONE 0.0s
+
+#36 [frontend internal] load build context
+#36 transferring context: 5.65MB 0.3s done
+#36 DONE 0.4s
+
+#37 [frontend builder 7/7] RUN npm run build
+#37 CACHED
+
+#38 [frontend builder 3/7] COPY package*.json ./
+#38 CACHED
+
+#39 [frontend production 5/6] COPY docker-entrypoint.sh /docker-entrypoint.sh
+#39 CACHED
+
+#40 [frontend builder 4/7] RUN npm ci
+#40 CACHED
+
+#41 [frontend production 3/6] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#41 CACHED
+
+#42 [frontend production 4/6] COPY --from=builder /app/dist /usr/share/nginx/html
+#42 CACHED
+
+#43 [frontend builder 2/7] WORKDIR /app
+#43 CACHED
+
+#44 [frontend builder 5/7] RUN npm install @rollup/rollup-linux-x64-musl --save-optional
+#44 CACHED
+
+#45 [frontend builder 6/7] COPY . .
+#45 CACHED
+
+#46 [frontend production 2/6] RUN apk update &&     apk upgrade &&     apk add --no-cache curl
+#46 CACHED
+
+#47 [frontend production 6/6] RUN chmod +x /docker-entrypoint.sh
+#47 CACHED
+
+#48 [frontend] exporting to image
+#48 exporting layers done
+#48 writing image sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d done
+#48 naming to docker.io/library/erp-frontend:latest done
+#48 DONE 0.0s
+
+#49 [frontend] resolving provenance for metadata file
+#49 DONE 0.0s
+ Image erp-backend:latest Built 
+ Image erp-nginx:latest Built 
+ Image erp-frontend:latest Built 
+ Container erp_postgres Running 
+ Container erp_redis Running 
+ Container erp_frontend Running 
+ Container erp_nginx Running 
+ Container erp_backend Recreate 
+ Container erp_backend Recreated 
+ Container erp_redis Waiting 
+ Container erp_postgres Waiting 
+ Container erp_redis Healthy 
+ Container erp_postgres Healthy 
+ Container erp_backend Starting 
+ Container erp_backend Started 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_backend Waiting 
+ Container erp_frontend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Healthy 
+verify ok: observed access lifetime 20 s, configured 20s
+qa-up ok (access=20s, grace=5, sha=794d2e321b54f19120bfa7ee1fd631eccc21aaaf)
+
+[1] Two-tab sign-out
+    ok   tab A shows the login page
+    ok   tab B shows the login page within 5 s
+    ok   a session-channel message reached tab B after the sign-out began and before its redirect
+    ok   tab B's next status poll was not yet due when it was redirected
+    ok   tab B sent no request between the sign-out and its redirect
+    ok   tab B no longer shows the signed-in application
+    ok   tab B was not reloaded
+    ok   the stored record is signed-out
+  => pass (37 s)
+
+[3] Drafts
+    ok   tab B's draft is gone within 5 s
+    ok   tab B shows the login page
+    ok   a session-channel message reached tab B after the sign-out began and before its redirect
+    ok   tab B's next status poll was not yet due when it was redirected
+    ok   tab B sent no request between the sign-out and its redirect
+    ok   tab B was not reloaded
+  => pass (35 s)
+
+2 of 2 passed; sign-in waits 0; wrote /scratch/results-cases.json
+ Container erp_frontend Running 
+ Container erp_nginx Running 
+ Container erp_postgres Running 
+ Container erp_redis Running 
+ Container erp_backend Recreate 
+ Container erp_backend Recreated 
+ Container erp_postgres Waiting 
+ Container erp_redis Waiting 
+ Container erp_redis Healthy 
+ Container erp_postgres Healthy 
+ Container erp_backend Starting 
+ Container erp_backend Started 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_backend Waiting 
+ Container erp_frontend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Healthy 
+restore ok (access=15m, grace=60)
+M1: one raw read, one tab idle
+M2: one raw read, four tabs busy, a fifth writing every 100 ms
+M3-M5: oneTab
+M3-M5: fourTabs
+  ok   M1 (blocking): median p95 2.7 ms, threshold 5 ms, max 25.8 ms
+  ok   M2 (blocking): median p95 6.1 ms, threshold 15 ms, max 42.7 ms
+  diag M3 one tab (diagnostic, not judged): median p95 111.9 ms, max 133.8 ms; former provisional target 10 ms, not met
+  diag M3 four tabs (diagnostic, not judged): median p95 277.8 ms, max 707 ms; former provisional target 20 ms, not met
+  diag M4 one tab (diagnostic, not judged): median p95 150.4 ms, max 169 ms; former provisional target 10 ms, not met
+  diag M4 four tabs (diagnostic, not judged): median p95 431.8 ms, max 879.8 ms; former provisional target 20 ms, not met
+  The 10 / 20 ms targets for M3 and M4 were provisional and were replaced on 2026-10-06, not met. Run 582096992 failed them: M3 99 / 330.1 ms, M4 205.3 / 603.3 ms (one tab / four tabs), exit status 1.
+  measured loads answered 429: 0 of 125 (one tab), 0 of 500 (four tabs)
+  M5 (diagnostic): Requests on a page overlap, so the sum of their gate waits is not the time the gate adds to the page load; it is an upper bound on it.
+wrote /scratch/results-latency.json
+
+=== cross-tab session run ===
+commit 794d2e321b54f19120bfa7ee1fd631eccc21aaaf   exit status 0   stack restored: yes
+  NOT A RECORDED RUN: only 1, 3: not a recorded run
+  before access 15m, grace 60, build 794d2e321b54f19120bfa7ee1fd631eccc21aaaf
+  during access 20s, grace 5, build 794d2e321b54f19120bfa7ee1fd631eccc21aaaf
+  after  access 15m, grace 60, build 794d2e321b54f19120bfa7ee1fd631eccc21aaaf
+  case  1 pass  Two-tab sign-out
+  case  3 pass  Drafts
+  2 of 2 cases passed (PARTIAL: only 1, 3: not a recorded run)
+  W1: not run
+  latency pass (M1 and M2 only; M3 and M4 are diagnostic and were not judged)
+     ok   M1 (blocking): median p95 2.7 ms, threshold 5 ms, max 25.8 ms
+     ok   M2 (blocking): median p95 6.1 ms, threshold 15 ms, max 42.7 ms
+     diag M3 one tab (diagnostic, not judged): median p95 111.9 ms, max 133.8 ms; former provisional target 10 ms, not met
+     diag M3 four tabs (diagnostic, not judged): median p95 277.8 ms, max 707 ms; former provisional target 20 ms, not met
+     diag M4 one tab (diagnostic, not judged): median p95 150.4 ms, max 169 ms; former provisional target 10 ms, not met
+     diag M4 four tabs (diagnostic, not judged): median p95 431.8 ms, max 879.8 ms; former provisional target 20 ms, not met
+     The 10 / 20 ms targets for M3 and M4 were provisional and were replaced on 2026-10-06, not met. Run 582096992 failed them: M3 99 / 330.1 ms, M4 205.3 / 603.3 ms (one tab / four tabs), exit status 1.
+     (not blocking) M3 one tab: max 133.8 ms
+     (not blocking) M3 four tabs: max 707 ms
+     (not blocking) M4 one tab: max 169 ms
+     (not blocking) M4 four tabs: max 879.8 ms
+     measured loads answered 429: 0 of 125 (one tab), 0 of 500 (four tabs)
+     competing workload: No container was restarting on the host when the list was taken.
+  sign-in waits: 0   results: /scratch/results.json
+run complete: status=0; results in /tmp/opencode/erp-session-qa/results.json

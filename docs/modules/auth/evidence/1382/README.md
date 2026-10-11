@@ -90,6 +90,12 @@ numbered in order of first appearance across the files in path order and mean
 nothing else. Docker's bridge address (`172.18.0.1`), which is the client
 address the ingress saw, is left as it is.
 
+The run logs and ingress logs (`run.log`, `ingress-access.log.gz`, 32 files)
+were not in PR #1382: the repository's `.gitignore` excludes `*.log` and
+`*.log.*`, and they were left out without an error. They were added
+afterwards, already redacted, with `git add -f`; the LAN address they held was
+therefore never published.
+
 No password and no token was ever in these files: the directories were
 searched for the QA passwords and for anything shaped like a JWT before they
 were copied. **The unredacted values were in this branch for one commit**
