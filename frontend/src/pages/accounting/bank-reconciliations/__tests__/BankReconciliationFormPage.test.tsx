@@ -846,6 +846,106 @@ describe('BankReconciliationFormPage', () => {
       expect(screen.queryByText('OLDER')).not.toBeInTheDocument()
       expect(screen.getByText('NEWER')).toBeInTheDocument()
     })
+
+    // #1372: work still pending at unmount fired after jsdom had been torn down
+    // for the file and failed a run whose tests had all passed.
+    describe('after unmount', () => {
+      // React reads `window.event` to pick a priority whenever a state setter is
+      // called, mounted or not. That read is the frame that threw in #1372, so
+      // counting it shows whether a setter ran.
+      function countStateSetterCalls() {
+        const read = vi.fn()
+        Object.defineProperty(window, 'event', { configurable: true, get: read })
+        return read
+      }
+
+      afterEach(() => {
+        delete (window as any).event
+      })
+
+      it.each([
+        ['checklist', 'Search transactions...'],
+        ['setup', 'Search setup entries...'],
+      ])('a debounced %s search is cancelled', async (view, placeholder) => {
+        mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+        const { unmount } = renderEdit()
+        const input = await screen.findByPlaceholderText(placeholder)
+        await wait(300)
+
+        fireEvent.change(input, { target: { value: 'pending' } })
+        unmount()
+        const setterCalls = countStateSetterCalls()
+
+        await wait(400)
+        expect(
+          mockSearchLines.mock.calls.filter(([a]) => a.view === view && a.search === 'pending'),
+        ).toHaveLength(0)
+        expect(setterCalls).not.toHaveBeenCalled()
+      })
+
+      it('a debounced preview is cancelled', async () => {
+        mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+        const { unmount } = renderEdit()
+        await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(1))
+        const checkbox = await screen.findByRole('checkbox', { name: /^Select JE-001,/ })
+        await wait(400)
+
+        fireEvent.click(checkbox)
+        unmount()
+        const setterCalls = countStateSetterCalls()
+
+        await wait(600)
+        expect(mockPreview).toHaveBeenCalledTimes(1)
+        expect(setterCalls).not.toHaveBeenCalled()
+      })
+
+      it.each([
+        ['checklist', 'Search transactions...'],
+        ['setup', 'Search setup entries...'],
+      ])('a %s search still in flight sets no state', async (view, placeholder) => {
+        const inFlight = deferred<ReturnType<typeof searchResult>>()
+        mockSearchLines.mockImplementation((arg: any) =>
+          arg.view === view && arg.search === 'pending'
+            ? inFlight.promise
+            : Promise.resolve({ data: [], meta: { total: 0, page: 1, limit: 25 } }),
+        )
+        mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+        const { unmount } = renderEdit()
+        const input = await screen.findByPlaceholderText(placeholder)
+
+        fireEvent.change(input, { target: { value: 'pending' } })
+        await waitFor(() =>
+          expect(
+            mockSearchLines.mock.calls.filter(([a]) => a.view === view && a.search === 'pending'),
+          ).toHaveLength(1),
+        )
+        await wait(400)
+        unmount()
+        const setterCalls = countStateSetterCalls()
+
+        await act(async () => { inFlight.resolve(searchResult('LATE')) })
+        await wait(50)
+        expect(setterCalls).not.toHaveBeenCalled()
+      })
+
+      it('a preview still in flight sets no state', async () => {
+        mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+        const { unmount } = renderEdit()
+        await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(1))
+
+        const inFlight = deferred<PreviewResultDto>()
+        mockPreview.mockReturnValueOnce(inFlight.promise)
+        fireEvent.change(screen.getByLabelText('Period To'), { target: { value: '2026-01-20' } })
+        await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(2))
+        await wait(400)
+        unmount()
+        const setterCalls = countStateSetterCalls()
+
+        await act(async () => { inFlight.resolve(previewWith('JE-LATE')) })
+        await wait(50)
+        expect(setterCalls).not.toHaveBeenCalled()
+      })
+    })
   })
 
   it('accepts negative opening and closing balances', async () => {

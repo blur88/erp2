@@ -585,10 +585,37 @@ jobs:
       # coverage in the same pass, so a second run would just double a ~30 minute
       # job. AGENTS.md requires the coverage gate for frontend changes; this is
       # what enforces it.
+      # `shell: bash` runs with pipefail, so `tee` cannot hide the suite's exit code.
       - name: Tests with coverage
-        run: npm run test:coverage
+        shell: bash
+        run: npm run test:coverage 2>&1 | tee "$RUNNER_TEMP/frontend-tests.log"
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+
+      # An error raised outside any test (a timer firing after jsdom teardown,
+      # #1364 and #1372) fails the run under a fully passing count, and Vitest
+      # prints it thousands of lines above the end of the log. This repeats that
+      # block as an annotation and in the job summary. It reports only; the exit
+      # code above is the gate and nothing here changes it.
+      - name: Report errors raised outside any test
+        if: failure()
+        shell: bash
+        run: |
+          log="$RUNNER_TEMP/frontend-tests.log"
+          [ -f "$log" ] || exit 0
+          block="$(sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g' "$log" | sed -n '/Unhandled Errors/,/^ *Errors /p')"
+          [ -n "$block" ] || exit 0
+          origins="$(printf '%s\n' "$block" | grep -oE 'originated in "[^"]+"' | sort -u | tr '\n' ' ' || true)"
+          echo "::error title=Frontend tests failed on an error raised outside any test::${origins:-No origin file was reported.} The test counts may all read passed; see the job summary for the stack."
+          {
+            echo '### Errors raised outside any test'
+            echo
+            echo 'These fail the run even when every test passed. A rerun that passes does not resolve them.'
+            echo
+            echo '```'
+            printf '%s\n' "$block"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage report
         if: always()
