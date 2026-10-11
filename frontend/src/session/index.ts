@@ -7,7 +7,7 @@ import { registerSessionRuntime } from './registry'
 import type { SessionStore } from './store/sessionStore'
 import type { ActiveSession, StoredState } from './types'
 import { StorageUnavailableError } from './types'
-import { store, apiSlices } from '@/store'
+import { store, apiSlices, restoreSlices } from '@/store'
 import {
   sessionEstablished,
   tokensUpdated,
@@ -66,6 +66,9 @@ const events: RuntimeEvents = {
   },
   storageWaiting(waiting) {
     store.dispatch(storageWaiting(waiting))
+  },
+  slicesRecovered(json) {
+    restoreSlices(json)
   },
 }
 

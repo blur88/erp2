@@ -403,6 +403,46 @@ describe('session runtime — a start-up read that times out', () => {
     expect(a.channelPost).not.toHaveBeenCalled()
   })
 
+  // redux-persist rehydrated with nothing while the tab waited (#1362).
+  it('retrying hands over the slices stored for the session, after the session is established', async () => {
+    const { h, a, b } = await startedWhileBusy()
+    h.shared.state = { ...h.shared.state, slices: { sessionId: b.runtime.claim() as string, json: '{"n":1}' } }
+
+    await a.runtime.retryStart()
+
+    expect(a.events.slicesRecovered).toHaveBeenCalledTimes(1)
+    expect(a.events.slicesRecovered).toHaveBeenCalledWith('{"n":1}')
+    expect(vi.mocked(a.events.sessionEstablished).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(a.events.slicesRecovered).mock.invocationCallOrder[0],
+    )
+  })
+
+  it('retrying hands over no slices tagged with another session, and none when there are none', async () => {
+    const { h, a } = await startedWhileBusy()
+    h.shared.state = { ...h.shared.state, slices: { sessionId: 'sess-older', json: '{"n":1}' } }
+    await a.runtime.retryStart()
+    expect(a.runtime.status()).toBe('signed-in')
+    expect(a.events.slicesRecovered).not.toHaveBeenCalled()
+
+    const second = await startedWhileBusy()
+    await second.a.runtime.retryStart()
+    expect(second.a.events.slicesRecovered).not.toHaveBeenCalled()
+  })
+
+  // redux-persist reads them itself when the start-up read answers.
+  it('a start that answers hands over no slices', async () => {
+    const h = createHarness()
+    const b = h.createTab('B')
+    await b.runtime.start()
+    await b.runtime.signIn({ usernameOrEmail: 'b', password: 'p' })
+    h.shared.state = { ...h.shared.state, slices: { sessionId: b.runtime.claim() as string, json: '{"n":1}' } }
+    const a = h.createTab('A')
+    await a.runtime.start()
+
+    expect(a.runtime.status()).toBe('signed-in')
+    expect(a.events.slicesRecovered).not.toHaveBeenCalled()
+  })
+
   it('retrying with nothing stored is signed-out', async () => {
     const { a } = await startedWhileBusy({ stored: false })
 

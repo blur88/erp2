@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { loadApp, storedSession, type LoadAppOptions } from '@/session/__tests__/appHarness'
+import { loadApp, persistedPayload, storedSession, type LoadAppOptions } from '@/session/__tests__/appHarness'
 import { draftKey } from '@/pages/accounting/bank-reconciliations/reconciliationDraftStorage'
 
 const idleHandlers: { onTimeout?: () => void } = {}
@@ -158,6 +158,92 @@ describe('RootLayout reconciliation drafts', () => {
       expect(app.sessionRuntime.status()).toBe('signed-in')
       expect(app.sessionRuntime.claim()).toBe('sess-stored')
       expect(sessionStorage.getItem(key)).not.toBeNull()
+    })
+
+    // redux-persist rehydrates once, while the tab is still waiting, and gets
+    // nothing. The session's stored notifications reach the tab at recovery (#1362).
+    describe('notifications stored for the session', () => {
+      const storedNotification = (id: string, read = false) => ({
+        id,
+        type: 'info' as const,
+        title: id,
+        message: '',
+        timestamp: `2026-01-01T00:00:0${id.slice(-1)}.000Z`,
+        read,
+      })
+      const slicesFor = (sessionId: string, json: string) => ({ sessionId, json })
+      const storedList = [storedNotification('stored-2'), storedNotification('stored-1', true)]
+      const storedJson = persistedPayload({ notifications: { notifications: storedList, unreadCount: 1 } })
+      const ids = (app: Awaited<ReturnType<typeof loadApp>>) =>
+        app.store.getState().notifications.notifications.map((n) => n.id)
+      const storedIds = (app: Awaited<ReturnType<typeof loadApp>>) => {
+        const slices = app.shared.state.slices
+        if (!slices) return null
+        const list = JSON.parse(JSON.parse(slices.json).notifications).notifications as Array<{ id: string }>
+        return list.map((n) => n.id)
+      }
+      const add = async (app: Awaited<ReturnType<typeof loadApp>>, title: string) => {
+        const { addNotification } = await import('@/store/slices/notificationSlice')
+        act(() => {
+          app.store.dispatch(addNotification({ type: 'info', title, message: '' }))
+        })
+        return app.store.getState().notifications.notifications[0].id
+      }
+
+      it('are shown after the recovery, and a later change is stored with them', async () => {
+        const { app } = await renderWaiting({ ...withSession, slices: slicesFor('sess-stored', storedJson) })
+        expect(ids(app)).toEqual([])
+        const whileWaiting = await add(app, 'raised while waiting')
+
+        tryAgain()
+        await waitFor(() => expect(app.store.getState().auth.isAuthenticated).toBe(true))
+
+        // Before anything else changes: the stored list is there, under the one
+        // the tab raised while it waited.
+        expect(ids(app)).toEqual([whileWaiting, 'stored-2', 'stored-1'])
+        expect(app.store.getState().notifications.unreadCount).toBe(2)
+
+        const afterRecovery = await add(app, 'raised after recovery')
+        await app.persistor.flush()
+
+        expect(app.shared.state.slices?.sessionId).toBe('sess-stored')
+        expect(storedIds(app)).toEqual([afterRecovery, whileWaiting, 'stored-2', 'stored-1'])
+      })
+
+      it('are not taken from another session', async () => {
+        const { app } = await renderWaiting({ ...withSession, slices: slicesFor('sess-older', storedJson) })
+
+        tryAgain()
+        await waitFor(() => expect(app.store.getState().auth.isAuthenticated).toBe(true))
+
+        expect(ids(app)).toEqual([])
+      })
+
+      it('that cannot be parsed leave the tab signed in with its own list', async () => {
+        const { app } = await renderWaiting({ ...withSession, slices: slicesFor('sess-stored', '{not json') })
+        const whileWaiting = await add(app, 'raised while waiting')
+
+        tryAgain()
+        await waitFor(() => expect(app.store.getState().auth.isAuthenticated).toBe(true))
+
+        expect(app.sessionRuntime.status()).toBe('signed-in')
+        expect(app.store.getState().auth.storageUnavailable).toBe(false)
+        expect(ids(app)).toEqual([whileWaiting])
+      })
+
+      it('are neither read nor written by a tab that recovers signed-out', async () => {
+        const stale = slicesFor('sess-gone', storedJson)
+        const { app } = await renderWaiting({ record: { revision: 4, session: null }, slices: stale })
+        await add(app, 'raised while waiting')
+
+        tryAgain()
+        await waitFor(() => expect(app.sessionRuntime.status()).toBe('signed-out'))
+        await add(app, 'raised signed out')
+        await app.persistor.flush()
+
+        expect(ids(app)).not.toContain('stored-2')
+        expect(app.shared.state.slices).toEqual(stale)
+      })
     })
 
     it('retry finds no session: the tab is signed-out and the draft is cleared', async () => {
