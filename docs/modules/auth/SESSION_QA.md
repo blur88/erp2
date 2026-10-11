@@ -2318,7 +2318,7 @@ that ten and twenty stayed controls.
 | 3 | `N = 5 (a): no in-app recovery action` | Harness: one tab's six dashboard data requests answered 500 while the round loaded, and no longer once the tabs were checked | Named check failed: one action, in that tab. Nothing else failed: the round trip brought the data and all five tabs were usable | as expected |
 | 4 | `N = 5 (c) attempt 1: the sign-out sent a logout and it was answered 2xx` | Harness: `POST /api/auth/logout` answered 500 | Named check failed, detail `[500]`. Nothing else failed; all five tabs were on the login page | as expected |
 | 5a | `N = 5 (c) attempt 1: every tab is on the login page after the sign-out, without a reload` ("without a reload") | Harness: one tab reloaded after the sign-out | Named check failed: that tab `onLoginPage: true, sameDocument: false`. Nothing else failed | as expected |
-| 5b | the same check ("on the login page") | Harness: one tab taken to `/manifest.json` after the sign-out | Named check failed: that tab `onLoginPage: false`, at `/manifest.json` (and, being another document, `sameDocument: false`). Nothing else failed | as expected |
+| 5b | the same check ("on the login page") | Harness: one tab taken to `/manifest.json` after the sign-out | Named check failed: that tab `onLoginPage: false`, at `/manifest.json`, **and `sameDocument: false`**, since the static document is another document. Nothing else failed | the verdict as expected; the expectation did not foresee that both halves would be violated (below) |
 | 6 | `N = 20 was run` | Harness: sizes 5 and 10 only | Named check failed. Nothing else failed (23 checks) | as expected |
 | 7 | `N = 5 (a): the access token was current when the tabs opened` | Harness: the token waited out before the tabs opened | Named check failed, 1504 ms past expiry. Nothing else failed | as expected |
 | 8 | `N = 5 (b): every tab did start with an expired access token` | Harness: the session renewed just before the tabs opened | Named check failed. Nothing else failed | as expected |
@@ -2342,6 +2342,15 @@ apart.
   ingress's. For 5a and 5b no fault through the application was attempted:
   removing the channel in one tab would not do it, by reading, since the round
   waits 60 s for each tab and a poll comes every 30 s.
+- **Run 5b does not establish the "on the login page" half by itself.** The
+  tab it moved violated both conditions of the check: it was not on the login
+  page and it was not the document it first loaded. So 5b shows that the
+  combined check fails for such a tab, and it would have failed in the same
+  way had the check tested `sameDocument` alone. Run 5a isolates the other
+  half (on the login page, another document). A tab that is still the document
+  it loaded and is not on the login page was not produced: the harness has no
+  way to hold an application tab off the login page without replacing its
+  document, and by reading the application does not leave one there.
 - **Not run:** the completion deadline, which blocks at no size
   (`DEADLINE_BLOCKING_SIZES` is empty).
 
@@ -2352,7 +2361,9 @@ apart.
   harness sent from the tab (B2). It was not seen to fail on a request the
   application sent, because the application sent none (B1).
 - W1: a baseline through the override path, then one forced failure for each of
-  the eight blocking checks, every one failing as written beforehand.
+  the eight blocking checks, every one failing as written beforehand. For the
+  login-page check, the "without a reload" half was failed alone (5a); the "on
+  the login page" half was failed only together with it (5b).
 - No check was found that could not be made to fail by any means, and none was
   removed. One condition could not be produced by the application: the one in
   (b) above.
