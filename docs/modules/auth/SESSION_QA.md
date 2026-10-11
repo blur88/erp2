@@ -2347,10 +2347,9 @@ apart.
   page and it was not the document it first loaded. So 5b shows that the
   combined check fails for such a tab, and it would have failed in the same
   way had the check tested `sameDocument` alone. Run 5a isolates the other
-  half (on the login page, another document). A tab that is still the document
-  it loaded and is not on the login page was not produced: the harness has no
-  way to hold an application tab off the login page without replacing its
-  document, and by reading the application does not leave one there.
+  half (on the login page, another document). No mutation in this experiment
+  produced a tab that remained in its original document but stayed off the
+  login page.
 - **Not run:** the completion deadline, which blocks at no size
   (`DEADLINE_BLOCKING_SIZES` is empty).
 
