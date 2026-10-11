@@ -38,6 +38,7 @@ export const E2E_ADMIN_USERNAMES = {
   transitions: `${SHARED_E2E_NS}_transitions_admin`,
   precision: `${SHARED_E2E_NS}_precision_admin`,
   fulfilledMetrics: `${SHARED_E2E_NS}_fulfilled_metrics_admin`,
+  customerPermanentDelete: `${SHARED_E2E_NS}_customer_permdel_admin`,
 } as const;
 
 export const E2E_ADMIN_PASSWORD = "Admin@123!";
