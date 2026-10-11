@@ -38,10 +38,14 @@ function serveLikeBackend() {
 }
 
 // A fresh store per render so no cached response can mask a failed request.
+// Notifications are batched per microtask, not per animation frame: the default
+// pairs each frame with a 100 ms fallback timer that RTK gives no way to cancel,
+// and one still pending when jsdom is torn down throws there (#1364).
 function renderWithStore(ui: ReactElement) {
   const store = configureStore({
     reducer: { [priceListApiSlice.reducerPath]: priceListApiSlice.reducer },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(priceListApiSlice.middleware),
+    enhancers: (getDefaultEnhancers) => getDefaultEnhancers({ autoBatch: { type: 'tick' } }),
   })
   return render(<Provider store={store}>{ui}</Provider>)
 }

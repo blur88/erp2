@@ -450,6 +450,21 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     runSetupSearch,
   ])
 
+  // A pending timer or an in-flight request must not set state after unmount
+  // (#1372). Bumping the counters makes a response that is still in flight
+  // fail its `seq` check, the same way a newer request would.
+  useEffect(
+    () => () => {
+      if (previewTimerRef.current) clearTimeout(previewTimerRef.current)
+      if (checklistDebounceRef.current) clearTimeout(checklistDebounceRef.current)
+      if (setupDebounceRef.current) clearTimeout(setupDebounceRef.current)
+      previewSeqRef.current++
+      checklistSeqRef.current++
+      setupSeqRef.current++
+    },
+    [],
+  )
+
   // Handlers for Checklist & Setup
   const handleToggleMatched = useCallback((line: ReconciliationLineDto) => {
     setForm((f) => toggleMatched(f, line))
