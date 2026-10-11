@@ -186,6 +186,17 @@ describe('Customer permanent deletion is refused while payments exist (#1368, e2
 
     expect(res.body.code).toBe(CODE);
     expect(res.body.message).toBe(refusalMessage(customer, 'sales orders and payments'));
+    // DetailedErrorFilter would forward the whole exception body for this code;
+    // HttpExceptionFilter answers instead. The counts stay out of the response.
+    expect(Object.keys(res.body).sort()).toEqual([
+      'code',
+      'error',
+      'message',
+      'method',
+      'path',
+      'statusCode',
+      'timestamp',
+    ]);
     expect(body.code).toBe(CODE);
     expect(body.dependencies).toEqual({ orders: 1, payments: 2 });
     expect(await customerExists(customer.id)).toBe(true);

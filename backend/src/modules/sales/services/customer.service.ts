@@ -750,8 +750,7 @@ export class CustomerService extends BaseCrudService<
         dependencies,
         details: `Customer '${customer.name}' (${customer.id}) has ${describePermanentDeleteDependencies(dependencies)}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
         suggestions: [
-          'Permanent deletion stays blocked for as long as these records exist',
-          'Leave the customer soft-deleted to keep it hidden',
+          'Keep this customer soft-deleted to preserve its history and keep it hidden.',
         ],
       };
 

@@ -618,6 +618,7 @@ describe('CustomerService', () => {
         message: "Cannot permanently delete customer 'Customer c-1' because it has payments",
         code: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
         dependencies: { orders: 0, payments: 2 },
+        suggestions: ['Keep this customer soft-deleted to preserve its history and keep it hidden.'],
       });
       expect(salesOrderRepository.createQueryBuilder).not.toHaveBeenCalled();
       expect(customerRepository.delete).not.toHaveBeenCalled();
