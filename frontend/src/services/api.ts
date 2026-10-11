@@ -36,6 +36,14 @@ interface SessionConfig extends InternalAxiosRequestConfig {
   __gateId?: number
 }
 
+// Whether `config` is a request this client sent: the request interceptor
+// stamps every one, and no other client's config carries the stamp. An error
+// that leaves this client is not always about its own request: a refresh that
+// fails while a 401 is being handled is thrown as it is, with the refresh
+// request as its config.
+export const sentByApi = (config: unknown): boolean =>
+  typeof config === 'object' && config !== null && (config as SessionConfig).__sessionRef !== undefined
+
 // One original request is sent at most three times and triggers at most two refreshes.
 const MAX_SENDS = 3
 const MAX_REFRESHES = 2
