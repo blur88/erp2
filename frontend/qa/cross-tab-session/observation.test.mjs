@@ -56,7 +56,7 @@ test('a refresh sent late in the passive phase is followed past 65 s until it is
   assert.equal(nextStep(open, T0 + 31_000 + 80_000).action, 'wait')
   const done = passive({ refreshOps: [{ sentAt, completeAt: T0 + 31_000 + 81_000 }] })
   assert.deepEqual(nextStep(done, T0 + 31_000 + 81_000), {
-    phase: 2, action: 'end', flags: { passiveRefreshSeen: true, noRefreshAfterNudge: false, unfinishedAtCap: false },
+    phase: 2, action: 'end', flags: { passiveRefreshSeen: true, noRefreshAfterNudge: false, unfinishedAtCap: false, operationsOpenAtEnd: 0 },
   })
 })
 
@@ -65,7 +65,7 @@ const nudged = (overrides = {}) => passive({ nudgeAt: T0 + 96_000, ...overrides 
 test('no refresh within 20 s of the nudge ends the round and says so', () => {
   assert.equal(nextStep(nudged(), T0 + 96_000 + AFTER_NUDGE_MS - 1).action, 'wait')
   assert.deepEqual(nextStep(nudged(), T0 + 96_000 + AFTER_NUDGE_MS), {
-    phase: 3, action: 'end', flags: { passiveRefreshSeen: false, noRefreshAfterNudge: true, unfinishedAtCap: false },
+    phase: 3, action: 'end', flags: { passiveRefreshSeen: false, noRefreshAfterNudge: true, unfinishedAtCap: false, operationsOpenAtEnd: 0 },
   })
 })
 
@@ -186,4 +186,88 @@ test('a failed reset check is recorded and the round opens nothing', async () =>
   assert.deepEqual(result.resetChecks, { ok: false, failed: ['store-not-free'] })
   assert.ok(!calls.includes('navigate'))
   assert.ok(calls.includes('closeTabs'))
+})
+
+// --- found by the whole-branch review, before any round ran -----------------------
+
+test('a refresh that completes early in the passive phase does not end it: the 65 s are watched in full', () => {
+  const sentAt = T0 + 31_000 + 1_000
+  const early = passive({ refreshOps: [{ sentAt, completeAt: sentAt + 800 }] })
+  assert.equal(nextStep(early, T0 + 31_000 + 2_000).action, 'wait')
+  assert.equal(nextStep(early, T0 + 31_000 + PASSIVE_MS - 1).action, 'wait')
+  const ended = nextStep(early, T0 + 31_000 + PASSIVE_MS)
+  assert.equal(ended.action, 'end')
+  assert.equal(ended.flags.passiveRefreshSeen, true)
+})
+
+test('an operation left open from before the passive phase does not hold back the nudge, and is reported', () => {
+  // A landed round on the fixed build: both inline commits timed out and the
+  // response is held pending, with nothing yet to make the tab try again.
+  const pending = passive({ refreshOps: [{ sentAt: T0 + 9_900, completeAt: null }] })
+  assert.equal(nextStep(pending, T0 + 31_000 + PASSIVE_MS - 1).action, 'wait')
+  assert.equal(nextStep(pending, T0 + 31_000 + PASSIVE_MS).action, 'nudge')
+  const after = nextStep({ ...pending, nudgeAt: T0 + 96_000 }, T0 + 96_000 + AFTER_NUDGE_MS)
+  assert.equal(after.action, 'end')
+  assert.deepEqual(after.flags, { passiveRefreshSeen: false, noRefreshAfterNudge: true, unfinishedAtCap: false, operationsOpenAtEnd: 1 })
+})
+
+test('a refresh that completes right after the nudge does not end the round before its 20 s', () => {
+  const sentAt = T0 + 96_000 + 500
+  const quick = nudged({ refreshOps: [{ sentAt, completeAt: sentAt + 400 }] })
+  assert.equal(nextStep(quick, T0 + 96_000 + 2_000).action, 'wait')
+  assert.equal(nextStep(quick, T0 + 96_000 + AFTER_NUDGE_MS).action, 'end')
+})
+
+const leaseEv = (at, refreshId, acquired) => ev('lease-acquire', at, refreshId, { acquired, expiresAt: acquired ? at + 20_000 : null })
+
+test('a refresh sent without the lease is complete without a release it will never trace', () => {
+  const events = [
+    leaseEv(50, 1, false),
+    leaseEv(20_050, 1, false),
+    ev('refresh-sent', 20_100, 1, { presentedGeneration: 7 }),
+    ev('refresh-answered', 20_400, 1, { status: 'ok', returnedGeneration: 8 }),
+    ev('token-commit', 20_450, 1, { attempt: 1, outcome: 'written-both' }),
+    ev('pending-dropped', 20_451, 1, { reason: 'written' }),
+  ]
+  assert.equal(ops(events)[0].completeAt, 20_451)
+  const refused = [leaseEv(50, 2, false), ev('refresh-sent', 100, 2, { presentedGeneration: 7 }), ev('refresh-answered', 300, 2, { status: 'rejected', returnedGeneration: null })]
+  assert.equal(ops(refused)[0].completeAt, 300)
+})
+
+test('with the lease held, the release is still required', () => {
+  const events = [
+    leaseEv(50, 1, true),
+    ev('refresh-sent', 100, 1, { presentedGeneration: 7 }),
+    ev('refresh-answered', 400, 1, { status: 'ok', returnedGeneration: 8 }),
+    ev('token-commit', 450, 1, { attempt: 1, outcome: 'written-both' }),
+    ev('pending-dropped', 451, 1, { reason: 'written' }),
+  ]
+  assert.equal(ops(events)[0].completeAt, null)
+})
+
+test('a 200 that was not retained (no commit at all) is complete at its lease release', () => {
+  const events = [
+    leaseEv(50, 1, true),
+    ev('refresh-sent', 100, 1, { presentedGeneration: 7 }),
+    ev('refresh-answered', 400, 1, { status: 'ok', returnedGeneration: 8 }),
+    ev('lease-release', 430, 1, { outcome: 'released' }),
+  ]
+  assert.equal(ops(events)[0].completeAt, 430)
+})
+
+test('a 200 with no lease and no commit yet is not complete until a first attempt would have been traced', () => {
+  const events = [leaseEv(50, 1, false), ev('refresh-sent', 100, 1, { presentedGeneration: 7 }), ev('refresh-answered', 400, 1, { status: 'ok', returnedGeneration: 8 })]
+  assert.equal(refreshOperations([{ tab: 'X', events }], 400 + 5_999)[0].completeAt, null)
+  assert.equal(refreshOperations([{ tab: 'X', events }], 400 + 6_000)[0].completeAt, 6_400)
+})
+
+test('a pending entry dropped because storage became unavailable is complete with no release', () => {
+  const events = [
+    leaseEv(50, 1, true),
+    ev('refresh-sent', 100, 1, { presentedGeneration: 7 }),
+    ev('refresh-answered', 400, 1, { status: 'ok', returnedGeneration: 8 }),
+    ev('token-commit', 450, 1, { attempt: 1, outcome: 'unavailable' }),
+    ev('pending-dropped', 451, 1, { reason: 'storage-unavailable' }),
+  ]
+  assert.equal(ops(events)[0].completeAt, 451)
 })

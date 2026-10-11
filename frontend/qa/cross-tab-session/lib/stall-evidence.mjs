@@ -117,10 +117,14 @@ function injectionOf(round, events) {
   const answered = sent ? events.find((e) => e.type === 'refresh-answered' && e.tab === sent.tab && e.refreshId === sent.refreshId) : undefined
   const first = sent ? events.find((e) => e.type === 'token-commit' && e.tab === sent.tab && e.refreshId === sent.refreshId && e.attempt === 1) : undefined
   const activeBeforeAnswer = typeof hold.activeAt === 'number' && answered !== undefined && hold.activeAt < answered.at
+  // A refresh that left a tab before the holds were armed went unseen: the
+  // hold was not aimed at the round's first refresh after all.
+  const uncapturedRefresh = Array.isArray(round.uncapturedRefresh) ? round.uncapturedRefresh : []
   return {
     hold,
     activeBeforeAnswer,
-    landed: activeBeforeAnswer && first?.outcome === 'timeout',
+    uncapturedRefresh,
+    landed: activeBeforeAnswer && first?.outcome === 'timeout' && uncapturedRefresh.length === 0,
     refreshId: sent?.refreshId ?? null,
   }
 }
@@ -159,7 +163,8 @@ export function roundFacts(round, serverRows) {
     laterRefresh: laterRefreshOf(phases),
     stalePresentations: stalePresentations(round, serverRows, replayRows.length > 0),
     replay: replayRows,
-    sessionAlive: round?.sessionEnded !== true,
+    // null when the round ended before the stored record was read at its end.
+    sessionAlive: round?.sessionEnded === true ? false : round?.sessionEnded === false ? true : null,
     revokeReason: session?.revokeReason ?? null,
     tabsWithData: (Array.isArray(round?.perTab) ? round.perTab : []).filter((t) => t?.data2xx > 0).length,
     observation: {
@@ -167,6 +172,7 @@ export function roundFacts(round, serverRows) {
       noSupersession: phases?.noSupersession === true,
       noRefreshAfterNudge: phases?.noRefreshAfterNudge === true,
       unfinishedAtCap: phases?.unfinishedAtCap === true,
+      operationsOpenAtEnd: phases?.operationsOpenAtEnd ?? 0,
     },
   }
 }
@@ -180,6 +186,7 @@ export function judgeStallRound(round, serverRows, cell) {
   const reasons = []
   if (rows.coverage === 'unreadable') reasons.push('server-rows-unreadable')
   if (rows.coverage === 'partial') reasons.push('server-rows-partial')
+  if (facts.sessionAlive === null) reasons.push('round-not-collected')
   if (!completeness(round).complete) reasons.push('trace-incomplete')
   if (round?.resetChecks?.ok === false) reasons.push('reset-failed')
   if (round?.resourceLimit) reasons.push('resource-limit')
@@ -204,7 +211,9 @@ export function judgeStallRound(round, serverRows, cell) {
     supports = reading.supports
     const established = subVerdict === 'hypothesis-1-observed' || subVerdict === 'replay-other-path'
     cause = established && validity.valid ? 'demonstrated' : 'suspected'
-  } else if (rows.coverage !== 'usable') {
+  } else if (rows.coverage !== 'usable' || facts.sessionAlive === null) {
+    // No replay row was found, and either the server rows do not span the
+    // round or the round died before its own records were read.
     outcome = 'undetermined'
   } else if (!facts.sessionAlive) {
     outcome = 'session-ended-no-replay'
@@ -232,12 +241,15 @@ export function summariseCell(judgedRounds, cell) {
     for (const reason of round.validity.reasons) invalidReasons[reason] = (invalidReasons[reason] ?? 0) + 1
   }
   const valid = judgedRounds.filter((r) => r.validity.valid).length
+  const validOutcomes = {}
+  for (const round of judgedRounds.filter((r) => r.validity.valid)) validOutcomes[round.outcome] = (validOutcomes[round.outcome] ?? 0) + 1
   const replayCoverage = judgedRounds.filter((r) => r.coverage === 'replay-coverage').length
   const timeoutCoverage = judgedRounds.filter((r) => r.coverage !== null).length
   const replayCoverageFloorMet = holdCell ? replayCoverage >= COVERAGE_FLOOR : null
   return {
     rounds: judgedRounds.length,
     outcomes,
+    validOutcomes,
     valid,
     invalidReasons,
     landed: holdCell ? judgedRounds.filter((r) => r.facts.injection.landed === true).length : null,

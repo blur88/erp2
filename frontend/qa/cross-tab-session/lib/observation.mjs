@@ -12,13 +12,24 @@ export const NO_SUPERSESSION_MS = 60000
 
 const SETTLED_COMMITS = new Set(['written-both', 'written-access', 'discarded', 'session-mismatch'])
 
+// A first commit attempt is traced within the storage timeout (5 s) of the
+// answer. A 200 with no lease and no commit by then was not retained.
+const NOT_RETAINED_AFTER_MS = 6000
+
 /**
  * Every refresh the traces show, and when its operation was complete: for a
  * 200, the commit has an outcome, no pending entry is left holding it, and the
  * lease has been released; for a refusal or an error, the lease has been
  * released. `completeAt` is null until then.
+ *
+ * A release is required only of a refresh that held the lease: a tab that
+ * outwaits the lease sends without it and never traces a release. A 200 that
+ * the tab did not retain (it had signed out, or already held a pending
+ * response) has no commit at all and is complete at its release; without a
+ * lease either, it is complete once a first commit attempt would have been
+ * traced, which needs `now`.
  */
-export function refreshOperations(traces) {
+export function refreshOperations(traces, now = null) {
   const out = []
   for (const trace of Array.isArray(traces) ? traces : []) {
     const events = Array.isArray(trace?.events) ? trace.events : []
@@ -26,16 +37,26 @@ export function refreshOperations(traces) {
       const own = events.filter((e) => e.refreshId === sent.refreshId)
       const answered = own.find((e) => e.type === 'refresh-answered') ?? null
       const released = own.filter((e) => e.type === 'lease-release' && e.outcome !== 'skipped-pending').at(-1) ?? null
+      const lastAcquire = own.filter((e) => e.type === 'lease-acquire' && e.at <= sent.at).at(-1)
+      // With no lease-acquire traced at all the lease is taken as held: the
+      // release is then waited for, which errs toward watching longer.
+      const leaseHeld = lastAcquire === undefined || lastAcquire.acquired === true
+      const commits = own.filter((e) => e.type === 'token-commit')
+      const dropped = own.find((e) => e.type === 'pending-dropped')
+      // A tab that failed closed on storage writes nothing, so it releases nothing.
+      const releaseDue = leaseHeld && dropped?.reason !== 'storage-unavailable'
       let completeAt = null
-      if (answered && released) {
-        if (answered.status === 'ok') {
-          const commits = own.filter((e) => e.type === 'token-commit')
-          const dropped = own.find((e) => e.type === 'pending-dropped')
-          const heldPending = own.some((e) => e.type === 'lease-release' && e.outcome === 'skipped-pending')
-          const settled = commits.some((c) => SETTLED_COMMITS.has(c.outcome)) || dropped !== undefined || (commits.length > 0 && !heldPending)
-          if (settled) completeAt = Math.max(released.at, dropped?.at ?? 0, commits.at(-1)?.at ?? 0)
+      if (answered && (released || !releaseDue)) {
+        const releasedAt = released?.at ?? 0
+        if (answered.status !== 'ok') {
+          completeAt = Math.max(answered.at, releasedAt)
+        } else if (commits.length === 0 && dropped === undefined) {
+          if (released) completeAt = released.at
+          else if (now !== null && now >= answered.at + NOT_RETAINED_AFTER_MS) completeAt = answered.at + NOT_RETAINED_AFTER_MS
         } else {
-          completeAt = released.at
+          const heldPending = own.some((e) => e.type === 'lease-release' && e.outcome === 'skipped-pending')
+          const settled = commits.some((c) => SETTLED_COMMITS.has(c.outcome)) || dropped !== undefined || (commits.length > 0 && !heldPending && released !== null)
+          if (settled) completeAt = Math.max(releasedAt, dropped?.at ?? 0, commits.at(-1)?.at ?? 0)
         }
       }
       out.push({ tab: trace.tab, refreshId: sent.refreshId, sentAt: sent.at, answeredAt: answered?.at ?? null, status: answered?.status ?? null, completeAt })
@@ -51,17 +72,31 @@ export function refreshOperations(traces) {
  *   itself recorded: phase2StartedAt, noSupersession, nudgeAt.
  * Actions: `wait`; `enter-passive` (set phase2StartedAt and noSupersession);
  * `nudge` (nudge once and set nudgeAt); `end` (with the round's flags).
+ *
+ * The passive 65 s and the 20 s after the nudge are watched in full: a refresh
+ * that completes early does not end them, because another tab's stale
+ * presentation may still come. Each phase waits past its time only for
+ * operations sent in that phase. An operation left open from an earlier phase
+ * (a response held pending on the fixed build, with nothing yet to make its tab
+ * try again) does not hold back the nudge, which exists to provoke exactly that;
+ * it is counted in `operationsOpenAtEnd`.
  */
 export function nextStep(state, now) {
   const phase = state.nudgeAt !== null ? 3 : state.phase2StartedAt !== null ? 2 : 1
-  const inFlight = state.refreshOps.some((op) => op.completeAt === null)
+  const open = (ops) => ops.some((op) => op.completeAt === null)
   const sentIn = (from, to) => state.refreshOps.filter((op) => op.sentAt >= from && op.sentAt < to)
   const passiveOps = state.phase2StartedAt === null ? [] : sentIn(state.phase2StartedAt, state.nudgeAt ?? Infinity)
   const nudgeOps = state.nudgeAt === null ? [] : sentIn(state.nudgeAt, Infinity)
   const end = (extra = {}) => ({
     phase,
     action: 'end',
-    flags: { passiveRefreshSeen: passiveOps.length > 0, noRefreshAfterNudge: false, unfinishedAtCap: false, ...extra },
+    flags: {
+      passiveRefreshSeen: passiveOps.length > 0,
+      noRefreshAfterNudge: false,
+      unfinishedAtCap: false,
+      operationsOpenAtEnd: state.refreshOps.filter((op) => op.completeAt === null).length,
+      ...extra,
+    },
   })
 
   if (state.sessionEnded) return end()
@@ -76,14 +111,12 @@ export function nextStep(state, now) {
   }
 
   if (phase === 2) {
-    if (passiveOps.length > 0) return inFlight ? { phase, action: 'wait', flags: {} } : end()
-    if (now - state.phase2StartedAt < PASSIVE_MS || inFlight) return { phase, action: 'wait', flags: {} }
-    return { phase, action: 'nudge', flags: {} }
+    if (now - state.phase2StartedAt < PASSIVE_MS || open(passiveOps)) return { phase, action: 'wait', flags: {} }
+    return passiveOps.length > 0 ? end() : { phase, action: 'nudge', flags: {} }
   }
 
-  if (nudgeOps.length > 0) return inFlight ? { phase, action: 'wait', flags: {} } : end()
-  if (now - state.nudgeAt < AFTER_NUDGE_MS || inFlight) return { phase, action: 'wait', flags: {} }
-  return end({ noRefreshAfterNudge: true })
+  if (now - state.nudgeAt < AFTER_NUDGE_MS || open(nudgeOps)) return { phase, action: 'wait', flags: {} }
+  return nudgeOps.length > 0 ? end() : end({ noRefreshAfterNudge: true })
 }
 
 /**

@@ -40,7 +40,7 @@ try {
 }
 
 const { launchOptions, loadConfig, loadPlaywright, loadZones, sleep } = await import('./lib/config.mjs')
-const { CaseContext, Run, fingerprint, nudge, readStored, withTimeout } = await import('./lib/harness.mjs')
+const { CaseContext, Run, USER_MENU, fingerprint, nudge, readStored, withTimeout } = await import('./lib/harness.mjs')
 const { machine, servedBuild } = await import('./lib/machine.mjs')
 const { nextStep, refreshOperations, runRound } = await import('./lib/observation.mjs')
 const { cpuLoadRunning, cpuLoadStart, cpuLoadStop } = await import('./lib/probe.mjs')
@@ -52,6 +52,10 @@ const { parseLine } = await import('../../../nginx/access-log.mjs')
 const REFRESH_PATH = '/api/auth/refresh'
 const TICK_MS = 500
 const CPU_LEAD_MS = 5000
+// The judge takes a replay row up to this long after a round's end as the
+// round's (AUDIT_MATCH_TOLERANCE_MS, 1 s). The harness's own sign-out at the end
+// of a round waits past it, so nothing it provokes can be read as the round's.
+const CLOSE_AFTER_END_MS = 2500
 
 const snapshot = (stored) => {
   const session = stored?.record?.session ?? null
@@ -131,7 +135,8 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
   let holdHandle = null
   let holdRelease = null
   let cpuStarted = false
-  let sessionEnded = false
+  let sessionEnded = null // not known until the stored record is read at the round's end
+  let signedIn = false
   let openedOrigins = []
   const captures = []
 
@@ -184,7 +189,13 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
         holdHandle = await startHold(blocker, settings.holdMs)
         hold.activeAt = holdHandle.activeAt
       }
-      holdRelease = holdHandle.whenDue.then(() => releaseHold())
+      // A release that fails must not take the process, and the rounds after
+      // this one, with it: it is recorded and the round has not landed.
+      holdRelease = holdHandle.whenDue
+        .then(() => releaseHold())
+        .catch((err) => {
+          hold.error = `the hold could not be released: ${String(err?.message ?? err).slice(0, 200)}`
+        })
     } catch (err) {
       hold.error = String(err?.message ?? err).slice(0, 300)
       if (hold.continuedAt === null) {
@@ -207,12 +218,14 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
         failed.push('cpu-load-running')
         await cpuLoadStop(config).catch(() => null)
       }
-      if (ctx.profiles.length > 0) failed.push('previous-profile-open')
+      // Every tab of the previous round is closed with its context.
+      if (ctx.run.browser.contexts().length > 0) failed.push('previous-profile-open')
       if (previousSessionEnded === false) failed.push('previous-session-not-ended')
       // A fresh profile and a fresh sign-in for every round.
       profile = await ctx.profile({ timing: true, intercept: true, tagRequests: true })
       reader = await profile.tab('/login', { label: 'reader', navigate: false })
       await ctx.signIn(reader, config.userC)
+      signedIn = true
       await reader.goto(`${config.base}/manifest.json`, { waitUntil: 'load' })
       const free = await storeIsFree(reader)
       if (!free.free) failed.push('store-not-free')
@@ -291,7 +304,7 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
 
     async observe() {
       const state = {
-        openedAt: opened, holdExpected: holdCell, holdReleasedAt: null, firstSupersededAt: null, graceMs: settings.graceSeconds * 1000,
+        openedAt: opened, holdExpected: false, holdReleasedAt: null, firstSupersededAt: null, graceMs: settings.graceSeconds * 1000,
         sessionEnded: false, refreshOps: [], phase2StartedAt: null, noSupersession: false, nudgeAt: null,
       }
       const completed = new Map() // log entry -> completeAt
@@ -306,6 +319,9 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
         const refreshes = log.filter((e) => e.path.replace(/\/$/, '') === REFRESH_PATH)
         const last = samples.at(-1)
         state.sessionEnded = last !== undefined && last.error === undefined && last.generation === null
+        // A hold is waited for only once a refresh has been captured for it: a
+        // round in which no tab ever refreshes moves on as `no-supersession`.
+        state.holdExpected = holdCell && record.hold !== null
         state.holdReleasedAt = record.hold?.releasedAt ?? null
         // A hold that could not be started will never be released: the round
         // has not landed, and it is not kept waiting for a release.
@@ -316,17 +332,20 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
         // Whether each refresh's operation is complete is read from its own
         // tab's trace, and only while it is not: the n-th refresh the harness
         // recorded for a tab is the n-th the tab's trace shows.
-        for (const page of pages) {
-          const own = refreshes.filter((e) => e.page === page)
-          if (own.every((e) => completed.has(e))) continue
-          const read = await readTrace(page, 2000)
-          if (!read) continue
-          const ops = refreshOperations([{ tab: profile.label(page), events: read.events }])
-          own.forEach((entry, index) => {
-            const at = ops[index]?.completeAt ?? null
-            if (at !== null) completed.set(entry, at)
-          })
-        }
+        // Read together, so a tick stays a tick however many tabs are busy.
+        await Promise.all(
+          pages.map(async (page) => {
+            const own = refreshes.filter((e) => e.page === page)
+            if (own.every((e) => completed.has(e))) return
+            const read = await readTrace(page, 2000)
+            if (!read) return
+            const ops = refreshOperations([{ tab: profile.label(page), events: read.events }], Date.now())
+            own.forEach((entry, index) => {
+              const at = ops[index]?.completeAt ?? null
+              if (at !== null) completed.set(entry, at)
+            })
+          }),
+        )
         state.refreshOps = refreshes.map((e) => ({ sentAt: e.issuedAt, completeAt: completed.get(e) ?? null }))
 
         const step = nextStep(state, Date.now())
@@ -348,6 +367,7 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
             noRefreshAfterNudge: step.flags.noRefreshAfterNudge,
             unfinishedAtCap: step.flags.unfinishedAtCap,
             passiveRefreshSeen: step.flags.passiveRefreshSeen,
+            operationsOpenAtEnd: step.flags.operationsOpenAtEnd,
             nudge: nudgeRecord,
           }
           break
@@ -357,6 +377,14 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
 
     async collect() {
       await releaseHold().catch(() => null)
+      // The traces and the request log are read together, after the session
+      // requests in flight have been answered and the ingress has written its
+      // lines (at most a second behind): a refresh in one record and not in the
+      // other would make the round's trace incomplete, and the round that ends
+      // because its session ended is the one that most needs to be whole.
+      const settleBy = Date.now() + 5000
+      while (Date.now() < settleBy && profile.since(mark).some((e) => e.zone === 'session' && e.status === null && !e.failed)) await sleep(100)
+      await sleep(1500)
       const traces = await Promise.all(
         pages.map(async (page, index) => {
           const read = await readTrace(page)
@@ -384,13 +412,10 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
           late: late.filter(Boolean).map((t) => ({ tab: t.tab, capped: t.capped, samples: t.samples.filter((s) => s.late > 50) })),
         }
       }
-      // The ingress writes its log at most a second behind.
-      await sleep(1500)
+      const log = profile.since(mark)
       record.ingress = ingressRefreshes(config, opened - 1000)
       const ended = Date.now()
       record.endedAt = ended
-
-      const log = profile.since(mark)
       record.sessionRequests = log
         .filter((e) => e.zone === 'session')
         .map((e) => ({
@@ -413,6 +438,14 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
         }
       })
       record.captures = captures
+      // In a hold cell every tab's first refresh is captured. One that reached
+      // the wire unseen means the hold was not aimed at the round's first.
+      record.uncapturedRefresh = holdCell
+        ? pages.flatMap((page) => {
+            const first = log.find((e) => e.page === page && e.path.replace(/\/$/, '') === REFRESH_PATH)
+            return first && first.heldAt === undefined ? [{ tab: profile.label(page), issuedAt: first.issuedAt }] : []
+          })
+        : []
       // The stored record's changes only: one line per change of generation or lease.
       const changes = []
       let previous = ''
@@ -449,21 +482,53 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
     },
 
     async closeTabs() {
-      if (holdRelease) await holdRelease.catch(() => null)
+      if (holdRelease) await holdRelease
       for (const page of pages) await page.close().catch(() => null)
-      // The round's session is ended the way a user ends one, so the next round
-      // starts with none of this user's sessions left alive.
-      record.sessionEndedAtClose = sessionEnded
-      if (!sessionEnded && reader && before?.generation !== null && before !== null) {
-        try {
-          await reader.goto(`${config.base}/dashboard`, { waitUntil: 'domcontentloaded' })
-          await ctx.signOut(reader)
-          await reader.waitForURL((u) => new URL(u).pathname === '/login', { timeout: 30000 })
-          record.sessionEndedAtClose = true
-        } catch (err) {
-          record.sessionEndedAtClose = false
-          record.signOutError = String(err?.message ?? err).slice(0, 200)
+      // The round's session is ended the way a user ends one, whenever the round
+      // signed in at all, so the next round starts with none of this user's
+      // sessions left alive. Loading the application in the reader makes it
+      // refresh with whatever is stored, which can itself be refused; so this
+      // waits until nothing it provokes can be read as the round's, and what the
+      // reader sends is recorded apart, as the harness's own.
+      if (signedIn && reader) {
+        const close = { startedAt: null, ended: sessionEnded === true, how: sessionEnded === true ? 'already-ended' : null, requests: [], error: null }
+        record.close = close
+        if (!close.ended) {
+          const wait = (record.endedAt ?? Date.now()) + CLOSE_AFTER_END_MS - Date.now()
+          if (wait > 0) await sleep(wait)
+          close.startedAt = Date.now()
+          const closeMark = profile.mark()
+          try {
+            await reader.goto(`${config.base}/dashboard`, { waitUntil: 'domcontentloaded' })
+            // Either the signed-in shell appears, or the application finds the
+            // session gone and takes the tab to the sign-in page.
+            const landed = await Promise.race([
+              reader.locator(USER_MENU).first().waitFor({ state: 'visible', timeout: 30000 }).then(() => 'shell'),
+              reader.waitForURL((u) => new URL(u).pathname === '/login', { timeout: 30000 }).then(() => 'login'),
+            ])
+            if (landed === 'shell') {
+              await ctx.signOut(reader)
+              await reader.waitForURL((u) => new URL(u).pathname === '/login', { timeout: 30000 })
+              close.how = 'signed-out'
+            } else {
+              close.how = 'found-ended'
+            }
+            close.ended = true
+          } catch (err) {
+            close.error = String(err?.message ?? err).slice(0, 200)
+            // The stored record says whether a session is left, whatever the page did.
+            const left = await readStored(reader).then(snapshot).catch(() => null)
+            if (left && left.generation === null) {
+              close.ended = true
+              close.how = 'stored-record-empty'
+            }
+          }
+          close.requests = profile
+            .since(closeMark)
+            .filter((e) => e.zone === 'session')
+            .map((e) => ({ tab: e.tab, path: e.path, status: e.status ?? e.failed ?? null, issuedAt: e.issuedAt, presentedRefresh: e.presented ?? null }))
         }
+        record.sessionEndedAtClose = close.ended
       }
       await ctx.close()
     },
@@ -475,7 +540,9 @@ async function oneRound({ ctx, config, zones, number, previousSessionEnded }) {
   // A round that did not get as far as collecting says what it has.
   record.openedAt ??= opened ?? Date.now()
   record.endedAt ??= Date.now()
-  record.sessionEnded ??= sessionEnded
+  // Left null when the stored record was never read at the round's end: the
+  // judge reads that as undetermined, never as a live session.
+  if (record.sessionEnded === undefined) record.sessionEnded = sessionEnded
   record.traces ??= []
   record.sessionRequests ??= []
   record.storedChanges ??= []
@@ -514,6 +581,9 @@ async function main() {
       // A browser that died takes its round with it, not the cell.
       if (!browser.isConnected()) browser = await chromium.launch(launchOptions(config))
       const run = new Run({ config, zones, browser })
+      // Request identifiers (`app-<seq>`) stay distinct across the rounds of one
+      // invocation, which share one ingress log.
+      run.seq = number * 1_000_000
       const ctx = new CaseContext(run, `stall-${options.cell}-${number}`)
       ctx.allow429 = true
       const record = await oneRound({ ctx, config, zones, number, previousSessionEnded })

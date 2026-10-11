@@ -215,6 +215,16 @@ check "stall-cell.sh: a recorded cell runs the frozen mechanism, whatever the en
 check "stall-cell.sh: the evidence is filed under the cell and the start time" 'ls "${TMP}/evidence-frozen/G60"/*/head.txt > /dev/null 2>&1' "$(find "${TMP}/evidence-frozen" 2>/dev/null | head -5 | tr '\n' ';')"
 check "stall-cell.sh: calibration evidence is filed apart" 'ls "${TMP}/evidence-calib/calibration"/*/head.txt > /dev/null 2>&1' "$(find "${TMP}/evidence-calib" 2>/dev/null | head -5 | tr '\n' ';')"
 
+cell again qa/1370-replay-stall-runs 10.1.1.34 G60 recorded
+check "stall-cell.sh: a first recorded invocation files its evidence" 'ls "${TMP}/evidence-again/G60"/*/head.txt > /dev/null 2>&1' "first run exit $(cat "${TMP}/again.rc")"
+( export PATH="${TMP}/cellroot/bin:${PATH}" FAKE_LOG="${TMP}/again2.log" FAKE_BRANCH=qa/1370-replay-stall-runs ERP_SESSION_SCRATCH="${TMP}/cell-scratch-again" ERP_QA_EVIDENCE="${TMP}/evidence-again"
+  : > "${FAKE_LOG}"; bash "${CQA}/stall-cell.sh" 10.1.1.34 G60 recorded > "${TMP}/again2.out" 2>&1; echo $? > "${TMP}/again2.rc" )
+check "stall-cell.sh: the second recorded invocation of a cell is refused" '[ "$(cat "${TMP}/again2.rc")" = "2" ] && ! grep -q "^run-one" "${TMP}/again2.log"' "exit $(cat "${TMP}/again2.rc"); $(cat "${TMP}/again2.out" | tr '\n' ';')"
+
+mkdir -p "${TMP}/cell-scratch-stale" && echo stale > "${TMP}/cell-scratch-stale/stack-during.json" && echo stale > "${TMP}/cell-scratch-stale/ingress-access.log"
+cell stale qa/1370-replay-stall-runs 10.1.1.34 H21 recorded
+check "stall-cell.sh: files an earlier invocation left in the scratch directory are not filed as this one's" '! grep -rq "^stale$" "${TMP}/evidence-stale"' "$(grep -rl '^stale$' "${TMP}/evidence-stale" | tr '\n' ';')"
+
 cell wrongbranch qa/1370-replay-stall-runs 10.1.1.34 C-unfixed recorded
 check "stall-cell.sh: the control's unfixed half is refused on the evidence branch" '[ "$(cat "${TMP}/wrongbranch.rc")" = "2" ] && ! grep -q "^run-one" "${TMP}/wrongbranch.log"' "exit $(cat "${TMP}/wrongbranch.rc")"
 cell wrongbranch2 qa/1370-control-unfixed 10.1.1.34 H21 recorded

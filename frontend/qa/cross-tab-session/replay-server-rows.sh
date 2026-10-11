@@ -34,7 +34,8 @@ for id in "$@"; do
     echo "not a session id: ${id}" >&2
     exit 2
   fi
-  SESSIONS="${SESSIONS:+${SESSIONS},}${id}"
+  # In lower case, as the database prints a uuid: the comparison below is on text.
+  SESSIONS="${SESSIONS:+${SESSIONS},}${id,,}"
 done
 
 

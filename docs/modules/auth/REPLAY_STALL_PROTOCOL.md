@@ -97,7 +97,8 @@ Things that would make the work a failure even if every run completes:
 - **Landing is verified in every round of every cell.** Calibration at 20 tabs
   and a 5 s grace does not carry over to other settings by assumption.
 - Misses and failed attempts inside the ten recorded rounds stay in the record.
-  They are not rerun or replaced.
+  They are not rerun or replaced, and `stall-cell.sh` refuses a second recorded
+  invocation of a cell that already has filed evidence.
 
 ## An eligible peer
 
@@ -169,9 +170,10 @@ refusal or an error, the lease release or the session's end.
    200 by 60 s after the tabs opened (or by hold release if later), the round
    records `no-supersession` and moves on from there; in a hold cell it has not
    landed.
-2. **Passive, 65 s.** The harness does nothing to the tabs. A refresh sent in
-   this phase is followed until the operation is complete, past the 65 s if
-   need be. A passive phase with no refresh is **"no opportunity observed"**. It
+2. **Passive, 65 s.** The harness does nothing to the tabs. The 65 s are
+   watched in full: a refresh that completes early does not end them, because
+   another tab's presentation may still come. A refresh sent in this phase is
+   followed until the operation is complete, past the 65 s if need be. A passive phase with no refresh is **"no opportunity observed"**. It
    is not evidence that a post-grace replay was prevented.
 3. **One nudge**, only if phase 2 saw no refresh sent. The nudge is ordinary
    application behaviour that leads a signed-in tab to make an authenticated
@@ -179,8 +181,15 @@ refusal or an error, the lease release or the session's end.
    action, the route and the tabs are written under *Frozen values* before any
    recorded round; the default target is every tab on a signed-in route and not
    in storage-waiting, all at once. Each round records the tabs nudged and when.
-   A refresh sent within 20 s of the nudge is followed until complete. If none
-   is sent in those 20 s the round records `no-refresh-after-nudge` and ends.
+   The 20 s after the nudge are watched in full, and a refresh sent in them is
+   followed until complete. If none is sent in those 20 s the round records
+   `no-refresh-after-nudge` and ends.
+
+A phase waits past its time only for operations sent in that phase. An
+operation left open from an earlier phase (a response held pending, with
+nothing yet to make its tab try again) does not hold back the nudge, which
+exists to provoke exactly that; the number still open when the round ends is
+recorded.
 
 Everything seen after the nudge is labelled provoked and reported apart from the
 first two phases. A session that ends earlier ends the round. The only cut-off
@@ -226,8 +235,9 @@ replay is reported as a replay whatever the round's validity.
    its `missing` and `supports` lists). A cause is **demonstrated** only by
    `hypothesis-1-observed` or by a fully traced `replay-other-path` in a valid
    round; otherwise it is **suspected**.
-2. **`undetermined`**: no replay row was found **and** the server rows are
-   missing, unreadable, or do not cover the round. Never read as clean.
+2. **`undetermined`**: no replay row was found **and** either the server rows
+   are missing, unreadable, or do not cover the round, or the round ended before
+   its own records were read. Never read as clean.
 3. **`session-ended-no-replay`**: the session ended during the round with no
    replay row. The server's revoke reason, or its absence, is recorded.
 4. **`stale-presentation`**: no replay, the session alive, and a superseded
@@ -250,9 +260,11 @@ commit timeouts and stale presentations.
 ### Validity
 
 A round is **valid for its condition** unless one of these holds, each recorded:
-`server-rows-unreadable`; `server-rows-partial`; `trace-incomplete`;
+`server-rows-unreadable`; `server-rows-partial`; `round-not-collected`;
+`trace-incomplete`;
 `reset-failed`; `resource-limit`; `unfinished-at-cap`; and, in a hold cell,
-`injection-missed` (the round did not land), counted separately.
+`injection-missed` (the round did not land, or a refresh left a tab before the
+holds were armed), counted separately.
 
 An invalid round keeps its outcome and all its facts. It does not count toward
 the cell's coverage, and no cause is attributed from it beyond "suspected".
@@ -309,7 +321,9 @@ Before **every round** the harness verifies and records: no hold is active (a
 plain read of the store returns within 1 s); no CPU worker container is
 running; every tab of the previous round is closed; the previous round's
 session is ended and a fresh profile and sign-in are in place; the ingress
-limiter has drained. A failed check makes the round not valid for its
+limiter has drained. The harness ends a round's session the way a user does,
+after waiting long enough that nothing its own sign-out provokes can be read as
+the round's, and records what it sent then apart from the round. A failed check makes the round not valid for its
 condition, with reason `reset-failed`; it does not abort the cell.
 
 Between **builds**: the frontend is rebuilt and the served build verified;

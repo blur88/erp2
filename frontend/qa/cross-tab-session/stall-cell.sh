@@ -19,6 +19,9 @@
 #     QA_STALL_GATE, QA_STALL_BARRIER_MS, QA_STALL_NUDGE_PATH, QA_STALL_HOLD_MS,
 #     QA_STALL_PROBE and QA_STALL_ROUNDS from the environment.
 #
+# A cell's ten recorded rounds are run once and never rerun: a second
+# `recorded` invocation of a cell that already has filed evidence is refused.
+#
 # Exits with run-one.sh's status, or 4 if the run passed and the judge did not.
 set -euo pipefail
 
@@ -65,10 +68,19 @@ if [ "${KIND}" = "recorded" ]; then
 fi
 export QA_STALL_CELL="${CELL}" QA_STALL_KIND="${KIND}" QA_GRACE_SECONDS="${GRACE}"
 
+if [ "${KIND}" = "recorded" ] && [ -n "$(ls -A "${EVIDENCE}/${CELL}" 2>/dev/null)" ]; then
+  refuse "${CELL} already has recorded evidence under ${EVIDENCE}/${CELL}: a cell's recorded rounds are not rerun"
+fi
+
 START="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 if [ "${KIND}" = "calibration" ]; then DEST="${EVIDENCE}/calibration/${START}"; else DEST="${EVIDENCE}/${CELL}/${START}"; fi
 mkdir -p "${SCRATCH}" "${DEST}"
-rm -f "${SCRATCH}/stall-diagnosis.json" "${SCRATCH}/stall-verdicts.json" "${SCRATCH}/server-rows.json"
+# Nothing an earlier invocation left in the scratch directory is filed as this
+# one's. What an invocation wrote was filed when it ended; a killed one's
+# diagnosis is moved aside, not deleted.
+if [ -f "${SCRATCH}/stall-diagnosis.json" ]; then mv "${SCRATCH}/stall-diagnosis.json" "${SCRATCH}/stall-diagnosis.unfiled-$(date -u +%s).json"; fi
+rm -f "${SCRATCH}/stall-verdicts.json" "${SCRATCH}/server-rows.json" "${SCRATCH}/stack-during.json" \
+  "${SCRATCH}/host-probe.log" "${SCRATCH}/ingress-access.log" "${SCRATCH}/ingress-error.log" "${SCRATCH}/playwright-install.log"
 
 # What the host was running, and what the stack was configured as, beforehand.
 git rev-parse HEAD > "${DEST}/head.txt"

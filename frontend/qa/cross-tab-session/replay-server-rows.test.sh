@@ -40,5 +40,8 @@ if [ "$(cat "${TMP}/rc")" = "0" ] && [ -f "${TMP}/docker.args" ]; then ok "with 
 run "2026-10-12T00:00:00Z" "x'; --"
 if [ "$(cat "${TMP}/rc")" = "2" ] && [ ! -f "${TMP}/docker.args" ]; then ok "a malformed session id is refused before docker is called"; else not_ok "a malformed session id is refused before docker is called" "rc $(cat "${TMP}/rc"); docker called: $([ -f "${TMP}/docker.args" ] && echo yes || echo no)"; fi
 
+run "2026-10-12T00:00:00Z" "0B6F2A44-1C1D-4F0E-9A51-3F0C2B7D9E10"
+if grep -qx "0b6f2a44-1c1d-4f0e-9a51-3f0c2b7d9e10" "${TMP}/docker.args"; then ok "an id written in upper case is compared in lower case, as the database prints it"; else not_ok "an upper-case id is lowered" "args: $(tr '\n' ' ' < "${TMP}/docker.args" 2>/dev/null)"; fi
+
 echo "passed ${PASSED}, failed ${FAILED}"
 [ "${FAILED}" -eq 0 ]

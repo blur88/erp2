@@ -384,3 +384,33 @@ test('judge-stall.mjs puts a replay first in what it prints', () => {
   const { run } = judgeCli(diagnosisOf([bad]), rows({ audit: [replayRow()] }))
   assert.match(run.stdout.split('\n')[0], /^REPLAY CONFIRMED in round\(s\) 1/)
 })
+
+// --- found by the whole-branch review, before any round ran -----------------------
+
+test('a round that died before its own records were read is undetermined, never clean', () => {
+  const dead = round({ sessionEnded: null, traces: [], sessionRequests: [], hold: null, error: 'Error: the browser closed during the round' })
+  const judged = judgeStallRound(dead, rows(), PLAIN_CELL)
+  assert.equal(judged.outcome, 'undetermined')
+  assert.equal(judged.facts.sessionAlive, null)
+  assert.equal(judged.validity.valid, false)
+  assert.ok(judged.validity.reasons.includes('round-not-collected'))
+})
+
+test('a refresh that reached the wire before the hold could be armed means the round has not landed', () => {
+  const r = round({ uncapturedRefresh: [{ tab: 'Y', issuedAt: T0 + 5_000 }] })
+  const judged = judgeStallRound(r, rows(), HOLD_CELL)
+  assert.equal(judged.facts.injection.landed, false)
+  assert.deepEqual(judged.facts.injection.uncapturedRefresh, [{ tab: 'Y', issuedAt: T0 + 5_000 }])
+  assert.ok(judged.validity.reasons.includes('injection-missed'))
+})
+
+test('the outcomes of valid rounds are counted apart from all rounds', () => {
+  const summary = summariseCell(judgedRounds(10, (i) => (i < 8 ? round() : missed())), HOLD_CELL)
+  assert.deepEqual(summary.validOutcomes, { 'commit-timeout': 8 })
+})
+
+test('operations left open when the round ended are a recorded fact', () => {
+  const r = round()
+  r.phases.operationsOpenAtEnd = 1
+  assert.equal(roundFacts(r, rows()).observation.operationsOpenAtEnd, 1)
+})
