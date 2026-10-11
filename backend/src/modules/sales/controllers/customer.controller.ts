@@ -371,7 +371,7 @@ export class CustomerController {
         message: {
           type: 'string',
           example:
-            "Cannot permanently delete customer 'John Doe' due to active business relationships",
+            "Cannot permanently delete customer 'John Doe' because it has sales orders and payments",
         },
         code: {
           type: 'string',

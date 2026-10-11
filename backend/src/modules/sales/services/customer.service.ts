@@ -83,6 +83,21 @@ function describePermanentDeleteDependencies(dependencies: {
   return parts.join(' and ');
 }
 
+/** What holds the customer, without counts: the only part of a refusal that reaches the client. */
+function namePermanentDeleteDependencies(dependencies: {
+  orders: number;
+  payments: number;
+}): string {
+  const names: string[] = [];
+  if (dependencies.orders > 0) {
+    names.push('sales orders');
+  }
+  if (dependencies.payments > 0) {
+    names.push('payments');
+  }
+  return names.join(' and ');
+}
+
 @Injectable()
 export class CustomerService extends BaseCrudService<
   Customer,
@@ -657,7 +672,7 @@ export class CustomerService extends BaseCrudService<
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
-            `Cannot permanently delete customer '${customer.name}' (${customer.id}) due to ${describePermanentDeleteDependencies(dependencies)}. Complete all business transactions first.`,
+            `Cannot permanently delete customer '${customer.name}' (${customer.id}) because it has ${describePermanentDeleteDependencies(dependencies)}.`,
             'DEPENDENCY_ERROR',
             {
               customerName: customer.name,
@@ -728,15 +743,15 @@ export class CustomerService extends BaseCrudService<
 
     if (dependencies.orders > 0 || dependencies.payments > 0) {
       const errorResponse = {
-        message: `Cannot permanently delete customer '${customer.name}' due to active business relationships`,
+        message: `Cannot permanently delete customer '${customer.name}' because it has ${namePermanentDeleteDependencies(dependencies)}`,
         code: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
         customerName: customer.name,
         customerId: customer.id,
         dependencies,
         details: `Customer '${customer.name}' (${customer.id}) has ${describePermanentDeleteDependencies(dependencies)}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
         suggestions: [
-          'Complete and archive all pending orders first',
-          'Consider using soft delete instead if you need to hide the customer',
+          'Permanent deletion stays blocked for as long as these records exist',
+          'Leave the customer soft-deleted to keep it hidden',
         ],
       };
 

@@ -615,6 +615,7 @@ describe('CustomerService', () => {
 
       expect(error).toBeInstanceOf(BadRequestException);
       expect((error as BadRequestException).getResponse()).toMatchObject({
+        message: "Cannot permanently delete customer 'Customer c-1' because it has payments",
         code: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
         dependencies: { orders: 0, payments: 2 },
       });

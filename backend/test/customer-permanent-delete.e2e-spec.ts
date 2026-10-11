@@ -101,6 +101,10 @@ describe('Customer permanent deletion is refused while payments exist (#1368, e2
       .delete(`/customers/${id}/permanent`)
       .set('Authorization', `Bearer ${token}`);
 
+  /** The public text names what holds the customer and carries no counts. */
+  const refusalMessage = (customer: Customer, holders: string) =>
+    `Cannot permanently delete customer '${customer.name}' because it has ${holders}`;
+
   /** The exception body as the service throws it; the filter forwards only `message` and `code`. */
   async function refusal(id: string): Promise<any> {
     const error = await customers.permanentDelete(id, adminId, USERNAME).then(
@@ -152,6 +156,7 @@ describe('Customer permanent deletion is refused while payments exist (#1368, e2
     const res = await permanentDelete(customer.id).expect(400);
 
     expect(res.body.code).toBe(CODE);
+    expect(res.body.message).toBe(refusalMessage(customer, 'payments'));
     expect(await customerExists(customer.id)).toBe(true);
     expect((await refusal(customer.id)).dependencies).toEqual({ orders: 0, payments: 1 });
   });
@@ -163,6 +168,7 @@ describe('Customer permanent deletion is refused while payments exist (#1368, e2
     const res = await permanentDelete(customer.id).expect(400);
 
     expect(res.body.code).toBe(CODE);
+    expect(res.body.message).toBe(refusalMessage(customer, 'payments'));
     expect(await customerExists(customer.id)).toBe(true);
     const body = await refusal(customer.id);
     expect(body.code).toBe(CODE);
@@ -175,10 +181,26 @@ describe('Customer permanent deletion is refused while payments exist (#1368, e2
     await seedPayment(customer.id);
     await seedPayment(customer.id, true);
 
+    const res = await permanentDelete(customer.id).expect(400);
     const body = await refusal(customer.id);
 
+    expect(res.body.code).toBe(CODE);
+    expect(res.body.message).toBe(refusalMessage(customer, 'sales orders and payments'));
     expect(body.code).toBe(CODE);
     expect(body.dependencies).toEqual({ orders: 1, payments: 2 });
+    expect(await customerExists(customer.id)).toBe(true);
+  });
+
+  it('names sales orders alone when no payment exists', async () => {
+    const customer = await seedDeletedCustomer('order-only');
+    await seedOrder(customer.id);
+
+    const res = await permanentDelete(customer.id).expect(400);
+
+    expect(res.body.code).toBe(CODE);
+    expect(res.body.message).toBe(refusalMessage(customer, 'sales orders'));
+    expect((await refusal(customer.id)).dependencies).toEqual({ orders: 1, payments: 0 });
+    expect(await customerExists(customer.id)).toBe(true);
   });
 
   it('deletes a customer with no orders and no payments', async () => {
