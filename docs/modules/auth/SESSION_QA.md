@@ -1598,6 +1598,68 @@ As with the run before it, this is evidence that the existing cross-tab
 behaviour holds on this commit, and not evidence for the #1354 changes
 themselves, none of which has a browser case.
 
+### Case 8 through its extension and at its bound (#1367, 2026-10-11): partial runs
+
+In every recorded run since case 8 was revised, the third rotation had arrived
+by three and a half lifetimes, so the part of the case that goes on past them
+had run only in development, and its six-lifetime bound had never been
+reached. These runs produce both, and a failed use, on purpose. **Every one is
+a partial run** (`run.sh` with `QA_SUITE_OVERRIDE`, a copy outside the
+repository, `QA_ONLY=8`), on the QA configuration (access 20 s, grace 5),
+Chromium 153.0.8010.12, the QA host. Expected results were written before the
+first run; where a run did not count, that is said.
+
+**First set, on `794d2e321`, against the suite as it was:**
+
+| Run | Fault or placement, all the harness's | Result | Against what was written down |
+|---|---|---|---|
+| G8 | none | exit 0; `lifetimesUsed` 3.5, 14 uses, generation 1 to 4, three refreshes answered 200 | as expected |
+| E8 | **Placement.** The case's clock starts right after a rotation, and a use that would start between 0.7 s before and 4.5 s after the stored token's expiry is held until 4.5 s after it | exit 0, every line passed; **`lifetimesUsed` 3.84**, 13 uses, generation 2 to 5, three refreshes answered 200. Three uses were held (3.8, 4.0 and 4.0 s). The use that sent the third refresh started 67.9 s after the clock, at generation 4, and was held to 71.8 s: the third rotation came after the 70 s that three and a half lifetimes are | as expected |
+| B8 | Once two rotations are stored, every business GET of both tabs is answered by the harness | exit 0, every line passed, generation 1 to 4. **Did not count:** the fault left `/api/health` alone, and the authenticated poll `GET /api/health/redis-alerts` was answered 401 and sent the third refresh | not as expected; recorded as such before B8b was run |
+| B8b | As B8, with every GET under `/api` except `/api/auth` answered by the harness | exit 1; `lifetimesUsed` 6.01, 24 uses, generation 1 to 3, two refreshes. "the generation advanced at least three times" failed. Also failed: "tab A is signed in" and "tab B is signed in" | as expected, the collateral included |
+| U8 | From the seventh use on, every business request of both tabs answered 500 | exit 1; `ERROR A: requests after moving to /sales/orders never succeeded: [["/api/customers",500,null],["/api/sales-orders",500,null]]`, the case reported failed with that error. Nothing recorded | as expected |
+
+What those showed about the report, which is what the third criterion asks:
+
+- **At the bound (B8b) the case failed, but did not say why.** The failing
+  line carried the stored record; that six lifetimes had run out was to be
+  found in `lifetimesUsed` among the records.
+- **A failed use (U8) is reported as a failed case with a usable message:**
+  the tab, the page it was moved to, and each request with its status. But the
+  case recorded nothing of the six uses that had completed.
+
+**The change.** Case 8's rotation line now carries how the uses stopped, the
+lifetimes used against the bound of six, and a sentence; a failed use is
+thrown on after the records are written, with `stopped` and `failedUse`. No
+pass condition changed.
+
+**Second set, on `26f864584`, against the changed suite:**
+
+| Run | Suite | Result | Against what was written down |
+|---|---|---|---|
+| R8 | the repository's own, `QA_ONLY=8`, no override | exit 0; `lifetimesUsed` 3.5, 14 uses, generation 1 to 4, `stopped: "the third rotation was seen"` | as expected |
+| PB8 | the changed suite with B8b's fault | exit 1; only "the generation advanced at least three times" failed, and its detail reads `rotations: 2`, `stopped: "six lifetimes passed"`, `lifetimesUsed: 6.01`, `boundLifetimes: 6` and "the two tabs were used 24 times over 6.01 access-token lifetimes, the bound is 6, and the session rotated 2 time(s)". Both "signed in" lines passed this time | as expected; the collateral that was written as possible did not occur |
+| PU8 | the changed suite with U8's fault | exit 1; the same `ERROR A: requests after moving to /sales/orders never succeeded: …`, and the case now records `uses: 6`, `stopped: "a use failed"`, `failedUse {use: 7, tab: "A", afterCompletedUses: 6}`, `lifetimesUsed: 3.76`, generation 1 to 3, two refreshes. No check line was reached | as expected |
+
+Against #1367's acceptance:
+
+- **A run through `run.sh` in which case 8 uses more than 3.5 lifetimes before
+  its third rotation and passes:** E8, with the placement done through
+  `QA_SUITE_OVERRIDE` and so recorded as partial. No run made the way recorded
+  runs are made has entered the extension; that is unchanged, and by the
+  arithmetic in the comment above the case it depends on where the uses fall.
+- **A run in which the third rotation never arrives:** B8b and PB8, the
+  expected result written beforehand. The application sent every refresh a use
+  called for; the rotation was withheld by the harness answering the uses.
+- **A use that fails:** U8 and PU8.
+
+Not established: the extension with uses the application's own timing placed,
+and the bound reached by anything but the harness.
+
+Kept outside the repository (`~/erp-qa-1367`): the expectations with their
+dated additions, each copy's diff, and each run's log, results, ingress log
+and stack configuration before, during and after.
+
 ## What is automated
 
 - Vitest on the in-memory store double: every commit rule, the reconciliation

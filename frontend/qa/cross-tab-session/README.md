@@ -1132,6 +1132,10 @@ from the rates and bursts in `nginx/nginx.conf`, and must pass twice in a row.
   in one turn, both seen by the tabs before any refresh is answered). Two
   tabs whose tokens expire on the server at the same instant are exercised by
   case 8 and W1 round (b), without that guarantee.
+- Case 8's extension past three and a half lifetimes, and its six-lifetime
+  bound, have been reached only in partial runs where the harness placed the
+  uses or answered them (#1367, `SESSION_QA.md`). No whole recorded run has
+  entered the extension.
 - Case 14 shows that a refused refresh did not rotate the session by timing
   (the token still rotates normally after its grace would have run out). The
   backend e2e test `a refused refresh does not rotate` shows it directly, from
