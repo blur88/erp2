@@ -2371,3 +2371,125 @@ Kept outside the repository, for each run: the commit, the diff of its mutation
 against the suite, its log, its results, the ingress log, and the stack's
 configuration before, during and after; and the file of expectations with its
 dated correction and notes.
+
+## The session that ended after refused refreshes (#1378, 2026-10-11): traced, fixed
+
+W1 run 1 of the section above left a question: after 18 of 19 refreshes were
+refused by the ingress, the stored session had ended. **The 429 did not end
+it, and neither did the session runtime.** `requestWithRetryOn429`
+(`frontend/src/services/retryOn429.ts`, the retry of the company-settings
+read) sent the refresh request again by itself, one of those was answered 200,
+and nothing kept the tokens it returned.
+
+### The mechanism
+
+1. A tab's request is answered 401. The response interceptor
+   (`frontend/src/services/api.ts`) asks the runtime to refresh.
+2. The ingress refuses the refresh with 429. The runtime keeps the session,
+   releases its lease and throws the error it was given
+   (`runtime.requests.test.ts`, "network error, timeout, 429 and 5xx from
+   refresh keep the session"). That error is the refresh's: its `config` is
+   the `POST /api/auth/refresh` request, with the refresh token in its body.
+3. For every request but one the error simply reaches the caller. The
+   company-settings read goes through `requestWithRetryOn429`, which retried
+   any 429 by re-sending `error.config`. So it waited its backoff and sent
+   **the refresh request** again, up to three times: through the API client
+   and not the runtime, with no lease, no read of the stored record, and the
+   token the tab held when the first one went out.
+4. If one of those is answered 200 the server has rotated the session, and the
+   answer is returned to the settings query as if it were company data. No tab
+   and no stored record holds the new tokens.
+5. The next refresh any tab sends presents the superseded token. Inside its
+   grace the server recovers; after it, that is replay: the server revokes the
+   session, answers 401, and the runtime ends the session in every tab, as it
+   should on a 401 at an unchanged generation.
+
+### What establishes it
+
+**The original run** (`5102cbaff`, W1 run 1; the times are seconds after the
+round's marker in its ingress log):
+
+- No refresh was answered 401 before 47.1 s and no logout was sent in the
+  round. The 18 refusals ended nothing.
+- Per tab: four tabs sent four refreshes each, all refused (one from the
+  runtime, three re-sends). Tab `N5b-3` sent three: two refused, and the third
+  answered 200 at 13.3 s (one from the runtime, two re-sends, the second
+  getting through). 4 + 4 + 4 + 4 + 3 = 19.
+- Another tab's refresh reached the ingress 216 ms after that 200. A refresh
+  the runtime sends holds the lease until its tokens are committed, so the 200
+  was not the runtime's.
+- None of the nine requests that had been answered 401 in that tab was sent
+  again after the 200, as they would have been had the runtime taken the
+  tokens.
+- The server's rows for the session, read on 2026-10-11 from `auth_sessions`
+  and `refresh_tokens`: generation 3 superseded at 03:40:10 UTC (the 200),
+  grace until 03:40:15; **`revokeReason = replay`, `revokedAt` 03:40:44.136**,
+  which is the `POST /api/auth/refresh` answered 401 at 47.1 s, sent by the
+  usability check's first data request, 34 s after the supersession.
+
+**Run T1** (`794d2e321`, partial: the same mutation as W1 run 1, five tabs
+only, the session trace switched on in the five tabs and each refresh's
+presented token recorded as a fingerprint). Expected results were written
+before it; none of the three described what it showed, and that is recorded
+with them.
+
+- It did **not** reproduce the ending. The one 200 was the runtime's own,
+  committed in 17 ms (`token-commit written-both`), and the session was still
+  stored at the end.
+- It showed the re-sends directly. Tabs 2 to 5 each sent three more refreshes
+  after generation 4 was stored, **every one presenting the generation-3
+  token**, 0.6 to 1.7 s apart in a tab. None of the twelve is in its tab's runtime trace:
+  each of those traces has exactly one `refresh-sent`. All twelve were refused
+  again, which is the only reason nothing was rotated outside the runtime.
+
+So the ending has been seen once. Its cause is read from that run's own
+records and the server's rows; T1 shows the mechanism's first three steps in a
+browser and not its last two.
+
+### The fix
+
+`requestWithRetryOn429` now retries only a request the API client itself sent
+(`sentByApi`, which reads the stamp the client's request interceptor puts on
+every config). A 429 that refused the refresh is surfaced as it is. Commit
+`761985e1c`.
+
+- `frontend/src/services/__tests__/retryOn429.test.ts`, "a 429 that refused
+  the session refresh, not this request": two cases. Both were run against the
+  code before the fix and failed on the list of requests sent, which held
+  `/auth/refresh` once in the first and three times in the second.
+- **Run T2** (`761985e1c`, partial, the same copy as T1), expected results
+  written before it and met: in the five-tab round every tab's logged
+  refreshes equal the `refresh-sent` events of its trace (1 and 1 in all five
+  after loading; 2 and 2 in the three tabs that refreshed again later). The
+  round sent the session zone 5 requests, against 17 in T1. Every later
+  refresh presented the token stored at the time, and the session went from
+  generation 3 to 6 and was never ended. The run still exits 1, as expected:
+  refreshes are still refused and the tabs whose refresh was refused are left
+  without their data.
+
+### Answer to the question, and what is not established
+
+- **An ingress 429 on refresh does not end the session**, before or after the
+  fix. What ended it was a second refresh sent outside the runtime.
+- **A tab does not try again by itself after a refused refresh.** Every
+  request that was waiting on it fails, and the tab shows missing data until
+  something sends another request (T2: 0 of 5 tabs usable, 10 round trips
+  through the sidebar). Before the fix the company-settings read appeared to
+  retry in this state, by the defect. Whether a refused refresh should be
+  retried, by the runtime and under its lease, is a behaviour change that was
+  not made here.
+- **Not established:** how likely the ending was. It needs a re-send to be
+  admitted while the zone is otherwise refusing, and then no refresh of the
+  runtime's inside the grace; one occurrence in one run with the zone held
+  empty on purpose, and none in T1. Whether it happened outside a forced run
+  is unknown; a session revoked as `replay` with no storage stall near it
+  would be the trace of it in `auth_sessions`.
+- **Not looked at:** the same error reaches other callers too (RTK Query
+  endpoints see a 429 for a request that was answered 401). None of them
+  re-sends a config; that was checked by reading (`error.config` is used in
+  `api.ts` and `retryOn429.ts` only), not by a test.
+
+Kept outside the repository (`~/erp-qa-1378`): the expectations with their
+dated additions, the mutation's diff, and for T1 and T2 the log, the results
+with the traces, the ingress log and the stack's configuration before, during
+and after.

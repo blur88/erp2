@@ -1,5 +1,5 @@
 import { CanceledError, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
-import api from './api'
+import api, { sentByApi } from './api'
 import { SessionEndedError } from '@/session/types'
 
 // A read the ingress refused with 429 (`limit_req` in nginx.conf) is sent again
@@ -10,6 +10,16 @@ import { SessionEndedError } from '@/session/types'
 //
 // This is for the one request named at its call site, not a general policy:
 // issue #1353 tracks the limit itself.
+//
+// Only a 429 that refused that request is retried. A 401 on it makes the
+// session refresh, and a refresh the ingress refuses is thrown here too, as a
+// 429 whose config is the refresh request. Re-sending that config sent the
+// refresh again from outside the session runtime: no lease, the token the tab
+// held when the first one went out, and the answer returned to this caller as
+// if it were its data. One answered 200 rotated the session and its tokens
+// were dropped, so the next refresh presented a superseded token and the
+// server revoked the session as replay (#1378). Such a 429 is surfaced as it
+// is; the session is kept, and the next request refreshes through the runtime.
 export const RETRY_429 = { retries: 3, baseDelayMs: 500, maxDelayMs: 4000 }
 
 const headerValue = (headers: unknown, name: string): string | undefined => {
@@ -69,7 +79,7 @@ export async function requestWithRetryOn429<T = any>(
       return await send()
     } catch (error: any) {
       const refused = error?.config as InternalAxiosRequestConfig | undefined
-      if (error?.response?.status !== 429 || attempt >= RETRY_429.retries || !refused) throw error
+      if (error?.response?.status !== 429 || attempt >= RETRY_429.retries || !sentByApi(refused)) throw error
 
       // The refused send's signal is the caller's combined with the session's
       // (see the request interceptor), so either one ends the wait.
