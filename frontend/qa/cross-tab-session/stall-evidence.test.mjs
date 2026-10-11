@@ -332,3 +332,55 @@ test('a replay in an invalid round is reported apart from the counts', () => {
   assert.deepEqual(summary.replaysOutsideCounts, [1])
   assert.equal(summary.replayCoverage, 9)
 })
+
+// --- judge-stall.mjs: the command over the module ----------------------------------
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+function judgeCli(diagnosis, serverRows) {
+  const dir = mkdtempSync(join(tmpdir(), 'judge-stall-'))
+  const diagnosisPath = join(dir, 'stall-diagnosis.json')
+  writeFileSync(diagnosisPath, JSON.stringify(diagnosis))
+  const args = [fileURLToPath(new URL('./judge-stall.mjs', import.meta.url)), diagnosisPath]
+  if (serverRows !== undefined) {
+    writeFileSync(join(dir, 'server-rows.json'), typeof serverRows === 'string' ? serverRows : JSON.stringify(serverRows))
+    args.push(join(dir, 'server-rows.json'))
+  }
+  const run = spawnSync(process.execPath, args, { encoding: 'utf8' })
+  let verdicts = null
+  try { verdicts = JSON.parse(readFileSync(join(dir, 'stall-verdicts.json'), 'utf8')) } catch { verdicts = null }
+  return { run, verdicts }
+}
+
+const diagnosisOf = (rounds) => ({ kind: 'recorded', cell: 'H12', settings: HOLD_CELL, mechanism: { gate: true }, commit: 'abc', servedBuild: 'abc', rounds })
+
+test('judge-stall.mjs prints one line per round and the cell, and writes the verdicts beside the diagnosis', () => {
+  const { run, verdicts } = judgeCli(diagnosisOf([round(), { ...missed(), attempt: 2 }]), rows())
+  assert.equal(run.status, 0, run.stderr)
+  assert.match(run.stdout, /round 1: commit-timeout; valid; replay-coverage/)
+  assert.match(run.stdout, /round 2: commit-timeout; not valid \(injection-missed\)/)
+  assert.match(run.stdout, /cell H12 \(recorded\): 2 rounds; valid 1; landed 1; replay coverage 1 of 8 needed: NOT met; timeout coverage 1/)
+  assert.equal(verdicts.cell, 'H12')
+  assert.equal(verdicts.kind, 'recorded')
+  assert.equal(verdicts.serverRowsRead, true)
+  assert.equal(verdicts.rounds.length, 2)
+  assert.equal(verdicts.summary.replayCoverageFloorMet, false)
+})
+
+test('judge-stall.mjs with no rows file, or one that is not JSON, judges every round undetermined', () => {
+  for (const serverRows of [undefined, 'not json']) {
+    const { run, verdicts } = judgeCli(diagnosisOf([round()]), serverRows)
+    assert.equal(run.status, 0, run.stderr)
+    assert.equal(verdicts.serverRowsRead, false)
+    assert.equal(verdicts.rounds[0].outcome, 'undetermined')
+  }
+})
+
+test('judge-stall.mjs puts a replay first in what it prints', () => {
+  const bad = { ...round({ sessionEnded: true }) }
+  const { run } = judgeCli(diagnosisOf([bad]), rows({ audit: [replayRow()] }))
+  assert.match(run.stdout.split('\n')[0], /^REPLAY CONFIRMED in round\(s\) 1/)
+})

@@ -114,5 +114,117 @@ check "run-one.sh: a failed script is a failed run" '[ "$(cat "${TMP}/failed.rc"
 check "run-one.sh: a failed run removes the CPU workers" 'grep -q "^docker rm -f erp_qa_cpu_load$" "${TMP}/failed.log"' "$(tr '\n' ';' < "${TMP}/failed.log")"
 check "run-one.sh: a failed run still restores the stack" 'grep -q "^stack restore" "${TMP}/failed.log"' "$(tr '\n' ';' < "${TMP}/failed.log")"
 
+QA_GRACE_SECONDS=60 FAKE_SCRIPT_RC=1 run_one failed60
+check "run-one.sh: the cell's grace reaches stack.sh qa-up" 'grep -q "^stack qa-up grace=60$" "${TMP}/failed60.log"' "$(tr '\n' ';' < "${TMP}/failed60.log")"
+check "run-one.sh: a failed run at a 60 s grace still restores the stack" 'grep -q "^stack restore" "${TMP}/failed60.log" && [ "$(cat "${TMP}/failed60.rc")" = "1" ]' "$(tr '\n' ';' < "${TMP}/failed60.log")"
+
+QA_STALL_CELL=H12 QA_STALL_KIND=calibration QA_STALL_GATE=1 QA_STALL_BARRIER_MS=10000 QA_STALL_NUDGE_PATH=/inventory/products QA_STALL_ROUNDS=1 QA_STALL_HOLD_MS=12000 QA_STALL_PROBE=1 run_one passes
+for name in QA_STALL_CELL QA_STALL_KIND QA_STALL_ROUNDS QA_STALL_GATE QA_STALL_BARRIER_MS QA_STALL_NUDGE_PATH QA_STALL_HOLD_MS QA_STALL_PROBE; do
+  check "run-one.sh: ${name} is passed into the container" 'grep -q "^passed ${name}$" "${TMP}/passes.log"' "$(grep '^passed' "${TMP}/passes.log" | tr '\n' ';')"
+done
+
+# --- stack.sh: the grace a cell asks for -------------------------------------------
+SBIN="${TMP}/sbin"
+mkdir -p "${SBIN}"
+cat > "${SBIN}/docker" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  "compose build"*) echo "build" >> "${FAKE_LOG}" ;;
+  "compose up -d") echo "up access=${JWT_ACCESS_TOKEN_EXPIRY:-} grace=${REFRESH_GRACE_SECONDS:-}" >> "${FAKE_LOG}"
+    echo "${JWT_ACCESS_TOKEN_EXPIRY:-}" > "${FAKE_LOG}.access"; echo "${REFRESH_GRACE_SECONDS:-}" > "${FAKE_LOG}.grace" ;;
+  "compose ps backend") echo "erp_backend Up" ;;
+  *"printenv JWT_ACCESS_TOKEN_EXPIRY") cat "${FAKE_LOG}.access" 2>/dev/null ;;
+  *"printenv REFRESH_GRACE_SECONDS") cat "${FAKE_LOG}.grace" 2>/dev/null ;;
+  inspect*Health*) echo healthy ;;
+  inspect*) echo sha256:img ;;
+esac
+STUB
+cat > "${SBIN}/curl" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  *http_code*) printf 200 ;;
+  *) echo '<meta name="erp-build" content="abc123">' ;;
+esac
+STUB
+cp "${FAKE}/bin/git" "${SBIN}/git"
+chmod +x "${SBIN}"/*
+
+# stack <name> <capture json or ""> <command>: the real stack.sh against the stand-ins.
+stack() {
+  local name="$1" capture="$2"; shift 2
+  local scratch="${TMP}/stack-${name}"
+  mkdir -p "${scratch}"
+  [ -n "${capture}" ] && printf '%s\n' "${capture}" > "${scratch}/stack-before.json"
+  ( export PATH="${SBIN}:${PATH}" ERP_SESSION_SCRATCH="${scratch}" FAKE_LOG="${TMP}/${name}.log" QA_USERNAME=a QA_PASSWORD=a
+    : > "${FAKE_LOG}"
+    bash "${HERE}/stack.sh" "$@" > "${TMP}/${name}.out" 2>&1 )
+  echo $? > "${TMP}/${name}.rc"
+}
+CAPTURE='{"accessTokenExpiry":"15m","refreshGraceSeconds":"60"}'
+
+QA_GRACE_SECONDS=30 stack grace30 "${CAPTURE}" qa-up
+check "stack.sh: a grace that is neither 5 nor 60 is refused before anything is built" '[ "$(cat "${TMP}/grace30.rc")" = "2" ] && [ ! -s "${TMP}/grace30.log" ]' "exit $(cat "${TMP}/grace30.rc"); $(tr '\n' ';' < "${TMP}/grace30.log")"
+
+QA_GRACE_SECONDS=60 stack grace60 "${CAPTURE}" qa-up
+check "stack.sh: QA_GRACE_SECONDS=60 starts the stack at access 20s, grace 60" 'grep -q "^up access=20s grace=60$" "${TMP}/grace60.log"' "$(tr '\n' ';' < "${TMP}/grace60.log")"
+
+stack grace5 "${CAPTURE}" qa-up
+check "stack.sh: with no grace asked for it is 5, as before" 'grep -q "^up access=20s grace=5$" "${TMP}/grace5.log"' "$(tr '\n' ';' < "${TMP}/grace5.log")"
+
+QA_GRACE_SECONDS=60 stack restore60 "${CAPTURE}" restore
+check "stack.sh: restore uses the captured values whatever grace the run asked for" 'grep -q "^up access=15m grace=60$" "${TMP}/restore60.log" && [ "$(cat "${TMP}/restore60.rc")" = "0" ]' "exit $(cat "${TMP}/restore60.rc"); $(tr '\n' ';' < "${TMP}/restore60.log")"
+QA_GRACE_SECONDS=60 stack restore5 '{"accessTokenExpiry":"15m","refreshGraceSeconds":"5"}' restore
+check "stack.sh: restore of a capture taken at grace 5 goes back to 5, not to what the run asked for" 'grep -q "^up access=15m grace=5$" "${TMP}/restore5.log"' "$(tr '\n' ';' < "${TMP}/restore5.log")"
+
+# --- stall-cell.sh: what it refuses ------------------------------------------------
+CQA="${TMP}/cellroot/frontend/qa/cross-tab-session"
+mkdir -p "${CQA}/lib" "${TMP}/cellroot/docs/modules/auth" "${TMP}/cellroot/bin"
+cp "${HERE}/stall-cell.sh" "${CQA}/stall-cell.sh" 2>/dev/null
+cp "${HERE}/lib/stall-cells.mjs" "${CQA}/lib/stall-cells.mjs"
+printf '#!/usr/bin/env bash\necho "run-one $* cell=${QA_STALL_CELL:-} kind=${QA_STALL_KIND:-} grace=${QA_GRACE_SECONDS:-} gate=${QA_STALL_GATE:-} barrier=${QA_STALL_BARRIER_MS:-} nudge=${QA_STALL_NUDGE_PATH:-}" >> "${FAKE_LOG}"\n' > "${CQA}/run-one.sh"
+printf '#!/usr/bin/env bash\necho "{\\"accessTokenExpiry\\":\\"15m\\",\\"refreshGraceSeconds\\":\\"60\\"}"\n' > "${CQA}/stack.sh"
+printf '#!/usr/bin/env bash\necho "rows $*" >> "${FAKE_LOG}"\necho "{}"\n' > "${CQA}/replay-server-rows.sh"
+printf 'console.log("judged")\n' > "${CQA}/judge-stall.mjs"
+cat > "${TMP}/cellroot/bin/git" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in "branch --show-current") echo "${FAKE_BRANCH}" ;; "rev-parse HEAD") echo abc123 ;; esac
+STUB
+printf '#!/usr/bin/env bash\necho "CONTAINER"\n' > "${TMP}/cellroot/bin/docker"
+chmod +x "${CQA}"/*.sh "${TMP}/cellroot/bin"/*
+PROTOCOL="${TMP}/cellroot/docs/modules/auth/REPLAY_STALL_PROTOCOL.md"
+
+# cell <name> <branch> <args...>
+cell() {
+  local name="$1" branch="$2"; shift 2
+  ( export PATH="${TMP}/cellroot/bin:${PATH}" FAKE_LOG="${TMP}/${name}.log" FAKE_BRANCH="${branch}" \
+      ERP_SESSION_SCRATCH="${TMP}/cell-scratch-${name}" ERP_QA_EVIDENCE="${TMP}/evidence-${name}"
+    : > "${FAKE_LOG}"
+    bash "${CQA}/stall-cell.sh" "$@" > "${TMP}/${name}.out" 2>&1 )
+  echo $? > "${TMP}/${name}.rc"
+}
+
+printf '## Frozen values\n\nNot yet frozen. No recorded round may run while this line stands.\n' > "${PROTOCOL}"
+cell unfrozen qa/1370-replay-stall-runs 10.1.1.34 H12 recorded
+check "stall-cell.sh: a recorded cell is refused while the protocol is not frozen" '[ "$(cat "${TMP}/unfrozen.rc")" = "2" ] && ! grep -q "^run-one" "${TMP}/unfrozen.log"' "exit $(cat "${TMP}/unfrozen.rc"); $(cat "${TMP}/unfrozen.out" | tr '\n' ';')"
+cell calib qa/1370-replay-stall-runs 10.1.1.34 H12 calibration
+check "stall-cell.sh: calibration runs before the freeze, at the cell's grace" 'grep -q "^run-one 10.1.1.34 diagnose-stall.mjs cell=H12 kind=calibration grace=5 " "${TMP}/calib.log"' "exit $(cat "${TMP}/calib.rc"); $(cat "${TMP}/calib.out" "${TMP}/calib.log" | tr '\n' ';')"
+
+printf '## Frozen values\n\nfrozen-mechanism: gate=1 barrier-ms=7000 nudge-path=/inventory/products\n' > "${PROTOCOL}"
+QA_STALL_BARRIER_MS=1 QA_STALL_GATE=0 cell frozen qa/1370-replay-stall-runs 10.1.1.34 G60 recorded
+check "stall-cell.sh: a recorded cell runs the frozen mechanism, whatever the environment says" 'grep -q "^run-one 10.1.1.34 diagnose-stall.mjs cell=G60 kind=recorded grace=60 gate=1 barrier=7000 nudge=/inventory/products$" "${TMP}/frozen.log"' "exit $(cat "${TMP}/frozen.rc"); $(cat "${TMP}/frozen.out" "${TMP}/frozen.log" | tr '\n' ';')"
+check "stall-cell.sh: the evidence is filed under the cell and the start time" 'ls "${TMP}/evidence-frozen/G60"/*/head.txt > /dev/null 2>&1' "$(find "${TMP}/evidence-frozen" 2>/dev/null | head -5 | tr '\n' ';')"
+check "stall-cell.sh: calibration evidence is filed apart" 'ls "${TMP}/evidence-calib/calibration"/*/head.txt > /dev/null 2>&1' "$(find "${TMP}/evidence-calib" 2>/dev/null | head -5 | tr '\n' ';')"
+
+cell wrongbranch qa/1370-replay-stall-runs 10.1.1.34 C-unfixed recorded
+check "stall-cell.sh: the control's unfixed half is refused on the evidence branch" '[ "$(cat "${TMP}/wrongbranch.rc")" = "2" ] && ! grep -q "^run-one" "${TMP}/wrongbranch.log"' "exit $(cat "${TMP}/wrongbranch.rc")"
+cell wrongbranch2 qa/1370-control-unfixed 10.1.1.34 H21 recorded
+check "stall-cell.sh: a main cell is refused on the control branch" '[ "$(cat "${TMP}/wrongbranch2.rc")" = "2" ] && ! grep -q "^run-one" "${TMP}/wrongbranch2.log"' "exit $(cat "${TMP}/wrongbranch2.rc")"
+cell control qa/1370-control-unfixed 10.1.1.34 C-unfixed recorded
+check "stall-cell.sh: the control's unfixed half runs on the control branch" 'grep -q "^run-one .* cell=C-unfixed " "${TMP}/control.log"' "exit $(cat "${TMP}/control.rc"); $(cat "${TMP}/control.out" | tr '\n' ';')"
+cell unknown qa/1370-replay-stall-runs 10.1.1.34 H13 recorded
+check "stall-cell.sh: an unknown cell is refused" '[ "$(cat "${TMP}/unknown.rc")" = "2" ]' "exit $(cat "${TMP}/unknown.rc")"
+cell badkind qa/1370-replay-stall-runs 10.1.1.34 H12 practice
+check "stall-cell.sh: a kind that is neither calibration nor recorded is refused" '[ "$(cat "${TMP}/badkind.rc")" = "2" ]' "exit $(cat "${TMP}/badkind.rc")"
+
 echo "passed ${PASSED}, failed ${FAILED}"
 [ "${FAILED}" -eq 0 ]

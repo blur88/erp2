@@ -8,6 +8,9 @@
 # Playwright container, and restores the stack. capture-feasibility.sh is the
 # same thing for one script, kept as it was recorded.
 #
+# QA_GRACE_SECONDS (5 or 60) is passed to stack.sh qa-up, and the QA_STALL_*
+# settings of the stall runs (#1370) into the container, by name.
+#
 # A diagnostic run. It is not a recorded run of the suite, writes no
 # results.json, and what it writes is whatever the script writes.
 #
@@ -96,6 +99,8 @@ docker run --rm \
   -e QA_INGRESS_LOG=/scratch/ingress-access.log \
   -e QA_ONE_SCRIPT="${SCRIPT}" \
   -e QA_REPLAY_ATTEMPTS -e QA_REPLAY_TABS \
+  -e QA_STALL_CELL -e QA_STALL_KIND -e QA_STALL_ROUNDS -e QA_STALL_GATE -e QA_STALL_BARRIER_MS \
+  -e QA_STALL_NUDGE_PATH -e QA_STALL_HOLD_MS -e QA_STALL_PROBE \
   -e QA_USERNAME -e QA_PASSWORD -e QA_USERNAME_2 -e QA_PASSWORD_2 -e QA_USERNAME_3 -e QA_PASSWORD_3 \
   "${PLAYWRIGHT_IMAGE}" \
   bash -c '
