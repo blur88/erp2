@@ -25,23 +25,102 @@ export async function pair(ctx, { user, profileOpts = {}, bOpts = {} } = {}) {
 }
 
 /**
+ * How often a signed-in tab polls the health endpoints
+ * (`setInterval(checkHealth, 30000)` in SystemStatus.tsx; suite-wiring.test.mjs
+ * fails if the two drift apart).
+ */
+export const STATUS_POLL_MS = 30000
+
+/**
  * Signed-in tabs poll the health endpoints through the request gate every
- * 30 s, and a poll would tell a tab about a sign-out by itself. Cases that
- * need a tab to stay unaware for a few seconds start right after a poll.
+ * 30 s. A poll that falls due after a sign-out tells the tab about it: the
+ * gate reads the stored record first, finds the session ended, ends the tab
+ * and does not send the poll. Cases that need a tab to stay unaware for a few
+ * seconds start right after a poll.
+ *
+ * Returns when that poll was issued (the script's clock), or null if none was
+ * seen. The next one is due STATUS_POLL_MS later.
  */
 export async function afterNextPoll(profile, page) {
   const mark = profile.mark()
-  const deadline = Date.now() + 35000
+  const deadline = Date.now() + STATUS_POLL_MS + 5000
   while (Date.now() < deadline) {
     const polled = profile.since(mark, page).find((e) => e.zone === 'health' && e.status !== null)
     if (polled) {
       await sleep(500)
-      return true
+      return polled.issuedAt
     }
     await sleep(200)
   }
-  return false
+  return null
 }
+
+/**
+ * Runs in tab B before the application: records when a message arrives on the
+ * session channel. The application's own listener is untouched; this one is
+ * added first, to the same channel object. `window.__qaSessionChannel` stays
+ * null in a tab that has no BroadcastChannel.
+ */
+export const recordSessionChannel = {
+  fn: (name) => {
+    window.__qaSessionChannel = null
+    const Native = window.BroadcastChannel
+    if (typeof Native !== 'function') return
+    const seen = { opened: 0, received: [] }
+    window.__qaSessionChannel = seen
+    window.BroadcastChannel = class extends Native {
+      constructor(channelName) {
+        super(channelName)
+        if (channelName !== name) return
+        seen.opened += 1
+        super.addEventListener('message', () => seen.received.push(Date.now()))
+      }
+    }
+  },
+  arg: 'erp-session',
+}
+
+/**
+ * The two lines that tie tab B's redirect to the BroadcastChannel message.
+ *
+ * A tab learns of a sign-out elsewhere in one of three ways: the channel
+ * message, a request of its own (the gate's read before it), or a resume event
+ * (case 15). "Sent no request" does not tell the first two apart, because the
+ * gate's read ends the tab before the request is sent (#1379, run B1). So:
+ *
+ *   - the message is observed arriving in B, after the sign-out began and
+ *     before B's redirect;
+ *   - B's next status poll was not yet due when B was redirected, so no gate
+ *     read of B's own fell in between.
+ *
+ * Returns nothing; both are checks.
+ */
+async function toldByTheChannel(ctx, b, { polledAt, signOutAt, redirect }) {
+  const channel = await b.evaluate(() => window.__qaSessionChannel)
+  const until = redirect.at ?? Date.now()
+  const inWindow = channel ? channel.received.filter((t) => t >= signOutAt && t <= until) : []
+  ctx.check(
+    'a session-channel message reached tab B after the sign-out began and before its redirect',
+    redirect.at !== null && inWindow.length > 0,
+    {
+      channelInTabB: channel !== null,
+      channelsOpened: channel?.opened ?? 0,
+      receivedMsAfterSignOut: channel ? channel.received.map((t) => t - signOutAt) : null,
+      redirectMsAfterSignOut: redirect.at === null ? null : redirect.at - signOutAt,
+    },
+  )
+  const nextPollDueAt = polledAt + STATUS_POLL_MS
+  ctx.check("tab B's next status poll was not yet due when it was redirected", redirect.at !== null && redirect.at < nextPollDueAt - POLL_MARGIN_MS, {
+    lastPollMsBeforeSignOut: signOutAt - polledAt,
+    nextPollDueMsAfterSignOut: nextPollDueAt - signOutAt,
+    redirectMsAfterSignOut: redirect.at === null ? null : redirect.at - signOutAt,
+    marginMs: POLL_MARGIN_MS,
+  })
+}
+
+// The poll's timer runs in the tab; the script sees the request it issues. The
+// margin covers the difference between the two.
+const POLL_MARGIN_MS = 2000
 
 /**
  * Notes when the tab's main frame arrives at /login. Cases 1, 3 and 15 use it
@@ -57,10 +136,13 @@ function watchRedirect(page) {
 
 /**
  * Pass: tab B issued no request of any kind between `mark` (taken just before
- * tab A's sign-out) and its own arrival at /login. A tab learns of a sign-out
- * from the channel message or from its next request through the gate; with no
- * request in between, it was the message. If the redirect was never seen the
- * window runs to now, so a tab that only sent something still fails.
+ * tab A's sign-out) and its own arrival at /login. If the redirect was never
+ * seen the window runs to now, so a tab that only sent something still fails.
+ *
+ * What this line establishes is that a tab whose session ended sends nothing
+ * on the way out. It does NOT establish how the tab learned of the sign-out:
+ * a request that would have told it is stopped by the gate's read before it
+ * is sent, so the line passes then too (#1379).
  */
 function sentNothingBeforeRedirect(ctx, profile, mark, b, redirect, prefix = '') {
   const until = redirect.at ?? Date.now()
@@ -75,24 +157,34 @@ export default [
     name: 'Two-tab sign-out',
     // Passes when: after tab A signs out through the sidebar menu, tab B of the
     // same profile shows the login page within 5 s, B is still the document it
-    // was (nothing reloaded or navigated it), and B SENT NO REQUEST between
-    // the sign-out and its redirect.
+    // was (nothing reloaded or navigated it), a session-channel message
+    // REACHED B between the sign-out and its redirect, B's next status poll
+    // was NOT YET DUE when it was redirected, and B sent no request in
+    // between.
     //
-    // The last condition is what makes this a test of the channel: a signed-in
-    // tab polls through the request gate every 30 s, and a poll would tell it
-    // of the sign-out by itself. The case starts right after one of B's polls
-    // (the next is about 30 s away, the wait is 5 s), and a B that sent
-    // anything before it left fails. So a pass means B was told by the
-    // BroadcastChannel message, not by a request of its own.
+    // What a pass proves: the BroadcastChannel message was delivered to B, and
+    // B left before anything of its own could have told it (its poll is the
+    // only thing a signed-in, idle, visible tab does by itself, and it was not
+    // due). The case still starts right after one of B's polls so that this
+    // holds; it is now checked instead of assumed.
+    //
+    // What a pass does not prove: that the message alone would have been
+    // enough in a tab that is frozen, hidden or throttled (case 15 covers the
+    // resume events with the channel removed); delivery between browser
+    // profiles or windows of different processes; and anything about a
+    // sign-out whose publication is delayed (case 17).
     async run(ctx) {
-      const { profile, a, b } = await pair(ctx)
+      const { profile, a, b } = await pair(ctx, { bOpts: { init: recordSessionChannel } })
       const doc = await documentId(b)
       const redirect = watchRedirect(b)
-      ctx.require('a status poll of tab B was seen (the case starts right after one)', await afterNextPoll(profile, b))
+      const polledAt = await afterNextPoll(profile, b)
+      ctx.require('a status poll of tab B was seen (the case starts right after one)', polledAt !== null)
       const mark = profile.mark()
+      const signOutAt = Date.now()
       await ctx.signOut(a)
       ctx.check('tab A shows the login page', await onLoginPage(a))
       ctx.check('tab B shows the login page within 5 s', await onLoginPage(b, 5000))
+      await toldByTheChannel(ctx, b, { polledAt, signOutAt, redirect })
       sentNothingBeforeRedirect(ctx, profile, mark, b, redirect)
       ctx.check('tab B no longer shows the signed-in application', !(await showsSignedInUi(b, 300)))
       ctx.check('tab B was not reloaded', (await documentId(b)) === doc)
@@ -150,22 +242,27 @@ export default [
     name: 'Drafts',
     // Passes when: a bank-reconciliation draft seeded in tab B's sessionStorage
     // is there before tab A signs out and gone within 5 s afterwards, without
-    // B being reloaded, and B SENT NO REQUEST between the sign-out and its
-    // redirect. As in case 1, that last condition and the start right after
-    // one of B's polls are what tie the result to the BroadcastChannel
-    // message: a B that lost its draft only because a request of its own told
-    // it of the sign-out fails.
+    // B being reloaded; and, as in case 1, a session-channel message REACHED B
+    // between the sign-out and its redirect, B's next status poll was NOT YET
+    // DUE when it was redirected, and B sent no request in between.
+    //
+    // What a pass proves: the draft was cleared in a tab that was told by the
+    // BroadcastChannel message. What it does not prove is the same as in
+    // case 1; the draft's removal on the other paths is cases 4 and 15.
     async run(ctx) {
-      const { profile, a, b, stored } = await pair(ctx)
+      const { profile, a, b, stored } = await pair(ctx, { bOpts: { init: recordSessionChannel } })
       const key = await seedDraft(b, stored.record.session.user.id)
       const doc = await documentId(b)
       const redirect = watchRedirect(b)
-      ctx.require('a status poll of tab B was seen (the case starts right after one)', await afterNextPoll(profile, b))
+      const polledAt = await afterNextPoll(profile, b)
+      ctx.require('a status poll of tab B was seen (the case starts right after one)', polledAt !== null)
       ctx.require('the draft is in tab B before the sign-out', (await draftKeys(b)).includes(key))
       const mark = profile.mark()
+      const signOutAt = Date.now()
       await ctx.signOut(a)
       ctx.check("tab B's draft is gone within 5 s", await draftsGone(b, 5000), await draftKeys(b))
       ctx.check('tab B shows the login page', await onLoginPage(b, 5000))
+      await toldByTheChannel(ctx, b, { polledAt, signOutAt, redirect })
       sentNothingBeforeRedirect(ctx, profile, mark, b, redirect)
       ctx.check('tab B was not reloaded', (await documentId(b)) === doc)
     },
