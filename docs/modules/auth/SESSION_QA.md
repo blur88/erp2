@@ -2344,6 +2344,12 @@ the suite with the two lines; the three faults are the harness's.
 | PB1 | channel removed in tab B, sign-out 27.5 s after B's poll (run B1 again) | exit 1. The 5 s lines and the no-request line **passed**, as in B1; B was redirected 2560 and 2536 ms after the sign-out began, the poll being due at 2499 and 2497 ms. **Both new lines failed** | as expected |
 | PB3 | channel present, sign-out 27.5 s after B's poll | exit 1. Every line passed but the poll line: message at 530 and 501 ms, redirect at 588 and 568 ms, poll due at 2.5 s, inside the margin | as expected |
 
+A fifth run, R13, ran cases 1 and 3 from the repository's own suite on
+`7096dc604`, the commit that put the two lines there (`QA_ONLY=1,3`, no
+override, so still partial): exit 0, both cases passed every line, message at
+454 and 516 ms, redirect at 525 and 597 ms. The two cases have not been run as
+part of a whole recorded run since the change.
+
 - **The condition B1 passed under now fails (PB1),** on the two lines that are
   about it and on no other.
 - **Each new line fails alone when only its condition is absent** (PB3 for the
