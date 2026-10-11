@@ -23,11 +23,8 @@ export interface MemorySessionStore extends SessionStore {
   close(): void
 }
 
-// `defaultTimeoutMs` shortens the store's own timeout for the tests that model
-// storage answering nobody, instead of waiting the real five seconds.
-export function createMemorySessionStore(shared: SharedMemory, opts?: { defaultTimeoutMs?: number }): MemorySessionStore {
+export function createMemorySessionStore(shared: SharedMemory): MemorySessionStore {
   const closedListeners = new Set<() => void>()
-  const defaultTimeoutMs = opts?.defaultTimeoutMs ?? 5000
 
   let holdActive = false
   let holdReleased = false
@@ -86,7 +83,7 @@ export function createMemorySessionStore(shared: SharedMemory, opts?: { defaultT
 
   return {
     read(opts) {
-      const timeoutMs = opts?.timeoutMs ?? defaultTimeoutMs
+      const timeoutMs = opts?.timeoutMs ?? 5000
       return enqueue(async (cancelled) => {
         ensureOpen()
         if (cancelled()) throw new StorageTimeoutError('transaction timed out')
@@ -101,7 +98,7 @@ export function createMemorySessionStore(shared: SharedMemory, opts?: { defaultT
     },
 
     transact<R>(decide: (s: StoredState) => Decision<R>, opts?: { timeoutMs?: number }) {
-      const timeoutMs = opts?.timeoutMs ?? defaultTimeoutMs
+      const timeoutMs = opts?.timeoutMs ?? 5000
       return enqueue(async (cancelled) => {
         ensureOpen()
         const hold = waitForHold()
