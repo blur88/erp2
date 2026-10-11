@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { configureStore } from '@reduxjs/toolkit'
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { registerSessionRuntime } from '@/session/registry'
 import api from '@/services/api'
@@ -7,6 +6,7 @@ import { createHarness } from '@/session/__tests__/twoTabs'
 import { settingsApiSlice } from '../settingsApi'
 import { paymentMethodsApiSlice } from '../paymentMethodsApi'
 import { userManagementApiSlice } from '../userManagementApi'
+import { createTestStore } from '@/test/createTestStore'
 
 // The endpoints as the application dispatches them, on the real session runtime
 // (in-memory store) with the axios adapter as the ingress. Only the company-data
@@ -36,19 +36,7 @@ describe('RTK Query endpoints after a 429 from the ingress', () => {
   }
 
   const makeStore = () =>
-    configureStore({
-      reducer: {
-        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-        [paymentMethodsApiSlice.reducerPath]: paymentMethodsApiSlice.reducer,
-        [userManagementApiSlice.reducerPath]: userManagementApiSlice.reducer,
-      },
-      middleware: (getDefault) =>
-        getDefault().concat(
-          settingsApiSlice.middleware,
-          paymentMethodsApiSlice.middleware,
-          userManagementApiSlice.middleware,
-        ),
-    })
+    createTestStore({ apis: [settingsApiSlice, paymentMethodsApiSlice, userManagementApiSlice] })
   let store: ReturnType<typeof makeStore>
 
   // Runs every wait to its end; the exact waits are asserted in retryOn429.test.ts.

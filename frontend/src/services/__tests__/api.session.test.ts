@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { configureStore } from '@reduxjs/toolkit'
 import { createApi } from '@reduxjs/toolkit/query'
 import { axiosBaseQuery } from '@/store/api/baseQuery'
 import { registerSessionRuntime } from '@/session/registry'
@@ -15,6 +14,7 @@ import api from '@/services/api'
 import { authApi } from '@/services/authApi'
 import { createAuthHttp } from '@/session/authHttp'
 import { createHarness, holdRefreshResponses } from '@/session/__tests__/twoTabs'
+import { createTestStore } from '@/test/createTestStore'
 
 function makeRuntime(memory = createSharedMemory(), prefix = 'sess') {
   const store = createMemorySessionStore(memory)
@@ -155,10 +155,7 @@ describe('api session interceptors', () => {
         inventory: builder.query<{ secret: string }, void>({ query: () => ({ url: '/inventory' }) }),
       }),
     })
-    const store = configureStore({
-      reducer: { [testApi.reducerPath]: testApi.reducer },
-      middleware: (getDefault) => getDefault().concat(testApi.middleware),
-    })
+    const store = createTestStore({ apis: [testApi] })
     const entry = () => testApi.endpoints.inventory.select()(store.getState())
 
     await runtime.start()

@@ -1,4 +1,3 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
@@ -9,6 +8,7 @@ import api from '@/services/api'
 import { priceListApiSlice } from '@/store/api/priceListApi'
 
 import { FilterPriceList } from '../FilterPriceList'
+import { createTestStore } from '@/test/createTestStore'
 
 // Only the Axios transport is mocked: the real priceListApi slice and
 // axiosBaseQuery run, so a request the server would reject fails here too.
@@ -42,11 +42,7 @@ function serveLikeBackend() {
 // pairs each frame with a 100 ms fallback timer that RTK gives no way to cancel,
 // and one still pending when jsdom is torn down throws there (#1364).
 function renderWithStore(ui: ReactElement) {
-  const store = configureStore({
-    reducer: { [priceListApiSlice.reducerPath]: priceListApiSlice.reducer },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(priceListApiSlice.middleware),
-    enhancers: (getDefaultEnhancers) => getDefaultEnhancers({ autoBatch: { type: 'tick' } }),
-  })
+  const store = createTestStore({ apis: [priceListApiSlice] })
   return render(<Provider store={store}>{ui}</Provider>)
 }
 

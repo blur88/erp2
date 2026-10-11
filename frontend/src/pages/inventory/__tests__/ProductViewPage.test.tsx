@@ -1,4 +1,3 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
@@ -24,15 +23,10 @@ import { inventoryApiSlice } from '@/store/api/inventoryApi'
 import { settingsApiSlice } from '@/store/api/settingsApi'
 
 import ProductViewPage from '../ProductViewPage'
+import { createTestStore } from '@/test/createTestStore'
 
 function renderPage(search = '') {
-  const store = configureStore({
-    reducer: {
-      [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-      [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-    },
-    middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-  })
+  const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
   return render(
     <Provider store={store}>
       <MemoryRouter initialEntries={[`/inventory/products/widget/view${search}`]}>
@@ -65,13 +59,7 @@ describe('ProductViewPage', () => {
       return <span data-testid="probe-search">{location.search}</span>
     }
 
-    const store = configureStore({
-      reducer: {
-        [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-      },
-      middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
     window.history.replaceState(null, '', '/inventory/products/widget/view?tab=0&probe=keepme')
     render(
       <Provider store={store}>
@@ -99,13 +87,7 @@ describe('ProductViewPage', () => {
       return <span data-testid="back-search">{location.pathname}{location.search}</span>
     }
 
-    const store = configureStore({
-      reducer: {
-        [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-      },
-      middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
     window.history.replaceState(null, '', '/inventory/products/widget/view?listQuery=page%3D2')
     render(
       <Provider store={store}>
@@ -130,13 +112,7 @@ describe('ProductViewPage', () => {
       return <span data-testid="back-search">{location.pathname}{location.search}</span>
     }
 
-    const store = configureStore({
-      reducer: {
-        [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-      },
-      middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
     render(
       <Provider store={store}>
         <MemoryRouter initialEntries={['/inventory/products/widget/view']}>

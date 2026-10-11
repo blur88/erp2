@@ -1,4 +1,3 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
@@ -33,15 +32,10 @@ import { settingsApiSlice } from '@/store/api/settingsApi'
 import { formatDate } from '@/utils/formatters'
 
 import CategoryViewPage from '../CategoryViewPage'
+import { createTestStore } from '@/test/createTestStore'
 
 function renderPage() {
-  const store = configureStore({
-    reducer: {
-      [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-      [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-    },
-    middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-  })
+  const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
   return render(
     <Provider store={store}>
       <MemoryRouter initialEntries={['/inventory/categories/old/view']}>
@@ -95,13 +89,7 @@ describe('CategoryViewPage', () => {
       return <span data-testid="probe-search">{location.search}</span>
     }
 
-    const store = configureStore({
-      reducer: {
-        [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-      },
-      middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
     window.history.replaceState(null, '', '/inventory/categories/old/view?tab=0&probe=keepme')
     render(
       <Provider store={store}>

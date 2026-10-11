@@ -1,10 +1,10 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import api from '@/services/api'
 import { accountingApiSlice } from '@/store/api/accountingApi'
 import { purchasingApiSlice } from '@/store/api/purchasingApi'
 import { salesApiSlice } from '@/store/api/salesApi'
+import { createTestStore } from '@/test/createTestStore'
 
 vi.mock('@/services/api', () => ({
   default: vi.fn(),
@@ -34,16 +34,7 @@ afterEach(() => {
 describe('cross-slice JournalEntry invalidation', () => {
   it('re-fetches the journal entries list after a PO payment', async () => {
     routeApiByUrl()
-    const store = configureStore({
-      reducer: {
-        [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
-        [purchasingApiSlice.reducerPath]: purchasingApiSlice.reducer,
-      },
-      middleware: (getDefaultMiddleware) =>
-        getDefaultMiddleware()
-          .concat(accountingApiSlice.middleware)
-          .concat(purchasingApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [accountingApiSlice, purchasingApiSlice] })
 
     const jeSub = store.dispatch(
       accountingApiSlice.endpoints.getJournalEntries.initiate({ page: 1, limit: 20 }),
@@ -64,16 +55,7 @@ describe('cross-slice JournalEntry invalidation', () => {
 
   it('re-fetches the journal entries list after an SO payment', async () => {
     routeApiByUrl()
-    const store = configureStore({
-      reducer: {
-        [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
-        [salesApiSlice.reducerPath]: salesApiSlice.reducer,
-      },
-      middleware: (getDefaultMiddleware) =>
-        getDefaultMiddleware()
-          .concat(accountingApiSlice.middleware)
-          .concat(salesApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [accountingApiSlice, salesApiSlice] })
 
     const jeSub = store.dispatch(
       accountingApiSlice.endpoints.getJournalEntries.initiate({ page: 1, limit: 20 }),

@@ -1,19 +1,14 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { configureStore } from '@reduxjs/toolkit';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import SearchModal from '../SearchModal';
 import { searchApiSlice } from '@/store/api/searchApi';
+import { createTestStore } from '@/test/createTestStore';
 
 function makeStore() {
-  return configureStore({
-    reducer: {
-      [searchApiSlice.reducerPath]: searchApiSlice.reducer,
-    },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(searchApiSlice.middleware),
-  });
+  return createTestStore({ apis: [searchApiSlice] });
 }
 
 const mockUseSearchGlobal = vi.fn();
