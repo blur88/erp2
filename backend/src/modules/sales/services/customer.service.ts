@@ -9,6 +9,7 @@ import { Repository, FindOptionsWhere } from 'typeorm';
 import { applyPagination } from '../../../common/pagination/apply-pagination';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Customer } from '../../../database/entities/customer.entity';
+import { Payment } from '../../../database/entities/payment.entity';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import {
   CreateCustomerDto,
@@ -68,6 +69,35 @@ const CUSTOMER_METRIC_COLUMNS: ReadonlySet<string> = new Set([
   'lastPurchaseDate',
 ]);
 
+function describePermanentDeleteDependencies(dependencies: {
+  orders: number;
+  payments: number;
+}): string {
+  const parts: string[] = [];
+  if (dependencies.orders > 0) {
+    parts.push(`${dependencies.orders} active order${dependencies.orders > 1 ? 's' : ''}`);
+  }
+  if (dependencies.payments > 0) {
+    parts.push(`${dependencies.payments} payment${dependencies.payments > 1 ? 's' : ''}`);
+  }
+  return parts.join(' and ');
+}
+
+/** What holds the customer, without counts: the only part of a refusal that reaches the client. */
+function namePermanentDeleteDependencies(dependencies: {
+  orders: number;
+  payments: number;
+}): string {
+  const names: string[] = [];
+  if (dependencies.orders > 0) {
+    names.push('sales orders');
+  }
+  if (dependencies.payments > 0) {
+    names.push('payments');
+  }
+  return names.join(' and ');
+}
+
 @Injectable()
 export class CustomerService extends BaseCrudService<
   Customer,
@@ -80,6 +110,8 @@ export class CustomerService extends BaseCrudService<
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
     private readonly transactionManager: TransactionManager,
     auditLogService: AuditLogService,
   ) {
@@ -585,6 +617,27 @@ export class CustomerService extends BaseCrudService<
     return BulkOperationUtil.createResponse('restored', 'customer', successCount, failedItems);
   }
 
+  /**
+   * Rows that hold a customer in place: `sales_orders.customerId` and
+   * `payments.customerId` are both ON DELETE RESTRICT. Orders that are
+   * soft-deleted are not counted, because permanent deletion removes them
+   * first. Payments are counted whether soft-deleted or not: nothing removes
+   * them, and the foreign key does not look at `deletedAt` (#1368).
+   */
+  private async countPermanentDeleteDependencies(
+    customerId: string,
+  ): Promise<{ orders: number; payments: number }> {
+    const orders = await this.salesOrderRepository.count({
+      where: { customerId },
+      withDeleted: false,
+    });
+    const payments = await this.paymentRepository.count({
+      where: { customerId },
+      withDeleted: true,
+    });
+    return { orders, payments };
+  }
+
   async bulkPermanentDelete(
     customerIds: string[],
     userId?: string,
@@ -613,24 +666,17 @@ export class CustomerService extends BaseCrudService<
           continue;
         }
 
-        // Check for active references with comprehensive dependency checking
-        // Only check for non-soft-deleted records since soft-deleted records can coexist
-        const orderCount = await this.salesOrderRepository.count({
-          where: { customerId },
-          withDeleted: false,
-        });
+        const dependencies = await this.countPermanentDeleteDependencies(customerId);
 
-        if (orderCount > 0) {
+        if (dependencies.orders > 0 || dependencies.payments > 0) {
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
-            `Cannot permanently delete customer '${customer.name}' (${customer.id}) due to ${orderCount} active order${orderCount > 1 ? 's' : ''}. Complete all business transactions first.`,
+            `Cannot permanently delete customer '${customer.name}' (${customer.id}) because it has ${describePermanentDeleteDependencies(dependencies)}.`,
             'DEPENDENCY_ERROR',
             {
               customerName: customer.name,
-              dependencies: {
-                orders: orderCount,
-              },
+              dependencies,
             },
           );
           continue;
@@ -682,72 +728,34 @@ export class CustomerService extends BaseCrudService<
     );
   }
 
-  @Transactional('Customer permanent deletion with financial integrity validation')
+  @Transactional('Customer permanent deletion')
   async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     // Verify customer exists and is soft-deleted
-    console.log(`Looking for customer with ID: ${id}`);
     const customer = await this.customerRepository.findOne({
       where: { id },
       withDeleted: true,
     });
-    console.log(
-      `Found customer:`,
-      customer
-        ? {
-            id: customer.id,
-            name: customer.name,
-            deletedAt: customer.deletedAt,
-          }
-        : 'null',
-    );
 
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(customer, 'Customer', id);
 
-    // Check for active references with comprehensive dependency checking
-    // Only check for non-soft-deleted records since soft-deleted records can coexist
-    const orderCount = await this.salesOrderRepository.count({
-      where: { customerId: id },
-      withDeleted: false,
-    });
+    const dependencies = await this.countPermanentDeleteDependencies(id);
 
-    if (orderCount > 0) {
+    if (dependencies.orders > 0 || dependencies.payments > 0) {
       const errorResponse = {
-        message: `Cannot permanently delete customer '${customer.name}' due to active business relationships`,
+        message: `Cannot permanently delete customer '${customer.name}' because it has ${namePermanentDeleteDependencies(dependencies)}`,
         code: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
         customerName: customer.name,
         customerId: customer.id,
-        dependencies: {
-          orders: orderCount,
-        },
-        details: `Customer '${customer.name}' (${customer.id}) has ${orderCount} active order${orderCount > 1 ? 's' : ''}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
+        dependencies,
+        details: `Customer '${customer.name}' (${customer.id}) has ${describePermanentDeleteDependencies(dependencies)}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
         suggestions: [
-          'Complete and archive all pending orders first',
-          'Consider using soft delete instead if you need to hide the customer',
+          'Keep this customer soft-deleted to preserve its history and keep it hidden.',
         ],
       };
 
       // Use BadRequestException with the full error object
       throw new BadRequestException(errorResponse);
-    }
-
-    // Validate financial consistency before deletion
-    // Temporarily skip financial consistency check for soft-deleted customers
-    // TODO: Fix TransactionManager to properly handle soft-deleted customers
-    try {
-      const consistencyCheck = await this.transactionManager.validateFinancialConsistency(id);
-      if (!consistencyCheck.isValid) {
-        // Only fail if the customer was not found due to other reasons
-        if (consistencyCheck.discrepancies.some((d) => d.includes('Customer not found'))) {
-          console.log('Skipping financial consistency check for soft-deleted customer');
-        } else {
-          throw new BadRequestException(
-            `Customer financial data inconsistency detected: ${consistencyCheck.discrepancies.join(', ')}`,
-          );
-        }
-      }
-    } catch (error) {
-      console.log('Error in financial consistency check, proceeding with deletion:', error.message);
     }
 
     // Before deleting customer, permanently delete any soft-deleted related records
@@ -782,45 +790,6 @@ export class CustomerService extends BaseCrudService<
 
     // Perform hard delete
     await this.customerRepository.delete(id);
-  }
-
-  /**
-   * Validate and correct customer financial totals
-   * Use for data integrity maintenance
-   */
-  async validateCustomerFinancials(
-    customerId: string,
-  ): Promise<{ isValid: boolean; discrepancies: string[] }> {
-    const customer = await this.customerRepository.findOne({
-      where: { id: customerId },
-    });
-    if (!customer) {
-      throw new NotFoundException('Customer not found');
-    }
-
-    return this.transactionManager.validateFinancialConsistency(customerId);
-  }
-
-  /**
-   * Correct customer financial totals based on actual sales data
-   * Use when data inconsistencies are detected
-   */
-  @Transactional('Customer financial totals correction')
-  async correctCustomerFinancials(customerId: string): Promise<CustomerResponseDto> {
-    const customer = await this.customerRepository.findOne({
-      where: { id: customerId },
-    });
-    if (!customer) {
-      throw new NotFoundException('Customer not found');
-    }
-
-    await this.transactionManager.correctCustomerTotals(customerId);
-
-    // Return updated customer
-    const updatedCustomer = await this.customerRepository.findOne({
-      where: { id: customerId },
-    });
-    return this.mapToResponseDto(updatedCustomer);
   }
 
   /**

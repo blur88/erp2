@@ -312,25 +312,6 @@ export class Customer extends BaseEntity {
   }
 
   /**
-   * Updates sales metrics for the customer
-   * @param orderAmount - The amount of the order
-   * @param isFirstOrder - Whether this is the customer's first order
-   */
-  updateSalesMetrics(orderAmount: number, isFirstOrder: boolean = false): void {
-    if (orderAmount < 0) {
-      throw new Error('Order amount cannot be negative');
-    }
-
-    this.totalSales = Number(this.totalSales) + Number(orderAmount);
-    this.totalOrders += 1;
-    this.lastPurchaseDate = new Date();
-
-    if (isFirstOrder || !this.firstPurchaseDate) {
-      this.firstPurchaseDate = new Date();
-    }
-  }
-
-  /**
    * Checks if customer is allowed to make purchases
    * @returns true if customer can purchase, false otherwise
    */
