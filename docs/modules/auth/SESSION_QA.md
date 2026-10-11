@@ -2232,3 +2232,132 @@ passed, 0 failed.
 - The QA harness (`run.sh`, W1, the cases) has not been run on this change. Its
   `zoneOf` still groups the hint with the login page's requests on purpose, so
   a 429 on it would still be counted in `loginZone429`.
+
+## Forced failures for cases 1 and 3 and for W1 (#1363, 2026-10-11): failure-detection evidence from partial runs
+
+Fourteen runs on `5102cbaff`, 10:57 to 13:56, each through `run.sh` with a copy
+of the suite outside the repository (`QA_SUITE_OVERRIDE`) and a selection
+(`QA_ONLY`). **Every one is a partial run. None is evidence of a pass, and none
+replaces a recorded run.** What they are evidence of is narrower: whether a
+blocking check fails when the condition it is for is present. The section
+"Forced failures for cases 16 and 17" said W1's were not run because W1 had no
+passing baseline; it has had one since the recorded run on `388a4c839`.
+
+How they were run:
+
+- The expected result of every run, the named check it was for and its
+  predicted collateral failures were written down before the first run. One
+  run was withdrawn and replaced by two before anything was run (below); no
+  expectation was changed after a result was seen.
+- A run counts for a check only if the **named** check failed for the stated
+  reason. Faults were injected at five tabs only; ten and twenty tabs ran
+  unmodified in the same run as controls.
+- QA configuration during each (access 20 s, grace 5); after each,
+  `results.json` says the stack was restored and `stack.sh show`, read again
+  after the script had exited, gave 15m / 60. Chromium 153.0.8010.12, the QA
+  host (four processors, spinning disk).
+- The stack served `4f551274e` before the first run. `run.sh` rebuilds from
+  HEAD, so it has served `5102cbaff` since; the two token values were restored,
+  the images were not.
+
+**Four invocations were refused and are not runs.** After the first run's
+rebuild the disk had 2.03 GB free; `run.sh` refused the next four in one second
+each, "free disk under 3 GB", before changing anything. Unused build cache and
+untagged images were pruned before each run from then on (no tagged image, no
+volume). The wrapper used for these runs had copied the previous run's result
+files beside those four refusals, which made them read as passes; the copies
+were deleted and the wrapper now keeps only files written by its own run.
+
+### The baselines through the override path
+
+| Run | Selection | Result |
+|---|---|---|
+| G1 | cases 1 and 3, unmodified copy | exit 0; both cases passed, every line |
+| G2 | W1, unmodified copy | exit 0; 33 blocking checks, none failed, at 5, 10 and 20 tabs; W1's user has the role `sales_staff` and a customer to list |
+
+### Cases 1 and 3: "tab B sent no request between the sign-out and its redirect"
+
+| Run | Fault and where it came from | Result | Against what was written down |
+|---|---|---|---|
+| A | Harness: `BroadcastChannel` removed in tab B | exit 1. Case 1: "tab B shows the login page within 5 s" and "tab B no longer shows the signed-in application" failed. Case 3: "tab B's draft is gone within 5 s" and "tab B shows the login page" failed. The no-request line **passed** in both; no redirect was seen | as expected |
+| B1 | Harness: channel removed in tab B, and the sign-out placed 28 s after B's last status poll, so about 2 s before its next. What B then sent was the application's doing | exit 0. **Both cases passed, every line.** B reached the login page within 5 s and had sent nothing | as expected |
+| B2 | Harness: tab B's own document sent `GET /api/health`, tagged `forced-1363`, after the mark and before the sign-out. Not sent by the application | exit 1. The no-request line **failed** in both cases, detail `GET /api/health 200`; every other line passed. The ingress log has the tagged request twice, once per case | as expected |
+
+- **The line detects a request in its window (B2).** That is all B2 shows: the
+  request was the harness's.
+- **The application could not be made to send one (B1).** Every request
+  reconciles with the stored record before it is sent
+  (`frontend/src/services/api.ts`, the request interceptor), so a tab that
+  would learn of the sign-out from its own poll finds the session ended and
+  does not send the poll. The ingress log of B1 agrees: in case 1, tab B's
+  polls at 388.9 s and 418.7 s, the logout at 446.9 s, and no health request
+  between it and the next case's sign-in at 451.4 s, where a poll was due at
+  about 448.5 s; the same in case 3. **So "the application sends a request
+  before the redirect" was not produced, and the line has not been seen to
+  fail on a request the application sent.** A build that does send one cannot
+  go through `run.sh`, which refuses a served build that is not HEAD.
+- **A pass of case 1 or 3 is tied to the channel by the timing, not by this
+  line (B1).** With the channel removed both cases passed, because a poll fell
+  inside the 5 s wait and the reconcile read before it ended the tab. The
+  cases start right after one of B's polls so that none falls there, and run A
+  shows that with that timing a channel that does not deliver is caught, by the
+  5 s lines. The comments above the two cases say a pass means B was told by
+  the channel message; that holds for the timing the cases use and not for the
+  no-request line taken alone. The suite was not changed.
+
+### W1: one run per blocking check
+
+Run 5 as first written put two faults in one run, at five and at ten tabs. It
+was withdrawn before any run and replaced by 5a and 5b, each at five tabs, so
+that ten and twenty stayed controls.
+
+| Run | Named check | Fault and where it came from | Result (exit 1 in every run) | Against what was written down |
+|---|---|---|---|---|
+| 1 | `N = 5 (b): no 429 on refresh, logout or me` | **The ingress**, with the deployed numbers: `session_limit` exhausted by a Node filler at the browser's address (5 a second on `/api/auth/me`, from 8 s before the tabs opened) | Named check failed: 18 of the tabs' 19 refreshes answered 429. Also failed: `N = 5 (b): every tab usable` (none of five) | as expected; the collateral was predicted as probable |
+| 2 | `N = 5 (a): every tab usable …` | Harness: one tab's `GET /api/settings/company` answered 403 throughout | Named check failed: four of five usable, the fifth "the company settings request is left failed: GET /api/settings/company 403". Also failed: `N = 5 (a): no in-app recovery action`, one action | as expected, collateral included |
+| 3 | `N = 5 (a): no in-app recovery action` | Harness: one tab's six dashboard data requests answered 500 while the round loaded, and no longer once the tabs were checked | Named check failed: one action, in that tab. Nothing else failed: the round trip brought the data and all five tabs were usable | as expected |
+| 4 | `N = 5 (c) attempt 1: the sign-out sent a logout and it was answered 2xx` | Harness: `POST /api/auth/logout` answered 500 | Named check failed, detail `[500]`. Nothing else failed; all five tabs were on the login page | as expected |
+| 5a | `N = 5 (c) attempt 1: every tab is on the login page after the sign-out, without a reload` ("without a reload") | Harness: one tab reloaded after the sign-out | Named check failed: that tab `onLoginPage: true, sameDocument: false`. Nothing else failed | as expected |
+| 5b | the same check ("on the login page") | Harness: one tab taken to `/manifest.json` after the sign-out | Named check failed: that tab `onLoginPage: false`, at `/manifest.json` (and, being another document, `sameDocument: false`). Nothing else failed | as expected |
+| 6 | `N = 20 was run` | Harness: sizes 5 and 10 only | Named check failed. Nothing else failed (23 checks) | as expected |
+| 7 | `N = 5 (a): the access token was current when the tabs opened` | Harness: the token waited out before the tabs opened | Named check failed, 1504 ms past expiry. Nothing else failed | as expected |
+| 8 | `N = 5 (b): every tab did start with an expired access token` | Harness: the session renewed just before the tabs opened | Named check failed. Nothing else failed | as expected |
+
+In all nine runs no check at ten or at twenty tabs failed, run 6's missing size
+apart.
+
+- **Run 1 is the only one whose fault the ingress produced.** It counts on this
+  evidence and no other: each of the 18 refused requests is the application's
+  own `POST /api/auth/refresh`, and the ingress line with the same `app-<seq>`
+  identifier reads `429 lreq=REJECTED lconn=-`. The filler's own 154 refusals
+  are not counted. For the round the ingress attributes 172 refusals to
+  `session_limit` (154 and 18) and none to another limiter.
+- **What the application did in run 1, observed and not explained:** after the
+  refused refreshes four of the five tabs were on the login page and the stored
+  session had ended; the copy signed in again before round (c), which then
+  passed. Why a refused refresh ends the session was not looked into here. It
+  is one run, at five tabs, with the zone held empty on purpose.
+- **Runs 2 to 8 are harness faults.** The application's reaction to each is its
+  own; the answer or the state that provoked it is not the application's or the
+  ingress's. For 5a and 5b no fault through the application was attempted:
+  removing the channel in one tab would not do it, by reading, since the round
+  waits 60 s for each tab and a poll comes every 30 s.
+- **Not run:** the completion deadline, which blocks at no size
+  (`DEADLINE_BLOCKING_SIZES` is empty).
+
+### Against #1363's acceptance
+
+- Cases 1 and 3, (a): run, and what it showed is recorded (run A).
+- Cases 1 and 3, (b): **met only in part.** The line failed on a request the
+  harness sent from the tab (B2). It was not seen to fail on a request the
+  application sent, because the application sent none (B1).
+- W1: a baseline through the override path, then one forced failure for each of
+  the eight blocking checks, every one failing as written beforehand.
+- No check was found that could not be made to fail by any means, and none was
+  removed. One condition could not be produced by the application: the one in
+  (b) above.
+
+Kept outside the repository, for each run: the commit, the diff of its mutation
+against the suite, its log, its results, the ingress log, and the stack's
+configuration before, during and after; and the file of expectations with its
+dated correction and notes.
