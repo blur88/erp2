@@ -2,7 +2,7 @@
 # The session of W1 run 1, round N = 5 (b), on 5102cbaff: revoked as replay at 03:40:44.136 UTC.
                   id                  | generation |        created_utc         |       revoked_utc       | revokeReason 
 --------------------------------------+------------+----------------------------+-------------------------+--------------
- 4fd08a91-b5da-4303-850b-6bf072200a0f |          4 | 2026-10-11 03:38:05.470268 | 2026-10-11 03:40:44.136 | replay
+ <session-7> |          4 | 2026-10-11 03:38:05.470268 | 2026-10-11 03:40:44.136 | replay
 (1 row)
 
  generation |     issued_utc      |   superseded_utc    |   grace_until_utc   

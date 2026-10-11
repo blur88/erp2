@@ -90,15 +90,15 @@
           "detail": {
             "revision": 1,
             "session": {
-              "sessionId": "5ffe9c39-1373-4434-bcd1-f72869dd7edd",
+              "sessionId": "<session-6>",
               "generation": 4,
               "accessTokenExpiresAt": 1791705900,
-              "access": "90761c89190b",
-              "refresh": "c9369752c64e",
-              "username": "qa1353_admin",
+              "access": "<fp-11>",
+              "refresh": "<fp-12>",
+              "username": "<qa-user-1>",
               "role": "admin"
             },
-            "slicesSessionId": "5ffe9c39-1373-4434-bcd1-f72869dd7edd",
+            "slicesSessionId": "<session-6>",
             "lease": null
           }
         },
@@ -116,15 +116,15 @@
             "stored": {
               "revision": 1,
               "session": {
-                "sessionId": "5ffe9c39-1373-4434-bcd1-f72869dd7edd",
+                "sessionId": "<session-6>",
                 "generation": 4,
                 "accessTokenExpiresAt": 1791705900,
-                "access": "90761c89190b",
-                "refresh": "c9369752c64e",
-                "username": "qa1353_admin",
+                "access": "<fp-11>",
+                "refresh": "<fp-12>",
+                "username": "<qa-user-1>",
                 "role": "admin"
               },
-              "slicesSessionId": "5ffe9c39-1373-4434-bcd1-f72869dd7edd",
+              "slicesSessionId": "<session-6>",
               "lease": null
             }
           }
@@ -169,7 +169,7 @@
   "latency": {
     "suite": "cross-tab-session latency",
     "measuredAt": "2026-10-11T08:07:07.100Z",
-    "base": "http://10.1.1.34",
+    "base": "http://<qa-host>",
     "commit": "26f8645842b04992336bd70aff217349f31a353c",
     "servedBuild": "26f8645842b04992336bd70aff217349f31a353c",
     "servedFrom": "ingress",

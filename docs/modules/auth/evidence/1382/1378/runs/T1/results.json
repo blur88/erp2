@@ -1936,15 +1936,15 @@
         "stored": {
           "revision": 1,
           "session": {
-            "sessionId": "fd8208bb-671a-4d64-831b-a2ddd0720ba5",
+            "sessionId": "<session-8>",
             "generation": 4,
             "accessTokenExpiresAt": 1791700567,
-            "access": "41fc9fc9c54b",
-            "refresh": "5fea06fb264b",
-            "username": "qa1353_sales",
+            "access": "<fp-13>",
+            "refresh": "<fp-14>",
+            "username": "<qa-user-3>",
             "role": "sales_staff"
           },
-          "slicesSessionId": "fd8208bb-671a-4d64-831b-a2ddd0720ba5",
+          "slicesSessionId": "<session-8>",
           "lease": null
         },
         "sessionRequests": [
@@ -1957,7 +1957,7 @@
             "respondedAt": 1791700546832,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -1969,7 +1969,7 @@
             "respondedAt": 1791700547073,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -1981,7 +1981,7 @@
             "respondedAt": 1791700547185,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -1993,7 +1993,7 @@
             "respondedAt": 1791700547297,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2005,11 +2005,11 @@
             "respondedAt": 1791700547536,
             "status": 200,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": {
               "generation": 4,
-              "access": "41fc9fc9c54b",
-              "refresh": "5fea06fb264b"
+              "access": "<fp-13>",
+              "refresh": "<fp-14>"
             }
           },
           {
@@ -2021,7 +2021,7 @@
             "respondedAt": 1791700548226,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2033,7 +2033,7 @@
             "respondedAt": 1791700548246,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2045,7 +2045,7 @@
             "respondedAt": 1791700548305,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2057,7 +2057,7 @@
             "respondedAt": 1791700548551,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2069,7 +2069,7 @@
             "respondedAt": 1791700548791,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2081,7 +2081,7 @@
             "respondedAt": 1791700549089,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2093,7 +2093,7 @@
             "respondedAt": 1791700549194,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2105,7 +2105,7 @@
             "respondedAt": 1791700549228,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2117,7 +2117,7 @@
             "respondedAt": 1791700549818,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2129,7 +2129,7 @@
             "respondedAt": 1791700550174,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2141,7 +2141,7 @@
             "respondedAt": 1791700550286,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2153,7 +2153,7 @@
             "respondedAt": 1791700550704,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           }
         ],
@@ -2790,15 +2790,15 @@
         "stored": {
           "revision": 1,
           "session": {
-            "sessionId": "fd8208bb-671a-4d64-831b-a2ddd0720ba5",
+            "sessionId": "<session-8>",
             "generation": 6,
             "accessTokenExpiresAt": 1791700627,
-            "access": "868eefc51aae",
-            "refresh": "7baff2323ca3",
-            "username": "qa1353_sales",
+            "access": "<fp-16>",
+            "refresh": "<fp-17>",
+            "username": "<qa-user-3>",
             "role": "sales_staff"
           },
-          "slicesSessionId": "fd8208bb-671a-4d64-831b-a2ddd0720ba5",
+          "slicesSessionId": "<session-8>",
           "lease": null
         },
         "sessionRequests": [
@@ -2811,7 +2811,7 @@
             "respondedAt": 1791700546832,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2823,7 +2823,7 @@
             "respondedAt": 1791700547073,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2835,7 +2835,7 @@
             "respondedAt": 1791700547185,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2847,7 +2847,7 @@
             "respondedAt": 1791700547297,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2859,11 +2859,11 @@
             "respondedAt": 1791700547536,
             "status": 200,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": {
               "generation": 4,
-              "access": "41fc9fc9c54b",
-              "refresh": "5fea06fb264b"
+              "access": "<fp-13>",
+              "refresh": "<fp-14>"
             }
           },
           {
@@ -2875,7 +2875,7 @@
             "respondedAt": 1791700548226,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2887,7 +2887,7 @@
             "respondedAt": 1791700548246,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2899,7 +2899,7 @@
             "respondedAt": 1791700548305,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2911,7 +2911,7 @@
             "respondedAt": 1791700548551,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2923,7 +2923,7 @@
             "respondedAt": 1791700548791,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2935,7 +2935,7 @@
             "respondedAt": 1791700549089,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2947,7 +2947,7 @@
             "respondedAt": 1791700549194,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2959,7 +2959,7 @@
             "respondedAt": 1791700549228,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2971,7 +2971,7 @@
             "respondedAt": 1791700549818,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2983,7 +2983,7 @@
             "respondedAt": 1791700550174,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -2995,7 +2995,7 @@
             "respondedAt": 1791700550286,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -3007,7 +3007,7 @@
             "respondedAt": 1791700550704,
             "status": 429,
             "failed": null,
-            "presented": "fb83c1948926",
+            "presented": "<fp-15>",
             "issued": null
           },
           {
@@ -3019,11 +3019,11 @@
             "respondedAt": 1791700581090,
             "status": 200,
             "failed": null,
-            "presented": "5fea06fb264b",
+            "presented": "<fp-14>",
             "issued": {
               "generation": 5,
-              "access": "7b89fd109bc3",
-              "refresh": "91865de6a9be"
+              "access": "<fp-18>",
+              "refresh": "<fp-19>"
             }
           },
           {
@@ -3035,11 +3035,11 @@
             "respondedAt": 1791700607156,
             "status": 200,
             "failed": null,
-            "presented": "91865de6a9be",
+            "presented": "<fp-19>",
             "issued": {
               "generation": 6,
-              "access": "868eefc51aae",
-              "refresh": "7baff2323ca3"
+              "access": "<fp-16>",
+              "refresh": "<fp-17>"
             }
           }
         ],
@@ -3800,7 +3800,7 @@
   "latency": {
     "suite": "cross-tab-session latency",
     "measuredAt": "2026-10-11T06:40:12.386Z",
-    "base": "http://10.1.1.34",
+    "base": "http://<qa-host>",
     "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
     "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
     "servedFrom": "ingress",

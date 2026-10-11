@@ -70,9 +70,27 @@ Cases 1 and 3, the two new lines of a run:
 
 Case 8: `jq '.cases[0] | {pass, error, recorded: (.recorded | {lifetimesUsed, uses, stopped, failedUse, generations, refreshRequests, placement1367})}' 1367/runs/E8/results.json`
 
-## What these files contain
+## What these files contain, and what was redacted
 
-Request methods, paths, statuses and times; the QA users' names; session ids
-and 12-character token fingerprints; the QA host's addresses. No password and
-no token: the directories were searched for the QA passwords and for anything
-shaped like a JWT before they were copied.
+Request methods, paths, statuses and times, generations, and the suite's
+checks and records. Four kinds of value were replaced after the runs, each by
+a placeholder that is **the same for the same value in every file**, so a
+value can still be followed from one record to another:
+
+| Placeholder | Was |
+|---|---|
+| `<qa-user-1>` … `<qa-user-3>` | the QA users' names (the two users of the cases, and W1's) |
+| `<session-1>` … `<session-9>` | session ids; `<uuid-1>` is the one other id (a user id inside a draft key) |
+| `<fp-1>` … `<fp-27>` | the 12-character fingerprints of access and refresh tokens |
+| `<qa-host>` | the QA host's LAN address |
+
+Nothing else was changed: the ingress logs were decompressed, replaced and
+compressed again, and every `results.json` still parses. The placeholders are
+numbered in order of first appearance across the files in path order and mean
+nothing else. Docker's bridge address (`172.18.0.1`), which is the client
+address the ingress saw, is left as it is.
+
+No password and no token was ever in these files: the directories were
+searched for the QA passwords and for anything shaped like a JWT before they
+were copied. **The unredacted values were in this branch for one commit**
+(`3ed7d8e6f`) and remain in its history.

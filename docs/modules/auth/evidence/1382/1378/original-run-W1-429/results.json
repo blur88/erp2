@@ -6652,7 +6652,7 @@
   "latency": {
     "suite": "cross-tab-session latency",
     "measuredAt": "2026-10-11T03:53:55.711Z",
-    "base": "http://10.1.1.34",
+    "base": "http://<qa-host>",
     "commit": "5102cbaff6b6ebcafb69e3adec1fab333117d351",
     "servedBuild": "5102cbaff6b6ebcafb69e3adec1fab333117d351",
     "servedFrom": "ingress",

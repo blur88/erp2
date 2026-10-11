@@ -138,7 +138,7 @@
           "tabs": [
             {
               "label": "A",
-              "url": "http://10.1.1.34/login",
+              "url": "http://<qa-host>/login",
               "screenshot": "/scratch/fail-1-p1-A.png",
               "consoleErrors": [
                 "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
@@ -147,7 +147,7 @@
             },
             {
               "label": "B",
-              "url": "http://10.1.1.34/dashboard",
+              "url": "http://<qa-host>/dashboard",
               "screenshot": "/scratch/fail-1-p1-B.png",
               "consoleErrors": [
                 "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
@@ -201,7 +201,7 @@
           "label": "tab B's draft is gone within 5 s",
           "ok": false,
           "detail": [
-            "erp:bank-reconciliation-draft:ee995eaf-aad2-481f-b986-2bc987fdf26e:create:qa-mv3ha3qp"
+            "erp:bank-reconciliation-draft:<uuid-1>:create:qa-mv3ha3qp"
           ]
         },
         {
@@ -247,7 +247,7 @@
           "tabs": [
             {
               "label": "A",
-              "url": "http://10.1.1.34/login",
+              "url": "http://<qa-host>/login",
               "screenshot": "/scratch/fail-3-p1-A.png",
               "consoleErrors": [
                 "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
@@ -256,7 +256,7 @@
             },
             {
               "label": "B",
-              "url": "http://10.1.1.34/dashboard",
+              "url": "http://<qa-host>/dashboard",
               "screenshot": "/scratch/fail-3-p1-B.png",
               "consoleErrors": [
                 "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
@@ -305,7 +305,7 @@
   "latency": {
     "suite": "cross-tab-session latency",
     "measuredAt": "2026-10-11T07:07:44.108Z",
-    "base": "http://10.1.1.34",
+    "base": "http://<qa-host>",
     "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
     "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
     "servedFrom": "ingress",

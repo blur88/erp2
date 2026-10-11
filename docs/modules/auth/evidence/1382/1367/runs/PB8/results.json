@@ -90,15 +90,15 @@
           "detail": {
             "revision": 1,
             "session": {
-              "sessionId": "f7c37cc4-0ecd-4ebd-bdea-50802e7b60ec",
+              "sessionId": "<session-5>",
               "generation": 3,
               "accessTokenExpiresAt": 1791706134,
-              "access": "4c43fe5f636e",
-              "refresh": "5433de89e72c",
-              "username": "qa1353_admin",
+              "access": "<fp-9>",
+              "refresh": "<fp-10>",
+              "username": "<qa-user-1>",
               "role": "admin"
             },
-            "slicesSessionId": "f7c37cc4-0ecd-4ebd-bdea-50802e7b60ec",
+            "slicesSessionId": "<session-5>",
             "lease": null
           }
         },
@@ -116,15 +116,15 @@
             "stored": {
               "revision": 1,
               "session": {
-                "sessionId": "f7c37cc4-0ecd-4ebd-bdea-50802e7b60ec",
+                "sessionId": "<session-5>",
                 "generation": 3,
                 "accessTokenExpiresAt": 1791706134,
-                "access": "4c43fe5f636e",
-                "refresh": "5433de89e72c",
-                "username": "qa1353_admin",
+                "access": "<fp-9>",
+                "refresh": "<fp-10>",
+                "username": "<qa-user-1>",
                 "role": "admin"
               },
-              "slicesSessionId": "f7c37cc4-0ecd-4ebd-bdea-50802e7b60ec",
+              "slicesSessionId": "<session-5>",
               "lease": null
             }
           }
@@ -170,7 +170,7 @@
           "tabs": [
             {
               "label": "A",
-              "url": "http://10.1.1.34/sales/orders",
+              "url": "http://<qa-host>/sales/orders",
               "screenshot": "/scratch/fail-8-p1-A.png",
               "consoleErrors": [
                 "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
@@ -181,7 +181,7 @@
             },
             {
               "label": "B",
-              "url": "http://10.1.1.34/sales/orders",
+              "url": "http://<qa-host>/sales/orders",
               "screenshot": "/scratch/fail-8-p1-B.png",
               "consoleErrors": [
                 "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
@@ -240,7 +240,7 @@
   "latency": {
     "suite": "cross-tab-session latency",
     "measuredAt": "2026-10-11T08:12:10.987Z",
-    "base": "http://10.1.1.34",
+    "base": "http://<qa-host>",
     "commit": "26f8645842b04992336bd70aff217349f31a353c",
     "servedBuild": "26f8645842b04992336bd70aff217349f31a353c",
     "servedFrom": "ingress",
