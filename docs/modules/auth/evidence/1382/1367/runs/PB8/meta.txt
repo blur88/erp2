@@ -1,0 +1,4 @@
+name=PB8 copy=p-bound only=8
+commit=26f8645842b04992336bd70aff217349f31a353c
+started=2026-10-11T16:07:14+08:00 load=5.62 3.98 3.90 free_kb=8877904
+ended=2026-10-11T16:12:13+08:00 status=1 load=7.06 3.92 3.73

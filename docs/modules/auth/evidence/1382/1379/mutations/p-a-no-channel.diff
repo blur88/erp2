@@ -1,0 +1,21 @@
+diff -ru proposed/cases/signout.mjs p-a-no-channel/cases/signout.mjs
+--- proposed/cases/signout.mjs	2026-10-11 14:36:14.256678525 +0800
++++ p-a-no-channel/cases/signout.mjs	2026-10-11 14:36:38.056173304 +0800
+@@ -174,7 +174,7 @@
+     // profiles or windows of different processes; and anything about a
+     // sign-out whose publication is delayed (case 17).
+     async run(ctx) {
+-      const { profile, a, b } = await pair(ctx, { bOpts: { init: recordSessionChannel } })
++      const { profile, a, b } = await pair(ctx, { bOpts: { noBroadcast: true, init: recordSessionChannel } })
+       const doc = await documentId(b)
+       const redirect = watchRedirect(b)
+       const polledAt = await afterNextPoll(profile, b)
+@@ -250,7 +250,7 @@
+     // BroadcastChannel message. What it does not prove is the same as in
+     // case 1; the draft's removal on the other paths is cases 4 and 15.
+     async run(ctx) {
+-      const { profile, a, b, stored } = await pair(ctx, { bOpts: { init: recordSessionChannel } })
++      const { profile, a, b, stored } = await pair(ctx, { bOpts: { noBroadcast: true, init: recordSessionChannel } })
+       const key = await seedDraft(b, stored.record.session.user.id)
+       const doc = await documentId(b)
+       const redirect = watchRedirect(b)

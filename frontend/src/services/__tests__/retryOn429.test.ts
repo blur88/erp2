@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios'
 import { registerSessionRuntime } from '@/session/registry'
 import { SessionEndedError } from '@/session/types'
 import api from '@/services/api'
@@ -229,6 +229,68 @@ describe('the company-data request after a 429', () => {
     expect(h.server.refreshCalls).toBe(1)
     expect(bearer(sent[1])).toBe(bearer(sent[0]))
     expect(bearer(sent[2])).not.toBe(bearer(sent[1]))
+  })
+
+  // #1378. A 401 on the request makes the session refresh. When the ingress
+  // refuses that refresh, what is thrown to this helper is the refresh's own
+  // 429, and its config is the refresh request: the refresh token in the body,
+  // sent by the session runtime under its lease.
+  describe('a 429 that refused the session refresh, not this request', () => {
+    const refusedRefresh = () => {
+      const config = {
+        url: '/auth/refresh',
+        method: 'post',
+        data: JSON.stringify({ refreshToken: 'the-token-the-refresh-presented' }),
+        headers: new AxiosHeaders(),
+      } as Config
+      return new AxiosError('status 429', AxiosError.ERR_BAD_REQUEST, config, null, {
+        data: '',
+        status: 429,
+        statusText: '',
+        headers: {},
+        config,
+      })
+    }
+    const urls = () => sent.map((config) => config.url)
+
+    it('the refresh request is not sent again, and the failure is surfaced', async () => {
+      h.server.refreshFailure = () => refusedRefresh()
+      serve((config) => (config.url === '/settings/company' ? fail(config, 401) : ok(config, { accessToken: 'not-for-this-caller' })))
+      const request = company()
+      // Long enough for every wait this helper could start (250 + 500 + 1000 ms)
+      // and for the refresh, which answers on a timer of its own.
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(urls()).toEqual(['/settings/company'])
+      await expectNoTimerLeft()
+      const { value, error } = await request
+      expect(value).toBeUndefined()
+      expect(error.response.status).toBe(429)
+      expect(error.config.url).toBe('/auth/refresh')
+      // The one refresh was the runtime's.
+      expect(h.server.refreshCalls).toBe(1)
+    })
+
+    it('the session is kept, and the next request refreshes through the runtime', async () => {
+      const before = h.shared.state.record.session!
+      h.server.refreshFailure = () => refusedRefresh()
+      serve((config) => (bearer(config) === `Bearer ${before.accessToken}` ? fail(config, 401) : ok(config, { name: 'Acme' })))
+      const refused = company()
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(urls()).toEqual(['/settings/company'])
+      expect((await refused).error.response.status).toBe(429)
+      expect(tab.runtime.status()).toBe('signed-in')
+      expect(h.shared.state.record.session).toEqual(before)
+
+      // The limiter has room again.
+      h.server.refreshFailure = null
+      const request = company()
+      await vi.advanceTimersByTimeAsync(1)
+      const { value } = await request
+      expect(value.data).toEqual({ name: 'Acme' })
+      expect(urls()).toEqual(['/settings/company', '/settings/company', '/settings/company'])
+      expect(h.server.refreshCalls).toBe(2)
+      expect(h.shared.state.record.session!.generation).toBe(before.generation + 1)
+    })
   })
 
   it('a retry whose session changed before delivery is rejected by the delivery check', async () => {

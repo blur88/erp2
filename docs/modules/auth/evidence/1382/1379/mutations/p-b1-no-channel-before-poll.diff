@@ -1,0 +1,33 @@
+diff -ru proposed/cases/signout.mjs p-b1-no-channel-before-poll/cases/signout.mjs
+--- proposed/cases/signout.mjs	2026-10-11 14:36:14.256678525 +0800
++++ p-b1-no-channel-before-poll/cases/signout.mjs	2026-10-11 14:36:38.057173325 +0800
+@@ -174,11 +174,12 @@
+     // profiles or windows of different processes; and anything about a
+     // sign-out whose publication is delayed (case 17).
+     async run(ctx) {
+-      const { profile, a, b } = await pair(ctx, { bOpts: { init: recordSessionChannel } })
++      const { profile, a, b } = await pair(ctx, { bOpts: { noBroadcast: true, init: recordSessionChannel } })
+       const doc = await documentId(b)
+       const redirect = watchRedirect(b)
+       const polledAt = await afterNextPoll(profile, b)
+       ctx.require('a status poll of tab B was seen (the case starts right after one)', polledAt !== null)
++      await sleep(Math.max(0, polledAt + 27500 - Date.now())) // #1379: 27.5 s after B's poll, about 2.5 s before its next
+       const mark = profile.mark()
+       const signOutAt = Date.now()
+       await ctx.signOut(a)
+@@ -250,13 +251,14 @@
+     // BroadcastChannel message. What it does not prove is the same as in
+     // case 1; the draft's removal on the other paths is cases 4 and 15.
+     async run(ctx) {
+-      const { profile, a, b, stored } = await pair(ctx, { bOpts: { init: recordSessionChannel } })
++      const { profile, a, b, stored } = await pair(ctx, { bOpts: { noBroadcast: true, init: recordSessionChannel } })
+       const key = await seedDraft(b, stored.record.session.user.id)
+       const doc = await documentId(b)
+       const redirect = watchRedirect(b)
+       const polledAt = await afterNextPoll(profile, b)
+       ctx.require('a status poll of tab B was seen (the case starts right after one)', polledAt !== null)
+       ctx.require('the draft is in tab B before the sign-out', (await draftKeys(b)).includes(key))
++      await sleep(Math.max(0, polledAt + 27500 - Date.now())) // #1379: 27.5 s after B's poll, about 2.5 s before its next
+       const mark = profile.mark()
+       const signOutAt = Date.now()
+       await ctx.signOut(a)

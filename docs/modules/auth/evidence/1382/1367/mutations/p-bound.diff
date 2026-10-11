@@ -1,0 +1,54 @@
+diff -ru proposed/cases/refresh.mjs p-bound/cases/refresh.mjs
+--- proposed/cases/refresh.mjs	2026-10-11 15:36:25.167567760 +0800
++++ p-bound/cases/refresh.mjs	2026-10-11 15:36:25.508573013 +0800
+@@ -294,6 +294,31 @@
+       ctx.require('the access lifetime is the short QA one', lifetime <= 60, { accessSeconds: lifetime })
+       const { profile, a, b, stored } = await pair(ctx)
+       const before = summarize(stored)
++      // #1367: once two rotations are stored, the harness answers every
++      // GET under /api of both tabs itself, the status polls included (B8 left /api/health alone and the authenticated poll /api/health/redis-alerts rotated the session) (the last real 2xx body for that
++      // path, or an empty list), so no use reaches the server, none is
++      // answered 401 and no third refresh is sent.
++      const fault = { on: false, sinceMs: null, answered: 0, replayed: 0, empty: 0 }
++      const bodies = new Map()
++      for (const page of [a, b]) {
++        page.on('response', (response) => {
++          const request = response.request()
++          const path = new URL(request.url()).pathname
++          if (fault.on || request.method() !== 'GET' || !path.startsWith('/api/') || path.startsWith('/api/auth')) return
++          if (response.status() < 200 || response.status() >= 300) return
++          response.text().then((text) => bodies.set(path, text), () => undefined)
++        })
++        await page.route('**/api/**', (route) => {
++          const request = route.request()
++          const path = new URL(request.url()).pathname
++          if (!fault.on || request.method() !== 'GET' || path.startsWith('/api/auth')) return route.fallback()
++          fault.answered += 1
++          const kept = bodies.get(path)
++          if (kept !== undefined) fault.replayed += 1
++          else fault.empty += 1
++          return route.fulfill({ status: 200, contentType: 'application/json', body: kept ?? JSON.stringify({ data: [], meta: { total: 0, page: 1, limit: 25, totalPages: 0 } }) })
++        })
++      }
+       const mark = profile.mark()
+       const startedAt = Date.now()
+       const atLeast = startedAt + lifetime * 3500
+@@ -308,6 +333,10 @@
+           stopped = 'the third rotation was seen'
+           break
+         }
++        if (!fault.on && (await rotations()) >= 2) {
++          fault.on = true
++          fault.sinceMs = Date.now() - startedAt
++        }
+         const started = Date.now()
+         try {
+           await exercise(profile, i % 2 === 0 ? a : b)
+@@ -320,6 +349,7 @@
+         await sleepUntil(started + step)
+       }
+       const lifetimesUsed = Math.round(((Date.now() - startedAt) / (lifetime * 1000)) * 100) / 100
++      ctx.record('forced1367', fault)
+       ctx.record('lifetimesUsed', lifetimesUsed)
+       const after = summarize(await readStored(a))
+       ctx.record('uses', uses)

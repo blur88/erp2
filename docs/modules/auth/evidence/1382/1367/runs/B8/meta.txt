@@ -1,0 +1,4 @@
+name=B8 copy=c8-bound only=8
+commit=794d2e321b54f19120bfa7ee1fd631eccc21aaaf
+started=2026-10-11T14:50:27+08:00 load=5.85 3.48 2.46 free_kb=8915752
+ended=2026-10-11T14:55:21+08:00 status=0 load=4.58 3.32 2.58

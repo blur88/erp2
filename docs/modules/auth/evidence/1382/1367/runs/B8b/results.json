@@ -1,0 +1,741 @@
+{
+  "suite": "cross-tab-session (#1345)",
+  "writtenAt": "2026-10-11T07:22:48.234Z",
+  "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+  "exitStatus": 1,
+  "completed": true,
+  "aborted": null,
+  "stackRestored": true,
+  "restoreFailure": null,
+  "configuration": {
+    "note": "What `stack.sh show` reported from inside the running backend. Evidence in its own right: .env is not covered by the commit.",
+    "before": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "during": {
+      "accessTokenExpiry": "20s",
+      "refreshGraceSeconds": "5",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "after": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    }
+  },
+  "chromium": "153.0.8010.12",
+  "machine": {
+    "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+    "cpuCount": 4,
+    "memoryGiB": 9.7,
+    "kernel": "6.8.0-138-generic",
+    "disks": [
+      {
+        "name": "sda",
+        "rotational": true,
+        "kind": "spinning disk"
+      }
+    ]
+  },
+  "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+  "servedFrom": "ingress",
+  "partial": "only 8: not a recorded run",
+  "signInWaits": 0,
+  "loginZone429": 0,
+  "limits": {
+    "session": {
+      "rate": "1r/s",
+      "burst": 20
+    },
+    "login": {
+      "rate": "5r/m",
+      "burst": 3
+    }
+  },
+  "cases": [
+    {
+      "id": 8,
+      "name": "Use past real expiry",
+      "pass": false,
+      "seconds": 129,
+      "error": null,
+      "checks": [
+        {
+          "label": "at least twelve uses completed",
+          "ok": true,
+          "detail": {
+            "uses": 24
+          }
+        },
+        {
+          "label": "the session is the same one",
+          "ok": true,
+          "detail": {
+            "revision": 1,
+            "session": {
+              "sessionId": "<session-2>",
+              "generation": 3,
+              "accessTokenExpiresAt": 1791703161,
+              "access": "<fp-3>",
+              "refresh": "<fp-4>",
+              "username": "<qa-user-1>",
+              "role": "admin"
+            },
+            "slicesSessionId": "<session-2>",
+            "lease": null
+          }
+        },
+        {
+          "label": "the generation advanced at least three times",
+          "ok": false,
+          "detail": {
+            "revision": 1,
+            "session": {
+              "sessionId": "<session-2>",
+              "generation": 3,
+              "accessTokenExpiresAt": 1791703161,
+              "access": "<fp-3>",
+              "refresh": "<fp-4>",
+              "username": "<qa-user-1>",
+              "role": "admin"
+            },
+            "slicesSessionId": "<session-2>",
+            "lease": null
+          }
+        },
+        {
+          "label": "tab A is signed in",
+          "ok": false
+        },
+        {
+          "label": "tab B is signed in",
+          "ok": false
+        }
+      ],
+      "unexpected429": [],
+      "recorded": {
+        "forced1367": {
+          "on": true,
+          "sinceMs": 45119,
+          "answered": 49,
+          "replayed": 29,
+          "empty": 20
+        },
+        "lifetimesUsed": 6.01,
+        "uses": 24,
+        "refreshRequests": [
+          [
+            "A",
+            200
+          ],
+          [
+            "A",
+            200
+          ]
+        ],
+        "generations": {
+          "before": 1,
+          "after": 3
+        }
+      },
+      "diagnosis": [
+        {
+          "tabs": [
+            {
+              "label": "A",
+              "url": "http://<qa-host>/sales/orders",
+              "screenshot": "/scratch/fail-8-p1-A.png",
+              "consoleErrors": [
+                "console: [RouteErrorBoundary] TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>",
+                "console: [RouteErrorBoundary] TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>",
+                "console: TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>/assets/vendor-CGvYu",
+                "console: React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:",
+                "console: [RouteErrorBoundary] TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>",
+                "console: [RouteErrorBoundary] TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>",
+                "console: TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>/assets/vendor-CGvYu",
+                "console: React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:"
+              ]
+            },
+            {
+              "label": "B",
+              "url": "http://<qa-host>/sales/orders",
+              "screenshot": "/scratch/fail-8-p1-B.png",
+              "consoleErrors": [
+                "console: [RouteErrorBoundary] TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>",
+                "console: [RouteErrorBoundary] TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>",
+                "console: TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>/assets/vendor-CGvYu",
+                "console: React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:",
+                "console: [RouteErrorBoundary] TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>",
+                "console: [RouteErrorBoundary] TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>",
+                "console: TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:71888)\n    at _l (http://<qa-host>/assets/vendor-CGvYu",
+                "console: React Router caught the following error during render TypeError: Cannot read properties of undefined (reading 'active')\n    at Ci (http://<qa-host>/assets/index-CKm49nsc.js:5:4624)\n    at os (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:49234)\n    at Xc (http://<qa-host>/assets/vendor-CGvYuhH3.js:8:"
+              ]
+            }
+          ],
+          "lastRequests": [
+            "A GET /api/health/redis-alerts 200",
+            "A GET /api/settings/payment-methods 200",
+            "B GET /uploads/logos/logo-1773810603493-488262138.png 200",
+            "B GET /api/health 200",
+            "B GET /api/health/redis-alerts 200",
+            "B GET /api/settings/payment-methods 200",
+            "A GET /api/health 200",
+            "A GET /api/health/redis-alerts 200",
+            "A GET /api/price-lists 200",
+            "B GET /api/health 200",
+            "B GET /api/health/redis-alerts 200",
+            "B GET /api/price-lists 200",
+            "A GET /api/health 200",
+            "A GET /api/health/redis-alerts 200",
+            "A GET /api/inventory/products 200",
+            "B GET /api/health 200",
+            "B GET /api/health/redis-alerts 200",
+            "B GET /api/inventory/products 200",
+            "A GET /api/health 200",
+            "A GET /api/health/redis-alerts 200",
+            "A GET /api/price-lists 200",
+            "A GET /api/customers 200",
+            "B GET /api/health 200",
+            "B GET /api/health/redis-alerts 200",
+            "B GET /api/price-lists 200",
+            "B GET /api/customers 200",
+            "A GET /api/health 200",
+            "A GET /api/health/redis-alerts 200",
+            "A GET /api/inventory/categories 200",
+            "B GET /api/health 200",
+            "B GET /api/health/redis-alerts 200",
+            "B GET /api/inventory/categories 200",
+            "A GET /api/health 200",
+            "A GET /api/health/redis-alerts 200",
+            "A GET /api/customers 200",
+            "A GET /api/sales-orders 200",
+            "B GET /api/health 200",
+            "B GET /api/health/redis-alerts 200",
+            "B GET /api/customers 200",
+            "B GET /api/sales-orders 200"
+          ]
+        }
+      ]
+    }
+  ],
+  "w1": null,
+  "captureSegments": [],
+  "latency": {
+    "suite": "cross-tab-session latency",
+    "measuredAt": "2026-10-11T07:22:47.210Z",
+    "base": "http://<qa-host>",
+    "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+    "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+    "servedFrom": "ingress",
+    "chromium": "153.0.8010.12",
+    "machine": {
+      "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+      "cpuCount": 4,
+      "memoryGiB": 9.7,
+      "kernel": "6.8.0-138-generic",
+      "disks": [
+        {
+          "name": "sda",
+          "rotational": true,
+          "kind": "spinning disk"
+        }
+      ]
+    },
+    "configuration": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "criteria": {
+      "revisedOn": "2026-10-06",
+      "decidedBy": "the repository owner, after the recorded run on 582096992",
+      "blocking": {
+        "M1": {
+          "p95Ms": 5,
+          "what": "one raw read, one tab idle"
+        },
+        "M2": {
+          "p95Ms": 15,
+          "what": "one raw read in four tabs at once while a fifth writes"
+        },
+        "rule": "median p95 of 3 repetitions"
+      },
+      "diagnostic": {
+        "measurements": [
+          "M3",
+          "M4",
+          "M5"
+        ],
+        "statement": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before."
+      },
+      "preserved": "The hard gate and its transaction-completion semantics are unchanged. None of the simulated optimizations was implemented, and no read is resolved before its transaction completes.",
+      "formerProvisionalTargets": {
+        "status": "replaced, not met",
+        "statement": "The earlier M3 and M4 targets (p95 at most 10 ms in one tab, 20 ms in four) were provisional. They were replaced by the criteria above; they were NOT met, and a run that passes today has not met them either.",
+        "p95Ms": {
+          "M3": {
+            "oneTab": 10,
+            "fourTabs": 20
+          },
+          "M4": {
+            "oneTab": 10,
+            "fourTabs": 20
+          }
+        },
+        "runInWhichTheyFailed": {
+          "commit": "582096992",
+          "exitStatus": 1,
+          "medianP95Ms": {
+            "M1": 2.1,
+            "M2": 5.1,
+            "M3": {
+              "oneTab": 99,
+              "fourTabs": 330.1
+            },
+            "M4": {
+              "oneTab": 205.3,
+              "fourTabs": 603.3
+            }
+          },
+          "outcome": "M1 and M2 passed. M3 (99 / 330.1 ms) and M4 (205.3 / 603.3 ms), one tab / four tabs, failed the 10 / 20 ms targets, and the run exited with status 1."
+        }
+      }
+    },
+    "rule": "M1 and M2 block, each on the median p95 of 3 repetitions. M3, M4 and M5 are diagnostic and are not judged. Maxima and p99 are recorded and never block.",
+    "environment": {
+      "machine": {
+        "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+        "cpuCount": 4,
+        "memoryGiB": 9.7,
+        "kernel": "6.8.0-138-generic",
+        "disks": [
+          {
+            "name": "sda",
+            "rotational": true,
+            "kind": "spinning disk"
+          }
+        ]
+      },
+      "diskKinds": [
+        "sda: spinning disk"
+      ],
+      "chromium": "153.0.8010.12",
+      "accessTokenExpiry": "15m",
+      "requestsAnswered429DuringMeasuredLoads": {
+        "oneTab": {
+          "loads": 15,
+          "requests": 125,
+          "answered429": 0
+        },
+        "fourTabs": {
+          "loads": 60,
+          "requests": 500,
+          "answered429": 0
+        },
+        "any": false,
+        "total": 0
+      },
+      "competingWorkload": {
+        "captured": true,
+        "capturedBy": "run.sh, on the host, just before measure.mjs: docker ps --format '{{.Names}}\\t{{.Status}}'",
+        "containers": [
+          {
+            "name": "erp_backend",
+            "status": "Up 18 seconds (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_frontend",
+            "status": "Up 47 minutes (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_nginx",
+            "status": "Up 15 hours (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_redis",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_postgres",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "claude-usage-tracker",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "portainer_agent",
+            "status": "Up 3 days",
+            "restarting": false
+          }
+        ],
+        "restarting": [],
+        "note": "No container was restarting on the host when the list was taken."
+      }
+    },
+    "M1": {
+      "what": "one raw read, one tab idle; 500 sequential read-only transactions per repetition",
+      "repetitions": [
+        {
+          "n": 500,
+          "p50": 0.8,
+          "p95": 2.1,
+          "p99": 3.5,
+          "max": 9.7
+        },
+        {
+          "n": 500,
+          "p50": 0.8,
+          "p95": 1.8,
+          "p99": 2.9,
+          "max": 4.3
+        },
+        {
+          "n": 500,
+          "p50": 0.8,
+          "p95": 1.9,
+          "p99": 3,
+          "max": 4.7
+        }
+      ],
+      "medianP95Ms": 1.9,
+      "thresholdMs": 5,
+      "pass": true,
+      "maxMs": 9.7,
+      "p99Ms": [
+        3.5,
+        2.9,
+        3
+      ]
+    },
+    "M2": {
+      "what": "one raw read in four tabs at once (500 each per repetition) while a fifth tab commits a write every 100 ms",
+      "repetitions": [
+        {
+          "n": 2000,
+          "p50": 1.7,
+          "p95": 5,
+          "p99": 7.3,
+          "max": 11.1
+        },
+        {
+          "n": 2000,
+          "p50": 1.8,
+          "p95": 5.4,
+          "p99": 8.5,
+          "max": 48.1
+        },
+        {
+          "n": 2000,
+          "p50": 1.8,
+          "p95": 5.3,
+          "p99": 8.7,
+          "max": 17.7
+        }
+      ],
+      "medianP95Ms": 5.3,
+      "thresholdMs": 15,
+      "pass": true,
+      "maxMs": 48.1,
+      "p99Ms": [
+        7.3,
+        8.5,
+        8.7
+      ],
+      "writer": [
+        {
+          "commits": 12,
+          "failures": 0
+        },
+        {
+          "commits": 12,
+          "failures": 0
+        },
+        {
+          "commits": 12,
+          "failures": 0
+        }
+      ]
+    },
+    "M3": {
+      "what": "the adapter's own `read` timings while the dashboard, the products list and a sales order load",
+      "status": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before.",
+      "oneTab": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 50,
+            "p50": 26.2,
+            "p95": 184.3,
+            "p99": 279.9,
+            "max": 279.9
+          },
+          {
+            "n": 50,
+            "p50": 17.9,
+            "p95": 49.5,
+            "p99": 58.4,
+            "max": 58.4
+          },
+          {
+            "n": 50,
+            "p50": 26.8,
+            "p95": 200.6,
+            "p99": 204,
+            "max": 204
+          }
+        ],
+        "medianP95Ms": 184.3,
+        "recorded": true,
+        "maxMs": 279.9,
+        "p99Ms": [
+          279.9,
+          58.4,
+          204
+        ],
+        "formerProvisionalTargetMs": 10,
+        "againstFormerProvisionalTarget": "not met"
+      },
+      "fourTabs": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 200,
+            "p50": 112.8,
+            "p95": 323.3,
+            "p99": 451.4,
+            "max": 467.6
+          },
+          {
+            "n": 200,
+            "p50": 86,
+            "p95": 380.4,
+            "p99": 445.3,
+            "max": 864.4
+          },
+          {
+            "n": 200,
+            "p50": 72.3,
+            "p95": 286.3,
+            "p99": 427.8,
+            "max": 543
+          }
+        ],
+        "medianP95Ms": 323.3,
+        "recorded": true,
+        "maxMs": 864.4,
+        "p99Ms": [
+          451.4,
+          445.3,
+          427.8
+        ],
+        "formerProvisionalTargetMs": 20,
+        "againstFormerProvisionalTarget": "not met"
+      },
+      "transactTimings": {
+        "oneTab": {
+          "n": 15,
+          "p50": 72.1,
+          "p95": 161.5,
+          "p99": 161.5,
+          "max": 161.5
+        },
+        "fourTabs": {
+          "n": 60,
+          "p50": 161.8,
+          "p95": 343.5,
+          "p99": 575.2,
+          "max": 575.2
+        }
+      }
+    },
+    "M4": {
+      "what": "per request, gate-before + gate-after: wall time added to that request, queueing included",
+      "status": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before.",
+      "oneTab": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 22,
+            "p50": 57.3,
+            "p95": 353.5,
+            "p99": 355.2,
+            "max": 355.2
+          },
+          {
+            "n": 22,
+            "p50": 36.6,
+            "p95": 67.9,
+            "p99": 70.8,
+            "max": 70.8
+          },
+          {
+            "n": 22,
+            "p50": 73.7,
+            "p95": 225,
+            "p99": 285.2,
+            "max": 285.2
+          }
+        ],
+        "medianP95Ms": 225,
+        "recorded": true,
+        "maxMs": 355.2,
+        "p99Ms": [
+          355.2,
+          70.8,
+          285.2
+        ],
+        "formerProvisionalTargetMs": 10,
+        "againstFormerProvisionalTarget": "not met",
+        "pairing": "by request id",
+        "inFlight": {
+          "n": 220,
+          "median": 1,
+          "max": 9,
+          "atLeastTwo": 86
+        }
+      },
+      "fourTabs": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 88,
+            "p50": 262.1,
+            "p95": 522.9,
+            "p99": 794.4,
+            "max": 794.4
+          },
+          {
+            "n": 88,
+            "p50": 259.4,
+            "p95": 713.1,
+            "p99": 917,
+            "max": 917
+          },
+          {
+            "n": 88,
+            "p50": 271.4,
+            "p95": 467.4,
+            "p99": 685,
+            "max": 685
+          }
+        ],
+        "medianP95Ms": 522.9,
+        "recorded": true,
+        "maxMs": 917,
+        "p99Ms": [
+          794.4,
+          917,
+          685
+        ],
+        "formerProvisionalTargetMs": 20,
+        "againstFormerProvisionalTarget": "not met",
+        "pairing": "by request id",
+        "inFlight": {
+          "n": 880,
+          "median": 2,
+          "max": 10,
+          "atLeastTwo": 447
+        }
+      }
+    },
+    "M5": {
+      "label": "Aggregate-cost estimate. Diagnostic only: no threshold, and no share of page load is computed from it.",
+      "note": "Requests on a page overlap, so the sum of their gate waits is not the time the gate adds to the page load; it is an upper bound on it.",
+      "what": "median of 5 loads per page: navigation to last API response delivered, number of requests, and the SUM of all gate waits",
+      "oneTab": [
+        {
+          "path": "/dashboard",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 834,
+          "medianRequests": 12,
+          "medianSumOfGateWaitsMs": 615.9
+        },
+        {
+          "path": "/inventory/products",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 973,
+          "medianRequests": 7,
+          "medianSumOfGateWaitsMs": 299.6
+        },
+        {
+          "path": "/sales/orders/SO-26-013/view",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 763,
+          "medianRequests": 6,
+          "medianSumOfGateWaitsMs": 159.2
+        }
+      ],
+      "fourTabs": [
+        {
+          "path": "/dashboard",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 2585,
+          "medianRequests": 12,
+          "medianSumOfGateWaitsMs": 3368.75
+        },
+        {
+          "path": "/inventory/products",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 2218.5,
+          "medianRequests": 7,
+          "medianSumOfGateWaitsMs": 1562.45
+        },
+        {
+          "path": "/sales/orders/SO-26-013/view",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 1784,
+          "medianRequests": 6,
+          "medianSumOfGateWaitsMs": 790.7
+        }
+      ]
+    },
+    "notes": [
+      "oneTab: some requests were not answered 2xx during the loads: [[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1]]",
+      "fourTabs: some requests were not answered 2xx during the loads: [[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1]]"
+    ],
+    "blockingFailures": [],
+    "diagnosticsNotRecorded": [],
+    "pass": true,
+    "maximaAbove100Ms": [
+      "M3 one tab: max 279.9 ms",
+      "M3 four tabs: max 864.4 ms",
+      "M4 one tab: max 355.2 ms",
+      "M4 four tabs: max 917 ms"
+    ],
+    "signInWaits": 0
+  },
+  "latencyPreconditionFailed": null
+}

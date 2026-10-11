@@ -1,0 +1,4 @@
+name=T2 copy=w1-429-traced only=W1
+commit=761985e1cc1c3a4c473ecae74d742351471bb141
+started=2026-10-11T15:26:03+08:00 load=2.78 3.03 2.92 free_kb=8907004
+ended=2026-10-11T15:34:36+08:00 status=1 load=5.74 3.61 3.06

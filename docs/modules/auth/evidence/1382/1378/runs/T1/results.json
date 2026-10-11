@@ -1,0 +1,4301 @@
+{
+  "suite": "cross-tab-session (#1345)",
+  "writtenAt": "2026-10-11T06:40:13.514Z",
+  "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+  "exitStatus": 1,
+  "completed": true,
+  "aborted": null,
+  "stackRestored": true,
+  "restoreFailure": null,
+  "configuration": {
+    "note": "What `stack.sh show` reported from inside the running backend. Evidence in its own right: .env is not covered by the commit.",
+    "before": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:d58d99bed15442ac88df3742e49b99cc0bfa41f5a258ddebdb1da7839a2068a3",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "5102cbaff6b6ebcafb69e3adec1fab333117d351"
+    },
+    "during": {
+      "accessTokenExpiry": "20s",
+      "refreshGraceSeconds": "5",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "after": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    }
+  },
+  "chromium": "153.0.8010.12",
+  "machine": {
+    "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+    "cpuCount": 4,
+    "memoryGiB": 9.7,
+    "kernel": "6.8.0-138-generic",
+    "disks": [
+      {
+        "name": "sda",
+        "rotational": true,
+        "kind": "spinning disk"
+      }
+    ]
+  },
+  "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+  "servedFrom": "ingress",
+  "partial": "only W1: not a recorded run",
+  "signInWaits": 0,
+  "loginZone429": 0,
+  "limits": {
+    "session": {
+      "rate": "1r/s",
+      "burst": 20
+    },
+    "login": {
+      "rate": "5r/m",
+      "burst": 3
+    }
+  },
+  "cases": [],
+  "w1": {
+    "id": "W1",
+    "name": "Restored window",
+    "pass": false,
+    "seconds": 248,
+    "error": null,
+    "checks": [
+      {
+        "label": "N = 10 was run",
+        "ok": false,
+        "detail": {
+          "sizes": [
+            5
+          ]
+        }
+      },
+      {
+        "label": "N = 20 was run",
+        "ok": false,
+        "detail": {
+          "sizes": [
+            5
+          ]
+        }
+      },
+      {
+        "label": "N = 5 (a): no 429 on refresh, logout or me",
+        "ok": true,
+        "detail": {
+          "count429": 0,
+          "duringUsabilityCheck": 0
+        }
+      },
+      {
+        "label": "N = 5 (a): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)",
+        "ok": true,
+        "detail": {
+          "usable": 5,
+          "completeOnFirstLoad": 5,
+          "companyByAutomaticRetry": 0,
+          "neededManualRecovery": 0,
+          "dataNotRecoverableByRole": {},
+          "notUsable": []
+        }
+      },
+      {
+        "label": "N = 5 (a): no in-app recovery action",
+        "ok": true,
+        "detail": {
+          "recoveryActions": 0,
+          "tabsNeedingRecovery": 0,
+          "maxForOneTab": 0
+        }
+      },
+      {
+        "label": "N = 5 (b): no 429 on refresh, logout or me",
+        "ok": false,
+        "detail": {
+          "count429": 16,
+          "duringUsabilityCheck": 0
+        }
+      },
+      {
+        "label": "N = 5 (b): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)",
+        "ok": false,
+        "detail": {
+          "usable": 1,
+          "completeOnFirstLoad": 1,
+          "companyByAutomaticRetry": 0,
+          "neededManualRecovery": 4,
+          "dataNotRecoverableByRole": {
+            "company data (the sidebar's company name and logo)": [
+              "N5b-2",
+              "N5b-3",
+              "N5b-4",
+              "N5b-5"
+            ]
+          },
+          "notUsable": [
+            {
+              "tab": "N5b-2",
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            },
+            {
+              "tab": "N5b-3",
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            },
+            {
+              "tab": "N5b-4",
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            },
+            {
+              "tab": "N5b-5",
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            }
+          ]
+        }
+      },
+      {
+        "label": "N = 5 (b): no in-app recovery action",
+        "ok": false,
+        "detail": {
+          "recoveryActions": 8,
+          "tabsNeedingRecovery": 4,
+          "maxForOneTab": 2
+        }
+      },
+      {
+        "label": "N = 5 (a): the access token was current when the tabs opened",
+        "ok": true,
+        "detail": {
+          "accessTokenRemainingMsAtStart": 16343
+        }
+      },
+      {
+        "label": "N = 5 (b): every tab did start with an expired access token",
+        "ok": true,
+        "detail": {
+          "accessTokenExpiredAtStart": true
+        }
+      },
+      {
+        "label": "N = 5 (c) attempt 1: no 429 on refresh, logout or me",
+        "ok": true,
+        "detail": {
+          "count429": 0,
+          "duringUsabilityCheck": 0,
+          "outcome": "setup-missed"
+        }
+      },
+      {
+        "label": "N = 5 (c) attempt 1: the sign-out sent a logout and it was answered 2xx",
+        "ok": true,
+        "detail": [
+          204
+        ]
+      },
+      {
+        "label": "N = 5 (c) attempt 1: every tab is on the login page after the sign-out, without a reload",
+        "ok": true,
+        "detail": [
+          {
+            "tab": "N5c-1",
+            "onLoginPage": true,
+            "sameDocument": true,
+            "at": "/login"
+          },
+          {
+            "tab": "N5c-2",
+            "onLoginPage": true,
+            "sameDocument": true,
+            "at": "/login"
+          },
+          {
+            "tab": "N5c-3",
+            "onLoginPage": true,
+            "sameDocument": true,
+            "at": "/login"
+          },
+          {
+            "tab": "N5c-4",
+            "onLoginPage": true,
+            "sameDocument": true,
+            "at": "/login"
+          },
+          {
+            "tab": "N5c-5",
+            "onLoginPage": true,
+            "sameDocument": true,
+            "at": "/login"
+          }
+        ]
+      }
+    ],
+    "unexpected429": [],
+    "recorded": {
+      "limit": {
+        "rate": "1r/s",
+        "burst": 20,
+        "drainWaitSeconds": 26
+      },
+      "usableMeans": {
+        "decidedOn": "2026-10-06",
+        "definition": "The tab reaches a working state without reloading or signing in again, with its expected data available and actions working. Not every initial request has to succeed. A rendered shell with missing data is not usable.",
+        "expectedData": "On /dashboard: the \"Dashboard\" heading is rendered, no \"Could not load:\" warning is shown, and no data request the tab made (by method, path and query) is left failed, the regional-settings request excepted (see shell).",
+        "shell": "The shell is part of the expected data. Company data: the latest GET /api/settings/company of the tab is 2xx and the sidebar shows the server's company name. Regional settings: judged by effect, not by the request: the formats the tab applies (localStorage, which the application fills from the answer and every formatter reads) equal the server's; a tab whose own request was refused is counted separately.",
+        "user": "A non-administrator. Recovery through a page only an administrator can open does not count: such a step is refused and fails the tab.",
+        "recovery": "Only through the sidebar links the user's role is shown (read from frontend/src/config/navigation.tsx), never a reload, a URL load or a sign-in: Sales > Sales Orders, then Dashboard. At most 3 actions per tab, paced so that api_limit (20r/s, burst 40) has room for a page of requests. When only shell data is missing, one round trip is made and then no more: no page change asks for it again.",
+        "automaticRetry": "The application itself repeats GET /api/settings/company after a 429 (and no other request). That is not a recovery action; per tab it is recorded whether the company data came on the first request or by that retry, how long the retry took, and whether the retries were used up.",
+        "action": "Sidebar: Sales > Customers. A fresh request for the list answered 2xx and its rows on screen; at most 3 tries.",
+        "notJudged": "The status indicator's polls of /api/health (every 30 s, self-repairing); 429s among them are counted per tab."
+      },
+      "sizes": [
+        5
+      ],
+      "rounds": [
+        {
+          "n": 5,
+          "round": "a",
+          "description": "current access token",
+          "accessTokenRemainingMsAtStart": 16343,
+          "completedAfterMs": 6182,
+          "completionPollMs": 250,
+          "deadlineMs": 5000,
+          "ingress": {
+            "lines": 250,
+            "rejectedBy": {
+              "limit_req": 0,
+              "limit_conn": 0,
+              "unattributed": 0
+            },
+            "rejectedByZone": {
+              "api_limit": 0,
+              "session_limit": 0,
+              "login_limit": 0,
+              "api_limit or user_create_limit": 0,
+              "unknown": 0
+            },
+            "status401": {
+              "total": 0,
+              "onDelayed": 0
+            },
+            "delayed": 0,
+            "upstreamMs": {
+              "n": 250,
+              "median": 3,
+              "p95": 255.09999999999962,
+              "max": 505,
+              "none": 0,
+              "multiple": 0
+            },
+            "approxNonUpstreamMs": {
+              "n": 250,
+              "median": 0,
+              "p95": 1,
+              "max": 7,
+              "unavailable": 0
+            }
+          },
+          "requests": [],
+          "total": 0,
+          "byRoute": {
+            "refresh": 0,
+            "logout": 0,
+            "me": 0
+          },
+          "perTab": {},
+          "busiestSecond": 0,
+          "peakDemandE": 0,
+          "admittedInFullByTheLimit": true,
+          "count429": 0,
+          "dataRequests": 45,
+          "dataRequests429": 0,
+          "dataRequestsFailed": [],
+          "tabsUsable": 5,
+          "everyTabUsable": true,
+          "tabsCompleteOnFirstLoad": 5,
+          "tabsCompanyOnFirstRequest": 5,
+          "tabsCompanyAfterSessionRenewalOnly": 0,
+          "tabsCompanyByAutomaticRetry": 0,
+          "companyAutomaticRetryWaitMs": null,
+          "tabsCompanyRetryExhausted": 0,
+          "tabsRegionalRequestRefused": 0,
+          "tabsRegionalNotInEffect": 0,
+          "tabsNeedingRecovery": 0,
+          "maxRecoveryActions": 0,
+          "recoveryActionsTotal": 0,
+          "tabsNeedingActionRetry": 0,
+          "slowestRecoveryMs": 0,
+          "tabsWithRefusedStep": 0,
+          "dataNotRecoverableByRole": {},
+          "tabsNotRecoverable": [],
+          "usabilityCheckSeconds": 15,
+          "sessionRequestsDuringUsabilityCheck": 1,
+          "sessionRequests429DuringUsabilityCheck": 0,
+          "dataRequests429DuringUsabilityCheck": 0,
+          "tabs": [
+            {
+              "tab": "N5a-1",
+              "signedInUi": true,
+              "usable": true,
+              "completeOnFirstLoad": true,
+              "dataPresent": true,
+              "recovery": [],
+              "notRecoverableByRole": [],
+              "action": {
+                "what": "sidebar: Sales > Customers; a fresh request answered 2xx and its rows shown",
+                "ok": true,
+                "tries": [
+                  {
+                    "pacedMs": 1,
+                    "tookMs": 3237,
+                    "ok": true,
+                    "rows": 2,
+                    "why": []
+                  }
+                ]
+              },
+              "loadRequestStatuses": {
+                "200": 9
+              },
+              "company": {
+                "statuses": [
+                  200
+                ],
+                "sendsAfterMs": [
+                  0
+                ],
+                "arrived": true,
+                "arrivedOnFirstRequest": true,
+                "arrivedAfterSessionRenewalOnly": false,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": true,
+                "failedSections": [],
+                "requestsLeftFailed": [],
+                "regionalRequestLeftFailed": false,
+                "regionalNotInEffect": [],
+                "missing": [],
+                "shellOnly": false,
+                "why": [],
+                "companyNameInSidebar": "Your Company Name",
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "companyNameInSidebarAtEnd": "Your Company Name",
+              "sameDocument": true
+            },
+            {
+              "tab": "N5a-2",
+              "signedInUi": true,
+              "usable": true,
+              "completeOnFirstLoad": true,
+              "dataPresent": true,
+              "recovery": [],
+              "notRecoverableByRole": [],
+              "action": {
+                "what": "sidebar: Sales > Customers; a fresh request answered 2xx and its rows shown",
+                "ok": true,
+                "tries": [
+                  {
+                    "pacedMs": 0,
+                    "tookMs": 3142,
+                    "ok": true,
+                    "rows": 2,
+                    "why": []
+                  }
+                ]
+              },
+              "loadRequestStatuses": {
+                "200": 9
+              },
+              "company": {
+                "statuses": [
+                  200
+                ],
+                "sendsAfterMs": [
+                  0
+                ],
+                "arrived": true,
+                "arrivedOnFirstRequest": true,
+                "arrivedAfterSessionRenewalOnly": false,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": true,
+                "failedSections": [],
+                "requestsLeftFailed": [],
+                "regionalRequestLeftFailed": false,
+                "regionalNotInEffect": [],
+                "missing": [],
+                "shellOnly": false,
+                "why": [],
+                "companyNameInSidebar": "Your Company Name",
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "companyNameInSidebarAtEnd": "Your Company Name",
+              "sameDocument": true
+            },
+            {
+              "tab": "N5a-3",
+              "signedInUi": true,
+              "usable": true,
+              "completeOnFirstLoad": true,
+              "dataPresent": true,
+              "recovery": [],
+              "notRecoverableByRole": [],
+              "action": {
+                "what": "sidebar: Sales > Customers; a fresh request answered 2xx and its rows shown",
+                "ok": true,
+                "tries": [
+                  {
+                    "pacedMs": 1,
+                    "tookMs": 2808,
+                    "ok": true,
+                    "rows": 2,
+                    "why": []
+                  }
+                ]
+              },
+              "loadRequestStatuses": {
+                "200": 9
+              },
+              "company": {
+                "statuses": [
+                  200
+                ],
+                "sendsAfterMs": [
+                  0
+                ],
+                "arrived": true,
+                "arrivedOnFirstRequest": true,
+                "arrivedAfterSessionRenewalOnly": false,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": true,
+                "failedSections": [],
+                "requestsLeftFailed": [],
+                "regionalRequestLeftFailed": false,
+                "regionalNotInEffect": [],
+                "missing": [],
+                "shellOnly": false,
+                "why": [],
+                "companyNameInSidebar": "Your Company Name",
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "companyNameInSidebarAtEnd": "Your Company Name",
+              "sameDocument": true
+            },
+            {
+              "tab": "N5a-4",
+              "signedInUi": true,
+              "usable": true,
+              "completeOnFirstLoad": true,
+              "dataPresent": true,
+              "recovery": [],
+              "notRecoverableByRole": [],
+              "action": {
+                "what": "sidebar: Sales > Customers; a fresh request answered 2xx and its rows shown",
+                "ok": true,
+                "tries": [
+                  {
+                    "pacedMs": 0,
+                    "tookMs": 3031,
+                    "ok": true,
+                    "rows": 2,
+                    "why": []
+                  }
+                ]
+              },
+              "loadRequestStatuses": {
+                "200": 9
+              },
+              "company": {
+                "statuses": [
+                  200
+                ],
+                "sendsAfterMs": [
+                  0
+                ],
+                "arrived": true,
+                "arrivedOnFirstRequest": true,
+                "arrivedAfterSessionRenewalOnly": false,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": true,
+                "failedSections": [],
+                "requestsLeftFailed": [],
+                "regionalRequestLeftFailed": false,
+                "regionalNotInEffect": [],
+                "missing": [],
+                "shellOnly": false,
+                "why": [],
+                "companyNameInSidebar": "Your Company Name",
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "companyNameInSidebarAtEnd": "Your Company Name",
+              "sameDocument": true
+            },
+            {
+              "tab": "N5a-5",
+              "signedInUi": true,
+              "usable": true,
+              "completeOnFirstLoad": true,
+              "dataPresent": true,
+              "recovery": [],
+              "notRecoverableByRole": [],
+              "action": {
+                "what": "sidebar: Sales > Customers; a fresh request answered 2xx and its rows shown",
+                "ok": true,
+                "tries": [
+                  {
+                    "pacedMs": 0,
+                    "tookMs": 2907,
+                    "ok": true,
+                    "rows": 2,
+                    "why": []
+                  }
+                ]
+              },
+              "loadRequestStatuses": {
+                "200": 9
+              },
+              "company": {
+                "statuses": [
+                  200
+                ],
+                "sendsAfterMs": [
+                  0
+                ],
+                "arrived": true,
+                "arrivedOnFirstRequest": true,
+                "arrivedAfterSessionRenewalOnly": false,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": true,
+                "failedSections": [],
+                "requestsLeftFailed": [],
+                "regionalRequestLeftFailed": false,
+                "regionalNotInEffect": [],
+                "missing": [],
+                "shellOnly": false,
+                "why": [],
+                "companyNameInSidebar": "Your Company Name",
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "companyNameInSidebarAtEnd": "Your Company Name",
+              "sameDocument": true
+            }
+          ]
+        },
+        {
+          "n": 5,
+          "round": "b",
+          "description": "every tab starts with an expired access token",
+          "accessTokenExpiredAtStart": true,
+          "completedAfterMs": null,
+          "completionPollMs": 250,
+          "deadlineMs": 5000,
+          "ingress": {
+            "lines": 489,
+            "rejectedBy": {
+              "limit_req": 170,
+              "limit_conn": 0,
+              "unattributed": 0
+            },
+            "rejectedByZone": {
+              "api_limit": 0,
+              "session_limit": 170,
+              "login_limit": 0,
+              "api_limit or user_create_limit": 0,
+              "unknown": 0
+            },
+            "status401": {
+              "total": 108,
+              "onDelayed": 5
+            },
+            "delayed": 5,
+            "upstreamMs": {
+              "n": 319,
+              "median": 3,
+              "p95": 75.19999999999993,
+              "max": 289,
+              "none": 170,
+              "multiple": 0
+            },
+            "approxNonUpstreamMs": {
+              "n": 319,
+              "median": 0,
+              "p95": 1,
+              "max": 132,
+              "unavailable": 170
+            }
+          },
+          "requests": [
+            {
+              "t": 1791700546.758,
+              "tab": "N5b-4",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700547.054,
+              "tab": "N5b-3",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700547.172,
+              "tab": "N5b-5",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700547.287,
+              "tab": "N5b-2",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700547.408,
+              "tab": "N5b-1",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 200
+            },
+            {
+              "t": 1791700548.21,
+              "tab": "N5b-3",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700548.223,
+              "tab": "N5b-4",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700548.273,
+              "tab": "N5b-5",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700548.533,
+              "tab": "N5b-2",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700548.778,
+              "tab": "N5b-4",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700549.08,
+              "tab": "N5b-3",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700549.19,
+              "tab": "N5b-5",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700549.221,
+              "tab": "N5b-2",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700549.806,
+              "tab": "N5b-4",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700550.17,
+              "tab": "N5b-3",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700550.281,
+              "tab": "N5b-2",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            },
+            {
+              "t": 1791700550.699,
+              "tab": "N5b-5",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 429
+            }
+          ],
+          "total": 17,
+          "byRoute": {
+            "refresh": 17,
+            "logout": 0,
+            "me": 0
+          },
+          "perTab": {
+            "N5b-4": 4,
+            "N5b-3": 4,
+            "N5b-5": 4,
+            "N5b-2": 4,
+            "N5b-1": 1
+          },
+          "busiestSecond": 7,
+          "peakDemandE": 13.059,
+          "admittedInFullByTheLimit": true,
+          "count429": 16,
+          "dataRequests": 54,
+          "dataRequests429": 0,
+          "dataRequestsFailed": [],
+          "tabsUsable": 1,
+          "everyTabUsable": false,
+          "tabsCompleteOnFirstLoad": 1,
+          "tabsCompanyOnFirstRequest": 0,
+          "tabsCompanyAfterSessionRenewalOnly": 1,
+          "tabsCompanyByAutomaticRetry": 0,
+          "companyAutomaticRetryWaitMs": null,
+          "tabsCompanyRetryExhausted": 0,
+          "tabsRegionalRequestRefused": 4,
+          "tabsRegionalNotInEffect": 0,
+          "tabsNeedingRecovery": 4,
+          "maxRecoveryActions": 2,
+          "recoveryActionsTotal": 8,
+          "tabsNeedingActionRetry": 0,
+          "slowestRecoveryMs": 0,
+          "tabsWithRefusedStep": 0,
+          "dataNotRecoverableByRole": {
+            "company data (the sidebar's company name and logo)": [
+              "N5b-2",
+              "N5b-3",
+              "N5b-4",
+              "N5b-5"
+            ]
+          },
+          "tabsNotRecoverable": [
+            {
+              "tab": "N5b-2",
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            },
+            {
+              "tab": "N5b-3",
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            },
+            {
+              "tab": "N5b-4",
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            },
+            {
+              "tab": "N5b-5",
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            }
+          ],
+          "usabilityCheckSeconds": 48,
+          "sessionRequestsDuringUsabilityCheck": 2,
+          "sessionRequests429DuringUsabilityCheck": 0,
+          "dataRequests429DuringUsabilityCheck": 0,
+          "tabs": [
+            {
+              "tab": "N5b-1",
+              "signedInUi": true,
+              "usable": true,
+              "completeOnFirstLoad": true,
+              "dataPresent": true,
+              "recovery": [],
+              "notRecoverableByRole": [],
+              "action": {
+                "what": "sidebar: Sales > Customers; a fresh request answered 2xx and its rows shown",
+                "ok": true,
+                "tries": [
+                  {
+                    "pacedMs": 0,
+                    "tookMs": 3121,
+                    "ok": true,
+                    "rows": 2,
+                    "why": []
+                  }
+                ]
+              },
+              "loadRequestStatuses": {
+                "200": 9,
+                "401": 9
+              },
+              "company": {
+                "statuses": [
+                  401,
+                  200
+                ],
+                "sendsAfterMs": [
+                  0,
+                  1383
+                ],
+                "arrived": true,
+                "arrivedOnFirstRequest": false,
+                "arrivedAfterSessionRenewalOnly": true,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": true,
+                "failedSections": [],
+                "requestsLeftFailed": [],
+                "regionalRequestLeftFailed": false,
+                "regionalNotInEffect": [],
+                "missing": [],
+                "shellOnly": false,
+                "why": [],
+                "companyNameInSidebar": "Your Company Name",
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "companyNameInSidebarAtEnd": "Your Company Name",
+              "sameDocument": true
+            },
+            {
+              "tab": "N5b-2",
+              "signedInUi": true,
+              "usable": false,
+              "completeOnFirstLoad": false,
+              "dataPresent": false,
+              "recovery": [
+                {
+                  "action": "round-trip",
+                  "what": "sidebar: Sales > Sales Orders, then Dashboard",
+                  "because": [
+                    "the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers",
+                    "no data request of the tab was answered 2xx",
+                    "7 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401",
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingBefore": [
+                    "dashboard panel: Sales",
+                    "dashboard panel: Purchases",
+                    "dashboard panel: Payments",
+                    "dashboard panel: Inventory Stats",
+                    "dashboard panel: Out of Stock",
+                    "dashboard panel: Suppliers",
+                    "GET /api/settings/default-currency",
+                    "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                    "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                    "GET /api/purchasing/suppliers",
+                    "GET /api/inventory/products/dashboard-stats",
+                    "GET /api/inventory/products/out-of-stock",
+                    "GET /api/payments",
+                    "company data (the sidebar's company name and logo)"
+                  ],
+                  "onlyShellDataMissingBefore": false,
+                  "pacedMs": 3,
+                  "tookMs": 5888,
+                  "dataPresentAfter": false,
+                  "stillMissing": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingAfter": [
+                    "company data (the sidebar's company name and logo)"
+                  ]
+                },
+                {
+                  "action": "round-trip",
+                  "what": "sidebar: Sales > Sales Orders, then Dashboard",
+                  "because": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingBefore": [
+                    "company data (the sidebar's company name and logo)"
+                  ],
+                  "onlyShellDataMissingBefore": true,
+                  "pacedMs": 0,
+                  "tookMs": 5454,
+                  "dataPresentAfter": false,
+                  "stillMissing": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingAfter": [
+                    "company data (the sidebar's company name and logo)"
+                  ]
+                }
+              ],
+              "notRecoverableByRole": [
+                {
+                  "data": "company data (the sidebar's company name and logo)",
+                  "why": "the sidebar asks for it once and never leaves the screen, so the round trip (sidebar: Sales > Sales Orders, then Dashboard) did not ask again; the application's own retries after a 429 did not bring it; the menu pages that ask again are /settings/company, and the role sales_staff is shown none of them"
+                }
+              ],
+              "action": null,
+              "loadRequestStatuses": {
+                "401": 9
+              },
+              "company": {
+                "statuses": [
+                  401
+                ],
+                "sendsAfterMs": [
+                  0
+                ],
+                "arrived": false,
+                "arrivedOnFirstRequest": false,
+                "arrivedAfterSessionRenewalOnly": false,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": false,
+                "failedSections": [
+                  "Sales",
+                  "Purchases",
+                  "Payments",
+                  "Inventory Stats",
+                  "Out of Stock",
+                  "Suppliers"
+                ],
+                "requestsLeftFailed": [
+                  {
+                    "request": "GET /api/settings/company",
+                    "path": "/api/settings/company",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/settings/default-currency",
+                    "path": "/api/settings/default-currency",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                    "path": "/api/sales-orders",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                    "path": "/api/purchasing/orders",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/purchasing/suppliers",
+                    "path": "/api/purchasing/suppliers",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/inventory/products/dashboard-stats",
+                    "path": "/api/inventory/products/dashboard-stats",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/inventory/products/out-of-stock",
+                    "path": "/api/inventory/products/out-of-stock",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/payments",
+                    "path": "/api/payments",
+                    "status": 401
+                  }
+                ],
+                "regionalRequestLeftFailed": true,
+                "regionalNotInEffect": [],
+                "missing": [
+                  "dashboard panel: Sales",
+                  "dashboard panel: Purchases",
+                  "dashboard panel: Payments",
+                  "dashboard panel: Inventory Stats",
+                  "dashboard panel: Out of Stock",
+                  "dashboard panel: Suppliers",
+                  "GET /api/settings/default-currency",
+                  "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                  "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                  "GET /api/purchasing/suppliers",
+                  "GET /api/inventory/products/dashboard-stats",
+                  "GET /api/inventory/products/out-of-stock",
+                  "GET /api/payments",
+                  "company data (the sidebar's company name and logo)"
+                ],
+                "shellOnly": false,
+                "why": [
+                  "the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers",
+                  "no data request of the tab was answered 2xx",
+                  "7 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401",
+                  "the company settings request is left failed: GET /api/settings/company 401",
+                  "the sidebar shows no company name, the server says \"Your Company Name\""
+                ],
+                "companyNameInSidebar": null,
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "stillMissing": [
+                "the company settings request is left failed: GET /api/settings/company 401",
+                "the sidebar shows no company name, the server says \"Your Company Name\""
+              ],
+              "companyNameInSidebarAtEnd": null,
+              "sameDocument": true,
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            },
+            {
+              "tab": "N5b-3",
+              "signedInUi": true,
+              "usable": false,
+              "completeOnFirstLoad": false,
+              "dataPresent": false,
+              "recovery": [
+                {
+                  "action": "round-trip",
+                  "what": "sidebar: Sales > Sales Orders, then Dashboard",
+                  "because": [
+                    "the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers",
+                    "no data request of the tab was answered 2xx",
+                    "7 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401",
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingBefore": [
+                    "dashboard panel: Sales",
+                    "dashboard panel: Purchases",
+                    "dashboard panel: Payments",
+                    "dashboard panel: Inventory Stats",
+                    "dashboard panel: Out of Stock",
+                    "dashboard panel: Suppliers",
+                    "GET /api/settings/default-currency",
+                    "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                    "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                    "GET /api/purchasing/suppliers",
+                    "GET /api/inventory/products/dashboard-stats",
+                    "GET /api/inventory/products/out-of-stock",
+                    "GET /api/payments",
+                    "company data (the sidebar's company name and logo)"
+                  ],
+                  "onlyShellDataMissingBefore": false,
+                  "pacedMs": 1,
+                  "tookMs": 6459,
+                  "dataPresentAfter": false,
+                  "stillMissing": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingAfter": [
+                    "company data (the sidebar's company name and logo)"
+                  ]
+                },
+                {
+                  "action": "round-trip",
+                  "what": "sidebar: Sales > Sales Orders, then Dashboard",
+                  "because": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingBefore": [
+                    "company data (the sidebar's company name and logo)"
+                  ],
+                  "onlyShellDataMissingBefore": true,
+                  "pacedMs": 0,
+                  "tookMs": 4850,
+                  "dataPresentAfter": false,
+                  "stillMissing": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingAfter": [
+                    "company data (the sidebar's company name and logo)"
+                  ]
+                }
+              ],
+              "notRecoverableByRole": [
+                {
+                  "data": "company data (the sidebar's company name and logo)",
+                  "why": "the sidebar asks for it once and never leaves the screen, so the round trip (sidebar: Sales > Sales Orders, then Dashboard) did not ask again; the application's own retries after a 429 did not bring it; the menu pages that ask again are /settings/company, and the role sales_staff is shown none of them"
+                }
+              ],
+              "action": null,
+              "loadRequestStatuses": {
+                "401": 9
+              },
+              "company": {
+                "statuses": [
+                  401
+                ],
+                "sendsAfterMs": [
+                  0
+                ],
+                "arrived": false,
+                "arrivedOnFirstRequest": false,
+                "arrivedAfterSessionRenewalOnly": false,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": false,
+                "failedSections": [
+                  "Sales",
+                  "Purchases",
+                  "Payments",
+                  "Inventory Stats",
+                  "Out of Stock",
+                  "Suppliers"
+                ],
+                "requestsLeftFailed": [
+                  {
+                    "request": "GET /api/settings/company",
+                    "path": "/api/settings/company",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/settings/default-currency",
+                    "path": "/api/settings/default-currency",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                    "path": "/api/sales-orders",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                    "path": "/api/purchasing/orders",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/purchasing/suppliers",
+                    "path": "/api/purchasing/suppliers",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/inventory/products/dashboard-stats",
+                    "path": "/api/inventory/products/dashboard-stats",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/inventory/products/out-of-stock",
+                    "path": "/api/inventory/products/out-of-stock",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/payments",
+                    "path": "/api/payments",
+                    "status": 401
+                  }
+                ],
+                "regionalRequestLeftFailed": true,
+                "regionalNotInEffect": [],
+                "missing": [
+                  "dashboard panel: Sales",
+                  "dashboard panel: Purchases",
+                  "dashboard panel: Payments",
+                  "dashboard panel: Inventory Stats",
+                  "dashboard panel: Out of Stock",
+                  "dashboard panel: Suppliers",
+                  "GET /api/settings/default-currency",
+                  "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                  "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                  "GET /api/purchasing/suppliers",
+                  "GET /api/inventory/products/dashboard-stats",
+                  "GET /api/inventory/products/out-of-stock",
+                  "GET /api/payments",
+                  "company data (the sidebar's company name and logo)"
+                ],
+                "shellOnly": false,
+                "why": [
+                  "the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers",
+                  "no data request of the tab was answered 2xx",
+                  "7 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401",
+                  "the company settings request is left failed: GET /api/settings/company 401",
+                  "the sidebar shows no company name, the server says \"Your Company Name\""
+                ],
+                "companyNameInSidebar": null,
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "stillMissing": [
+                "the company settings request is left failed: GET /api/settings/company 401",
+                "the sidebar shows no company name, the server says \"Your Company Name\""
+              ],
+              "companyNameInSidebarAtEnd": null,
+              "sameDocument": true,
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            },
+            {
+              "tab": "N5b-4",
+              "signedInUi": true,
+              "usable": false,
+              "completeOnFirstLoad": false,
+              "dataPresent": false,
+              "recovery": [
+                {
+                  "action": "round-trip",
+                  "what": "sidebar: Sales > Sales Orders, then Dashboard",
+                  "because": [
+                    "the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers",
+                    "no data request of the tab was answered 2xx",
+                    "7 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401",
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingBefore": [
+                    "dashboard panel: Sales",
+                    "dashboard panel: Purchases",
+                    "dashboard panel: Payments",
+                    "dashboard panel: Inventory Stats",
+                    "dashboard panel: Out of Stock",
+                    "dashboard panel: Suppliers",
+                    "GET /api/settings/default-currency",
+                    "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                    "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                    "GET /api/purchasing/suppliers",
+                    "GET /api/inventory/products/dashboard-stats",
+                    "GET /api/inventory/products/out-of-stock",
+                    "GET /api/payments",
+                    "company data (the sidebar's company name and logo)"
+                  ],
+                  "onlyShellDataMissingBefore": false,
+                  "pacedMs": 0,
+                  "tookMs": 6030,
+                  "dataPresentAfter": false,
+                  "stillMissing": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingAfter": [
+                    "company data (the sidebar's company name and logo)"
+                  ]
+                },
+                {
+                  "action": "round-trip",
+                  "what": "sidebar: Sales > Sales Orders, then Dashboard",
+                  "because": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingBefore": [
+                    "company data (the sidebar's company name and logo)"
+                  ],
+                  "onlyShellDataMissingBefore": true,
+                  "pacedMs": 0,
+                  "tookMs": 4691,
+                  "dataPresentAfter": false,
+                  "stillMissing": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingAfter": [
+                    "company data (the sidebar's company name and logo)"
+                  ]
+                }
+              ],
+              "notRecoverableByRole": [
+                {
+                  "data": "company data (the sidebar's company name and logo)",
+                  "why": "the sidebar asks for it once and never leaves the screen, so the round trip (sidebar: Sales > Sales Orders, then Dashboard) did not ask again; the application's own retries after a 429 did not bring it; the menu pages that ask again are /settings/company, and the role sales_staff is shown none of them"
+                }
+              ],
+              "action": null,
+              "loadRequestStatuses": {
+                "401": 9
+              },
+              "company": {
+                "statuses": [
+                  401
+                ],
+                "sendsAfterMs": [
+                  0
+                ],
+                "arrived": false,
+                "arrivedOnFirstRequest": false,
+                "arrivedAfterSessionRenewalOnly": false,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": false,
+                "failedSections": [
+                  "Sales",
+                  "Purchases",
+                  "Payments",
+                  "Inventory Stats",
+                  "Out of Stock",
+                  "Suppliers"
+                ],
+                "requestsLeftFailed": [
+                  {
+                    "request": "GET /api/settings/company",
+                    "path": "/api/settings/company",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/settings/default-currency",
+                    "path": "/api/settings/default-currency",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                    "path": "/api/sales-orders",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                    "path": "/api/purchasing/orders",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/purchasing/suppliers",
+                    "path": "/api/purchasing/suppliers",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/inventory/products/dashboard-stats",
+                    "path": "/api/inventory/products/dashboard-stats",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/inventory/products/out-of-stock",
+                    "path": "/api/inventory/products/out-of-stock",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/payments",
+                    "path": "/api/payments",
+                    "status": 401
+                  }
+                ],
+                "regionalRequestLeftFailed": true,
+                "regionalNotInEffect": [],
+                "missing": [
+                  "dashboard panel: Sales",
+                  "dashboard panel: Purchases",
+                  "dashboard panel: Payments",
+                  "dashboard panel: Inventory Stats",
+                  "dashboard panel: Out of Stock",
+                  "dashboard panel: Suppliers",
+                  "GET /api/settings/default-currency",
+                  "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                  "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                  "GET /api/purchasing/suppliers",
+                  "GET /api/inventory/products/dashboard-stats",
+                  "GET /api/inventory/products/out-of-stock",
+                  "GET /api/payments",
+                  "company data (the sidebar's company name and logo)"
+                ],
+                "shellOnly": false,
+                "why": [
+                  "the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers",
+                  "no data request of the tab was answered 2xx",
+                  "7 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401",
+                  "the company settings request is left failed: GET /api/settings/company 401",
+                  "the sidebar shows no company name, the server says \"Your Company Name\""
+                ],
+                "companyNameInSidebar": null,
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "stillMissing": [
+                "the company settings request is left failed: GET /api/settings/company 401",
+                "the sidebar shows no company name, the server says \"Your Company Name\""
+              ],
+              "companyNameInSidebarAtEnd": null,
+              "sameDocument": true,
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            },
+            {
+              "tab": "N5b-5",
+              "signedInUi": true,
+              "usable": false,
+              "completeOnFirstLoad": false,
+              "dataPresent": false,
+              "recovery": [
+                {
+                  "action": "round-trip",
+                  "what": "sidebar: Sales > Sales Orders, then Dashboard",
+                  "because": [
+                    "the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers",
+                    "no data request of the tab was answered 2xx",
+                    "7 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401",
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingBefore": [
+                    "dashboard panel: Sales",
+                    "dashboard panel: Purchases",
+                    "dashboard panel: Payments",
+                    "dashboard panel: Inventory Stats",
+                    "dashboard panel: Out of Stock",
+                    "dashboard panel: Suppliers",
+                    "GET /api/settings/default-currency",
+                    "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                    "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                    "GET /api/purchasing/suppliers",
+                    "GET /api/inventory/products/dashboard-stats",
+                    "GET /api/inventory/products/out-of-stock",
+                    "GET /api/payments",
+                    "company data (the sidebar's company name and logo)"
+                  ],
+                  "onlyShellDataMissingBefore": false,
+                  "pacedMs": 0,
+                  "tookMs": 6231,
+                  "dataPresentAfter": false,
+                  "stillMissing": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingAfter": [
+                    "company data (the sidebar's company name and logo)"
+                  ]
+                },
+                {
+                  "action": "round-trip",
+                  "what": "sidebar: Sales > Sales Orders, then Dashboard",
+                  "because": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingBefore": [
+                    "company data (the sidebar's company name and logo)"
+                  ],
+                  "onlyShellDataMissingBefore": true,
+                  "pacedMs": 0,
+                  "tookMs": 4663,
+                  "dataPresentAfter": false,
+                  "stillMissing": [
+                    "the company settings request is left failed: GET /api/settings/company 401",
+                    "the sidebar shows no company name, the server says \"Your Company Name\""
+                  ],
+                  "missingAfter": [
+                    "company data (the sidebar's company name and logo)"
+                  ]
+                }
+              ],
+              "notRecoverableByRole": [
+                {
+                  "data": "company data (the sidebar's company name and logo)",
+                  "why": "the sidebar asks for it once and never leaves the screen, so the round trip (sidebar: Sales > Sales Orders, then Dashboard) did not ask again; the application's own retries after a 429 did not bring it; the menu pages that ask again are /settings/company, and the role sales_staff is shown none of them"
+                }
+              ],
+              "action": null,
+              "loadRequestStatuses": {
+                "401": 9
+              },
+              "company": {
+                "statuses": [
+                  401
+                ],
+                "sendsAfterMs": [
+                  0
+                ],
+                "arrived": false,
+                "arrivedOnFirstRequest": false,
+                "arrivedAfterSessionRenewalOnly": false,
+                "arrivedByAutomaticRetry": false,
+                "refusals": 0,
+                "automaticRetriesSent": 0,
+                "automaticRetryWaitMs": null,
+                "exhausted": false
+              },
+              "statusPolls429": 0,
+              "firstLoad": {
+                "complete": false,
+                "failedSections": [
+                  "Sales",
+                  "Purchases",
+                  "Payments",
+                  "Inventory Stats",
+                  "Out of Stock",
+                  "Suppliers"
+                ],
+                "requestsLeftFailed": [
+                  {
+                    "request": "GET /api/settings/company",
+                    "path": "/api/settings/company",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/settings/default-currency",
+                    "path": "/api/settings/default-currency",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                    "path": "/api/sales-orders",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                    "path": "/api/purchasing/orders",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/purchasing/suppliers",
+                    "path": "/api/purchasing/suppliers",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/inventory/products/dashboard-stats",
+                    "path": "/api/inventory/products/dashboard-stats",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/inventory/products/out-of-stock",
+                    "path": "/api/inventory/products/out-of-stock",
+                    "status": 401
+                  },
+                  {
+                    "request": "GET /api/payments",
+                    "path": "/api/payments",
+                    "status": 401
+                  }
+                ],
+                "regionalRequestLeftFailed": true,
+                "regionalNotInEffect": [],
+                "missing": [
+                  "dashboard panel: Sales",
+                  "dashboard panel: Purchases",
+                  "dashboard panel: Payments",
+                  "dashboard panel: Inventory Stats",
+                  "dashboard panel: Out of Stock",
+                  "dashboard panel: Suppliers",
+                  "GET /api/settings/default-currency",
+                  "GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC",
+                  "GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC",
+                  "GET /api/purchasing/suppliers",
+                  "GET /api/inventory/products/dashboard-stats",
+                  "GET /api/inventory/products/out-of-stock",
+                  "GET /api/payments",
+                  "company data (the sidebar's company name and logo)"
+                ],
+                "shellOnly": false,
+                "why": [
+                  "the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers",
+                  "no data request of the tab was answered 2xx",
+                  "7 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401",
+                  "the company settings request is left failed: GET /api/settings/company 401",
+                  "the sidebar shows no company name, the server says \"Your Company Name\""
+                ],
+                "companyNameInSidebar": null,
+                "stored": {
+                  "dateFormat": "DD-MM-YYYY",
+                  "timeFormat": "24h",
+                  "numberFormat": "1,234.56",
+                  "defaultCurrency": "MYR",
+                  "timezone": "Asia/Kuala_Lumpur",
+                  "startOfWeek": "1"
+                }
+              },
+              "stillMissing": [
+                "the company settings request is left failed: GET /api/settings/company 401",
+                "the sidebar shows no company name, the server says \"Your Company Name\""
+              ],
+              "companyNameInSidebarAtEnd": null,
+              "sameDocument": true,
+              "whyNot": "data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried"
+            }
+          ]
+        },
+        {
+          "n": 5,
+          "round": "c",
+          "attempt": 1,
+          "description": "one tab signs out while the others are still loading",
+          "tabsStillLoadingAtSignOut": 4,
+          "requests": [
+            {
+              "t": 1791700658.08,
+              "tab": "N5c-2",
+              "method": "POST",
+              "path": "/api/auth/refresh",
+              "status": 200
+            },
+            {
+              "t": 1791700660.738,
+              "tab": "N5c-2",
+              "method": "POST",
+              "path": "/api/auth/logout",
+              "status": 204
+            }
+          ],
+          "total": 2,
+          "byRoute": {
+            "refresh": 1,
+            "logout": 1,
+            "me": 0
+          },
+          "perTab": {
+            "N5c-2": 2
+          },
+          "busiestSecond": 1,
+          "peakDemandE": 1,
+          "admittedInFullByTheLimit": true,
+          "count429": 0,
+          "dataRequests": 74,
+          "dataRequests429": 0,
+          "dataRequestsFailed": [
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED",
+            "net::ERR_ABORTED"
+          ],
+          "tabsOnLoginPage": 5,
+          "everyTabOnLoginPage": true,
+          "tabs": [
+            {
+              "tab": "N5c-1",
+              "onLoginPage": true,
+              "sameDocument": true,
+              "at": "/login"
+            },
+            {
+              "tab": "N5c-2",
+              "onLoginPage": true,
+              "sameDocument": true,
+              "at": "/login"
+            },
+            {
+              "tab": "N5c-3",
+              "onLoginPage": true,
+              "sameDocument": true,
+              "at": "/login"
+            },
+            {
+              "tab": "N5c-4",
+              "onLoginPage": true,
+              "sameDocument": true,
+              "at": "/login"
+            },
+            {
+              "tab": "N5c-5",
+              "onLoginPage": true,
+              "sameDocument": true,
+              "at": "/login"
+            }
+          ],
+          "ingress": {
+            "lines": 285,
+            "rejectedBy": {
+              "limit_req": 0,
+              "limit_conn": 0,
+              "unattributed": 0
+            },
+            "rejectedByZone": {
+              "api_limit": 0,
+              "session_limit": 0,
+              "login_limit": 0,
+              "api_limit or user_create_limit": 0,
+              "unknown": 0
+            },
+            "status401": {
+              "total": 29,
+              "onDelayed": 0
+            },
+            "delayed": 0,
+            "upstreamMs": {
+              "n": 285,
+              "median": 4,
+              "p95": 185.80000000000007,
+              "max": 598,
+              "none": 0,
+              "multiple": 0
+            },
+            "approxNonUpstreamMs": {
+              "n": 285,
+              "median": 0,
+              "p95": 1,
+              "max": 1,
+              "unavailable": 0
+            }
+          },
+          "signOutOverlap": {
+            "verdict": "no-overlap",
+            "delayedOutstanding": 0,
+            "logoutStartMs": 1791700660738
+          },
+          "outcome": "setup-missed"
+        }
+      ],
+      "user": {
+        "role": "sales_staff",
+        "administrator": false,
+        "pagesTheRoleCanOpen": [
+          "/dashboard",
+          "/sales",
+          "/sales/customers",
+          "/sales/orders",
+          "/accounting/chart-of-accounts",
+          "/accounting/journal-entries",
+          "/accounting/expenses",
+          "/accounting/owner-equity",
+          "/accounting/provider-settlements",
+          "/accounting/bank-reconciliations",
+          "/accounting/general-ledger",
+          "/accounting/trial-balance",
+          "/accounting/profit-and-loss",
+          "/accounting/balance-sheet",
+          "/accounting/settings"
+        ],
+        "pagesClosedToTheRole": [
+          "/purchasing",
+          "/purchasing/suppliers",
+          "/purchasing/orders",
+          "/inventory",
+          "/inventory/products",
+          "/inventory/categories",
+          "/inventory/stock-adjustments",
+          "/settings/company",
+          "/settings/inventory-costing",
+          "/settings/stock-levels",
+          "/settings/regional",
+          "/settings/price-lists",
+          "/settings/payment-methods",
+          "/settings/print",
+          "/settings/document-numbers",
+          "/settings/users",
+          "/settings/roles",
+          "/settings/security",
+          "/settings/backup",
+          "/settings/redis-monitoring",
+          "/audit-logs"
+        ],
+        "accessRulesFrom": "frontend/src/config/navigation.tsx",
+        "menuShownMatchesTheRules": true
+      },
+      "shellReference": {
+        "companyHasAName": true,
+        "regional": {
+          "dateFormat": "DD-MM-YYYY",
+          "timeFormat": "24h",
+          "numberFormat": "1,234.56",
+          "currency": "MYR",
+          "timezone": "Asia/Kuala_Lumpur",
+          "startOfWeek": 1
+        }
+      },
+      "trace1378-after-load": {
+        "at": 1791700577608,
+        "stored": {
+          "revision": 1,
+          "session": {
+            "sessionId": "<session-8>",
+            "generation": 4,
+            "accessTokenExpiresAt": 1791700567,
+            "access": "<fp-13>",
+            "refresh": "<fp-14>",
+            "username": "<qa-user-3>",
+            "role": "sales_staff"
+          },
+          "slicesSessionId": "<session-8>",
+          "lease": null
+        },
+        "sessionRequests": [
+          {
+            "tab": "N5b-4",
+            "seq": 149,
+            "qaId": "app-149",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700546522,
+            "respondedAt": 1791700546832,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-3",
+            "seq": 160,
+            "qaId": "app-160",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700547022,
+            "respondedAt": 1791700547073,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-5",
+            "seq": 161,
+            "qaId": "app-161",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700547158,
+            "respondedAt": 1791700547185,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-2",
+            "seq": 162,
+            "qaId": "app-162",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700547262,
+            "respondedAt": 1791700547297,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-1",
+            "seq": 163,
+            "qaId": "app-163",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700547382,
+            "respondedAt": 1791700547536,
+            "status": 200,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": {
+              "generation": 4,
+              "access": "<fp-13>",
+              "refresh": "<fp-14>"
+            }
+          },
+          {
+            "tab": "N5b-3",
+            "seq": 174,
+            "qaId": "app-174",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548196,
+            "respondedAt": 1791700548226,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-4",
+            "seq": 175,
+            "qaId": "app-175",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548211,
+            "respondedAt": 1791700548246,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-5",
+            "seq": 176,
+            "qaId": "app-176",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548263,
+            "respondedAt": 1791700548305,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-2",
+            "seq": 177,
+            "qaId": "app-177",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548514,
+            "respondedAt": 1791700548551,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-4",
+            "seq": 178,
+            "qaId": "app-178",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548773,
+            "respondedAt": 1791700548791,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-3",
+            "seq": 179,
+            "qaId": "app-179",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700549076,
+            "respondedAt": 1791700549089,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-5",
+            "seq": 180,
+            "qaId": "app-180",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700549187,
+            "respondedAt": 1791700549194,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-2",
+            "seq": 181,
+            "qaId": "app-181",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700549211,
+            "respondedAt": 1791700549228,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-4",
+            "seq": 182,
+            "qaId": "app-182",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700549802,
+            "respondedAt": 1791700549818,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-3",
+            "seq": 183,
+            "qaId": "app-183",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700550167,
+            "respondedAt": 1791700550174,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-2",
+            "seq": 184,
+            "qaId": "app-184",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700550277,
+            "respondedAt": 1791700550286,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-5",
+            "seq": 185,
+            "qaId": "app-185",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700550695,
+            "respondedAt": 1791700550704,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          }
+        ],
+        "traces": [
+          {
+            "tab": "N5b-1",
+            "url": "/dashboard",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 311,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700546376,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 81,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700546457,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 2,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700546719,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 7,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700546726,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 37,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547017,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 28,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547045,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 30,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547325,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700567333,
+                "ms": 14,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547339,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 14,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547353,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547353,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "ok",
+                "returnedGeneration": 4,
+                "ms": 171,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547524,
+                "refreshId": 1
+              },
+              {
+                "type": "token-commit",
+                "trigger": "inline",
+                "attempt": 1,
+                "triggeredBy": null,
+                "outcome": "written-both",
+                "ms": 17,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547542,
+                "refreshId": 1
+              },
+              {
+                "type": "pending-dropped",
+                "reason": "written",
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547557,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "skipped-pending",
+                "ms": 0,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547565,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 18,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547575,
+                "refreshId": 1
+              }
+            ]
+          },
+          {
+            "tab": "N5b-2",
+            "url": "/dashboard",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 11,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700546664,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 36,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700546700,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 11,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700546962,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 17,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700546979,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 6,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547235,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700567240,
+                "ms": 10,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547245,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 7,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547252,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547252,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "error",
+                "returnedGeneration": null,
+                "ms": 57,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547314,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 9,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547323,
+                "refreshId": 1
+              }
+            ]
+          },
+          {
+            "tab": "N5b-3",
+            "url": "/dashboard",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 496,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546223,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 163,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546386,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 5,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546645,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 4,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546649,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 16,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546920,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700566925,
+                "ms": 23,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546943,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 23,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546966,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546967,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "error",
+                "returnedGeneration": null,
+                "ms": 126,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700547093,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 32,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700547125,
+                "refreshId": 1
+              }
+            ]
+          },
+          {
+            "tab": "N5b-4",
+            "url": "/dashboard",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 722,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546014,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700566307,
+                "ms": 304,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546318,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 68,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546386,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546387,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "error",
+                "returnedGeneration": null,
+                "ms": 437,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546824,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 11,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546835,
+                "refreshId": 1
+              }
+            ]
+          },
+          {
+            "tab": "N5b-5",
+            "url": "/dashboard",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 11,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700546470,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 51,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700546521,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 7,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700546780,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 14,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700546794,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 26,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547122,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700567126,
+                "ms": 8,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547130,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 12,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547142,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547143,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "error",
+                "returnedGeneration": null,
+                "ms": 43,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547186,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 8,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547194,
+                "refreshId": 1
+              }
+            ]
+          }
+        ]
+      },
+      "forced1363Filler": {
+        "sent": 217,
+        "answered": 217,
+        "aborted": 0,
+        "failed": 0,
+        "statuses": {
+          "401": 63,
+          "429": 154
+        },
+        "stoppedBy": "stop",
+        "startedAt": 1791700534079,
+        "stoppedAt": 1791700577616,
+        "config": {
+          "ratePerSecond": 5,
+          "maxInFlight": 10,
+          "maxTotal": 1000,
+          "maxMs": 150000
+        }
+      },
+      "forced1363Session429": [
+        {
+          "tab": "N5b-4",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-149"
+        },
+        {
+          "tab": "N5b-3",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-160"
+        },
+        {
+          "tab": "N5b-5",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-161"
+        },
+        {
+          "tab": "N5b-2",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-162"
+        },
+        {
+          "tab": "N5b-3",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-174"
+        },
+        {
+          "tab": "N5b-4",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-175"
+        },
+        {
+          "tab": "N5b-5",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-176"
+        },
+        {
+          "tab": "N5b-2",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-177"
+        },
+        {
+          "tab": "N5b-4",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-178"
+        },
+        {
+          "tab": "N5b-3",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-179"
+        },
+        {
+          "tab": "N5b-5",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-180"
+        },
+        {
+          "tab": "N5b-2",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-181"
+        },
+        {
+          "tab": "N5b-4",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-182"
+        },
+        {
+          "tab": "N5b-3",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-183"
+        },
+        {
+          "tab": "N5b-2",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-184"
+        },
+        {
+          "tab": "N5b-5",
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "status": 429,
+          "qaId": "app-185"
+        }
+      ],
+      "trace1378-after-usability-check": {
+        "at": 1791700627764,
+        "stored": {
+          "revision": 1,
+          "session": {
+            "sessionId": "<session-8>",
+            "generation": 6,
+            "accessTokenExpiresAt": 1791700627,
+            "access": "<fp-16>",
+            "refresh": "<fp-17>",
+            "username": "<qa-user-3>",
+            "role": "sales_staff"
+          },
+          "slicesSessionId": "<session-8>",
+          "lease": null
+        },
+        "sessionRequests": [
+          {
+            "tab": "N5b-4",
+            "seq": 149,
+            "qaId": "app-149",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700546522,
+            "respondedAt": 1791700546832,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-3",
+            "seq": 160,
+            "qaId": "app-160",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700547022,
+            "respondedAt": 1791700547073,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-5",
+            "seq": 161,
+            "qaId": "app-161",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700547158,
+            "respondedAt": 1791700547185,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-2",
+            "seq": 162,
+            "qaId": "app-162",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700547262,
+            "respondedAt": 1791700547297,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-1",
+            "seq": 163,
+            "qaId": "app-163",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700547382,
+            "respondedAt": 1791700547536,
+            "status": 200,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": {
+              "generation": 4,
+              "access": "<fp-13>",
+              "refresh": "<fp-14>"
+            }
+          },
+          {
+            "tab": "N5b-3",
+            "seq": 174,
+            "qaId": "app-174",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548196,
+            "respondedAt": 1791700548226,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-4",
+            "seq": 175,
+            "qaId": "app-175",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548211,
+            "respondedAt": 1791700548246,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-5",
+            "seq": 176,
+            "qaId": "app-176",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548263,
+            "respondedAt": 1791700548305,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-2",
+            "seq": 177,
+            "qaId": "app-177",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548514,
+            "respondedAt": 1791700548551,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-4",
+            "seq": 178,
+            "qaId": "app-178",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700548773,
+            "respondedAt": 1791700548791,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-3",
+            "seq": 179,
+            "qaId": "app-179",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700549076,
+            "respondedAt": 1791700549089,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-5",
+            "seq": 180,
+            "qaId": "app-180",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700549187,
+            "respondedAt": 1791700549194,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-2",
+            "seq": 181,
+            "qaId": "app-181",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700549211,
+            "respondedAt": 1791700549228,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-4",
+            "seq": 182,
+            "qaId": "app-182",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700549802,
+            "respondedAt": 1791700549818,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-3",
+            "seq": 183,
+            "qaId": "app-183",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700550167,
+            "respondedAt": 1791700550174,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-2",
+            "seq": 184,
+            "qaId": "app-184",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700550277,
+            "respondedAt": 1791700550286,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-5",
+            "seq": 185,
+            "qaId": "app-185",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700550695,
+            "respondedAt": 1791700550704,
+            "status": 429,
+            "failed": null,
+            "presented": "<fp-15>",
+            "issued": null
+          },
+          {
+            "tab": "N5b-1",
+            "seq": 193,
+            "qaId": "app-193",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700581000,
+            "respondedAt": 1791700581090,
+            "status": 200,
+            "failed": null,
+            "presented": "<fp-14>",
+            "issued": {
+              "generation": 5,
+              "access": "<fp-18>",
+              "refresh": "<fp-19>"
+            }
+          },
+          {
+            "tab": "N5b-4",
+            "seq": 221,
+            "qaId": "app-221",
+            "path": "/api/auth/refresh",
+            "issuedAt": 1791700607050,
+            "respondedAt": 1791700607156,
+            "status": 200,
+            "failed": null,
+            "presented": "<fp-19>",
+            "issued": {
+              "generation": 6,
+              "access": "<fp-16>",
+              "refresh": "<fp-17>"
+            }
+          }
+        ],
+        "traces": [
+          {
+            "tab": "N5b-1",
+            "url": "/sales/customers",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 311,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700546376,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 81,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700546457,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 2,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700546719,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 7,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700546726,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 37,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547017,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 28,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547045,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 30,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547325,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700567333,
+                "ms": 14,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547339,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 14,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547353,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547353,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "ok",
+                "returnedGeneration": 4,
+                "ms": 171,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547524,
+                "refreshId": 1
+              },
+              {
+                "type": "token-commit",
+                "trigger": "inline",
+                "attempt": 1,
+                "triggeredBy": null,
+                "outcome": "written-both",
+                "ms": 17,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547542,
+                "refreshId": 1
+              },
+              {
+                "type": "pending-dropped",
+                "reason": "written",
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547557,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "skipped-pending",
+                "ms": 0,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547565,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 18,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700547575,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 4,
+                "memoryGeneration": 4,
+                "result": "proceed",
+                "ms": 47,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700580958,
+                "refreshId": 2
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700600960,
+                "ms": 26,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700580984,
+                "refreshId": 2
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 4,
+                "memoryGeneration": 4,
+                "result": "proceed",
+                "ms": 10,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700580994,
+                "refreshId": 2
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 4,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700580994,
+                "refreshId": 2
+              },
+              {
+                "type": "refresh-answered",
+                "status": "ok",
+                "returnedGeneration": 5,
+                "ms": 94,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700581088,
+                "refreshId": 2
+              },
+              {
+                "type": "token-commit",
+                "trigger": "inline",
+                "attempt": 1,
+                "triggeredBy": null,
+                "outcome": "written-both",
+                "ms": 3,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700581091,
+                "refreshId": 2
+              },
+              {
+                "type": "pending-dropped",
+                "reason": "written",
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700581093,
+                "refreshId": 2
+              },
+              {
+                "type": "lease-release",
+                "outcome": "skipped-pending",
+                "ms": 0,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700581093,
+                "refreshId": 2
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 11,
+                "tabId": "tab-8956m87g2u8",
+                "at": 1791700581104,
+                "refreshId": 2
+              }
+            ]
+          },
+          {
+            "tab": "N5b-2",
+            "url": "/dashboard",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 11,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700546664,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 36,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700546700,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 11,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700546962,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 17,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700546979,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 6,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547235,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700567240,
+                "ms": 10,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547245,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 7,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547252,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547252,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "error",
+                "returnedGeneration": null,
+                "ms": 57,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547314,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 9,
+                "tabId": "tab-dm4c54wwza",
+                "at": 1791700547323,
+                "refreshId": 1
+              }
+            ]
+          },
+          {
+            "tab": "N5b-3",
+            "url": "/dashboard",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 496,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546223,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 163,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546386,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 5,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546645,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 4,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546649,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 16,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546920,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700566925,
+                "ms": 23,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546943,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 23,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546966,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700546967,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "error",
+                "returnedGeneration": null,
+                "ms": 126,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700547093,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 32,
+                "tabId": "tab-l84dst53wbi",
+                "at": 1791700547125,
+                "refreshId": 1
+              }
+            ]
+          },
+          {
+            "tab": "N5b-4",
+            "url": "/dashboard",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 722,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546014,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700566307,
+                "ms": 304,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546318,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 68,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546386,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546387,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "error",
+                "returnedGeneration": null,
+                "ms": 437,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546824,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 11,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700546835,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 5,
+                "memoryGeneration": 5,
+                "result": "proceed",
+                "ms": 21,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700606998,
+                "refreshId": 2
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700627040,
+                "ms": 46,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700607044,
+                "refreshId": 2
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 5,
+                "memoryGeneration": 5,
+                "result": "proceed",
+                "ms": 2,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700607046,
+                "refreshId": 2
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 5,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700607046,
+                "refreshId": 2
+              },
+              {
+                "type": "refresh-answered",
+                "status": "ok",
+                "returnedGeneration": 6,
+                "ms": 107,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700607153,
+                "refreshId": 2
+              },
+              {
+                "type": "token-commit",
+                "trigger": "inline",
+                "attempt": 1,
+                "triggeredBy": null,
+                "outcome": "written-both",
+                "ms": 12,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700607165,
+                "refreshId": 2
+              },
+              {
+                "type": "pending-dropped",
+                "reason": "written",
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700607166,
+                "refreshId": 2
+              },
+              {
+                "type": "lease-release",
+                "outcome": "skipped-pending",
+                "ms": 0,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700607167,
+                "refreshId": 2
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 6,
+                "tabId": "tab-rigvvaj8nxg",
+                "at": 1791700607173,
+                "refreshId": 2
+              }
+            ]
+          },
+          {
+            "tab": "N5b-5",
+            "url": "/dashboard",
+            "trace": [
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 11,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700546470,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 51,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700546521,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 7,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700546780,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": false,
+                "expiresAt": null,
+                "ms": 14,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700546794,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 26,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547122,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-acquire",
+                "acquired": true,
+                "expiresAt": 1791700567126,
+                "ms": 8,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547130,
+                "refreshId": 1
+              },
+              {
+                "type": "settled-read",
+                "storedGeneration": 3,
+                "memoryGeneration": 3,
+                "result": "proceed",
+                "ms": 12,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547142,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-sent",
+                "presentedGeneration": 3,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547143,
+                "refreshId": 1
+              },
+              {
+                "type": "refresh-answered",
+                "status": "error",
+                "returnedGeneration": null,
+                "ms": 43,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547186,
+                "refreshId": 1
+              },
+              {
+                "type": "lease-release",
+                "outcome": "released",
+                "ms": 8,
+                "tabId": "tab-1s1hgsuoxy1",
+                "at": 1791700547194,
+                "refreshId": 1
+              }
+            ]
+          }
+        ]
+      },
+      "signOutAttempt": {
+        "n": 5,
+        "attempt": 1,
+        "outcome": "setup-missed",
+        "why": "the attempt behaved and overlapped no delayed request; set up again"
+      },
+      "judgement": {
+        "scope": "W1 shows that the tabs of a restored window coordinate their refresh, that a restored window puts little load on session_limit, and that at 5, 10, 20 tabs every tab reaches its expected data without the user acting. How long that takes is reported and does not block. It does not measure the capacity of that zone, which is never approached, and it does not establish how many tabs a restored window can hold: that is bounded by the general api_limit (issue #1353).",
+        "howEachRoundReachesTheSessionZone": {
+          "a": "Current tokens: there is nothing to refresh, and the application sends no /auth/me on load. The round normally sends nothing to the zone.",
+          "b": "Every tab starts with an expired access token: one tab takes the lease and refreshes, the others adopt its tokens.",
+          "c": "As (b), plus the explicit logout of the tab that signs out."
+        },
+        "blocking": "At N = 5, 10, 20: no 429 on refresh, logout or me in rounds (a), (b) and (c); in (a) and (b) every tab usable, no in-app recovery action; in (a) the access token current and in (b) expired when the tabs opened; in (c) the logout sent and answered 2xx and every tab on the login page without a reload. Not blocking: 429s on business endpoints, counted at every size; the completion time, reported against 5 s, 10 s and 15 s (#1359).",
+        "observed": [
+          {
+            "n": 5,
+            "round": "a",
+            "sessionZoneRequests": {
+              "refresh": 0,
+              "logout": 0,
+              "me": 0,
+              "total": 0
+            },
+            "sessionZone429": 0,
+            "peakAccumulatedDemand": 0,
+            "configuredBurst": 20,
+            "businessEndpoint429": 0,
+            "businessEndpointRequests": 45,
+            "usableTabs": 5,
+            "tabsCompleteOnFirstLoad": 5,
+            "recoveryActions": 0,
+            "mostRecoveryActionsForOneTab": 0,
+            "completedAfterMs": 6182,
+            "deadlineMs": 5000,
+            "completionPollMs": 250
+          },
+          {
+            "n": 5,
+            "round": "b",
+            "sessionZoneRequests": {
+              "refresh": 17,
+              "logout": 0,
+              "me": 0,
+              "total": 17
+            },
+            "sessionZone429": 16,
+            "peakAccumulatedDemand": 13.059,
+            "configuredBurst": 20,
+            "businessEndpoint429": 0,
+            "businessEndpointRequests": 54,
+            "usableTabs": 1,
+            "tabsCompleteOnFirstLoad": 1,
+            "recoveryActions": 8,
+            "mostRecoveryActionsForOneTab": 2,
+            "completedAfterMs": null,
+            "deadlineMs": 5000,
+            "completionPollMs": 250
+          },
+          {
+            "n": 5,
+            "round": "c",
+            "sessionZoneRequests": {
+              "refresh": 1,
+              "logout": 1,
+              "me": 0,
+              "total": 2
+            },
+            "sessionZone429": 0,
+            "peakAccumulatedDemand": 1,
+            "configuredBurst": 20,
+            "businessEndpoint429": 0,
+            "businessEndpointRequests": 74,
+            "tabsOnLoginPageWithoutReload": 5,
+            "tabsStillLoadingAtSignOut": 4
+          }
+        ],
+        "dataNotRecoverableByRole": [
+          {
+            "n": 5,
+            "round": "b",
+            "data": "company data (the sidebar's company name and logo)",
+            "tabs": 4,
+            "of": 5
+          }
+        ],
+        "nonBlockingFindings": [
+          "N=5 (a): the last tab held its expected data after 6182 ms, against a deadline of 5000 ms (polled every 250 ms) - diagnostic at this size, not a failed check; tracked in #1359",
+          "N=5 (b): 4 of 5 tabs first showed missing data and the user had to act (8 round trip(s) through the sidebar in all, at most 2 for one tab, slowest 0 ms)",
+          "N=5 (b): the regional-settings request of 4 tab(s) was refused and never repeated; the formats were wrong in 0 of them (the others applied the values the profile had stored before)",
+          "N=5 (b): NOT recoverable by a sales_staff user without a reload: company data (the sidebar's company name and logo), in 4 of 5 tabs (this fails W1)",
+          "N=5 (b): 4 of 5 tabs were NOT usable: N5b-2: data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried || N5b-3: data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried || N5b-4: data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried || N5b-5: data still missing after 2 recovery action(s): the company settings request is left failed: GET /api/settings/company 401 | the sidebar shows no company name, the server says \"Your Company Name\"; the action did not work: it was not tried",
+          "N=5 (b): the last tab held its expected data after never, against a deadline of 5000 ms (polled every 250 ms) - diagnostic at this size, not a failed check; tracked in #1359",
+          "N=5 (c): 31 data request(s) failed without an answer: net::ERR_ABORTED",
+          "N=5 (c): overlap absent: no request was being delayed when the sign-out happened (0 delayed in the whole round)"
+        ]
+      }
+    },
+    "diagnosis": []
+  },
+  "captureSegments": [],
+  "latency": {
+    "suite": "cross-tab-session latency",
+    "measuredAt": "2026-10-11T06:40:12.386Z",
+    "base": "http://<qa-host>",
+    "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+    "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+    "servedFrom": "ingress",
+    "chromium": "153.0.8010.12",
+    "machine": {
+      "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+      "cpuCount": 4,
+      "memoryGiB": 9.7,
+      "kernel": "6.8.0-138-generic",
+      "disks": [
+        {
+          "name": "sda",
+          "rotational": true,
+          "kind": "spinning disk"
+        }
+      ]
+    },
+    "configuration": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "criteria": {
+      "revisedOn": "2026-10-06",
+      "decidedBy": "the repository owner, after the recorded run on 582096992",
+      "blocking": {
+        "M1": {
+          "p95Ms": 5,
+          "what": "one raw read, one tab idle"
+        },
+        "M2": {
+          "p95Ms": 15,
+          "what": "one raw read in four tabs at once while a fifth writes"
+        },
+        "rule": "median p95 of 3 repetitions"
+      },
+      "diagnostic": {
+        "measurements": [
+          "M3",
+          "M4",
+          "M5"
+        ],
+        "statement": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before."
+      },
+      "preserved": "The hard gate and its transaction-completion semantics are unchanged. None of the simulated optimizations was implemented, and no read is resolved before its transaction completes.",
+      "formerProvisionalTargets": {
+        "status": "replaced, not met",
+        "statement": "The earlier M3 and M4 targets (p95 at most 10 ms in one tab, 20 ms in four) were provisional. They were replaced by the criteria above; they were NOT met, and a run that passes today has not met them either.",
+        "p95Ms": {
+          "M3": {
+            "oneTab": 10,
+            "fourTabs": 20
+          },
+          "M4": {
+            "oneTab": 10,
+            "fourTabs": 20
+          }
+        },
+        "runInWhichTheyFailed": {
+          "commit": "582096992",
+          "exitStatus": 1,
+          "medianP95Ms": {
+            "M1": 2.1,
+            "M2": 5.1,
+            "M3": {
+              "oneTab": 99,
+              "fourTabs": 330.1
+            },
+            "M4": {
+              "oneTab": 205.3,
+              "fourTabs": 603.3
+            }
+          },
+          "outcome": "M1 and M2 passed. M3 (99 / 330.1 ms) and M4 (205.3 / 603.3 ms), one tab / four tabs, failed the 10 / 20 ms targets, and the run exited with status 1."
+        }
+      }
+    },
+    "rule": "M1 and M2 block, each on the median p95 of 3 repetitions. M3, M4 and M5 are diagnostic and are not judged. Maxima and p99 are recorded and never block.",
+    "environment": {
+      "machine": {
+        "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+        "cpuCount": 4,
+        "memoryGiB": 9.7,
+        "kernel": "6.8.0-138-generic",
+        "disks": [
+          {
+            "name": "sda",
+            "rotational": true,
+            "kind": "spinning disk"
+          }
+        ]
+      },
+      "diskKinds": [
+        "sda: spinning disk"
+      ],
+      "chromium": "153.0.8010.12",
+      "accessTokenExpiry": "15m",
+      "requestsAnswered429DuringMeasuredLoads": {
+        "oneTab": {
+          "loads": 15,
+          "requests": 125,
+          "answered429": 0
+        },
+        "fourTabs": {
+          "loads": 60,
+          "requests": 500,
+          "answered429": 0
+        },
+        "any": false,
+        "total": 0
+      },
+      "competingWorkload": {
+        "captured": true,
+        "capturedBy": "run.sh, on the host, just before measure.mjs: docker ps --format '{{.Names}}\\t{{.Status}}'",
+        "containers": [
+          {
+            "name": "erp_backend",
+            "status": "Up 23 seconds (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_frontend",
+            "status": "Up 4 minutes (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_nginx",
+            "status": "Up 14 hours (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_redis",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_postgres",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "claude-usage-tracker",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "portainer_agent",
+            "status": "Up 3 days",
+            "restarting": false
+          }
+        ],
+        "restarting": [],
+        "note": "No container was restarting on the host when the list was taken."
+      }
+    },
+    "M1": {
+      "what": "one raw read, one tab idle; 500 sequential read-only transactions per repetition",
+      "repetitions": [
+        {
+          "n": 500,
+          "p50": 0.9,
+          "p95": 2.4,
+          "p99": 4,
+          "max": 6.6
+        },
+        {
+          "n": 500,
+          "p50": 0.9,
+          "p95": 3.2,
+          "p99": 6.5,
+          "max": 13.6
+        },
+        {
+          "n": 500,
+          "p50": 0.7,
+          "p95": 1.3,
+          "p99": 2.6,
+          "max": 4.8
+        }
+      ],
+      "medianP95Ms": 2.4,
+      "thresholdMs": 5,
+      "pass": true,
+      "maxMs": 13.6,
+      "p99Ms": [
+        4,
+        6.5,
+        2.6
+      ]
+    },
+    "M2": {
+      "what": "one raw read in four tabs at once (500 each per repetition) while a fifth tab commits a write every 100 ms",
+      "repetitions": [
+        {
+          "n": 2000,
+          "p50": 4.2,
+          "p95": 13,
+          "p99": 24,
+          "max": 106.7
+        },
+        {
+          "n": 2000,
+          "p50": 1.9,
+          "p95": 5.8,
+          "p99": 8.9,
+          "max": 19.4
+        },
+        {
+          "n": 2000,
+          "p50": 1.7,
+          "p95": 4.5,
+          "p99": 6.4,
+          "max": 8.9
+        }
+      ],
+      "medianP95Ms": 5.8,
+      "thresholdMs": 15,
+      "pass": true,
+      "maxMs": 106.7,
+      "p99Ms": [
+        24,
+        8.9,
+        6.4
+      ],
+      "writer": [
+        {
+          "commits": 29,
+          "failures": 0
+        },
+        {
+          "commits": 12,
+          "failures": 0
+        },
+        {
+          "commits": 10,
+          "failures": 0
+        }
+      ]
+    },
+    "M3": {
+      "what": "the adapter's own `read` timings while the dashboard, the products list and a sales order load",
+      "status": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before.",
+      "oneTab": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 50,
+            "p50": 25.1,
+            "p95": 86.4,
+            "p99": 92.8,
+            "max": 92.8
+          },
+          {
+            "n": 50,
+            "p50": 16.1,
+            "p95": 55.7,
+            "p99": 67.1,
+            "max": 67.1
+          },
+          {
+            "n": 50,
+            "p50": 24.1,
+            "p95": 46.2,
+            "p99": 83.1,
+            "max": 83.1
+          }
+        ],
+        "medianP95Ms": 55.7,
+        "recorded": true,
+        "maxMs": 92.8,
+        "p99Ms": [
+          92.8,
+          67.1,
+          83.1
+        ],
+        "formerProvisionalTargetMs": 10,
+        "againstFormerProvisionalTarget": "not met"
+      },
+      "fourTabs": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 200,
+            "p50": 111.6,
+            "p95": 238.1,
+            "p99": 326.8,
+            "max": 469.7
+          },
+          {
+            "n": 200,
+            "p50": 67,
+            "p95": 377.5,
+            "p99": 586,
+            "max": 714.3
+          },
+          {
+            "n": 200,
+            "p50": 75.7,
+            "p95": 246.3,
+            "p99": 300,
+            "max": 421.6
+          }
+        ],
+        "medianP95Ms": 246.3,
+        "recorded": true,
+        "maxMs": 714.3,
+        "p99Ms": [
+          326.8,
+          586,
+          300
+        ],
+        "formerProvisionalTargetMs": 20,
+        "againstFormerProvisionalTarget": "not met"
+      },
+      "transactTimings": {
+        "oneTab": {
+          "n": 15,
+          "p50": 62.7,
+          "p95": 98.1,
+          "p99": 98.1,
+          "max": 98.1
+        },
+        "fourTabs": {
+          "n": 60,
+          "p50": 159,
+          "p95": 552.7,
+          "p99": 701,
+          "max": 701
+        }
+      }
+    },
+    "M4": {
+      "what": "per request, gate-before + gate-after: wall time added to that request, queueing included",
+      "status": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before.",
+      "oneTab": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 22,
+            "p50": 49.4,
+            "p95": 146.6,
+            "p99": 148.3,
+            "max": 148.3
+          },
+          {
+            "n": 22,
+            "p50": 39.4,
+            "p95": 79.7,
+            "p99": 84.2,
+            "max": 84.2
+          },
+          {
+            "n": 22,
+            "p50": 48.7,
+            "p95": 82.7,
+            "p99": 120.6,
+            "max": 120.6
+          }
+        ],
+        "medianP95Ms": 82.7,
+        "recorded": true,
+        "maxMs": 148.3,
+        "p99Ms": [
+          148.3,
+          84.2,
+          120.6
+        ],
+        "formerProvisionalTargetMs": 10,
+        "againstFormerProvisionalTarget": "not met",
+        "pairing": "by request id",
+        "inFlight": {
+          "n": 220,
+          "median": 1,
+          "max": 9,
+          "atLeastTwo": 83
+        }
+      },
+      "fourTabs": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 88,
+            "p50": 246.5,
+            "p95": 451.5,
+            "p99": 615.7,
+            "max": 615.7
+          },
+          {
+            "n": 88,
+            "p50": 252.9,
+            "p95": 533.5,
+            "p99": 798.2,
+            "max": 798.2
+          },
+          {
+            "n": 88,
+            "p50": 199.3,
+            "p95": 360.8,
+            "p99": 544.4,
+            "max": 544.4
+          }
+        ],
+        "medianP95Ms": 451.5,
+        "recorded": true,
+        "maxMs": 798.2,
+        "p99Ms": [
+          615.7,
+          798.2,
+          544.4
+        ],
+        "formerProvisionalTargetMs": 20,
+        "againstFormerProvisionalTarget": "not met",
+        "pairing": "by request id",
+        "inFlight": {
+          "n": 880,
+          "median": 1,
+          "max": 10,
+          "atLeastTwo": 436
+        }
+      }
+    },
+    "M5": {
+      "label": "Aggregate-cost estimate. Diagnostic only: no threshold, and no share of page load is computed from it.",
+      "note": "Requests on a page overlap, so the sum of their gate waits is not the time the gate adds to the page load; it is an upper bound on it.",
+      "what": "median of 5 loads per page: navigation to last API response delivered, number of requests, and the SUM of all gate waits",
+      "oneTab": [
+        {
+          "path": "/dashboard",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 831,
+          "medianRequests": 12,
+          "medianSumOfGateWaitsMs": 486.8
+        },
+        {
+          "path": "/inventory/products",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 766,
+          "medianRequests": 7,
+          "medianSumOfGateWaitsMs": 385.6
+        },
+        {
+          "path": "/sales/orders/SO-26-013/view",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 622,
+          "medianRequests": 6,
+          "medianSumOfGateWaitsMs": 157.7
+        }
+      ],
+      "fourTabs": [
+        {
+          "path": "/dashboard",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 2738.5,
+          "medianRequests": 12,
+          "medianSumOfGateWaitsMs": 2831.3
+        },
+        {
+          "path": "/inventory/products",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 2090,
+          "medianRequests": 7,
+          "medianSumOfGateWaitsMs": 1271.75
+        },
+        {
+          "path": "/sales/orders/SO-26-013/view",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 1823.5,
+          "medianRequests": 6,
+          "medianSumOfGateWaitsMs": 1094
+        }
+      ]
+    },
+    "notes": [
+      "oneTab: some requests were not answered 2xx during the loads: [[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1]]",
+      "fourTabs: some requests were not answered 2xx during the loads: [[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1]]"
+    ],
+    "blockingFailures": [],
+    "diagnosticsNotRecorded": [],
+    "pass": true,
+    "maximaAbove100Ms": [
+      "M2: max 106.7 ms",
+      "M3 four tabs: max 714.3 ms",
+      "M4 one tab: max 148.3 ms",
+      "M4 four tabs: max 798.2 ms"
+    ],
+    "signInWaits": 0
+  },
+  "latencyPreconditionFailed": null
+}

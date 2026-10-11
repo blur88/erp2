@@ -1598,6 +1598,68 @@ As with the run before it, this is evidence that the existing cross-tab
 behaviour holds on this commit, and not evidence for the #1354 changes
 themselves, none of which has a browser case.
 
+### Case 8 through its extension and at its bound (#1367, 2026-10-11): partial runs
+
+In every recorded run since case 8 was revised, the third rotation had arrived
+by three and a half lifetimes, so the part of the case that goes on past them
+had run only in development, and its six-lifetime bound had never been
+reached. These runs produce both, and a failed use, on purpose. **Every one is
+a partial run** (`run.sh` with `QA_SUITE_OVERRIDE`, a copy outside the
+repository, `QA_ONLY=8`), on the QA configuration (access 20 s, grace 5),
+Chromium 153.0.8010.12, the QA host. Expected results were written before the
+first run; where a run did not count, that is said.
+
+**First set, on `794d2e321`, against the suite as it was:**
+
+| Run | Fault or placement, all the harness's | Result | Against what was written down |
+|---|---|---|---|
+| G8 | none | exit 0; `lifetimesUsed` 3.5, 14 uses, generation 1 to 4, three refreshes answered 200 | as expected |
+| E8 | **Placement.** The case's clock starts right after a rotation, and a use that would start between 0.7 s before and 4.5 s after the stored token's expiry is held until 4.5 s after it | exit 0, every line passed; **`lifetimesUsed` 3.84**, 13 uses, generation 2 to 5, three refreshes answered 200. Three uses were held (3.8, 4.0 and 4.0 s). The use that sent the third refresh started 67.9 s after the clock, at generation 4, and was held to 71.8 s: the third rotation came after the 70 s that three and a half lifetimes are | as expected |
+| B8 | Once two rotations are stored, every business GET of both tabs is answered by the harness | exit 0, every line passed, generation 1 to 4. **Did not count:** the fault left `/api/health` alone, and the authenticated poll `GET /api/health/redis-alerts` was answered 401 and sent the third refresh | not as expected; recorded as such before B8b was run |
+| B8b | As B8, with every GET under `/api` except `/api/auth` answered by the harness | exit 1; `lifetimesUsed` 6.01, 24 uses, generation 1 to 3, two refreshes. "the generation advanced at least three times" failed. Also failed: "tab A is signed in" and "tab B is signed in" | as expected, the collateral included |
+| U8 | From the seventh use on, every business request of both tabs answered 500 | exit 1; `ERROR A: requests after moving to /sales/orders never succeeded: [["/api/customers",500,null],["/api/sales-orders",500,null]]`, the case reported failed with that error. Nothing recorded | as expected |
+
+What those showed about the report, which is what the third criterion asks:
+
+- **At the bound (B8b) the case failed, but did not say why.** The failing
+  line carried the stored record; that six lifetimes had run out was to be
+  found in `lifetimesUsed` among the records.
+- **A failed use (U8) is reported as a failed case with a usable message:**
+  the tab, the page it was moved to, and each request with its status. But the
+  case recorded nothing of the six uses that had completed.
+
+**The change.** Case 8's rotation line now carries how the uses stopped, the
+lifetimes used against the bound of six, and a sentence; a failed use is
+thrown on after the records are written, with `stopped` and `failedUse`. No
+pass condition changed.
+
+**Second set, on `26f864584`, against the changed suite:**
+
+| Run | Suite | Result | Against what was written down |
+|---|---|---|---|
+| R8 | the repository's own, `QA_ONLY=8`, no override | exit 0; `lifetimesUsed` 3.5, 14 uses, generation 1 to 4, `stopped: "the third rotation was seen"` | as expected |
+| PB8 | the changed suite with B8b's fault | exit 1; only "the generation advanced at least three times" failed, and its detail reads `rotations: 2`, `stopped: "six lifetimes passed"`, `lifetimesUsed: 6.01`, `boundLifetimes: 6` and "the two tabs were used 24 times over 6.01 access-token lifetimes, the bound is 6, and the session rotated 2 time(s)". Both "signed in" lines passed this time | as expected; the collateral that was written as possible did not occur |
+| PU8 | the changed suite with U8's fault | exit 1; the same `ERROR A: requests after moving to /sales/orders never succeeded: …`, and the case now records `uses: 6`, `stopped: "a use failed"`, `failedUse {use: 7, tab: "A", afterCompletedUses: 6}`, `lifetimesUsed: 3.76`, generation 1 to 3, two refreshes. No check line was reached | as expected |
+
+Against #1367's acceptance:
+
+- **A run through `run.sh` in which case 8 uses more than 3.5 lifetimes before
+  its third rotation and passes:** E8, with the placement done through
+  `QA_SUITE_OVERRIDE` and so recorded as partial. No run made the way recorded
+  runs are made has entered the extension; that is unchanged, and by the
+  arithmetic in the comment above the case it depends on where the uses fall.
+- **A run in which the third rotation never arrives:** B8b and PB8, the
+  expected result written beforehand. The application sent every refresh a use
+  called for; the rotation was withheld by the harness answering the uses.
+- **A use that fails:** U8 and PU8.
+
+Not established: the extension with uses the application's own timing placed,
+and the bound reached by anything but the harness.
+
+The evidence is in the repository, under `docs/modules/auth/evidence/1382/1367/`: the
+expectations with their dated additions, each copy's diff, and each run's
+log, results, ingress log and stack configuration before, during and after.
+
 ## What is automated
 
 - Vitest on the in-memory store double: every commit rule, the reconciliation
@@ -2305,6 +2367,71 @@ were deleted and the wrapper now keeps only files written by its own run.
   the channel message; that holds for the timing the cases use and not for the
   no-request line taken alone. The suite was not changed.
 
+### Cases 1 and 3 after the assessment (#1379, 2026-10-11): two lines added, four partial runs
+
+The finding above (run B1) was that a pass of case 1 or 3 was tied to the
+channel by the cases' timing and by nothing they checked. The assessment #1379
+asked for:
+
+- **Is starting right after a poll isolation enough?** As a matter of timing,
+  yes, and run A showed it catches a channel that does not deliver. But it was
+  an assumption the cases did not check: nothing failed if the sign-out came
+  late, or if `afterNextPoll` had waited on a poll of another kind, and B1
+  passed with the channel removed.
+- **Should the cases establish delivery directly?** Yes, and now they do, by
+  observation and not by keeping tab B from polling. Two lines were added to
+  both cases (`toldByTheChannel`, `cases/signout.mjs`):
+  - *a session-channel message reached tab B after the sign-out began and
+    before its redirect.* An init script in tab B records when a message
+    arrives on the `erp-session` channel. It adds a listener of its own to the
+    channel object the application opens; the application's listener is
+    untouched.
+  - *tab B's next status poll was not yet due when it was redirected.* The
+    time of the poll the case started after, plus the 30 s interval, less a
+    2 s margin, must be later than the redirect.
+    `suite-wiring.test.mjs` fails if the interval in `SystemStatus.tsx` stops
+    being the suite's.
+- **Do the comments and the README say what the no-request line establishes?**
+  They do now: it shows that a tab whose session ended sends nothing on its way
+  out, and it does not show how the tab learned of the sign-out.
+
+Four partial runs on `794d2e321`, through `run.sh` with `QA_SUITE_OVERRIDE`
+and `QA_ONLY=1,3`, expected results written before the first. `proposed` is
+the suite with the two lines; the three faults are the harness's.
+
+| Run | Fault | Result | Against what was written down |
+|---|---|---|---|
+| N | none (`proposed`) | exit 0; both cases passed every line. Message 541 and 553 ms after the sign-out began, redirect at 617 and 620 ms, next poll due at 29.2 and 29.3 s | as expected |
+| PA | channel removed in tab B, usual timing (run A again) | exit 1. As in A the 5 s lines failed and the no-request line passed. Both new lines failed: no channel in tab B, no redirect | as expected |
+| PB1 | channel removed in tab B, sign-out 27.5 s after B's poll (run B1 again) | exit 1. The 5 s lines and the no-request line **passed**, as in B1; B was redirected 2560 and 2536 ms after the sign-out began, the poll being due at 2499 and 2497 ms. **Both new lines failed** | as expected |
+| PB3 | channel present, sign-out 27.5 s after B's poll | exit 1. Every line passed but the poll line: message at 530 and 501 ms, redirect at 588 and 568 ms, poll due at 2.5 s, inside the margin | as expected |
+
+A fifth run, R13, ran cases 1 and 3 from the repository's own suite on
+`7096dc604`, the commit that put the two lines there (`QA_ONLY=1,3`, no
+override, so still partial): exit 0, both cases passed every line, message at
+454 and 516 ms, redirect at 525 and 597 ms. The two cases have not been run as
+part of a whole recorded run since the change.
+
+- **The condition B1 passed under now fails (PB1),** on the two lines that are
+  about it and on no other.
+- **Each new line fails alone when only its condition is absent** (PB3 for the
+  poll line; the channel line fails without the poll line in no run, because a
+  tab with no channel is redirected only by its poll or not at all).
+
+What a pass of case 1 or 3 now proves, and what it does not, is stated above
+each case and in the README. In short: the `BroadcastChannel` message was
+delivered to tab B before B left, and nothing of B's own was due that could
+have told it instead. Not proved by these cases: that the redirect was
+*caused* by the message's handler (it is inferred from the message arriving
+first and nothing else being due); delivery to a tab that is frozen, hidden or
+throttled, or in another browser process; behaviour when the sign-out's
+publication is delayed (case 17). The no-request line has still not been seen
+to fail on a request the application sent, which stays as #1363 left it.
+
+The evidence is in the repository, under `docs/modules/auth/evidence/1382/1379/`: the
+expectations, the four copies' diffs, and each run's log, results, ingress
+log and stack configuration before, during and after.
+
 ### W1: one run per blocking check
 
 Run 5 as first written put two faults in one run, at five and at ten tabs. It
@@ -2371,3 +2498,127 @@ Kept outside the repository, for each run: the commit, the diff of its mutation
 against the suite, its log, its results, the ingress log, and the stack's
 configuration before, during and after; and the file of expectations with its
 dated correction and notes.
+
+## The session that ended after refused refreshes (#1378, 2026-10-11): traced, fixed
+
+W1 run 1 of the section above left a question: after 18 of 19 refreshes were
+refused by the ingress, the stored session had ended. **The 429 did not end
+it, and neither did the session runtime.** `requestWithRetryOn429`
+(`frontend/src/services/retryOn429.ts`, the retry of the company-settings
+read) sent the refresh request again by itself, one of those was answered 200,
+and nothing kept the tokens it returned.
+
+### The mechanism
+
+1. A tab's request is answered 401. The response interceptor
+   (`frontend/src/services/api.ts`) asks the runtime to refresh.
+2. The ingress refuses the refresh with 429. The runtime keeps the session,
+   releases its lease and throws the error it was given
+   (`runtime.requests.test.ts`, "network error, timeout, 429 and 5xx from
+   refresh keep the session"). That error is the refresh's: its `config` is
+   the `POST /api/auth/refresh` request, with the refresh token in its body.
+3. For every request but one the error simply reaches the caller. The
+   company-settings read goes through `requestWithRetryOn429`, which retried
+   any 429 by re-sending `error.config`. So it waited its backoff and sent
+   **the refresh request** again, up to three times: through the API client
+   and not the runtime, with no lease, no read of the stored record, and the
+   token the tab held when the first one went out.
+4. If one of those is answered 200 the server has rotated the session, and the
+   answer is returned to the settings query as if it were company data. No tab
+   and no stored record holds the new tokens.
+5. The next refresh any tab sends presents the superseded token. Inside its
+   grace the server recovers; after it, that is replay: the server revokes the
+   session, answers 401, and the runtime ends the session in every tab, as it
+   should on a 401 at an unchanged generation.
+
+### What establishes it
+
+**The original run** (`5102cbaff`, W1 run 1; the times are seconds after the
+round's marker in its ingress log):
+
+- No refresh was answered 401 before 47.1 s and no logout was sent in the
+  round. The 18 refusals ended nothing.
+- Per tab: four tabs sent four refreshes each, all refused (one from the
+  runtime, three re-sends). Tab `N5b-3` sent three: two refused, and the third
+  answered 200 at 13.3 s (one from the runtime, two re-sends, the second
+  getting through). 4 + 4 + 4 + 4 + 3 = 19.
+- Another tab's refresh reached the ingress 216 ms after that 200. A refresh
+  the runtime sends holds the lease until its tokens are committed, so the 200
+  was not the runtime's.
+- None of the nine requests that had been answered 401 in that tab was sent
+  again after the 200, as they would have been had the runtime taken the
+  tokens.
+- The server's rows for the session, read on 2026-10-11 from `auth_sessions`
+  and `refresh_tokens`: generation 3 superseded at 03:40:10 UTC (the 200),
+  grace until 03:40:15; **`revokeReason = replay`, `revokedAt` 03:40:44.136**,
+  which is the `POST /api/auth/refresh` answered 401 at 47.1 s, sent by the
+  usability check's first data request, 34 s after the supersession.
+
+**Run T1** (`794d2e321`, partial: the same mutation as W1 run 1, five tabs
+only, the session trace switched on in the five tabs and each refresh's
+presented token recorded as a fingerprint). Expected results were written
+before it; none of the three described what it showed, and that is recorded
+with them.
+
+- It did **not** reproduce the ending. The one 200 was the runtime's own,
+  committed in 17 ms (`token-commit written-both`), and the session was still
+  stored at the end.
+- It showed the re-sends directly. Tabs 2 to 5 each sent three more refreshes
+  after generation 4 was stored, **every one presenting the generation-3
+  token**, 0.6 to 1.7 s apart in a tab. None of the twelve is in its tab's runtime trace:
+  each of those traces has exactly one `refresh-sent`. All twelve were refused
+  again, which is the only reason nothing was rotated outside the runtime.
+
+So the ending has been seen once. Its cause is read from that run's own
+records and the server's rows; T1 shows the mechanism's first three steps in a
+browser and not its last two.
+
+### The fix
+
+`requestWithRetryOn429` now retries only a request the API client itself sent
+(`sentByApi`, which reads the stamp the client's request interceptor puts on
+every config). A 429 that refused the refresh is surfaced as it is. Commit
+`761985e1c`.
+
+- `frontend/src/services/__tests__/retryOn429.test.ts`, "a 429 that refused
+  the session refresh, not this request": two cases. Both were run against the
+  code before the fix and failed on the list of requests sent, which held
+  `/auth/refresh` once in the first and three times in the second.
+- **Run T2** (`761985e1c`, partial, the same copy as T1), expected results
+  written before it and met: in the five-tab round every tab's logged
+  refreshes equal the `refresh-sent` events of its trace (1 and 1 in all five
+  after loading; 2 and 2 in the three tabs that refreshed again later). The
+  round sent the session zone 5 requests, against 17 in T1. Every later
+  refresh presented the token stored at the time, and the session went from
+  generation 3 to 6 and was never ended. The run still exits 1, as expected:
+  refreshes are still refused and the tabs whose refresh was refused are left
+  without their data.
+
+### Answer to the question, and what is not established
+
+- **An ingress 429 on refresh does not end the session**, before or after the
+  fix. What ended it was a second refresh sent outside the runtime.
+- **A tab does not try again by itself after a refused refresh.** Every
+  request that was waiting on it fails, and the tab shows missing data until
+  something sends another request (T2: 0 of 5 tabs usable, 10 round trips
+  through the sidebar). Before the fix the company-settings read appeared to
+  retry in this state, by the defect. Whether a refused refresh should be
+  retried, by the runtime and under its lease, is a behaviour change that was
+  not made here.
+- **Not established:** how likely the ending was. It needs a re-send to be
+  admitted while the zone is otherwise refusing, and then no refresh of the
+  runtime's inside the grace; one occurrence in one run with the zone held
+  empty on purpose, and none in T1. Whether it happened outside a forced run
+  is unknown; a session revoked as `replay` with no storage stall near it
+  would be the trace of it in `auth_sessions`.
+- **Not looked at:** the same error reaches other callers too (RTK Query
+  endpoints see a 429 for a request that was answered 401). None of them
+  re-sends a config; that was checked by reading (`error.config` is used in
+  `api.ts` and `retryOn429.ts` only), not by a test.
+
+The evidence is in the repository, under `docs/modules/auth/evidence/1382/1378/`: the
+expectations with their dated additions, the mutation's diff, and for T1 and
+T2 the log, the results with the traces, the ingress log and the stack's
+configuration before, during and after. The original run's records and the
+server's rows are in `original-run-W1-429/` there. The README of that
+directory gives the commands that read the figures above back.

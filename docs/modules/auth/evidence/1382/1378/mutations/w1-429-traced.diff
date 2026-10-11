@@ -1,0 +1,92 @@
+diff -ru base/lib/w1.mjs w1-429-traced/lib/w1.mjs
+--- base/lib/w1.mjs	2026-10-11 14:31:18.589509297 +0800
++++ w1-429-traced/lib/w1.mjs	2026-10-11 14:31:30.879766759 +0800
+@@ -82,6 +82,7 @@
+   shownMenuTitles,
+ } from './usable.mjs'
+ 
++import { startNodeFillers } from './node-fillers.mjs'
+ const AGREED_MAXIMUM_BURST = 60 // review, 2026-10-06: tuning up to 60 is agreed, beyond it is not
+ // A diagnostic about session_limit, read from what W1 measured. It says how
+ // close that zone came to its configured burst. It is not a capacity figure and
+@@ -244,7 +245,7 @@
+     const drainMs = zones.drainWaitSeconds(zone.ratePerSecond, zone.burst) * 1000
+     const lifetime = config.accessSeconds
+     ctx.require('the access lifetime is the short QA one (round b waits it out)', lifetime <= 60, { accessSeconds: lifetime })
+-    const sizes = (process.env.QA_W1_NS || '5,10,20').split(',').map((s) => Number(s.trim()))
++    const sizes = (process.env.QA_W1_NS || '5').split(',').map((s) => Number(s.trim()))
+     const api = zones.api
+     ctx.require('rate and burst of api_limit can be read from nginx/nginx.conf (recovery is paced by them)', api !== null)
+     ctx.record('limit', { rate: zone.rateText, burst: zone.burst, drainWaitSeconds: drainMs / 1000 })
+@@ -272,7 +273,7 @@
+     let shell = null
+ 
+     for (const n of sizes) {
+-      const profile = await ctx.profile({ keepAnswers: KEEP_SHELL_ANSWERS })
++      const profile = await ctx.profile(n === 5 ? { keepAnswers: KEEP_SHELL_ANSWERS, intercept: true, tagRequests: true, timing: true } : { keepAnswers: KEEP_SHELL_ANSWERS })
+       const signIn = await profile.tab('/login', { label: 'sign-in', navigate: false })
+       await ctx.signIn(signIn, config.userC)
+       // The profile now holds a stored session. The signed-in tab is replaced
+@@ -406,16 +407,48 @@
+       const expiredAtStart = stored.session.accessTokenExpiresAt * 1000 < Date.now()
+       mark = profile.mark()
+       await ingress.marker(`mark-b-${n}-in`)
++      // #1363: exhaust session_limit from this address, then open the tabs.
++      let filler1363 = null
++      if (n === 5) {
++        filler1363 = startNodeFillers({ base: config.base, path: '/api/auth/me', prefix: 'fill-1363', ratePerSecond: 5, maxInFlight: 10, maxTotal: 1000, maxMs: 150000 })
++        await sleep(8000)
++      }
+       opened = await openTabs(profile, n, `N${n}b`)
+       const watchedB = watchCompletion(profile, mark, opened.pages, shell.reference, {
+         started: opened.started,
+         giveUpMs: deadline(n) + 30000,
+       })
+       const [, , completionB] = await Promise.all([Promise.all(opened.pages.map(loaded)), quiet(profile, mark), watchedB])
++
++      // #1378: what each tab's refresh path did, and what went to the server.
++      const dump1378 = async (when) => {
++        const traces = []
++        for (const [i, page] of opened.pages.entries()) {
++          traces.push({
++            tab: `N5b-${i + 1}`,
++            url: await page.evaluate(() => location.pathname).catch((e) => `unreadable: ${e.message}`),
++            trace: await page.evaluate(() => (window.__erpSessionTrace ?? []).map((e) => ({ ...e }))).catch((e) => `unreadable: ${e.message}`),
++          })
++        }
++        const refreshes = profile.since(mark).filter((e) => e.zone === 'session')
++        await Promise.all(refreshes.map((e) => e.issuedRead ?? null))
++        ctx.record(`trace1378-${when}`, {
++          at: Date.now(),
++          stored: summarize(await readStored(holder)),
++          sessionRequests: refreshes.map((e) => ({ tab: e.tab, seq: e.seq, qaId: e.qaId ?? null, path: e.path, issuedAt: e.issuedAt, respondedAt: e.respondedAt ?? null, status: e.status, failed: e.failed ?? null, presented: e.presented ?? null, issued: e.issued ?? null })),
++          traces,
++        })
++      }
++      if (n === 5) await dump1378('after-load')
++      if (filler1363) {
++        ctx.record('forced1363Filler', await filler1363.stop())
++        ctx.record('forced1363Session429', profile.since(mark).filter((e) => e.zone === 'session' && e.status === 429).map((e) => ({ tab: e.tab, method: e.method, path: e.path, status: e.status, qaId: e.qaId ?? null })))
++      }
+       await ingress.marker(`mark-b-${n}-out`)
+       const ingressB = await readWindow(`mark-b-${n}-in`, `mark-b-${n}-out`)
+       measured = measure(profile, mark, zone)
+       states = await endStates(profile, mark, opened.pages, api, shell)
++      if (n === 5) await dump1378('after-usability-check')
+       rounds.push({
+         n,
+         round: 'b',
+@@ -428,6 +461,13 @@
+       })
+       report(rounds.at(-1), zone.burst)
+       await closeAll(opened.pages)
++      // #1363: if the refused refresh ended the session, round (c) needs one.
++      if (n === 5 && summarize(await readStored(holder)).session === null) {
++        ctx.record('forced1363SignedInAgainAfterRoundB', true)
++        await sleep(drainMs)
++        await ctx.signIn(signIn, config.userC)
++        await holder.goto(`${config.base}/manifest.json`, { waitUntil: 'load' })
++      }
+ 
+       // ---- (c) one tab signs out while the others are loading ------------
+       //

@@ -1,0 +1,55 @@
+diff -ru base/cases/refresh.mjs c8-extension/cases/refresh.mjs
+--- base/cases/refresh.mjs	2026-10-11 14:34:55.891047722 +0800
++++ c8-extension/cases/refresh.mjs	2026-10-11 14:34:56.015050305 +0800
+@@ -287,9 +287,28 @@
+       const lifetime = ctx.config.accessSeconds
+       ctx.require('the access lifetime is the short QA one', lifetime <= 60, { accessSeconds: lifetime })
+       const { profile, a, b, stored } = await pair(ctx)
+-      const before = summarize(stored)
++      // #1367 placement, part 1: the case's clock starts right after a rotation,
++      // so that the first expiry is a whole lifetime away.
++      const signedIn = summarize(stored)
++      await sleepUntil(signedIn.session.accessTokenExpiresAt * 1000 + 1000)
++      await exercise(profile, a)
++      let placed = null
++      for (let n = 0; n < 100; n += 1) {
++        placed = summarize(await readStored(a))
++        if (placed.session?.generation > signedIn.session.generation) break
++        await sleep(100)
++      }
++      ctx.require('#1367 placement: the session rotated once before the case\'s clock started', placed.session?.generation === signedIn.session.generation + 1, placed)
++      const before = placed
+       const mark = profile.mark()
+       const startedAt = Date.now()
++      // #1367 placement, part 2: a use that would start between 0.7 s before
++      // and 4.5 s after the stored access token's expiry is held until 4.5 s
++      // after it, so each cycle lasts almost a lifetime plus a step.
++      const HOLD_FROM_MS = 700
++      const HOLD_UNTIL_MS = 4500
++      const holds = []
++      const seen = []
+       const atLeast = startedAt + lifetime * 3500
+       const atMost = startedAt + lifetime * 6000
+       const step = (lifetime * 1000) / 4
+@@ -297,11 +316,21 @@
+       let uses = 0
+       for (let i = 0; Date.now() < atMost; i += 1) {
+         if (Date.now() >= atLeast && (await rotations()) >= 3) break
++        {
++          const now1367 = summarize(await readStored(a)).session
++          const expiry = now1367.accessTokenExpiresAt * 1000
++          if (!seen.some((r) => r.generation === now1367.generation)) seen.push({ generation: now1367.generation, firstSeenAtMs: Date.now() - startedAt, expiresAtMs: expiry - startedAt })
++          if (Date.now() >= expiry - HOLD_FROM_MS && Date.now() < expiry + HOLD_UNTIL_MS) {
++            holds.push({ use: i, atMs: Date.now() - startedAt, heldMs: expiry + HOLD_UNTIL_MS - Date.now() })
++            await sleepUntil(expiry + HOLD_UNTIL_MS)
++          }
++        }
+         const started = Date.now()
+         await exercise(profile, i % 2 === 0 ? a : b)
+         uses += 1
+         await sleepUntil(started + step)
+       }
++      ctx.record('placement1367', { holdFromMsBeforeExpiry: HOLD_FROM_MS, holdUntilMsAfterExpiry: HOLD_UNTIL_MS, holds, generationsSeenAtAUseStart: seen, startedAtGeneration: before.session.generation })
+       ctx.record('lifetimesUsed', Math.round(((Date.now() - startedAt) / (lifetime * 1000)) * 100) / 100)
+       const after = summarize(await readStored(a))
+       ctx.record('uses', uses)
