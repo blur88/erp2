@@ -44,6 +44,8 @@ run_finalize() { :; }
 run_stop_helpers() {
   if [ -n "${PROBE_PID}" ]; then kill "${PROBE_PID}" 2>/dev/null || true; PROBE_PID=""; fi
   if [ -n "${INGRESS_PID}" ]; then kill "${INGRESS_PID}" 2>/dev/null || true; INGRESS_PID=""; fi
+  # The processor cell's workers (#1370), if a round did not get to stop them.
+  docker rm -f erp_qa_cpu_load >/dev/null 2>&1 || true
   # A segment the script did not get to stop.
   "${QA_DIR}/upstream-capture.sh" stop "${SCRATCH}" feasibility >/dev/null 2>&1 || true
 }

@@ -7,10 +7,14 @@
 #                                 no session, and no API route exposes the count)
 #   capture-start <segment> [require]
 #   capture-stop  <segment>       start and finalise one upstream capture segment
+#   cpu-load-start <workers>      busy workers in a container of their own, for
+#   cpu-load-stop                 the processor cell of the stall runs (#1370);
+#   cpu-load-status               `running` or `stopped`
 #
 # The cases write   <scratch>/probe/<id>.req   containing the request and this
 # loop answers with <scratch>/probe/<id>.res holding `ok` or `error: ...`. It runs
-# read-only SELECTs and the capture script, and nothing else. `run.sh` starts it
+# read-only SELECTs, the capture script and that one container, and nothing
+# else. The container is removed when this script ends, however it ends. `run.sh` starts it
 # before the cases and stops it in its cleanup; for a development run start it by
 # hand:   host-probe.sh <scratch-dir>
 set -euo pipefail
@@ -27,6 +31,13 @@ DIR="${SCRATCH}/probe"
 mkdir -p "${DIR}"
 chmod 777 "${DIR}" # the container user writes requests here
 cd "${ROOT}"
+
+CPU_LOAD_NAME="erp_qa_cpu_load"
+CPU_LOAD_IMAGE="mcr.microsoft.com/playwright:v1.63.0-noble"
+cpu_load_remove() { docker rm -f "${CPU_LOAD_NAME}" > /dev/null 2>&1 || true; }
+trap cpu_load_remove EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
 
 # The segment name reaches a container name and a file name, so it is restricted
 # to what those allow.
@@ -70,6 +81,30 @@ SQL
         echo "ok"
       else
         echo "error: ${out}"
+      fi
+      ;;
+    cpu-load-start)
+      if ! [[ "${arg}" =~ ^[0-9]{1,2}$ ]] || [ "${arg}" -lt 1 ] || [ "${arg}" -gt 64 ]; then
+        echo "error: '${arg}' is not a worker count (1 to 64)"
+        return
+      fi
+      cpu_load_remove
+      if out="$(docker run -d --rm --name "${CPU_LOAD_NAME}" -v "${HERE}:/qa:ro" \
+        "${CPU_LOAD_IMAGE}" node /qa/cpu-load.mjs "${arg}" 2>&1)"; then
+        echo "ok"
+      else
+        echo "error: ${out}"
+      fi
+      ;;
+    cpu-load-stop)
+      cpu_load_remove
+      echo "ok"
+      ;;
+    cpu-load-status)
+      if [ -n "$(docker ps --filter "name=^${CPU_LOAD_NAME}$" --format '{{.Names}}' 2>/dev/null)" ]; then
+        echo "running"
+      else
+        echo "stopped"
       fi
       ;;
     *)
