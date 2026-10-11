@@ -1,0 +1,824 @@
+ Image erp-backend:latest Building 
+ Image erp-frontend:latest Building 
+ Image erp-nginx:latest Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.52kB done
+#1 DONE 0.0s
+
+#2 [frontend internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.40kB done
+#2 DONE 0.1s
+
+#3 [frontend internal] load metadata for docker.io/library/nginx:1.30.0-alpine3.23-slim
+#3 DONE 0.0s
+
+#4 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#4 ...
+
+#5 [backend internal] load build definition from Dockerfile
+#5 transferring dockerfile: 2.19kB done
+#5 DONE 0.1s
+
+#6 [auth] library/node:pull token for registry-1.docker.io
+#6 DONE 0.0s
+
+#7 [nginx internal] load build definition from Dockerfile
+#7 transferring dockerfile: 109B done
+#7 DONE 0.1s
+
+#8 [backend internal] load metadata for docker.io/library/node:24.16.0-alpine3.23
+#8 DONE 0.0s
+
+#3 [nginx internal] load metadata for docker.io/library/nginx:1.30.0-alpine3.23-slim
+#3 DONE 0.0s
+
+#9 [backend internal] load .dockerignore
+#9 transferring context: 1.01kB 0.0s done
+#9 DONE 0.1s
+
+#10 [nginx internal] load .dockerignore
+#10 transferring context: 2B 0.0s done
+#10 DONE 0.1s
+
+#4 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#4 ...
+
+#11 [backend deps 1/4] FROM docker.io/library/node:24.16.0-alpine3.23
+#11 DONE 0.0s
+
+#12 [nginx 1/2] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#12 DONE 0.0s
+
+#13 [nginx internal] load build context
+#13 transferring context: 32B done
+#13 DONE 0.1s
+
+#14 [nginx 2/2] COPY nginx.conf /etc/nginx/nginx.conf
+#14 CACHED
+
+#15 [nginx] exporting to image
+#15 exporting layers done
+#15 writing image sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f done
+#15 naming to docker.io/library/erp-nginx:latest done
+#15 DONE 0.0s
+
+#16 [backend internal] load build context
+#16 transferring context: 38.11kB 0.1s done
+#16 DONE 0.2s
+
+#17 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#17 CACHED
+
+#18 [backend builder 3/5] COPY --from=deps /app/node_modules ./node_modules
+#18 CACHED
+
+#19 [backend deps 3/4] COPY package*.json ./
+#19 CACHED
+
+#20 [backend deps 2/4] WORKDIR /app
+#20 CACHED
+
+#21 [backend builder 4/5] COPY . .
+#21 CACHED
+
+#22 [nginx] resolving provenance for metadata file
+#22 DONE 0.0s
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 ...
+
+#4 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#4 DONE 1.3s
+
+#24 [frontend internal] load .dockerignore
+#24 transferring context: 755B done
+#24 DONE 0.0s
+
+#25 [frontend builder 1/7] FROM docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+#25 DONE 0.0s
+
+#12 [frontend production 1/6] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#12 DONE 0.0s
+
+#26 [frontend internal] load build context
+#26 transferring context: 53.39kB 0.2s done
+#26 DONE 0.2s
+
+#27 [frontend builder 2/7] WORKDIR /app
+#27 CACHED
+
+#28 [frontend builder 3/7] COPY package*.json ./
+#28 CACHED
+
+#29 [frontend builder 4/7] RUN npm ci
+#29 CACHED
+
+#30 [frontend builder 5/7] RUN npm install @rollup/rollup-linux-x64-musl --save-optional
+#30 ...
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 1.755 
+#23 1.755 > erp-backend@3.21.4 build
+#23 1.755 > nest build
+#23 1.755 
+#23 ...
+
+#30 [frontend builder 5/7] RUN npm install @rollup/rollup-linux-x64-musl --save-optional
+#30 10.81 
+#30 10.81 added 1 package, and audited 470 packages in 10s
+#30 10.81 
+#30 10.82 107 packages are looking for funding
+#30 10.82   run `npm fund` for details
+#30 10.86 
+#30 10.86 2 critical severity vulnerabilities
+#30 10.86 
+#30 10.86 To address all issues, run:
+#30 10.86   npm audit fix
+#30 10.86 
+#30 10.86 Run `npm audit` for details.
+#30 DONE 11.1s
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 ...
+
+#31 [frontend builder 6/7] COPY . .
+#31 DONE 0.4s
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 ...
+
+#32 [frontend builder 7/7] RUN npm run build
+#32 1.151 
+#32 1.151 > erp-frontend@3.21.4 build
+#32 1.151 > vite build
+#32 1.151 
+#32 2.588 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+#32 2.588   - import "./src/config/buildSha" without a file extension (vite.config.ts:5:31). Add the file extension
+#32 2.588 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+#32 2.681 vite v8.3.1 building client environment for production...
+#32 2.739 [2Ktransforming...✓ 2230 modules transformed.
+#32 7.122 rendering chunks...
+#32 10.23 computing gzip size...
+#32 10.36 dist/index.html                                         3.05 kB │ gzip:   0.96 kB
+#32 10.36 dist/assets/index-DIzETDqb.css                          4.00 kB │ gzip:   1.42 kB
+#32 10.36 dist/assets/filters-DbjZTJuF.js                         0.03 kB │ gzip:   0.05 kB
+#32 10.36 dist/assets/stockUtils-B89HsnNw.js                      0.12 kB │ gzip:   0.12 kB │ map:     0.51 kB
+#32 10.36 dist/assets/subDays-on2JlZQt.js                         0.12 kB │ gzip:   0.14 kB │ map:     1.31 kB
+#32 10.36 dist/assets/useRedux-C0NX3eLt.js                        0.13 kB │ gzip:   0.13 kB │ map:     0.52 kB
+#32 10.36 dist/assets/numberFormat-2lapoRvl.js                    0.22 kB │ gzip:   0.20 kB │ map:     1.01 kB
+#32 10.36 dist/assets/tableStyles-ZDN9aD9C.js                     0.27 kB │ gzip:   0.24 kB │ map:     1.11 kB
+#32 10.36 dist/assets/printTokens-DAqCdlPu.js                     0.27 kB │ gzip:   0.22 kB │ map:     0.69 kB
+#32 10.36 dist/assets/typeof-uSHhYthB.js                          0.31 kB │ gzip:   0.20 kB │ map:     0.78 kB
+#32 10.36 dist/assets/journal-entry-navigation-Dx1lUuWE.js        0.32 kB │ gzip:   0.26 kB │ map:     2.10 kB
+#32 10.36 dist/assets/normalizers-DkQEBnaa.js                     0.32 kB │ gzip:   0.20 kB │ map:     1.20 kB
+#32 10.36 dist/assets/GenericOverviewPage-BI-QQlnB.js             0.32 kB │ gzip:   0.26 kB │ map:     0.80 kB
+#32 10.36 dist/assets/baseQuery-BjOnAB2Y.js                       0.38 kB │ gzip:   0.27 kB │ map:     1.41 kB
+#32 10.36 dist/assets/MarginChip-BaISldKk.js                      0.42 kB │ gzip:   0.34 kB │ map:     1.16 kB
+#32 10.36 dist/assets/salesSlice-CQx_p8xR.js                      0.42 kB │ gzip:   0.25 kB │ map:     1.34 kB
+#32 10.36 dist/assets/expenseActions-BRKwpOeb.js                  0.42 kB │ gzip:   0.23 kB │ map:     1.38 kB
+#32 10.36 dist/assets/redisMonitoringApi-Dw2iykVk.js              0.43 kB │ gzip:   0.29 kB │ map:     3.11 kB
+#32 10.36 dist/assets/TableCard-f6_tPMJy.js                       0.46 kB │ gzip:   0.34 kB │ map:     2.13 kB
+#32 10.36 dist/assets/DataTable-CceTTJaB.js                       0.49 kB │ gzip:   0.33 kB │ map:     1.34 kB
+#32 10.36 dist/assets/useCurrency-VfgSiObf.js                     0.49 kB │ gzip:   0.33 kB │ map:     1.76 kB
+#32 10.36 dist/assets/bankAccountOptions-DPVj4ZZU.js              0.50 kB │ gzip:   0.31 kB │ map:     2.26 kB
+#32 10.36 dist/assets/useDocumentNumberPreview-DYfxdquG.js        0.59 kB │ gzip:   0.42 kB │ map:     2.15 kB
+#32 10.36 dist/assets/ListSkeleton-CRk6RNDj.js                    0.64 kB │ gzip:   0.32 kB │ map:     1.86 kB
+#32 10.36 dist/assets/rolldown-runtime-S-ySWqyJ.js                0.69 kB │ gzip:   0.42 kB
+#32 10.36 dist/assets/FilterSearch-CYK-Mpgs.js                    0.72 kB │ gzip:   0.44 kB │ map:     2.12 kB
+#32 10.36 dist/assets/useExpenseAccountOptions-OLz_EMhF.js        0.73 kB │ gzip:   0.50 kB │ map:     4.01 kB
+#32 10.36 dist/assets/useProductSearch-qC7Bpx9S.js                0.80 kB │ gzip:   0.54 kB │ map:     3.59 kB
+#32 10.36 dist/assets/FilterSelect-DqsGb3rM.js                    0.85 kB │ gzip:   0.51 kB │ map:     3.98 kB
+#32 10.36 dist/assets/useFieldDuplicateCheck-DAh5BGQ5.js          0.85 kB │ gzip:   0.52 kB │ map:     3.48 kB
+#32 10.36 dist/assets/RowActionMenu-C_W3aBNi.js                   0.88 kB │ gzip:   0.52 kB │ map:     2.67 kB
+#32 10.36 dist/assets/listQuery-CGZhuHMj.js                       0.96 kB │ gzip:   0.46 kB │ map:     5.87 kB
+#32 10.36 dist/assets/SimpleListPage-BnqCSO1R.js                  0.99 kB │ gzip:   0.52 kB │ map:     3.30 kB
+#32 10.36 dist/assets/useUnsavedChangesGuard-uR5AFJZj.js          1.01 kB │ gzip:   0.59 kB │ map:     2.74 kB
+#32 10.36 dist/assets/types-DYjLeMLn.js                           1.02 kB │ gzip:   0.52 kB │ map:    34.37 kB
+#32 10.36 dist/assets/printSettingsApi-ChmBw22P.js                1.03 kB │ gzip:   0.46 kB │ map:     3.75 kB
+#32 10.36 dist/assets/PagePagination-BzLzmpNH.js                  1.06 kB │ gzip:   0.64 kB │ map:     2.94 kB
+#32 10.36 dist/assets/providerSettlementActions-RvlfdwDi.js       1.09 kB │ gzip:   0.53 kB │ map:     3.83 kB
+#32 10.36 dist/assets/dashboardApiParams-BENOyQaM.js              1.11 kB │ gzip:   0.51 kB │ map:     4.19 kB
+#32 10.36 dist/assets/dateRange-Cg5oiS9Z.js                       1.16 kB │ gzip:   0.50 kB │ map:     7.07 kB
+#32 10.36 dist/assets/DataTable-CQ8Q_jzi.js                       1.18 kB │ gzip:   0.66 kB │ map:     4.64 kB
+#32 10.36 dist/assets/orderActions-BLj0WCDf.js                    1.20 kB │ gzip:   0.64 kB │ map:     5.51 kB
+#32 10.36 dist/assets/ConfirmationDialog-BK_x7-VG.js              1.27 kB │ gzip:   0.66 kB │ map:     3.89 kB
+#32 10.36 dist/assets/SourceLink-DtM7Nv2r.js                      1.33 kB │ gzip:   0.70 kB │ map:     4.22 kB
+#32 10.36 dist/assets/currency-DXsEtjyx.js                        1.47 kB │ gzip:   0.79 kB │ map:    16.47 kB
+#32 10.36 dist/assets/userManagementApi-Di1C4NeI.js               1.55 kB │ gzip:   0.58 kB │ map:     4.71 kB
+#32 10.36 dist/assets/auditLogApi-BW8OIqot.js                     1.59 kB │ gzip:   0.67 kB │ map:     5.44 kB
+#32 10.36 dist/assets/transactionTableStyles-DQ5LpSkk.js          1.69 kB │ gzip:   0.83 kB │ map:     4.06 kB
+#32 10.36 dist/assets/PageHeader-B4xLIHOm.js                      1.79 kB │ gzip:   0.79 kB │ map:     5.58 kB
+#32 10.36 dist/assets/NotFoundPage-CelnASFP.js                    1.79 kB │ gzip:   0.86 kB │ map:     5.13 kB
+#32 10.36 dist/assets/useListUrlState-lkCn0vUb.js                 2.09 kB │ gzip:   1.03 kB │ map:    10.47 kB
+#32 10.36 dist/assets/paymentMethodsApi-CoREImwG.js               2.19 kB │ gzip:   0.67 kB │ map:     5.35 kB
+#32 10.36 dist/assets/ReconciliationSummary-ScrxxrCd.js           2.39 kB │ gzip:   0.78 kB │ map:     6.64 kB
+#32 10.36 dist/assets/priceListApi-BV9Lsy4e.js                    2.63 kB │ gzip:   0.75 kB │ map:     7.18 kB
+#32 10.36 dist/assets/StockLevelSettingsPage-CCvbVMg4.js          2.65 kB │ gzip:   1.32 kB │ map:     7.10 kB
+#32 10.36 dist/assets/parseISO-TM_7SI_5.js                        2.67 kB │ gzip:   1.25 kB │ map:    12.23 kB
+#32 10.36 dist/assets/bankReconciliationActions-EA4f50Kq.js       2.81 kB │ gzip:   1.11 kB │ map:     6.63 kB
+#32 10.36 dist/assets/backupApi-DxeRLY4z.js                       2.91 kB │ gzip:   0.92 kB │ map:     9.94 kB
+#32 10.36 dist/assets/formatters-NX78nyFP.js                      3.03 kB │ gzip:   1.28 kB │ map:    13.24 kB
+#32 10.36 dist/assets/AddressSection-HRl-XVUu.js                  3.10 kB │ gzip:   1.24 kB │ map:     8.97 kB
+#32 10.36 dist/assets/CategorySelector-CH-nv2g5.js                3.19 kB │ gzip:   1.57 kB │ map:    11.93 kB
+#32 10.36 dist/assets/settingsApi-BUx6y4z6.js                     3.27 kB │ gzip:   1.30 kB │ map:    13.03 kB
+#32 10.36 dist/assets/JournalEntriesPage-guxPQ0jE.js              3.35 kB │ gzip:   1.58 kB │ map:     9.05 kB
+#32 10.36 dist/assets/TrialBalancePage-awuaH6_J.js                3.40 kB │ gzip:   1.66 kB │ map:    10.95 kB
+#32 10.36 dist/assets/JournalEntryViewPage-BcDZMGNI.js            3.50 kB │ gzip:   1.38 kB │ map:     9.45 kB
+#32 10.36 dist/assets/SuppliersPage-B2k6MCU6.js                   3.51 kB │ gzip:   1.59 kB │ map:    10.31 kB
+#32 10.36 dist/assets/chartjs-adapter-date-fns.esm-B5clPx-7.js    3.55 kB │ gzip:   1.22 kB │ map:    31.73 kB
+#32 10.36 dist/assets/CustomersPage-Ckl0lNI_.js                   3.65 kB │ gzip:   1.68 kB │ map:    10.86 kB
+#32 10.36 dist/assets/EntityTable-Da64j9dO.js                     3.96 kB │ gzip:   1.67 kB │ map:    18.03 kB
+#32 10.36 dist/assets/InventoryCostingPage-DXRqbh_Y.js            3.99 kB │ gzip:   1.74 kB │ map:    11.70 kB
+#32 10.36 dist/assets/LoginPage-DeEUlW7x.js                       4.32 kB │ gzip:   1.89 kB │ map:    13.33 kB
+#32 10.36 dist/assets/DocumentNumbersPage-BBF73YzG.js             4.39 kB │ gzip:   2.03 kB │ map:    15.10 kB
+#32 10.36 dist/assets/CategoryViewPage-BJDvxvXS.js                4.44 kB │ gzip:   1.79 kB │ map:    12.72 kB
+#32 10.36 dist/assets/RoleManagementPage-B7n8a9vT.js              4.47 kB │ gzip:   1.61 kB │ map:    10.87 kB
+#32 10.36 dist/assets/CategoriesPage-BnmWqHfk.js                  4.53 kB │ gzip:   2.08 kB │ map:    13.75 kB
+#32 10.36 dist/assets/GeneralLedgerPage-Q0IR3b3f.js               4.64 kB │ gzip:   2.07 kB │ map:    14.13 kB
+#32 10.36 dist/assets/StockAdjustmentViewPage-BTjrU_pZ.js         4.87 kB │ gzip:   2.00 kB │ map:    13.36 kB
+#32 10.36 dist/assets/CategoryFormPage-C5Q8h5aC.js                5.12 kB │ gzip:   2.22 kB │ map:    17.34 kB
+#32 10.36 dist/assets/Statement-B4LB-89z.js                       5.22 kB │ gzip:   2.13 kB │ map:    30.82 kB
+#32 10.36 dist/assets/BankReconciliationsPage-DkEtJ2b2.js         5.28 kB │ gzip:   2.38 kB │ map:    15.16 kB
+#32 10.36 dist/assets/ProviderSettlementsPage-DWvy93jI.js         5.32 kB │ gzip:   2.35 kB │ map:    17.00 kB
+#32 10.36 dist/assets/PurchaseOrderPrintDialog-CUYVL2Qi.js        5.35 kB │ gzip:   2.03 kB │ map:    20.60 kB
+#32 10.36 dist/assets/MandatoryPasswordChangePage-DEQkH0kD.js     5.93 kB │ gzip:   2.12 kB │ map:    19.10 kB
+#32 10.36 dist/assets/SalesOrderPrintDialog-C5Bl0LJf.js           6.09 kB │ gzip:   1.93 kB │ map:    18.79 kB
+#32 10.36 dist/assets/OrderLineItemRow-DrIlXuXK.js                6.23 kB │ gzip:   2.17 kB │ map:    23.04 kB
+#32 10.36 dist/assets/RedisMonitoringPage-BOJG37y6.js             6.50 kB │ gzip:   2.48 kB │ map:    18.46 kB
+#32 10.36 dist/assets/BalanceSheetPage-BNm1vg5B.js                6.81 kB │ gzip:   2.67 kB │ map:    28.59 kB
+#32 10.36 dist/assets/BasePrintTemplate-GcJggrSJ.js               7.03 kB │ gzip:   1.61 kB │ map:    22.61 kB
+#32 10.36 dist/assets/CustomerProfilePage-ByOxQ4ry.js             7.06 kB │ gzip:   2.40 kB │ map:    20.86 kB
+#32 10.36 dist/assets/StockAdjustmentsPage-C68oHF9X.js            7.07 kB │ gzip:   2.94 kB │ map:    22.09 kB
+#32 10.36 dist/assets/ExpenseDetailPage-15zgi1HR.js               7.25 kB │ gzip:   2.82 kB │ map:    23.15 kB
+#32 10.36 dist/assets/ProviderSettlementDetailPage-BgmdcxTu.js    7.35 kB │ gzip:   2.79 kB │ map:    23.50 kB
+#32 10.36 dist/assets/ExpenseFormPage-mR_jo5UG.js                 7.66 kB │ gzip:   2.97 kB │ map:    26.99 kB
+#32 10.36 dist/assets/purchasingApi-oFJDgHIK.js                   7.69 kB │ gzip:   1.51 kB │ map:    18.78 kB
+#32 10.36 dist/assets/SupplierProfilePage-oCjA2IdH.js             7.70 kB │ gzip:   2.56 kB │ map:    20.05 kB
+#32 10.36 dist/assets/ExpensesPage-CRlc0aF_.js                    7.70 kB │ gzip:   3.15 kB │ map:    26.44 kB
+#32 10.36 dist/assets/OrdersPage-DW6FDo0B.js                      7.76 kB │ gzip:   3.08 kB │ map:    23.93 kB
+#32 10.36 dist/assets/salesApi-DH6v8kbU.js                        7.85 kB │ gzip:   1.57 kB │ map:    20.78 kB
+#32 10.36 dist/assets/CompanySettingsPage-DNTsagSD.js             8.33 kB │ gzip:   2.72 kB │ map:    28.11 kB
+#32 10.36 dist/assets/PurchaseOrdersPage-Bnstabb_.js              8.46 kB │ gzip:   3.37 kB │ map:    26.97 kB
+#32 10.36 dist/assets/PurchasingPage-DXqeZPst.js                  8.53 kB │ gzip:   3.06 kB │ map:    29.44 kB
+#32 10.36 dist/assets/OwnerEquityFormPage-DLnEFq6I.js             8.71 kB │ gzip:   3.22 kB │ map:    32.91 kB
+#32 10.36 dist/assets/BankReconciliationDetailPage-BjgOU7Eq.js    9.00 kB │ gzip:   3.04 kB │ map:    28.10 kB
+#32 10.36 dist/assets/ProductViewPage-LsB9g3H1.js                 9.11 kB │ gzip:   3.17 kB │ map:    27.60 kB
+#32 10.36 dist/assets/OwnerEquityDetailPage-DBxwgmzX.js           9.48 kB │ gzip:   3.37 kB │ map:    29.71 kB
+#32 10.36 dist/assets/SecuritySettingsPage-BFx3JCEF.js            9.67 kB │ gzip:   2.00 kB │ map:    24.50 kB
+#32 10.36 dist/assets/RegionalSettingsPage-Cb8UsBVa.js            9.67 kB │ gzip:   3.08 kB │ map:    25.10 kB
+#32 10.36 dist/assets/ChartOfAccountsPage-_32XTAVA.js            10.15 kB │ gzip:   3.82 kB │ map:    39.11 kB
+#32 10.36 dist/assets/OwnerEquityPage-DGv_3R-s.js                10.24 kB │ gzip:   3.84 kB │ map:    34.30 kB
+#32 10.36 dist/assets/InventoryPage-CvwYgkpu.js                  10.29 kB │ gzip:   3.43 kB │ map:    35.13 kB
+#32 10.36 dist/assets/CreatePurchaseOrderPage-CajNO0Z-.js        10.32 kB │ gzip:   3.89 kB │ map:    34.35 kB
+#32 10.36 dist/assets/PriceListDetailsPage-BEVYFw5w.js           10.56 kB │ gzip:   3.03 kB │ map:    34.40 kB
+#32 10.36 dist/assets/PurchaseOrderDetailPage-DSvjHqzu.js        10.70 kB │ gzip:   3.62 kB │ map:    34.58 kB
+#32 10.36 dist/assets/SalesOrderDetailPage-DJz0_07h.js           11.19 kB │ gzip:   3.84 kB │ map:    36.00 kB
+#32 10.36 dist/assets/ProfitAndLossPage-Cdp_bp8F.js              11.45 kB │ gzip:   3.93 kB │ map:    48.11 kB
+#32 10.36 dist/assets/CreateStockAdjustmentPage-CjxUkno9.js      11.58 kB │ gzip:   4.13 kB │ map:    39.59 kB
+#32 10.36 dist/assets/SupplierFormPage-CXjoU8Y1.js               11.68 kB │ gzip:   3.37 kB │ map:    35.95 kB
+#32 10.36 dist/assets/ProductsPage-GUBDsi6s.js                   12.14 kB │ gzip:   4.34 kB │ map:    38.96 kB
+#32 10.36 dist/assets/CreateSalesOrderPage-CgqZYLP5.js           13.01 kB │ gzip:   4.86 kB │ map:    44.15 kB
+#32 10.36 dist/assets/RefundDialog-Dh7MXo6N.js                   13.18 kB │ gzip:   3.95 kB │ map:    51.95 kB
+#32 10.36 dist/assets/CreateProductPage-svts7HBc.js              13.58 kB │ gzip:   4.75 kB │ map:    49.28 kB
+#32 10.36 dist/assets/CustomerFormPage-o_1kMwFM.js               14.09 kB │ gzip:   4.25 kB │ map:    45.59 kB
+#32 10.36 dist/assets/SalesPage-vLM3I96J.js                      14.24 kB │ gzip:   4.09 kB │ map:    54.94 kB
+#32 10.36 dist/assets/session-CJnqD5x-.js                        14.99 kB │ gzip:   5.50 kB │ map:    61.63 kB
+#32 10.36 dist/assets/PaymentMethodsPage-TdtG-Y03.js             15.43 kB │ gzip:   4.77 kB │ map:    53.10 kB
+#32 10.36 dist/assets/useFilterBar-Xi1socG_.js                   15.45 kB │ gzip:   5.35 kB │ map:    60.65 kB
+#32 10.36 dist/assets/PriceListsPage-CLUgS1ix.js                 17.51 kB │ gzip:   4.47 kB │ map:    61.81 kB
+#32 10.36 dist/assets/UserManagementPage-D-xjr51n.js             18.43 kB │ gzip:   5.21 kB │ map:    61.62 kB
+#32 10.36 dist/assets/ProviderSettlementFormPage-BmkxKXtx.js     18.80 kB │ gzip:   6.60 kB │ map:    69.23 kB
+#32 10.36 dist/assets/notificationSlice-KriWDt2F.js              21.29 kB │ gzip:   6.67 kB │ map:    88.05 kB
+#32 10.36 dist/assets/inventoryApi-CnTWr_Tr.js                   21.61 kB │ gzip:   3.71 kB │ map:    61.85 kB
+#32 10.36 dist/assets/PrintSettingsPage-CvO1m6or.js              22.03 kB │ gzip:   5.42 kB │ map:    69.45 kB
+#32 10.36 dist/assets/BankReconciliationFormPage-E-Mbg1gT.js     23.22 kB │ gzip:   6.56 kB │ map:    81.06 kB
+#32 10.36 dist/assets/AccountingSettingsPage-BTMeu0Ib.js         25.03 kB │ gzip:   8.05 kB │ map:    97.62 kB
+#32 10.36 dist/assets/purify.es-D4hYKUve.js                      28.12 kB │ gzip:  11.12 kB │ map:   119.90 kB
+#32 10.36 dist/assets/BackupManagement-BwV3z1b7.js               28.27 kB │ gzip:   7.28 kB │ map:    95.11 kB
+#32 10.36 dist/assets/api-DKbfOpV6.js                            53.25 kB │ gzip:  19.97 kB │ map:   254.75 kB
+#32 10.36 dist/assets/DashboardPage-B3gB-5sN.js                  62.43 kB │ gzip:  19.79 kB │ map:   269.72 kB
+#32 10.36 dist/assets/redux-CGLNLu4M.js                          72.58 kB │ gzip:  24.32 kB │ map:   424.54 kB
+#32 10.36 dist/assets/index.esm-D10d5htg.js                      82.39 kB │ gzip:  26.90 kB │ map:   343.87 kB
+#32 10.36 dist/assets/router-Ce7rHi3M.js                         97.60 kB │ gzip:  32.38 kB │ map:   535.52 kB
+#32 10.36 dist/assets/index-I_RudYjV.js                         122.30 kB │ gzip:  34.70 kB │ map:   434.82 kB
+#32 10.36 dist/assets/index.es-BG9jUOut.js                      151.58 kB │ gzip:  48.96 kB │ map:   572.93 kB
+#32 10.36 dist/assets/charts-CLmsjCUf.js                        191.54 kB │ gzip:  66.49 kB │ map:   780.18 kB
+#32 10.36 dist/assets/html2canvas-4J0fyI2p.js                   199.62 kB │ gzip:  46.83 kB │ map:   593.20 kB
+#32 10.36 dist/assets/vendor-CGvYuhH3.js                        218.96 kB │ gzip:  68.33 kB │ map:   963.67 kB
+#32 10.36 dist/assets/mui-CnpLVYZJ.js                           667.65 kB │ gzip: 197.49 kB │ map: 3,416.24 kB
+#32 10.36 dist/assets/AuditLogsPage-C7Vba5dC.js                 781.10 kB │ gzip: 252.82 kB │ map: 2,943.76 kB
+#32 10.36 
+#32 10.38 ✓ built in 7.69s
+#32 10.38 [plugin builtin:vite-reporter] 
+#32 10.38 (!) Some chunks are larger than 500 kB after minification. Consider:
+#32 10.38 - Using dynamic import() to code-split the application
+#32 10.38 - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+#32 10.38 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#32 DONE 10.7s
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 ...
+
+#33 [frontend production 2/6] RUN apk update &&     apk upgrade &&     apk add --no-cache curl
+#33 CACHED
+
+#34 [frontend production 3/6] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#34 CACHED
+
+#35 [frontend production 4/6] COPY --from=builder /app/dist /usr/share/nginx/html
+#35 DONE 0.3s
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 ...
+
+#36 [frontend production 5/6] COPY docker-entrypoint.sh /docker-entrypoint.sh
+#36 DONE 0.2s
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 ...
+
+#37 [frontend production 6/6] RUN chmod +x /docker-entrypoint.sh
+#37 DONE 0.6s
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 ...
+
+#38 [frontend] exporting to image
+#38 exporting layers
+#38 exporting layers 0.3s done
+#38 writing image sha256:90aebd453e22860676108fc4c29549da641a4ea46212906f7a8288829a401223 done
+#38 naming to docker.io/library/erp-frontend:latest done
+#38 DONE 0.4s
+
+#39 [frontend] resolving provenance for metadata file
+#39 DONE 0.1s
+
+#23 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#23 41.77 npm notice
+#23 41.77 npm notice New major version of npm available! 11.13.0 -> 12.2.0
+#23 41.77 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#23 41.77 npm notice To update run: npm install -g npm@12.2.0
+#23 41.77 npm notice
+#23 52.94 
+#23 52.94 > erp-backend@3.21.4 verify:dist
+#23 52.94 > ./scripts/verify-dist-runtime.sh
+#23 52.94 
+#23 52.95 ==> Checking for unresolved path aliases in dist/ ...
+#23 53.43     OK: no unresolved aliases.
+#23 53.43 ==> Loading dist/main.js to verify the require graph resolves ...
+#23 59.10     OK: module graph resolves.
+#23 59.10 
+#23 59.10 ==> Checking the compiled datasource resolves migrations from dist/ ...
+#23 60.67     pattern targets dist/database/migrations (24 compiled migrations)
+#23 60.67     OK: migrations resolve from dist/.
+#23 60.67 
+#23 60.67 PASS: compiled output is runtime-loadable.
+#23 98.99 
+#23 98.99 removed 422 packages, and audited 366 packages in 38s
+#23 98.99 
+#23 98.99 83 packages are looking for funding
+#23 98.99   run `npm fund` for details
+#23 99.00 
+#23 99.00 found 0 vulnerabilities
+#23 99.50 npm warn using --force Recommended protections disabled.
+#23 DONE 100.7s
+
+#40 [backend production  2/10] RUN apk update && apk upgrade &&     apk add --no-cache curl postgresql18-client dumb-init &&     rm -rf /var/cache/apk/* &&     rm -rf /usr/local/lib/node_modules/npm &&     rm -f /usr/local/bin/npm /usr/local/bin/npx
+#40 CACHED
+
+#41 [backend production  3/10] RUN addgroup -g 1001 -S nodejs &&     adduser -S nestjs -u 1001 -G nodejs
+#41 CACHED
+
+#42 [backend production  4/10] WORKDIR /app
+#42 CACHED
+
+#43 [backend production  5/10] COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+#43 CACHED
+
+#44 [backend production  6/10] COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+#44 DONE 19.0s
+
+#45 [backend production  7/10] COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
+#45 DONE 0.1s
+
+#46 [backend production  8/10] COPY --chown=nestjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
+#46 DONE 0.1s
+
+#47 [backend production  9/10] RUN chmod +x docker-entrypoint.sh
+#47 DONE 0.6s
+
+#48 [backend production 10/10] RUN mkdir -p uploads logs backups/{postgresql,redis,settings,archives,temp,uploads} &&     chown -R nestjs:nodejs uploads logs backups
+#48 DONE 1.0s
+
+#49 [backend] exporting to image
+#49 exporting layers
+#49 exporting layers 6.8s done
+#49 writing image sha256:6f03e072901075b1e3419a7bda0c88c3a5546dcba8eb7f88626354eda2f6fcb3 0.0s done
+#49 naming to docker.io/library/erp-backend:latest 0.0s done
+#49 DONE 6.9s
+
+#50 [backend] resolving provenance for metadata file
+#50 DONE 0.0s
+ Image erp-backend:latest Built 
+ Image erp-nginx:latest Built 
+ Image erp-frontend:latest Built 
+ Container erp_postgres Running 
+ Container erp_redis Running 
+ Container erp_nginx Running 
+ Container erp_backend Recreate 
+ Container erp_backend Recreated 
+ Container erp_frontend Recreate 
+ Container erp_frontend Recreated 
+ Container erp_redis Waiting 
+ Container erp_postgres Waiting 
+ Container erp_redis Healthy 
+ Container erp_postgres Healthy 
+ Container erp_backend Starting 
+ Container erp_backend Started 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Starting 
+ Container erp_frontend Started 
+ Container erp_frontend Waiting 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Healthy 
+verify ok: observed access lifetime 20 s, configured 20s
+qa-up ok (access=20s, grace=5, sha=547daacbabc81567c087b7b538e3ca9ff73812c8)
+
+[1] Two-tab sign-out
+    ok   tab A shows the login page
+    ok   tab B shows the login page within 5 s
+    ok   a session-channel message reached tab B after the sign-out began and before its redirect
+    ok   tab B's next status poll was not yet due when it was redirected
+    ok   tab B sent no request between the sign-out and its redirect
+    ok   tab B no longer shows the signed-in application
+    ok   tab B was not reloaded
+    ok   the stored record is signed-out
+  => pass (36 s)
+
+[2] Stale write-back
+    ok   tab B changed its own state after the sign-out
+    ok   the stored record stayed signed-out
+    ok   the revision is the one the sign-out left
+    ok   no slices are stored for an ended session
+    ok   localStorage holds no token
+  => pass (39 s)
+
+[3] Drafts
+    ok   tab B's draft is gone within 5 s
+    ok   tab B shows the login page
+    ok   a session-channel message reached tab B after the sign-out began and before its redirect
+    ok   tab B's next status poll was not yet due when it was redirected
+    ok   tab B sent no request between the sign-out and its redirect
+    ok   tab B was not reloaded
+  => pass (35 s)
+
+[4] Reload and session restore
+    ok   control: the reloaded tab is signed in
+    ok   control: the draft survived the reload
+    ok   the reloaded tab shows the login page
+    ok   the reloaded tab has no draft
+    ok   restored tab: the draft was in place when the page started
+    ok   restored tab: shows the login page
+    ok   restored tab: has no draft
+  => pass (38 s)
+
+[5] User switch
+    ok   the signed-out tab did not adopt X's session
+    ok   X's tab shows the login page
+    ok   X's tab was not reloaded
+    ok   X's tab shows nothing of X
+    ok   X's other tab shows the login page
+    ok   X's other tab was not reloaded
+    ok   the stored session is Y's
+    ok   the stored session is not the one X had
+    ok   Y's request succeeded with the stored token
+    ok   Y's tab is still signed in
+    ok   Y's tab shows Y's name
+    ok   Y's tab shows nothing of X
+    ok   the tab Y signed in in was not reloaded
+    ok   the stored session is Y's after the sign-in in X's tab
+    ok   opening the list X had loaded sent a fresh request for it
+    ok   that request was issued after Y's sign-in and carries Y's token
+    ok   while that request was unanswered the tab showed none of the rows X had loaded
+    ok   once it was answered the tab shows the rows
+    ok   every data request answered to the tab was issued after Y's sign-in under Y's token, and none carried X's
+  => pass (12 s)
+
+[6] Same-user sign-out and sign-in
+    ok   tab B shows the login form after the sign-out
+    ok   a new session is stored
+    ok   tab B did not adopt the new session
+    ok   the forced 401 was followed by a rotation answered 200
+    ok   tab A's next request succeeds on the stored token
+    ok   the session is still the new one
+    ok   the refresh advanced it by one generation
+    ok   tab A is still signed in
+    ok   tab B has still not adopted it after the refresh
+    ok   tab B shows the login form
+    ok   tab B was not reloaded
+    ok   tab B sent no request carrying a token
+  => pass (12 s)
+
+[7] Simultaneous refresh
+    ok   tab A completes a data request on the stored token
+    ok   tab A: the session is the same one
+    ok   tab A is signed in
+    ok   tab B completes a data request on the stored token
+    ok   tab B: the session is the same one
+    ok   tab B is signed in
+    ok   both forced 401s were for requests carrying the access token of the starting generation
+    ok   no refresh was sent before a forced 401 was delivered
+    ok   both forced 401s were delivered before the first refresh was answered
+    ok   every refresh presented the starting refresh token and was answered 200 with the next generation (one rotation; the other tab adopted or recovered)
+    ok   the generation advanced by exactly one
+    ok   both tabs continue on the same generation and the same refresh token
+    ok   tab A's refused request was sent again and answered
+    ok   tab B's refused request was sent again and answered
+  => pass (32 s)
+
+[8] Use past real expiry
+    ok   at least twelve uses completed
+    ok   the session is the same one
+    ok   the generation advanced at least three times
+    ok   tab A is signed in
+    ok   tab B is signed in
+  => pass (74 s)
+
+[9] Holder paused, resumed inside grace
+    ok   tab A stood still while paused (20 ms counter advanced by at most 3)
+    ok   tab A's held refresh was sent and the server answered it
+    ok   the held refresh presented the superseded token
+    ok   the held token was released inside its grace (5000 ms)
+    ok   the server answered the held refresh 200
+    ok   tab A completes a data request on the stored token
+    ok   tab A: the session is the same one
+    ok   tab A is signed in
+    ok   tab B completes a data request on the stored token
+    ok   tab B: the session is the same one
+    ok   tab B is signed in
+    ok   the stored generation is past the one tab A held
+  => pass (34 s)
+
+[10] Holder paused, resumed after grace
+    ok   tab A stood still while paused (20 ms counter advanced by at most 3)
+    ok   tab A's held refresh was sent and the server answered it
+    ok   the held refresh presented the superseded token
+    ok   the held token was released after its grace (5000 ms)
+    ok   the server answered the held refresh 401
+    ok   tab A shows the login page
+    ok   tab B shows the login page
+    ok   the stored record is signed-out
+    ok   the server rejects the access token that was current (session revoked)
+  => pass (34 s)
+
+[11] Holder paused, resumed after further rotations
+    ok   (a) tab A stood still while paused (20 ms counter advanced by at most 3)
+    ok   (a) tab A's held refresh was sent and the server answered it
+    ok   (a) the held refresh presented the superseded token
+    ok   (a) the held token was released inside its grace (5000 ms)
+    ok   (a) the server answered the held refresh 200
+    ok   (a) tab A completes a data request on the stored token
+    ok   (a) tab A: the session is the same one
+    ok   (a) tab A is signed in
+    ok   (a) tab B completes a data request on the stored token
+    ok   (a) tab B: the session is the same one
+    ok   (a) tab B is signed in
+    ok   (a) the stored generation is past the one tab A held
+    ok   (a) two rotations had happened
+    ok   (b) tab A stood still while paused (20 ms counter advanced by at most 3)
+    ok   (b) tab A's held refresh was sent and the server answered it
+    ok   (b) the held refresh presented the superseded token
+    ok   (b) the held token was released after its grace (5000 ms)
+    ok   (b) the server answered the held refresh 401
+    ok   (b) tab A shows the login page
+    ok   (b) tab B shows the login page
+    ok   (b) the stored record is signed-out
+    ok   (b) the server rejects the access token that was current (session revoked)
+  => pass (69 s)
+
+[12] Tab paused mid-transaction
+    ok   (read) tab A stood still while paused (20 ms counter advanced by at most 3)
+    ok   (read) tab C's gate read ended at the timeout while the store was blocked
+    ok   (read) tab C sent no data request while blocked
+    ok   (read) the record is unchanged after release
+    ok   (read) tab C is still signed in
+    ok   (read) tab C's next data request succeeds
+    ok   (write) tab A stood still while paused (20 ms counter advanced by at most 3)
+    ok   (write) tab B's publication write ended at the timeout while the store was blocked
+    ok   (write) nothing was committed after release: same revision
+    ok   (write) nothing was committed after release: same session
+  => pass (32 s)
+
+[13] IndexedDB unavailable
+    ok   no IndexedDB, /login: the fail-closed message is shown
+    ok   no IndexedDB, /login: no login form is shown
+    ok   no IndexedDB, /login: the signed-in application is not shown
+    ok   no IndexedDB, /login: no authenticated request was sent
+    ok   no IndexedDB, /dashboard: the fail-closed message is shown
+    ok   no IndexedDB, /dashboard: no login form is shown
+    ok   no IndexedDB, /dashboard: the signed-in application is not shown
+    ok   no IndexedDB, /dashboard: no authenticated request was sent
+    ok   stored session, tab without IndexedDB: the fail-closed message is shown
+    ok   stored session, tab without IndexedDB: no login form is shown
+    ok   stored session, tab without IndexedDB: the signed-in application is not shown
+    ok   stored session, tab without IndexedDB: no authenticated request was sent
+  => pass (15 s)
+
+[14] Old bundle
+    ok   sign-in: refused with 426 and the reload code
+    ok   sign-in: the refusal carries no token
+    ok   sign-in: the refused call created no session
+    ok   sign-in: the same body with the marker signs in
+    ok   sign-in: that sign-in is the one session added
+    ok   refresh: refused with 426 and the reload code
+    ok   refresh: the refusal carries no token
+    ok   refresh: after grace + 3 s the same token, marked, rotates to G + 1
+    ok   refresh: with a different refresh token
+    ok   refresh: the next rotation gives exactly G + 2
+    ok   refresh: /auth/me answers 200 with the newest access token
+    ok   registration: refused with 426 and the reload code
+    ok   registration: the refusal carries no token
+    ok   registration: no such user exists: signing in as it answers 401
+  => pass (12 s)
+
+[15] Resume without a channel message
+    ok   visibilitychange: tab B shows the login page
+    ok   visibilitychange: tab B's draft is gone
+    ok   visibilitychange: tab B was not reloaded
+    ok   visibilitychange: tab B sent no request between the sign-out and its redirect
+    ok   pageshow: tab B shows the login page
+    ok   pageshow: tab B's draft is gone
+    ok   pageshow: tab B was not reloaded
+    ok   pageshow: tab B sent no request between the sign-out and its redirect
+  => pass (85 s)
+
+[16] A token that expires while the ingress delays the request
+    ok   an access token valid when sent had expired when its delayed request reached the backend, and the tab recovered by itself within the recorded deadline
+  => pass (767 s)
+
+[17] Sign-out under induced delay
+    N=5 attempt 1: pass - 9 request(s) of the application were pending when the sign-out was initiated and were being delayed by the limiter: 8 cancelled by the sign-out, 1 answered; the logout was answered 2xx and all 5 tabs reached the login page without a reload and without stale data
+    ok   N = 5: a data request of the application was pending and delayed by the limiter when a tab signed out (induced delay); the logout was answered 2xx and every tab reached the login page without a reload and without stale data
+    N=10 attempt 1: pass - 6 request(s) of the application were pending when the sign-out was initiated and were being delayed by the limiter: 6 cancelled by the sign-out, 0 answered; the logout was answered 2xx and all 10 tabs reached the login page without a reload and without stale data
+    ok   N = 10: a data request of the application was pending and delayed by the limiter when a tab signed out (induced delay); the logout was answered 2xx and every tab reached the login page without a reload and without stale data
+    N=20 attempt 1: pass - 20 request(s) of the application were pending when the sign-out was initiated and were being delayed by the limiter: 19 cancelled by the sign-out, 1 answered; the logout was answered 2xx and all 20 tabs reached the login page without a reload and without stale data
+    ok   N = 20: a data request of the application was pending and delayed by the limiter when a tab signed out (induced delay); the logout was answered 2xx and every tab reached the login page without a reload and without stale data
+  => pass (151 s)
+
+[W1] Restored window
+    N=5 (a) blocking: session zone 0 request(s) (refresh 0, logout 0, me 0), 429s 0, peak accumulated demand 0 against burst 20; usable 5/5; complete on first load 5/5; recovery actions 0 (most for one tab 0); complete after 5129 ms of 5000 ms; business-endpoint 429s 0 of 45
+      company data on the first request 5, after the session's renewal 0, by the application's retry after a 429 0, retries used up 0; regional request refused 0 (formats wrong in 0); needed manual recovery 0; not usable 0
+    N=5 (b) blocking: session zone 1 request(s) (refresh 1, logout 0, me 0), 429s 0, peak accumulated demand 1 against burst 20; usable 5/5; complete on first load 5/5; recovery actions 0 (most for one tab 0); complete after 6939 ms of 5000 ms; business-endpoint 429s 0 of 90
+      company data on the first request 0, after the session's renewal 5, by the application's retry after a 429 0, retries used up 0; regional request refused 0 (formats wrong in 0); needed manual recovery 0; not usable 0
+    N=5 (c) blocking: session zone 2 request(s) (refresh 1, logout 1, me 0), 429s 0, peak accumulated demand 1.229 against burst 20; on the login page without a reload 5/5; still loading at the sign-out 0/5; business-endpoint 429s 0 of 80
+    N=10 (a) blocking: session zone 0 request(s) (refresh 0, logout 0, me 0), 429s 0, peak accumulated demand 0 against burst 20; usable 10/10; complete on first load 10/10; recovery actions 0 (most for one tab 0); complete after 9833 ms of 10000 ms; business-endpoint 429s 0 of 90
+      company data on the first request 10, after the session's renewal 0, by the application's retry after a 429 0, retries used up 0; regional request refused 0 (formats wrong in 0); needed manual recovery 0; not usable 0
+    N=10 (b) blocking: session zone 1 request(s) (refresh 1, logout 0, me 0), 429s 0, peak accumulated demand 1 against burst 20; usable 10/10; complete on first load 10/10; recovery actions 0 (most for one tab 0); complete after 15322 ms of 10000 ms; business-endpoint 429s 0 of 180
+      company data on the first request 0, after the session's renewal 10, by the application's retry after a 429 0, retries used up 0; regional request refused 0 (formats wrong in 0); needed manual recovery 0; not usable 0
+    N=10 (c) blocking: session zone 1 request(s) (refresh 0, logout 1, me 0), 429s 0, peak accumulated demand 1 against burst 20; on the login page without a reload 10/10; still loading at the sign-out 2/10; business-endpoint 429s 0 of 90
+    N=20 (a) blocking: session zone 1 request(s) (refresh 1, logout 0, me 0), 429s 0, peak accumulated demand 1 against burst 20; usable 20/20; complete on first load 20/20; recovery actions 0 (most for one tab 0); complete after 24022 ms of 15000 ms; business-endpoint 429s 0 of 257
+      company data on the first request 12, after the session's renewal 8, by the application's retry after a 429 0, retries used up 0; regional request refused 0 (formats wrong in 0); needed manual recovery 0; not usable 0
+    N=20 (b) blocking: session zone 1 request(s) (refresh 1, logout 0, me 0), 429s 0, peak accumulated demand 1 against burst 20; usable 20/20; complete on first load 20/20; recovery actions 0 (most for one tab 0); complete after 20626 ms of 15000 ms; business-endpoint 429s 0 of 183
+      company data on the first request 20, after the session's renewal 0, by the application's retry after a 429 0, retries used up 0; regional request refused 0 (formats wrong in 0); needed manual recovery 0; not usable 0
+    N=20 (c) blocking: session zone 2 request(s) (refresh 1, logout 1, me 0), 429s 0, peak accumulated demand 1 against burst 20; on the login page without a reload 20/20; still loading at the sign-out 12/20; business-endpoint 429s 0 of 132
+    ok   N = 5 (a): no 429 on refresh, logout or me
+    ok   N = 5 (a): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)
+    ok   N = 5 (a): no in-app recovery action
+    ok   N = 5 (b): no 429 on refresh, logout or me
+    ok   N = 5 (b): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)
+    ok   N = 5 (b): no in-app recovery action
+    ok   N = 5 (a): the access token was current when the tabs opened
+    ok   N = 5 (b): every tab did start with an expired access token
+    ok   N = 5 (c) attempt 1: no 429 on refresh, logout or me
+    ok   N = 5 (c) attempt 1: the sign-out sent a logout and it was answered 2xx
+    ok   N = 5 (c) attempt 1: every tab is on the login page after the sign-out, without a reload
+    ok   N = 10 (a): no 429 on refresh, logout or me
+    ok   N = 10 (a): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)
+    ok   N = 10 (a): no in-app recovery action
+    ok   N = 10 (b): no 429 on refresh, logout or me
+    ok   N = 10 (b): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)
+    ok   N = 10 (b): no in-app recovery action
+    ok   N = 10 (a): the access token was current when the tabs opened
+    ok   N = 10 (b): every tab did start with an expired access token
+    ok   N = 10 (c) attempt 1: no 429 on refresh, logout or me
+    ok   N = 10 (c) attempt 1: the sign-out sent a logout and it was answered 2xx
+    ok   N = 10 (c) attempt 1: every tab is on the login page after the sign-out, without a reload
+    ok   N = 20 (a): no 429 on refresh, logout or me
+    ok   N = 20 (a): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)
+    ok   N = 20 (a): no in-app recovery action
+    ok   N = 20 (b): no 429 on refresh, logout or me
+    ok   N = 20 (b): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)
+    ok   N = 20 (b): no in-app recovery action
+    ok   N = 20 (a): the access token was current when the tabs opened
+    ok   N = 20 (b): every tab did start with an expired access token
+    ok   N = 20 (c) attempt 1: no 429 on refresh, logout or me
+    ok   N = 20 (c) attempt 1: the sign-out sent a logout and it was answered 2xx
+    ok   N = 20 (c) attempt 1: every tab is on the login page after the sign-out, without a reload
+  => pass (765 s)
+
+18 of 18 passed; sign-in waits 2; wrote /scratch/results-cases.json
+ Container erp_frontend Running 
+ Container erp_nginx Running 
+ Container erp_postgres Running 
+ Container erp_redis Running 
+ Container erp_backend Recreate 
+ Container erp_backend Recreated 
+ Container erp_postgres Waiting 
+ Container erp_redis Waiting 
+ Container erp_redis Healthy 
+ Container erp_postgres Healthy 
+ Container erp_backend Starting 
+ Container erp_backend Started 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_backend Waiting 
+ Container erp_frontend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Healthy 
+restore ok (access=15m, grace=60)
+M1: one raw read, one tab idle
+M2: one raw read, four tabs busy, a fifth writing every 100 ms
+M3-M5: oneTab
+M3-M5: fourTabs
+  ok   M1 (blocking): median p95 2.1 ms, threshold 5 ms, max 15.5 ms
+  ok   M2 (blocking): median p95 4.2 ms, threshold 15 ms, max 23.1 ms
+  diag M3 one tab (diagnostic, not judged): median p95 58.8 ms, max 102.6 ms; former provisional target 10 ms, not met
+  diag M3 four tabs (diagnostic, not judged): median p95 312.4 ms, max 925.2 ms; former provisional target 20 ms, not met
+  diag M4 one tab (diagnostic, not judged): median p95 74.3 ms, max 129 ms; former provisional target 10 ms, not met
+  diag M4 four tabs (diagnostic, not judged): median p95 618.3 ms, max 947.6 ms; former provisional target 20 ms, not met
+  The 10 / 20 ms targets for M3 and M4 were provisional and were replaced on 2026-10-06, not met. Run 582096992 failed them: M3 99 / 330.1 ms, M4 205.3 / 603.3 ms (one tab / four tabs), exit status 1.
+  measured loads answered 429: 0 of 125 (one tab), 0 of 500 (four tabs)
+  M5 (diagnostic): Requests on a page overlap, so the sum of their gate waits is not the time the gate adds to the page load; it is an upper bound on it.
+wrote /scratch/results-latency.json
+
+=== cross-tab session run ===
+commit 547daacbabc81567c087b7b538e3ca9ff73812c8   exit status 0   stack restored: yes
+  before access 15m, grace 60, build 26f8645842b04992336bd70aff217349f31a353c
+  during access 20s, grace 5, build 547daacbabc81567c087b7b538e3ca9ff73812c8
+  after  access 15m, grace 60, build 547daacbabc81567c087b7b538e3ca9ff73812c8
+  case  1 pass  Two-tab sign-out
+  case  2 pass  Stale write-back
+  case  3 pass  Drafts
+  case  4 pass  Reload and session restore
+  case  5 pass  User switch
+  case  6 pass  Same-user sign-out and sign-in
+  case  7 pass  Simultaneous refresh
+  case  8 pass  Use past real expiry
+  case  9 pass  Holder paused, resumed inside grace
+  case 10 pass  Holder paused, resumed after grace
+  case 11 pass  Holder paused, resumed after further rotations
+  case 12 pass  Tab paused mid-transaction
+  case 13 pass  IndexedDB unavailable
+  case 14 pass  Old bundle
+  case 15 pass  Resume without a channel message
+  case 16 pass  A token that expires while the ingress delays the request
+  case 17 pass  Sign-out under induced delay
+  17 of 17 cases passed
+  capture usable   case16-1 (attempt 1)
+  capture usable   case16-2 (attempt 2)
+  W1 pass  as a non-administrator (role sales_staff, 15 pages)
+     N=5 (a) blocking: session zone 0 request(s) (refresh 0, logout 0, me 0), 429s 0, peak accumulated demand 0 against burst 20; usable 5/5; complete on first load 5/5; recovery actions 0 (most for one tab 0); complete after 5129 ms of 5000 ms; business-endpoint 429s 0 of 45
+     N=5 (b) blocking: session zone 1 request(s) (refresh 1, logout 0, me 0), 429s 0, peak accumulated demand 1 against burst 20; usable 5/5; complete on first load 5/5; recovery actions 0 (most for one tab 0); complete after 6939 ms of 5000 ms; business-endpoint 429s 0 of 90
+     N=5 (c) blocking: session zone 2 request(s) (refresh 1, logout 1, me 0), 429s 0, peak accumulated demand 1.229 against burst 20; on the login page without a reload 5/5; still loading at the sign-out 0/5; business-endpoint 429s 0 of 80
+     N=10 (a) blocking: session zone 0 request(s) (refresh 0, logout 0, me 0), 429s 0, peak accumulated demand 0 against burst 20; usable 10/10; complete on first load 10/10; recovery actions 0 (most for one tab 0); complete after 9833 ms of 10000 ms; business-endpoint 429s 0 of 90
+     N=10 (b) blocking: session zone 1 request(s) (refresh 1, logout 0, me 0), 429s 0, peak accumulated demand 1 against burst 20; usable 10/10; complete on first load 10/10; recovery actions 0 (most for one tab 0); complete after 15322 ms of 10000 ms; business-endpoint 429s 0 of 180
+     N=10 (c) blocking: session zone 1 request(s) (refresh 0, logout 1, me 0), 429s 0, peak accumulated demand 1 against burst 20; on the login page without a reload 10/10; still loading at the sign-out 2/10; business-endpoint 429s 0 of 90
+     N=20 (a) blocking: session zone 1 request(s) (refresh 1, logout 0, me 0), 429s 0, peak accumulated demand 1 against burst 20; usable 20/20; complete on first load 20/20; recovery actions 0 (most for one tab 0); complete after 24022 ms of 15000 ms; business-endpoint 429s 0 of 257
+     N=20 (b) blocking: session zone 1 request(s) (refresh 1, logout 0, me 0), 429s 0, peak accumulated demand 1 against burst 20; usable 20/20; complete on first load 20/20; recovery actions 0 (most for one tab 0); complete after 20626 ms of 15000 ms; business-endpoint 429s 0 of 183
+     N=20 (c) blocking: session zone 2 request(s) (refresh 1, logout 1, me 0), 429s 0, peak accumulated demand 1 against burst 20; on the login page without a reload 20/20; still loading at the sign-out 12/20; business-endpoint 429s 0 of 132
+     N=5 (a): company data by the application's retry after a 429: 0, retries used up: 0; needed manual recovery 0; not usable 0
+     N=5 (b): company data by the application's retry after a 429: 0, retries used up: 0; needed manual recovery 0; not usable 0
+     N=10 (a): company data by the application's retry after a 429: 0, retries used up: 0; needed manual recovery 0; not usable 0
+     N=10 (b): company data by the application's retry after a 429: 0, retries used up: 0; needed manual recovery 0; not usable 0
+     N=20 (a): company data by the application's retry after a 429: 0, retries used up: 0; needed manual recovery 0; not usable 0
+     N=20 (b): company data by the application's retry after a 429: 0, retries used up: 0; needed manual recovery 0; not usable 0
+     W1 shows that the tabs of a restored window coordinate their refresh, that a restored window puts little load on session_limit, and that at 5, 10, 20 tabs every tab reaches its expected data without the user acting. How long that takes is reported and does not block. It does not measure the capacity of that zone, which is never approached, and it does not establish how many tabs a restored window can hold: that is bounded by the general api_limit (issue #1353).
+     (not blocking) N=5 (a): the last tab held its expected data after 5129 ms, against a deadline of 5000 ms (polled every 250 ms) - diagnostic at this size, not a failed check; tracked in #1359
+     (not blocking) N=5 (b): the last tab held its expected data after 6939 ms, against a deadline of 5000 ms (polled every 250 ms) - diagnostic at this size, not a failed check; tracked in #1359
+     (not blocking) N=5 (c): 44 data request(s) failed without an answer: net::ERR_ABORTED
+     (not blocking) N=5 (c): the sign-out overlapped a request the limiter was delaying
+     (not blocking) N=10 (b): the last tab held its expected data after 15322 ms, against a deadline of 10000 ms (polled every 250 ms) - diagnostic at this size, not a failed check; tracked in #1359
+     (not blocking) N=10 (c): 37 data request(s) failed without an answer: net::ERR_ABORTED
+     (not blocking) N=10 (c): the sign-out overlapped a request the limiter was delaying
+     (not blocking) N=20 (a): the last tab held its expected data after 24022 ms, against a deadline of 15000 ms (polled every 250 ms) - diagnostic at this size, not a failed check; tracked in #1359
+     (not blocking) N=20 (b): the last tab held its expected data after 20626 ms, against a deadline of 15000 ms (polled every 250 ms) - diagnostic at this size, not a failed check; tracked in #1359
+     (not blocking) N=20 (c): 21 data request(s) failed without an answer: net::ERR_ABORTED
+     (not blocking) N=20 (c): the sign-out overlapped a request the limiter was delaying
+  latency pass (M1 and M2 only; M3 and M4 are diagnostic and were not judged)
+     ok   M1 (blocking): median p95 2.1 ms, threshold 5 ms, max 15.5 ms
+     ok   M2 (blocking): median p95 4.2 ms, threshold 15 ms, max 23.1 ms
+     diag M3 one tab (diagnostic, not judged): median p95 58.8 ms, max 102.6 ms; former provisional target 10 ms, not met
+     diag M3 four tabs (diagnostic, not judged): median p95 312.4 ms, max 925.2 ms; former provisional target 20 ms, not met
+     diag M4 one tab (diagnostic, not judged): median p95 74.3 ms, max 129 ms; former provisional target 10 ms, not met
+     diag M4 four tabs (diagnostic, not judged): median p95 618.3 ms, max 947.6 ms; former provisional target 20 ms, not met
+     The 10 / 20 ms targets for M3 and M4 were provisional and were replaced on 2026-10-06, not met. Run 582096992 failed them: M3 99 / 330.1 ms, M4 205.3 / 603.3 ms (one tab / four tabs), exit status 1.
+     (not blocking) M3 one tab: max 102.6 ms
+     (not blocking) M3 four tabs: max 925.2 ms
+     (not blocking) M4 one tab: max 129 ms
+     (not blocking) M4 four tabs: max 947.6 ms
+     measured loads answered 429: 0 of 125 (one tab), 0 of 500 (four tabs)
+     competing workload: No container was restarting on the host when the list was taken.
+  sign-in waits: 2   results: /scratch/results.json
+run complete: status=0; results in /tmp/opencode/erp-session-qa/results.json

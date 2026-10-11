@@ -2622,3 +2622,153 @@ T2 the log, the results with the traces, the ingress log and the stack's
 configuration before, during and after. The original run's records and the
 server's rows are in `original-run-W1-429/` there. The README of that
 directory gives the commands that read the figures above back.
+
+## Recorded run on `547daacba` (#1363, 2026-10-11): exit status 0
+
+The run #1363 was left open for: the whole suite on the merged commit, with
+cases 1, 3 and 8 assessed against the criteria they were given in #1379 and
+#1367. `547daacba` is `main` after PR #1382 and PR #1384; it differs from
+`b2195dea6` in documentation only.
+
+A full recorded run, 17:00:43 to 17:43:21 (+08:00): the suite from the
+repository at HEAD, no `QA_SUITE_OVERRIDE`, no `QA_ONLY`, access lifetime 20 s
+and grace 5 during. Chromium 153.0.8010.12, the QA host. One attempt was
+agreed beforehand, with the rule that an exit status other than 0, for any
+reason, would leave #1363 open.
+
+**17 of 17 cases passed, W1 passed, and M1 and M2 passed.**
+
+### An interrupted attempt before it, on the same commit
+
+An earlier invocation, started at 16:53:04 with the same suite and no override
+or selection, was terminated while the frontend image was being built. Its log
+ends with `Terminated`, the stack's containers coming back, and `restore ok
+(access=15m, grace=60)`.
+
+- No case ran, W1 did not run and nothing was measured.
+- It wrote no `results.json`, and its exit status and the time it ended were
+  not captured. Neither is inferred here.
+- What terminated it is not established.
+- `stack.sh show`, read before the run below, gave 15m / 60.
+
+It provides no evidence about any case's outcome or about #1363's gate. What it
+does document is an interruption and the restore that followed it. Its
+`meta.txt` and `run.log` are kept as they were written
+(`evidence/1363/interrupted-attempt/`, redacted as below). It was agreed not to
+count as the one attempt.
+
+### What was checked before the result was accepted
+
+An exit status of 0 was not taken as enough. Each of these was read from the
+run's files:
+
+| Condition | Where it is read | Value |
+|---|---|---|
+| The commit tested is the intended one | `results.json` `commit`, `git rev-parse HEAD` before the run | `547daacba…`, equal to `origin/main` |
+| The served build was that commit | `results.json` `servedBuild`, `servedFrom`; `stack-during.json` | `547daacba…`, from the ingress |
+| It was rebuilt for this run | `stack-show-before.json` against `stack-during.json` | served `26f864584` before; frontend and backend image ids changed |
+| No override, no selection | `results.json` `partial`; the invoking script unset both variables | `false` |
+| The run completed | `results.json` `completed`, `aborted`, `exitStatus` | `true`, `null`, `0` |
+| QA lifetimes during | `stack-during.json`; `verify ok: observed access lifetime 20 s` in the log | 20s / 5 |
+| The stack was restored | `results.json` `stackRestored`, `restoreFailure`; `stack-show-after-exit.json`, read after the script had exited | `true`, `null`; 15m / 60 |
+
+The images were not put back: the stack has served `547daacba` since.
+
+### Cases 1 and 3 against the #1379 lines
+
+Both cases passed every line, the two added by #1379 included.
+
+| | Case 1 | Case 3 |
+|---|---|---|
+| A session-channel message reached tab B after the sign-out began and before its redirect | message at 543 ms, redirect at 652 ms | message at 503 ms, redirect at 553 ms |
+| Tab B's next status poll was not yet due when it was redirected | last poll 704 ms before the sign-out, next due at 29.3 s, margin 2 s | last poll 751 ms before, next due at 29.2 s, margin 2 s |
+| Tab B sent no request between the sign-out and its redirect | none | none |
+| Tab B not reloaded | pass | pass |
+
+Tab B had one channel open in each case. This is the first whole recorded run
+with the two lines in the suite; the statement in "Cases 1 and 3 after the
+assessment" that the cases had not been run as part of one was true when
+written and is no longer.
+
+What these passes show is what that section says and no more: the message was
+delivered before B left, and nothing of B's own was due that could have told it
+instead. **That the message's handler is what redirected tab B is still
+inferred, not observed.**
+
+### Case 8 against the #1367 line
+
+Passed, every line. The rotation line now says how the uses stopped:
+`stopped: "the third rotation was seen"`, `lifetimesUsed: 3.5` against a bound
+of 6, 14 uses, generation 1 to 4, three refreshes answered 200 (two sent by tab
+A, one by tab B), no failed use.
+
+**This run did not enter the extension.** The third rotation had arrived by
+three and a half lifetimes, as in every recorded run before it.
+
+### W1 and latency
+
+W1, as a non-administrator (`sales_staff`, 15 pages): 33 blocking checks, none
+failed, at 5, 10 and 20 tabs. Every tab usable and complete on first load, no
+recovery action, no 429 on a session route (at most two requests to that zone
+in a round), every tab on the login page without a reload after the sign-out,
+no business 429 (0 of 45, 90, 80, 90, 180, 90, 257, 183, 132). Not blocking,
+reported: the last tab held its data after 5.1 and 6.9 s at five tabs, 9.8 and
+15.3 s at ten, 24.0 and 20.6 s at twenty, against 5, 10 and 15 s (#1359); the
+sign-out overlapped a request the limiter was delaying at all three sizes.
+
+| | `547daacba` |
+|---|---|
+| M1, median p95 (threshold 5 ms) | 2.1 ms |
+| M2, median p95 (threshold 15 ms) | 4.2 ms |
+| M3, one / four tabs (diagnostic) | 58.8 / 312.4 ms |
+| M4, one / four tabs (diagnostic) | 74.3 / 618.3 ms |
+| One-minute load average | 0.82 at the start, 7.19 at the end (recorded by the invoking script) |
+| Containers restarting before the measurement | none |
+
+Both capture segments of case 16 were usable. Two sign-ins waited on
+`login_limit`. The ingress log has fourteen 429s, every one refused by
+`limit_req`: two `POST /api/auth/login`, and twelve in one second inside case
+17's induced delay (nine of the harness's fill requests and three of the
+application's: suppliers, dashboard statistics and the login page's hint).
+`loginZone429` is 3 because the harness still counts the hint with the sign-in
+routes. No case reported an unexpected 429.
+
+### Against #1363's acceptance, and what closing it means
+
+- **Cases 1 and 3, (a) the channel not delivering:** run A and run PA (partial
+  runs, above). Unchanged by this run.
+- **Cases 1 and 3, (b) a request before the redirect: met only in part, as
+  before.** The line failed on a request the harness sent (B2) and has not been
+  seen to fail on a request the application sent (B1). This run does not change
+  that: the application sent none here either.
+- **W1:** the passing baseline through the override path (G2) and one forced
+  failure for each of the eight blocking checks are recorded in "W1: one run
+  per blocking check", all on `5102cbaff`, all partial runs. This run adds a
+  pass of the same 33 checks from the repository's suite on the merged commit;
+  it adds no forced failure and none was asked of it. The limit recorded there
+  stands: for the login-page check, "without a reload" was failed alone, and
+  "on the login page" was failed only together with it.
+- **Recorded as partial runs, the stack restored after each:** as in those
+  sections.
+- **A check that cannot be made to fail is reported, not removed:** none was
+  removed. The one condition the application could not be made to produce is
+  (b).
+- **The remaining gate, a full recorded run on the merged commit with cases 1,
+  3 and 8 assessed against their revised criteria:** this run.
+
+**Closing #1363 on this run means that gate was met with these limits kept. It
+does not mean the gaps were closed.** Still open, each as it was:
+
+1. The line "tab B sent no request between the sign-out and its redirect" has
+   not been seen to fail on a request the application sent, only on one the
+   harness sent.
+2. No whole recorded run has entered case 8's extension past 3.5 lifetimes,
+   this one included; the one run that did (E8) placed the uses through the
+   harness.
+3. The session ending of #1378 was observed once and not reproduced.
+4. That the channel message's handler is what redirects tab B is inferred.
+
+The evidence is in the repository, under `docs/modules/auth/evidence/1363/`:
+the run's log, results, ingress access and error logs and the stack's
+configuration before, during, after and read again after exit; and the
+interrupted attempt's two files. Its README says what was redacted.
