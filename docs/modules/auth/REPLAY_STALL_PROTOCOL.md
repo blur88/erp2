@@ -296,8 +296,8 @@ whichever is used by what it is.
   #1371; session commits `6119f74a0`, `8d63e763d`, `980e9fb35`, `9cf989e3d`),
   keeping the trace the judge needs. Before it is used it is **verified** that
   the reverted code restores the pre-fix behaviour: a refresh answered 200 whose
-  commit times out is dropped, the lease is released, and the tab is left with
-  the superseded token. The record lists what was reverted and the resulting
+  commit times out is dropped, the tab gives up the lease, and storage is left
+  with the superseded token. The record lists what was reverted and the resulting
   diff against pinned `main`.
 - **Only if a narrow revert is not viable:** pinned `main` with all of
   `frontend/src` set back to `e434e39b7`, used only after every difference it
@@ -314,6 +314,37 @@ whichever is used by what it is.
   comparison is inconclusive, and the expansion is written here before it runs.
 - If the unfixed half times out but never replays, the harness is validated
   **for the timeout path only**; its ability to expose a replay stays unproven.
+
+### The control as built (2026-10-12)
+
+The narrow revert was viable. Branch `qa/1370-control-unfixed`, commit
+`647931b01`: `git revert` of `9cf989e3d`, `980e9fb35`, `8d63e763d` and
+`6119f74a0` applied with no conflict, with the trace kept. Against the evidence
+branch it differs in eight files, all under `frontend/src/session/` (the
+runtime, `decisions.ts`, the in-memory test store, and their tests); the
+reverted runtime differs from `e434e39b7`'s by 18 lines, which are the later
+#1362 fix. It is labelled **"pinned `main` with the #1358 fix reverted"**, not
+`e434e39b7`.
+
+- **Verified:** `src/session/__tests__/runtime.control1370.test.ts` passes on the
+  control branch and fails on the evidence branch (two commit attempts where the
+  control makes one). It shows one commit attempt ending in `timeout`, no
+  pending entry, generation 1 still stored, and the next tab presenting
+  generation 1 and being refused as replay.
+- **A correction the verification forced:** under a store that is still held,
+  the pre-fix code does not release the lease. The release is attempted behind
+  the same hold and fails (`lease-release`, outcome `failed`), and the lease is
+  left to expire after its 20 s. "The lease is released" in earlier wording was
+  wrong for this case.
+- **Full frontend gate on the control branch:** `npm run lint` passed,
+  `npm run type-check` passed, `npm run test` passed with 289 files and 3335
+  tests, exit 0, in 1139 s. **Expected failures: none**, because the revert
+  also reverted the fix's own tests (`runtime.pendingCommit.test.ts` is removed
+  and three test files are restored to their earlier form). **Unexpected
+  failures: none.**
+- The branch was cut from the evidence branch before the freeze. The evidence
+  branch is merged into it after the freeze, and `git diff` between the two over
+  `frontend/qa` and `docs` must be empty before the control runs.
 
 ## Reset and isolation
 
