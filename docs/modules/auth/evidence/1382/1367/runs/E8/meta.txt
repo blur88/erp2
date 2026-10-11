@@ -1,0 +1,4 @@
+name=E8 copy=c8-extension only=8
+commit=794d2e321b54f19120bfa7ee1fd631eccc21aaaf
+started=2026-10-11T14:45:41+08:00 load=4.44 3.24 2.19 free_kb=8916852
+ended=2026-10-11T14:50:26+08:00 status=0 load=5.85 3.48 2.46

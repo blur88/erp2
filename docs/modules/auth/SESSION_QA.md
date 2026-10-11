@@ -1656,9 +1656,9 @@ Against #1367's acceptance:
 Not established: the extension with uses the application's own timing placed,
 and the bound reached by anything but the harness.
 
-Kept outside the repository (`~/erp-qa-1367`): the expectations with their
-dated additions, each copy's diff, and each run's log, results, ingress log
-and stack configuration before, during and after.
+The evidence is in the repository, under `docs/modules/auth/evidence/1382/1367/`: the
+expectations with their dated additions, each copy's diff, and each run's
+log, results, ingress log and stack configuration before, during and after.
 
 ## What is automated
 
@@ -2428,9 +2428,9 @@ throttled, or in another browser process; behaviour when the sign-out's
 publication is delayed (case 17). The no-request line has still not been seen
 to fail on a request the application sent, which stays as #1363 left it.
 
-Kept outside the repository (`~/erp-qa-1379`): the expectations, the four
-copies' diffs, and each run's log, results, ingress log and stack
-configuration before, during and after.
+The evidence is in the repository, under `docs/modules/auth/evidence/1382/1379/`: the
+expectations, the four copies' diffs, and each run's log, results, ingress
+log and stack configuration before, during and after.
 
 ### W1: one run per blocking check
 
@@ -2616,7 +2616,9 @@ every config). A 429 that refused the refresh is surfaced as it is. Commit
   re-sends a config; that was checked by reading (`error.config` is used in
   `api.ts` and `retryOn429.ts` only), not by a test.
 
-Kept outside the repository (`~/erp-qa-1378`): the expectations with their
-dated additions, the mutation's diff, and for T1 and T2 the log, the results
-with the traces, the ingress log and the stack's configuration before, during
-and after.
+The evidence is in the repository, under `docs/modules/auth/evidence/1382/1378/`: the
+expectations with their dated additions, the mutation's diff, and for T1 and
+T2 the log, the results with the traces, the ingress log and the stack's
+configuration before, during and after. The original run's records and the
+server's rows are in `original-run-W1-429/` there. The README of that
+directory gives the commands that read the figures above back.

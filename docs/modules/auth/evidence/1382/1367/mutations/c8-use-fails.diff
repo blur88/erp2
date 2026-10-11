@@ -1,0 +1,28 @@
+diff -ru base/cases/refresh.mjs c8-use-fails/cases/refresh.mjs
+--- base/cases/refresh.mjs	2026-10-11 14:34:55.891047722 +0800
++++ c8-use-fails/cases/refresh.mjs	2026-10-11 14:34:56.016050325 +0800
+@@ -288,6 +288,16 @@
+       ctx.require('the access lifetime is the short QA one', lifetime <= 60, { accessSeconds: lifetime })
+       const { profile, a, b, stored } = await pair(ctx)
+       const before = summarize(stored)
++      // #1367: from the seventh use on, the harness answers every business
++      // request of both tabs 500, so that use cannot complete.
++      const fault = { on: false }
++      for (const page of [a, b]) {
++        await page.route('**/api/**', (route) => {
++          const path = new URL(route.request().url()).pathname
++          if (!fault.on || path.startsWith('/api/auth') || path.startsWith('/api/health')) return route.fallback()
++          return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ statusCode: 500, message: 'forced by the QA script (#1367)' }) })
++        })
++      }
+       const mark = profile.mark()
+       const startedAt = Date.now()
+       const atLeast = startedAt + lifetime * 3500
+@@ -297,6 +307,7 @@
+       let uses = 0
+       for (let i = 0; Date.now() < atMost; i += 1) {
+         if (Date.now() >= atLeast && (await rotations()) >= 3) break
++        if (uses === 6) fault.on = true
+         const started = Date.now()
+         await exercise(profile, i % 2 === 0 ? a : b)
+         uses += 1

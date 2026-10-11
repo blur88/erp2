@@ -1,0 +1,810 @@
+{
+  "suite": "cross-tab-session (#1345)",
+  "writtenAt": "2026-10-11T07:17:32.628Z",
+  "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+  "exitStatus": 1,
+  "completed": true,
+  "aborted": null,
+  "stackRestored": true,
+  "restoreFailure": null,
+  "configuration": {
+    "note": "What `stack.sh show` reported from inside the running backend. Evidence in its own right: .env is not covered by the commit.",
+    "before": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "during": {
+      "accessTokenExpiry": "20s",
+      "refreshGraceSeconds": "5",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "after": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    }
+  },
+  "chromium": "153.0.8010.12",
+  "machine": {
+    "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+    "cpuCount": 4,
+    "memoryGiB": 9.7,
+    "kernel": "6.8.0-138-generic",
+    "disks": [
+      {
+        "name": "sda",
+        "rotational": true,
+        "kind": "spinning disk"
+      }
+    ]
+  },
+  "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+  "servedFrom": "ingress",
+  "partial": "only 1, 3: not a recorded run",
+  "signInWaits": 0,
+  "loginZone429": 0,
+  "limits": {
+    "session": {
+      "rate": "1r/s",
+      "burst": 20
+    },
+    "login": {
+      "rate": "5r/m",
+      "burst": 3
+    }
+  },
+  "cases": [
+    {
+      "id": 1,
+      "name": "Two-tab sign-out",
+      "pass": false,
+      "seconds": 63,
+      "error": null,
+      "checks": [
+        {
+          "label": "tab A shows the login page",
+          "ok": true
+        },
+        {
+          "label": "tab B shows the login page within 5 s",
+          "ok": true
+        },
+        {
+          "label": "a session-channel message reached tab B after the sign-out began and before its redirect",
+          "ok": true,
+          "detail": {
+            "channelInTabB": true,
+            "channelsOpened": 1,
+            "receivedMsAfterSignOut": [
+              530
+            ],
+            "redirectMsAfterSignOut": 588
+          }
+        },
+        {
+          "label": "tab B's next status poll was not yet due when it was redirected",
+          "ok": false,
+          "detail": {
+            "lastPollMsBeforeSignOut": 27504,
+            "nextPollDueMsAfterSignOut": 2496,
+            "redirectMsAfterSignOut": 588,
+            "marginMs": 2000
+          }
+        },
+        {
+          "label": "tab B sent no request between the sign-out and its redirect",
+          "ok": true,
+          "detail": []
+        },
+        {
+          "label": "tab B no longer shows the signed-in application",
+          "ok": true
+        },
+        {
+          "label": "tab B was not reloaded",
+          "ok": true
+        },
+        {
+          "label": "the stored record is signed-out",
+          "ok": true,
+          "detail": {
+            "revision": 2,
+            "session": null,
+            "slicesSessionId": null,
+            "lease": null
+          }
+        }
+      ],
+      "unexpected429": [],
+      "recorded": {
+        "redirectSeen": true
+      },
+      "diagnosis": [
+        {
+          "tabs": [
+            {
+              "label": "A",
+              "url": "http://10.1.1.34/login",
+              "screenshot": "/scratch/fail-1-p1-A.png",
+              "consoleErrors": [
+                "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
+                "console: Loading the stylesheet 'https://fonts.googleapis.com/icon?family=Material+Icons' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action has been blocked."
+              ]
+            },
+            {
+              "label": "B",
+              "url": "http://10.1.1.34/login",
+              "screenshot": "/scratch/fail-1-p1-B.png",
+              "consoleErrors": [
+                "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
+                "console: Loading the stylesheet 'https://fonts.googleapis.com/icon?family=Material+Icons' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action has been blocked."
+              ]
+            }
+          ],
+          "lastRequests": [
+            "A GET /api/auth/show-default-credentials 200",
+            "A POST /api/auth/login 200",
+            "A GET /api/settings/regional 200",
+            "A GET /api/health 200",
+            "A GET /api/health/redis-alerts 200",
+            "A GET /api/settings/company 200",
+            "A GET /uploads/logos/logo-1773810603493-488262138.png 200",
+            "A GET /api/settings/default-currency 200",
+            "A GET /api/sales-orders 200",
+            "A GET /api/purchasing/orders 200",
+            "A GET /api/purchasing/suppliers 200",
+            "A GET /api/inventory/products/dashboard-stats 200",
+            "A GET /api/inventory/products/out-of-stock 200",
+            "A GET /api/payments 200",
+            "B GET /api/settings/regional 200",
+            "B GET /api/health 200",
+            "B GET /api/health/redis-alerts 200",
+            "B GET /api/settings/company 200",
+            "B GET /api/settings/default-currency 200",
+            "B GET /api/sales-orders 200",
+            "B GET /api/purchasing/orders 200",
+            "B GET /api/purchasing/suppliers 200",
+            "B GET /api/inventory/products/dashboard-stats 200",
+            "B GET /api/inventory/products/out-of-stock 200",
+            "B GET /api/payments 200",
+            "B GET /uploads/logos/logo-1773810603493-488262138.png 200",
+            "A GET /api/health 200",
+            "B GET /api/health 200",
+            "A POST /api/auth/logout 204",
+            "A GET /api/auth/show-default-credentials 200",
+            "B GET /api/auth/show-default-credentials 200"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Drafts",
+      "pass": false,
+      "seconds": 62,
+      "error": null,
+      "checks": [
+        {
+          "label": "tab B's draft is gone within 5 s",
+          "ok": true,
+          "detail": []
+        },
+        {
+          "label": "tab B shows the login page",
+          "ok": true
+        },
+        {
+          "label": "a session-channel message reached tab B after the sign-out began and before its redirect",
+          "ok": true,
+          "detail": {
+            "channelInTabB": true,
+            "channelsOpened": 1,
+            "receivedMsAfterSignOut": [
+              501
+            ],
+            "redirectMsAfterSignOut": 568
+          }
+        },
+        {
+          "label": "tab B's next status poll was not yet due when it was redirected",
+          "ok": false,
+          "detail": {
+            "lastPollMsBeforeSignOut": 27503,
+            "nextPollDueMsAfterSignOut": 2497,
+            "redirectMsAfterSignOut": 568,
+            "marginMs": 2000
+          }
+        },
+        {
+          "label": "tab B sent no request between the sign-out and its redirect",
+          "ok": true,
+          "detail": []
+        },
+        {
+          "label": "tab B was not reloaded",
+          "ok": true
+        }
+      ],
+      "unexpected429": [],
+      "recorded": {
+        "redirectSeen": true
+      },
+      "diagnosis": [
+        {
+          "tabs": [
+            {
+              "label": "A",
+              "url": "http://10.1.1.34/login",
+              "screenshot": "/scratch/fail-3-p1-A.png",
+              "consoleErrors": [
+                "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
+                "console: Loading the stylesheet 'https://fonts.googleapis.com/icon?family=Material+Icons' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action has been blocked."
+              ]
+            },
+            {
+              "label": "B",
+              "url": "http://10.1.1.34/login",
+              "screenshot": "/scratch/fail-3-p1-B.png",
+              "consoleErrors": [
+                "console: Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action",
+                "console: Loading the stylesheet 'https://fonts.googleapis.com/icon?family=Material+Icons' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action has been blocked."
+              ]
+            }
+          ],
+          "lastRequests": [
+            "A GET /api/auth/show-default-credentials 200",
+            "A POST /api/auth/login 200",
+            "A GET /api/settings/regional 200",
+            "A GET /api/health 200",
+            "A GET /api/health/redis-alerts 200",
+            "A GET /api/settings/company 200",
+            "A GET /uploads/logos/logo-1773810603493-488262138.png 200",
+            "A GET /api/settings/default-currency 200",
+            "A GET /api/sales-orders 200",
+            "A GET /api/purchasing/orders 200",
+            "A GET /api/purchasing/suppliers 200",
+            "A GET /api/inventory/products/dashboard-stats 200",
+            "A GET /api/inventory/products/out-of-stock 200",
+            "A GET /api/payments 200",
+            "B GET /api/settings/regional 200",
+            "B GET /api/health 200",
+            "B GET /api/health/redis-alerts 200",
+            "B GET /api/settings/company 200",
+            "B GET /api/settings/default-currency 200",
+            "B GET /api/sales-orders 200",
+            "B GET /api/purchasing/orders 200",
+            "B GET /api/purchasing/suppliers 200",
+            "B GET /api/inventory/products/dashboard-stats 200",
+            "B GET /api/inventory/products/out-of-stock 200",
+            "B GET /api/payments 200",
+            "B GET /uploads/logos/logo-1773810603493-488262138.png 200",
+            "A GET /api/health 200",
+            "B GET /api/health 200",
+            "A POST /api/auth/logout 204",
+            "A GET /api/auth/show-default-credentials 200",
+            "B GET /api/auth/show-default-credentials 200"
+          ]
+        }
+      ]
+    }
+  ],
+  "w1": null,
+  "captureSegments": [],
+  "latency": {
+    "suite": "cross-tab-session latency",
+    "measuredAt": "2026-10-11T07:17:31.617Z",
+    "base": "http://10.1.1.34",
+    "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+    "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+    "servedFrom": "ingress",
+    "chromium": "153.0.8010.12",
+    "machine": {
+      "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+      "cpuCount": 4,
+      "memoryGiB": 9.7,
+      "kernel": "6.8.0-138-generic",
+      "disks": [
+        {
+          "name": "sda",
+          "rotational": true,
+          "kind": "spinning disk"
+        }
+      ]
+    },
+    "configuration": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "criteria": {
+      "revisedOn": "2026-10-06",
+      "decidedBy": "the repository owner, after the recorded run on 582096992",
+      "blocking": {
+        "M1": {
+          "p95Ms": 5,
+          "what": "one raw read, one tab idle"
+        },
+        "M2": {
+          "p95Ms": 15,
+          "what": "one raw read in four tabs at once while a fifth writes"
+        },
+        "rule": "median p95 of 3 repetitions"
+      },
+      "diagnostic": {
+        "measurements": [
+          "M3",
+          "M4",
+          "M5"
+        ],
+        "statement": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before."
+      },
+      "preserved": "The hard gate and its transaction-completion semantics are unchanged. None of the simulated optimizations was implemented, and no read is resolved before its transaction completes.",
+      "formerProvisionalTargets": {
+        "status": "replaced, not met",
+        "statement": "The earlier M3 and M4 targets (p95 at most 10 ms in one tab, 20 ms in four) were provisional. They were replaced by the criteria above; they were NOT met, and a run that passes today has not met them either.",
+        "p95Ms": {
+          "M3": {
+            "oneTab": 10,
+            "fourTabs": 20
+          },
+          "M4": {
+            "oneTab": 10,
+            "fourTabs": 20
+          }
+        },
+        "runInWhichTheyFailed": {
+          "commit": "582096992",
+          "exitStatus": 1,
+          "medianP95Ms": {
+            "M1": 2.1,
+            "M2": 5.1,
+            "M3": {
+              "oneTab": 99,
+              "fourTabs": 330.1
+            },
+            "M4": {
+              "oneTab": 205.3,
+              "fourTabs": 603.3
+            }
+          },
+          "outcome": "M1 and M2 passed. M3 (99 / 330.1 ms) and M4 (205.3 / 603.3 ms), one tab / four tabs, failed the 10 / 20 ms targets, and the run exited with status 1."
+        }
+      }
+    },
+    "rule": "M1 and M2 block, each on the median p95 of 3 repetitions. M3, M4 and M5 are diagnostic and are not judged. Maxima and p99 are recorded and never block.",
+    "environment": {
+      "machine": {
+        "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+        "cpuCount": 4,
+        "memoryGiB": 9.7,
+        "kernel": "6.8.0-138-generic",
+        "disks": [
+          {
+            "name": "sda",
+            "rotational": true,
+            "kind": "spinning disk"
+          }
+        ]
+      },
+      "diskKinds": [
+        "sda: spinning disk"
+      ],
+      "chromium": "153.0.8010.12",
+      "accessTokenExpiry": "15m",
+      "requestsAnswered429DuringMeasuredLoads": {
+        "oneTab": {
+          "loads": 15,
+          "requests": 125,
+          "answered429": 0
+        },
+        "fourTabs": {
+          "loads": 60,
+          "requests": 500,
+          "answered429": 0
+        },
+        "any": false,
+        "total": 0
+      },
+      "competingWorkload": {
+        "captured": true,
+        "capturedBy": "run.sh, on the host, just before measure.mjs: docker ps --format '{{.Names}}\\t{{.Status}}'",
+        "containers": [
+          {
+            "name": "erp_backend",
+            "status": "Up 18 seconds (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_frontend",
+            "status": "Up 42 minutes (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_nginx",
+            "status": "Up 15 hours (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_redis",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_postgres",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "claude-usage-tracker",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "portainer_agent",
+            "status": "Up 3 days",
+            "restarting": false
+          }
+        ],
+        "restarting": [],
+        "note": "No container was restarting on the host when the list was taken."
+      }
+    },
+    "M1": {
+      "what": "one raw read, one tab idle; 500 sequential read-only transactions per repetition",
+      "repetitions": [
+        {
+          "n": 500,
+          "p50": 0.7,
+          "p95": 1.7,
+          "p99": 2.8,
+          "max": 5.7
+        },
+        {
+          "n": 500,
+          "p50": 0.7,
+          "p95": 1.6,
+          "p99": 3.1,
+          "max": 4.5
+        },
+        {
+          "n": 500,
+          "p50": 0.9,
+          "p95": 2.2,
+          "p99": 3.4,
+          "max": 5.1
+        }
+      ],
+      "medianP95Ms": 1.7,
+      "thresholdMs": 5,
+      "pass": true,
+      "maxMs": 5.7,
+      "p99Ms": [
+        2.8,
+        3.1,
+        3.4
+      ]
+    },
+    "M2": {
+      "what": "one raw read in four tabs at once (500 each per repetition) while a fifth tab commits a write every 100 ms",
+      "repetitions": [
+        {
+          "n": 2000,
+          "p50": 1.8,
+          "p95": 5,
+          "p99": 6.9,
+          "max": 10.1
+        },
+        {
+          "n": 2000,
+          "p50": 1.7,
+          "p95": 4.7,
+          "p99": 7.1,
+          "max": 51.3
+        },
+        {
+          "n": 2000,
+          "p50": 1.6,
+          "p95": 3.8,
+          "p99": 5.4,
+          "max": 7.8
+        }
+      ],
+      "medianP95Ms": 4.7,
+      "thresholdMs": 15,
+      "pass": true,
+      "maxMs": 51.3,
+      "p99Ms": [
+        6.9,
+        7.1,
+        5.4
+      ],
+      "writer": [
+        {
+          "commits": 11,
+          "failures": 0
+        },
+        {
+          "commits": 11,
+          "failures": 0
+        },
+        {
+          "commits": 9,
+          "failures": 0
+        }
+      ]
+    },
+    "M3": {
+      "what": "the adapter's own `read` timings while the dashboard, the products list and a sales order load",
+      "status": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before.",
+      "oneTab": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 50,
+            "p50": 29.7,
+            "p95": 107.8,
+            "p99": 128.7,
+            "max": 128.7
+          },
+          {
+            "n": 50,
+            "p50": 16.6,
+            "p95": 52.3,
+            "p99": 54.3,
+            "max": 54.3
+          },
+          {
+            "n": 50,
+            "p50": 19.8,
+            "p95": 69.8,
+            "p99": 72.4,
+            "max": 72.4
+          }
+        ],
+        "medianP95Ms": 69.8,
+        "recorded": true,
+        "maxMs": 128.7,
+        "p99Ms": [
+          128.7,
+          54.3,
+          72.4
+        ],
+        "formerProvisionalTargetMs": 10,
+        "againstFormerProvisionalTarget": "not met"
+      },
+      "fourTabs": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 200,
+            "p50": 105.5,
+            "p95": 288.9,
+            "p99": 460.2,
+            "max": 686.8
+          },
+          {
+            "n": 200,
+            "p50": 76.9,
+            "p95": 273.7,
+            "p99": 342.2,
+            "max": 356.6
+          },
+          {
+            "n": 200,
+            "p50": 61,
+            "p95": 266.8,
+            "p99": 451.7,
+            "max": 762.7
+          }
+        ],
+        "medianP95Ms": 273.7,
+        "recorded": true,
+        "maxMs": 762.7,
+        "p99Ms": [
+          460.2,
+          342.2,
+          451.7
+        ],
+        "formerProvisionalTargetMs": 20,
+        "againstFormerProvisionalTarget": "not met"
+      },
+      "transactTimings": {
+        "oneTab": {
+          "n": 15,
+          "p50": 63.5,
+          "p95": 104.4,
+          "p99": 104.4,
+          "max": 104.4
+        },
+        "fourTabs": {
+          "n": 60,
+          "p50": 151.1,
+          "p95": 408.3,
+          "p99": 518,
+          "max": 518
+        }
+      }
+    },
+    "M4": {
+      "what": "per request, gate-before + gate-after: wall time added to that request, queueing included",
+      "status": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before.",
+      "oneTab": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 22,
+            "p50": 52.6,
+            "p95": 167.3,
+            "p99": 169.9,
+            "max": 169.9
+          },
+          {
+            "n": 22,
+            "p50": 32.6,
+            "p95": 64.2,
+            "p99": 71.1,
+            "max": 71.1
+          },
+          {
+            "n": 22,
+            "p50": 78,
+            "p95": 117.1,
+            "p99": 127.3,
+            "max": 127.3
+          }
+        ],
+        "medianP95Ms": 117.1,
+        "recorded": true,
+        "maxMs": 169.9,
+        "p99Ms": [
+          169.9,
+          71.1,
+          127.3
+        ],
+        "formerProvisionalTargetMs": 10,
+        "againstFormerProvisionalTarget": "not met",
+        "pairing": "by request id",
+        "inFlight": {
+          "n": 220,
+          "median": 1,
+          "max": 9,
+          "atLeastTwo": 83
+        }
+      },
+      "fourTabs": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 88,
+            "p50": 242.6,
+            "p95": 601,
+            "p99": 814.4,
+            "max": 814.4
+          },
+          {
+            "n": 88,
+            "p50": 175.7,
+            "p95": 428,
+            "p99": 489.9,
+            "max": 489.9
+          },
+          {
+            "n": 88,
+            "p50": 191.5,
+            "p95": 480.3,
+            "p99": 791.1,
+            "max": 791.1
+          }
+        ],
+        "medianP95Ms": 480.3,
+        "recorded": true,
+        "maxMs": 814.4,
+        "p99Ms": [
+          814.4,
+          489.9,
+          791.1
+        ],
+        "formerProvisionalTargetMs": 20,
+        "againstFormerProvisionalTarget": "not met",
+        "pairing": "by request id",
+        "inFlight": {
+          "n": 880,
+          "median": 2,
+          "max": 10,
+          "atLeastTwo": 457
+        }
+      }
+    },
+    "M5": {
+      "label": "Aggregate-cost estimate. Diagnostic only: no threshold, and no share of page load is computed from it.",
+      "note": "Requests on a page overlap, so the sum of their gate waits is not the time the gate adds to the page load; it is an upper bound on it.",
+      "what": "median of 5 loads per page: navigation to last API response delivered, number of requests, and the SUM of all gate waits",
+      "oneTab": [
+        {
+          "path": "/dashboard",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 813,
+          "medianRequests": 12,
+          "medianSumOfGateWaitsMs": 461.9
+        },
+        {
+          "path": "/inventory/products",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 762,
+          "medianRequests": 7,
+          "medianSumOfGateWaitsMs": 258.5
+        },
+        {
+          "path": "/sales/orders/SO-26-013/view",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 755,
+          "medianRequests": 6,
+          "medianSumOfGateWaitsMs": 234.6
+        }
+      ],
+      "fourTabs": [
+        {
+          "path": "/dashboard",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 2163.5,
+          "medianRequests": 12,
+          "medianSumOfGateWaitsMs": 2578.15
+        },
+        {
+          "path": "/inventory/products",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 2338,
+          "medianRequests": 7,
+          "medianSumOfGateWaitsMs": 1493.6
+        },
+        {
+          "path": "/sales/orders/SO-26-013/view",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 1620,
+          "medianRequests": 6,
+          "medianSumOfGateWaitsMs": 736.9
+        }
+      ]
+    },
+    "notes": [
+      "oneTab: some requests were not answered 2xx during the loads: [[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1]]",
+      "fourTabs: some requests were not answered 2xx during the loads: [[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1]]"
+    ],
+    "blockingFailures": [],
+    "diagnosticsNotRecorded": [],
+    "pass": true,
+    "maximaAbove100Ms": [
+      "M3 one tab: max 128.7 ms",
+      "M3 four tabs: max 762.7 ms",
+      "M4 one tab: max 169.9 ms",
+      "M4 four tabs: max 814.4 ms"
+    ],
+    "signInWaits": 0
+  },
+  "latencyPreconditionFailed": null
+}

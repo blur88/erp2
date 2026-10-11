@@ -1,0 +1,4 @@
+name=PU8 copy=p-use-fails only=8
+commit=26f8645842b04992336bd70aff217349f31a353c
+started=2026-10-11T16:12:14+08:00 load=7.06 3.92 3.73 free_kb=8894712
+ended=2026-10-11T16:16:19+08:00 status=1 load=6.84 4.02 3.70

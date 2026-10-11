@@ -1,0 +1,4 @@
+name=PB3 copy=p-b3-channel-before-poll only=1,3
+commit=794d2e321b54f19120bfa7ee1fd631eccc21aaaf
+started=2026-10-11T15:12:42+08:00 load=5.27 3.36 2.97 free_kb=8908984
+ended=2026-10-11T15:17:34+08:00 status=1 load=6.11 3.41 2.97

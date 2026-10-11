@@ -1,0 +1,19 @@
+diff -ru proposed/cases/signout.mjs p-b3-channel-before-poll/cases/signout.mjs
+--- proposed/cases/signout.mjs	2026-10-11 14:36:14.256678525 +0800
++++ p-b3-channel-before-poll/cases/signout.mjs	2026-10-11 14:36:38.057173325 +0800
+@@ -179,6 +179,7 @@
+       const redirect = watchRedirect(b)
+       const polledAt = await afterNextPoll(profile, b)
+       ctx.require('a status poll of tab B was seen (the case starts right after one)', polledAt !== null)
++      await sleep(Math.max(0, polledAt + 27500 - Date.now())) // #1379: 27.5 s after B's poll, about 2.5 s before its next
+       const mark = profile.mark()
+       const signOutAt = Date.now()
+       await ctx.signOut(a)
+@@ -257,6 +258,7 @@
+       const polledAt = await afterNextPoll(profile, b)
+       ctx.require('a status poll of tab B was seen (the case starts right after one)', polledAt !== null)
+       ctx.require('the draft is in tab B before the sign-out', (await draftKeys(b)).includes(key))
++      await sleep(Math.max(0, polledAt + 27500 - Date.now())) // #1379: 27.5 s after B's poll, about 2.5 s before its next
+       const mark = profile.mark()
+       const signOutAt = Date.now()
+       await ctx.signOut(a)

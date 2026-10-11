@@ -1,0 +1,699 @@
+{
+  "suite": "cross-tab-session (#1345)",
+  "writtenAt": "2026-10-11T06:50:24.810Z",
+  "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+  "exitStatus": 0,
+  "completed": true,
+  "aborted": null,
+  "stackRestored": true,
+  "restoreFailure": null,
+  "configuration": {
+    "note": "What `stack.sh show` reported from inside the running backend. Evidence in its own right: .env is not covered by the commit.",
+    "before": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "during": {
+      "accessTokenExpiry": "20s",
+      "refreshGraceSeconds": "5",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "after": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    }
+  },
+  "chromium": "153.0.8010.12",
+  "machine": {
+    "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+    "cpuCount": 4,
+    "memoryGiB": 9.7,
+    "kernel": "6.8.0-138-generic",
+    "disks": [
+      {
+        "name": "sda",
+        "rotational": true,
+        "kind": "spinning disk"
+      }
+    ]
+  },
+  "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+  "servedFrom": "ingress",
+  "partial": "only 8: not a recorded run",
+  "signInWaits": 0,
+  "loginZone429": 0,
+  "limits": {
+    "session": {
+      "rate": "1r/s",
+      "burst": 20
+    },
+    "login": {
+      "rate": "5r/m",
+      "burst": 3
+    }
+  },
+  "cases": [
+    {
+      "id": 8,
+      "name": "Use past real expiry",
+      "pass": true,
+      "seconds": 100,
+      "error": null,
+      "checks": [
+        {
+          "label": "at least twelve uses completed",
+          "ok": true,
+          "detail": {
+            "uses": 13
+          }
+        },
+        {
+          "label": "the session is the same one",
+          "ok": true,
+          "detail": {
+            "revision": 1,
+            "session": {
+              "sessionId": "18ace05c-cf0e-4884-889e-489c76d4061c",
+              "generation": 5,
+              "accessTokenExpiresAt": 1791701300,
+              "access": "daa7d81a3978",
+              "refresh": "1d8455ad18db",
+              "username": "qa1353_admin",
+              "role": "admin"
+            },
+            "slicesSessionId": "18ace05c-cf0e-4884-889e-489c76d4061c",
+            "lease": null
+          }
+        },
+        {
+          "label": "the generation advanced at least three times",
+          "ok": true,
+          "detail": {
+            "revision": 1,
+            "session": {
+              "sessionId": "18ace05c-cf0e-4884-889e-489c76d4061c",
+              "generation": 5,
+              "accessTokenExpiresAt": 1791701300,
+              "access": "daa7d81a3978",
+              "refresh": "1d8455ad18db",
+              "username": "qa1353_admin",
+              "role": "admin"
+            },
+            "slicesSessionId": "18ace05c-cf0e-4884-889e-489c76d4061c",
+            "lease": null
+          }
+        },
+        {
+          "label": "tab A is signed in",
+          "ok": true
+        },
+        {
+          "label": "tab B is signed in",
+          "ok": true
+        }
+      ],
+      "unexpected429": [],
+      "recorded": {
+        "placement1367": {
+          "holdFromMsBeforeExpiry": 700,
+          "holdUntilMsAfterExpiry": 4500,
+          "holds": [
+            {
+              "use": 4,
+              "atMs": 20051,
+              "heldMs": 3775
+            },
+            {
+              "use": 8,
+              "atMs": 43876,
+              "heldMs": 3950
+            },
+            {
+              "use": 12,
+              "atMs": 67867,
+              "heldMs": 3959
+            }
+          ],
+          "generationsSeenAtAUseStart": [
+            {
+              "generation": 2,
+              "firstSeenAtMs": 8,
+              "expiresAtMs": 19326
+            },
+            {
+              "generation": 3,
+              "firstSeenAtMs": 28836,
+              "expiresAtMs": 43326
+            },
+            {
+              "generation": 4,
+              "firstSeenAtMs": 52839,
+              "expiresAtMs": 67326
+            }
+          ],
+          "startedAtGeneration": 2
+        },
+        "lifetimesUsed": 3.84,
+        "uses": 13,
+        "refreshRequests": [
+          [
+            "A",
+            200
+          ],
+          [
+            "A",
+            200
+          ],
+          [
+            "A",
+            200
+          ]
+        ],
+        "generations": {
+          "before": 2,
+          "after": 5
+        }
+      }
+    }
+  ],
+  "w1": null,
+  "captureSegments": [],
+  "latency": {
+    "suite": "cross-tab-session latency",
+    "measuredAt": "2026-10-11T06:50:23.673Z",
+    "base": "http://10.1.1.34",
+    "commit": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+    "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf",
+    "servedFrom": "ingress",
+    "chromium": "153.0.8010.12",
+    "machine": {
+      "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+      "cpuCount": 4,
+      "memoryGiB": 9.7,
+      "kernel": "6.8.0-138-generic",
+      "disks": [
+        {
+          "name": "sda",
+          "rotational": true,
+          "kind": "spinning disk"
+        }
+      ]
+    },
+    "configuration": {
+      "accessTokenExpiry": "15m",
+      "refreshGraceSeconds": "60",
+      "images": {
+        "frontend": "sha256:5be382f41ff7cc325cdc9c7fc16785bd1cca1c816b6aff2a50ff371456edcb2d",
+        "backend": "sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4",
+        "nginx": "sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"
+      },
+      "servedBuild": "794d2e321b54f19120bfa7ee1fd631eccc21aaaf"
+    },
+    "criteria": {
+      "revisedOn": "2026-10-06",
+      "decidedBy": "the repository owner, after the recorded run on 582096992",
+      "blocking": {
+        "M1": {
+          "p95Ms": 5,
+          "what": "one raw read, one tab idle"
+        },
+        "M2": {
+          "p95Ms": 15,
+          "what": "one raw read in four tabs at once while a fifth writes"
+        },
+        "rule": "median p95 of 3 repetitions"
+      },
+      "diagnostic": {
+        "measurements": [
+          "M3",
+          "M4",
+          "M5"
+        ],
+        "statement": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before."
+      },
+      "preserved": "The hard gate and its transaction-completion semantics are unchanged. None of the simulated optimizations was implemented, and no read is resolved before its transaction completes.",
+      "formerProvisionalTargets": {
+        "status": "replaced, not met",
+        "statement": "The earlier M3 and M4 targets (p95 at most 10 ms in one tab, 20 ms in four) were provisional. They were replaced by the criteria above; they were NOT met, and a run that passes today has not met them either.",
+        "p95Ms": {
+          "M3": {
+            "oneTab": 10,
+            "fourTabs": 20
+          },
+          "M4": {
+            "oneTab": 10,
+            "fourTabs": 20
+          }
+        },
+        "runInWhichTheyFailed": {
+          "commit": "582096992",
+          "exitStatus": 1,
+          "medianP95Ms": {
+            "M1": 2.1,
+            "M2": 5.1,
+            "M3": {
+              "oneTab": 99,
+              "fourTabs": 330.1
+            },
+            "M4": {
+              "oneTab": 205.3,
+              "fourTabs": 603.3
+            }
+          },
+          "outcome": "M1 and M2 passed. M3 (99 / 330.1 ms) and M4 (205.3 / 603.3 ms), one tab / four tabs, failed the 10 / 20 ms targets, and the run exited with status 1."
+        }
+      }
+    },
+    "rule": "M1 and M2 block, each on the median p95 of 3 repetitions. M3, M4 and M5 are diagnostic and are not judged. Maxima and p99 are recorded and never block.",
+    "environment": {
+      "machine": {
+        "cpuModel": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+        "cpuCount": 4,
+        "memoryGiB": 9.7,
+        "kernel": "6.8.0-138-generic",
+        "disks": [
+          {
+            "name": "sda",
+            "rotational": true,
+            "kind": "spinning disk"
+          }
+        ]
+      },
+      "diskKinds": [
+        "sda: spinning disk"
+      ],
+      "chromium": "153.0.8010.12",
+      "accessTokenExpiry": "15m",
+      "requestsAnswered429DuringMeasuredLoads": {
+        "oneTab": {
+          "loads": 15,
+          "requests": 125,
+          "answered429": 0
+        },
+        "fourTabs": {
+          "loads": 60,
+          "requests": 500,
+          "answered429": 0
+        },
+        "any": false,
+        "total": 0
+      },
+      "competingWorkload": {
+        "captured": true,
+        "capturedBy": "run.sh, on the host, just before measure.mjs: docker ps --format '{{.Names}}\\t{{.Status}}'",
+        "containers": [
+          {
+            "name": "erp_backend",
+            "status": "Up 18 seconds (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_frontend",
+            "status": "Up 15 minutes (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_nginx",
+            "status": "Up 14 hours (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_redis",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "erp_postgres",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "claude-usage-tracker",
+            "status": "Up 3 days (healthy)",
+            "restarting": false
+          },
+          {
+            "name": "portainer_agent",
+            "status": "Up 3 days",
+            "restarting": false
+          }
+        ],
+        "restarting": [],
+        "note": "No container was restarting on the host when the list was taken."
+      }
+    },
+    "M1": {
+      "what": "one raw read, one tab idle; 500 sequential read-only transactions per repetition",
+      "repetitions": [
+        {
+          "n": 500,
+          "p50": 1,
+          "p95": 2.9,
+          "p99": 6.2,
+          "max": 9.5
+        },
+        {
+          "n": 500,
+          "p50": 0.8,
+          "p95": 2.5,
+          "p99": 4.8,
+          "max": 9.5
+        },
+        {
+          "n": 500,
+          "p50": 0.8,
+          "p95": 2.9,
+          "p99": 5.6,
+          "max": 7.8
+        }
+      ],
+      "medianP95Ms": 2.9,
+      "thresholdMs": 5,
+      "pass": true,
+      "maxMs": 9.5,
+      "p99Ms": [
+        6.2,
+        4.8,
+        5.6
+      ]
+    },
+    "M2": {
+      "what": "one raw read in four tabs at once (500 each per repetition) while a fifth tab commits a write every 100 ms",
+      "repetitions": [
+        {
+          "n": 2000,
+          "p50": 1.7,
+          "p95": 4.6,
+          "p99": 6.5,
+          "max": 12.8
+        },
+        {
+          "n": 2000,
+          "p50": 1.6,
+          "p95": 4.3,
+          "p99": 6.2,
+          "max": 8.6
+        },
+        {
+          "n": 2000,
+          "p50": 1.7,
+          "p95": 4.6,
+          "p99": 7.3,
+          "max": 81.5
+        }
+      ],
+      "medianP95Ms": 4.6,
+      "thresholdMs": 15,
+      "pass": true,
+      "maxMs": 81.5,
+      "p99Ms": [
+        6.5,
+        6.2,
+        7.3
+      ],
+      "writer": [
+        {
+          "commits": 11,
+          "failures": 0
+        },
+        {
+          "commits": 10,
+          "failures": 0
+        },
+        {
+          "commits": 11,
+          "failures": 0
+        }
+      ]
+    },
+    "M3": {
+      "what": "the adapter's own `read` timings while the dashboard, the products list and a sales order load",
+      "status": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before.",
+      "oneTab": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 50,
+            "p50": 22.4,
+            "p95": 66.3,
+            "p99": 77.8,
+            "max": 77.8
+          },
+          {
+            "n": 50,
+            "p50": 18.6,
+            "p95": 67.8,
+            "p99": 69.1,
+            "max": 69.1
+          },
+          {
+            "n": 50,
+            "p50": 25.2,
+            "p95": 98,
+            "p99": 113.9,
+            "max": 113.9
+          }
+        ],
+        "medianP95Ms": 67.8,
+        "recorded": true,
+        "maxMs": 113.9,
+        "p99Ms": [
+          77.8,
+          69.1,
+          113.9
+        ],
+        "formerProvisionalTargetMs": 10,
+        "againstFormerProvisionalTarget": "not met"
+      },
+      "fourTabs": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 200,
+            "p50": 74.9,
+            "p95": 235.7,
+            "p99": 386.6,
+            "max": 734.4
+          },
+          {
+            "n": 200,
+            "p50": 82.2,
+            "p95": 439.2,
+            "p99": 774.2,
+            "max": 1065.8
+          },
+          {
+            "n": 200,
+            "p50": 77.7,
+            "p95": 293.9,
+            "p99": 335.3,
+            "max": 808.5
+          }
+        ],
+        "medianP95Ms": 293.9,
+        "recorded": true,
+        "maxMs": 1065.8,
+        "p99Ms": [
+          386.6,
+          774.2,
+          335.3
+        ],
+        "formerProvisionalTargetMs": 20,
+        "againstFormerProvisionalTarget": "not met"
+      },
+      "transactTimings": {
+        "oneTab": {
+          "n": 15,
+          "p50": 70.3,
+          "p95": 154.7,
+          "p99": 154.7,
+          "max": 154.7
+        },
+        "fourTabs": {
+          "n": 60,
+          "p50": 164.8,
+          "p95": 295.8,
+          "p99": 803,
+          "max": 803
+        }
+      }
+    },
+    "M4": {
+      "what": "per request, gate-before + gate-after: wall time added to that request, queueing included",
+      "status": "M3 and M4 are diagnostic: measured and recorded with their environment, with no threshold and no pass or fail. M5 is diagnostic as before.",
+      "oneTab": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 22,
+            "p50": 52.6,
+            "p95": 96.5,
+            "p99": 119.6,
+            "max": 119.6
+          },
+          {
+            "n": 22,
+            "p50": 49.7,
+            "p95": 94.3,
+            "p99": 98.4,
+            "max": 98.4
+          },
+          {
+            "n": 22,
+            "p50": 59.3,
+            "p95": 160.5,
+            "p99": 168.7,
+            "max": 168.7
+          }
+        ],
+        "medianP95Ms": 96.5,
+        "recorded": true,
+        "maxMs": 168.7,
+        "p99Ms": [
+          119.6,
+          98.4,
+          168.7
+        ],
+        "formerProvisionalTargetMs": 10,
+        "againstFormerProvisionalTarget": "not met",
+        "pairing": "by request id",
+        "inFlight": {
+          "n": 220,
+          "median": 1,
+          "max": 9,
+          "atLeastTwo": 83
+        }
+      },
+      "fourTabs": {
+        "diagnostic": true,
+        "judged": "not judged: diagnostic since 2026-10-06",
+        "repetitions": [
+          {
+            "n": 88,
+            "p50": 163,
+            "p95": 441.4,
+            "p99": 862.1,
+            "max": 862.1
+          },
+          {
+            "n": 88,
+            "p50": 337.8,
+            "p95": 711.7,
+            "p99": 1194,
+            "max": 1194
+          },
+          {
+            "n": 88,
+            "p50": 188.9,
+            "p95": 397,
+            "p99": 1045.1,
+            "max": 1045.1
+          }
+        ],
+        "medianP95Ms": 441.4,
+        "recorded": true,
+        "maxMs": 1194,
+        "p99Ms": [
+          862.1,
+          1194,
+          1045.1
+        ],
+        "formerProvisionalTargetMs": 20,
+        "againstFormerProvisionalTarget": "not met",
+        "pairing": "by request id",
+        "inFlight": {
+          "n": 880,
+          "median": 1,
+          "max": 10,
+          "atLeastTwo": 430
+        }
+      }
+    },
+    "M5": {
+      "label": "Aggregate-cost estimate. Diagnostic only: no threshold, and no share of page load is computed from it.",
+      "note": "Requests on a page overlap, so the sum of their gate waits is not the time the gate adds to the page load; it is an upper bound on it.",
+      "what": "median of 5 loads per page: navigation to last API response delivered, number of requests, and the SUM of all gate waits",
+      "oneTab": [
+        {
+          "path": "/dashboard",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 846,
+          "medianRequests": 12,
+          "medianSumOfGateWaitsMs": 522.1
+        },
+        {
+          "path": "/inventory/products",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 939,
+          "medianRequests": 7,
+          "medianSumOfGateWaitsMs": 422.7
+        },
+        {
+          "path": "/sales/orders/SO-26-013/view",
+          "loads": 5,
+          "medianNavigationToLastResponseMs": 635,
+          "medianRequests": 6,
+          "medianSumOfGateWaitsMs": 241
+        }
+      ],
+      "fourTabs": [
+        {
+          "path": "/dashboard",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 2764.5,
+          "medianRequests": 12,
+          "medianSumOfGateWaitsMs": 2392.95
+        },
+        {
+          "path": "/inventory/products",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 2076,
+          "medianRequests": 7,
+          "medianSumOfGateWaitsMs": 1468.95
+        },
+        {
+          "path": "/sales/orders/SO-26-013/view",
+          "loads": 20,
+          "medianNavigationToLastResponseMs": 1769,
+          "medianRequests": 6,
+          "medianSumOfGateWaitsMs": 936.9
+        }
+      ]
+    },
+    "notes": [
+      "oneTab: some requests were not answered 2xx during the loads: [[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1]]",
+      "fourTabs: some requests were not answered 2xx during the loads: [[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1],[\"304\",1]]"
+    ],
+    "blockingFailures": [],
+    "diagnosticsNotRecorded": [],
+    "pass": true,
+    "maximaAbove100Ms": [
+      "M3 one tab: max 113.9 ms",
+      "M3 four tabs: max 1065.8 ms",
+      "M4 one tab: max 168.7 ms",
+      "M4 four tabs: max 1194 ms"
+    ],
+    "signInWaits": 0
+  },
+  "latencyPreconditionFailed": null
+}
