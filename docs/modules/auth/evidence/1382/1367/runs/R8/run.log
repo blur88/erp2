@@ -1,0 +1,500 @@
+ Image erp-backend:latest Building 
+ Image erp-frontend:latest Building 
+ Image erp-nginx:latest Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.52kB done
+#1 DONE 0.0s
+
+#2 [backend internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.19kB done
+#2 DONE 0.1s
+
+#3 [frontend internal] load build definition from Dockerfile
+#3 transferring dockerfile: 1.40kB done
+#3 DONE 0.2s
+
+#4 [backend internal] load metadata for docker.io/library/node:24.16.0-alpine3.23
+#4 DONE 0.0s
+
+#5 [nginx internal] load build definition from Dockerfile
+#5 transferring dockerfile: 109B done
+#5 DONE 0.2s
+
+#6 [backend internal] load .dockerignore
+#6 ...
+
+#7 [nginx internal] load metadata for docker.io/library/nginx:1.30.0-alpine3.23-slim
+#7 DONE 0.0s
+
+#8 [auth] library/node:pull token for registry-1.docker.io
+#8 DONE 0.0s
+
+#6 [backend internal] load .dockerignore
+#6 transferring context: 1.01kB 0.0s done
+#6 DONE 0.2s
+
+#9 [backend deps 1/4] FROM docker.io/library/node:24.16.0-alpine3.23
+#9 DONE 0.0s
+
+#10 [nginx internal] load .dockerignore
+#10 transferring context: 2B done
+#10 DONE 0.1s
+
+#11 [backend internal] load build context
+#11 ...
+
+#12 [nginx 1/2] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#12 DONE 0.0s
+
+#13 [nginx internal] load build context
+#13 transferring context: 13.73kB done
+#13 DONE 0.1s
+
+#11 [backend internal] load build context
+#11 ...
+
+#14 [nginx 2/2] COPY nginx.conf /etc/nginx/nginx.conf
+#14 CACHED
+
+#15 [nginx] exporting to image
+#15 exporting layers done
+#15 writing image sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f done
+#15 naming to docker.io/library/erp-nginx:latest done
+#15 DONE 0.0s
+
+#11 [backend internal] load build context
+#11 transferring context: 4.06MB 0.3s done
+#11 DONE 0.4s
+
+#16 [nginx] resolving provenance for metadata file
+#16 DONE 0.0s
+
+#17 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#17 ...
+
+#18 [backend production  6/10] COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+#18 CACHED
+
+#19 [backend production  7/10] COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
+#19 CACHED
+
+#20 [backend production  3/10] RUN addgroup -g 1001 -S nodejs &&     adduser -S nestjs -u 1001 -G nodejs
+#20 CACHED
+
+#21 [backend production  2/10] RUN apk update && apk upgrade &&     apk add --no-cache curl postgresql18-client dumb-init &&     rm -rf /var/cache/apk/* &&     rm -rf /usr/local/lib/node_modules/npm &&     rm -f /usr/local/bin/npm /usr/local/bin/npx
+#21 CACHED
+
+#22 [backend production  8/10] COPY --chown=nestjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
+#22 CACHED
+
+#23 [backend builder 4/5] COPY . .
+#23 CACHED
+
+#24 [backend production  5/10] COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+#24 CACHED
+
+#25 [backend production  9/10] RUN chmod +x docker-entrypoint.sh
+#25 CACHED
+
+#26 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#26 CACHED
+
+#27 [backend deps 3/4] COPY package*.json ./
+#27 CACHED
+
+#28 [backend builder 3/5] COPY --from=deps /app/node_modules ./node_modules
+#28 CACHED
+
+#29 [backend production  4/10] WORKDIR /app
+#29 CACHED
+
+#30 [backend deps 2/4] WORKDIR /app
+#30 CACHED
+
+#31 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#31 CACHED
+
+#32 [backend production 10/10] RUN mkdir -p uploads logs backups/{postgresql,redis,settings,archives,temp,uploads} &&     chown -R nestjs:nodejs uploads logs backups
+#32 CACHED
+
+#33 [backend] exporting to image
+#33 exporting layers done
+#33 writing image sha256:b3154c994d9cbb98d94646a18ef2291fa3ddfe83a722d03f3dea2f3e076b4ea4 done
+#33 naming to docker.io/library/erp-backend:latest done
+#33 DONE 0.0s
+
+#34 [backend] resolving provenance for metadata file
+#34 DONE 0.0s
+
+#17 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#17 DONE 2.2s
+
+#35 [frontend internal] load .dockerignore
+#35 transferring context: 755B done
+#35 DONE 0.1s
+
+#12 [frontend production 1/6] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#12 DONE 0.0s
+
+#36 [frontend builder 1/7] FROM docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+#36 DONE 0.0s
+
+#37 [frontend internal] load build context
+#37 transferring context: 5.65MB 0.3s done
+#37 DONE 0.3s
+
+#36 [frontend builder 1/7] FROM docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+#36 resolve docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+#36 resolve docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f 0.1s done
+#36 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 0B / 51.51MB 0.1s
+#36 sha256:3eebacc30b80dca2db4fba20ee2c2562ae69dbbdc307fcee75b49cf859cf63e4 0B / 1.26MB 0.1s
+#36 sha256:1ba15d4bb83a5da0244b0ca03df5cac1a19a914c5b876543cb1065d7fddbc9d5 0B / 446B 0.1s
+#36 sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f 3.87kB / 3.87kB done
+#36 sha256:8e2c930fda481a6ec141fe5a88e8c249c69f8102fe98af505f38c081649ea749 1.72kB / 1.72kB done
+#36 sha256:edd927012c1ea203e392a59f0ae655a9e50a67bf3a5cb42dc1c638889a03a3b0 6.52kB / 6.52kB done
+#36 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 3.15MB / 51.51MB 0.4s
+#36 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 14.68MB / 51.51MB 0.5s
+#36 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 26.21MB / 51.51MB 0.6s
+#36 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 48.23MB / 51.51MB 0.8s
+#36 sha256:3eebacc30b80dca2db4fba20ee2c2562ae69dbbdc307fcee75b49cf859cf63e4 1.26MB / 1.26MB 0.7s done
+#36 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 51.51MB / 51.51MB 0.9s done
+#36 sha256:1ba15d4bb83a5da0244b0ca03df5cac1a19a914c5b876543cb1065d7fddbc9d5 446B / 446B 0.9s done
+#36 extracting sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 0.1s
+#36 extracting sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 4.4s done
+#36 extracting sha256:3eebacc30b80dca2db4fba20ee2c2562ae69dbbdc307fcee75b49cf859cf63e4
+#36 extracting sha256:3eebacc30b80dca2db4fba20ee2c2562ae69dbbdc307fcee75b49cf859cf63e4 0.1s done
+#36 extracting sha256:1ba15d4bb83a5da0244b0ca03df5cac1a19a914c5b876543cb1065d7fddbc9d5
+#36 extracting sha256:1ba15d4bb83a5da0244b0ca03df5cac1a19a914c5b876543cb1065d7fddbc9d5 done
+#36 DONE 6.1s
+
+#38 [frontend builder 2/7] WORKDIR /app
+#38 DONE 0.5s
+
+#39 [frontend builder 3/7] COPY package*.json ./
+#39 DONE 0.1s
+
+#40 [frontend builder 4/7] RUN npm ci
+#40 39.78 
+#40 39.78 added 468 packages, and audited 469 packages in 39s
+#40 39.78 
+#40 39.78 107 packages are looking for funding
+#40 39.78   run `npm fund` for details
+#40 39.81 
+#40 39.81 2 critical severity vulnerabilities
+#40 39.81 
+#40 39.81 To address all issues, run:
+#40 39.81   npm audit fix
+#40 39.81 
+#40 39.81 Run `npm audit` for details.
+#40 39.82 npm notice
+#40 39.82 npm notice New major version of npm available! 11.12.1 -> 12.2.0
+#40 39.82 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#40 39.82 npm notice To update run: npm install -g npm@12.2.0
+#40 39.82 npm notice
+#40 DONE 41.1s
+
+#41 [frontend builder 5/7] RUN npm install @rollup/rollup-linux-x64-musl --save-optional
+#41 8.413 
+#41 8.413 added 1 package, and audited 470 packages in 8s
+#41 8.413 
+#41 8.413 107 packages are looking for funding
+#41 8.413   run `npm fund` for details
+#41 8.460 
+#41 8.460 2 critical severity vulnerabilities
+#41 8.460 
+#41 8.460 To address all issues, run:
+#41 8.460   npm audit fix
+#41 8.460 
+#41 8.460 Run `npm audit` for details.
+#41 DONE 8.6s
+
+#42 [frontend builder 6/7] COPY . .
+#42 DONE 0.4s
+
+#43 [frontend builder 7/7] RUN npm run build
+#43 0.706 
+#43 0.706 > erp-frontend@3.21.3 build
+#43 0.706 > vite build
+#43 0.706 
+#43 1.567 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+#43 1.567   - import "./src/config/buildSha" without a file extension (vite.config.ts:5:31). Add the file extension
+#43 1.567 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+#43 1.645 vite v8.3.1 building client environment for production...
+#43 1.695 [2Ktransforming...✓ 2230 modules transformed.
+#43 5.456 rendering chunks...
+#43 7.987 computing gzip size...
+#43 8.071 dist/index.html                                         3.05 kB │ gzip:   0.96 kB
+#43 8.071 dist/assets/index-DIzETDqb.css                          4.00 kB │ gzip:   1.42 kB
+#43 8.071 dist/assets/filters-DrJ_HV_e.js                         0.03 kB │ gzip:   0.05 kB
+#43 8.071 dist/assets/stockUtils-B89HsnNw.js                      0.12 kB │ gzip:   0.12 kB │ map:     0.51 kB
+#43 8.071 dist/assets/subDays-on2JlZQt.js                         0.12 kB │ gzip:   0.14 kB │ map:     1.31 kB
+#43 8.071 dist/assets/useRedux-C0NX3eLt.js                        0.13 kB │ gzip:   0.13 kB │ map:     0.52 kB
+#43 8.071 dist/assets/numberFormat-2lapoRvl.js                    0.22 kB │ gzip:   0.20 kB │ map:     1.01 kB
+#43 8.071 dist/assets/tableStyles-ZDN9aD9C.js                     0.27 kB │ gzip:   0.24 kB │ map:     1.11 kB
+#43 8.071 dist/assets/printTokens-DAqCdlPu.js                     0.27 kB │ gzip:   0.22 kB │ map:     0.69 kB
+#43 8.071 dist/assets/typeof-uSHhYthB.js                          0.31 kB │ gzip:   0.20 kB │ map:     0.78 kB
+#43 8.071 dist/assets/journal-entry-navigation-Dx1lUuWE.js        0.32 kB │ gzip:   0.26 kB │ map:     2.10 kB
+#43 8.071 dist/assets/normalizers-DkQEBnaa.js                     0.32 kB │ gzip:   0.20 kB │ map:     1.20 kB
+#43 8.071 dist/assets/GenericOverviewPage-BI-QQlnB.js             0.32 kB │ gzip:   0.26 kB │ map:     0.80 kB
+#43 8.071 dist/assets/baseQuery-gf5dlPm-.js                       0.38 kB │ gzip:   0.27 kB │ map:     1.41 kB
+#43 8.071 dist/assets/MarginChip-BaISldKk.js                      0.42 kB │ gzip:   0.34 kB │ map:     1.16 kB
+#43 8.071 dist/assets/salesSlice-CQx_p8xR.js                      0.42 kB │ gzip:   0.25 kB │ map:     1.34 kB
+#43 8.071 dist/assets/expenseActions-BRKwpOeb.js                  0.42 kB │ gzip:   0.23 kB │ map:     1.38 kB
+#43 8.071 dist/assets/redisMonitoringApi-U8kyxc3C.js              0.43 kB │ gzip:   0.29 kB │ map:     3.11 kB
+#43 8.071 dist/assets/TableCard-f6_tPMJy.js                       0.46 kB │ gzip:   0.34 kB │ map:     2.13 kB
+#43 8.071 dist/assets/DataTable-CceTTJaB.js                       0.49 kB │ gzip:   0.33 kB │ map:     1.34 kB
+#43 8.071 dist/assets/useCurrency-Dm3cTyq3.js                     0.49 kB │ gzip:   0.33 kB │ map:     1.76 kB
+#43 8.071 dist/assets/bankAccountOptions-DPVj4ZZU.js              0.50 kB │ gzip:   0.31 kB │ map:     2.26 kB
+#43 8.071 dist/assets/useDocumentNumberPreview-DM_q4EwU.js        0.59 kB │ gzip:   0.42 kB │ map:     2.15 kB
+#43 8.071 dist/assets/ListSkeleton-CRk6RNDj.js                    0.64 kB │ gzip:   0.32 kB │ map:     1.86 kB
+#43 8.071 dist/assets/rolldown-runtime-S-ySWqyJ.js                0.69 kB │ gzip:   0.42 kB
+#43 8.071 dist/assets/FilterSearch-CYK-Mpgs.js                    0.72 kB │ gzip:   0.44 kB │ map:     2.12 kB
+#43 8.071 dist/assets/useExpenseAccountOptions-UOgDJcvE.js        0.73 kB │ gzip:   0.50 kB │ map:     4.01 kB
+#43 8.071 dist/assets/useProductSearch-DTMQ9Q9x.js                0.80 kB │ gzip:   0.54 kB │ map:     3.59 kB
+#43 8.071 dist/assets/FilterSelect-DqsGb3rM.js                    0.85 kB │ gzip:   0.51 kB │ map:     3.98 kB
+#43 8.071 dist/assets/useFieldDuplicateCheck-DAh5BGQ5.js          0.85 kB │ gzip:   0.52 kB │ map:     3.48 kB
+#43 8.071 dist/assets/RowActionMenu-C_W3aBNi.js                   0.88 kB │ gzip:   0.52 kB │ map:     2.67 kB
+#43 8.071 dist/assets/listQuery-CGZhuHMj.js                       0.96 kB │ gzip:   0.46 kB │ map:     5.87 kB
+#43 8.071 dist/assets/SimpleListPage-BZ4DgNcY.js                  0.99 kB │ gzip:   0.52 kB │ map:     3.30 kB
+#43 8.071 dist/assets/useUnsavedChangesGuard-BFTLsnaA.js          1.01 kB │ gzip:   0.59 kB │ map:     2.74 kB
+#43 8.071 dist/assets/types-DYjLeMLn.js                           1.02 kB │ gzip:   0.52 kB │ map:    34.37 kB
+#43 8.071 dist/assets/printSettingsApi-4KIAR8Vc.js                1.03 kB │ gzip:   0.46 kB │ map:     3.75 kB
+#43 8.071 dist/assets/PagePagination-BzLzmpNH.js                  1.06 kB │ gzip:   0.64 kB │ map:     2.94 kB
+#43 8.071 dist/assets/providerSettlementActions-RvlfdwDi.js       1.09 kB │ gzip:   0.53 kB │ map:     3.83 kB
+#43 8.071 dist/assets/dashboardApiParams-BENOyQaM.js              1.11 kB │ gzip:   0.51 kB │ map:     4.19 kB
+#43 8.071 dist/assets/dateRange-Cg5oiS9Z.js                       1.16 kB │ gzip:   0.50 kB │ map:     7.07 kB
+#43 8.071 dist/assets/DataTable-CQ8Q_jzi.js                       1.18 kB │ gzip:   0.66 kB │ map:     4.64 kB
+#43 8.071 dist/assets/orderActions-BLj0WCDf.js                    1.20 kB │ gzip:   0.64 kB │ map:     5.51 kB
+#43 8.071 dist/assets/ConfirmationDialog-Dol4ZS9e.js              1.27 kB │ gzip:   0.66 kB │ map:     3.89 kB
+#43 8.071 dist/assets/SourceLink-DtM7Nv2r.js                      1.33 kB │ gzip:   0.70 kB │ map:     4.22 kB
+#43 8.071 dist/assets/currency-DXsEtjyx.js                        1.47 kB │ gzip:   0.79 kB │ map:    16.47 kB
+#43 8.071 dist/assets/userManagementApi-C9yN_hn8.js               1.55 kB │ gzip:   0.58 kB │ map:     4.71 kB
+#43 8.071 dist/assets/auditLogApi-Dd1jE8mg.js                     1.59 kB │ gzip:   0.67 kB │ map:     5.44 kB
+#43 8.071 dist/assets/transactionTableStyles-q58i-32A.js          1.69 kB │ gzip:   0.83 kB │ map:     4.06 kB
+#43 8.071 dist/assets/PageHeader-Cvqt9ReB.js                      1.79 kB │ gzip:   0.79 kB │ map:     5.58 kB
+#43 8.071 dist/assets/NotFoundPage-CKqqXUWn.js                    1.79 kB │ gzip:   0.86 kB │ map:     5.13 kB
+#43 8.071 dist/assets/useListUrlState-lkCn0vUb.js                 2.09 kB │ gzip:   1.03 kB │ map:    10.47 kB
+#43 8.071 dist/assets/paymentMethodsApi-BHIZTyPV.js               2.19 kB │ gzip:   0.67 kB │ map:     5.35 kB
+#43 8.071 dist/assets/ReconciliationSummary-ScrxxrCd.js           2.39 kB │ gzip:   0.78 kB │ map:     6.64 kB
+#43 8.071 dist/assets/priceListApi-BvDKjSIP.js                    2.63 kB │ gzip:   0.74 kB │ map:     7.18 kB
+#43 8.071 dist/assets/StockLevelSettingsPage-BzXAXykM.js          2.65 kB │ gzip:   1.32 kB │ map:     7.10 kB
+#43 8.071 dist/assets/parseISO-TM_7SI_5.js                        2.67 kB │ gzip:   1.25 kB │ map:    12.23 kB
+#43 8.071 dist/assets/bankReconciliationActions-Clr9ru-T.js       2.81 kB │ gzip:   1.11 kB │ map:     6.63 kB
+#43 8.071 dist/assets/backupApi-DoNVQ4WC.js                       2.91 kB │ gzip:   0.92 kB │ map:     9.94 kB
+#43 8.071 dist/assets/formatters-NX78nyFP.js                      3.03 kB │ gzip:   1.28 kB │ map:    13.24 kB
+#43 8.071 dist/assets/AddressSection-HRl-XVUu.js                  3.10 kB │ gzip:   1.24 kB │ map:     8.97 kB
+#43 8.071 dist/assets/CategorySelector-D7bOo80T.js                3.19 kB │ gzip:   1.57 kB │ map:    11.93 kB
+#43 8.071 dist/assets/settingsApi-C2zWm5cB.js                     3.26 kB │ gzip:   1.28 kB │ map:    12.29 kB
+#43 8.071 dist/assets/JournalEntriesPage-DBYXKZ61.js              3.35 kB │ gzip:   1.58 kB │ map:     9.05 kB
+#43 8.071 dist/assets/TrialBalancePage-6CSEUVd-.js                3.40 kB │ gzip:   1.66 kB │ map:    10.95 kB
+#43 8.071 dist/assets/JournalEntryViewPage-Bx41wHoD.js            3.50 kB │ gzip:   1.38 kB │ map:     9.45 kB
+#43 8.071 dist/assets/SuppliersPage-gf4l1W8y.js                   3.51 kB │ gzip:   1.59 kB │ map:    10.31 kB
+#43 8.071 dist/assets/chartjs-adapter-date-fns.esm-BqT-YfQz.js    3.55 kB │ gzip:   1.22 kB │ map:    31.73 kB
+#43 8.071 dist/assets/CustomersPage-It8Sce8k.js                   3.65 kB │ gzip:   1.68 kB │ map:    10.86 kB
+#43 8.071 dist/assets/EntityTable-DO4ijLiJ.js                     3.96 kB │ gzip:   1.67 kB │ map:    18.03 kB
+#43 8.071 dist/assets/InventoryCostingPage-cHweB-ib.js            3.99 kB │ gzip:   1.74 kB │ map:    11.70 kB
+#43 8.071 dist/assets/LoginPage-BdAQpjV_.js                       4.32 kB │ gzip:   1.89 kB │ map:    13.33 kB
+#43 8.071 dist/assets/DocumentNumbersPage-C0qQiDbD.js             4.39 kB │ gzip:   2.03 kB │ map:    15.10 kB
+#43 8.071 dist/assets/CategoryViewPage-D2Sk3d5N.js                4.44 kB │ gzip:   1.79 kB │ map:    12.72 kB
+#43 8.071 dist/assets/RoleManagementPage-ggS_FllY.js              4.47 kB │ gzip:   1.61 kB │ map:    10.87 kB
+#43 8.071 dist/assets/CategoriesPage-BkDGXjp9.js                  4.53 kB │ gzip:   2.08 kB │ map:    13.75 kB
+#43 8.071 dist/assets/GeneralLedgerPage-CYFBKpRw.js               4.64 kB │ gzip:   2.07 kB │ map:    14.13 kB
+#43 8.071 dist/assets/StockAdjustmentViewPage-CD3lXz26.js         4.87 kB │ gzip:   2.00 kB │ map:    13.36 kB
+#43 8.071 dist/assets/CategoryFormPage-BQR0sMuO.js                5.12 kB │ gzip:   2.22 kB │ map:    17.34 kB
+#43 8.071 dist/assets/Statement-B4LB-89z.js                       5.22 kB │ gzip:   2.13 kB │ map:    30.82 kB
+#43 8.071 dist/assets/BankReconciliationsPage-DwtQfxZl.js         5.28 kB │ gzip:   2.37 kB │ map:    15.16 kB
+#43 8.071 dist/assets/ProviderSettlementsPage-CnaD21D4.js         5.32 kB │ gzip:   2.35 kB │ map:    17.00 kB
+#43 8.071 dist/assets/PurchaseOrderPrintDialog-Cf_xckOI.js        5.35 kB │ gzip:   2.03 kB │ map:    20.60 kB
+#43 8.071 dist/assets/MandatoryPasswordChangePage-CkHEeKW7.js     5.93 kB │ gzip:   2.13 kB │ map:    19.10 kB
+#43 8.071 dist/assets/SalesOrderPrintDialog-Denz7UA8.js           6.09 kB │ gzip:   1.94 kB │ map:    18.79 kB
+#43 8.071 dist/assets/OrderLineItemRow-DrIlXuXK.js                6.23 kB │ gzip:   2.17 kB │ map:    23.04 kB
+#43 8.071 dist/assets/RedisMonitoringPage-BL1Gzemf.js             6.50 kB │ gzip:   2.48 kB │ map:    18.46 kB
+#43 8.071 dist/assets/BalanceSheetPage-BUUOX6hi.js                6.81 kB │ gzip:   2.67 kB │ map:    28.59 kB
+#43 8.071 dist/assets/BasePrintTemplate-GcJggrSJ.js               7.03 kB │ gzip:   1.61 kB │ map:    22.61 kB
+#43 8.071 dist/assets/CustomerProfilePage-yRgeUYVm.js             7.06 kB │ gzip:   2.40 kB │ map:    20.86 kB
+#43 8.071 dist/assets/StockAdjustmentsPage-COkazPyi.js            7.07 kB │ gzip:   2.94 kB │ map:    22.09 kB
+#43 8.071 dist/assets/ExpenseDetailPage-C14_4hpy.js               7.25 kB │ gzip:   2.82 kB │ map:    23.15 kB
+#43 8.071 dist/assets/ProviderSettlementDetailPage-B_SFE_91.js    7.35 kB │ gzip:   2.79 kB │ map:    23.50 kB
+#43 8.071 dist/assets/ExpenseFormPage-66lwb7-U.js                 7.66 kB │ gzip:   2.97 kB │ map:    26.99 kB
+#43 8.071 dist/assets/purchasingApi-CXn7DlBz.js                   7.69 kB │ gzip:   1.51 kB │ map:    18.78 kB
+#43 8.071 dist/assets/SupplierProfilePage-BGDZB1no.js             7.70 kB │ gzip:   2.55 kB │ map:    20.05 kB
+#43 8.071 dist/assets/ExpensesPage-asRb7mRG.js                    7.70 kB │ gzip:   3.15 kB │ map:    26.44 kB
+#43 8.071 dist/assets/OrdersPage-Dnhzx1Ul.js                      7.76 kB │ gzip:   3.08 kB │ map:    23.93 kB
+#43 8.071 dist/assets/salesApi-BlUBxbuT.js                        7.85 kB │ gzip:   1.57 kB │ map:    20.78 kB
+#43 8.071 dist/assets/CompanySettingsPage-CVHbx3D4.js             8.33 kB │ gzip:   2.72 kB │ map:    28.11 kB
+#43 8.071 dist/assets/PurchaseOrdersPage-CiWH5QLI.js              8.46 kB │ gzip:   3.37 kB │ map:    26.97 kB
+#43 8.071 dist/assets/PurchasingPage-3S4KjfJk.js                  8.53 kB │ gzip:   3.06 kB │ map:    29.44 kB
+#43 8.071 dist/assets/OwnerEquityFormPage-C7zaIeky.js             8.71 kB │ gzip:   3.22 kB │ map:    32.91 kB
+#43 8.071 dist/assets/BankReconciliationDetailPage-CYEE77MS.js    9.00 kB │ gzip:   3.04 kB │ map:    28.10 kB
+#43 8.071 dist/assets/ProductViewPage-CaFsDnin.js                 9.11 kB │ gzip:   3.17 kB │ map:    27.60 kB
+#43 8.071 dist/assets/OwnerEquityDetailPage-D22K9EjA.js           9.48 kB │ gzip:   3.37 kB │ map:    29.71 kB
+#43 8.071 dist/assets/SecuritySettingsPage-CXSxWykL.js            9.67 kB │ gzip:   2.00 kB │ map:    24.50 kB
+#43 8.071 dist/assets/RegionalSettingsPage-BAkJaKZ5.js            9.67 kB │ gzip:   3.08 kB │ map:    25.10 kB
+#43 8.071 dist/assets/ChartOfAccountsPage-DAEr4Bsy.js            10.15 kB │ gzip:   3.83 kB │ map:    39.11 kB
+#43 8.071 dist/assets/OwnerEquityPage-DJMC8Vyo.js                10.24 kB │ gzip:   3.84 kB │ map:    34.30 kB
+#43 8.071 dist/assets/InventoryPage-D9LxR26b.js                  10.29 kB │ gzip:   3.43 kB │ map:    35.13 kB
+#43 8.071 dist/assets/CreatePurchaseOrderPage-DweKxnWY.js        10.32 kB │ gzip:   3.89 kB │ map:    34.35 kB
+#43 8.071 dist/assets/PriceListDetailsPage-7C0nZmej.js           10.56 kB │ gzip:   3.02 kB │ map:    34.40 kB
+#43 8.071 dist/assets/PurchaseOrderDetailPage-Do3uN8gN.js        10.70 kB │ gzip:   3.61 kB │ map:    34.58 kB
+#43 8.071 dist/assets/SalesOrderDetailPage-7wcdibj-.js           11.19 kB │ gzip:   3.84 kB │ map:    36.00 kB
+#43 8.071 dist/assets/ProfitAndLossPage-qa-IWnJe.js              11.45 kB │ gzip:   3.93 kB │ map:    48.11 kB
+#43 8.071 dist/assets/CreateStockAdjustmentPage-DZSvi_7B.js      11.58 kB │ gzip:   4.13 kB │ map:    39.59 kB
+#43 8.071 dist/assets/SupplierFormPage-DOaSUQhY.js               11.68 kB │ gzip:   3.37 kB │ map:    35.95 kB
+#43 8.071 dist/assets/ProductsPage-YQtWaL2t.js                   12.14 kB │ gzip:   4.34 kB │ map:    38.96 kB
+#43 8.071 dist/assets/CreateSalesOrderPage-BVEmcCDW.js           13.01 kB │ gzip:   4.85 kB │ map:    44.15 kB
+#43 8.071 dist/assets/RefundDialog-Dhrky5p7.js                   13.18 kB │ gzip:   3.95 kB │ map:    51.95 kB
+#43 8.071 dist/assets/CreateProductPage-CK7MKPpS.js              13.58 kB │ gzip:   4.75 kB │ map:    49.28 kB
+#43 8.071 dist/assets/CustomerFormPage-UpVEeQVe.js               14.09 kB │ gzip:   4.25 kB │ map:    45.59 kB
+#43 8.071 dist/assets/SalesPage-CBGGFho3.js                      14.24 kB │ gzip:   4.08 kB │ map:    54.94 kB
+#43 8.071 dist/assets/session-B55SX_CV.js                        14.99 kB │ gzip:   5.50 kB │ map:    61.63 kB
+#43 8.071 dist/assets/PaymentMethodsPage-BJYXPzl4.js             15.43 kB │ gzip:   4.77 kB │ map:    53.10 kB
+#43 8.071 dist/assets/useFilterBar-D8pV-oLJ.js                   15.45 kB │ gzip:   5.35 kB │ map:    60.65 kB
+#43 8.071 dist/assets/PriceListsPage-CztYJmsm.js                 17.51 kB │ gzip:   4.46 kB │ map:    61.81 kB
+#43 8.071 dist/assets/UserManagementPage-DKL73JBD.js             18.43 kB │ gzip:   5.21 kB │ map:    61.62 kB
+#43 8.071 dist/assets/ProviderSettlementFormPage-Br-FPlf9.js     18.80 kB │ gzip:   6.60 kB │ map:    69.23 kB
+#43 8.071 dist/assets/notificationSlice-24n4Jq27.js              21.29 kB │ gzip:   6.67 kB │ map:    88.05 kB
+#43 8.071 dist/assets/inventoryApi-CIZ8V5mI.js                   21.61 kB │ gzip:   3.71 kB │ map:    61.85 kB
+#43 8.071 dist/assets/PrintSettingsPage-BsL3Du_W.js              22.03 kB │ gzip:   5.42 kB │ map:    69.45 kB
+#43 8.071 dist/assets/BankReconciliationFormPage-CcO5SRk1.js     23.22 kB │ gzip:   6.56 kB │ map:    81.06 kB
+#43 8.071 dist/assets/AccountingSettingsPage-CvPvxOpF.js         25.03 kB │ gzip:   8.05 kB │ map:    97.62 kB
+#43 8.071 dist/assets/purify.es-D4hYKUve.js                      28.12 kB │ gzip:  11.12 kB │ map:   119.90 kB
+#43 8.071 dist/assets/BackupManagement-CIMwGc4W.js               28.27 kB │ gzip:   7.28 kB │ map:    95.11 kB
+#43 8.071 dist/assets/api-BaIjPxLZ.js                            53.17 kB │ gzip:  19.94 kB │ map:   254.20 kB
+#43 8.071 dist/assets/DashboardPage-K0gLCRO3.js                  62.43 kB │ gzip:  19.78 kB │ map:   269.72 kB
+#43 8.071 dist/assets/redux-CGLNLu4M.js                          72.58 kB │ gzip:  24.32 kB │ map:   424.54 kB
+#43 8.071 dist/assets/index.esm-D10d5htg.js                      82.39 kB │ gzip:  26.90 kB │ map:   343.87 kB
+#43 8.071 dist/assets/router-Ce7rHi3M.js                         97.60 kB │ gzip:  32.38 kB │ map:   535.52 kB
+#43 8.071 dist/assets/index-CKm49nsc.js                         122.30 kB │ gzip:  34.70 kB │ map:   434.82 kB
+#43 8.071 dist/assets/index.es-BG9jUOut.js                      151.58 kB │ gzip:  48.96 kB │ map:   572.93 kB
+#43 8.071 dist/assets/charts-CLmsjCUf.js                        191.54 kB │ gzip:  66.49 kB │ map:   780.18 kB
+#43 8.071 dist/assets/html2canvas-4J0fyI2p.js                   199.62 kB │ gzip:  46.83 kB │ map:   593.20 kB
+#43 8.071 dist/assets/vendor-CGvYuhH3.js                        218.96 kB │ gzip:  68.33 kB │ map:   963.67 kB
+#43 8.071 dist/assets/mui-CnpLVYZJ.js                           667.65 kB │ gzip: 197.49 kB │ map: 3,416.24 kB
+#43 8.071 dist/assets/AuditLogsPage-D2gp8bHp.js                 781.10 kB │ gzip: 252.82 kB │ map: 2,943.76 kB
+#43 8.071 
+#43 8.081 ✓ built in 6.43s
+#43 8.084 [plugin builtin:vite-reporter] 
+#43 8.084 (!) Some chunks are larger than 500 kB after minification. Consider:
+#43 8.084 - Using dynamic import() to code-split the application
+#43 8.084 - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+#43 8.084 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#43 DONE 8.5s
+
+#44 [frontend production 2/6] RUN apk update &&     apk upgrade &&     apk add --no-cache curl
+#44 CACHED
+
+#45 [frontend production 3/6] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#45 CACHED
+
+#46 [frontend production 4/6] COPY --from=builder /app/dist /usr/share/nginx/html
+#46 DONE 0.2s
+
+#47 [frontend production 5/6] COPY docker-entrypoint.sh /docker-entrypoint.sh
+#47 DONE 0.1s
+
+#48 [frontend production 6/6] RUN chmod +x /docker-entrypoint.sh
+#48 DONE 0.4s
+
+#49 [frontend] exporting to image
+#49 exporting layers
+#49 exporting layers 0.3s done
+#49 writing image sha256:89ec5c1a1bf08fd5e85d35b4d9917b46334edc9a3cc8dd463a2b8d838dc1b22f done
+#49 naming to docker.io/library/erp-frontend:latest done
+#49 DONE 0.3s
+
+#50 [frontend] resolving provenance for metadata file
+#50 DONE 0.0s
+ Image erp-frontend:latest Built 
+ Image erp-backend:latest Built 
+ Image erp-nginx:latest Built 
+ Container erp_nginx Running 
+ Container erp_postgres Running 
+ Container erp_redis Running 
+ Container erp_backend Recreate 
+ Container erp_backend Recreated 
+ Container erp_frontend Recreate 
+ Container erp_frontend Recreated 
+ Container erp_postgres Waiting 
+ Container erp_redis Waiting 
+ Container erp_redis Healthy 
+ Container erp_postgres Healthy 
+ Container erp_backend Starting 
+ Container erp_backend Started 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Starting 
+ Container erp_frontend Started 
+ Container erp_backend Waiting 
+ Container erp_frontend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Healthy 
+verify ok: observed access lifetime 20 s, configured 20s
+qa-up ok (access=20s, grace=5, sha=26f8645842b04992336bd70aff217349f31a353c)
+
+[8] Use past real expiry
+    ok   at least twelve uses completed
+    ok   the session is the same one
+    ok   the generation advanced at least three times
+    ok   tab A is signed in
+    ok   tab B is signed in
+  => pass (75 s)
+
+1 of 1 passed; sign-in waits 0; wrote /scratch/results-cases.json
+ Container erp_frontend Running 
+ Container erp_nginx Running 
+ Container erp_postgres Running 
+ Container erp_redis Running 
+ Container erp_backend Recreate 
+ Container erp_backend Recreated 
+ Container erp_postgres Waiting 
+ Container erp_redis Waiting 
+ Container erp_redis Healthy 
+ Container erp_postgres Healthy 
+ Container erp_backend Starting 
+ Container erp_backend Started 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Waiting 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Healthy 
+restore ok (access=15m, grace=60)
+M1: one raw read, one tab idle
+M2: one raw read, four tabs busy, a fifth writing every 100 ms
+M3-M5: oneTab
+M3-M5: fourTabs
+  ok   M1 (blocking): median p95 1.7 ms, threshold 5 ms, max 8.1 ms
+  ok   M2 (blocking): median p95 5 ms, threshold 15 ms, max 41.9 ms
+  diag M3 one tab (diagnostic, not judged): median p95 70.8 ms, max 85.9 ms; former provisional target 10 ms, not met
+  diag M3 four tabs (diagnostic, not judged): median p95 318.3 ms, max 532.3 ms; former provisional target 20 ms, not met
+  diag M4 one tab (diagnostic, not judged): median p95 89.4 ms, max 101.6 ms; former provisional target 10 ms, not met
+  diag M4 four tabs (diagnostic, not judged): median p95 539.5 ms, max 715.2 ms; former provisional target 20 ms, not met
+  The 10 / 20 ms targets for M3 and M4 were provisional and were replaced on 2026-10-06, not met. Run 582096992 failed them: M3 99 / 330.1 ms, M4 205.3 / 603.3 ms (one tab / four tabs), exit status 1.
+  measured loads answered 429: 0 of 125 (one tab), 0 of 500 (four tabs)
+  M5 (diagnostic): Requests on a page overlap, so the sum of their gate waits is not the time the gate adds to the page load; it is an upper bound on it.
+wrote /scratch/results-latency.json
+
+=== cross-tab session run ===
+commit 26f8645842b04992336bd70aff217349f31a353c   exit status 0   stack restored: yes
+  NOT A RECORDED RUN: only 8: not a recorded run
+  before access 15m, grace 60, build 7096dc604a726f30c5a6e435e28f8df725dd85ba
+  during access 20s, grace 5, build 26f8645842b04992336bd70aff217349f31a353c
+  after  access 15m, grace 60, build 26f8645842b04992336bd70aff217349f31a353c
+  case  8 pass  Use past real expiry
+  1 of 1 cases passed (PARTIAL: only 8: not a recorded run)
+  W1: not run
+  latency pass (M1 and M2 only; M3 and M4 are diagnostic and were not judged)
+     ok   M1 (blocking): median p95 1.7 ms, threshold 5 ms, max 8.1 ms
+     ok   M2 (blocking): median p95 5 ms, threshold 15 ms, max 41.9 ms
+     diag M3 one tab (diagnostic, not judged): median p95 70.8 ms, max 85.9 ms; former provisional target 10 ms, not met
+     diag M3 four tabs (diagnostic, not judged): median p95 318.3 ms, max 532.3 ms; former provisional target 20 ms, not met
+     diag M4 one tab (diagnostic, not judged): median p95 89.4 ms, max 101.6 ms; former provisional target 10 ms, not met
+     diag M4 four tabs (diagnostic, not judged): median p95 539.5 ms, max 715.2 ms; former provisional target 20 ms, not met
+     The 10 / 20 ms targets for M3 and M4 were provisional and were replaced on 2026-10-06, not met. Run 582096992 failed them: M3 99 / 330.1 ms, M4 205.3 / 603.3 ms (one tab / four tabs), exit status 1.
+     (not blocking) M3 four tabs: max 532.3 ms
+     (not blocking) M4 one tab: max 101.6 ms
+     (not blocking) M4 four tabs: max 715.2 ms
+     measured loads answered 429: 0 of 125 (one tab), 0 of 500 (four tabs)
+     competing workload: No container was restarting on the host when the list was taken.
+  sign-in waits: 0   results: /scratch/results.json
+run complete: status=0; results in /tmp/opencode/erp-session-qa/results.json
