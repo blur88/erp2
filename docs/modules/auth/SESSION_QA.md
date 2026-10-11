@@ -2305,6 +2305,65 @@ were deleted and the wrapper now keeps only files written by its own run.
   the channel message; that holds for the timing the cases use and not for the
   no-request line taken alone. The suite was not changed.
 
+### Cases 1 and 3 after the assessment (#1379, 2026-10-11): two lines added, four partial runs
+
+The finding above (run B1) was that a pass of case 1 or 3 was tied to the
+channel by the cases' timing and by nothing they checked. The assessment #1379
+asked for:
+
+- **Is starting right after a poll isolation enough?** As a matter of timing,
+  yes, and run A showed it catches a channel that does not deliver. But it was
+  an assumption the cases did not check: nothing failed if the sign-out came
+  late, or if `afterNextPoll` had waited on a poll of another kind, and B1
+  passed with the channel removed.
+- **Should the cases establish delivery directly?** Yes, and now they do, by
+  observation and not by keeping tab B from polling. Two lines were added to
+  both cases (`toldByTheChannel`, `cases/signout.mjs`):
+  - *a session-channel message reached tab B after the sign-out began and
+    before its redirect.* An init script in tab B records when a message
+    arrives on the `erp-session` channel. It adds a listener of its own to the
+    channel object the application opens; the application's listener is
+    untouched.
+  - *tab B's next status poll was not yet due when it was redirected.* The
+    time of the poll the case started after, plus the 30 s interval, less a
+    2 s margin, must be later than the redirect.
+    `suite-wiring.test.mjs` fails if the interval in `SystemStatus.tsx` stops
+    being the suite's.
+- **Do the comments and the README say what the no-request line establishes?**
+  They do now: it shows that a tab whose session ended sends nothing on its way
+  out, and it does not show how the tab learned of the sign-out.
+
+Four partial runs on `794d2e321`, through `run.sh` with `QA_SUITE_OVERRIDE`
+and `QA_ONLY=1,3`, expected results written before the first. `proposed` is
+the suite with the two lines; the three faults are the harness's.
+
+| Run | Fault | Result | Against what was written down |
+|---|---|---|---|
+| N | none (`proposed`) | exit 0; both cases passed every line. Message 541 and 553 ms after the sign-out began, redirect at 617 and 620 ms, next poll due at 29.2 and 29.3 s | as expected |
+| PA | channel removed in tab B, usual timing (run A again) | exit 1. As in A the 5 s lines failed and the no-request line passed. Both new lines failed: no channel in tab B, no redirect | as expected |
+| PB1 | channel removed in tab B, sign-out 27.5 s after B's poll (run B1 again) | exit 1. The 5 s lines and the no-request line **passed**, as in B1; B was redirected 2560 and 2536 ms after the sign-out began, the poll being due at 2499 and 2497 ms. **Both new lines failed** | as expected |
+| PB3 | channel present, sign-out 27.5 s after B's poll | exit 1. Every line passed but the poll line: message at 530 and 501 ms, redirect at 588 and 568 ms, poll due at 2.5 s, inside the margin | as expected |
+
+- **The condition B1 passed under now fails (PB1),** on the two lines that are
+  about it and on no other.
+- **Each new line fails alone when only its condition is absent** (PB3 for the
+  poll line; the channel line fails without the poll line in no run, because a
+  tab with no channel is redirected only by its poll or not at all).
+
+What a pass of case 1 or 3 now proves, and what it does not, is stated above
+each case and in the README. In short: the `BroadcastChannel` message was
+delivered to tab B before B left, and nothing of B's own was due that could
+have told it instead. Not proved by these cases: that the redirect was
+*caused* by the message's handler (it is inferred from the message arriving
+first and nothing else being due); delivery to a tab that is frozen, hidden or
+throttled, or in another browser process; behaviour when the sign-out's
+publication is delayed (case 17). The no-request line has still not been seen
+to fail on a request the application sent, which stays as #1363 left it.
+
+Kept outside the repository (`~/erp-qa-1379`): the expectations, the four
+copies' diffs, and each run's log, results, ingress log and stack
+configuration before, during and after.
+
 ### W1: one run per blocking check
 
 Run 5 as first written put two faults in one run, at five and at ten tabs. It

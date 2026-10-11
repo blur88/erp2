@@ -3,11 +3,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { COMPANY_SETTINGS, KEEP_SHELL_ANSWERS, REGIONAL_SETTINGS } from './lib/usable.mjs'
 import { PROFILE_OPTIONS } from './cases/limiter.mjs'
+import { STATUS_POLL_MS } from './cases/signout.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 
@@ -54,4 +55,13 @@ test('the api_limit the suite reads from nginx.conf carries its delay, so the lo
 test('a limit read without its delay has no longest hold: an error, not NaN', async () => {
   const { maxConfiguredDelayMs } = await import('./lib/expiry-crossing.mjs')
   assert.throws(() => maxConfiguredDelayMs({ ratePerSecond: 20, burst: 40 }), /delay/)
+})
+
+// Cases 1 and 3 judge "tab B's next status poll was not yet due" from this
+// interval (#1379). If the application's changes, the line would be judged
+// against a poll that comes at another time.
+test("the status-poll interval cases 1 and 3 use is the application's", () => {
+  const source = readFileSync(join(HERE, '../../src/components/common/SystemStatus.tsx'), 'utf8')
+  const intervals = [...source.matchAll(/setInterval\(checkHealth,\s*(\d+)\)/g)].map((m) => Number(m[1]))
+  assert.deepEqual(intervals, [STATUS_POLL_MS])
 })

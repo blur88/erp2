@@ -247,13 +247,30 @@ grace value first.
   token, and it was let go inside the configured grace and answered 200 (9,
   11a) or after it and answered 401 (10, 11b). The grace is read from the
   stack configuration.
-- **Cases 1 and 3 prove the channel.** A signed-in tab polls through the
-  request gate every 30 s, and a poll would tell it of a sign-out by itself.
-  Both cases start right after one of tab B's polls, give B 5 s, and require
-  that B sent no request between the sign-out and its redirect. A B that
-  learned of the sign-out from a request of its own fails; a pass means the
-  `BroadcastChannel` message did it. (Cases 2, 4 and 15 remove the channel on
-  purpose and prove the other paths.)
+- **Cases 1 and 3 prove that the channel delivered, by observing it.** A
+  signed-in tab learns of a sign-out elsewhere from the `BroadcastChannel`
+  message, from a resume event, or from the next thing it does by itself: its
+  status poll, every 30 s, whose read of the stored record ends the tab before
+  the poll is sent. Both cases therefore require, besides the 5 s they give
+  tab B:
+  - that a message on the session channel **reached B** after the sign-out
+    began and before B's redirect (an init script in B records its arrival);
+  - that B's next poll was **not yet due** when it was redirected (the poll
+    the case started after, plus 30 s, less a 2 s margin);
+  - that B sent no request in between.
+
+  The third line alone does not tell the channel from the poll: the read that
+  ends the tab stops the poll before it is sent, so the line passes either
+  way (#1379; with the channel removed and the sign-out placed 2.5 s before a
+  poll, the cases as they were passed every line). What it shows is that an
+  ended tab sends nothing on its way out.
+
+  A pass means the message was delivered to B before B left and nothing of
+  B's own was due that could have told it instead. It does not show that the
+  message's handler is what redirected B (that is inferred), nor delivery to
+  a frozen, hidden or throttled tab or to another browser process, nor what
+  happens when the sign-out's publication is delayed (case 17). (Cases 2, 4
+  and 15 remove the channel on purpose and prove the other paths.)
 - **Case 5 identifies user X's data by provenance, not by content.** The two
   users of the cases may see the same customers, so "no cached X data
   appears" is judged by which request produced what is on screen. X loads the
