@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react'
-import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
@@ -9,6 +8,7 @@ import api from '@/services/api'
 import { registerSessionRuntime } from '@/session/registry'
 import { createHarness } from '@/session/__tests__/twoTabs'
 import { settingsApiSlice } from '@/store/api/settingsApi'
+import { createTestStore } from '@/test/createTestStore'
 
 vi.mock('../SidebarFooter', () => ({
   default: () => null,
@@ -22,12 +22,9 @@ describe('Sidebar company data after a 429', () => {
   let sent: Config[]
 
   const renderSidebar = () => {
-    const store = configureStore({
-      reducer: {
-        auth: () => ({ user: { role: 'sales_staff' } }),
-        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-      },
-      middleware: (getDefault) => getDefault().concat(settingsApiSlice.middleware),
+    const store = createTestStore({
+      apis: [settingsApiSlice],
+      reducer: { auth: () => ({ user: { role: 'sales_staff' } }) },
     })
     return render(
       <Provider store={store}>

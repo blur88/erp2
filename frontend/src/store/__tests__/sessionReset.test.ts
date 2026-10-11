@@ -56,6 +56,31 @@ describe('session ending in the application', () => {
     delete (window as unknown as { __erpSessionTimings?: unknown }).__erpSessionTimings
   })
 
+  // #1364: the store appHarness loads notifies as the application's does, once
+  // per animation frame. The harness waits out the pending fallback timers at
+  // the end of the file; it must not do so by changing the batching.
+  it('the loaded store keeps the per-frame batching of production', async () => {
+    const frames = vi.spyOn(window, 'requestAnimationFrame')
+    const app = await loadApp()
+    await Promise.all([app.rehydrated(), app.sessionReady()])
+    const [slice] = app.storeModule.apiSlices
+    let notified = 0
+    app.store.subscribe(() => {
+      notified += 1
+    })
+    frames.mockClear()
+
+    app.store.dispatch((slice as any).internalActions.subscriptionsUpdated([]))
+
+    expect(frames).toHaveBeenCalledTimes(1)
+    // Not at the end of the tick: that is the microtask batching of createTestStore.
+    await Promise.resolve()
+    expect(notified).toBe(0)
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    expect(notified).toBe(1)
+    frames.mockRestore()
+  })
+
   const signedInApp = async (options: Parameters<typeof loadApp>[0] = {}) => {
     const app = await loadApp({ stored: { record: { revision: 1, session: storedSession() } }, ...options })
     await Promise.all([app.rehydrated(), app.sessionReady()])

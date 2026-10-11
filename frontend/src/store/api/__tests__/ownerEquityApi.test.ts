@@ -1,9 +1,9 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import api from '@/services/api'
 import { accountingApiSlice } from '@/store/api/accountingApi'
 import { inventoryApiSlice } from '@/store/api/inventoryApi'
+import { createTestStore } from '@/test/createTestStore'
 
 vi.mock('@/services/api', () => ({
   default: vi.fn(),
@@ -44,16 +44,7 @@ function routeApiByUrl() {
 }
 
 function makeStore() {
-  return configureStore({
-    reducer: {
-      [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
-      [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-    },
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware()
-        .concat(accountingApiSlice.middleware)
-        .concat(inventoryApiSlice.middleware),
-  })
+  return createTestStore({ apis: [accountingApiSlice, inventoryApiSlice] })
 }
 
 afterEach(() => {

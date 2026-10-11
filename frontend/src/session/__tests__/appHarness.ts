@@ -1,5 +1,7 @@
-import { vi } from 'vitest'
+import { afterAll, vi } from 'vitest'
 import axios, { type InternalAxiosRequestConfig } from 'axios'
+import { disposeAfterTest } from '@/test/createTestStore'
+import { settleFrameBatchedNotifications } from '@/test/storeBatching'
 import type { SharedMemory } from '../store/memorySessionStore'
 import type { ActiveSession, StoredState } from '../types'
 
@@ -42,7 +44,17 @@ export interface LoadAppOptions {
   holdRequest?: (config: InternalAxiosRequestConfig) => Promise<void> | undefined
 }
 
+// The store loaded here batches its notifications per animation frame, as in
+// production, and each batch starts a 100 ms fallback timer that fails the run
+// if it fires after jsdom is gone (#1364). So a file that loaded the application
+// in a browser environment waits, after its last test, until none can be pending.
+let loadedInBrowser = false
+afterAll(async () => {
+  if (loadedInBrowser) await settleFrameBatchedNotifications()
+})
+
 export async function loadApp(options: LoadAppOptions = {}) {
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') loadedInBrowser = true
   vi.resetModules()
 
   const { createSharedMemory, createMemorySessionStore } = await import('../store/memorySessionStore')
@@ -109,6 +121,12 @@ export async function loadApp(options: LoadAppOptions = {}) {
   } finally {
     axios.defaults.adapter = previousAdapter
   }
+
+  // The loaded store belongs to the test that loaded it: its RTK Query state is
+  // reset after that test, once whatever the test rendered is unmounted.
+  disposeAfterTest(() => {
+    for (const slice of storeModule.apiSlices) storeModule.store.dispatch(slice.util.resetApiState())
+  })
 
   const rehydrated = (): Promise<void> => {
     const { persistor } = storeModule
