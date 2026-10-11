@@ -1,0 +1,7 @@
+erp_backend	Up 18 seconds (healthy)
+erp_frontend	Up 37 minutes (healthy)
+erp_nginx	Up 17 hours (healthy)
+erp_redis	Up 3 days (healthy)
+erp_postgres	Up 3 days (healthy)
+claude-usage-tracker	Up 3 days (healthy)
+portainer_agent	Up 3 days

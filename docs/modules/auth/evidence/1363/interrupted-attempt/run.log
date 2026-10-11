@@ -1,0 +1,239 @@
+ Image erp-frontend:latest Building 
+ Image erp-nginx:latest Building 
+ Image erp-backend:latest Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.52kB done
+#1 DONE 0.0s
+
+#2 [backend internal] load build definition from Dockerfile
+#2 ...
+
+#3 [nginx internal] load build definition from Dockerfile
+#3 transferring dockerfile: 109B 0.0s done
+#3 DONE 0.3s
+
+#2 [backend internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.19kB 0.0s done
+#2 DONE 0.3s
+
+#4 [frontend internal] load build definition from Dockerfile
+#4 transferring dockerfile: 1.40kB 0.0s done
+#4 DONE 0.3s
+
+#5 [backend internal] load metadata for docker.io/library/node:24.16.0-alpine3.23
+#5 DONE 0.0s
+
+#6 [frontend internal] load metadata for docker.io/library/nginx:1.30.0-alpine3.23-slim
+#6 DONE 0.0s
+
+#7 [nginx internal] load .dockerignore
+#7 transferring context: 2B done
+#7 DONE 0.1s
+
+#8 [backend internal] load .dockerignore
+#8 transferring context: 1.01kB done
+#8 DONE 0.2s
+
+#9 [nginx 1/2] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#9 DONE 0.0s
+
+#10 [backend deps 1/4] FROM docker.io/library/node:24.16.0-alpine3.23
+#10 DONE 0.0s
+
+#11 [nginx internal] load build context
+#11 transferring context: 13.73kB done
+#11 DONE 0.2s
+
+#12 [nginx 2/2] COPY nginx.conf /etc/nginx/nginx.conf
+#12 CACHED
+
+#13 [nginx] exporting to image
+#13 exporting layers done
+#13 writing image sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f
+#13 writing image sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f 0.1s done
+#13 naming to docker.io/library/erp-nginx:latest 0.0s done
+#13 DONE 0.1s
+
+#14 [backend internal] load build context
+#14 ...
+
+#15 [nginx] resolving provenance for metadata file
+#15 DONE 0.0s
+
+#16 [auth] library/node:pull token for registry-1.docker.io
+#16 DONE 0.0s
+
+#14 [backend internal] load build context
+#14 transferring context: 4.06MB 0.6s done
+#14 DONE 0.7s
+
+#10 [backend deps 1/4] FROM docker.io/library/node:24.16.0-alpine3.23
+#10 CACHED
+
+#17 [backend deps 2/4] WORKDIR /app
+#17 DONE 0.1s
+
+#18 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#18 ...
+
+#19 [backend deps 3/4] COPY package*.json ./
+#19 DONE 0.2s
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 ...
+
+#18 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#18 DONE 2.7s
+
+#21 [frontend internal] load .dockerignore
+#21 transferring context: 755B done
+#21 DONE 0.1s
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 ...
+
+#22 [frontend builder 1/7] FROM docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+#22 DONE 0.0s
+
+#9 [frontend production 1/6] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#9 DONE 0.0s
+
+#23 [frontend internal] load build context
+#23 transferring context: 5.66MB 0.4s done
+#23 DONE 0.5s
+
+#22 [frontend builder 1/7] FROM docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+#22 resolve docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f 0.1s done
+#22 sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f 3.87kB / 3.87kB done
+#22 sha256:8e2c930fda481a6ec141fe5a88e8c249c69f8102fe98af505f38c081649ea749 1.72kB / 1.72kB done
+#22 sha256:edd927012c1ea203e392a59f0ae655a9e50a67bf3a5cb42dc1c638889a03a3b0 6.52kB / 6.52kB done
+#22 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 0B / 51.51MB 0.3s
+#22 sha256:3eebacc30b80dca2db4fba20ee2c2562ae69dbbdc307fcee75b49cf859cf63e4 0B / 1.26MB 0.3s
+#22 sha256:1ba15d4bb83a5da0244b0ca03df5cac1a19a914c5b876543cb1065d7fddbc9d5 0B / 446B 0.3s
+#22 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 4.19MB / 51.51MB 0.4s
+#22 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 15.73MB / 51.51MB 0.5s
+#22 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 36.70MB / 51.51MB 0.7s
+#22 sha256:1ba15d4bb83a5da0244b0ca03df5cac1a19a914c5b876543cb1065d7fddbc9d5 446B / 446B 0.7s done
+#22 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 49.28MB / 51.51MB 0.8s
+#22 sha256:3eebacc30b80dca2db4fba20ee2c2562ae69dbbdc307fcee75b49cf859cf63e4 1.26MB / 1.26MB 1.0s
+#22 sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 51.51MB / 51.51MB 4.4s done
+#22 sha256:3eebacc30b80dca2db4fba20ee2c2562ae69dbbdc307fcee75b49cf859cf63e4 1.26MB / 1.26MB 4.4s done
+#22 extracting sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 0.1s
+#22 extracting sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 5.5s
+#22 extracting sha256:d7319775d025f51b0d7ee7f1224231b07f98b38a21909b5a7e2572e083dcb50a 6.8s done
+#22 ...
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 14.66 npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+#20 17.34 npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+#20 ...
+
+#22 [frontend builder 1/7] FROM docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+#22 extracting sha256:3eebacc30b80dca2db4fba20ee2c2562ae69dbbdc307fcee75b49cf859cf63e4 0.5s done
+#22 extracting sha256:1ba15d4bb83a5da0244b0ca03df5cac1a19a914c5b876543cb1065d7fddbc9d5 done
+#22 DONE 18.3s
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 ...
+
+#24 [frontend builder 2/7] WORKDIR /app
+#24 ...
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 22.03 npm warn deprecated fstream@1.0.12: This package is no longer supported.
+#20 ...
+
+#24 [frontend builder 2/7] WORKDIR /app
+#24 DONE 10.7s
+
+#25 [frontend builder 3/7] COPY package*.json ./
+#25 DONE 0.3s
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 ...
+
+#26 [frontend builder 4/7] RUN npm ci
+#26 ...
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 54.98 
+#20 54.98 added 787 packages, and audited 788 packages in 54s
+#20 54.98 
+#20 54.98 166 packages are looking for funding
+#20 54.98   run `npm fund` for details
+#20 54.99 
+#20 54.99 1 critical severity vulnerability
+#20 54.99 
+#20 54.99 To address all issues, run:
+#20 54.99   npm audit fix
+#20 54.99 
+#20 54.99 Run `npm audit` for details.
+#20 55.00 npm notice
+#20 55.00 npm notice New major version of npm available! 11.13.0 -> 12.2.0
+#20 55.00 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#20 55.00 npm notice To update run: npm install -g npm@12.2.0
+#20 55.00 npm notice
+#20 55.61 npm warn using --force Recommended protections disabled.
+#20 DONE 58.7s
+
+#26 [frontend builder 4/7] RUN npm ci
+#26 ...
+
+#27 [backend builder 3/5] COPY --from=deps /app/node_modules ./node_modules
+#27 DONE 16.3s
+
+#26 [frontend builder 4/7] RUN npm ci
+#26 ...
+
+#28 [backend builder 4/5] COPY . .
+#28 DONE 0.3s
+
+#26 [frontend builder 4/7] RUN npm ci
+#26 ...
+
+#29 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#29 1.971 
+#29 1.971 > erp-backend@3.21.4 build
+#29 1.971 > nest build
+#29 1.971 
+#29 ...
+
+#26 [frontend builder 4/7] RUN npm ci
+#26 57.35 
+#26 57.35 added 468 packages, and audited 469 packages in 57s
+#26 57.35 
+#26 57.35 107 packages are looking for funding
+#26 57.35   run `npm fund` for details
+#26 57.38 
+#26 57.38 2 critical severity vulnerabilities
+#26 57.38 
+#26 57.38 To address all issues, run:
+#26 57.38   npm audit fix
+#26 57.38 
+#26 57.38 Run `npm audit` for details.
+#26 57.38 npm notice
+#26 57.38 npm notice New major version of npm available! 11.12.1 -> 12.2.0
+#26 57.38 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#26 57.38 npm notice To update run: npm install -g npm@12.2.0
+#26 57.38 npm notice
+#26 DONE 58.2s
+
+#30 [frontend builder 5/7] RUN npm install @rollup/rollup-linux-x64-musl --save-optional
+Terminated
+
+ Container erp_postgres Running 
+ Container erp_redis Running 
+ Container erp_backend Running 
+ Container erp_frontend Running 
+ Container erp_nginx Running 
+ Container erp_redis Waiting 
+ Container erp_postgres Waiting 
+ Container erp_redis Healthy 
+ Container erp_postgres Healthy 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_backend Waiting 
+ Container erp_frontend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Healthy 
+restore ok (access=15m, grace=60)
