@@ -190,10 +190,22 @@ function replayContextOf(round, replayRows, events, stale) {
     const own = events.filter((e) => e.tab === answer.tab && e.refreshId === answer.refreshId && e.at <= when)
     const commits = own.filter((e) => e.type === 'token-commit')
     if (commits.some((c) => WRITTEN.has(c.outcome))) return 'written'
-    if (own.some((e) => e.type === 'pending-dropped')) return 'dropped'
+    // Let go by the build that keeps responses, for a reason that is not a
+    // write: named as that, never as the dropped response of #1358.
+    const letGo = own.find((e) => e.type === 'pending-dropped')
+    if (letGo) return letGo.reason === 'written' ? 'written' : `let-go:${letGo.reason}`
     if (own.some((e) => e.type === 'lease-release' && e.outcome === 'skipped-pending')) return 'held-pending'
-    if (commits.length > 0) return 'dropped'
-    return 'unknown'
+    if (commits.length === 0) return 'unknown'
+    // "Dropped" needs a trace that shows the refresh ended with nothing kept:
+    // its lease given up (released, or tried and failed) with no pending entry.
+    // Until that release is traced the commit is still being attempted; and a
+    // refresh sent without the lease traces no release at all, so a timed-out
+    // commit there cannot be read either way.
+    if (own.some((e) => e.type === 'lease-release')) return 'dropped'
+    const lastAcquire = events
+      .filter((e) => e.type === 'lease-acquire' && e.tab === answer.tab && e.refreshId === answer.refreshId && e.at <= answer.at)
+      .at(-1)
+    return lastAcquire?.acquired === true ? 'commit-in-progress' : 'unknown'
   }
   return {
     phase,

@@ -526,3 +526,48 @@ test('the refreshed response is read at the moment the presenting tab read stora
   assert.equal(context.presentingTab, 'Y')
   assert.equal(context.staleReadAt, T0 + 94_900)
 })
+
+// --- found by the second review (2026-10-12), before the merge ---------------------
+// "dropped" is what separates the #1358 defect from a response that was kept.
+// It must come from a trace that shows the response was let go, never from the
+// absence of a sign that it was held.
+test('a response is called dropped only when its refresh ended with nothing kept', () => {
+  const at = T0 + 40_000
+  const stateOf = (events) => {
+    const r = round({ sessionEnded: true })
+    r.traces[0].events = [
+      ev('lease-acquire', T0 + 9_900, 1, { acquired: true, expiresAt: T0 + 29_900, ms: 5 }),
+      ev('refresh-sent', T0 + 10_000, 1, { presentedGeneration: 7 }),
+      ev('refresh-answered', T0 + 10_400, 1, { status: 'ok', returnedGeneration: 8, ms: 400 }),
+      ...events,
+    ]
+    return judgeStallRound(r, rows({ audit: [replayRow(at)] }), HOLD_CELL).facts.replayContext.refreshedResponse
+  }
+  const timeout = (attempt, t) => ev('token-commit', t, 1, { trigger: 'inline', attempt, triggeredBy: null, outcome: 'timeout', ms: 5000 })
+  // The control: one attempt, then the refresh ends and gives up its lease.
+  assert.equal(stateOf([timeout(1, T0 + 15_400), ev('lease-release', T0 + 15_450, 1, { outcome: 'failed', ms: 50 })]), 'dropped')
+  // The fixed build between its two inline attempts: nothing says yet that it is held.
+  assert.equal(stateOf([timeout(1, T0 + 15_400)]), 'commit-in-progress')
+  // Held, as before.
+  assert.equal(stateOf([timeout(1, T0 + 15_400), timeout(2, T0 + 20_400), ev('lease-release', T0 + 20_400, 1, { outcome: 'skipped-pending', ms: 0 })]), 'held-pending')
+  // Let go for a reason that is not a write: named, not called dropped.
+  for (const reason of ['claim-changed', 'discarded', 'session-mismatch']) {
+    assert.equal(
+      stateOf([timeout(1, T0 + 15_400), timeout(2, T0 + 20_400), ev('lease-release', T0 + 20_400, 1, { outcome: 'skipped-pending', ms: 0 }), ev('pending-dropped', T0 + 30_000, 1, { reason })]),
+      `let-go:${reason}`,
+    )
+  }
+})
+
+test('a refresh sent without the lease traces no release, so a timed-out commit there is not read either way', () => {
+  const r = round({ sessionEnded: true })
+  r.traces[0].events = [
+    ev('lease-acquire', T0 + 9_900, 1, { acquired: false, expiresAt: null, ms: 5 }),
+    ev('refresh-sent', T0 + 10_000, 1, { presentedGeneration: 7 }),
+    ev('refresh-answered', T0 + 10_400, 1, { status: 'ok', returnedGeneration: 8, ms: 400 }),
+    ev('token-commit', T0 + 15_400, 1, { trigger: 'inline', attempt: 1, triggeredBy: null, outcome: 'timeout', ms: 5000 }),
+    ev('token-commit', T0 + 20_400, 1, { trigger: 'inline', attempt: 2, triggeredBy: null, outcome: 'timeout', ms: 5000 }),
+  ]
+  const context = judgeStallRound(r, rows({ audit: [replayRow(T0 + 40_000)] }), HOLD_CELL).facts.replayContext
+  assert.equal(context.refreshedResponse, 'unknown')
+})
