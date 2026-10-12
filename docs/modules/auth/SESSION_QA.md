@@ -3099,6 +3099,25 @@ Two more properties of the method, both recorded per round:
   QA session still alive on the server, which its reset check did not see. In
   the other 90 rounds the session row is revoked.
 
+  **This is a reset deviation of this investigation, and it stands as one.** The
+  protocol requires the previous round's session to be ended before a round
+  starts. `X` round 1 started with `P` round 10's session (`c96d3d89…`) alive
+  on the server while its reset check recorded the previous session as ended;
+  the check reads what the browser saw, not the server's row. The leftover
+  session belonged to another browser profile, which had been closed, and was
+  never presented again, and `X` signed in afresh for each round, so no request
+  of `X` used it; that is why `X` round 1 is still counted, and it is a judgement,
+  not something the check established. Making the driver wait for the logout's
+  answer would prevent it in future runs and is not done here.
+
+  The session was revoked by hand before this work was merged: on 2026-10-12 at
+  08:51:45 UTC, with the single update the server's own logout makes (`revokedAt`
+  set, `revokeReason = 'logout'`, only where `revokedAt` was null; one row
+  changed), run directly against the QA database because no route revokes a
+  session without its token. Read back afterwards: the row is revoked, and no
+  session created during the runs (00:30 to 05:10 UTC) is left unrevoked and
+  unexpired.
+
 ### Calibration
 
 Two invocations, both on pinned `main` code, cell `H12`; kept and filed under
