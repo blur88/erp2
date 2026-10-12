@@ -414,3 +414,87 @@ test('operations left open when the round ended are a recorded fact', () => {
   r.phases.operationsOpenAtEnd = 1
   assert.equal(roundFacts(r, rows()).observation.operationsOpenAtEnd, 1)
 })
+
+// --- found by the smoke round (2026-10-12), before calibration ---------------------
+// The server writes supersededAt and graceUntil to the whole second, so each is
+// known only to within a second. The smoke round's superseding request arrived
+// 250 ms after the second its supersession was written as, and was listed as a
+// stale presentation of the generation it had itself superseded.
+
+test('the request that superseded the generation is not stale when the server rounded its time down', () => {
+  const r = round()
+  r.ingress[0].completedAtMs = T0 + 10_650 // arrived after 10_300, which stands for [10_300, 11_300)
+  r.sessionRequests[0].sentAt = T0 + 10_500
+  r.sessionRequests[0].respondedAt = T0 + 10_700
+  r.traces[0].events[0].at = T0 + 10_450
+  r.traces[0].events[1].at = T0 + 10_750
+  assert.deepEqual(judgeStallRound(r, rows(), HOLD_CELL).facts.stalePresentations, [])
+})
+
+test('a presentation within a second of the end of the grace is boundary-uncertain, either side', () => {
+  // graceUntil is written as T0+15_300 and stands for any instant in [15_300, 16_300).
+  for (const sentAt of [T0 + 15_400, T0 + 16_100]) {
+    const [stale] = judgeStallRound(withStale(sentAt, sentAt + 100, 200), rows(), HOLD_CELL).facts.stalePresentations
+    assert.equal(stale.kind, 'boundary-uncertain', `sent at +${sentAt - T0}`)
+  }
+  const [inside] = judgeStallRound(withStale(T0 + 15_000, T0 + 15_200, 200), rows(), HOLD_CELL).facts.stalePresentations
+  assert.equal(inside.kind, 'inside-grace')
+  const [outside] = judgeStallRound(withStale(T0 + 16_300, T0 + 16_400, 200), rows(), HOLD_CELL).facts.stalePresentations
+  assert.equal(outside.kind, 'outside-grace-no-replay-row')
+})
+
+// A replay on the fixed build is not the dropped response of #1358: the smoke
+// round's response was still held pending when another tab presented the old
+// token. And it came after the harness's nudge. Both are facts of the round.
+
+test('a replay says which phase it came in, and whether a tab had nudged it', () => {
+  const r = withStale(T0 + 95_000, T0 + 95_200, 401, { ingressAt: T0 + 95_150 })
+  r.sessionEnded = true
+  // The fixed build: both inline attempts timed out and the response is held.
+  r.traces[0].events[3].outcome = 'timeout'
+  r.traces[0].events.splice(4, 2, ev('lease-release', T0 + 20_400, 1, { outcome: 'skipped-pending', ms: 0 }))
+  r.phases = { ...r.phases, phase2StartedAt: T0 + 25_000, nudge: { at: T0 + 90_000, tabs: ['Y'], path: '/inventory/products' } }
+  const provoked = judgeStallRound(r, rows({ audit: [replayRow(T0 + 95_100)] }), HOLD_CELL)
+  assert.deepEqual(provoked.facts.replayContext, { phase: 'after-nudge', provoked: true, presentingTabNudged: true, refreshedResponse: 'held-pending' })
+  const passiveRow = judgeStallRound(r, rows({ audit: [replayRow(T0 + 40_000)] }), HOLD_CELL)
+  assert.equal(passiveRow.facts.replayContext.phase, 'passive')
+  assert.equal(passiveRow.facts.replayContext.provoked, false)
+  const early = judgeStallRound(r, rows({ audit: [replayRow(T0 + 20_000)] }), HOLD_CELL)
+  assert.equal(early.facts.replayContext.phase, 'through-grace')
+})
+
+test('what had become of the refreshed response when the replay came: held pending, dropped, or written', () => {
+  const at = T0 + 40_000
+  const make = (mutate) => {
+    const r = round({ sessionEnded: true })
+    mutate(r.traces[0].events)
+    return judgeStallRound(r, rows({ audit: [replayRow(at)] }), HOLD_CELL).facts.replayContext.refreshedResponse
+  }
+  // The control: one attempt, timed out, nothing kept.
+  assert.equal(make((events) => { events.splice(3, 2); events[3] = ev('lease-release', T0 + 15_450, 1, { outcome: 'failed', ms: 5000 }) }), 'dropped')
+  // The fixed build: both inline attempts timed out and the entry is still held.
+  assert.equal(make((events) => { events[3].outcome = 'timeout'; events.splice(4, 2, ev('lease-release', T0 + 20_400, 1, { outcome: 'skipped-pending', ms: 0 })) }), 'held-pending')
+  // Written before the replay: the replay is not about this response at all.
+  assert.equal(make(() => {}), 'written')
+  assert.equal(judgeStallRound(round(), rows(), HOLD_CELL).facts.replayContext, null)
+})
+
+// Found by re-judging the smoke round in place: the judge overwrote the
+// verdicts stall-cell.sh had filed beside the diagnosis.
+test('judge-stall.mjs does not overwrite verdicts that are already there; --out names another file', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'judge-stall-'))
+  const diagnosisPath = join(dir, 'stall-diagnosis.json')
+  const rowsPath = join(dir, 'server-rows.json')
+  writeFileSync(diagnosisPath, JSON.stringify(diagnosisOf([round()])))
+  writeFileSync(rowsPath, JSON.stringify(rows()))
+  const script = fileURLToPath(new URL('./judge-stall.mjs', import.meta.url))
+  writeFileSync(join(dir, 'stall-verdicts.json'), 'the filed verdicts')
+  const again = spawnSync(process.execPath, [script, diagnosisPath, rowsPath], { encoding: 'utf8' })
+  assert.equal(again.status, 2)
+  assert.match(again.stderr, /already exists/)
+  assert.equal(readFileSync(join(dir, 'stall-verdicts.json'), 'utf8'), 'the filed verdicts')
+  const elsewhere = spawnSync(process.execPath, [script, diagnosisPath, rowsPath, '--out', join(dir, 'rejudged.json')], { encoding: 'utf8' })
+  assert.equal(elsewhere.status, 0, elsewhere.stderr)
+  assert.equal(JSON.parse(readFileSync(join(dir, 'rejudged.json'), 'utf8')).rounds.length, 1)
+  assert.equal(readFileSync(join(dir, 'stall-verdicts.json'), 'utf8'), 'the filed verdicts')
+})

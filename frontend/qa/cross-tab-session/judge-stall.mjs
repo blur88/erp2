@@ -3,21 +3,32 @@
 // stall cell (#1370), and the cell's counts, from the two records a cell leaves
 // behind: the diagnosis the driver wrote and the server rows read afterwards.
 //
-//   node judge-stall.mjs <stall-diagnosis.json> [server-rows.json]
+//   node judge-stall.mjs <stall-diagnosis.json> [server-rows.json] [--out <file>]
 //
 // Prints a replay first if there is one, then one line per round and the cell's
-// summary, and writes stall-verdicts.json beside the diagnosis. A rows file that
+// summary, and writes stall-verdicts.json beside the diagnosis. It never
+// overwrites verdicts that are already there: filed evidence is re-judged into
+// another file, named with --out. A rows file that
 // is absent, unreadable or not JSON is passed on as null, which the evidence
 // module reads as "no rows were read": undetermined, never clean.
 //
 // Judges only. It reads nothing else and writes nothing but that one file.
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { COVERAGE_FLOOR, judgeStallRound, summariseCell } from './lib/stall-evidence.mjs'
 
-const [, , diagnosisPath, rowsPath] = process.argv
-if (!diagnosisPath) {
-  console.error('usage: judge-stall.mjs <stall-diagnosis.json> [server-rows.json]')
+const args = process.argv.slice(2)
+const outFlag = args.indexOf('--out')
+const outPath = outFlag === -1 ? null : args[outFlag + 1]
+if (outFlag !== -1) args.splice(outFlag, 2)
+const [diagnosisPath, rowsPath] = args
+if (!diagnosisPath || (outFlag !== -1 && !outPath)) {
+  console.error('usage: judge-stall.mjs <stall-diagnosis.json> [server-rows.json] [--out <file>]')
+  process.exit(2)
+}
+const beside = outPath ?? join(dirname(diagnosisPath), 'stall-verdicts.json')
+if (existsSync(beside)) {
+  console.error(`${beside} already exists and is not overwritten; name another file with --out`)
   process.exit(2)
 }
 
@@ -39,7 +50,12 @@ const summary = summariseCell(rounds, cell)
 
 const replays = rounds.filter((r) => r.outcome === 'replay-confirmed')
 if (replays.length > 0) {
-  console.log(`REPLAY CONFIRMED in round(s) ${replays.map((r) => `${r.attempt} (${r.subVerdict}, cause ${r.cause}${r.validity.valid ? '' : ', round not valid'})`).join(', ')}`)
+  const describe = (r) => {
+    const c = r.facts.replayContext
+    const where = c ? `${c.phase}${c.provoked ? ', PROVOKED by the nudge' : ''}; refreshed response ${c.refreshedResponse}` : 'context unknown'
+    return `${r.attempt} (${r.subVerdict}, cause ${r.cause}${r.validity.valid ? '' : ', round not valid'}; ${where})`
+  }
+  console.log(`REPLAY CONFIRMED in round(s) ${replays.map(describe).join(', ')}`)
 }
 for (const round of rounds) {
   const parts = [round.outcome, round.validity.valid ? 'valid' : `not valid (${round.validity.reasons.join(', ')})`]
@@ -71,6 +87,5 @@ const out = {
   summary,
   rounds,
 }
-const beside = join(dirname(diagnosisPath), 'stall-verdicts.json')
 writeFileSync(beside, JSON.stringify(out, null, 2))
 console.log(`wrote ${beside}`)
