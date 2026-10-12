@@ -3108,8 +3108,8 @@ and the judge now refuses to overwrite filed verdicts.
   `stall-cell.sh <lan-ip> <cell> recorded` on a new evidence root.
 - A report of every tab being signed out after one tab's storage stalled.
 
-**The mechanism demonstrated here on `main` is a finding in its own right and is
-not tracked by issue 1370 once that issue is closed**: a response kept pending
+**The mechanism demonstrated here on `main` is a finding in its own right. It is
+tracked in #1392, not by issue 1370**: a response kept pending
 after two timed-out commits is written only when its own tab is next prompted,
 and until then any other tab's refresh presents the superseded token, which is
 a replay once the grace has passed. The grace-window limitation recorded for
