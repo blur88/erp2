@@ -126,6 +126,73 @@ happening. What the browser has **not** shown is a tab that sits stopped and
 idle, is then renewed, and reads once. That is **unverified in a browser** and
 is handed back to the owner rather than written up as met.
 
+## Dated addition, 2026-10-13, after R1 and R2 and before R3. Nothing above is changed.
+
+### The owner's reading of window 2's unmet expectation
+
+The window-2 expectation "each tab that is stopped and eligible makes one quiet
+re-read" **stays as written and stays UNMET for R1.** The owner's decision on
+it (2026-10-13):
+
+- Consuming a renewal that arrives while the read is in flight is the correct
+  behaviour, and R1's recovery supports it. **The implementation is not changed
+  to force an extra read.**
+- Why R1 recovered without a quiet re-read: in each tab the sidebar navigation
+  did not find the company read idle. The read that recovered the tab was one
+  the API client was already carrying — answered 401, the runtime refreshed,
+  and the client re-sent that same read, which was answered 200
+  (`companyRetry` statuses `[401, 200]`). The renewal was observed while that
+  read was in flight, so it was consumed and queued nothing. The strip cleared
+  on the read's own success. A quiet re-read is what happens when a renewal
+  finds the tab stopped **and idle**; R1 never put a tab in that state.
+- So R1 shows recovery and shows the consumed renewal. It does not show the
+  quiet re-read, which is the central recovery path of the design. R3 below is
+  the targeted check for it.
+
+### Run R3: stopped and idle, then a token renewal (written before the run)
+
+One tab, non-administrator, QA stack (20 s access lifetime). No filler: the
+session zone is not held.
+
+Procedure:
+
+1. Sign in; open the tab under test on the dashboard.
+2. Abort the company read in that tab three times (R2's fault) so the tab ends
+   **stopped**: strip showing, placeholder in the header. Remove the fault.
+3. Leave the tab alone for longer than the access lifetime. Record the company
+   reads and the tab's `refresh-sent` count at the start and at the end of that
+   wait. This is the **idle** half: the tab is stopped, nothing is in flight,
+   and its access token expires.
+4. One sidebar navigation (Sales > Sales Orders), the same ordinary action R1
+   used. Its page request is answered 401, the runtime refreshes, and the tab's
+   tokens are renewed while the company read is idle.
+5. Watch for the name; then wait a further 10 s and count again.
+
+Expected:
+
+| # | Expectation |
+|---|---|
+| R3-1 | After step 2 the strip is showing and the header shows no company name. |
+| R3-2 | During the idle wait of step 3 the tab sends **no** company read and the strip stays. (A stopped, idle tab stays stopped.) |
+| R3-3 | After the navigation the tab sends **exactly one** company read that follows a renewal — the quiet re-read — with no Retry click. |
+| R3-4 | That read is answered 200, the company name appears in the sidebar and the strip is removed. |
+| R3-5 | No reload: the same document is still loaded (a marker set on `window` before step 3 is still there, and the tab's navigation count is unchanged). |
+| R3-6 | No duplicate read: 10 s after recovery the count of company reads is still the count at recovery. |
+
+Recorded separately, and **not expected as numbers**: company reads by cause
+(page load and automatic attempts; idle wait; after the navigation), the tab's
+own refreshes (`refresh-sent`) before and after the navigation, and adopted
+tokens. If the renewal is seen to arrive some other way than by the navigation
+(for example adopted during the idle wait), that is recorded as what happened
+and R3-2 is not claimed.
+
+What would make this run say nothing: the navigation's request is not answered
+401 (the token had not expired), so no renewal happens; or the strip is not
+showing after step 2. Either is recorded as "did not exercise the path", not as
+a result.
+
+**Actual (R3): not yet run.**
+
 ## Browser-only items (jsdom cannot show these)
 
 | Item | Expected | Actual | Status |
