@@ -1041,6 +1041,45 @@ cause. A round with 20 tabs is therefore only as good as its quietest tab, and
 the reading of a round that failed a completeness check says which check it
 failed rather than guessing which candidate fits.
 
+## The stall cells: a held store, more tabs, the production grace (#1370)
+
+`stall-cell.sh <lan-ip> <cell> <calibration|recorded>` runs one cell of the
+matrix in `docs/modules/auth/REPLAY_STALL_PROTOCOL.md` from start to filed
+evidence: it reads the cell's settings from `lib/stall-cells.mjs`, runs
+`diagnose-stall.mjs` through `run-one.sh` at the cell's grace (5 s, or 60 s with
+`QA_GRACE_SECONDS=60`), reads the server's rows for the sessions the rounds
+used, judges with `judge-stall.mjs`, and files everything under
+`~/erp2-qa-evidence/1370/<cell>/<UTC start>/`. The recorded runs and what they
+showed are in `docs/modules/auth/SESSION_QA.md`.
+
+What it does that the earlier replay rounds did not:
+
+- **A store hold.** A spare tab is paused inside a read-write transaction on
+  `erp-session/kv` (`lib/store-hold.mjs`), so every other tab's storage calls
+  wait. The round's first refresh is kept in the browser until another tab is an
+  eligible peer and the hold is confirmed, then let go. The spare reader's own
+  blocked read is the independent sign that the store was held.
+- **Observation through the grace**, then 65 s passively, then one nudge of
+  every tab (`lib/observation.mjs`). What follows the nudge is provoked and is
+  reported as such.
+- **A judge that keeps three things apart** (`lib/stall-evidence.mjs`): the
+  outcome (what was observed), validity (whether the round counts toward its
+  cell) and coverage (what a valid round can support a statement about). A
+  server-confirmed replay is a replay whatever the round's validity.
+
+What it does not show: **a held store is not the processor stall of the recorded
+run.** Under the hold, timers fire on time and only storage waits. A result
+under it is behaviour under an injected hold. `evidence-manifest.mjs` writes and
+verifies the hash manifest of the evidence, and refuses a file that holds a
+token; `judge-stall.mjs` never overwrites filed verdicts (`--out` re-judges into
+another file).
+
+A recorded cell is refused until the protocol carries a `frozen-mechanism:`
+line, on the wrong branch, and a second time once it has filed evidence. Tests:
+`node --test frontend/qa/cross-tab-session/*.test.mjs`,
+`bash frontend/qa/cross-tab-session/stall-host.test.sh`,
+`bash frontend/qa/cross-tab-session/replay-server-rows.test.sh`.
+
 ## `results.json`
 
 Written to the scratch directory (`ERP_SESSION_SCRATCH`, default
