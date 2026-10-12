@@ -455,7 +455,10 @@ test('a replay says which phase it came in, and whether a tab had nudged it', ()
   r.traces[0].events.splice(4, 2, ev('lease-release', T0 + 20_400, 1, { outcome: 'skipped-pending', ms: 0 }))
   r.phases = { ...r.phases, phase2StartedAt: T0 + 25_000, nudge: { at: T0 + 90_000, tabs: ['Y'], path: '/inventory/products' } }
   const provoked = judgeStallRound(r, rows({ audit: [replayRow(T0 + 95_100)] }), HOLD_CELL)
-  assert.deepEqual(provoked.facts.replayContext, { phase: 'after-nudge', provoked: true, presentingTabNudged: true, refreshedResponse: 'held-pending' })
+  assert.deepEqual(provoked.facts.replayContext, {
+    phase: 'after-nudge', provoked: true, presentingTab: 'Y', presentingTabNudged: true, staleReadAt: T0 + 94_950,
+    refreshedResponse: 'held-pending', refreshedResponseWhenLogged: 'held-pending',
+  })
   const passiveRow = judgeStallRound(r, rows({ audit: [replayRow(T0 + 40_000)] }), HOLD_CELL)
   assert.equal(passiveRow.facts.replayContext.phase, 'passive')
   assert.equal(passiveRow.facts.replayContext.provoked, false)
@@ -497,4 +500,29 @@ test('judge-stall.mjs does not overwrite verdicts that are already there; --out 
   assert.equal(elsewhere.status, 0, elsewhere.stderr)
   assert.equal(JSON.parse(readFileSync(join(dir, 'rejudged.json'), 'utf8')).rounds.length, 1)
   assert.equal(readFileSync(join(dir, 'stall-verdicts.json'), 'utf8'), 'the filed verdicts')
+})
+
+// --- found by the recorded H21 cell (2026-10-12) -----------------------------------
+// After the nudge the tab holding the pending response and another tab race.
+// In five H21 rounds the holder wrote its response a moment after the other tab
+// had read the old generation and sent it, and before the server logged the
+// replay: read at the audit row's time that says "written", which is not what
+// the presenting tab met.
+test('the refreshed response is read at the moment the presenting tab read storage, not when the replay was logged', () => {
+  const r = withStale(T0 + 95_000, T0 + 95_600, 401, { ingressAt: T0 + 95_550 })
+  r.sessionEnded = true
+  r.traces[1].events.unshift(ev('settled-read', T0 + 94_900, 1, { storedGeneration: 7, memoryGeneration: 7, result: 'proceed', ms: 20 }))
+  r.traces[0].events[3].outcome = 'timeout'
+  r.traces[0].events.splice(
+    4, 2,
+    ev('lease-release', T0 + 20_400, 1, { outcome: 'skipped-pending', ms: 0 }),
+    // Written after the other tab's read and send, before the audit row.
+    ev('token-commit', T0 + 95_200, 1, { trigger: 'refresh', attempt: 3, triggeredBy: null, outcome: 'written-both', ms: 30 }),
+    ev('pending-dropped', T0 + 95_201, 1, { reason: 'written' }),
+  )
+  const context = judgeStallRound(r, rows({ audit: [replayRow(T0 + 95_500)] }), HOLD_CELL).facts.replayContext
+  assert.equal(context.refreshedResponse, 'held-pending')
+  assert.equal(context.refreshedResponseWhenLogged, 'written')
+  assert.equal(context.presentingTab, 'Y')
+  assert.equal(context.staleReadAt, T0 + 94_900)
 })

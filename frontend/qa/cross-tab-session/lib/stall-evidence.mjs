@@ -170,23 +170,41 @@ function replayContextOf(round, replayRows, events, stale) {
     .filter((s) => !s.accepted && s.presentedGeneration === row.presentedGeneration)
     .sort((a, b) => Math.abs(a.arrival.latestMs - at) - Math.abs(b.arrival.latestMs - at))[0]
 
+  // The moment that matters is when the presenting tab read storage and found
+  // the old generation there: after the nudge the tab holding the response and
+  // the others race, and the holder may write a moment later, before the server
+  // has logged the replay.
+  const sent = refused
+    ? events.find((e) => e.type === 'refresh-sent' && e.tab === refused.tab && e.refreshId === refused.refreshId)
+    : undefined
+  const staleRead = sent
+    ? events.filter((e) => e.type === 'settled-read' && e.tab === sent.tab && e.refreshId === sent.refreshId && e.at <= sent.at).at(-1)
+    : undefined
+  const readAt = staleRead?.at ?? sent?.at ?? null
+
   const answer = events
     .filter((e) => e.type === 'refresh-answered' && e.status === 'ok' && e.returnedGeneration === row.currentGeneration && e.at <= at)
     .sort((a, b) => a.at - b.at)[0]
-  let refreshedResponse = 'unknown'
-  if (answer) {
-    const own = events.filter((e) => e.tab === answer.tab && e.refreshId === answer.refreshId && e.at <= at)
+  const stateAt = (when) => {
+    if (!answer || when === null) return 'unknown'
+    const own = events.filter((e) => e.tab === answer.tab && e.refreshId === answer.refreshId && e.at <= when)
     const commits = own.filter((e) => e.type === 'token-commit')
-    if (commits.some((c) => WRITTEN.has(c.outcome))) refreshedResponse = 'written'
-    else if (own.some((e) => e.type === 'pending-dropped')) refreshedResponse = 'dropped'
-    else if (own.some((e) => e.type === 'lease-release' && e.outcome === 'skipped-pending')) refreshedResponse = 'held-pending'
-    else if (commits.length > 0) refreshedResponse = 'dropped'
+    if (commits.some((c) => WRITTEN.has(c.outcome))) return 'written'
+    if (own.some((e) => e.type === 'pending-dropped')) return 'dropped'
+    if (own.some((e) => e.type === 'lease-release' && e.outcome === 'skipped-pending')) return 'held-pending'
+    if (commits.length > 0) return 'dropped'
+    return 'unknown'
   }
   return {
     phase,
     provoked: phase === 'after-nudge',
+    presentingTab: refused?.tab ?? null,
     presentingTabNudged: refused && nudge ? nudge.tabs.includes(refused.tab) : null,
-    refreshedResponse,
+    staleReadAt: readAt,
+    // What the presenting tab met, and what it had become by the time the
+    // server logged the replay.
+    refreshedResponse: readAt === null ? stateAt(at) : stateAt(readAt),
+    refreshedResponseWhenLogged: stateAt(at),
   }
 }
 
