@@ -82,8 +82,9 @@ describe('RTK Query endpoints after a 429 from the ingress', () => {
 
     expect(sent).toHaveLength(4)
     expect(result.isError).toBe(true)
-    // The same error shape every endpoint reports for a refused request.
-    expect(result.error).toEqual({ status: 429, data: 'status 429' })
+    // The same error shape every endpoint reports for a refused request, plus
+    // the class the sidebar's recovery reads (#1394).
+    expect(result.error).toEqual({ status: 429, data: 'status 429', cause: 'refused' })
   })
 
   it('a company-data request aborted during the wait sends nothing more', async () => {

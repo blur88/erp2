@@ -1,14 +1,19 @@
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
 import api from '@/services/api'
 import { registerSessionRuntime } from '@/session/registry'
 import { createHarness } from '@/session/__tests__/twoTabs'
+import { createAuthHttp } from '@/session/authHttp'
+import { createSessionRuntime } from '@/session/runtime'
+import { createMemorySessionStore, createSharedMemory } from '@/session/store/memorySessionStore'
 import { settingsApiSlice } from '@/store/api/settingsApi'
+import authReducer, { sessionEstablished, tokensUpdated } from '@/store/slices/authSlice'
 import { createTestStore } from '@/test/createTestStore'
+import { CompanySettingsRecoveryProvider } from '../companyRecovery/CompanySettingsRecoveryProvider'
 
 vi.mock('../SidebarFooter', () => ({
   default: () => null,
@@ -24,15 +29,54 @@ describe('Sidebar company data after a 429', () => {
   const renderSidebar = () => {
     const store = createTestStore({
       apis: [settingsApiSlice],
-      reducer: { auth: () => ({ user: { role: 'sales_staff' } }) },
+      // The real slice: the sidebar reads its eligibility and its session from it.
+      reducer: { auth: authReducer },
     })
+    store.dispatch(
+      sessionEstablished({
+        sessionId: 'sess-1',
+        generation: 1,
+        accessToken: 'at-1',
+        accessTokenExpiresAt: Date.now() + 3_600_000,
+        refreshToken: 'rt-1',
+        user: { id: 'u', username: 'u', role: 'sales_staff' } as never,
+        rememberMe: true,
+      }),
+    )
     return render(
       <Provider store={store}>
         <MemoryRouter initialEntries={['/dashboard']}>
-          <Sidebar />
+          <CompanySettingsRecoveryProvider>
+            <Sidebar />
+          </CompanySettingsRecoveryProvider>
         </MemoryRouter>
       </Provider>,
     )
+  }
+
+  // A runtime whose refresh leaves through the same adapter as the read, so
+  // `sent` counts the refresh as well. The harness's own server answers refreshes
+  // in process and never reaches the ingress.
+  let store: ReturnType<typeof createTestStore>
+
+  const runtimeRefreshingThrough = (ingress: axios.AxiosAdapter) => {
+    const authClient = axios.create()
+    authClient.defaults.adapter = ingress
+    const runtime = createSessionRuntime({
+      store: createMemorySessionStore(createSharedMemory()),
+      http: createAuthHttp(authClient),
+      events: {
+        sessionEstablished: vi.fn(),
+        tokensUpdated: vi.fn((tokens) => store.dispatch(tokensUpdated(tokens))),
+        sessionEnded: vi.fn(),
+        storageWaiting: vi.fn(),
+        slicesRecovered: vi.fn(),
+      },
+      channel: null,
+      tabId: 'A',
+      now: () => Date.now(),
+    })
+    return runtime
   }
 
   beforeEach(async () => {
@@ -75,5 +119,54 @@ describe('Sidebar company data after a 429', () => {
       'get /settings/company',
       'get /settings/company',
     ])
+  })
+
+  it('labels a refused refresh as refresh-blocked', async () => {
+    // The read is answered 401, the refresh behind it 429. The refresh error is
+    // what reaches the caller, with the refresh request as its config.
+    const ingress = (async (config: Config) => {
+      sent.push(config)
+      const status = config.url === '/auth/refresh' ? 429 : 401
+      return Promise.reject(
+        new AxiosError(`status ${status}`, AxiosError.ERR_BAD_RESPONSE, config, null, {
+          data: '',
+          status,
+          statusText: '',
+          headers: {},
+          config,
+        }),
+      )
+    }) as never
+    const runtime = runtimeRefreshingThrough((async (config: Config) => {
+      if (config.url === '/auth/login') {
+        return {
+          data: {
+            sessionId: 'sess-1',
+            generation: 1,
+            accessToken: 'at-1',
+            accessTokenExpiresAt: Date.now() + 3600_000,
+            refreshToken: 'rt-1',
+            user: { id: 'u', username: 'u' },
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        }
+      }
+      return (ingress as (c: Config) => Promise<never>)(config)
+    }) as never)
+    await runtime.start()
+    await runtime.signIn({ usernameOrEmail: 'u', password: 'p' })
+    registerSessionRuntime(runtime)
+    api.defaults.adapter = ingress
+
+    const store = createTestStore({ apis: [settingsApiSlice] })
+    await store.dispatch(settingsApiSlice.endpoints.getCompanySettings.initiate())
+
+    expect(settingsApiSlice.endpoints.getCompanySettings.select()(store.getState()).error).toEqual(
+      expect.objectContaining({ status: 429, cause: 'refresh-blocked' }),
+    )
+    expect(sent.filter((config) => config.url === '/auth/refresh')).toHaveLength(1)
   })
 })

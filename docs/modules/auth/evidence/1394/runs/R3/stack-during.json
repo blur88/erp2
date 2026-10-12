@@ -1,0 +1,1 @@
+{"accessTokenExpiry":"20s","refreshGraceSeconds":"5","images":{"frontend":"sha256:c01e6c60817d191b7d0cf0c4a136495f011c91f529266c7ee7bc820ae91dc878","backend":"sha256:01fb6c2a5eac916125df783a0714b924dd808a8b3f1e8c0887ca4e463437d32f","nginx":"sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f"},"servedBuild":"357351cc6bfa2fb7cb85dcfdd9e9cbf484c7e87f"}

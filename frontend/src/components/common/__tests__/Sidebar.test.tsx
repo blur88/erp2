@@ -5,15 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
 import { darkTheme } from '@/styles/theme'
 
-const mockUseGetCompanySettingsQuery = vi.fn()
+const mockUseCompanySettingsRecovery = vi.fn()
 const mockUseAppSelector = vi.fn()
 
 vi.mock('@/hooks/useRedux', () => ({
   useAppSelector: (selector: (state: any) => unknown) => mockUseAppSelector(selector),
 }))
 
-vi.mock('@/store/api/settingsApi', () => ({
-  useGetCompanySettingsQuery: () => mockUseGetCompanySettingsQuery(),
+vi.mock('../companyRecovery/CompanySettingsRecoveryProvider', () => ({
+  useCompanySettingsRecovery: () => mockUseCompanySettingsRecovery(),
 }))
 
 vi.mock('react-transition-group', async () => {
@@ -56,10 +56,12 @@ describe('Sidebar', () => {
         },
       })
     )
-    mockUseGetCompanySettingsQuery.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
+    mockUseCompanySettingsRecovery.mockReturnValue({
+      company: undefined,
+      unavailable: false,
+      retrying: false,
+      canRetry: false,
+      retry: vi.fn(),
     })
   })
 
@@ -396,10 +398,12 @@ describe('Sidebar', () => {
 
   describe('brand header', () => {
     it('renders ERP fallback mark when no logoUrl', () => {
-      mockUseGetCompanySettingsQuery.mockReturnValue({
-        data: { name: 'Acme Corp', logoUrl: undefined },
-        isLoading: false,
-        isError: false,
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company: { name: 'Acme Corp', logoUrl: undefined },
+        unavailable: false,
+        retrying: false,
+        canRetry: false,
+        retry: vi.fn(),
       })
 
       render(
@@ -413,10 +417,12 @@ describe('Sidebar', () => {
     })
 
     it('renders logo img with correct src and alt when logoUrl is set', () => {
-      mockUseGetCompanySettingsQuery.mockReturnValue({
-        data: { name: 'Acme Corp', logoUrl: 'https://example.com/logo.png' },
-        isLoading: false,
-        isError: false,
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company: { name: 'Acme Corp', logoUrl: 'https://example.com/logo.png' },
+        unavailable: false,
+        retrying: false,
+        canRetry: false,
+        retry: vi.fn(),
       })
 
       render(
@@ -431,10 +437,12 @@ describe('Sidebar', () => {
     })
 
     it('uses fallback alt text when logoUrl is set but company.name is absent', () => {
-      mockUseGetCompanySettingsQuery.mockReturnValue({
-        data: { name: undefined, logoUrl: 'https://example.com/logo.png' },
-        isLoading: false,
-        isError: false,
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company: { name: undefined, logoUrl: 'https://example.com/logo.png' },
+        unavailable: false,
+        retrying: false,
+        canRetry: false,
+        retry: vi.fn(),
       })
 
       render(
@@ -448,10 +456,12 @@ describe('Sidebar', () => {
     })
 
     it('renders ERP fallback mark when image fires onError', async () => {
-      mockUseGetCompanySettingsQuery.mockReturnValue({
-        data: { name: 'Acme Corp', logoUrl: 'https://example.com/broken.png' },
-        isLoading: false,
-        isError: false,
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company: { name: 'Acme Corp', logoUrl: 'https://example.com/broken.png' },
+        unavailable: false,
+        retrying: false,
+        canRetry: false,
+        retry: vi.fn(),
       })
 
       render(
@@ -480,10 +490,12 @@ describe('Sidebar', () => {
     })
 
     it('shows company name below app name when available and expanded', () => {
-      mockUseGetCompanySettingsQuery.mockReturnValue({
-        data: { name: 'Acme Trading Sdn Bhd', logoUrl: undefined },
-        isLoading: false,
-        isError: false,
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company: { name: 'Acme Trading Sdn Bhd', logoUrl: undefined },
+        unavailable: false,
+        retrying: false,
+        canRetry: false,
+        retry: vi.fn(),
       })
 
       render(
@@ -496,10 +508,12 @@ describe('Sidebar', () => {
     })
 
     it('omits company name when company.name is unavailable', () => {
-      mockUseGetCompanySettingsQuery.mockReturnValue({
-        data: { name: undefined, logoUrl: undefined },
-        isLoading: false,
-        isError: false,
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company: { name: undefined, logoUrl: undefined },
+        unavailable: false,
+        retrying: false,
+        canRetry: false,
+        retry: vi.fn(),
       })
 
       render(
@@ -513,10 +527,12 @@ describe('Sidebar', () => {
     })
 
     it('hides text stack and shows only mark when collapsed', () => {
-      mockUseGetCompanySettingsQuery.mockReturnValue({
-        data: { name: 'Acme Corp', logoUrl: undefined },
-        isLoading: false,
-        isError: false,
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company: { name: 'Acme Corp', logoUrl: undefined },
+        unavailable: false,
+        retrying: false,
+        canRetry: false,
+        retry: vi.fn(),
       })
 
       render(
@@ -528,6 +544,99 @@ describe('Sidebar', () => {
       expect(screen.queryByText('ERP System')).not.toBeInTheDocument()
       expect(screen.queryByText('Acme Corp')).not.toBeInTheDocument()
       expect(screen.getByText('ERP')).toBeInTheDocument()
+    })
+  })
+
+  describe('unavailable company details', () => {
+    const stopped = (company?: { name?: string; logoUrl?: string }) => {
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company,
+        unavailable: true,
+        retrying: false,
+        canRetry: true,
+        retry: vi.fn(),
+      })
+    }
+
+    it('shows the placeholder and no strip while nothing has failed', () => {
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company: undefined,
+        unavailable: false,
+        retrying: false,
+        canRetry: false,
+        retry: vi.fn(),
+      })
+
+      render(
+        <MemoryRouter>
+          <Sidebar />
+        </MemoryRouter>
+      )
+
+      expect(screen.getByText('ERP')).toBeInTheDocument()
+      expect(screen.getByText('ERP System')).toBeInTheDocument()
+      expect(screen.queryByText('Company details unavailable')).not.toBeInTheDocument()
+      expect(screen.queryByText('Retry')).not.toBeInTheDocument()
+    })
+
+    it('keeps the branding and shows the strip when stopped', () => {
+      stopped({ name: 'Acme Corp' })
+
+      render(
+        <MemoryRouter>
+          <Sidebar />
+        </MemoryRouter>
+      )
+
+      expect(screen.getByText('Acme Corp')).toBeInTheDocument()
+      expect(screen.getByText('Company details unavailable')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    })
+
+    it('shows the placeholder and the strip when stopped with nothing retained', () => {
+      stopped()
+
+      render(
+        <MemoryRouter>
+          <Sidebar />
+        </MemoryRouter>
+      )
+
+      expect(screen.getByText('ERP')).toBeInTheDocument()
+      expect(screen.getByText('Company details unavailable')).toBeInTheDocument()
+    })
+
+    it('shows no message at all while recovery is running', () => {
+      mockUseCompanySettingsRecovery.mockReturnValue({
+        company: undefined,
+        unavailable: false,
+        retrying: true,
+        canRetry: false,
+        retry: vi.fn(),
+      })
+
+      render(
+        <MemoryRouter>
+          <Sidebar />
+        </MemoryRouter>
+      )
+
+      expect(screen.getByText('ERP')).toBeInTheDocument()
+      expect(screen.queryByText('Company details unavailable')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    })
+
+    it('collapses to the single retry button', () => {
+      stopped()
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
+
+      expect(screen.getByRole('button', { name: 'Retry loading company details' })).toBeInTheDocument()
+      expect(screen.queryByText('Company details unavailable')).not.toBeInTheDocument()
     })
   })
 })

@@ -66,6 +66,7 @@
 import { sleep } from './config.mjs'
 import { NAVIGATION_FILE } from './access.mjs'
 import { becomes, documentId, showsSignedInUi } from './harness.mjs'
+import { COLLAPSED_RETRY_NAME, STRIP_TEXT, judgeStrip, readCounts } from './company-recovery.mjs'
 import { bucketLevel } from './stats.mjs'
 
 export const MAX_RECOVERY_ACTIONS = 3
@@ -330,6 +331,10 @@ export function roundUsability(states) {
     tabsCompanyByAutomaticRetry: states.filter((t) => t.company?.arrivedByAutomaticRetry).length,
     companyAutomaticRetryWaitMs: waits.length > 0 ? { shortest: waits[0], median: waits[Math.floor(waits.length / 2)], longest: waits.at(-1) } : null,
     tabsCompanyRetryExhausted: states.filter((t) => t.company?.exhausted).length,
+    // The sidebar's recovery strip (#1394): how many tabs ended the round
+    // showing it, and how many were showing it with branding still on screen.
+    tabsStripShowing: states.filter((t) => t.strip?.showing).length,
+    tabsStripWithBranding: states.filter((t) => t.strip?.showing && t.companyNameInSidebar).length,
     // Tabs whose own regional-settings request was refused, and of those the
     // ones in which the formats were then wrong (regionalNotInEffect).
     tabsRegionalRequestRefused: states.filter((t) => t.firstLoad?.regionalRequestLeftFailed).length,
@@ -352,7 +357,7 @@ export function roundUsability(states) {
 
 function readDom(page, heading) {
   return page.evaluate(
-    ([title, keys]) => {
+    ([title, keys, stripText, collapsedRetryName]) => {
       const text = (el) => (el.textContent ?? '').trim()
       const rows = [...document.querySelectorAll('tbody tr')]
       return {
@@ -369,11 +374,28 @@ function readDom(page, heading) {
           const brand = [...document.querySelectorAll('.MuiDrawer-root h6')].find((h) => text(h) === 'ERP System')
           return brand && brand.nextElementSibling ? text(brand.nextElementSibling) : null
         })(),
+        // The sidebar's recovery strip (#1394). The expanded form is a
+        // role="status" row carrying the wording; the collapsed form is the one
+        // icon button, whose tooltip carries the wording instead, so it is found
+        // by its accessible name. Neither is found by a class.
+        strip: (() => {
+          const expanded = [...document.querySelectorAll('[role="status"]')].find((el) => text(el).includes(stripText))
+          const collapsed = [...document.querySelectorAll(`button[aria-label="${collapsedRetryName}"]`)]
+          const retry = expanded
+            ? [...expanded.querySelectorAll('button')].find((b) => /^Retry/.test(text(b))) ?? null
+            : null
+          return {
+            expanded: Boolean(expanded),
+            collapsed: collapsed.length > 0,
+            retryDisabled: retry ? retry.disabled : collapsed.length > 0 ? collapsed[0].disabled : null,
+            retryLabel: retry ? text(retry) : null,
+          }
+        })(),
         // What the formatters read (hooks/useRegionalSettings.ts writes them).
         stored: Object.fromEntries(keys.map((key) => [key, localStorage.getItem(key)])),
       }
     },
-    [heading, REGIONAL_KEYS.map(([, key]) => key)],
+    [heading, REGIONAL_KEYS.map(([, key]) => key), STRIP_TEXT, COLLAPSED_RETRY_NAME],
   )
 }
 
@@ -512,7 +534,15 @@ export async function shellReference(profile, maxMs = 20000) {
  */
 export async function dashboardState(profile, openMark, page, reference) {
   const dom = await readDom(page, DASHBOARD.heading)
-  return { ...judgeDashboard(dom, profile.since(openMark, page), reference), companyNameInSidebar: dom.companyNameInSidebar, stored: dom.stored }
+  return {
+    ...judgeDashboard(dom, profile.since(openMark, page), reference),
+    companyNameInSidebar: dom.companyNameInSidebar,
+    // The recovery strip, judged from what the page reported (#1394).
+    strip: judgeStrip(dom.strip),
+    stripReading: dom.strip,
+    reads: readCounts(profile.since(openMark, page)),
+    stored: dom.stored,
+  }
 }
 
 /**

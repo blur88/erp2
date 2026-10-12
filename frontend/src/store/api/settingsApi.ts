@@ -1,6 +1,7 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 import { axiosBaseQuery, toQueryError } from './baseQuery'
 import { normalizeSingle } from './normalizers'
+import { classifyCompanySettingsFailure } from './companySettingsFailure'
 import { requestWithRetryOn429 } from '@/services/retryOn429'
 
 export interface CompanySettings {
@@ -86,13 +87,19 @@ export const settingsApiSlice = createApi({
     getCompanySettings: builder.query<CompanySettings, void>({
       // The sidebar shows this on every page and nothing else requests it again
       // for a non-administrator, so this one read is re-sent after a 429 from
-      // the ingress (services/retryOn429.ts). No other endpoint is.
+      // the ingress (services/retryOn429.ts). No other endpoint is. It is not
+      // requested again by itself after it fails: the sidebar's recovery owns
+      // that (components/common/companyRecovery), which reads the `cause` below.
       queryFn: async (_arg, { signal }) => {
         try {
           const result = await requestWithRetryOn429({ url: '/settings/company', method: 'GET', signal })
           return { data: normalizeSingle<CompanySettings>(result.data) }
         } catch (err) {
-          return { error: toQueryError(err) }
+          // The class is read here, where the raw error still carries the config
+          // of the request it belongs to; `toQueryError` drops that, and a
+          // refresh's 429 is then indistinguishable from the read's own.
+          const cause = classifyCompanySettingsFailure(err)
+          return { error: { ...toQueryError(err), ...(cause ? { cause } : {}) } }
         }
       },
       providesTags: ['CompanySettings'],
