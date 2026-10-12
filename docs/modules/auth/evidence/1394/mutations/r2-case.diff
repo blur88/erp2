@@ -1,6 +1,6 @@
 --- /dev/null	2026-08-24 01:39:46.654000000 +0800
-+++ b/cases/company-recovery.mjs	2026-10-12 21:45:19.432045426 +0800
-@@ -0,0 +1,161 @@
++++ b/cases/company-recovery.mjs	2026-10-12 22:01:27.129448387 +0800
+@@ -0,0 +1,174 @@
 +// Case 18 (#1394): the sidebar's recovery, with the company-settings read
 +// failing at the browser and nothing else failing.
 +//
@@ -35,7 +35,11 @@
 +
 +async function run(ctx) {
 +  const { config } = ctx.run
-+  const profile = await ctx.profile({ intercept: true, tagRequests: true, timing: true, keepAnswers: KEEP_SHELL_ANSWERS })
++  // Without { intercept }: the harness installs its own '**/api/**' handler in
++  // Profile.init, and which of two handlers Playwright runs first is not
++  // something this case should depend on. The only handler on the context is
++  // this case's own, so the read is the one it fails.
++  const profile = await ctx.profile({ timing: true, keepAnswers: KEEP_SHELL_ANSWERS })
 +
 +  const signIn = await profile.tab('/login', { label: 'sign-in', navigate: false })
 +  await ctx.signIn(signIn, config.userC)
@@ -70,31 +74,13 @@
 +    { name: await sidebarName(tab) },
 +  )
 +
-+  // ---- manual recovery: stop failing, click Retry ------------------------
-+  await profile.context.unroute(`**${COMPANY_SETTINGS}`)
-+  const beforeRetry = reads(profile, mark1, tab).length
-+  const retry = tab.locator('[role="status"] button', { hasText: /^Retry/ }).first()
-+  ctx.check('the expanded strip has a Retry button', (await retry.count()) === 1, { count: await retry.count() })
-+  const canRetry = await retry.isEnabled()
-+  ctx.record('retryEnabled', { canRetry })
-+  if (canRetry) {
-+    await retry.click({ timeout: 15000 })
-+    const recovered = await waitForName(tab, 30000)
-+    ctx.record('manualRetry', {
-+      readsBefore: beforeRetry,
-+      readsAfter: reads(profile, mark1, tab).length,
-+      strip: judgeStrip(await readStrip(tab)),
-+      companyNameInSidebar: await sidebarName(tab),
-+      screenshot: await screenshot(ctx, tab, 'r2-after-retry'),
-+    })
-+    ctx.check('the name is back after Retry', recovered !== null, { name: recovered })
-+    ctx.check('the strip is gone after Retry', !(await readStrip(tab)).expanded, judgeStrip(await readStrip(tab)))
-+  }
-+
-+  // ---- the collapsed form -----------------------------------------------
++  // ---- the collapsed form, while the strip is still showing --------------
++  //
++  // Read before the Retry: the strip is gone once the read succeeds, and the
++  // collapsed form only exists while it is there.
 +  const collapse = tab.locator('button[aria-label="collapse sidebar"]').first()
 +  if ((await collapse.count()) === 1) await collapse.click({ timeout: 10000 }).catch(() => undefined)
-+  await sleep(500)
++  await sleep(600)
 +  const collapsed = tab.locator(`button[aria-label="Retry loading company details"]`).first()
 +  const collapsedCount = await collapsed.count()
 +  ctx.record('collapsed', {
@@ -111,11 +97,38 @@
 +    ctx.record('collapsedFocus', { focused, screenshot: await screenshot(ctx, tab, 'r2-collapsed-focus') })
 +
 +    await collapsed.hover()
-+    await sleep(600)
-+    const tooltip = await tab.locator('[role="tooltip"]').first()
++    await sleep(800)
++    const tooltip = tab.locator('[role="tooltip"]').first()
 +    const tooltipText = (await tooltip.count()) > 0 ? (await tooltip.textContent()) ?? '' : null
 +    ctx.record('collapsedTooltip', { tooltipText, screenshot: await screenshot(ctx, tab, 'r2-collapsed-tooltip') })
 +    ctx.check('the tooltip carries the unavailable wording', (tooltipText ?? '').includes('Company details unavailable'), { tooltipText })
++
++    const expand = tab.locator('button[aria-label="expand sidebar"]').first()
++    if ((await expand.count()) === 1) await expand.click({ timeout: 10000 }).catch(() => undefined)
++    await sleep(600)
++    ctx.record('expandedAgain', { strip: judgeStrip(await readStrip(tab)) })
++  }
++
++  // ---- manual recovery: stop failing, click Retry ------------------------
++  await profile.context.unroute(`**${COMPANY_SETTINGS}`)
++  const beforeRetry = reads(profile, mark1, tab).length
++  const retry = tab.locator('[role="status"] button').first()
++  const retryCount = await retry.count()
++  ctx.check('the expanded strip has a Retry button', retryCount === 1, { retryCount })
++  const canRetry = retryCount === 1 ? await retry.isEnabled() : false
++  ctx.record('retryEnabled', { canRetry })
++  if (canRetry) {
++    await retry.click({ timeout: 15000 }).catch((err) => ctx.record('retryClick', { failed: err.message.split('\n')[0] }))
++    const recovered = await waitForName(tab, 30000)
++    ctx.record('manualRetry', {
++      readsBefore: beforeRetry,
++      readsAfter: reads(profile, mark1, tab).length,
++      strip: judgeStrip(await readStrip(tab)),
++      companyNameInSidebar: await sidebarName(tab),
++      screenshot: await screenshot(ctx, tab, 'r2-after-retry'),
++    })
++    ctx.check('the name is back after Retry', recovered !== null, { name: recovered })
++    ctx.check('the strip is gone after Retry', !(await readStrip(tab)).expanded, judgeStrip(await readStrip(tab)))
 +  }
 +
 +  // ---- what the tab's own trace says ------------------------------------
