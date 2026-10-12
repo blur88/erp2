@@ -191,7 +191,75 @@ What would make this run say nothing: the navigation's request is not answered
 showing after step 2. Either is recorded as "did not exercise the path", not as
 a result.
 
-**Actual (R3): not yet run.**
+**Actual (R3, commit `357351cc6`, 2026-10-13) — all six met.** The line above
+this one read "not yet run" when the expectations were committed (`b6dc16dc3`);
+the case was committed as `mutations/r3-case.diff` (`357351cc6`) before the run.
+
+| # | Actual | Status |
+|---|---|---|
+| R3-1 | Strip showing (expanded form), header with no company name (`r3-stopped.png`). All three armed faults were used. | met |
+| R3-2 | Idle for 26 s against a 20 s access lifetime, tab `visible`. Company reads during the wait: **0**. `refresh-sent` during the wait: **0**. Strip still showing, Retry enabled, no name. | met |
+| R3-3 | After the one navigation: **1** company read, 1098 ms after the click. Retry clicks: 0. | met |
+| R3-4 | That read was answered 200 in the browser; "Your Company Name" appeared 1427 ms after the click; strip gone (`r3-recovered.png`). | met |
+| R3-5 | The `window` marker set before the idle wait was still there and `performance.timeOrigin` was unchanged; the tab was at `/sales/orders`. | met |
+| R3-6 | Company reads at recovery **4**, ten seconds later **4**. | met |
+
+The path was exercised, which is what makes the six mean something: after the
+navigation `GET /api/customers` and `GET /api/sales-orders` were both answered
+401, and the tab's trace went from 0 to 1 `refresh-sent`.
+
+Counts, each on its own line and none of them an expectation:
+
+- company reads, the failed first read and the two automatic attempts: **3**
+  (aborted in the browser at +0, +2.07 s and +6.05 s; none reached the ingress)
+- company reads during the idle wait: **0**
+- company reads after the navigation (the quiet re-read): **1**
+- company reads in the 10 s after recovery: **0**
+- company reads in all: **4**
+- refreshes, `refresh-sent` in the tab's trace before the navigation: **0**
+- refreshes, `refresh-sent` after the navigation: **1**
+- `POST /api/auth/refresh` the harness logged for the tab: **1**, answered 200
+  (the ingress log has the same one line, 958 ms after the click)
+- adopted tokens: **0**; the renewal was the tab's own
+- requests answered 401 after the navigation: **2**, behind one refresh
+
+Limits of this run, stated so it is not read for more than it shows:
+
+- One tab, one round, a development result through `QA_SUITE_OVERRIDE`. It
+  shows the path works; it is not a rate and not a multi-tab result.
+- The ingress answered the quiet re-read **304** (the browser revalidated its
+  cached copy) and the browser delivered it to the page as 200. The run does
+  not show a quiet re-read fetched with no cache.
+- The renewal was the tab's own refresh. A stopped, idle tab renewed by
+  **adopting** another tab's tokens was not exercised in a browser; the Vitest
+  provider tests dispatch the same `tokensUpdated` the adoption path does.
+- The deferral while hidden (the other half of row 5) was not exercised: the
+  tab was visible throughout. That half remains Vitest only
+  (`CompanySettingsRecoveryProvider.test.tsx: 8`).
+
+**Row 5 after R3.** The table above is left as it was written. Its browser
+status "the quiet re-read itself unverified in a browser" is superseded by R3
+for a visible tab renewed by its own refresh, and stands for the hidden-tab
+deferral and for adopted tokens.
+
+### What remains Vitest only in a browser, after R3
+
+Accepted by the owner (2026-10-13) where a browser exercise is impractical; the
+limitation stays explicit:
+
+| Row | What the browser has not shown | Why | Covered by |
+|---|---|---|---|
+| 2 | Retained branding through and after exhaustion | A non-administrator cannot cause a second read of this endpoint | `CompanySettingsRecoveryProvider.test.tsx: 4` |
+| 3 (half) | No request merely from hiding/showing the tab | No hidden-tab case in the harness | `…Provider.test.tsx: 3` |
+| 5 (half) | Deferral while hidden; renewal by adopted tokens | Tab visible; single tab | `…Provider.test.tsx: 7, 8, 9` |
+| 6 | The read's own 429 exhausted | The filler refuses `/api/auth/me`, not this read | `…Provider.test.tsx: 6` |
+| 7 | Ineligible during a delay | No hidden-tab or storage-waiting fault | `…Provider.test.tsx: 10, 11, 12` |
+| 8 (half) | Retry disabled and refused while ineligible | Same | `…Provider.test.tsx: 14` |
+| 9 | Session end and direct session change | Not asked of the sidebar by any browser case | `…Provider.test.tsx: 15a–d` |
+| 11, 13 | The two settings pages | Administrator-only | `MainLayout.companyRecovery.test.tsx: scenario 13` |
+| 12 | The mobile drawer | Harness runs at 1366 px | `MainLayout.companyRecovery.test.tsx: scenario 12` |
+| 14 | A storage timeout around the read | Not a fault the harness injects | `…Provider.test.tsx: 12` |
+| — | The focus ring's rendering | R2 focused the button programmatically | not covered; **unverified** |
 
 ## Browser-only items (jsdom cannot show these)
 

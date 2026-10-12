@@ -1,0 +1,16 @@
+name=R3 copy=w1-429-traced only=19 (the R3 case added by mutations/r3-case.diff)
+commit=357351cc6bfa2fb7cb85dcfdd9e9cbf484c7e87f
+partial=only 19 through QA_SUITE_OVERRIDE: a development result, not a pass of the suite
+started=2026-10-13T00:35:00+08:00
+ended=2026-10-13T00:38:57+08:00
+exitStatus=0
+servedBuild=357351cc6bfa2fb7cb85dcfdd9e9cbf484c7e87f
+user=qa1353_sales (sales_staff, not an administrator)
+filler=none: the session zone was not held
+fault=the company read is aborted three times in the tab under test (a route on
+      that tab), then the route is removed; the sign-in tab is parked on
+      /manifest.json so the tab under test is the only application in the profile
+chromium=153.0.8010.12 (mcr.microsoft.com/playwright:v1.63.0-noble)
+access=20s grace=5 (the QA values; restored to 15m/60 afterwards)
+screenshots=r3-stopped, r3-recovered
+result=7 of 7 checks passed (R3-1 to R3-6 and "the path was exercised")

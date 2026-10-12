@@ -137,6 +137,7 @@ Neither is a pass of the suite, and neither is written up as one.
 |---|---|---|---|---|
 | R1 | `97a672272` | T2 repeated at five tabs, non-administrator, two windows | 1 | W1 ran and recorded. The strip appeared in **5 of 5** tabs; one read and one refresh per tab, and nothing the sidebar sent after the strip. All five tabs recovered without a reload. The window-2 quiet-re-read expectation was **not met** (see EXPECTATIONS.md) and is handed back, not reinterpreted. |
 | R2 | `5814eab1e` | one tab, the read aborted three times in the tab | 1 | The case passed **8 of 8** checks: the strip and the placeholder after the exhaustion, the collapsed button with its accessible name, its focus and its tooltip, and one read on Retry with the name back and the strip gone. Five screenshots. |
+| R3 | `357351cc6` | one tab, stopped and idle for longer than the access lifetime, then one sidebar navigation | 0 | The case passed **7 of 7** checks. No company read and no refresh during the 26 s idle wait; after the navigation, one refresh (the tab's own, answered 200) and **one quiet re-read**, the name back in 1.4 s, the strip gone, the same document still loaded, and no further read in the next 10 s. Two screenshots. |
 
 ### R1's window 2 in one line
 
@@ -148,6 +149,27 @@ than read as a pass. Two limits of what the run can show are recorded with it:
 the per-tab refresh figures are the tab's whole trace and not the window's, and
 a tab that sits stopped and idle and is *then* renewed is **unverified in a
 browser**.
+
+### R3 — the path R1 did not exercise
+
+R1's window-2 expectation of a quiet re-read stays **unmet for R1**, as
+recorded. The owner's reading (2026-10-13): consuming a renewal that arrives
+while the read is in flight is correct, R1's recovery supports it, and the
+implementation is not changed to force an extra read. R1's tabs recovered
+because the read the client was already carrying was re-sent after the refresh
+and answered 200.
+
+R3 is the targeted check for the other case, with its expectation committed
+(`b6dc16dc3`) and its case recorded (`mutations/r3-case.diff`, `357351cc6`)
+before it ran: a tab made **stopped** by R2's fault, left **idle** for 26 s
+against a 20 s access lifetime, then given one sidebar navigation. All six
+expectations were met; reads and refreshes are recorded separately in
+EXPECTATIONS.md. Its limits are recorded there too: one visible tab, renewed by
+its own refresh, and a quiet re-read the ingress answered 304.
+
+R3 was run with `ERP_SESSION_SCRATCH` and `QA_SUITE_OVERRIDE` pointing at a
+copy of the R2 override suite with `mutations/r3-case.diff` applied, and
+`QA_ONLY=19`.
 
 ### What the runs could not reach, and why
 
