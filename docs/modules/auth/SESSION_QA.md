@@ -2850,6 +2850,14 @@ were valid for their condition: server rows read and spanning the round, traces
 complete from every tab, reset checks passed, no resource limit, no round at the
 300 s cap, no refresh left uncaptured, no driver error.
 
+**"Valid" is the protocol's per-round reading and says nothing about what the
+hold isolates.** The check that the hold is storage pressure alone **did not
+meet its agreed criterion** (see *What the hold is, and is not*). The condition
+every hold round ran under is **a held store plus the start-up load of the
+tabs**. The replays below are evidence of what happens under that condition;
+they are not evidence that storage-only isolation was achieved, and no valid
+count here should be read as saying it was.
+
 | Cell | Valid | Landed | Replay coverage | Outcomes | Hold observed | Reader's longest read | Eligible peers |
 |---|---|---|---|---|---|---|---|
 | `C-unfixed` | 10 | 10 | 10 (floor 8: met) | 10 `replay-confirmed` | 12.02–12.06 s | 11.8–12.9 s | 1–16 |
@@ -3006,10 +3014,18 @@ round with the probe in all twenty tabs: the other tabs kept firing timers
 through the hold (1858 firings), late by up to 2.9 s in a four-second burst when
 their own 5 s storage calls timed out and they rendered again, against up to
 2.1 s while loading before the hold; the refreshing tab's two 5 s commit
-timeouts fired after 5006 and 5001 ms. So the pause does not stall other tabs.
-The plan's own threshold ("well under 1 s") was not met, and the hold is
-described accordingly: **a held store on top of the start-up load of twenty
-tabs, not storage pressure in isolation.**
+timeouts fired after 5006 and 5001 ms. **The hold-scope check's acceptance criterion was not met.** It was agreed before
+the run as: the other tabs' timer lateness during the hold comparable to outside
+it **and well under 1 s**, while their storage calls time out. The first half
+held (2.9 s during, 2.1 s before) and the storage calls timed out on time; the
+second half did not: timers were up to 2.9 s late. The check is recorded as
+**unmet**. What the figures do support is narrower: pausing the spare tab did
+not freeze the other tabs, whose timers kept firing through the hold.
+
+The condition is therefore described, everywhere in this record, as **a held
+store plus the start-up load of the tabs, not storage pressure in isolation.**
+Storage-only isolation was not validated. Whether the outcomes would be the same
+with the store held on otherwise idle tabs was not tested.
 
 It is also **not the original stall.** #1359 measured the original slowness as
 the processor: pages too busy to run, so their timers fire late too. Under a

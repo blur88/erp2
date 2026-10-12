@@ -456,11 +456,15 @@ outside the tab that made it.
   late in the last 2 s.
 - The refreshing tab's two commit attempts timed out after 5006 and 5001 ms: its
   5 s timers fired on time while its storage calls waited.
-- **Reading:** pausing the spare tab does not stall the other tabs' timers. The
-  lateness seen is the tabs' own work and is the size of ordinary load-time
-  lateness. It is not "well under 1 s", which is what the plan asked for, so the
-  hold is described as **a held store on top of the start-up load of 20 tabs**,
-  not as storage pressure in isolation.
+- **Reading: the check's acceptance criterion was not met.** It required
+  lateness during the hold comparable to outside it **and well under 1 s**. The
+  first half held; the second did not (up to 2.9 s). The check is recorded as
+  **unmet**, and storage-only isolation is **not validated**. What the figures
+  support is narrower: pausing the spare tab did not freeze the other tabs,
+  whose timers kept firing and whose 5 s storage timeouts fired on time. The
+  owner's stop condition (the pause stalling other tabs) was not triggered, so
+  the runs went ahead, with the condition described as **a held store plus the
+  start-up load of the tabs**, never as storage pressure in isolation.
 
 ### What calibration showed, recorded here because it bears on the cells
 
