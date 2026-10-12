@@ -1,0 +1,248 @@
+diff -ruN suite-before/cases/company-renewal.mjs suite/cases/company-renewal.mjs
+--- suite-before/cases/company-renewal.mjs	1970-01-01 07:30:00.000000000 +0730
++++ suite/cases/company-renewal.mjs	2026-10-13 00:34:50.171468436 +0800
+@@ -0,0 +1,228 @@
++// Case 19 (#1394, run R3): a tab that is stopped and idle, then renewed, reads once.
++//
++// R1 never put a tab in this state: there the renewal arrived while the
++// company read was in flight and was consumed, which is the rule and not this
++// path. Here the read is failed at the browser until recovery has stopped, the
++// tab is left alone for longer than the access lifetime, and then one ordinary
++// sidebar navigation makes the runtime refresh. The provider sees the renewal
++// with nothing of its own in flight, and that permits the one quiet re-read.
++//
++// The expected results were written and committed before the run
++// (docs/modules/auth/evidence/1394/EXPECTATIONS.md, "Run R3"). The run is a
++// development result: QA_SUITE_OVERRIDE runs a copy of the suite.
++import { join } from 'node:path'
++import { sleep } from '../lib/config.mjs'
++import { accessFor, loadNavigation } from '../lib/access.mjs'
++import { readStored, summarize } from '../lib/harness.mjs'
++import { KEEP_SHELL_ANSWERS, COMPANY_SETTINGS, ROUND_TRIP, follow } from '../lib/usable.mjs'
++import { readStrip, judgeStrip, tokenOrigin } from '../lib/company-recovery.mjs'
++
++const REFRESH = '/api/auth/refresh'
++
++const sidebarName = (page) =>
++  page
++    .evaluate(() => {
++      const text = (el) => (el.textContent ?? '').trim()
++      const brand = [...document.querySelectorAll('.MuiDrawer-root h6')].find((h) => text(h) === 'ERP System')
++      return brand && brand.nextElementSibling ? text(brand.nextElementSibling) : null
++    })
++    .catch(() => null)
++
++const traceOf = (page) =>
++  page.evaluate(() => (Array.isArray(window.__erpSessionTrace) ? window.__erpSessionTrace.slice() : [])).catch(() => [])
++
++const refreshesSent = async (page) => (await traceOf(page)).filter((e) => e && e.type === 'refresh-sent').length
++
++async function run(ctx) {
++  const { config } = ctx.run
++  const profile = await ctx.profile({ timing: true, keepAnswers: KEEP_SHELL_ANSWERS })
++
++  const signIn = await profile.tab('/login', { label: 'sign-in', navigate: false })
++  await ctx.signIn(signIn, config.userC)
++  const role = summarize(await readStored(signIn)).session?.role ?? null
++  ctx.require('the R3 user is not an administrator', typeof role === 'string' && role !== 'admin', { role })
++  const access = accessFor(loadNavigation(), role)
++  ctx.require('the role is shown the sidebar link R3 follows', access.link(ROUND_TRIP.parent, ROUND_TRIP.child) !== null)
++  // The sign-in tab runs the application too. It is parked on a static document of the same origin
++  // so that the only application in this profile is the tab under test: nothing
++  // else can refresh, and a renewal the tab sees is its own or is recorded.
++  await signIn.goto(`${config.base}/manifest.json`, { waitUntil: 'load' })
++
++  const mark = profile.mark()
++  const tab = await profile.tab('/dashboard', { label: 'R3-1' })
++  const all = () => profile.since(mark, tab)
++  const companyReads = () => all().filter((e) => e.path === COMPANY_SETTINGS)
++  const refreshRequests = () => all().filter((e) => e.path.replace(/\/$/, '') === REFRESH)
++
++  // ---- step 2: stopped ---------------------------------------------------
++  let armed = 3
++  await tab.route(`**${COMPANY_SETTINGS}`, async (route) => {
++    if (armed > 0) {
++      armed -= 1
++      return route.abort('failed')
++    }
++    return route.fallback()
++  })
++  await tab.reload({ waitUntil: 'domcontentloaded' })
++  const markAfterReload = profile.mark()
++  const stopped = await waitFor(async () => judgeStrip(await readStrip(tab).catch(() => ({}))).showing, 30000)
++  await tab.unroute(`**${COMPANY_SETTINGS}`)
++  const nameWhenStopped = await sidebarName(tab)
++  ctx.record('stopped', {
++    stripShowing: stopped,
++    companyNameInSidebar: nameWhenStopped,
++    faultsLeftUnused: armed,
++    companyReadsSinceOpen: companyReads().map((e) => ({ status: e.status ?? e.failed ?? 'pending', issuedAt: e.issuedAt })),
++    screenshot: await screenshot(ctx, tab, 'r3-stopped'),
++  })
++  ctx.check('R3-1: the strip is showing and the header shows no company name', stopped && nameWhenStopped === null, {
++    stopped,
++    nameWhenStopped,
++  })
++  void markAfterReload
++
++  // ---- step 3: idle, for longer than the access lifetime ------------------
++  const documentMarker = `r3-${Date.now()}`
++  const before = await tab.evaluate((marker) => {
++    window.__r3Marker = marker
++    return { timeOrigin: performance.timeOrigin, visibility: document.visibilityState, href: location.pathname }
++  }, documentMarker)
++  const readsAtIdleStart = companyReads().length
++  const refreshSentAtIdleStart = await refreshesSent(tab)
++  const refreshRequestsAtIdleStart = refreshRequests().length
++  const idleMs = (config.accessSeconds + 6) * 1000
++  await sleep(idleMs)
++  const readsAtIdleEnd = companyReads().length
++  const refreshSentAtIdleEnd = await refreshesSent(tab)
++  const stripAtIdleEnd = judgeStrip(await readStrip(tab))
++  ctx.record('idle', {
++    waitedMs: idleMs,
++    accessSeconds: config.accessSeconds,
++    visibility: before.visibility,
++    companyReads: { atStart: readsAtIdleStart, atEnd: readsAtIdleEnd, during: readsAtIdleEnd - readsAtIdleStart },
++    refreshSent: { atStart: refreshSentAtIdleStart, atEnd: refreshSentAtIdleEnd, during: refreshSentAtIdleEnd - refreshSentAtIdleStart },
++    refreshRequests: { atStart: refreshRequestsAtIdleStart, atEnd: refreshRequests().length },
++    strip: stripAtIdleEnd,
++    companyNameInSidebar: await sidebarName(tab),
++  })
++  const renewedWhileIdle = refreshSentAtIdleEnd !== refreshSentAtIdleStart
++  ctx.check(
++    'R3-2: during the idle wait the tab sends no company read and the strip stays',
++    readsAtIdleEnd === readsAtIdleStart && stripAtIdleEnd.showing && !renewedWhileIdle,
++    { during: readsAtIdleEnd - readsAtIdleStart, strip: stripAtIdleEnd, renewedWhileIdle },
++  )
++
++  // ---- step 4: one sidebar navigation -------------------------------------
++  const navigatedAt = Date.now()
++  const seqAtNavigation = all().length
++  await follow(tab, access, ROUND_TRIP)
++  const name = await waitForValue(() => sidebarName(tab), 40000)
++  const recoveredAt = Date.now()
++  const readsAtRecovery = companyReads().length
++  const afterNavigation = all().slice(seqAtNavigation)
++  const navigation401 = afterNavigation.filter((e) => e.path !== COMPANY_SETTINGS && e.status === 401)
++  const stripAtRecovery = judgeStrip(await readStrip(tab))
++  ctx.record('recovery', {
++    navigation: 'sidebar: Sales > Sales Orders',
++    msFromNavigationToName: name === null ? null : recoveredAt - navigatedAt,
++    companyNameInSidebar: name,
++    strip: stripAtRecovery,
++    requestsAnswered401AfterNavigation: navigation401.map((e) => `${e.method} ${e.path}`),
++    companyReadsAfterNavigation: companyReads()
++      .filter((e) => e.issuedAt >= navigatedAt)
++      .map((e) => ({ status: e.status ?? e.failed ?? 'pending', msAfterNavigation: e.issuedAt - navigatedAt })),
++    refreshRequestsAfterNavigation: refreshRequests()
++      .filter((e) => e.issuedAt >= navigatedAt)
++      .map((e) => ({ status: e.status ?? e.failed ?? 'pending', msAfterNavigation: e.issuedAt - navigatedAt })),
++    screenshot: await screenshot(ctx, tab, 'r3-recovered'),
++  })
++  const quietReads = companyReads().filter((e) => e.issuedAt >= navigatedAt)
++  ctx.check('the path was exercised: a request after the navigation was answered 401 and the tab refreshed', navigation401.length > 0 && (await refreshesSent(tab)) > refreshSentAtIdleEnd, {
++    answered401: navigation401.length,
++    refreshSentBefore: refreshSentAtIdleEnd,
++    refreshSentAfter: await refreshesSent(tab),
++  })
++  ctx.check('R3-3: exactly one company read follows the renewal, with no Retry click', quietReads.length === 1, {
++    quietReads: quietReads.length,
++  })
++  ctx.check(
++    'R3-4: that read is answered 200, the name appears and the strip is removed',
++    quietReads.length === 1 && quietReads[0].status === 200 && name !== null && !stripAtRecovery.showing,
++    { status: quietReads[0]?.status ?? null, name, strip: stripAtRecovery },
++  )
++
++  // ---- step 5: no reload, no duplicate ------------------------------------
++  await sleep(10000)
++  const after = await tab.evaluate(() => ({
++    marker: window.__r3Marker ?? null,
++    timeOrigin: performance.timeOrigin,
++    href: location.pathname,
++  }))
++  const readsAtEnd = companyReads().length
++  ctx.record('afterwards', {
++    waitedMs: 10000,
++    documentMarkerKept: after.marker === documentMarker,
++    sameTimeOrigin: after.timeOrigin === before.timeOrigin,
++    path: after.href,
++    companyReads: { atRecovery: readsAtRecovery, tenSecondsLater: readsAtEnd },
++    strip: judgeStrip(await readStrip(tab)),
++    companyNameInSidebar: await sidebarName(tab),
++  })
++  ctx.check('R3-5: no reload — the same document is still loaded', after.marker === documentMarker && after.timeOrigin === before.timeOrigin, {
++    markerKept: after.marker === documentMarker,
++    sameTimeOrigin: after.timeOrigin === before.timeOrigin,
++  })
++  ctx.check('R3-6: no duplicate read 10 s after recovery', readsAtEnd === readsAtRecovery, { readsAtRecovery, readsAtEnd })
++
++  // ---- the counts, each on its own line ------------------------------------
++  const trace = await traceOf(tab)
++  ctx.record('counts', {
++    companyReads: {
++      'page load and automatic attempts (before the idle wait)': readsAtIdleStart,
++      'during the idle wait': readsAtIdleEnd - readsAtIdleStart,
++      'after the navigation (quiet re-reads)': quietReads.length,
++      'in the 10 s after recovery': readsAtEnd - readsAtRecovery,
++      total: readsAtEnd,
++    },
++    refreshes: {
++      'refresh-sent in the tab trace, before the navigation': refreshSentAtIdleEnd,
++      'refresh-sent in the tab trace, after the navigation': trace.filter((e) => e && e.type === 'refresh-sent').length - refreshSentAtIdleEnd,
++      'POST /api/auth/refresh the harness logged for the tab, by status': refreshRequests().map((e) => e.status ?? e.failed ?? 'pending'),
++    },
++    tokens: tokenOrigin(trace),
++    retryClicks: 0,
++  })
++
++  await ctx.close()
++}
++
++export default [{ id: 19, name: 'sidebar company recovery: stopped and idle, then a token renewal', run }]
++
++async function screenshot(ctx, page, name) {
++  const file = `${name}.png`
++  try {
++    await page.screenshot({ path: join(ctx.config.scratch, file), timeout: 10000 })
++    return file
++  } catch (err) {
++    return `not taken: ${err.message.split('\n')[0]}`
++  }
++}
++
++async function waitFor(predicate, timeoutMs) {
++  const deadline = Date.now() + timeoutMs
++  while (Date.now() < deadline) {
++    if (await predicate()) return true
++    await sleep(250)
++  }
++  return false
++}
++
++async function waitForValue(read, timeoutMs) {
++  const deadline = Date.now() + timeoutMs
++  while (Date.now() < deadline) {
++    const value = await read()
++    if (value) return value
++    await sleep(250)
++  }
++  return null
++}
+diff -ruN suite-before/cases.mjs suite/cases.mjs
+--- suite-before/cases.mjs	2026-10-13 00:34:33.922183633 +0800
++++ suite/cases.mjs	2026-10-13 00:34:33.978184612 +0800
+@@ -21,10 +21,11 @@
+ import limiter from './cases/limiter.mjs'
+ import induced from './cases/induced.mjs'
+ import companyRecovery from './cases/company-recovery.mjs'
++import companyRenewal from './cases/company-renewal.mjs'
+ import { stopAllNodeFillers } from './lib/node-fillers.mjs'
+ import w1 from './lib/w1.mjs'
+ 
+-export const cases = [...signout, ...switching, ...refresh, ...storage, ...marker, ...limiter, ...induced, ...companyRecovery]
++export const cases = [...signout, ...switching, ...refresh, ...storage, ...marker, ...limiter, ...induced, ...companyRecovery, ...companyRenewal]
+   .sort((x, y) => x.id - y.id)
+   .concat([w1])
+ 
