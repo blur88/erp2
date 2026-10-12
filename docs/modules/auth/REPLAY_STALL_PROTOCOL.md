@@ -407,9 +407,16 @@ Hypotheses to compare the results with. None is a pass condition.
 
 ## Frozen values
 
-Frozen on 2026-10-12, after calibration passed and before any recorded round.
-`stall-cell.sh` reads the next line; a recorded cell runs this mechanism
-whatever its environment says.
+Frozen on 2026-10-12, after calibration passed and before any recorded round
+(commit `05316a7cf`). `stall-cell.sh` reads the next line; a recorded cell runs
+this mechanism whatever its environment says.
+
+**Amended after the runs, in one place:** the *Reading* under *What the hold
+stalls* below was rewritten on 2026-10-12 after every recorded round had run
+(commit `548daaf9e`), on the owner's instruction, and again after the second
+review. At the freeze it read that the pause does not stall the other tabs and
+that the hold was "a held store on top of the start-up load of 20 tabs"; the
+mechanism line, the nudge, the control hold and every setting are as frozen.
 
 frozen-mechanism: gate=1 barrier-ms=10000 nudge-path=/inventory/products
 
@@ -450,8 +457,8 @@ outside the tab that made it.
 - During the 12.0 s hold the 20 application tabs recorded 1858 timer firings.
   Lateness: maximum 2920 ms, 19 firings over 1 s, none over 5 s. Before the hold
   (the tabs loading): maximum 2139 ms, 21 over 1 s.
-- By two-second bucket: no firing more than 1 s late for the first 6 s of the
-  hold; a burst up to 2.9 s between 6 and 10 s into it, which is when the tabs'
+- By two-second bucket: one firing more than 1 s late (1381 ms) in the first
+  6 s of the hold; a burst up to 2.9 s between 6 and 10 s into it, which is when the tabs'
   own 5 s storage calls time out and they render again; nothing more than 50 ms
   late in the last 2 s.
 - The refreshing tab's two commit attempts timed out after 5006 and 5001 ms: its
@@ -461,10 +468,20 @@ outside the tab that made it.
   first half held; the second did not (up to 2.9 s). The check is recorded as
   **unmet**, and storage-only isolation is **not validated**. What the figures
   support is narrower: pausing the spare tab did not freeze the other tabs,
-  whose timers kept firing and whose 5 s storage timeouts fired on time. The
-  owner's stop condition (the pause stalling other tabs) was not triggered, so
-  the runs went ahead, with the condition described as **a held store plus the
+  whose timers kept firing and whose 5 s storage timeouts fired on time.
+- **How it was handled at the time:** the implementer saw these figures before
+  calibration, recorded that the threshold was "not met literally", **treated
+  the check as passed** and went on to calibration and the recorded rounds
+  without asking the owner, judging that the owner's stop condition (the pause
+  stalling other tabs) had not been triggered. That was the implementer's
+  ruling, not the owner's. The check was re-read as unmet afterwards, on the
+  owner's instruction. The condition is described as **a held store plus the
   start-up load of the tabs**, never as storage pressure in isolation.
+- "Comparable to outside the hold" is true of this 20-tab round only. In cell
+  `X` (30 tabs, 21 s hold, probe in every tab) lateness during the hold exceeded
+  lateness before it in nine rounds of ten, up to 4.4 s against 2.2 s. That the
+  burst is the tabs' own work at their storage timeouts is an inference from its
+  timing.
 
 ### What calibration showed, recorded here because it bears on the cells
 

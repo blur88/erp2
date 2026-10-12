@@ -2793,8 +2793,9 @@ the pinned `main` commit `7da8c1c90`.
   presentation and no replay in thirty rounds, and the spare tab's longest store
   read was 1.1 to 3.6 s against the recorded run's 12 to 21 s.
 - **Under a store held on purpose, the unfixed build lost its session in ten
-  rounds of ten, and current `main` in none of ten**, at a 12 s hold. The #1358
-  fix does what it says under that condition.
+  rounds of ten, and current `main` in none of ten**, at a 12 s hold. Under that
+  exact timing the #1358 fix prevented the loss; that supports the fix there and
+  does not establish that it is correct in general.
 - **Under a 21 s hold, current `main` lost its session in 9 of 10 rounds at the
   5 s grace, 6 of 10 at the 60 s production grace, and 7 of 10 with 30 tabs at
   the 60 s grace.** The response #1358 keeps was held pending in every one of
@@ -2883,7 +2884,7 @@ every round):
 |---|---|---|---|
 | `C-unfixed` | timeout ×10 | none: the reverted code makes one | none: the response was dropped |
 | `H12` | timeout ×10 | `written-both` ×10, at the release of the hold | – |
-| `H21`, `G60`, `X` | timeout ×30 | timeout ×30 | one more, after the nudge: `written-both` ×28, `session-mismatch` ×1, `discarded` ×1 |
+| `H21`, `G60`, `X` | timeout ×30 | timeout ×30 | one more: `written-both` ×28 and `session-mismatch` ×1, all after the nudge; `discarded` ×1 (`G60` round 6, on a `reconcile` at 38 s, long before that round's nudge) |
 
 **The later refresh.** In every round of the five hold cells the passive 65 s
 passed with no refresh sent by any tab: `no opportunity observed`, which is not
@@ -2901,19 +2902,28 @@ each, the session was already ended when the round's records were read, and the
 harness sent nothing afterwards (`close.how: already-ended`).
 
 In all thirty-two the match between the audit row and the refused request is
-unique. In **thirty** the judge's chain is complete, so each of those is
+unique. The presenting tab was a different tab from the one that had refreshed
+in thirty of them; in `C-unfixed` rounds 1 and 6 it was the same tab, which had
+dropped its own response and read the old generation back from storage. In **thirty** the judge's chain is complete, so each of those is
 **demonstrated**, in the protocol's sense, as this mechanism: a refresh was
 answered 200 with the new generation; its commit timed out; nothing wrote the
 new generation to shared storage before another tab read the old one, presented
 it past its grace and was refused.
 
 **Two are suspected, not demonstrated**: `H21` round 8 and `G60` round 8. Every
-link of the chain is there but one (`no-write-in-interval`): the tab holding the
-response wrote it after the presenting tab had read the old generation and
-before that tab sent its request. The trace shows the same picture as the other
-rounds of their cells, with the write a moment earlier; by the rule fixed
-beforehand that is one link short, and the sub-verdict is
-`supporting-unconfirmed`.
+link of the chain is there but one (`no-write-in-interval`), and what fails it
+is **a sampling timestamp, not the traces.** That link also requires that no
+sample of the stored record shows the new generation before the stale request
+was sent. The spare reader stamps a sample with the time its read *began*; in
+these two rounds a read that began just before the send (by 66 ms and 57 ms)
+and took 365 ms and 191 ms came back with the new generation, so it is counted
+as a write before the send. In the tabs' own traces the holder's write came
+after the presenting tab's send in `H21` round 8 (send at +108.266 s, write
+traced at +108.362 s), and the order is not established in `G60` round 8 (send
+at +147.447 s; a write that began at +147.353 s and was traced at +147.469 s).
+Both rounds show the same picture as the demonstrated rounds of their cells. By
+the rule fixed beforehand they are one link short, the sub-verdict is
+`supporting-unconfirmed`, and they stay **suspected**.
 
 | Cell | Replays | When | The refreshed response, when the presenting tab read storage | Presented after supersession | Past the grace by |
 |---|---|---|---|---|---|
@@ -2927,8 +2937,11 @@ Read this table with three cautions.
 - **Demonstrated: the mechanism on `main`.** On `main`, with both inline
   attempts timed out, the response is kept and its tab holds the lease
   (`lease-release: skipped-pending`), as #1358 designed. Nothing then makes that
-  tab try again: the runtime owns no timer, and the tab had no request of its
-  own to send. The lease expires after its 20 s. Shared storage still holds the
+  tab try again: the runtime owns no timer, and the tab had no authenticated
+  request of its own to send. (Each tab did go on polling `GET /api/health`
+  about every 30 s through the passive phase; that request carries no session
+  and does not prompt the commit. Only a refresh, a reconcile or a final 401
+  does.) The lease expires after its 20 s. Shared storage still holds the
   superseded generation. The next tab to refresh takes the free lease, reads the
   superseded generation and presents it. **This is not the dropped response of
   #1358.** The judge's sub-verdict is named `hypothesis-1-observed` because its
@@ -2938,9 +2951,13 @@ Read this table with three cautions.
 - **Provoked, every time.** The presenting tab was one the harness had just
   nudged: it read the old generation 4.3 to 9.1 s after the nudge. After the nudge the tab holding the response and
   the other tabs race: in `H21` the holder won once in ten, in `G60` three times
-  (and a fourth round went another way, below), in `X` three times. In 18
-  of the 22 `main` replays the holder had still written its response by the time
-  the server logged the replay: it lost the race by the length of one request.
+  (and a fourth round went another way, below), in `X` three times. In **none** of the 22 `main` replays had the holder written its response when
+  the presenting tab read storage. Where it wrote at all (21 rounds), the write
+  was traced 0.02 to 1.95 s after that read, and in 18 of the 22 before the
+  server logged the replay. Those intervals were measured with every tab nudged
+  at once, when a request took 0.07 to 4.2 s to leave the page after it was
+  issued; they say the race was lost by a short interval under that load, not
+  how it would run otherwise.
 - **The timing after the grace is the protocol's, not the application's.** The
   nudge comes 65 s after the grace of the first supersession expires. That is
   why the presentations in `G60` and `X` fall about 72 to 77 s past a 60 s
@@ -2955,7 +2972,7 @@ the ones that came after it:
 
 - `G60` round 6 is the only presentation of a superseded generation, in any
   cell, that no nudge provoked. Tab `t20` presented generation 1 at 23.8 s after
-  the supersession, 2 s after the 21 s hold was released; the ingress line for
+  the supersession, 3.4 s after the 21 s hold was released; the ingress line for
   the request is correlated, the whole arrival interval lies inside the grace
   with at least 36.2 s to spare, and the server answered 200. The holder's
   pending response was then `discarded`. **At the 5 s grace the same
@@ -2977,8 +2994,8 @@ the ones that came after it:
 - **That margin is narrow by construction, and calibration crossed it once.** A
   12 s hold is about as long as the two inline attempts (5 s each) plus the time
   the refresh answer takes to arrive after the hold begins (2.0 to 4.7 s in the
-  recorded and calibration rounds). In the one-round smoke of calibration the
-  answer arrived after 1.92 s, the second attempt timed out 91 ms before the
+  ten recorded and ten calibration rounds that kept their session). In the
+  one-round smoke of calibration the answer arrived after 1.92 s, the second attempt timed out 91 ms before the
   release, the response stayed pending, and that round replayed after the nudge
   exactly as the `H21` rounds did. It is a calibration round and is not counted
   as evidence about `H12`; it is the reason `H12`'s ten clean rounds are not
@@ -2999,8 +3016,9 @@ The comparison was conclusive and the control was not expanded.
   came near the recorded run's condition.
 - Timer lateness and the timeout count are additional observations with no
   original figure. `P` did put the tabs under real processor pressure (timers up
-  to 8.7 s late); no application storage call timed out in any of the thirty
-  rounds all the same.
+  to 8.7 s late). No commit and no lease release timed out in any of the thirty
+  rounds, which is what the trace records; and no tab's console logged a storage
+  timeout (zero "timed out" lines in the thirty rounds, against 188 in `H21`).
 - **A high tab count is not evidence that the original processor stall
   occurred**, and on the measured figure it did not. These thirty rounds are
   "not reproduced under these conditions", not "cannot happen".
@@ -3022,18 +3040,40 @@ second half did not: timers were up to 2.9 s late. The check is recorded as
 **unmet**. What the figures do support is narrower: pausing the spare tab did
 not freeze the other tabs, whose timers kept firing through the hold.
 
+**How that check was handled, in order.** The smoke round gave these figures
+before calibration. I (the implementer) recorded at the time that the threshold
+was "not met literally" and **treated the check as passed**, on the reasoning
+that the lateness was the tabs' own work and that the owner's stop condition
+(the pause stalling other tabs) had not been triggered; calibration and all
+eighty recorded rounds then ran **without the owner being asked**. After the
+runs, on the owner's instruction, the check was re-read as **unmet**, and the
+protocol's frozen section was amended to say so (commit `548daaf9e`, after
+every round). The runs were not made under an "unmet" reading; they were made
+under the implementer's ruling.
+
+**"Comparable to outside the hold" holds for the smoke round only.** Cell `X`
+carried the probe through a 21 s hold with 30 tabs in all ten rounds. Its
+maximum lateness during the hold was 2.0 to 4.4 s against 1.9 to 2.5 s before
+the hold; during exceeded before in nine rounds of ten, and was about double in
+four (4199/1949, 4143/2259, 4393/2205, 4325/2130 ms). No firing was over 5 s
+late; 25 to 39 per round were over 1 s. So with 30 tabs the tabs were later
+during the hold than before it. That the lateness is the tabs' own work at
+their storage timeouts is **an inference from when the burst falls, not a
+measurement.**
+
 The condition is therefore described, everywhere in this record, as **a held
 store plus the start-up load of the tabs, not storage pressure in isolation.**
 Storage-only isolation was not validated. Whether the outcomes would be the same
 with the store held on otherwise idle tabs was not tested.
 
 It is also **not the original stall.** #1359 measured the original slowness as
-the processor: pages too busy to run, so their timers fire late too. Under a
-held store the timers fire on time and only storage waits. **A result under the
-held store demonstrates behaviour under an injected hold; it does not establish
-that real storage contention behaves identically.** No in-application switch was
-built: the outside hold landed in 10 of 10 calibration rounds and 50 of 50
-recorded hold rounds.
+the processor: pages too busy to run, so their timers fire late too. Under the
+held store the tabs' timers kept firing, late by up to 2.9 s (20 tabs) and
+4.4 s (30 tabs), while their storage calls waited and timed out. **A result
+under the held store demonstrates behaviour under an injected hold; it does not
+establish that real storage contention behaves identically.** No in-application
+switch was built: the outside hold landed in 11 of 11 calibration rounds (the
+smoke round and the ten that followed) and 50 of 50 recorded hold rounds.
 
 Two more properties of the method, both recorded per round:
 
@@ -3043,6 +3083,21 @@ Two more properties of the method, both recorded per round:
 - A held store stalls every tab. Tabs still starting when it begins time out
   their start-up read. Every landed round had at least one eligible peer, and
   the counts are in each round's `readiness`.
+- A request does not leave the page when it is issued. Between a tab issuing a
+  refresh and its bytes leaving, 0.07 to 4.2 s passed in the hold cells and 2.8
+  to 13.5 s in `T30` and `T40`. No outcome here depends on it (the nearest
+  presentation to a grace boundary was tens of seconds away), but a case near a
+  5 s grace boundary would.
+- The spare reader stamps a sample of the stored record with the time its read
+  began, not the time it returned. That is what leaves two replay rounds one
+  link short (above).
+- **One session was left unrevoked by the harness.** `P` round 10's sign-out
+  took the tab to the sign-in page, and the harness recorded the session as
+  ended, but its logout request had no answer recorded and the session row has
+  `revokedAt: null` in rows read afterwards. It is the last round of its cell,
+  so no later round of `P` followed it; the next cell (`X`) began with that one
+  QA session still alive on the server, which its reset check did not see. In
+  the other 90 rounds the session row is revoked.
 
 ### Calibration
 
@@ -3054,16 +3109,24 @@ Two invocations, both on pinned `main` code, cell `H12`; kept and filed under
 | `00:34:56` | 1 (smoke; timer probe on) | 1 | `replay-confirmed`, after the nudge, response held pending |
 | `00:47:19` | 10 | 10 | 10 `commit-timeout` |
 
-Calibration passed at 10 landed of 10 consecutive rounds (8 needed). The judge
-was corrected between the two invocations and once more after `H21`, each time
-with a test that failed first; the protocol's *Frozen values* section and the
-commits `d2baaf6d6` and `e3bb5e73a` say what changed. Neither correction changes
+Calibration passed at 10 landed of 10 consecutive rounds (8 needed). **The judge
+was corrected three times after rounds had been seen**, each time with a test
+that failed first: between the two calibration invocations (`d2baaf6d6`); after
+every recorded cell had run (`e3bb5e73a`, committed after `X` finished, prompted
+by what `H21` showed); and after the second review (`04206c43b`, see below). No correction changes
 an outcome, a validity reading or a coverage label of any round: every
 invocation was re-judged with the final judge into
 `stall-verdicts.rejudged-e3bb5e73a.json` beside the filed `stall-verdicts.json`,
-and the two agree on all three for every round. The figures in this section for
-*what had become of the refreshed response* are from the re-judgement, because
-the filed verdicts read it at the moment the server logged the replay.
+and the two agree on all three, and on the cause sub-verdict, for every round.
+**They disagree on one fact in 18 rounds**: the filed `judge.out` and
+`stall-verdicts.json` of `H21`, `G60` and `X` say "refreshed response written"
+for 18 replays (5, 6 and 7), because the judge of that time read the response's
+state at the moment the server logged the replay. The re-judgement reads it at
+the presenting tab's stale read and says `held-pending` for all 22. The figures
+in this section are the re-judgement's; the filed files are left as they were
+written. The third correction makes "dropped" depend on a trace that shows the
+response was let go; re-judging with it gives results identical to the second
+re-judgement for every filed round.
 
 One mistake is on file: the smoke round's `stall-verdicts.json` was overwritten
 when the round was re-judged in place, and was restored from the scratch copy

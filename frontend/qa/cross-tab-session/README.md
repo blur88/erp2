@@ -1068,8 +1068,10 @@ What it does that the earlier replay rounds did not:
   server-confirmed replay is a replay whatever the round's validity.
 
 What it does not show: **a held store is not the processor stall of the recorded
-run.** Under the hold, timers fire on time and only storage waits. A result
-under it is behaviour under an injected hold. `evidence-manifest.mjs` writes and
+run.** Under the hold the tabs' timers kept firing, up to a few seconds late,
+while their storage calls waited; the check that it is storage pressure alone
+did not meet its criterion, so the condition is a held store plus the start-up
+load of the tabs. A result under it is behaviour under an injected hold. `evidence-manifest.mjs` writes and
 verifies the hash manifest of the evidence, and refuses a file that holds a
 token; `judge-stall.mjs` never overwrites filed verdicts (`--out` re-judges into
 another file).
