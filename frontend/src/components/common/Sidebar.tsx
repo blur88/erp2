@@ -23,7 +23,8 @@ import { default as ChevronLeft } from '@mui/icons-material/ChevronLeft'
 import { default as ChevronRight } from '@mui/icons-material/ChevronRight'
 import { useAppSelector } from '@/hooks/useRedux'
 import { TOPBAR_HEIGHT } from '@/constants/layout'
-import { useGetCompanySettingsQuery } from '@/store/api/settingsApi'
+import { useCompanySettingsRecovery } from './companyRecovery/CompanySettingsRecoveryProvider'
+import CompanyUnavailableStrip from './companyRecovery/CompanyUnavailableStrip'
 import { selectCurrentUser } from '@/store/slices/authSlice'
 import {
   menuSections,
@@ -67,7 +68,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation()
   const navigate = useNavigate()
   const user = useAppSelector(selectCurrentUser)
-  const { data: company } = useGetCompanySettingsQuery()
+  // The layout's provider owns the one subscription to this read and its
+  // recovery; the sidebar renders what it says and holds neither.
+  const { company, unavailable, retrying, canRetry, retry } = useCompanySettingsRecovery()
   const [expandedItems, setExpandedItems] = React.useState<string[]>(() => {
     const stored = localStorage.getItem('sidebar-expanded')
     return stored ? JSON.parse(stored) : []
@@ -727,6 +730,15 @@ const Sidebar: React.FC<SidebarProps> = ({
           </IconButton>
         )}
       </Box>
+
+      {unavailable && (
+        <CompanyUnavailableStrip
+          collapsed={collapsed}
+          canRetry={canRetry}
+          retrying={retrying}
+          onRetry={retry}
+        />
+      )}
 
       <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
         {filteredSections.map((section, index) => (

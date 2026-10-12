@@ -7,6 +7,7 @@ import { DRAWER_WIDTH_COLLAPSED, DRAWER_WIDTH_EXPANDED } from '@/constants/layou
 
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
+import { CompanySettingsRecoveryProvider } from './companyRecovery/CompanySettingsRecoveryProvider'
 
 const MainLayout: React.FC = () => {
   const theme = useTheme()
@@ -37,47 +38,49 @@ const MainLayout: React.FC = () => {
     <Box className="app-shell-root" sx={{ display: 'flex', minHeight: '100vh', height: '100vh' }}>
       <TopBar collapsed={collapsed} onMobileMenuOpen={handleDrawerToggle} />
 
-      <Box
-        component="nav"
-        sx={{
-          width: { lg: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED },
-          flexShrink: { lg: 0 },
-        }}
-      >
-        <Drawer
-          key={location.pathname}
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: false }}
+      <CompanySettingsRecoveryProvider>
+        <Box
+          component="nav"
           sx={{
-            display: { xs: 'block', lg: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: DRAWER_WIDTH_EXPANDED,
-            },
+            width: { lg: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED },
+            flexShrink: { lg: 0 },
           }}
         >
-          <Sidebar collapsed={false} onItemClick={handleDrawerToggle} />
-        </Drawer>
+          <Drawer
+            key={location.pathname}
+            variant="temporary"
+            open={mobileOpen}
+            onClose={handleDrawerToggle}
+            ModalProps={{ keepMounted: false }}
+            sx={{
+              display: { xs: 'block', lg: 'none' },
+              '& .MuiDrawer-paper': {
+                boxSizing: 'border-box',
+                width: DRAWER_WIDTH_EXPANDED,
+              },
+            }}
+          >
+            <Sidebar collapsed={false} onItemClick={handleDrawerToggle} />
+          </Drawer>
 
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', lg: 'block' },
-            '& .MuiDrawer-paper': {
-              bgcolor: theme.palette.background.default,
-              boxSizing: 'border-box',
-              width: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED,
-              transition: 'width 0.22s ease',
-              overflowX: 'hidden',
-            },
-          }}
-          open
-        >
-          <Sidebar collapsed={collapsed} onToggleCollapse={handleToggleCollapse} />
-        </Drawer>
-      </Box>
+          <Drawer
+            variant="permanent"
+            sx={{
+              display: { xs: 'none', lg: 'block' },
+              '& .MuiDrawer-paper': {
+                bgcolor: theme.palette.background.default,
+                boxSizing: 'border-box',
+                width: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED,
+                transition: 'width 0.22s ease',
+                overflowX: 'hidden',
+              },
+            }}
+            open
+          >
+            <Sidebar collapsed={collapsed} onToggleCollapse={handleToggleCollapse} />
+          </Drawer>
+        </Box>
+      </CompanySettingsRecoveryProvider>
 
       <Box
         component="main"

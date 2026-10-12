@@ -11,7 +11,9 @@ import { createAuthHttp } from '@/session/authHttp'
 import { createSessionRuntime } from '@/session/runtime'
 import { createMemorySessionStore, createSharedMemory } from '@/session/store/memorySessionStore'
 import { settingsApiSlice } from '@/store/api/settingsApi'
+import authReducer, { sessionEstablished, tokensUpdated } from '@/store/slices/authSlice'
 import { createTestStore } from '@/test/createTestStore'
+import { CompanySettingsRecoveryProvider } from '../companyRecovery/CompanySettingsRecoveryProvider'
 
 vi.mock('../SidebarFooter', () => ({
   default: () => null,
@@ -27,12 +29,26 @@ describe('Sidebar company data after a 429', () => {
   const renderSidebar = () => {
     const store = createTestStore({
       apis: [settingsApiSlice],
-      reducer: { auth: () => ({ user: { role: 'sales_staff' } }) },
+      // The real slice: the sidebar reads its eligibility and its session from it.
+      reducer: { auth: authReducer },
     })
+    store.dispatch(
+      sessionEstablished({
+        sessionId: 'sess-1',
+        generation: 1,
+        accessToken: 'at-1',
+        accessTokenExpiresAt: Date.now() + 3_600_000,
+        refreshToken: 'rt-1',
+        user: { id: 'u', username: 'u', role: 'sales_staff' } as never,
+        rememberMe: true,
+      }),
+    )
     return render(
       <Provider store={store}>
         <MemoryRouter initialEntries={['/dashboard']}>
-          <Sidebar />
+          <CompanySettingsRecoveryProvider>
+            <Sidebar />
+          </CompanySettingsRecoveryProvider>
         </MemoryRouter>
       </Provider>,
     )
@@ -41,6 +57,8 @@ describe('Sidebar company data after a 429', () => {
   // A runtime whose refresh leaves through the same adapter as the read, so
   // `sent` counts the refresh as well. The harness's own server answers refreshes
   // in process and never reaches the ingress.
+  let store: ReturnType<typeof createTestStore>
+
   const runtimeRefreshingThrough = (ingress: axios.AxiosAdapter) => {
     const authClient = axios.create()
     authClient.defaults.adapter = ingress
@@ -49,7 +67,7 @@ describe('Sidebar company data after a 429', () => {
       http: createAuthHttp(authClient),
       events: {
         sessionEstablished: vi.fn(),
-        tokensUpdated: vi.fn(),
+        tokensUpdated: vi.fn((tokens) => store.dispatch(tokensUpdated(tokens))),
         sessionEnded: vi.fn(),
         storageWaiting: vi.fn(),
         slicesRecovered: vi.fn(),

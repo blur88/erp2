@@ -4,9 +4,13 @@ import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 
+import authReducer from '@/store/slices/authSlice'
 import MainLayout from '../MainLayout'
 
 vi.mock('../Sidebar', () => ({ default: () => <div data-testid="sidebar" /> }))
+vi.mock('../companyRecovery/CompanySettingsRecoveryProvider', () => ({
+  CompanySettingsRecoveryProvider: ({ children }: { children: React.ReactNode }) => children,
+}))
 vi.mock('../TopBar', () => ({ default: () => <div data-testid="topbar" /> }))
 
 function makeStore() {
