@@ -16,6 +16,11 @@ import { completeness, judgeRound, pairRefreshes, roundAudit, serverRowsUsable }
 
 export const OUTCOMES = ['replay-confirmed', 'undetermined', 'session-ended-no-replay', 'stale-presentation', 'commit-timeout', 'clean']
 export const COVERAGE_FLOOR = 8
+// The server writes supersededAt and graceUntil to the whole second (seen in
+// the smoke round of 2026-10-12: every value ends in .000). A written time
+// therefore stands for any instant in the second that starts at it, and a
+// presentation is classified only when that whole second agrees.
+export const SERVER_TIME_RESOLUTION_MS = 1000
 
 // Rows that were read but whose interval does not span the round: what they
 // hold is real, what they lack proves nothing.
@@ -74,7 +79,7 @@ function stalePresentations(round, serverRows, hasReplayRow) {
     if (supersededAt === null) continue
     const graceUntil = toMs(row.graceUntil)
     const withArrival = pairs.map((pair) => ({ pair, arrival: arrivalOf(round, pair.request) }))
-    const contains = ({ arrival }) => arrival.earliestMs <= supersededAt && supersededAt <= arrival.latestMs
+    const contains = ({ arrival }) => arrival.earliestMs < supersededAt + SERVER_TIME_RESOLUTION_MS && supersededAt <= arrival.latestMs
     // The request that superseded the generation is not a presentation of a
     // superseded one: the earliest-answered accepted request whose interval
     // holds the supersession.
@@ -87,9 +92,11 @@ function stalePresentations(round, serverRows, hasReplayRow) {
       if (arrival.latestMs < supersededAt) continue // presented while still current
       const margin = graceUntil === null ? null : { min: graceUntil - arrival.latestMs, max: graceUntil - arrival.earliestMs }
       let kind = 'boundary-uncertain'
+      // Inside only if it had arrived by the earliest instant the grace can
+      // have ended; outside only if it was sent after the latest.
       if (!contains(candidate) && margin !== null) {
         if (margin.min >= 0) kind = 'inside-grace'
-        else if (margin.max < 0) kind = hasReplayRow ? 'outside-grace' : 'outside-grace-no-replay-row'
+        else if (margin.max <= -SERVER_TIME_RESOLUTION_MS) kind = hasReplayRow ? 'outside-grace' : 'outside-grace-no-replay-row'
       }
       const accepted = pair.request.status >= 200 && pair.request.status < 300
       out.push({
@@ -101,6 +108,7 @@ function stalePresentations(round, serverRows, hasReplayRow) {
         arrival,
         offsetFromSupersessionMs: { min: arrival.earliestMs - supersededAt, max: arrival.latestMs - supersededAt },
         marginToGraceMs: margin,
+        serverTimeResolutionMs: SERVER_TIME_RESOLUTION_MS,
         kind,
         flags: kind === 'inside-grace' && !accepted ? ['inside-grace-not-accepted'] : [],
       })
@@ -142,6 +150,46 @@ function laterRefreshOf(phases) {
   }
 }
 
+const WRITTEN = new Set(['written-both', 'written-access'])
+
+// Where in the round a replay came, and what had become of the response that
+// carried the generation the server then held. A replay after the nudge was
+// provoked by the harness. A response still held pending is not the dropped
+// response of #1358, and neither is one that had been written.
+function replayContextOf(round, replayRows, events, stale) {
+  const row = replayRows[0]
+  if (!row) return null
+  const at = toMs(row.createdAt)
+  const phases = round?.phases ?? {}
+  const nudge = phases.nudge ?? null
+  let phase = 'through-grace'
+  if (nudge && at >= nudge.at) phase = 'after-nudge'
+  else if (typeof phases.phase2StartedAt === 'number' && at >= phases.phase2StartedAt) phase = 'passive'
+
+  const refused = stale
+    .filter((s) => !s.accepted && s.presentedGeneration === row.presentedGeneration)
+    .sort((a, b) => Math.abs(a.arrival.latestMs - at) - Math.abs(b.arrival.latestMs - at))[0]
+
+  const answer = events
+    .filter((e) => e.type === 'refresh-answered' && e.status === 'ok' && e.returnedGeneration === row.currentGeneration && e.at <= at)
+    .sort((a, b) => a.at - b.at)[0]
+  let refreshedResponse = 'unknown'
+  if (answer) {
+    const own = events.filter((e) => e.tab === answer.tab && e.refreshId === answer.refreshId && e.at <= at)
+    const commits = own.filter((e) => e.type === 'token-commit')
+    if (commits.some((c) => WRITTEN.has(c.outcome))) refreshedResponse = 'written'
+    else if (own.some((e) => e.type === 'pending-dropped')) refreshedResponse = 'dropped'
+    else if (own.some((e) => e.type === 'lease-release' && e.outcome === 'skipped-pending')) refreshedResponse = 'held-pending'
+    else if (commits.length > 0) refreshedResponse = 'dropped'
+  }
+  return {
+    phase,
+    provoked: phase === 'after-nudge',
+    presentingTabNudged: refused && nudge ? nudge.tabs.includes(refused.tab) : null,
+    refreshedResponse,
+  }
+}
+
 /** Everything a round is recorded to have shown, each fact on its own. */
 export function roundFacts(round, serverRows) {
   const events = eventsOf(round)
@@ -154,6 +202,7 @@ export function roundFacts(round, serverRows) {
     .map((e) => ({ tab: e.tab, refreshId: e.refreshId, attempt: e.attempt, trigger: e.trigger, outcome: e.outcome, ms: e.ms, at: e.at }))
   const session = (Array.isArray(serverRows?.sessions) ? serverRows.sessions : []).find((s) => s?.id === round?.sessionId)
   const phases = round?.phases ?? null
+  const stale = stalePresentations(round, serverRows, replayRows.length > 0)
   return {
     injection,
     readiness: round?.readiness ?? null,
@@ -161,8 +210,9 @@ export function roundFacts(round, serverRows) {
     commitAttempts,
     commitTimeouts: events.filter((e) => e.type === 'token-commit' && e.outcome === 'timeout').length,
     laterRefresh: laterRefreshOf(phases),
-    stalePresentations: stalePresentations(round, serverRows, replayRows.length > 0),
+    stalePresentations: stale,
     replay: replayRows,
+    replayContext: replayContextOf(round, replayRows, events, stale),
     // null when the round ended before the stored record was read at its end.
     sessionAlive: round?.sessionEnded === true ? false : round?.sessionEnded === false ? true : null,
     revokeReason: session?.revokeReason ?? null,

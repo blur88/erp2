@@ -250,7 +250,10 @@ replay is reported as a replay whatever the round's validity.
    dropped for lack of an audit row); and *boundary-uncertain* (the interval
    straddles the end of the grace or the supersession itself), which is not
    classified either way. Whether the server **accepted** the presentation is
-   read from its answer, never inferred from a timestamp.
+   read from its answer, never inferred from a timestamp. The server writes
+   `supersededAt` and `graceUntil` to the whole second, so each stands for any
+   instant in the second that starts at it: a presentation within that second
+   of the grace's end is boundary-uncertain.
 5. **`commit-timeout`**: none of the above, and a commit attempt timed out.
 6. **`clean`**: none of the above, session alive.
 
@@ -296,8 +299,8 @@ whichever is used by what it is.
   #1371; session commits `6119f74a0`, `8d63e763d`, `980e9fb35`, `9cf989e3d`),
   keeping the trace the judge needs. Before it is used it is **verified** that
   the reverted code restores the pre-fix behaviour: a refresh answered 200 whose
-  commit times out is dropped, the lease is released, and the tab is left with
-  the superseded token. The record lists what was reverted and the resulting
+  commit times out is dropped, the tab gives up the lease, and storage is left
+  with the superseded token. The record lists what was reverted and the resulting
   diff against pinned `main`.
 - **Only if a narrow revert is not viable:** pinned `main` with all of
   `frontend/src` set back to `e434e39b7`, used only after every difference it
@@ -314,6 +317,37 @@ whichever is used by what it is.
   comparison is inconclusive, and the expansion is written here before it runs.
 - If the unfixed half times out but never replays, the harness is validated
   **for the timeout path only**; its ability to expose a replay stays unproven.
+
+### The control as built (2026-10-12)
+
+The narrow revert was viable. Branch `qa/1370-control-unfixed`, commit
+`647931b01`: `git revert` of `9cf989e3d`, `980e9fb35`, `8d63e763d` and
+`6119f74a0` applied with no conflict, with the trace kept. Against the evidence
+branch it differs in eight files, all under `frontend/src/session/` (the
+runtime, `decisions.ts`, the in-memory test store, and their tests); the
+reverted runtime differs from `e434e39b7`'s by 18 lines, which are the later
+#1362 fix. It is labelled **"pinned `main` with the #1358 fix reverted"**, not
+`e434e39b7`.
+
+- **Verified:** `src/session/__tests__/runtime.control1370.test.ts` passes on the
+  control branch and fails on the evidence branch (two commit attempts where the
+  control makes one). It shows one commit attempt ending in `timeout`, no
+  pending entry, generation 1 still stored, and the next tab presenting
+  generation 1 and being refused as replay.
+- **A correction the verification forced:** under a store that is still held,
+  the pre-fix code does not release the lease. The release is attempted behind
+  the same hold and fails (`lease-release`, outcome `failed`), and the lease is
+  left to expire after its 20 s. "The lease is released" in earlier wording was
+  wrong for this case.
+- **Full frontend gate on the control branch:** `npm run lint` passed,
+  `npm run type-check` passed, `npm run test` passed with 289 files and 3335
+  tests, exit 0, in 1139 s. **Expected failures: none**, because the revert
+  also reverted the fix's own tests (`runtime.pendingCommit.test.ts` is removed
+  and three test files are restored to their earlier form). **Unexpected
+  failures: none.**
+- The branch was cut from the evidence branch before the freeze. The evidence
+  branch is merged into it after the freeze, and `git diff` between the two over
+  `frontend/qa` and `docs` must be empty before the control runs.
 
 ## Reset and isolation
 
@@ -373,4 +407,88 @@ Hypotheses to compare the results with. None is a pass condition.
 
 ## Frozen values
 
-Not yet frozen. No recorded round may run while this line stands.
+Frozen on 2026-10-12, after calibration passed and before any recorded round.
+`stall-cell.sh` reads the next line; a recorded cell runs this mechanism
+whatever its environment says.
+
+frozen-mechanism: gate=1 barrier-ms=10000 nudge-path=/inventory/products
+
+- **Gate:** on. The round's first refresh is kept in the browser until another
+  tab is an eligible peer or 10 s have passed, then the store hold is confirmed
+  active, then the request is let go.
+- **Nudge:** an in-application navigation to `/inventory/products`
+  (`history.pushState` and a `popstate` event, the suite's `nudge` helper), on
+  every tab that answers its probe, is on a signed-in route and is not showing
+  the storage-waiting screen, all in one turn. This includes the tab that
+  refreshed.
+- **Control hold:** 12 s. The frozen control therefore equals `H12` in every
+  setting, so **`C-main` is `H12` and is run once**, as the `H12` cell.
+- `frontend/src`, `backend` and `nginx` are byte-identical to the pinned `main`
+  commit `7da8c1c90` on the evidence branch (`git diff` over those paths is
+  empty at the freeze).
+
+### Calibration, as run
+
+Both invocations are on pinned `main` code, cell `H12`, gate on, barrier 10 s.
+Evidence: `~/erp2-qa-evidence/1370/calibration/<start>/`.
+
+| Start (UTC) | Commit | Rounds | Landed | Notes |
+|---|---|---|---|---|
+| `2026-10-12T00:34:56Z` | `926fe6c69` | 1 (smoke, timer probe on) | 1 | Replay confirmed, after the nudge; see below |
+| `2026-10-12T00:47:19Z` | `d2baaf6d6` | 10 | 10 | 10 valid, 10 `replay-coverage`; no replay |
+
+**Calibration passed: 10 landed of 10 consecutive rounds** (8 needed). No
+setting was changed between the two invocations; the judge was corrected
+between them (see the notes on the smoke round), which changes how a round is
+read, not how it is run. Eligible peers per round in the second invocation: 2,
+6, 1, 5, 4, 1, 1, 1, 1, 1. The barrier waited 0.5 to 2.0 s. The spare reader's
+longest read was 11.8 to 13.0 s in every round, which is the hold seen from
+outside the tab that made it.
+
+### What the hold stalls (the smoke round, timer probe in all 20 tabs)
+
+- During the 12.0 s hold the 20 application tabs recorded 1858 timer firings.
+  Lateness: maximum 2920 ms, 19 firings over 1 s, none over 5 s. Before the hold
+  (the tabs loading): maximum 2139 ms, 21 over 1 s.
+- By two-second bucket: no firing more than 1 s late for the first 6 s of the
+  hold; a burst up to 2.9 s between 6 and 10 s into it, which is when the tabs'
+  own 5 s storage calls time out and they render again; nothing more than 50 ms
+  late in the last 2 s.
+- The refreshing tab's two commit attempts timed out after 5006 and 5001 ms: its
+  5 s timers fired on time while its storage calls waited.
+- **Reading:** pausing the spare tab does not stall the other tabs' timers. The
+  lateness seen is the tabs' own work and is the size of ordinary load-time
+  lateness. It is not "well under 1 s", which is what the plan asked for, so the
+  hold is described as **a held store on top of the start-up load of 20 tabs**,
+  not as storage pressure in isolation.
+
+### What calibration showed, recorded here because it bears on the cells
+
+These are calibration rounds. They are not evidence about any cell.
+
+- **A 12 s hold sits on the edge of the two inline commit attempts.** The
+  refresh answer arrived 2.0 to 4.2 s after the hold became active. The first
+  attempt then timed out in every round. The second attempt has 5 s; it lands
+  only if the hold (12 s) is released inside them, which needs the answer to
+  arrive at least 2.0 s after the hold began. In the ten-round invocation it
+  always did, twice with 27 ms and 1 ms to spare, and the response was written
+  at the release. In the smoke round the answer came after 1.92 s, the second
+  attempt timed out 91 ms before the release, and the response stayed pending.
+  A 21 s hold outlasts both attempts whatever the answer's timing.
+- **The smoke round ended in a replay on pinned `main`.** With both attempts
+  timed out, the response was held pending and its tab held the lease
+  (`skipped-pending`). Nothing made that tab try again for 70 s. The lease
+  expired; shared storage still held generation 1. After the nudge another tab
+  took the lease, read generation 1 and presented it 81 s after the
+  supersession; the server revoked the session as replay. The refreshed
+  response was **held pending, not dropped**, so this is not the defect #1358
+  fixed, and it came **after the nudge**, so it is provoked.
+- **The judge was corrected after the smoke round**, with tests that failed
+  first (commit `d2baaf6d6`): the server writes `supersededAt` and `graceUntil`
+  to the whole second, and the request that superseded the generation was
+  listed as a stale presentation of it; and a replay now carries its phase,
+  whether the nudge provoked it, and whether the refreshed response was
+  written, dropped or held pending.
+- The smoke round's `stall-verdicts.json` was overwritten by mistake when the
+  round was re-judged in place, and restored from the scratch copy; a note in
+  that directory says so. The judge no longer overwrites filed verdicts.
