@@ -1,0 +1,12 @@
+name=R1 copy=w1-429-traced only=W1
+commit=97a672272659d318a2f8b0d05571b4d154244502
+partial=only W1 through QA_SUITE_OVERRIDE: a development result, not a pass of the suite
+started=2026-10-12T21:28:00+08:00
+ended=2026-10-12T21:42:30+08:00
+exitStatus=1
+servedBuild=97a672272659d318a2f8b0d05571b4d154244502
+user=qa1353_sales (sales_staff, not an administrator)
+filler=574 sent, 441 answered 429, 133 answered 401, stopped by hand before window 2
+chromium=153.0.8010.12 (mcr.microsoft.com/playwright:v1.63.0-noble)
+machine=AMD Ryzen 3 3200G, 4 cores, 9.7 GiB, spinning disk
+access=20s grace=5 (the QA values; restored to 15m/60 afterwards)

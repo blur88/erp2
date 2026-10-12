@@ -1,0 +1,165 @@
+--- /dev/null	2026-08-24 01:39:46.654000000 +0800
++++ b/cases/company-recovery.mjs	2026-10-12 21:45:19.432045426 +0800
+@@ -0,0 +1,161 @@
++// Case 18 (#1394): the sidebar's recovery, with the company-settings read
++// failing at the browser and nothing else failing.
++//
++// What only a browser can show, and what the Vitest tests cannot: that the
++// strip appears where the header is, that it disappears on a successful Retry,
++// and that the collapsed form is one button that a keyboard can reach, focus
++// and press. The timings and budgets are the harness's to count, not this
++// case's to judge: it records what happened and checks the visible outcome.
++//
++// Every expected result here was written before the run (see
++// docs/modules/auth/evidence/1394/EXPECTATIONS.md). The run is a development
++// result: QA_SUITE_OVERRIDE runs a copy of the suite, which by that script's own
++// definition is never a pass of the suite.
++import { join } from 'node:path'
++import { sleep } from '../lib/config.mjs'
++import { KEEP_SHELL_ANSWERS, COMPANY_SETTINGS } from '../lib/usable.mjs'
++import { readStrip, judgeStrip, readCounts, tokenOrigin, windowRecord } from '../lib/company-recovery.mjs'
++
++const COMPANY_NAME_SELECTOR = '.MuiDrawer-root h6'
++
++/** The company name in the sidebar, or null. */
++const sidebarName = (page) =>
++  page
++    .evaluate((selector) => {
++      const text = (el) => (el.textContent ?? '').trim()
++      const brand = [...document.querySelectorAll(`${selector}`)].find((h) => text(h) === 'ERP System')
++      return brand && brand.nextElementSibling ? text(brand.nextElementSibling) : null
++    }, COMPANY_NAME_SELECTOR)
++    .catch(() => null)
++
++const reads = (profile, mark, page) => profile.since(mark, page).filter((e) => e.path === COMPANY_SETTINGS)
++
++async function run(ctx) {
++  const { config } = ctx.run
++  const profile = await ctx.profile({ intercept: true, tagRequests: true, timing: true, keepAnswers: KEEP_SHELL_ANSWERS })
++
++  const signIn = await profile.tab('/login', { label: 'sign-in', navigate: false })
++  await ctx.signIn(signIn, config.userC)
++
++  // ---- first-load exhaustion: the read fails, and fails again, and again --
++  let armed = 3
++  await profile.context.route(`**${COMPANY_SETTINGS}`, async (route) => {
++    if (armed > 0) {
++      armed -= 1
++      return route.abort('failed')
++    }
++    return route.fallback()
++  })
++
++  const mark1 = profile.mark()
++  const tab = await profile.tab('/dashboard', { label: 'R2-1' })
++  const shown1 = await waitForStrip(tab, 30000)
++  ctx.record('firstLoad', {
++    reads: reads(profile, mark1, tab).length,
++    strip: judgeStrip(shown1),
++    companyNameInSidebar: await sidebarName(tab),
++    screenshot: await screenshot(ctx, tab, 'r2-first-load-strip'),
++  })
++  ctx.check(
++    'the strip is showing after the read failed and its retries were spent',
++    judgeStrip(shown1).showing,
++    { reads: reads(profile, mark1, tab).length },
++  )
++  ctx.check(
++    'the placeholder is what the header shows: no company name',
++    (await sidebarName(tab)) === null,
++    { name: await sidebarName(tab) },
++  )
++
++  // ---- manual recovery: stop failing, click Retry ------------------------
++  await profile.context.unroute(`**${COMPANY_SETTINGS}`)
++  const beforeRetry = reads(profile, mark1, tab).length
++  const retry = tab.locator('[role="status"] button', { hasText: /^Retry/ }).first()
++  ctx.check('the expanded strip has a Retry button', (await retry.count()) === 1, { count: await retry.count() })
++  const canRetry = await retry.isEnabled()
++  ctx.record('retryEnabled', { canRetry })
++  if (canRetry) {
++    await retry.click({ timeout: 15000 })
++    const recovered = await waitForName(tab, 30000)
++    ctx.record('manualRetry', {
++      readsBefore: beforeRetry,
++      readsAfter: reads(profile, mark1, tab).length,
++      strip: judgeStrip(await readStrip(tab)),
++      companyNameInSidebar: await sidebarName(tab),
++      screenshot: await screenshot(ctx, tab, 'r2-after-retry'),
++    })
++    ctx.check('the name is back after Retry', recovered !== null, { name: recovered })
++    ctx.check('the strip is gone after Retry', !(await readStrip(tab)).expanded, judgeStrip(await readStrip(tab)))
++  }
++
++  // ---- the collapsed form -----------------------------------------------
++  const collapse = tab.locator('button[aria-label="collapse sidebar"]').first()
++  if ((await collapse.count()) === 1) await collapse.click({ timeout: 10000 }).catch(() => undefined)
++  await sleep(500)
++  const collapsed = tab.locator(`button[aria-label="Retry loading company details"]`).first()
++  const collapsedCount = await collapsed.count()
++  ctx.record('collapsed', {
++    buttonCount: collapsedCount,
++    expandedStripStillShowing: (await readStrip(tab)).expanded,
++    screenshot: await screenshot(ctx, tab, 'r2-collapsed'),
++  })
++  ctx.check('the collapsed sidebar has the one retry button', collapsedCount === 1, { collapsedCount })
++
++  if (collapsedCount === 1) {
++    await collapsed.focus()
++    const focused = await tab.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null)
++    ctx.check('the collapsed button takes focus', focused === 'Retry loading company details', { focused })
++    ctx.record('collapsedFocus', { focused, screenshot: await screenshot(ctx, tab, 'r2-collapsed-focus') })
++
++    await collapsed.hover()
++    await sleep(600)
++    const tooltip = await tab.locator('[role="tooltip"]').first()
++    const tooltipText = (await tooltip.count()) > 0 ? (await tooltip.textContent()) ?? '' : null
++    ctx.record('collapsedTooltip', { tooltipText, screenshot: await screenshot(ctx, tab, 'r2-collapsed-tooltip') })
++    ctx.check('the tooltip carries the unavailable wording', (tooltipText ?? '').includes('Company details unavailable'), { tooltipText })
++  }
++
++  // ---- what the tab's own trace says ------------------------------------
++  const trace = await tab
++    .evaluate(() => (Array.isArray(window.__erpSessionTrace) ? window.__erpSessionTrace.slice() : []))
++    .catch(() => [])
++  ctx.record('tokens', tokenOrigin(trace))
++  ctx.record('reads', readCounts(profile.since(mark1, tab)))
++  ctx.record('window', windowRecord({ window: 1, entries: profile.since(mark1, tab), strip: await readStrip(tab), trace }))
++
++  await ctx.close()
++}
++
++export default [{ id: 18, name: 'sidebar company recovery with the read failing at the browser', run }]
++
++/** One screenshot into the scratch directory; a tab that cannot be photographed says so. */
++async function screenshot(ctx, page, name) {
++  const file = `${name}.png`
++  try {
++    await page.screenshot({ path: join(ctx.config.scratch, file), timeout: 10000 })
++    return file
++  } catch (err) {
++    return `not taken: ${err.message.split('\n')[0]}`
++  }
++}
++
++async function waitForStrip(page, timeoutMs) {
++  const deadline = Date.now() + timeoutMs
++  let last = null
++  while (Date.now() < deadline) {
++    last = await readStrip(page).catch(() => null)
++    if (judgeStrip(last ?? {}).showing) return last
++    await sleep(250)
++  }
++  return last ?? {}
++}
++
++async function waitForName(page, timeoutMs) {
++  const deadline = Date.now() + timeoutMs
++  while (Date.now() < deadline) {
++    const name = await sidebarName(page)
++    if (name) return name
++    await sleep(250)
++  }
++  return null
++}
+\ No newline at end of file
