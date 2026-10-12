@@ -83,3 +83,20 @@ export async function captureSegment(config, name, fn, { requireQaId = true } = 
     stopError: stopError ? stopError.message : null,
   }
 }
+
+// The processor cell's busy workers (#1370): started and stopped on the host,
+// in a container of their own. Each resolves with the time the host answered.
+export async function cpuLoadStart(config, workers) {
+  await ask(config, `cpu-load-start ${workers}`)
+  return Date.now()
+}
+
+export async function cpuLoadStop(config) {
+  await ask(config, 'cpu-load-stop')
+  return Date.now()
+}
+
+/** Whether the worker container is running, as the host sees it. */
+export async function cpuLoadRunning(config) {
+  return (await ask(config, 'cpu-load-status')) === 'running'
+}

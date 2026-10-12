@@ -10,6 +10,9 @@
 #             served erp-build value of the running stack.
 #   qa-up     Refuse unless a capture file exists, then build and start with the
 #             QA configuration (access 20s, grace 5s) and verify by observation.
+#             QA_GRACE_SECONDS=60 starts it at the production grace instead, for
+#             the cells of the stall runs that say so (#1370); any value but 5
+#             or 60 is refused before anything is built.
 #   restore   Start the stack with the values captured from the running backend,
 #             verify, and delete the capture file on success.
 #   verify    Check by observed behaviour that the running backend issues access
@@ -27,7 +30,7 @@ mkdir -p "${SCRATCH}"
 cd "${ROOT}"
 
 QA_ACCESS="20s"
-QA_GRACE="5"
+QA_GRACE="${QA_GRACE_SECONDS:-5}"
 
 compose() { docker compose "$@"; }
 
@@ -171,6 +174,10 @@ wait_healthy() {
 }
 
 cmd_qa_up() {
+  if [ "${QA_GRACE}" != "5" ] && [ "${QA_GRACE}" != "60" ]; then
+    echo "QA_GRACE_SECONDS must be 5 or 60, not '${QA_GRACE}'" >&2
+    exit 2
+  fi
   if [ ! -f "${CAPTURE}" ]; then
     echo "no capture file at ${CAPTURE}; run 'stack.sh show > ${CAPTURE}' first" >&2
     exit 1
