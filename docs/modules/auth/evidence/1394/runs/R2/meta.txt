@@ -1,0 +1,10 @@
+name=R2 copy=w1-429-traced only=18 (the R2 case added by this issue)
+commit=5814eab1eb06e59cb160b46c0489fc7583adda84
+partial=only 18 through QA_SUITE_OVERRIDE: a development result, not a pass of the suite
+access=20s grace=5 (the QA values; restored to 15m/60 afterwards)
+user=qa1353_sales (sales_staff, not an administrator)
+fault=the company read is aborted three times in the tab itself (context-free
+      route on the tab under test), then the tab is reloaded with the route armed
+screenshots=r2-first-load-strip, r2-collapsed, r2-collapsed-focus,
+           r2-collapsed-tooltip, r2-after-retry
+result=8 of 8 checks passed

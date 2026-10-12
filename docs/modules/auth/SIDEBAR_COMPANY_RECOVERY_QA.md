@@ -128,8 +128,39 @@ The harness's `context.route` interception (`lib/harness.mjs:290`):
 
 ## Record
 
-*(filled in from the runs; see EXPECTATIONS.md for what each one expects)*
+See `evidence/1394/EXPECTATIONS.md` for what each run expected before it ran,
+and what it found after. Both runs are **development results**: they were made
+through `QA_SUITE_OVERRIDE`, which the suite itself calls "not a recorded run".
+Neither is a pass of the suite, and neither is written up as one.
 
-| Run | Commit | Started | Ended | Exit | Result |
-|---|---|---|---|---|---|
+| Run | Commit | Window | Exit | Result |
+|---|---|---|---|---|
+| R1 | `97a672272` | T2 repeated at five tabs, non-administrator, two windows | 1 | W1 ran and recorded. The strip appeared in **5 of 5** tabs; one read and one refresh per tab, and nothing the sidebar sent after the strip. All five tabs recovered without a reload. The window-2 quiet-re-read expectation was **not met** (see EXPECTATIONS.md) and is handed back, not reinterpreted. |
+| R2 | `5814eab1e` | one tab, the read aborted three times in the tab | 1 | The case passed **8 of 8** checks: the strip and the placeholder after the exhaustion, the collapsed button with its accessible name, its focus and its tooltip, and one read on Retry with the name back and the strip gone. Five screenshots. |
+
+### R1's window 2 in one line
+
+All five tabs recovered without a reload, and **no quiet re-read was observed**,
+because the renewal each tab needed arrived while its read was still in flight
+and was therefore consumed — which is the rule the design turns on. The count
+of quiet re-reads is 0, and that is recorded as an unmet expectation rather
+than read as a pass. Two limits of what the run can show are recorded with it:
+the per-tab refresh figures are the tab's whole trace and not the window's, and
+a tab that sits stopped and idle and is *then* renewed is **unverified in a
+browser**.
+
+### What the runs could not reach, and why
+
+Seven of the fifteen scenarios are reachable only by the signed-in role of a
+non-administrator plus a fault the harness does not inject: retained branding
+(row 2), the 429 exhaustion (row 6), eligibility during a delay (row 7), the
+session-race halves of row 9, the two settings pages (rows 11 and 13), the
+mobile drawer (row 12) and a storage timeout (row 14). Each is covered by a
+Vitest test and is recorded as **unverified in a browser**, with the reason, in
+EXPECTATIONS.md.
+
+The harness's own limit, recorded because it shaped a number: `tokenOrigin`
+reads a tab's whole `__erpSessionTrace`, not a window of it, so a per-window
+refresh count from this harness is cumulative until it is changed. The R1 figures
+are labelled accordingly.
 | | | | | | |

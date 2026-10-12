@@ -1,0 +1,625 @@
+ Image erp-backend:latest Building 
+ Image erp-frontend:latest Building 
+ Image erp-nginx:latest Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.52kB done
+#1 DONE 0.0s
+
+#2 [nginx internal] load build definition from Dockerfile
+#2 transferring dockerfile: 109B 0.0s done
+#2 DONE 0.1s
+
+#3 [frontend internal] load build definition from Dockerfile
+#3 transferring dockerfile: 1.40kB 0.0s done
+#3 DONE 0.2s
+
+#4 [backend internal] load build definition from Dockerfile
+#4 transferring dockerfile: 2.19kB 0.0s done
+#4 DONE 0.2s
+
+#5 [frontend internal] load metadata for docker.io/library/nginx:1.30.0-alpine3.23-slim
+#5 DONE 0.0s
+
+#6 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#6 ...
+
+#7 [backend internal] load metadata for docker.io/library/node:24.16.0-alpine3.23
+#7 DONE 0.0s
+
+#8 [nginx internal] load .dockerignore
+#8 transferring context: 2B done
+#8 DONE 0.2s
+
+#9 [nginx 1/2] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#9 DONE 0.0s
+
+#10 [backend internal] load .dockerignore
+#10 transferring context: 1.01kB 0.0s done
+#10 DONE 0.1s
+
+#11 [backend internal] load build context
+#11 DONE 0.0s
+
+#12 [backend deps 1/4] FROM docker.io/library/node:24.16.0-alpine3.23
+#12 DONE 0.0s
+
+#13 [nginx internal] load build context
+#13 transferring context: 32B done
+#13 DONE 0.1s
+
+#6 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#6 ...
+
+#14 [nginx 2/2] COPY nginx.conf /etc/nginx/nginx.conf
+#14 CACHED
+
+#15 [nginx] exporting to image
+#15 exporting layers done
+#15 writing image sha256:b559dc947517261f02d69033c76573392144b66317b7444ab6f817cc27fb5b4f done
+#15 naming to docker.io/library/erp-nginx:latest 0.0s done
+#15 DONE 0.1s
+
+#11 [backend internal] load build context
+#11 transferring context: 44.06kB 0.3s done
+#11 DONE 0.5s
+
+#16 [nginx] resolving provenance for metadata file
+#16 DONE 0.0s
+
+#6 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#6 ...
+
+#17 [backend deps 2/4] WORKDIR /app
+#17 CACHED
+
+#18 [auth] library/node:pull token for registry-1.docker.io
+#18 DONE 0.0s
+
+#19 [backend deps 3/4] COPY package*.json ./
+#19 DONE 0.2s
+
+#6 [frontend internal] load metadata for docker.io/library/node:24.15.0-alpine3.23
+#6 DONE 1.6s
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 ...
+
+#21 [frontend internal] load .dockerignore
+#21 transferring context: 755B done
+#21 DONE 0.1s
+
+#22 [frontend builder 1/7] FROM docker.io/library/node:24.15.0-alpine3.23@sha256:d1b3b4da11eefd5941e7f0b9cf17783fc99d9c6fc34884a665f40a06dbdfc94f
+#22 DONE 0.0s
+
+#9 [frontend production 1/6] FROM docker.io/library/nginx:1.30.0-alpine3.23-slim
+#9 DONE 0.0s
+
+#23 [frontend internal] load build context
+#23 transferring context: 528.29kB 0.1s done
+#23 DONE 0.2s
+
+#24 [frontend builder 2/7] WORKDIR /app
+#24 CACHED
+
+#25 [frontend builder 3/7] COPY package*.json ./
+#25 DONE 0.1s
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 ...
+
+#26 [frontend builder 4/7] RUN npm ci
+#26 ...
+
+#20 [backend deps 4/4] RUN npm ci && npm cache clean --force
+#20 18.49 npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+#20 20.41 npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+#20 29.74 npm warn deprecated fstream@1.0.12: This package is no longer supported.
+#20 71.42 
+#20 71.42 added 787 packages, and audited 788 packages in 1m
+#20 71.42 
+#20 71.42 166 packages are looking for funding
+#20 71.42   run `npm fund` for details
+#20 71.45 
+#20 71.45 1 critical severity vulnerability
+#20 71.45 
+#20 71.45 To address all issues, run:
+#20 71.45   npm audit fix
+#20 71.45 
+#20 71.45 Run `npm audit` for details.
+#20 71.47 npm notice
+#20 71.47 npm notice New major version of npm available! 11.13.0 -> 12.2.0
+#20 71.47 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#20 71.47 npm notice To update run: npm install -g npm@12.2.0
+#20 71.47 npm notice
+#20 72.31 npm warn using --force Recommended protections disabled.
+#20 DONE 75.6s
+
+#26 [frontend builder 4/7] RUN npm ci
+#26 87.72 
+#26 87.72 added 468 packages, and audited 469 packages in 1m
+#26 87.72 
+#26 87.72 107 packages are looking for funding
+#26 87.72   run `npm fund` for details
+#26 87.76 
+#26 87.76 2 critical severity vulnerabilities
+#26 87.76 
+#26 87.76 To address all issues, run:
+#26 87.76   npm audit fix
+#26 87.76 
+#26 87.76 Run `npm audit` for details.
+#26 87.77 npm notice
+#26 87.77 npm notice New major version of npm available! 11.12.1 -> 12.2.0
+#26 87.77 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#26 87.77 npm notice To update run: npm install -g npm@12.2.0
+#26 87.77 npm notice
+#26 DONE 89.2s
+
+#27 [frontend builder 5/7] RUN npm install @rollup/rollup-linux-x64-musl --save-optional
+#27 ...
+
+#28 [backend builder 3/5] COPY --from=deps /app/node_modules ./node_modules
+#28 CACHED
+
+#29 [backend builder 4/5] COPY . .
+#29 DONE 0.9s
+
+#27 [frontend builder 5/7] RUN npm install @rollup/rollup-linux-x64-musl --save-optional
+#27 ...
+
+#30 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#30 2.096 
+#30 2.096 > erp-backend@3.22.0 build
+#30 2.096 > nest build
+#30 2.096 
+#30 ...
+
+#27 [frontend builder 5/7] RUN npm install @rollup/rollup-linux-x64-musl --save-optional
+#27 10.32 
+#27 10.32 added 1 package, and audited 470 packages in 9s
+#27 10.32 
+#27 10.32 107 packages are looking for funding
+#27 10.32   run `npm fund` for details
+#27 10.39 
+#27 10.39 2 critical severity vulnerabilities
+#27 10.39 
+#27 10.39 To address all issues, run:
+#27 10.39   npm audit fix
+#27 10.39 
+#27 10.39 Run `npm audit` for details.
+#27 DONE 10.6s
+
+#30 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#30 ...
+
+#31 [frontend builder 6/7] COPY . .
+#31 DONE 1.6s
+
+#30 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#30 ...
+
+#32 [frontend builder 7/7] RUN npm run build
+#32 1.225 
+#32 1.225 > erp-frontend@3.22.0 build
+#32 1.225 > vite build
+#32 1.225 
+#32 2.971 (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+#32 2.971   - import "./src/config/buildSha" without a file extension (vite.config.ts:5:31). Add the file extension
+#32 2.971 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+#32 3.120 vite v8.3.1 building client environment for production...
+#32 3.204 [2Ktransforming...✓ 2234 modules transformed.
+#32 8.953 rendering chunks...
+#32 13.17 computing gzip size...
+#32 13.36 dist/index.html                                         3.05 kB │ gzip:   0.95 kB
+#32 13.36 dist/assets/index-DIzETDqb.css                          4.00 kB │ gzip:   1.42 kB
+#32 13.36 dist/assets/filters-CjVB3G0W.js                         0.03 kB │ gzip:   0.05 kB
+#32 13.36 dist/assets/stockUtils-B89HsnNw.js                      0.12 kB │ gzip:   0.12 kB │ map:     0.51 kB
+#32 13.36 dist/assets/subDays-Dz5-6NuA.js                         0.12 kB │ gzip:   0.14 kB │ map:     1.31 kB
+#32 13.36 dist/assets/useRedux-C0NX3eLt.js                        0.13 kB │ gzip:   0.13 kB │ map:     0.52 kB
+#32 13.36 dist/assets/numberFormat-2lapoRvl.js                    0.22 kB │ gzip:   0.20 kB │ map:     1.01 kB
+#32 13.36 dist/assets/tableStyles-ZDN9aD9C.js                     0.27 kB │ gzip:   0.24 kB │ map:     1.11 kB
+#32 13.36 dist/assets/printTokens-DAqCdlPu.js                     0.27 kB │ gzip:   0.22 kB │ map:     0.69 kB
+#32 13.36 dist/assets/typeof-uSHhYthB.js                          0.31 kB │ gzip:   0.20 kB │ map:     0.78 kB
+#32 13.36 dist/assets/journal-entry-navigation-Dx1lUuWE.js        0.32 kB │ gzip:   0.26 kB │ map:     2.10 kB
+#32 13.36 dist/assets/normalizers-DkQEBnaa.js                     0.32 kB │ gzip:   0.20 kB │ map:     1.20 kB
+#32 13.36 dist/assets/GenericOverviewPage-DvJgbUcY.js             0.32 kB │ gzip:   0.26 kB │ map:     0.80 kB
+#32 13.36 dist/assets/baseQuery-BjOnAB2Y.js                       0.38 kB │ gzip:   0.27 kB │ map:     1.80 kB
+#32 13.36 dist/assets/MarginChip-CIKabQ84.js                      0.42 kB │ gzip:   0.34 kB │ map:     1.16 kB
+#32 13.36 dist/assets/salesSlice-CQx_p8xR.js                      0.42 kB │ gzip:   0.25 kB │ map:     1.34 kB
+#32 13.36 dist/assets/expenseActions-BRKwpOeb.js                  0.42 kB │ gzip:   0.23 kB │ map:     1.38 kB
+#32 13.36 dist/assets/redisMonitoringApi-Dw2iykVk.js              0.43 kB │ gzip:   0.29 kB │ map:     3.11 kB
+#32 13.36 dist/assets/TableCard-bHkN92Ni.js                       0.46 kB │ gzip:   0.34 kB │ map:     2.13 kB
+#32 13.36 dist/assets/DataTable-B0uGfu-7.js                       0.49 kB │ gzip:   0.33 kB │ map:     1.34 kB
+#32 13.36 dist/assets/useCurrency-Ci2a7ONY.js                     0.49 kB │ gzip:   0.33 kB │ map:     1.76 kB
+#32 13.36 dist/assets/bankAccountOptions-DPVj4ZZU.js              0.50 kB │ gzip:   0.31 kB │ map:     2.26 kB
+#32 13.36 dist/assets/useDocumentNumberPreview-CbWiZ5bC.js        0.59 kB │ gzip:   0.42 kB │ map:     2.15 kB
+#32 13.36 dist/assets/ListSkeleton-CDkfeMmt.js                    0.64 kB │ gzip:   0.32 kB │ map:     1.86 kB
+#32 13.36 dist/assets/rolldown-runtime-S-ySWqyJ.js                0.69 kB │ gzip:   0.42 kB
+#32 13.36 dist/assets/FilterSearch-B5ah6bby.js                    0.72 kB │ gzip:   0.45 kB │ map:     2.12 kB
+#32 13.36 dist/assets/useExpenseAccountOptions-OLz_EMhF.js        0.73 kB │ gzip:   0.50 kB │ map:     4.01 kB
+#32 13.36 dist/assets/useProductSearch-qC7Bpx9S.js                0.80 kB │ gzip:   0.54 kB │ map:     3.59 kB
+#32 13.36 dist/assets/FilterSelect-CMF9Jb--.js                    0.85 kB │ gzip:   0.51 kB │ map:     3.98 kB
+#32 13.36 dist/assets/useFieldDuplicateCheck-DAh5BGQ5.js          0.85 kB │ gzip:   0.52 kB │ map:     3.48 kB
+#32 13.36 dist/assets/RowActionMenu-oJvwGJPj.js                   0.88 kB │ gzip:   0.52 kB │ map:     2.67 kB
+#32 13.36 dist/assets/listQuery-CGZhuHMj.js                       0.96 kB │ gzip:   0.46 kB │ map:     5.87 kB
+#32 13.36 dist/assets/SimpleListPage-Bx24xVMU.js                  0.99 kB │ gzip:   0.53 kB │ map:     3.30 kB
+#32 13.36 dist/assets/useUnsavedChangesGuard-DMX7UeIw.js          1.01 kB │ gzip:   0.59 kB │ map:     2.74 kB
+#32 13.36 dist/assets/types-DYjLeMLn.js                           1.02 kB │ gzip:   0.52 kB │ map:    34.37 kB
+#32 13.36 dist/assets/printSettingsApi-ChmBw22P.js                1.03 kB │ gzip:   0.46 kB │ map:     3.75 kB
+#32 13.36 dist/assets/PagePagination-7R2GQq_0.js                  1.06 kB │ gzip:   0.65 kB │ map:     2.94 kB
+#32 13.36 dist/assets/providerSettlementActions-RvlfdwDi.js       1.09 kB │ gzip:   0.53 kB │ map:     3.83 kB
+#32 13.36 dist/assets/dashboardApiParams-CPFjra70.js              1.11 kB │ gzip:   0.51 kB │ map:     4.19 kB
+#32 13.36 dist/assets/dateRange-BtANTU_y.js                       1.16 kB │ gzip:   0.50 kB │ map:     7.07 kB
+#32 13.36 dist/assets/DataTable-B93UYKYl.js                       1.18 kB │ gzip:   0.66 kB │ map:     4.64 kB
+#32 13.36 dist/assets/orderActions-BLj0WCDf.js                    1.20 kB │ gzip:   0.64 kB │ map:     5.51 kB
+#32 13.36 dist/assets/ConfirmationDialog-WPRrQyS_.js              1.27 kB │ gzip:   0.66 kB │ map:     3.89 kB
+#32 13.36 dist/assets/SourceLink-lTseRFqq.js                      1.33 kB │ gzip:   0.70 kB │ map:     4.22 kB
+#32 13.36 dist/assets/currency-DXsEtjyx.js                        1.47 kB │ gzip:   0.79 kB │ map:    16.47 kB
+#32 13.36 dist/assets/userManagementApi-Di1C4NeI.js               1.55 kB │ gzip:   0.58 kB │ map:     4.71 kB
+#32 13.36 dist/assets/auditLogApi-BW8OIqot.js                     1.59 kB │ gzip:   0.67 kB │ map:     5.44 kB
+#32 13.36 dist/assets/transactionTableStyles-B3UskcQ0.js          1.69 kB │ gzip:   0.83 kB │ map:     4.06 kB
+#32 13.36 dist/assets/PageHeader-Bz6BjVR0.js                      1.79 kB │ gzip:   0.79 kB │ map:     5.58 kB
+#32 13.36 dist/assets/NotFoundPage-CL82-HKY.js                    1.79 kB │ gzip:   0.86 kB │ map:     5.13 kB
+#32 13.36 dist/assets/useListUrlState-lkCn0vUb.js                 2.09 kB │ gzip:   1.03 kB │ map:    10.47 kB
+#32 13.36 dist/assets/paymentMethodsApi-CoREImwG.js               2.19 kB │ gzip:   0.67 kB │ map:     5.35 kB
+#32 13.36 dist/assets/ReconciliationSummary-CIV7P9yV.js           2.39 kB │ gzip:   0.78 kB │ map:     6.64 kB
+#32 13.36 dist/assets/priceListApi-BV9Lsy4e.js                    2.63 kB │ gzip:   0.75 kB │ map:     7.18 kB
+#32 13.36 dist/assets/StockLevelSettingsPage-BYLeA2S0.js          2.65 kB │ gzip:   1.32 kB │ map:     7.10 kB
+#32 13.36 dist/assets/parseISO-BwIEL_G5.js                        2.67 kB │ gzip:   1.25 kB │ map:    12.23 kB
+#32 13.36 dist/assets/bankReconciliationActions-BXH-ptA2.js       2.81 kB │ gzip:   1.11 kB │ map:     6.63 kB
+#32 13.36 dist/assets/backupApi-DxeRLY4z.js                       2.91 kB │ gzip:   0.92 kB │ map:     9.94 kB
+#32 13.36 dist/assets/formatters-NX78nyFP.js                      3.03 kB │ gzip:   1.28 kB │ map:    13.24 kB
+#32 13.36 dist/assets/AddressSection-DBalLhES.js                  3.10 kB │ gzip:   1.24 kB │ map:     8.97 kB
+#32 13.36 dist/assets/CategorySelector-C4LgmQ_K.js                3.19 kB │ gzip:   1.57 kB │ map:    11.93 kB
+#32 13.36 dist/assets/JournalEntriesPage-tBSumdGD.js              3.35 kB │ gzip:   1.59 kB │ map:     9.05 kB
+#32 13.36 dist/assets/TrialBalancePage-j89j__Vt.js                3.40 kB │ gzip:   1.66 kB │ map:    10.95 kB
+#32 13.36 dist/assets/JournalEntryViewPage-C-CtMREc.js            3.50 kB │ gzip:   1.38 kB │ map:     9.45 kB
+#32 13.36 dist/assets/SuppliersPage-BkvOtKNv.js                   3.51 kB │ gzip:   1.59 kB │ map:    10.31 kB
+#32 13.36 dist/assets/chartjs-adapter-date-fns.esm-CSFwEq64.js    3.55 kB │ gzip:   1.22 kB │ map:    31.73 kB
+#32 13.36 dist/assets/settingsApi-B7n1JlPn.js                     3.61 kB │ gzip:   1.43 kB │ map:    15.79 kB
+#32 13.36 dist/assets/CustomersPage-zSMFbtG8.js                   3.65 kB │ gzip:   1.69 kB │ map:    10.86 kB
+#32 13.36 dist/assets/EntityTable-Dc1oTXa4.js                     3.96 kB │ gzip:   1.67 kB │ map:    18.03 kB
+#32 13.36 dist/assets/InventoryCostingPage-BX9eoOYR.js            3.99 kB │ gzip:   1.75 kB │ map:    11.70 kB
+#32 13.36 dist/assets/LoginPage-Ky9-AUCm.js                       4.32 kB │ gzip:   1.89 kB │ map:    13.33 kB
+#32 13.36 dist/assets/DocumentNumbersPage-DDWo2_h0.js             4.39 kB │ gzip:   2.03 kB │ map:    15.10 kB
+#32 13.36 dist/assets/CategoryViewPage-3lcGvbXf.js                4.44 kB │ gzip:   1.79 kB │ map:    12.72 kB
+#32 13.36 dist/assets/RoleManagementPage-kL6U8NwH.js              4.47 kB │ gzip:   1.62 kB │ map:    10.87 kB
+#32 13.36 dist/assets/CategoriesPage-DVdc8jhH.js                  4.53 kB │ gzip:   2.08 kB │ map:    13.75 kB
+#32 13.36 dist/assets/GeneralLedgerPage-CNLY77_c.js               4.64 kB │ gzip:   2.07 kB │ map:    14.13 kB
+#32 13.36 dist/assets/StockAdjustmentViewPage-DnrY-ezw.js         4.87 kB │ gzip:   2.00 kB │ map:    13.36 kB
+#32 13.36 dist/assets/CategoryFormPage-De_jnPoW.js                5.12 kB │ gzip:   2.22 kB │ map:    17.34 kB
+#32 13.36 dist/assets/Statement-C-i8Cdk-.js                       5.22 kB │ gzip:   2.12 kB │ map:    30.82 kB
+#32 13.36 dist/assets/BankReconciliationsPage-DQCrxlDl.js         5.28 kB │ gzip:   2.38 kB │ map:    15.16 kB
+#32 13.36 dist/assets/ProviderSettlementsPage-k-2A0hxC.js         5.32 kB │ gzip:   2.35 kB │ map:    17.00 kB
+#32 13.36 dist/assets/PurchaseOrderPrintDialog-C1xyf-VS.js        5.35 kB │ gzip:   2.03 kB │ map:    20.60 kB
+#32 13.36 dist/assets/MandatoryPasswordChangePage-Tnov275u.js     5.93 kB │ gzip:   2.12 kB │ map:    19.10 kB
+#32 13.36 dist/assets/SalesOrderPrintDialog-CxQuq6yb.js           6.09 kB │ gzip:   1.94 kB │ map:    18.79 kB
+#32 13.36 dist/assets/OrderLineItemRow-BXmiwWEL.js                6.23 kB │ gzip:   2.17 kB │ map:    23.04 kB
+#32 13.36 dist/assets/RedisMonitoringPage-BYok3s8k.js             6.50 kB │ gzip:   2.48 kB │ map:    18.46 kB
+#32 13.36 dist/assets/BalanceSheetPage-jQTGtabE.js                6.81 kB │ gzip:   2.67 kB │ map:    28.59 kB
+#32 13.36 dist/assets/BasePrintTemplate-DvUeXemm.js               7.03 kB │ gzip:   1.61 kB │ map:    22.61 kB
+#32 13.36 dist/assets/CustomerProfilePage-DdeMSMBs.js             7.06 kB │ gzip:   2.41 kB │ map:    20.86 kB
+#32 13.36 dist/assets/StockAdjustmentsPage-Bns7L8-S.js            7.07 kB │ gzip:   2.94 kB │ map:    22.09 kB
+#32 13.36 dist/assets/ExpenseDetailPage-B5Sbe1Nv.js               7.25 kB │ gzip:   2.82 kB │ map:    23.15 kB
+#32 13.36 dist/assets/ProviderSettlementDetailPage-hRlIS02m.js    7.35 kB │ gzip:   2.80 kB │ map:    23.50 kB
+#32 13.36 dist/assets/ExpenseFormPage-BorUNA94.js                 7.66 kB │ gzip:   2.97 kB │ map:    26.99 kB
+#32 13.36 dist/assets/purchasingApi-oFJDgHIK.js                   7.69 kB │ gzip:   1.51 kB │ map:    18.78 kB
+#32 13.36 dist/assets/SupplierProfilePage-DajukR5E.js             7.70 kB │ gzip:   2.56 kB │ map:    20.05 kB
+#32 13.36 dist/assets/ExpensesPage-XVuM0Ron.js                    7.70 kB │ gzip:   3.15 kB │ map:    26.44 kB
+#32 13.36 dist/assets/OrdersPage-Itz5rtb3.js                      7.76 kB │ gzip:   3.08 kB │ map:    23.93 kB
+#32 13.36 dist/assets/salesApi-DH6v8kbU.js                        7.85 kB │ gzip:   1.57 kB │ map:    20.78 kB
+#32 13.36 dist/assets/CompanySettingsPage-D5n6wX4S.js             8.33 kB │ gzip:   2.72 kB │ map:    28.11 kB
+#32 13.36 dist/assets/PurchaseOrdersPage-zGJIglrm.js              8.46 kB │ gzip:   3.37 kB │ map:    26.97 kB
+#32 13.36 dist/assets/PurchasingPage-BL5lH0fF.js                  8.53 kB │ gzip:   3.06 kB │ map:    29.44 kB
+#32 13.36 dist/assets/OwnerEquityFormPage-CqJhoWMH.js             8.71 kB │ gzip:   3.23 kB │ map:    32.91 kB
+#32 13.36 dist/assets/BankReconciliationDetailPage-DI8mRHzh.js    9.00 kB │ gzip:   3.04 kB │ map:    28.10 kB
+#32 13.36 dist/assets/ProductViewPage-CfgxorqB.js                 9.11 kB │ gzip:   3.18 kB │ map:    27.60 kB
+#32 13.36 dist/assets/OwnerEquityDetailPage-BQBzVCqd.js           9.48 kB │ gzip:   3.37 kB │ map:    29.71 kB
+#32 13.36 dist/assets/SecuritySettingsPage-CH7GQWnj.js            9.67 kB │ gzip:   2.00 kB │ map:    24.50 kB
+#32 13.36 dist/assets/RegionalSettingsPage-CJ_YtK54.js            9.67 kB │ gzip:   3.08 kB │ map:    25.10 kB
+#32 13.36 dist/assets/ChartOfAccountsPage-B1LHX3Tx.js            10.15 kB │ gzip:   3.83 kB │ map:    39.11 kB
+#32 13.36 dist/assets/OwnerEquityPage-kTRPZ64t.js                10.24 kB │ gzip:   3.84 kB │ map:    34.30 kB
+#32 13.36 dist/assets/InventoryPage-CG8EYh6A.js                  10.29 kB │ gzip:   3.43 kB │ map:    35.13 kB
+#32 13.36 dist/assets/CreatePurchaseOrderPage-DYxTPh84.js        10.32 kB │ gzip:   3.90 kB │ map:    34.35 kB
+#32 13.36 dist/assets/PriceListDetailsPage-k8EZv7Sc.js           10.56 kB │ gzip:   3.03 kB │ map:    34.40 kB
+#32 13.36 dist/assets/PurchaseOrderDetailPage-DN0CmeD5.js        10.70 kB │ gzip:   3.62 kB │ map:    34.58 kB
+#32 13.36 dist/assets/SalesOrderDetailPage-BCycXC7-.js           11.19 kB │ gzip:   3.84 kB │ map:    36.00 kB
+#32 13.36 dist/assets/ProfitAndLossPage-CUpnJ4Z9.js              11.45 kB │ gzip:   3.93 kB │ map:    48.11 kB
+#32 13.36 dist/assets/CreateStockAdjustmentPage-DCOQIB45.js      11.58 kB │ gzip:   4.13 kB │ map:    39.59 kB
+#32 13.36 dist/assets/SupplierFormPage-BCRDLcGW.js               11.68 kB │ gzip:   3.37 kB │ map:    35.95 kB
+#32 13.36 dist/assets/ProductsPage-DeuKe9bJ.js                   12.14 kB │ gzip:   4.34 kB │ map:    38.96 kB
+#32 13.36 dist/assets/CreateSalesOrderPage-nl_e8j1Z.js           13.01 kB │ gzip:   4.86 kB │ map:    44.15 kB
+#32 13.36 dist/assets/RefundDialog-seJq9yvO.js                   13.18 kB │ gzip:   3.96 kB │ map:    51.95 kB
+#32 13.36 dist/assets/CreateProductPage-D07FFZ4V.js              13.58 kB │ gzip:   4.75 kB │ map:    49.28 kB
+#32 13.36 dist/assets/CustomerFormPage-DQutw34f.js               14.09 kB │ gzip:   4.25 kB │ map:    45.59 kB
+#32 13.36 dist/assets/SalesPage-E8W9OOLE.js                      14.24 kB │ gzip:   4.09 kB │ map:    54.94 kB
+#32 13.36 dist/assets/session-CiiAuJUT.js                        15.00 kB │ gzip:   5.49 kB │ map:    61.63 kB
+#32 13.36 dist/assets/PaymentMethodsPage-hsIaevO5.js             15.43 kB │ gzip:   4.77 kB │ map:    53.10 kB
+#32 13.36 dist/assets/useFilterBar-CWR7R9d3.js                   15.45 kB │ gzip:   5.35 kB │ map:    60.65 kB
+#32 13.36 dist/assets/PriceListsPage-SqahN-oZ.js                 17.51 kB │ gzip:   4.47 kB │ map:    61.81 kB
+#32 13.36 dist/assets/UserManagementPage-xb6Ec0NS.js             18.43 kB │ gzip:   5.21 kB │ map:    61.62 kB
+#32 13.36 dist/assets/ProviderSettlementFormPage-Dl6iz56T.js     18.80 kB │ gzip:   6.61 kB │ map:    69.23 kB
+#32 13.36 dist/assets/notificationSlice-DdCRLGc8.js              21.33 kB │ gzip:   6.68 kB │ map:    88.07 kB
+#32 13.36 dist/assets/inventoryApi-CnTWr_Tr.js                   21.61 kB │ gzip:   3.71 kB │ map:    61.85 kB
+#32 13.36 dist/assets/PrintSettingsPage-BRtR-R-u.js              22.03 kB │ gzip:   5.43 kB │ map:    69.45 kB
+#32 13.36 dist/assets/BankReconciliationFormPage-DEIX-GoV.js     23.39 kB │ gzip:   6.60 kB │ map:    81.83 kB
+#32 13.36 dist/assets/AccountingSettingsPage-BSTroDvX.js         25.03 kB │ gzip:   8.05 kB │ map:    97.62 kB
+#32 13.36 dist/assets/purify.es-D4hYKUve.js                      28.12 kB │ gzip:  11.12 kB │ map:   119.90 kB
+#32 13.36 dist/assets/BackupManagement-DbS6HwIn.js               28.27 kB │ gzip:   7.29 kB │ map:    95.11 kB
+#32 13.36 dist/assets/api-DKbfOpV6.js                            53.25 kB │ gzip:  19.97 kB │ map:   254.75 kB
+#32 13.36 dist/assets/DashboardPage-COcbIOdN.js                  62.43 kB │ gzip:  19.78 kB │ map:   269.72 kB
+#32 13.36 dist/assets/redux-CGLNLu4M.js                          72.58 kB │ gzip:  24.32 kB │ map:   424.54 kB
+#32 13.36 dist/assets/index.esm-D10d5htg.js                      82.39 kB │ gzip:  26.90 kB │ map:   343.87 kB
+#32 13.36 dist/assets/router-Ce7rHi3M.js                         97.60 kB │ gzip:  32.38 kB │ map:   535.52 kB
+#32 13.36 dist/assets/index-BmjwJXZJ.js                         127.73 kB │ gzip:  36.30 kB │ map:   459.59 kB
+#32 13.36 dist/assets/index.es-BG9jUOut.js                      151.58 kB │ gzip:  48.96 kB │ map:   572.93 kB
+#32 13.36 dist/assets/charts-CLmsjCUf.js                        191.54 kB │ gzip:  66.49 kB │ map:   780.18 kB
+#32 13.36 dist/assets/html2canvas-4J0fyI2p.js                   199.62 kB │ gzip:  46.83 kB │ map:   593.20 kB
+#32 13.36 dist/assets/vendor-CGvYuhH3.js                        218.96 kB │ gzip:  68.33 kB │ map:   963.67 kB
+#32 13.36 dist/assets/mui-Br7XqaQA.js                           667.65 kB │ gzip: 197.49 kB │ map: 3,416.24 kB
+#32 13.36 dist/assets/AuditLogsPage-C_IiYVCH.js                 781.10 kB │ gzip: 252.83 kB │ map: 2,943.76 kB
+#32 13.36 
+#32 13.36 [plugin builtin:vite-reporter] 
+#32 13.36 (!) Some chunks are larger than 500 kB after minification. Consider:
+#32 13.36 - Using dynamic import() to code-split the application
+#32 13.36 - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+#32 13.36 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#32 13.38 ✓ built in 10.24s
+#32 DONE 13.7s
+
+#30 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#30 ...
+
+#33 [frontend production 2/6] RUN apk update &&     apk upgrade &&     apk add --no-cache curl
+#33 CACHED
+
+#34 [frontend production 3/6] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#34 CACHED
+
+#35 [frontend production 4/6] COPY --from=builder /app/dist /usr/share/nginx/html
+#35 DONE 0.4s
+
+#30 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#30 ...
+
+#36 [frontend production 5/6] COPY docker-entrypoint.sh /docker-entrypoint.sh
+#36 DONE 0.2s
+
+#30 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#30 ...
+
+#37 [frontend production 6/6] RUN chmod +x /docker-entrypoint.sh
+#37 DONE 0.9s
+
+#30 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#30 ...
+
+#38 [frontend] exporting to image
+#38 exporting layers
+#38 exporting layers 0.4s done
+#38 writing image sha256:3c182eb9f2e371100ab1b3fe7a1dfdd0016aa94aac04b08bf5c9609d6010dba7 done
+#38 naming to docker.io/library/erp-frontend:latest done
+#38 DONE 0.5s
+
+#30 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#30 ...
+
+#39 [frontend] resolving provenance for metadata file
+#39 DONE 0.2s
+
+#30 [backend builder 5/5] RUN npm run build &&     npx tsc -p tsconfig.cli.json &&     npm run verify:dist &&     npm prune --omit=dev && npm cache clean --force
+#30 57.65 npm notice
+#30 57.65 npm notice New major version of npm available! 11.13.0 -> 12.2.0
+#30 57.65 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#30 57.65 npm notice To update run: npm install -g npm@12.2.0
+#30 57.65 npm notice
+#30 73.63 
+#30 73.63 > erp-backend@3.22.0 verify:dist
+#30 73.63 > ./scripts/verify-dist-runtime.sh
+#30 73.63 
+#30 73.64 ==> Checking for unresolved path aliases in dist/ ...
+#30 74.13     OK: no unresolved aliases.
+#30 74.13 ==> Loading dist/main.js to verify the require graph resolves ...
+#30 84.49     OK: module graph resolves.
+#30 84.49 
+#30 84.49 ==> Checking the compiled datasource resolves migrations from dist/ ...
+#30 86.52     pattern targets dist/database/migrations (24 compiled migrations)
+#30 86.52     OK: migrations resolve from dist/.
+#30 86.52 
+#30 86.52 PASS: compiled output is runtime-loadable.
+#30 155.5 
+#30 155.5 removed 422 packages, and audited 366 packages in 1m
+#30 155.5 
+#30 155.5 83 packages are looking for funding
+#30 155.5   run `npm fund` for details
+#30 155.5 
+#30 155.5 found 0 vulnerabilities
+#30 155.9 npm warn using --force Recommended protections disabled.
+#30 DONE 156.9s
+
+#40 [backend production  4/10] WORKDIR /app
+#40 CACHED
+
+#41 [backend production  2/10] RUN apk update && apk upgrade &&     apk add --no-cache curl postgresql18-client dumb-init &&     rm -rf /var/cache/apk/* &&     rm -rf /usr/local/lib/node_modules/npm &&     rm -f /usr/local/bin/npm /usr/local/bin/npx
+#41 CACHED
+
+#42 [backend production  3/10] RUN addgroup -g 1001 -S nodejs &&     adduser -S nestjs -u 1001 -G nodejs
+#42 CACHED
+
+#43 [backend production  5/10] COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+#43 CACHED
+
+#44 [backend production  6/10] COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+#44 DONE 27.5s
+
+#45 [backend production  7/10] COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
+#45 DONE 0.2s
+
+#46 [backend production  8/10] COPY --chown=nestjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
+#46 DONE 0.1s
+
+#47 [backend production  9/10] RUN chmod +x docker-entrypoint.sh
+#47 DONE 0.6s
+
+#48 [backend production 10/10] RUN mkdir -p uploads logs backups/{postgresql,redis,settings,archives,temp,uploads} &&     chown -R nestjs:nodejs uploads logs backups
+#48 DONE 0.6s
+
+#49 [backend] exporting to image
+#49 exporting layers
+#49 exporting layers 8.9s done
+#49 writing image sha256:01fb6c2a5eac916125df783a0714b924dd808a8b3f1e8c0887ca4e463437d32f
+#49 writing image sha256:01fb6c2a5eac916125df783a0714b924dd808a8b3f1e8c0887ca4e463437d32f 0.0s done
+#49 naming to docker.io/library/erp-backend:latest 0.0s done
+#49 DONE 9.0s
+
+#50 [backend] resolving provenance for metadata file
+#50 DONE 0.0s
+ Image erp-backend:latest Built 
+ Image erp-nginx:latest Built 
+ Image erp-frontend:latest Built 
+ Container erp_nginx Running 
+ Container erp_postgres Running 
+ Container erp_redis Running 
+ Container erp_backend Recreate 
+ Container erp_backend Recreated 
+ Container erp_frontend Recreate 
+ Container erp_frontend Recreated 
+ Container erp_postgres Waiting 
+ Container erp_redis Waiting 
+ Container erp_redis Healthy 
+ Container erp_postgres Healthy 
+ Container erp_backend Starting 
+ Container erp_backend Started 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Starting 
+ Container erp_frontend Started 
+ Container erp_backend Waiting 
+ Container erp_frontend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Healthy 
+verify ok: observed access lifetime 20 s, configured 20s
+qa-up ok (access=20s, grace=5, sha=97a672272659d318a2f8b0d05571b4d154244502)
+
+[W1] Restored window
+    N=5 (a) blocking: session zone 0 request(s) (refresh 0, logout 0, me 0), 429s 0, peak accumulated demand 0 against burst 20; usable 5/5; complete on first load 5/5; recovery actions 0 (most for one tab 0); complete after 8365 ms of 5000 ms; business-endpoint 429s 0 of 45
+      company data on the first request 5, after the session's renewal 0, by the application's retry after a 429 0, retries used up 0; regional request refused 0 (formats wrong in 0); needed manual recovery 0; not usable 0
+    N=5 (b) blocking: session zone 5 request(s) (refresh 5, logout 0, me 0), 429s 13, peak accumulated demand 2.863 against burst 20; usable 4/5; complete on first load 0/5; recovery actions 9 (most for one tab 3); complete after never of 5000 ms; business-endpoint 429s 0 of 45
+      company data on the first request 0, after the session's renewal 4, by the application's retry after a 429 0, retries used up 0; regional request refused 5 (formats wrong in 0); needed manual recovery 5; not usable 1; NOT recoverable by this role: dashboard panel: Sales in 1 tab(s); dashboard panel: Purchases in 1 tab(s); dashboard panel: Payments in 1 tab(s); dashboard panel: Inventory Stats in 1 tab(s); dashboard panel: Out of Stock in 1 tab(s); dashboard panel: Suppliers in 1 tab(s); GET /api/settings/default-currency in 1 tab(s); GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC in 1 tab(s); GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC in 1 tab(s); GET /api/purchasing/suppliers in 1 tab(s); GET /api/inventory/products/dashboard-stats in 1 tab(s); GET /api/inventory/products/out-of-stock in 1 tab(s); GET /api/payments in 1 tab(s); GET /api/customers in 1 tab(s); GET /api/sales-orders?sortBy=orderNumber&sortOrder=DESC&page=1&limit=25 in 1 tab(s)
+    N=5 (c) blocking: session zone 2 request(s) (refresh 1, logout 1, me 0), 429s 0, peak accumulated demand 1.275 against burst 20; on the login page without a reload 5/5; still loading at the sign-out 3/5; business-endpoint 429s 0 of 55
+    FAIL N = 10 was run — {"sizes":[5]}
+    FAIL N = 20 was run — {"sizes":[5]}
+    ok   N = 5 (a): no 429 on refresh, logout or me
+    ok   N = 5 (a): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page)
+    ok   N = 5 (a): no in-app recovery action
+    FAIL N = 5 (b): no 429 on refresh, logout or me — {"count429":5,"duringUsabilityCheck":8}
+    FAIL N = 5 (b): every tab usable for the non-administrator (data present, the shell's included, and an action working; no reload, no new sign-in, no administrator-only page) — {"usable":4,"completeOnFirstLoad":0,"companyByAutomaticRetry":0,"neededManualRecovery":5,"dataNotRecoverableByRole":{"dashboard panel: Sales":["N5b-5"],"dashboard panel: Purchases":["N5b-5"],"dashboard panel: Payments":["N5b-5"],"dashboard panel: Inventory Stats":["N5b-5"],"dashboard panel: Out of Stock":["N5b-5"],"dashboard panel: Suppliers":["N5b-5"],"GET /api/settings/default-currency":["N5b-5"],"GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC":["N5b-5"],"GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC":["N5b-5"],"GET /api/purchasing/suppliers":["N5b-5"],"GET /api/inventory/products/dashboard-stats":["N5b-5"],"GET /api/inventory/products/out-of-stock":["N5b-5"],"GET /api/payments":["N5b-5"],"GET /api/customers":["N5b-5"],"GET /api/sales-orders?sortBy=orderNumber&sortOrder=DESC&page=1&limit=25":["N5b-5"]},"notUsable":[{"tab":"N5b-5","whyNot":"data still missing after 3 recovery action(s): the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers | 9 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401; GET /api/customers 401; GET /api/sales-orders?sortBy=orderNumber&sortOrder=DESC&page=1&limit=25 401; the action did not work: it was not tried"}]}
+    FAIL N = 5 (b): no in-app recovery action — {"recoveryActions":9,"tabsNeedingRecovery":5,"maxForOneTab":3}
+    ok   N = 5 (a): the access token was current when the tabs opened
+    ok   N = 5 (b): every tab did start with an expired access token
+    ok   N = 5 (c) attempt 1: no 429 on refresh, logout or me
+    ok   N = 5 (c) attempt 1: the sign-out sent a logout and it was answered 2xx
+    ok   N = 5 (c) attempt 1: every tab is on the login page after the sign-out, without a reload
+  => FAIL (284 s)
+
+0 of 1 passed; sign-in waits 0; wrote /scratch/results-cases.json
+ Container erp_redis Running 
+ Container erp_frontend Running 
+ Container erp_nginx Running 
+ Container erp_postgres Running 
+ Container erp_backend Recreate 
+ Container erp_backend Recreated 
+ Container erp_redis Waiting 
+ Container erp_postgres Waiting 
+ Container erp_postgres Healthy 
+ Container erp_redis Healthy 
+ Container erp_backend Starting 
+ Container erp_backend Started 
+ Container erp_backend Waiting 
+ Container erp_backend Healthy 
+ Container erp_backend Waiting 
+ Container erp_frontend Waiting 
+ Container erp_backend Healthy 
+ Container erp_frontend Healthy 
+restore ok (access=15m, grace=60)
+M1: one raw read, one tab idle
+M2: one raw read, four tabs busy, a fifth writing every 100 ms
+M3-M5: oneTab
+M3-M5: fourTabs
+  ok   M1 (blocking): median p95 3.8 ms, threshold 5 ms, max 56.3 ms
+  ok   M2 (blocking): median p95 11.3 ms, threshold 15 ms, max 52.5 ms
+  diag M3 one tab (diagnostic, not judged): median p95 129 ms, max 168.4 ms; former provisional target 10 ms, not met
+  diag M3 four tabs (diagnostic, not judged): median p95 402.9 ms, max 794.7 ms; former provisional target 20 ms, not met
+  diag M4 one tab (diagnostic, not judged): median p95 190.7 ms, max 201.8 ms; former provisional target 10 ms, not met
+  diag M4 four tabs (diagnostic, not judged): median p95 685.1 ms, max 1032.5 ms; former provisional target 20 ms, not met
+  The 10 / 20 ms targets for M3 and M4 were provisional and were replaced on 2026-10-06, not met. Run 582096992 failed them: M3 99 / 330.1 ms, M4 205.3 / 603.3 ms (one tab / four tabs), exit status 1.
+  measured loads answered 429: 0 of 125 (one tab), 0 of 481 (four tabs)
+  M5 (diagnostic): Requests on a page overlap, so the sum of their gate waits is not the time the gate adds to the page load; it is an upper bound on it.
+wrote /scratch/results-latency.json
+
+=== cross-tab session run ===
+commit 97a672272659d318a2f8b0d05571b4d154244502   exit status 1   stack restored: yes
+  NOT A RECORDED RUN: only W1: not a recorded run
+  before access 15m, grace 60, build 05316a7cfc8aac56a131924207b3592fe72432d9
+  during access 20s, grace 5, build 97a672272659d318a2f8b0d05571b4d154244502
+  after  access 15m, grace 60, build 97a672272659d318a2f8b0d05571b4d154244502
+  0 of 0 cases passed (PARTIAL: only W1: not a recorded run)
+  W1 FAIL  as a non-administrator (role sales_staff, 15 pages)
+     N=5 (a) blocking: session zone 0 request(s) (refresh 0, logout 0, me 0), 429s 0, peak accumulated demand 0 against burst 20; usable 5/5; complete on first load 5/5; recovery actions 0 (most for one tab 0); complete after 8365 ms of 5000 ms; business-endpoint 429s 0 of 45
+     N=5 (b) blocking: session zone 5 request(s) (refresh 5, logout 0, me 0), 429s 13, peak accumulated demand 2.863 against burst 20; usable 4/5; complete on first load 0/5; recovery actions 9 (most for one tab 3); complete after never of 5000 ms; business-endpoint 429s 0 of 45
+     N=5 (c) blocking: session zone 2 request(s) (refresh 1, logout 1, me 0), 429s 0, peak accumulated demand 1.275 against burst 20; on the login page without a reload 5/5; still loading at the sign-out 3/5; business-endpoint 429s 0 of 55
+     N=5 (a): company data by the application's retry after a 429: 0, retries used up: 0; needed manual recovery 0; not usable 0
+     N=5 (b): company data by the application's retry after a 429: 0, retries used up: 0; needed manual recovery 5; not usable 1
+       NOT recoverable by this role without a reload: dashboard panel: Sales, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: dashboard panel: Purchases, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: dashboard panel: Payments, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: dashboard panel: Inventory Stats, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: dashboard panel: Out of Stock, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: dashboard panel: Suppliers, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: GET /api/settings/default-currency, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: GET /api/purchasing/suppliers, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: GET /api/inventory/products/dashboard-stats, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: GET /api/inventory/products/out-of-stock, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: GET /api/payments, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: GET /api/customers, in 1 of 5 tabs
+       NOT recoverable by this role without a reload: GET /api/sales-orders?sortBy=orderNumber&sortOrder=DESC&page=1&limit=25, in 1 of 5 tabs
+     W1 shows that the tabs of a restored window coordinate their refresh, that a restored window puts little load on session_limit, and that at 5, 10, 20 tabs every tab reaches its expected data without the user acting. How long that takes is reported and does not block. It does not measure the capacity of that zone, which is never approached, and it does not establish how many tabs a restored window can hold: that is bounded by the general api_limit (issue #1353).
+     (not blocking) N=5 (a): the last tab held its expected data after 8365 ms, against a deadline of 5000 ms (polled every 250 ms) - diagnostic at this size, not a failed check; tracked in #1359
+     (not blocking) N=5 (b): 5 of 5 tabs first showed missing data and the user had to act (9 round trip(s) through the sidebar in all, at most 3 for one tab, slowest 15290 ms)
+     (not blocking) N=5 (b): the regional-settings request of 5 tab(s) was refused and never repeated; the formats were wrong in 0 of them (the others applied the values the profile had stored before)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: dashboard panel: Sales, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: dashboard panel: Purchases, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: dashboard panel: Payments, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: dashboard panel: Inventory Stats, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: dashboard panel: Out of Stock, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: dashboard panel: Suppliers, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: GET /api/settings/default-currency, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: GET /api/purchasing/suppliers, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: GET /api/inventory/products/dashboard-stats, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: GET /api/inventory/products/out-of-stock, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: GET /api/payments, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: GET /api/customers, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): NOT recoverable by a sales_staff user without a reload: GET /api/sales-orders?sortBy=orderNumber&sortOrder=DESC&page=1&limit=25, in 1 of 5 tabs (this fails W1)
+     (not blocking) N=5 (b): 1 of 5 tabs were NOT usable: N5b-5: data still missing after 3 recovery action(s): the dashboard says it could not load: Sales, Purchases, Payments, Inventory Stats, Out of Stock, Suppliers | 9 data request(s) left failed: GET /api/settings/default-currency 401; GET /api/sales-orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/orders?sortBy=orderDate&sortOrder=DESC 401; GET /api/purchasing/suppliers 401; GET /api/inventory/products/dashboard-stats 401; GET /api/inventory/products/out-of-stock 401; GET /api/payments 401; GET /api/customers 401; GET /api/sales-orders?sortBy=orderNumber&sortOrder=DESC&page=1&limit=25 401; the action did not work: it was not tried
+     (not blocking) N=5 (b): the last tab held its expected data after never, against a deadline of 5000 ms (polled every 250 ms) - diagnostic at this size, not a failed check; tracked in #1359
+     (not blocking) N=5 (c): 10 data request(s) failed without an answer: net::ERR_ABORTED
+     (not blocking) N=5 (c): overlap absent: no request was being delayed when the sign-out happened (0 delayed in the whole round)
+  latency pass (M1 and M2 only; M3 and M4 are diagnostic and were not judged)
+     ok   M1 (blocking): median p95 3.8 ms, threshold 5 ms, max 56.3 ms
+     ok   M2 (blocking): median p95 11.3 ms, threshold 15 ms, max 52.5 ms
+     diag M3 one tab (diagnostic, not judged): median p95 129 ms, max 168.4 ms; former provisional target 10 ms, not met
+     diag M3 four tabs (diagnostic, not judged): median p95 402.9 ms, max 794.7 ms; former provisional target 20 ms, not met
+     diag M4 one tab (diagnostic, not judged): median p95 190.7 ms, max 201.8 ms; former provisional target 10 ms, not met
+     diag M4 four tabs (diagnostic, not judged): median p95 685.1 ms, max 1032.5 ms; former provisional target 20 ms, not met
+     The 10 / 20 ms targets for M3 and M4 were provisional and were replaced on 2026-10-06, not met. Run 582096992 failed them: M3 99 / 330.1 ms, M4 205.3 / 603.3 ms (one tab / four tabs), exit status 1.
+     (not blocking) M3 one tab: max 168.4 ms
+     (not blocking) M3 four tabs: max 794.7 ms
+     (not blocking) M4 one tab: max 201.8 ms
+     (not blocking) M4 four tabs: max 1032.5 ms
+     measured loads answered 429: 0 of 125 (one tab), 0 of 481 (four tabs)
+     competing workload: No container was restarting on the host when the list was taken.
+  sign-in waits: 0   results: /scratch/results.json
+run complete: status=1; results in /tmp/opencode/erp-qa-1394/runs/R1/results.json

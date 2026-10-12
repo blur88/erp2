@@ -4,10 +4,10 @@ Status of this file at the time of writing: **no run has been made.** Every
 scenario below is an expectation, not a result. The *actual* and *status*
 columns are filled in only by the runs recorded in `runs/`.
 
-The runs will use the branch commit **`45155a5dc`** (the commit that carries the
-sidebar, the strip and the layout). If a run is made on a later commit, this
-file says so in the record before the run, and the commit it names is replaced
-here.
+The runs were made on **`97a672272`** (R1) and **`5814eab1e`** (R2), both after
+the code they exercise was committed. R1 was made after R2's case existed in
+the override copy but before the case's own fix; the commits are named in each
+run's `meta.txt`.
 
 Automated coverage already recorded on that commit:
 
@@ -30,21 +30,21 @@ evidence this issue asked for, and they are not a pass of the suite.
 
 | # | Scenario | Expected | How exercised | Actual | Status |
 |---|---|---|---|---|---|
-| 1 | First read fails transiently, then succeeds | Placeholder; retries after about 2 s and 6 s as needed; branding appears without reload; no warning during recovery | `CompanySettingsRecoveryProvider.test.tsx: 1, 2, 3` | | |
-| 2 | Read fails after an earlier success | Retained branding stays visible through recovery and after it stops | `CompanySettingsRecoveryProvider.test.tsx: 4` | | |
-| 3 | Transient failures persist | Exactly two additional automatic attempts, then the strip; no further requests merely from hiding/showing the tab | `CompanySettingsRecoveryProvider.test.tsx: 3` | | |
-| 4 | Read fails behind a failed/refused refresh | Warning immediately; no sidebar-driven automatic retry and no additional refresh | `CompanySettingsRecoveryProvider.test.tsx: 5` | | |
-| 5 | Tokens renew successfully | One quiet re-read per affected tab, deferred while hidden; duplicate notifications and in-flight requests produce no duplicate reads; a renewal during an in-flight read is consumed and queues nothing; success removes the strip | `CompanySettingsRecoveryProvider.test.tsx: 7, 8, 9` | | |
-| 6 | Read exhausts the existing 429 retries | No added automatic attempts; warning appears; manual Retry and renewal recovery remain available | `CompanySettingsRecoveryProvider.test.tsx: 6` | | |
-| 7 | Tab becomes ineligible during a delay | No sidebar-initiated attempt while ineligible; the remaining delay and budget resume when eligible | `CompanySettingsRecoveryProvider.test.tsx: 10, 11, 12` | | |
-| 8 | Manual Retry | Disabled while pending, and while the tab is ineligible, hidden included (the strip stays visible; the handler refuses too); success clears the strip; transient failure gets a fresh bounded cycle; refresh-blocked or exhausted-429 failure stops again | `CompanySettingsRecoveryProvider.test.tsx: 13, 14` | | |
-| 9 | Session ends, or the session id changes directly | Retained branding, timers and recovery state clear in both cases; cached data and late results from the previous session cannot supply branding to the new one | `CompanySettingsRecoveryProvider.test.tsx: 15a–d` | | |
-| 10 | Collapsed control | Keyboard reachable and operable; tooltip shown; accessible name "Retry loading company details" | `CompanyUnavailableStrip.test.tsx: collapsed` | | |
-| 11 | Settings pages | `CompanySettingsPage` and `PrintSettings/GeneralTab` receive the cache update from a successful retry; no new UI on either | `MainLayout.companyRecovery.test.tsx: scenario 13` | | |
-| 12 | Mobile drawer opened in any state, including stopped | No request is sent; the drawer's sidebar shows the same branding and strip as the permanent one | `MainLayout.companyRecovery.test.tsx: scenario 12` | | |
-| 13 | A settings page opened while stopped | The page's own read is sent as today; success clears the strip; failure leaves it stopped and starts no automatic cycle | `MainLayout.companyRecovery.test.tsx: scenario 13` | | |
-| 14 | A storage timeout around the read | Treated as transient; attempts paused until storage is eligible again | `CompanySettingsRecoveryProvider.test.tsx: 12` | | |
-| 15 | An automatic retry or quiet re-read is answered 401 | The runtime's refresh is counted and reported; if it fails, recovery stops at once | `CompanySettingsRecoveryProvider.test.tsx: 17` | | |
+| 1 | First read fails transiently, then succeeds | Placeholder; retries after about 2 s and 6 s as needed; branding appears without reload; no warning during recovery | `CompanySettingsRecoveryProvider.test.tsx: 1, 2, 3`; R2 | R2 (browser): the read was aborted three times, so 3 reads went out (the first and the two automatic attempts), the strip was showing and the header showed the placeholder with no company name. After Retry: 1 more read, name back, strip gone. No message appeared before the strip. | met |
+| 2 | Read fails after an earlier success | Retained branding stays visible through recovery and after it stops | `CompanySettingsRecoveryProvider.test.tsx: 4` | Vitest only. A non-administrator has no in-app way to cause a second read of this endpoint, so the browser cannot reach this state. | met (Vitest); browser **unverified** |
+| 3 | Transient failures persist | Exactly two additional automatic attempts, then the strip; no further requests merely from hiding/showing the tab | `CompanySettingsRecoveryProvider.test.tsx: 3`; R2 | R2: 3 reads, then the strip, and nothing further while it was showing. The hiding/showing half is Vitest only: the harness has no hidden-tab case for this endpoint. | met (both halves by their own means) |
+| 4 | Read fails behind a failed/refused refresh | Warning immediately; no sidebar-driven automatic retry and no additional refresh | `CompanySettingsRecoveryProvider.test.tsx: 5` | R1: 5 of 5 tabs answered 401 on the read, each sent exactly one refresh, each was refused (the filler answered 441 of its 574 requests 429), and each showed the strip with **no** read after it. Reads per tab: 1. Refreshes: 1 per tab, 5 in all. | met |
+| 5 | Tokens renew successfully | One quiet re-read per affected tab, deferred while hidden; duplicate notifications and in-flight requests produce no duplicate reads; a renewal during an in-flight read is consumed and queues nothing; success removes the strip | `CompanySettingsRecoveryProvider.test.tsx: 7, 8, 9` | Vitest only for the browser's sake. In R1 the renewal each tab's recovery needed arrived **while that read was in flight**, so it was consumed and no quiet re-read followed — which is the rule, not the expectation's case. | met (Vitest); the quiet re-read itself **unverified in a browser** |
+| 6 | Read exhausts the existing 429 retries | No added automatic attempts; warning appears; manual Retry and renewal recovery remain available | `CompanySettingsRecoveryProvider.test.tsx: 6` | Vitest only: R1's filler answered 429 to `/api/auth/me`, not to the company read. | met (Vitest); browser **unverified** |
+| 7 | Tab becomes ineligible during a delay | No sidebar-initiated attempt while ineligible; the remaining delay and budget resume when eligible | `CompanySettingsRecoveryProvider.test.tsx: 10, 11, 12` | Vitest only. | met (Vitest); browser **unverified** |
+| 8 | Manual Retry | Disabled while pending, and while the tab is ineligible, hidden included (the strip stays visible; the handler refuses too); success clears the strip; transient failure gets a fresh bounded cycle; refresh-blocked or exhausted-429 failure stops again | `CompanySettingsRecoveryProvider.test.tsx: 13, 14`; R2 | R2: the strip's Retry was enabled while stopped and idle, one click sent exactly one read (3 → 4), and the name came back with the strip gone. The disabled-while-ineligible halves are Vitest only. | met |
+| 9 | Session ends, or the session id changes directly | Retained branding, timers and recovery state clear in both cases; cached data and late results from the previous session cannot supply branding to the new one | `CompanySettingsRecoveryProvider.test.tsx: 15a–d` | Vitest only: R1's round (c) signs out, but that is the suite's own case and it did not ask what the sidebar showed. | met (Vitest); browser **unverified** |
+| 10 | Collapsed control | Keyboard reachable and operable; tooltip shown; accessible name "Retry loading company details" | `CompanyUnavailableStrip.test.tsx: collapsed`; R2 | R2: with the strip showing, the collapsed sidebar had exactly one button with that accessible name; it took focus, and its tooltip read "Company details unavailable. Retry". Screenshots: `r2-collapsed`, `r2-collapsed-focus`, `r2-collapsed-tooltip`. | met |
+| 11 | Settings pages | `CompanySettingsPage` and `PrintSettings/GeneralTab` receive the cache update from a successful retry; no new UI on either | `MainLayout.companyRecovery.test.tsx: scenario 13` | Vitest only: both pages are administrator-only and this ran as `sales_staff`. | met (Vitest); browser **unverified** |
+| 12 | Mobile drawer opened in any state, including stopped | No request is sent; the drawer's sidebar shows the same branding and strip as the permanent one | `MainLayout.companyRecovery.test.tsx: scenario 12` | Vitest only: the harness runs at 1366 px, where the temporary drawer is never opened. | met (Vitest); browser **unverified** |
+| 13 | A settings page opened while stopped | The page's own read is sent as today; success clears the strip; failure leaves it stopped and starts no automatic cycle | `MainLayout.companyRecovery.test.tsx: scenario 13` | Vitest only, for the same reason as row 11. | met (Vitest); browser **unverified** |
+| 14 | A storage timeout around the read | Treated as transient; attempts paused until storage is eligible again | `CompanySettingsRecoveryProvider.test.tsx: 12` | Vitest only: forcing a storage timeout at the ingress is not a browser fault this harness injects. | met (Vitest); browser **unverified** |
+| 15 | An automatic retry or quiet re-read is answered 401 | The runtime's refresh is counted and reported; if it fails, recovery stops at once | `CompanySettingsRecoveryProvider.test.tsx: 17` | R1: every tab's retry-class read was answered 401 and the refresh behind it failed, and recovery stopped at once — one read, one refresh, strip, nothing more. Refreshes after an automatic retry: **5**, one per tab, each the runtime's own and none sent by the sidebar. | met |
 
 Rows 1–3 and 4 together discharge #1394's "confirm the three unobserved
 columns": network error, timeout and 5xx, on the read itself (rows 1–3) and on
@@ -60,6 +60,24 @@ appears. That zero assumes no manual Retry and no successful token renewal in
 the window; if either occurs it is recorded and the zero is not claimed for
 that tab.
 
+**Actual (R1, commit `97a672272`) — met.**
+
+- strip showing: **5 of 5 tabs**, expanded form in all five.
+- requests: `GET /api/settings/company` **1 per tab** (5 in all), every one of
+  them the page load's own.
+- reads after the strip: **0 per tab** — no navigation, renewal or Retry
+  attributed read in any tab.
+- refreshes: **1 per tab, 5 in all**; own (a `refresh-sent` in that tab's trace)
+  in all five, **0 adopted tokens**.
+- What the round's own record shows: every tab's first read was answered **401**
+  and the refresh behind it was refused, so the read was `refresh-blocked` and
+  recovery stopped at once. That is why nothing further was sent.
+- The harness's `zeroClaimed` flag reads **false** for all five, and that flag
+  is stricter than the expectation: it also required the tab to have sent no
+  refresh at all in the window, where the expectation's condition is only *no
+  manual Retry and no successful renewal after the strip*. The underlying
+  figures are the ones above.
+
 ### Window 2, the filler is stopped and each tab gets one sidebar navigation
 
 (T2's own recovery action.) Counted **separately**: navigation reads, quiet
@@ -70,22 +88,52 @@ expected**, per tab or overall: five tabs sharing a session may adopt one
 coordinated renewal. The actual refresh count and the adoptions are reported as
 observed.
 
-Per-tab lines to fill in, each counted on its own:
+**Actual (R1) — the recovery half met, the quiet re-read expectation UNMET.**
 
-- navigation reads: observed ______
-- quiet re-reads: observed ______
-- refreshes: observed ______
-- token adoptions: observed ______
-- own refresh (`refresh-sent` in the tab's trace): observed ______
+- all five tabs recovered without a reload: **yes** — at the end of the window
+  the strip was gone in 5 of 5 tabs and the company name was shown in 5 of 5.
+- Per-tab lines, counted on their own:
+
+| | N5b-1 | N5b-2 | N5b-3 | N5b-4 | N5b-5 |
+|---|---|---|---|---|---|
+| navigation reads | 0 | 0 | 0 | 0 | 0 |
+| quiet re-reads | 0 | 0 | 0 | 0 | 0 |
+| refreshes | 3 | 1 | 3 | 1 | 7 |
+| token adoptions | 0 | 0 | 0 | 0 | 0 |
+| own refresh (`refresh-sent`) | 3 | 1 | 3 | 1 | 7 |
+
+- Two things about that table, both of which the run shows and neither of which
+  the expectation anticipated:
+  1. **The refresh row is the tab's whole trace, not the window's.** The
+     harness reads `tokenOrigin` over the tab's entire `__erpSessionTrace`, so
+     window 2's figures include window 1's refresh. Window 1's own count for
+     each tab is **1**; the rest are later refreshes, all the runtime's own.
+  2. **No quiet re-read was observed, and none was permitted.** The strip
+     cleared in each tab because the runtime's own refresh succeeded and the
+     read it was already in flight of was re-sent and answered 200
+     (`companyRetry` statuses: `[401, 200]` in four tabs, `[401]` in the fifth).
+     A renewal seen while that read is in flight is **consumed** by design, so
+     no quiet re-read followed.
+
+**This is recorded as UNMET and not reinterpreted.** The expectation "each tab
+that is stopped and eligible makes one quiet re-read" did not hold in this run:
+the tabs were never stopped *and idle* at the moment a renewal was observed,
+because the renewal arrived while their read was still in flight. The rule the
+expectation was written to check is covered by the named Vitest test
+(`9: a quiet re-read whose own 401 renews and which then fails must not start
+another read`) and by R1's five consumed renewals, which show the loop is not
+happening. What the browser has **not** shown is a tab that sits stopped and
+idle, is then renewed, and reads once. That is **unverified in a browser** and
+is handed back to the owner rather than written up as met.
 
 ## Browser-only items (jsdom cannot show these)
 
 | Item | Expected | Actual | Status |
 |---|---|---|---|
-| Strip layout at 256 px (expanded) | One row under the 64 px header: icon, the wording, a Retry that fits | | |
-| Strip layout at 64 px (collapsed) | The tile, and the single icon button under it | | |
-| Tooltip rendering | "Company details unavailable. Retry", shown while the button is disabled | | |
-| Keyboard focus ring | The collapsed button takes focus by Tab and shows the theme's focus ring | | |
+| Strip layout at 256 px (expanded) | One row under the 64 px header: icon, the wording, a Retry that fits | R2: `r2-first-load-strip.png` — the row sits under the header with the warning icon, the wording and a Retry; the header shows the "ERP" tile and no company line | met |
+| Strip layout at 64 px (collapsed) | The tile, and the single icon button under it | R2: `r2-collapsed.png` — one icon button, `aria-label="Retry loading company details"`; exactly one was found | met |
+| Tooltip rendering | "Company details unavailable. Retry", shown while the button is disabled | R2: the tooltip's text was exactly "Company details unavailable. Retry" (`r2-collapsed-tooltip.png`). The Vitest test covers the disabled state, which R2 did not reach | met |
+| Keyboard focus ring | The collapsed button takes focus by Tab and shows the theme's focus ring | R2: the button took focus (`document.activeElement` was it, `r2-collapsed-focus.png`). The **focus ring** itself was not judged: the run focused it programmatically and did not Tab to it | **partly unverified** (focus met; the ring's rendering not judged) |
 
 ## What is deliberately not expected
 
