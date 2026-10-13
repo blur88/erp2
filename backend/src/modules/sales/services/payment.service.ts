@@ -2,14 +2,12 @@ import { AuditLogService } from '../../audit-logs/services';
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
   BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Between, In } from 'typeorm';
 import { applyPagination } from '@/common/pagination/apply-pagination';
-import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   Payment,
   PaymentStatus,
@@ -33,12 +31,7 @@ import {
 } from '../../../common/utils/money';
 
 @Injectable()
-export class PaymentService extends BaseCrudService<
-  Payment,
-  CreatePaymentDto,
-  UpdatePaymentDto,
-  QueryPaymentsDto
-> {
+export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
 
   constructor(
@@ -48,30 +41,8 @@ export class PaymentService extends BaseCrudService<
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(PaymentMethodEntity)
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
-    auditLogService: AuditLogService,
-  ) {
-    super(paymentRepository, auditLogService);
-  }
-
-  getEntityType(): string {
-    return 'Payment';
-  }
-
-  buildWhereClause(query: QueryPaymentsDto): FindOptionsWhere<Payment> {
-    const where: FindOptionsWhere<Payment> = {};
-
-    if (query.customerId) where.customerId = query.customerId;
-    if (query.status) where.status = query.status as PaymentStatus;
-    if (query.salesOrderId) where.salesOrderId = query.salesOrderId;
-    if (query.fromDate || query.toDate) {
-      where.paymentDate = Between(
-        query.fromDate || new Date('1900-01-01'),
-        query.toDate || new Date(),
-      );
-    }
-
-    return where;
-  }
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async create(
     createPaymentDto: CreatePaymentDto,
@@ -389,48 +360,6 @@ export class PaymentService extends BaseCrudService<
     // Note: Customer balance tracking removed - updateBalance method doesn't exist
     // This method is kept for backward compatibility but no longer updates balance
     await this.customerRepository.save(customer);
-  }
-
-  async restore(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
-    const payment = await this.paymentRepository.findOne({
-      where: { id },
-      withDeleted: true, // Include soft-deleted records
-      relations: { customer: true },
-    });
-
-    if (!payment) {
-      throw new NotFoundException(`Payment with ID ${id} not found`);
-    }
-
-    if (!payment.deletedAt) {
-      throw new ConflictException(`Payment is not deleted`);
-    }
-
-    // Restore the payment
-    await this.paymentRepository.restore(id);
-
-    await this.auditLogService.log(
-      'RESTORE',
-      'Payment',
-      `Restored payment: ${formatScale4(payment.amount)} on ${this.toDateOnly(payment.paymentDate)}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        newValues: {
-          amount: payment.amount,
-          status: payment.status,
-        },
-      },
-    );
-
-    // Return the restored payment
-    const restoredPayment = await this.paymentRepository.findOne({
-      where: { id },
-      relations: { customer: true },
-    });
-
-    return this.mapToResponseDto(restoredPayment);
   }
 
   private mapToResponseDto(payment: Payment): PaymentResponseDto {

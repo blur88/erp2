@@ -33,7 +33,6 @@ import { SalesOrderFulfillmentService } from './services/sales-order-fulfillment
 import { SalesOrderLifecycleService } from './services/sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './services/sales-order-payment.service';
 import { SalesOrderQueryService } from './services/sales-order-query.service';
-import { TransactionManager } from '../../common/utils/transaction.util';
 
 @Module({
   imports: [
@@ -70,7 +69,6 @@ import { TransactionManager } from '../../common/utils/transaction.util';
     SalesOrderLifecycleService,
     SalesOrderPaymentService,
     SalesOrderQueryService,
-    TransactionManager,
   ],
   exports: [
     CustomerService,

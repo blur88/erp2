@@ -236,37 +236,6 @@ describe('PaymentService', () => {
       expect(created.notes).toBe('Refund of 250.0000 payment dated 2026-01-01');
     });
 
-    it('omits paymentNumber from restore audit newValues', async () => {
-      const deleted = { ...createMockPayment(), deletedAt: new Date() };
-      paymentRepository.findOne.mockResolvedValue(deleted as any);
-      paymentRepository.restore.mockResolvedValue({} as any);
-      auditLogService.log.mockResolvedValue(undefined);
-
-      await service.restore(deleted.id as string);
-
-      const [, , message, options] = auditLogService.log.mock.calls[0];
-      expect(message).not.toMatch(/PAY-/);
-      expect(options.newValues).not.toHaveProperty('paymentNumber');
-    });
-
-    it('reports the restore audit date without shifting it', async () => {
-      // Local midnight, as the pg driver returns for a `date` column.
-      const deleted = {
-        ...createMockPayment(),
-        amount: '750.0000',
-        paymentDate: new Date(2026, 6, 27),
-        deletedAt: new Date(),
-      };
-      paymentRepository.findOne.mockResolvedValue(deleted as any);
-      paymentRepository.restore.mockResolvedValue({} as any);
-      auditLogService.log.mockResolvedValue(undefined);
-
-      await service.restore(deleted.id as string);
-
-      const [, , message] = auditLogService.log.mock.calls[0];
-      expect(message).toBe('Restored payment: 750.0000 on 2026-07-27');
-    });
-
     it('returns customer payment summaries without paymentNumber', async () => {
       paymentRepository.find.mockResolvedValue([createMockPayment() as Payment]);
       const result = await service.getPaymentsByCustomer('customer-1');
