@@ -580,6 +580,14 @@ jobs:
       - name: Type check
         run: npm run type-check
 
+      # One sessionRouting test, run by itself (#1387). It navigates to a lazy
+      # route and used to assert before that route had loaded; the suite below
+      # cannot see that, because an earlier test in the file loads the route
+      # first. The script fails unless exactly one test ran and passed: a `-t`
+      # pattern that matches nothing exits 0.
+      - name: Cold lazy route (one test, run alone)
+        run: npm run test:cold-route
+
       # Runs the suite once with coverage instrumentation rather than running
       # `npm run test` and `npm run test:coverage` back to back — vitest computes
       # coverage in the same pass, so a second run would just double a ~30 minute
