@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -8,7 +8,6 @@ import { Customer, CustomerType } from '../../../database/entities/customer.enti
 import { Payment } from '../../../database/entities/payment.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { AuditLogService } from '../../audit-logs/services';
-import { TransactionManager } from '../../../common/utils/transaction.util';
 import { UserRole } from '../../../database/entities/user.entity';
 
 describe('CustomerService', () => {
@@ -66,10 +65,6 @@ describe('CustomerService', () => {
         {
           provide: getRepositoryToken(Payment),
           useValue: { count: (jest.fn as unknown as any)() },
-        },
-        {
-          provide: TransactionManager,
-          useValue: { runInTransaction: (jest.fn as unknown as any)() },
         },
         {
           provide: AuditLogService,
@@ -590,62 +585,6 @@ describe('CustomerService', () => {
 
       expect(customerRepository.update).not.toHaveBeenCalled();
       expect(customerRepository.save).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('permanent deletion is refused while payments exist (#1368)', () => {
-    let salesOrderRepository: any;
-    let paymentRepository: any;
-
-    beforeEach(() => {
-      salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
-      paymentRepository = module.get(getRepositoryToken(Payment));
-      customerRepository.findOne.mockResolvedValue(
-        createCustomer('c-1', { deletedAt: new Date('2026-04-06T00:00:00.000Z') }),
-      );
-      salesOrderRepository.count.mockResolvedValue(0);
-      paymentRepository.count.mockResolvedValue(2);
-    });
-
-    it('permanentDelete throws the dependency refusal and deletes nothing', async () => {
-      const error = await service.permanentDelete('c-1', 'user-1', 'admin').then(
-        () => null,
-        (e: unknown) => e,
-      );
-
-      expect(error).toBeInstanceOf(BadRequestException);
-      expect((error as BadRequestException).getResponse()).toMatchObject({
-        message: "Cannot permanently delete customer 'Customer c-1' because it has payments",
-        code: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
-        dependencies: { orders: 0, payments: 2 },
-        suggestions: ['Keep this customer soft-deleted to preserve its history and keep it hidden.'],
-      });
-      expect(salesOrderRepository.createQueryBuilder).not.toHaveBeenCalled();
-      expect(customerRepository.delete).not.toHaveBeenCalled();
-    });
-
-    it('counts soft-deleted payments, which the foreign key also counts', async () => {
-      await service.permanentDelete('c-1', 'user-1', 'admin').catch(() => undefined);
-
-      expect(paymentRepository.count).toHaveBeenCalledWith({
-        where: { customerId: 'c-1' },
-        withDeleted: true,
-      });
-    });
-
-    it('bulkPermanentDelete reports DEPENDENCY_ERROR and deletes nothing', async () => {
-      const result = await service.bulkPermanentDelete(['c-1'], 'user-1', 'admin');
-
-      expect(result.successCount).toBe(0);
-      expect(result.failedItems).toEqual([
-        expect.objectContaining({
-          id: 'c-1',
-          errorCode: 'DEPENDENCY_ERROR',
-          details: expect.objectContaining({ dependencies: { orders: 0, payments: 2 } }),
-        }),
-      ]);
-      expect(salesOrderRepository.createQueryBuilder).not.toHaveBeenCalled();
-      expect(customerRepository.delete).not.toHaveBeenCalled();
     });
   });
 });

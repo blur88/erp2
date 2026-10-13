@@ -5,9 +5,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { EntityManager, Repository, FindOptionsWhere } from 'typeorm';
 import { applyPagination } from '../../../common/pagination/apply-pagination';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
+import { AuditLog } from '../../../database/entities/audit-log.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
@@ -36,7 +37,6 @@ import {
   BulkOperationUtil,
   BulkOperationResponse,
 } from '../../../common/utils/validation.util';
-import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
 import { recalculateCustomerMetrics } from './customer-metrics';
 import { AuditLogService } from '../../audit-logs/services';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
@@ -69,10 +69,21 @@ const CUSTOMER_METRIC_COLUMNS: ReadonlySet<string> = new Set([
   'lastPurchaseDate',
 ]);
 
-function describePermanentDeleteDependencies(dependencies: {
+interface PermanentDeleteDependencies {
   orders: number;
   payments: number;
-}): string {
+}
+
+/**
+ * How one customer's permanent deletion ended. Only `deleted` wrote anything;
+ * the other two commit a transaction that took locks and changed no row.
+ */
+type PermanentDeleteOutcome =
+  | { kind: 'deleted' }
+  | { kind: 'invalid'; error: Error }
+  | { kind: 'blocked'; customer: Customer; dependencies: PermanentDeleteDependencies };
+
+function describePermanentDeleteDependencies(dependencies: PermanentDeleteDependencies): string {
   const parts: string[] = [];
   if (dependencies.orders > 0) {
     parts.push(`${dependencies.orders} active order${dependencies.orders > 1 ? 's' : ''}`);
@@ -84,10 +95,7 @@ function describePermanentDeleteDependencies(dependencies: {
 }
 
 /** What holds the customer, without counts: the only part of a refusal that reaches the client. */
-function namePermanentDeleteDependencies(dependencies: {
-  orders: number;
-  payments: number;
-}): string {
+function namePermanentDeleteDependencies(dependencies: PermanentDeleteDependencies): string {
   const names: string[] = [];
   if (dependencies.orders > 0) {
     names.push('sales orders');
@@ -112,7 +120,6 @@ export class CustomerService extends BaseCrudService<
     private readonly salesOrderRepository: Repository<SalesOrder>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
-    private readonly transactionManager: TransactionManager,
     auditLogService: AuditLogService,
   ) {
     super(customerRepository, auditLogService);
@@ -618,26 +625,122 @@ export class CustomerService extends BaseCrudService<
   }
 
   /**
+   * Permanently delete one customer in a transaction of its own (#1390): the
+   * soft-deleted orders, the audit row and the customer go together or not at
+   * all. The transaction's manager is used throughout and nothing on this
+   * shared instance is replaced, so calls can overlap each other and any other
+   * request.
+   *
+   * The customer row is locked FOR UPDATE before anything is counted. An
+   * insert or update that points an order or a payment at this customer takes
+   * a key-share lock on the row, which FOR UPDATE conflicts with: one already
+   * under way is waited for and then counted, and a later one waits for this
+   * transaction. FOR NO KEY UPDATE would let both through. The soft-deleted
+   * orders are locked the same way before their payments are counted.
+   */
+  private runPermanentDelete(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PermanentDeleteOutcome> {
+    return this.customerRepository.manager.transaction(async (manager) => {
+      const customer = await manager
+        .createQueryBuilder(Customer, 'customer')
+        .withDeleted()
+        .where('customer.id = :id', { id })
+        .setLock('pessimistic_write')
+        .getOne();
+
+      try {
+        ValidationUtil.validateForPermanentDelete(customer, 'Customer', id);
+      } catch (error) {
+        return { kind: 'invalid', error };
+      }
+
+      const deletedOrderIds = (
+        await manager
+          .createQueryBuilder(SalesOrder, 'salesOrder')
+          .withDeleted()
+          .select('salesOrder.id', 'id')
+          .where('salesOrder.customerId = :id', { id })
+          .andWhere('salesOrder.deletedAt IS NOT NULL')
+          .orderBy('salesOrder.id', 'ASC')
+          .setLock('pessimistic_write')
+          .getRawMany<{ id: string }>()
+      ).map((row) => row.id);
+
+      const dependencies = await this.countPermanentDeleteDependencies(
+        manager,
+        id,
+        deletedOrderIds,
+      );
+      if (dependencies.orders > 0 || dependencies.payments > 0) {
+        return { kind: 'blocked', customer, dependencies };
+      }
+
+      if (deletedOrderIds.length > 0) {
+        await manager.delete(SalesOrder, deletedOrderIds);
+      }
+
+      // Written by this transaction, not through AuditLogService: that service
+      // commits on its own connection and swallows a failed write, which left
+      // a "permanently deleted" row behind a deletion that rolled back.
+      await manager.insert(AuditLog, {
+        action: 'PERMANENT_DELETE',
+        entityType: 'Customer',
+        entityId: id,
+        description: `Permanently deleted customer: ${customer.name}`,
+        userId: userId || 'system',
+        username,
+        oldValues: {
+          name: customer.name,
+          phone: customer.phone,
+          type: customer.type,
+          priceListId: customer.priceListId,
+        } as any,
+      });
+
+      await manager.delete(Customer, id);
+      return { kind: 'deleted' };
+    });
+  }
+
+  /**
    * Rows that hold a customer in place: `sales_orders.customerId` and
    * `payments.customerId` are both ON DELETE RESTRICT. Orders that are
    * soft-deleted are not counted, because permanent deletion removes them
    * first. Payments are counted whether soft-deleted or not: nothing removes
    * them, and the foreign key does not look at `deletedAt` (#1368).
+   *
+   * A payment recorded against one of the soft-deleted orders holds the
+   * customer too, whichever customer the payment names:
+   * `payments.salesOrderId` is ON DELETE RESTRICT, so the order cannot be
+   * removed from under it (#1390).
    */
   private async countPermanentDeleteDependencies(
+    manager: EntityManager,
     customerId: string,
-  ): Promise<{ orders: number; payments: number }> {
-    const orders = await this.salesOrderRepository.count({
+    deletedOrderIds: string[],
+  ): Promise<PermanentDeleteDependencies> {
+    const orders = await manager.count(SalesOrder, {
       where: { customerId },
       withDeleted: false,
     });
-    const payments = await this.paymentRepository.count({
-      where: { customerId },
-      withDeleted: true,
-    });
+    const paymentQuery = manager
+      .createQueryBuilder(Payment, 'payment')
+      .withDeleted()
+      .where('payment.customerId = :customerId', { customerId });
+    if (deletedOrderIds.length > 0) {
+      paymentQuery.orWhere('payment.salesOrderId IN (:...deletedOrderIds)', { deletedOrderIds });
+    }
+    const payments = await paymentQuery.getCount();
     return { orders, payments };
   }
 
+  /**
+   * Each customer is deleted in its own transaction, so one that fails or is
+   * refused is left exactly as it was and the rest still go through.
+   */
   async bulkPermanentDelete(
     customerIds: string[],
     userId?: string,
@@ -652,23 +755,17 @@ export class CustomerService extends BaseCrudService<
 
     for (const customerId of customerIds) {
       try {
-        // Verify customer exists and is soft-deleted
-        const customer = await this.customerRepository.findOne({
-          where: { id: customerId },
-          withDeleted: true,
-        });
+        const outcome = await this.runPermanentDelete(customerId, userId, username);
 
-        // Use standardized validation
-        try {
-          ValidationUtil.validateForPermanentDelete(customer, 'Customer', customerId);
-        } catch (error) {
-          BulkOperationUtil.addFailure(failedItems, customerId, error.message, 'VALIDATION_ERROR');
-          continue;
-        }
-
-        const dependencies = await this.countPermanentDeleteDependencies(customerId);
-
-        if (dependencies.orders > 0 || dependencies.payments > 0) {
+        if (outcome.kind === 'invalid') {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            customerId,
+            outcome.error.message,
+            'VALIDATION_ERROR',
+          );
+        } else if (outcome.kind === 'blocked') {
+          const { customer, dependencies } = outcome;
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
@@ -679,42 +776,9 @@ export class CustomerService extends BaseCrudService<
               dependencies,
             },
           );
-          continue;
+        } else {
+          successCount++;
         }
-
-        // Before deleting customer, permanently delete any soft-deleted related records
-        // This prevents foreign key constraint violations
-        await Promise.all([
-          // Delete soft-deleted sales orders
-          this.salesOrderRepository
-            .createQueryBuilder()
-            .delete()
-            .where('customerId = :customerId', { customerId })
-            .andWhere('deletedAt IS NOT NULL')
-            .execute(),
-        ]);
-
-        // Log audit trail for permanent delete
-        await this.auditLogService.log(
-          'PERMANENT_DELETE',
-          'Customer',
-          `Permanently deleted customer: ${customer.name}`,
-          {
-            entityId: customerId,
-            userId: userId || 'system',
-            username,
-            oldValues: {
-              name: customer.name,
-              phone: customer.phone,
-              type: customer.type,
-              priceListId: customer.priceListId,
-            },
-          },
-        );
-
-        // Perform hard delete
-        await this.customerRepository.delete(customerId);
-        successCount++;
       } catch (error) {
         BulkOperationUtil.addFailure(failedItems, customerId, error.message, 'UNEXPECTED_ERROR');
       }
@@ -728,20 +792,15 @@ export class CustomerService extends BaseCrudService<
     );
   }
 
-  @Transactional('Customer permanent deletion')
   async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
-    // Verify customer exists and is soft-deleted
-    const customer = await this.customerRepository.findOne({
-      where: { id },
-      withDeleted: true,
-    });
+    const outcome = await this.runPermanentDelete(id, userId, username);
 
-    // Use standardized validation
-    ValidationUtil.validateForPermanentDelete(customer, 'Customer', id);
+    if (outcome.kind === 'invalid') {
+      throw outcome.error;
+    }
 
-    const dependencies = await this.countPermanentDeleteDependencies(id);
-
-    if (dependencies.orders > 0 || dependencies.payments > 0) {
+    if (outcome.kind === 'blocked') {
+      const { customer, dependencies } = outcome;
       const errorResponse = {
         message: `Cannot permanently delete customer '${customer.name}' because it has ${namePermanentDeleteDependencies(dependencies)}`,
         code: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
@@ -757,39 +816,6 @@ export class CustomerService extends BaseCrudService<
       // Use BadRequestException with the full error object
       throw new BadRequestException(errorResponse);
     }
-
-    // Before deleting customer, permanently delete any soft-deleted related records
-    // This prevents foreign key constraint violations
-    await Promise.all([
-      // Delete soft-deleted sales orders
-      this.salesOrderRepository
-        .createQueryBuilder()
-        .delete()
-        .where('customerId = :customerId', { customerId: id })
-        .andWhere('deletedAt IS NOT NULL')
-        .execute(),
-    ]);
-
-    // Log audit trail for permanent delete
-    await this.auditLogService.log(
-      'PERMANENT_DELETE',
-      'Customer',
-      `Permanently deleted customer: ${customer.name}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          name: customer.name,
-          phone: customer.phone,
-          type: customer.type,
-          priceListId: customer.priceListId,
-        },
-      },
-    );
-
-    // Perform hard delete
-    await this.customerRepository.delete(id);
   }
 
   /**
