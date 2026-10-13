@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import type { RouteObject } from 'react-router-dom'
 
 let releaseSession: () => void = () => undefined
 const sessionReady = vi.fn(
@@ -9,9 +10,22 @@ const sessionReady = vi.fn(
 )
 vi.mock('@/session', () => ({ sessionReady: () => sessionReady() }))
 
-import { authRoutes } from '../auth.routes'
-import { store } from '@/store'
-import { sessionEstablished, sessionEnded, storageUnavailable } from '@/store/slices/authSlice'
+// The loaders read the application's store. `storageUnavailable` is set by one
+// reducer and cleared by none, `sessionEnded` included, so a store shared by the
+// file carried it into whichever test ran next (#1387). Each test loads the
+// routes, and the store they read, afresh.
+let authRoutes: RouteObject[]
+let store: (typeof import('@/store'))['store']
+let sessionEstablished: (typeof import('@/store/slices/authSlice'))['sessionEstablished']
+let sessionEnded: (typeof import('@/store/slices/authSlice'))['sessionEnded']
+let storageUnavailable: (typeof import('@/store/slices/authSlice'))['storageUnavailable']
+
+beforeEach(async () => {
+  vi.resetModules()
+  ;({ authRoutes } = await import('../auth.routes'))
+  ;({ store } = await import('@/store'))
+  ;({ sessionEstablished, sessionEnded, storageUnavailable } = await import('@/store/slices/authSlice'))
+})
 
 const session = {
   sessionId: 's1',
@@ -56,7 +70,18 @@ describe('auth routes', () => {
     expect(await loading).toBeNull()
   })
 
+  // RootLayout shows the storage-unavailable screen in place of the route.
+  // Declared before the redirect below on purpose: on a shared store this
+  // order fails the redirect without any shuffling (#1387).
+  it('/change-password-required does not redirect when storage is unavailable', async () => {
+    store.dispatch(storageUnavailable())
+    const loading = load('/change-password-required')
+    releaseSession()
+    expect(await loading).toBeNull()
+  })
+
   it('/change-password-required opened without a session redirects to /login', async () => {
+    expect(store.getState().auth.storageUnavailable).toBe(false)
     store.dispatch(sessionEnded())
     const loading = load('/change-password-required')
     releaseSession()
@@ -64,13 +89,5 @@ describe('auth routes', () => {
     expect(response).toBeInstanceOf(Response)
     expect(response.status).toBe(302)
     expect(response.headers.get('Location')).toBe('/login')
-  })
-
-  // RootLayout shows the storage-unavailable screen in place of the route.
-  it('/change-password-required does not redirect when storage is unavailable', async () => {
-    store.dispatch(storageUnavailable())
-    const loading = load('/change-password-required')
-    releaseSession()
-    expect(await loading).toBeNull()
   })
 })

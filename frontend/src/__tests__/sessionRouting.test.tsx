@@ -356,6 +356,11 @@ describe('the mandatory password-change page', () => {
     await act(async () => {
       await router.navigate(PROTECTED_PATH)
     })
+    // The router has settled by now, and still shows the page it left until the
+    // one it went to can render. That one is a lazy import, and its first load
+    // in a run outlasts the navigation: this passed only after another test had
+    // rendered a protected route, and failed run by itself (#1387).
+    await screen.findByRole('heading', { name: /page not found/i })
     expect(screen.queryByRole('heading', { name: /password change required/i })).not.toBeInTheDocument()
 
     await act(async () => {

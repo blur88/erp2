@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --run --coverage",
+    "test:cold-route": "node scripts/run-one-test.mjs src/__tests__/sessionRouting.test.tsx \"a page left while its change is in flight\"",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
