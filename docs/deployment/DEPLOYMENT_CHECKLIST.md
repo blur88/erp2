@@ -189,6 +189,36 @@ first production deployment.
       426 `CLIENT_RELOAD_REQUIRED` on sign-in, registration and refresh
 - [ ] After deploy, run `nginx/verify-rate-limits.sh` on the deployment host
 
+### Sales delete and restore are removed (#1390)
+
+#1390 removes soft delete, restore and permanent delete from the sales module:
+customers, sales orders and payments, routes and service methods. The
+`deletedAt` column stays (it belongs to the shared base entity), and the lists
+still filter on it. A row that is **already** soft-deleted therefore stays
+hidden after this deploy, and the application has no way left to restore or
+remove it.
+
+Whether production holds such rows is **not known**. The development database
+held none on 2026-10-13; that says nothing about production.
+
+- [ ] Before deploy, run the read-only preflight against the production
+      database and record its output in the deployment record:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < backend/scripts/preflight-sales-soft-deleted.sql
+```
+
+- [ ] **Pass**: `customers`, `sales_orders` and `payments` each report `0`, and
+      the id listing is empty. Deploy.
+- [ ] **Hold**: any count above `0`. Do not deploy. Report the counts and the
+      listed ids, and wait for a disposition decision for those rows. Do not
+      restore or purge them to make the preflight pass; nothing in this change
+      does either.
+
+The script runs in `BEGIN READ ONLY … ROLLBACK` and writes nothing. No migration
+ships with #1390.
+
 ### Customer order metrics are recalculated at deploy (#1355)
 
 Migration `RecalculateCustomerMetricsFromFulfilledOrders1791611629594` **rewrites

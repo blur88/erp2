@@ -2,15 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { applyPagination } from '../../../common/pagination/apply-pagination';
-import { BaseCrudService } from '../../../common/services/base-crud.service';
-import { AuditLog } from '../../../database/entities/audit-log.entity';
 import { Customer } from '../../../database/entities/customer.entity';
-import { Payment } from '../../../database/entities/payment.entity';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import {
   CreateCustomerDto,
@@ -32,11 +28,6 @@ import {
   BOOST_CUSTOMER,
   BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
-import {
-  ValidationUtil,
-  BulkOperationUtil,
-  BulkOperationResponse,
-} from '../../../common/utils/validation.util';
 import { recalculateCustomerMetrics } from './customer-metrics';
 import { AuditLogService } from '../../audit-logs/services';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
@@ -69,108 +60,15 @@ const CUSTOMER_METRIC_COLUMNS: ReadonlySet<string> = new Set([
   'lastPurchaseDate',
 ]);
 
-interface PermanentDeleteDependencies {
-  orders: number;
-  payments: number;
-}
-
-/**
- * How one customer's permanent deletion ended. Only `deleted` wrote anything;
- * the other two commit a transaction that took locks and changed no row.
- */
-type PermanentDeleteOutcome =
-  | { kind: 'deleted' }
-  | { kind: 'invalid'; error: Error }
-  | { kind: 'blocked'; customer: Customer; dependencies: PermanentDeleteDependencies };
-
-function describePermanentDeleteDependencies(dependencies: PermanentDeleteDependencies): string {
-  const parts: string[] = [];
-  if (dependencies.orders > 0) {
-    parts.push(`${dependencies.orders} active order${dependencies.orders > 1 ? 's' : ''}`);
-  }
-  if (dependencies.payments > 0) {
-    parts.push(`${dependencies.payments} payment${dependencies.payments > 1 ? 's' : ''}`);
-  }
-  return parts.join(' and ');
-}
-
-/** What holds the customer, without counts: the only part of a refusal that reaches the client. */
-function namePermanentDeleteDependencies(dependencies: PermanentDeleteDependencies): string {
-  const names: string[] = [];
-  if (dependencies.orders > 0) {
-    names.push('sales orders');
-  }
-  if (dependencies.payments > 0) {
-    names.push('payments');
-  }
-  return names.join(' and ');
-}
-
 @Injectable()
-export class CustomerService extends BaseCrudService<
-  Customer,
-  CreateCustomerDto,
-  UpdateCustomerDto,
-  QueryCustomersDto
-> {
+export class CustomerService {
   constructor(
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
-    @InjectRepository(Payment)
-    private readonly paymentRepository: Repository<Payment>,
-    auditLogService: AuditLogService,
-  ) {
-    super(customerRepository, auditLogService);
-  }
-
-  getEntityType(): string {
-    return 'Customer';
-  }
-
-  buildWhereClause(query: QueryCustomersDto): FindOptionsWhere<Customer> {
-    const where: FindOptionsWhere<Customer> = {};
-
-    if (query.type !== undefined && query.type !== null) where.type = query.type;
-    if (query.isActive !== undefined) where.isActive = query.isActive;
-
-    return where;
-  }
-
-  protected applyQueryBuilder(qb: any, query: QueryCustomersDto): any {
-    qb = qb.leftJoinAndSelect('customer.priceList', 'priceList');
-
-    if (query.priceListId) {
-      qb = qb.andWhere('customer.priceListId = :priceListId', {
-        priceListId: query.priceListId,
-      });
-    }
-
-    return qb;
-  }
-
-  protected async afterDelete(entity: Customer): Promise<void> {
-    const activeOrderCount = await this.salesOrderRepository.count({
-      where: { customerId: entity.id },
-    });
-
-    if (activeOrderCount > 0) {
-      throw new BadRequestException({
-        message: `Cannot delete customer '${entity.name}' because they have ${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}.`,
-        code: 'DELETION_PREVENTED_BY_DEPENDENCIES',
-        customerName: entity.name,
-        customerId: entity.id,
-        dependencies: {
-          orders: activeOrderCount,
-        },
-        suggestions: [
-          `Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? '' : 's'} first`,
-        ],
-        details: `Customer '${entity.name}' (${entity.id}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`,
-      });
-    }
-  }
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async create(
     createCustomerDto: CreateCustomerDto,
@@ -337,37 +235,6 @@ export class CustomerService extends BaseCrudService<
     };
   }
 
-  async findDeleted(query: QueryCustomersDto) {
-    const { search, sortBy = 'name', sortOrder = 'ASC' } = query;
-
-    const queryBuilder = this.customerRepository
-      .createQueryBuilder('customer')
-      .where('customer.deletedAt IS NOT NULL')
-      .withDeleted(); // Include soft-deleted records
-
-    // Add search conditions
-    if (search) {
-      queryBuilder.andWhere('(customer.name ILIKE :search OR customer.phone ILIKE :search)', {
-        search: `%${search}%`,
-      });
-    }
-
-    // Add case-insensitive ordering for name field, regular ordering for others
-    const sortField = CUSTOMER_SORTABLE_FIELDS.find((field) => field === sortBy) ?? 'name';
-    if (sortField === 'name') {
-      queryBuilder.orderBy('UPPER(customer.name)', sortOrder);
-    } else {
-      queryBuilder.orderBy(`customer.${sortField}`, sortOrder);
-    }
-
-    const customers = await queryBuilder.getMany();
-
-    return {
-      data: customers.map((customer) => this.mapToResponseDto(customer)),
-      total: customers.length,
-    };
-  }
-
   async findSummaries(): Promise<CustomerSummaryDto[]> {
     const customers = await this.customerRepository.find({
       where: { isActive: true },
@@ -473,35 +340,6 @@ export class CustomerService extends BaseCrudService<
     return this.mapToResponseDto(savedCustomer);
   }
 
-  async restore(id: string, userId?: string, username?: string): Promise<CustomerResponseDto> {
-    // Find the customer first to validate
-    const customer = await this.customerRepository.findOne({
-      where: { id },
-      withDeleted: true,
-    });
-
-    // Use standardized validation
-    ValidationUtil.validateForRestore(customer, 'Customer', id);
-
-    // Restore the customer
-    await this.customerRepository.restore(id);
-
-    // Log audit trail
-    await this.auditLogService.log('RESTORE', 'Customer', `Restored customer: ${customer.name}`, {
-      entityId: id,
-      userId: userId || 'system',
-      username,
-      newValues: {
-        name: customer.name,
-        phone: customer.phone,
-      },
-    });
-
-    return this.mapToResponseDto(customer);
-  }
-
-  // Credit management methods removed - fields don't exist in current entity
-
   async getSalesHistory(customerId: string) {
     await this.findCustomerEntity(customerId); // Verify customer exists
 
@@ -570,252 +408,6 @@ export class CustomerService extends BaseCrudService<
         lastPaymentDate: paymentStats.lastPaymentDate,
       },
     };
-  }
-
-  async bulkRestore(
-    customerIds: string[],
-    userId?: string,
-    username?: string,
-  ): Promise<BulkOperationResponse> {
-    if (!customerIds || customerIds.length === 0) {
-      return BulkOperationUtil.createResponse('restored', 'customer', 0, []);
-    }
-
-    const failedItems = [];
-    let successCount = 0;
-
-    for (const customerId of customerIds) {
-      try {
-        // Verify customer exists and is deleted
-        const customer = await this.customerRepository.findOne({
-          where: { id: customerId },
-          withDeleted: true,
-        });
-
-        // Use standardized validation
-        try {
-          ValidationUtil.validateForRestore(customer, 'Customer', customerId);
-        } catch (error) {
-          BulkOperationUtil.addFailure(failedItems, customerId, error.message, 'VALIDATION_ERROR');
-          continue;
-        }
-
-        await this.customerRepository.restore(customerId);
-        await this.auditLogService.log(
-          'RESTORE',
-          'Customer',
-          `Restored customer: ${customer.name}`,
-          {
-            entityId: customerId,
-            userId: userId || 'system',
-            username,
-            newValues: {
-              name: customer.name,
-              phone: customer.phone,
-            },
-          },
-        );
-        successCount++;
-      } catch (error) {
-        BulkOperationUtil.addFailure(failedItems, customerId, error.message, 'UNEXPECTED_ERROR');
-      }
-    }
-
-    return BulkOperationUtil.createResponse('restored', 'customer', successCount, failedItems);
-  }
-
-  /**
-   * Permanently delete one customer in a transaction of its own (#1390): the
-   * soft-deleted orders, the audit row and the customer go together or not at
-   * all. The transaction's manager is used throughout and nothing on this
-   * shared instance is replaced, so calls can overlap each other and any other
-   * request.
-   *
-   * The customer row is locked FOR UPDATE before anything is counted. An
-   * insert or update that points an order or a payment at this customer takes
-   * a key-share lock on the row, which FOR UPDATE conflicts with: one already
-   * under way is waited for and then counted, and a later one waits for this
-   * transaction. FOR NO KEY UPDATE would let both through. The soft-deleted
-   * orders are locked the same way before their payments are counted.
-   */
-  private runPermanentDelete(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<PermanentDeleteOutcome> {
-    return this.customerRepository.manager.transaction(async (manager) => {
-      const customer = await manager
-        .createQueryBuilder(Customer, 'customer')
-        .withDeleted()
-        .where('customer.id = :id', { id })
-        .setLock('pessimistic_write')
-        .getOne();
-
-      try {
-        ValidationUtil.validateForPermanentDelete(customer, 'Customer', id);
-      } catch (error) {
-        return { kind: 'invalid', error };
-      }
-
-      const deletedOrderIds = (
-        await manager
-          .createQueryBuilder(SalesOrder, 'salesOrder')
-          .withDeleted()
-          .select('salesOrder.id', 'id')
-          .where('salesOrder.customerId = :id', { id })
-          .andWhere('salesOrder.deletedAt IS NOT NULL')
-          .orderBy('salesOrder.id', 'ASC')
-          .setLock('pessimistic_write')
-          .getRawMany<{ id: string }>()
-      ).map((row) => row.id);
-
-      const dependencies = await this.countPermanentDeleteDependencies(
-        manager,
-        id,
-        deletedOrderIds,
-      );
-      if (dependencies.orders > 0 || dependencies.payments > 0) {
-        return { kind: 'blocked', customer, dependencies };
-      }
-
-      if (deletedOrderIds.length > 0) {
-        await manager.delete(SalesOrder, deletedOrderIds);
-      }
-
-      // Written by this transaction, not through AuditLogService: that service
-      // commits on its own connection and swallows a failed write, which left
-      // a "permanently deleted" row behind a deletion that rolled back.
-      await manager.insert(AuditLog, {
-        action: 'PERMANENT_DELETE',
-        entityType: 'Customer',
-        entityId: id,
-        description: `Permanently deleted customer: ${customer.name}`,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          name: customer.name,
-          phone: customer.phone,
-          type: customer.type,
-          priceListId: customer.priceListId,
-        } as any,
-      });
-
-      await manager.delete(Customer, id);
-      return { kind: 'deleted' };
-    });
-  }
-
-  /**
-   * Rows that hold a customer in place: `sales_orders.customerId` and
-   * `payments.customerId` are both ON DELETE RESTRICT. Orders that are
-   * soft-deleted are not counted, because permanent deletion removes them
-   * first. Payments are counted whether soft-deleted or not: nothing removes
-   * them, and the foreign key does not look at `deletedAt` (#1368).
-   *
-   * A payment recorded against one of the soft-deleted orders holds the
-   * customer too, whichever customer the payment names:
-   * `payments.salesOrderId` is ON DELETE RESTRICT, so the order cannot be
-   * removed from under it (#1390).
-   */
-  private async countPermanentDeleteDependencies(
-    manager: EntityManager,
-    customerId: string,
-    deletedOrderIds: string[],
-  ): Promise<PermanentDeleteDependencies> {
-    const orders = await manager.count(SalesOrder, {
-      where: { customerId },
-      withDeleted: false,
-    });
-    const paymentQuery = manager
-      .createQueryBuilder(Payment, 'payment')
-      .withDeleted()
-      .where('payment.customerId = :customerId', { customerId });
-    if (deletedOrderIds.length > 0) {
-      paymentQuery.orWhere('payment.salesOrderId IN (:...deletedOrderIds)', { deletedOrderIds });
-    }
-    const payments = await paymentQuery.getCount();
-    return { orders, payments };
-  }
-
-  /**
-   * Each customer is deleted in its own transaction, so one that fails or is
-   * refused is left exactly as it was and the rest still go through.
-   */
-  async bulkPermanentDelete(
-    customerIds: string[],
-    userId?: string,
-    username?: string,
-  ): Promise<BulkOperationResponse> {
-    if (!customerIds || customerIds.length === 0) {
-      return BulkOperationUtil.createResponse('permanently deleted', 'customer', 0, []);
-    }
-
-    const failedItems = [];
-    let successCount = 0;
-
-    for (const customerId of customerIds) {
-      try {
-        const outcome = await this.runPermanentDelete(customerId, userId, username);
-
-        if (outcome.kind === 'invalid') {
-          BulkOperationUtil.addFailure(
-            failedItems,
-            customerId,
-            outcome.error.message,
-            'VALIDATION_ERROR',
-          );
-        } else if (outcome.kind === 'blocked') {
-          const { customer, dependencies } = outcome;
-          BulkOperationUtil.addFailure(
-            failedItems,
-            customerId,
-            `Cannot permanently delete customer '${customer.name}' (${customer.id}) because it has ${describePermanentDeleteDependencies(dependencies)}.`,
-            'DEPENDENCY_ERROR',
-            {
-              customerName: customer.name,
-              dependencies,
-            },
-          );
-        } else {
-          successCount++;
-        }
-      } catch (error) {
-        BulkOperationUtil.addFailure(failedItems, customerId, error.message, 'UNEXPECTED_ERROR');
-      }
-    }
-
-    return BulkOperationUtil.createResponse(
-      'permanently deleted',
-      'customer',
-      successCount,
-      failedItems,
-    );
-  }
-
-  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
-    const outcome = await this.runPermanentDelete(id, userId, username);
-
-    if (outcome.kind === 'invalid') {
-      throw outcome.error;
-    }
-
-    if (outcome.kind === 'blocked') {
-      const { customer, dependencies } = outcome;
-      const errorResponse = {
-        message: `Cannot permanently delete customer '${customer.name}' because it has ${namePermanentDeleteDependencies(dependencies)}`,
-        code: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
-        customerName: customer.name,
-        customerId: customer.id,
-        dependencies,
-        details: `Customer '${customer.name}' (${customer.id}) has ${describePermanentDeleteDependencies(dependencies)}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
-        suggestions: [
-          'Keep this customer soft-deleted to preserve its history and keep it hidden.',
-        ],
-      };
-
-      // Use BadRequestException with the full error object
-      throw new BadRequestException(errorResponse);
-    }
   }
 
   /**

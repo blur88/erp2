@@ -222,22 +222,4 @@ export class PaymentController {
 
     return this.paymentService.getPaymentStatistics(query.customerId, fromDateObj, toDateObj);
   }
-
-  @Post(':id/restore')
-  @ApiOperation({ summary: 'Restore a deleted payment' })
-  @ApiParam({ name: 'id', description: 'Payment ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment restored successfully',
-    type: PaymentResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Payment not found' })
-  async restorePayment(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<PaymentResponseDto> {
-    return this.paymentService.restore(id, currentUserId, currentUsername);
-  }
-
 }

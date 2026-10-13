@@ -35,7 +35,6 @@ import api from '@/services/api'
 import {
   useCreateCustomerMutation,
   useLazyGetCustomerBySlugQuery,
-  useRestoreCustomerMutation,
   useUpdateCustomerMutation,
 } from '@/store/api/salesApi'
 import type { Customer } from '@/types'
@@ -83,13 +82,6 @@ interface CustomerFormData {
   notes?: string | null
 }
 
-interface DuplicateNameResult {
-  exists: boolean
-  isInactive?: boolean
-  customer?: Customer
-  message?: string
-}
-
 const CustomerFormPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
@@ -108,12 +100,13 @@ const CustomerFormPage: React.FC = () => {
   const [loadingCustomer, setLoadingCustomer] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [sameAsBilling, setSameAsBilling] = useState(false)
-  const [duplicateNameResult, setDuplicateNameResult] = useState<DuplicateNameResult | null>(null)
+  // Set by the name check and cleared on the next keystroke, so the banner does
+  // not outlive the name it was about while the debounced check is pending.
+  const [nameDuplicateFound, setNameDuplicateFound] = useState(false)
 
   const [fetchCustomerBySlug] = useLazyGetCustomerBySlugQuery()
   const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation()
   const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation()
-  const [restoreCustomer, { isLoading: isRestoring }] = useRestoreCustomerMutation()
   const isSaving = isCreating || isUpdating
 
   const {
@@ -218,15 +211,9 @@ const CustomerFormPage: React.FC = () => {
 
   const phoneCheckFn = useCallback(async (phone: string, excludeId?: string) => {
     const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '')
-    const [activeResponse, deletedResponse] = await Promise.all([
-      api.get('/customers', { params: { search: phone } }),
-      api.get('/customers/deleted', { params: { search: phone } }),
-    ])
-    const allCustomers = [
-      ...(activeResponse.data?.data || []),
-      ...(deletedResponse.data?.data || []),
-    ]
-    const duplicateCustomer = allCustomers.find((current: Customer) => {
+    const response = await api.get('/customers', { params: { search: phone } })
+    const customers: Customer[] = response.data?.data || []
+    const duplicateCustomer = customers.find((current: Customer) => {
       if (!current.phone) {
         return false
       }
@@ -247,31 +234,16 @@ const CustomerFormPage: React.FC = () => {
     excludeId?: string,
   ): Promise<{ exists: boolean; message?: string }> => {
     const normalizedName = name.trim().toLowerCase()
-    const [activeResponse, deletedResponse] = await Promise.all([
-      api.get('/customers', { params: { search: name } }),
-      api.get('/customers/deleted', { params: { search: name } }),
-    ])
-    const activeCustomers: Customer[] = activeResponse.data?.data || []
-    const deletedCustomers: Customer[] = deletedResponse.data?.data || []
-
-    const activeDuplicate = activeCustomers.find(
+    const response = await api.get('/customers', { params: { search: name } })
+    const customers: Customer[] = response.data?.data || []
+    const duplicate = customers.find(
       (current) => current.name.trim().toLowerCase() === normalizedName && current.id !== excludeId,
     )
-    if (activeDuplicate) {
-      setDuplicateNameResult({ exists: true, isInactive: false, customer: activeDuplicate })
-      return { exists: true, message: 'A customer with this name already exists' }
-    }
 
-    const inactiveDuplicate = deletedCustomers.find(
-      (current) => current.name.trim().toLowerCase() === normalizedName && current.id !== excludeId,
-    )
-    if (inactiveDuplicate) {
-      setDuplicateNameResult({ exists: true, isInactive: true, customer: inactiveDuplicate })
-      return { exists: true, message: 'An inactive customer with this name exists' }
-    }
-
-    setDuplicateNameResult(null)
-    return { exists: false }
+    setNameDuplicateFound(!!duplicate)
+    return duplicate
+      ? { exists: true, message: 'A customer with this name already exists' }
+      : { exists: false }
   }, [])
 
   const {
@@ -294,12 +266,12 @@ const CustomerFormPage: React.FC = () => {
   })
 
   useEffect(() => {
-    setDuplicateNameResult(null)
+    setNameDuplicateFound(false)
   }, [watchedName])
 
   useEffect(() => {
     if (!hasNameDuplicate) {
-      setDuplicateNameResult(null)
+      setNameDuplicateFound(false)
     }
   }, [hasNameDuplicate])
 
@@ -313,20 +285,6 @@ const CustomerFormPage: React.FC = () => {
 
   const handleCancel = () => {
     navigate(cancelDestination)
-  }
-
-  const handleReactivate = async () => {
-    if (!duplicateNameResult?.customer) {
-      return
-    }
-
-    try {
-      await restoreCustomer(duplicateNameResult.customer.id).unwrap()
-      showSuccess('Customer reactivated successfully')
-      navigate(cancelDestination)
-    } catch {
-      showError('Failed to reactivate customer')
-    }
   }
 
   const handleFormSubmit = async (data: CustomerFormData) => {
@@ -456,28 +414,9 @@ const CustomerFormPage: React.FC = () => {
                       )}
                     />
 
-                    {hasNameDuplicate && duplicateNameResult?.isInactive === false && (
+                    {hasNameDuplicate && nameDuplicateFound && (
                       <Alert severity="warning" sx={{ mt: 1 }}>
                         A customer with this name already exists.
-                      </Alert>
-                    )}
-
-                    {hasNameDuplicate && duplicateNameResult?.isInactive === true && (
-                      <Alert
-                        severity="info"
-                        sx={{ mt: 1 }}
-                        action={
-                          <Button
-                            size="small"
-                            onClick={handleReactivate}
-                            disabled={isRestoring}
-                            startIcon={isRestoring ? <CircularProgress size={14} /> : undefined}
-                          >
-                            Reactivate
-                          </Button>
-                        }
-                      >
-                        This customer is inactive. Would you like to reactivate them?
                       </Alert>
                     )}
                   </Grid>

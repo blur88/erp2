@@ -175,20 +175,40 @@ describe("Sales (e2e)", () => {
       expect(res.body.name).toBe("Acme Corporation Ltd");
     });
 
-    it("DELETE /customers/:id — soft-deletes the customer", async () => {
+    /**
+     * #1390: the sales module has no soft delete, restore or permanent delete.
+     * Each of these was a route, or was called by the frontend as one. The two
+     * `deleted` lists now reach the `:id` route and are refused as a bad id.
+     */
+    it.each([
+      ["delete", "/customers/:id", 404],
+      ["get", "/customers/deleted", 400],
+      ["post", "/customers/:id/restore", 404],
+      ["post", "/customers/bulk-restore", 404],
+      ["delete", "/customers/:id/permanent", 404],
+      ["post", "/customers/bulk-permanent-delete", 404],
+      ["delete", "/sales-orders/:id", 404],
+      ["get", "/sales-orders/deleted", 400],
+      ["post", "/sales-orders/:id/restore", 404],
+      ["post", "/sales-orders/bulk-restore", 404],
+      ["delete", "/sales-orders/:id/permanent", 404],
+      ["post", "/sales-orders/bulk-permanent-delete", 404],
+      ["delete", "/payments/:id", 404],
+      ["post", "/payments/:id/restore", 404],
+    ] as const)("%s %s is not a route", async (method, path, status) => {
       await request(app.getHttpServer())
-        .delete(`/customers/${customerId}`)
+        [method](path.replace(":id", customerId))
         .set("Authorization", `Bearer ${accessToken}`)
-        .expect(204);
+        .send(method === "post" ? { customerIds: [customerId], ids: [customerId] } : undefined)
+        .expect(status);
     });
 
-    it("POST /customers/:id/restore — restores the customer", async () => {
-      const res = await request(app.getHttpServer())
-        .post(`/customers/${customerId}/restore`)
-        .set("Authorization", `Bearer ${accessToken}`)
-        .expect(201);
+    it("the customer those requests named is still there and not soft-deleted", async () => {
+      const rows = await dataSource.query(`SELECT "deletedAt" FROM customers WHERE id = $1`, [
+        customerId,
+      ]);
 
-      expect(res.body.id).toBe(customerId);
+      expect(rows).toEqual([{ deletedAt: null }]);
     });
   });
 
