@@ -4,7 +4,6 @@ import { default as PaymentIcon } from '@mui/icons-material/Payment'
 import GenericDeletedDialog, { type ColumnDef } from '@/components/common/GenericDeletedDialog'
 import {
   useGetDeletedPaymentMethodsQuery,
-  usePermanentDeletePaymentMethodMutation,
   useRestorePaymentMethodMutation,
 } from '@/store/api/paymentMethodsApi'
 import type { PaymentMethodConfig } from '@/types'
@@ -65,7 +64,6 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
     queryArg={undefined}
     getItems={(data) => (Array.isArray(data) ? data : [])}
     useRestoreMutation={useRestorePaymentMethodMutation}
-    usePermanentDeleteMutation={usePermanentDeletePaymentMethodMutation}
   />
 )
 

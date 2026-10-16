@@ -7,8 +7,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
-import { Payment } from '../../../database/entities/payment.entity';
-import { ExpensePayment } from '../../../modules/accounting/entities/expense-payment.entity';
 import { applyPagination } from '@/common/pagination/apply-pagination';
 import {
   CreatePaymentMethodDto,
@@ -25,10 +23,6 @@ export class PaymentMethodService {
   constructor(
     @InjectRepository(PaymentMethodEntity)
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
-    @InjectRepository(Payment)
-    private readonly paymentRepository: Repository<Payment>,
-    @InjectRepository(ExpensePayment)
-    private readonly expensePaymentRepository: Repository<ExpensePayment>,
   ) {}
 
   async findAll(query: QueryPaymentMethodsDto): Promise<PaymentMethodListResponseDto> {
@@ -156,45 +150,6 @@ export class PaymentMethodService {
     }
 
     await this.paymentMethodRepository.restore(id);
-  }
-
-  async permanentDelete(id: string): Promise<void> {
-    const pm = await this.paymentMethodRepository.findOne({
-      where: { id },
-      withDeleted: true,
-    });
-
-    if (!pm || !pm.deletedAt) {
-      throw new NotFoundException(
-        `Deleted payment method ${id} not found for permanent deletion`,
-      );
-    }
-
-    const [paymentCount, expensePaymentCount] = await Promise.all([
-      this.paymentRepository.count({
-        where: { paymentMethodId: id, deletedAt: IsNull() as any },
-        withDeleted: true,
-      }),
-      this.expensePaymentRepository.count({
-        where: { paymentMethodId: id, deletedAt: IsNull() as any },
-        withDeleted: true,
-      }),
-    ]);
-
-    if (paymentCount > 0 || expensePaymentCount > 0) {
-      throw new ConflictException(
-        `Cannot permanently delete payment method "${pm.code}" because it is referenced by ${paymentCount} payment(s) and ${expensePaymentCount} expense payment(s).`,
-      );
-    }
-
-    // Hard-delete any soft-deleted payments referencing this method so FK doesn't block
-    await this.paymentRepository
-      .createQueryBuilder()
-      .delete()
-      .where('"paymentMethodId" = :id AND "deletedAt" IS NOT NULL', { id })
-      .execute();
-
-    await this.paymentMethodRepository.delete(id);
   }
 
   async getActiveList(forPurchases?: boolean): Promise<PaymentMethodResponseDto[]> {

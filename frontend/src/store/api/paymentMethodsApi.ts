@@ -53,10 +53,6 @@ export const paymentMethodsApiSlice = createApi({
       query: (id) => ({ url: `${BASE_URL}/${id}/restore`, method: 'POST' }),
       invalidatesTags: ['PaymentMethod', 'DeletedPaymentMethod'],
     }),
-    permanentDeletePaymentMethod: builder.mutation<void, string>({
-      query: (id) => ({ url: `${BASE_URL}/${id}/permanent`, method: 'DELETE' }),
-      invalidatesTags: ['DeletedPaymentMethod'],
-    }),
   }),
 })
 
@@ -70,5 +66,4 @@ export const {
   useUpdatePaymentMethodMutation,
   useDeletePaymentMethodMutation,
   useRestorePaymentMethodMutation,
-  usePermanentDeletePaymentMethodMutation,
 } = paymentMethodsApiSlice
