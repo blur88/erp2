@@ -1,9 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, Like } from 'typeorm';
+import type { EntityManager } from 'typeorm';
 import { AuditLog } from '@/database/entities/audit-log.entity';
 import { CreateAuditLogDto, QueryAuditLogsDto } from '../dto';
 import { paginationOptions } from '@/common/pagination/apply-pagination';
+
+export interface AuditLogOptions {
+  entityId?: string;
+  userId?: string;
+  username?: string;
+  oldValues?: any;
+  newValues?: any;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: any;
+}
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -39,40 +51,62 @@ export class AuditLogService {
   }
 
   /**
+   * Build the audit log entry payload shared by every write path.
+   */
+  private buildEntry(
+    action: string,
+    entityType: string,
+    description: string,
+    options?: AuditLogOptions,
+  ): CreateAuditLogDto {
+    return {
+      userId: options?.userId || 'system',
+      username: options?.username,
+      action,
+      entityType,
+      entityId: options?.entityId,
+      description,
+      oldValues: options?.oldValues,
+      newValues: options?.newValues,
+      ipAddress: options?.ipAddress,
+      userAgent: options?.userAgent,
+      metadata: options?.metadata,
+    };
+  }
+
+  /**
    * Log an action (simplified method for easier use)
    */
   async log(
     action: string,
     entityType: string,
     description: string,
-    options?: {
-      entityId?: string;
-      userId?: string;
-      username?: string;
-      oldValues?: any;
-      newValues?: any;
-      ipAddress?: string;
-      userAgent?: string;
-      metadata?: any;
-    },
+    options?: AuditLogOptions,
   ): Promise<void> {
     try {
-      await this.create({
-        userId: options?.userId || 'system',
-        username: options?.username,
-        action,
-        entityType,
-        entityId: options?.entityId,
-        description,
-        oldValues: options?.oldValues,
-        newValues: options?.newValues,
-        ipAddress: options?.ipAddress,
-        userAgent: options?.userAgent,
-        metadata: options?.metadata,
-      });
+      await this.create(this.buildEntry(action, entityType, description, options));
     } catch (error) {
       this.logger.error(`Failed to log audit: ${error.message}`);
     }
+  }
+
+  /**
+   * Log an action through a caller-supplied EntityManager so the audit write
+   * participates in the caller's transaction. Errors are propagated, not
+   * swallowed, so a failed audit write rolls back the surrounding transaction.
+   */
+  async logInTransaction(
+    manager: EntityManager,
+    action: string,
+    entityType: string,
+    description: string,
+    options?: AuditLogOptions,
+  ): Promise<void> {
+    const auditLog = manager.create(
+      AuditLog,
+      this.buildEntry(action, entityType, description, options),
+    );
+    await manager.save(auditLog);
   }
 
   /**

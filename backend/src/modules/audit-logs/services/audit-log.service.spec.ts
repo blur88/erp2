@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { AuditLog } from '@/database/entities/audit-log.entity';
 import { AuditLogService } from './audit-log.service';
 
@@ -44,5 +44,48 @@ describe('AuditLogService', () => {
     const opts = (spy.mock.calls[0][0] as any);
     expect(opts.skip).toBe(20);
     expect(opts.take).toBe(20);
+  });
+
+  describe('logInTransaction', () => {
+    const createManager = (save: any): EntityManager =>
+      ({
+        create: (entity: new () => AuditLog, data: Partial<AuditLog>) =>
+          Object.assign(new entity(), data),
+        save,
+      }) as unknown as EntityManager;
+
+    it('logInTransaction saves through the given manager', async () => {
+      const save = (jest.fn as unknown as any)(async (entity: AuditLog) => entity);
+      const manager = createManager(save);
+
+      await service.logInTransaction(manager, 'VOID_VENDOR_PAYMENT', 'VendorPayment', 'Payment voided', {
+        entityId: 'payment-1',
+        userId: 'user-1',
+        metadata: { reason: 'duplicate' },
+      });
+
+      expect(save).toHaveBeenCalledTimes(1);
+      const saved = save.mock.calls[0][0] as AuditLog;
+      expect(saved).toBeInstanceOf(AuditLog);
+      expect(saved.action).toBe('VOID_VENDOR_PAYMENT');
+      expect(saved.entityType).toBe('VendorPayment');
+      expect(saved.entityId).toBe('payment-1');
+      expect(saved.userId).toBe('user-1');
+      expect(saved.metadata).toEqual({ reason: 'duplicate' });
+      expect(repo.create).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('logInTransaction propagates a save failure', async () => {
+      const manager = createManager(
+        (jest.fn as unknown as any)(async () => {
+          throw new Error('database unavailable');
+        }),
+      );
+
+      await expect(
+        service.logInTransaction(manager, 'VOID_VENDOR_PAYMENT', 'VendorPayment', 'Payment voided'),
+      ).rejects.toThrow('database unavailable');
+    });
   });
 });
