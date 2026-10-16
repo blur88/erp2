@@ -81,8 +81,12 @@ describe('payment methods cannot be permanently deleted (e2e, #1398 project 1)',
   afterAll(async () => {
     if (ds?.isInitialized) {
       // The suite's own row is test scaffolding, not business data, so it is
-      // removed by id rather than left behind as a soft-deleted method.
-      await ds.query('DELETE FROM payment_methods WHERE id = $1', [methodId]);
+      // removed by id rather than left behind as a soft-deleted method. When
+      // setup stopped before the row existed there is no id, and an empty
+      // string is not a uuid: Postgres would throw and skip the cleanup below.
+      if (methodId) {
+        await ds.query('DELETE FROM payment_methods WHERE id = $1', [methodId]);
+      }
       await removeSuiteTraces(ds, {
         userIds: [adminUserId],
         usernames: [adminUsername],
