@@ -98,16 +98,4 @@ export class PaymentMethodController {
   async restore(@Param('id') id: string): Promise<void> {
     return this.paymentMethodService.restore(id);
   }
-
-  @Delete(':id/permanent')
-  @Auth(UserRole.ADMIN)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary:
-      'Permanently delete a soft-deleted payment method (blocked when referenced by payments)',
-  })
-  @ApiParam({ name: 'id', description: 'Payment method ID' })
-  async permanentDelete(@Param('id') id: string): Promise<void> {
-    return this.paymentMethodService.permanentDelete(id);
-  }
 }

@@ -5,14 +5,10 @@ import { Repository } from 'typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { PaymentMethodService } from './payment-method.service';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
-import { Payment } from '../../../database/entities/payment.entity';
-import { ExpensePayment } from '../../../modules/accounting/entities/expense-payment.entity';
 
 describe('PaymentMethodService', () => {
   let service: PaymentMethodService;
   let paymentMethodRepository: any;
-  let paymentRepository: any;
-  let expensePaymentRepository: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -28,24 +24,6 @@ describe('PaymentMethodService', () => {
             save: (jest.fn as unknown as any)(),
             softDelete: (jest.fn as unknown as any)(),
             restore: (jest.fn as unknown as any)(),
-            delete: (jest.fn as unknown as any)(),
-          },
-        },
-        {
-          provide: getRepositoryToken(Payment),
-          useValue: {
-            count: (jest.fn as unknown as any)(),
-            createQueryBuilder: (jest.fn as unknown as any)().mockReturnValue({
-              delete: (jest.fn as unknown as any)().mockReturnThis(),
-              where: (jest.fn as unknown as any)().mockReturnThis(),
-              execute: (jest.fn as unknown as any)().mockResolvedValue({}),
-            }),
-          },
-        },
-        {
-          provide: getRepositoryToken(ExpensePayment),
-          useValue: {
-            count: (jest.fn as unknown as any)(),
           },
         },
       ],
@@ -53,8 +31,6 @@ describe('PaymentMethodService', () => {
 
     service = module.get<PaymentMethodService>(PaymentMethodService);
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
-    paymentRepository = module.get(getRepositoryToken(Payment));
-    expensePaymentRepository = module.get(getRepositoryToken(ExpensePayment));
   });
 
   it('should be defined', () => {
@@ -183,50 +159,6 @@ describe('PaymentMethodService', () => {
     await service.restore('pm-deleted');
 
     expect(paymentMethodRepository.restore).toHaveBeenCalledWith('pm-deleted');
-  });
-
-  it('permanentDelete should throw ConflictException when payment method has payments', async () => {
-    paymentMethodRepository.findOne.mockResolvedValue({
-      id: 'pm-1',
-      code: 'SHOPEE',
-      name: 'Shopee',
-      deletedAt: new Date(),
-    } as any);
-    paymentRepository.count.mockResolvedValue(2);
-    expensePaymentRepository.count.mockResolvedValue(0);
-
-    await expect(service.permanentDelete('pm-1')).rejects.toThrow(ConflictException);
-    expect(paymentMethodRepository.delete).not.toHaveBeenCalled();
-  });
-
-  it('permanentDelete should throw ConflictException when expense payments reference the method', async () => {
-    paymentMethodRepository.findOne.mockResolvedValue({
-      id: 'pm-1',
-      code: 'SHOPEE',
-      name: 'Shopee',
-      deletedAt: new Date(),
-    } as any);
-    paymentRepository.count.mockResolvedValue(0);
-    expensePaymentRepository.count.mockResolvedValue(2);
-
-    await expect(service.permanentDelete('pm-1')).rejects.toThrow(ConflictException);
-    expect(paymentMethodRepository.delete).not.toHaveBeenCalled();
-  });
-
-  it('permanentDelete should delete soft-deleted method when no references exist', async () => {
-    paymentMethodRepository.findOne.mockResolvedValue({
-      id: 'pm-1',
-      code: 'SHOPEE',
-      name: 'Shopee',
-      deletedAt: new Date(),
-    } as any);
-    paymentRepository.count.mockResolvedValue(0);
-    expensePaymentRepository.count.mockResolvedValue(0);
-    paymentMethodRepository.delete.mockResolvedValue({} as any);
-
-    await service.permanentDelete('pm-1');
-
-    expect(paymentMethodRepository.delete).toHaveBeenCalledWith('pm-1');
   });
 
   describe('PaymentMethodEntity accountingChannel', () => {
