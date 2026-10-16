@@ -10,7 +10,6 @@ const mockedApi = vi.hoisted(() => ({
   useUpdatePaymentMethodMutation: vi.fn(),
   useDeletePaymentMethodMutation: vi.fn(),
   useRestorePaymentMethodMutation: vi.fn(),
-  usePermanentDeletePaymentMethodMutation: vi.fn(),
 }));
 
 vi.mock('@/store/api/paymentMethodsApi', () => ({
@@ -20,7 +19,6 @@ vi.mock('@/store/api/paymentMethodsApi', () => ({
   useUpdatePaymentMethodMutation: mockedApi.useUpdatePaymentMethodMutation,
   useDeletePaymentMethodMutation: mockedApi.useDeletePaymentMethodMutation,
   useRestorePaymentMethodMutation: mockedApi.useRestorePaymentMethodMutation,
-  usePermanentDeletePaymentMethodMutation: mockedApi.usePermanentDeletePaymentMethodMutation,
 }));
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -58,7 +56,6 @@ describe('PaymentMethodsPage', () => {
       isFetching: false,
     });
     mockedApi.useRestorePaymentMethodMutation.mockReturnValue([vi.fn()]);
-    mockedApi.usePermanentDeletePaymentMethodMutation.mockReturnValue([vi.fn()]);
   });
 
   it('renders payment methods from RTK Query data', () => {

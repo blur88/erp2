@@ -18,6 +18,9 @@ describe('paymentMethodsApiSlice', () => {
     expect(typeof paymentMethodsApiSlice.endpoints.updatePaymentMethod).toBe('object')
     expect(typeof paymentMethodsApiSlice.endpoints.deletePaymentMethod).toBe('object')
     expect(typeof paymentMethodsApiSlice.endpoints.restorePaymentMethod).toBe('object')
-    expect(typeof paymentMethodsApiSlice.endpoints.permanentDeletePaymentMethod).toBe('object')
+  })
+
+  it('has no permanent-delete endpoint (#1398 project 1)', () => {
+    expect(paymentMethodsApiSlice.endpoints).not.toHaveProperty('permanentDeletePaymentMethod')
   })
 })
