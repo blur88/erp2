@@ -1,6 +1,10 @@
 import { ConflictException } from '@nestjs/common';
 import { PostingType } from '../../common/accounting-posting/enums';
-import { expectedVendorPaymentPostingType } from './vendor-payment-status';
+import {
+  LIVE_VENDOR_PAYMENT_SQL,
+  VENDOR_PAYMENT_VOIDED,
+  expectedVendorPaymentPostingType,
+} from './vendor-payment-status';
 
 function conflictMessage(error: unknown): { text: string; reason: string } {
   const response = (error as ConflictException).getResponse() as {
@@ -38,5 +42,16 @@ describe('expectedVendorPaymentPostingType', () => {
     expect(caught).toBeInstanceOf(ConflictException);
     expect(conflictMessage(caught).reason).toBe('zero_amount');
     expect(conflictMessage(caught).text).toEqual(expect.any(String));
+  });
+});
+
+describe('vendor payment void markers (#1401)', () => {
+  it('names the voided status', () => {
+    expect(VENDOR_PAYMENT_VOIDED).toBe('voided');
+  });
+
+  it('builds the live-row predicate from the given alias', () => {
+    expect(LIVE_VENDOR_PAYMENT_SQL('vp')).toBe(`vp.status <> 'voided'`);
+    expect(LIVE_VENDOR_PAYMENT_SQL('payment')).toBe(`payment.status <> 'voided'`);
   });
 });

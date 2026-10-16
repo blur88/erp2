@@ -2,6 +2,17 @@ import { ConflictException } from '@nestjs/common';
 import { PostingType } from '../../common/accounting-posting/enums';
 import { toMinorUnits } from '../../common/utils/money';
 
+/** The status a vendor payment carries once it has been voided (#1401). */
+export const VENDOR_PAYMENT_VOIDED = 'voided' as const;
+
+/**
+ * SQL predicate selecting live (non-voided) vendor payment rows for the given
+ * table alias (#1401). A voided payment is never unposted or soft-deleted
+ * again, so every live-row query must exclude it.
+ */
+export const LIVE_VENDOR_PAYMENT_SQL = (alias: string): string =>
+  `${alias}.status <> 'voided'`;
+
 /**
  * The posting type a vendor payment's original journal entry must carry,
  * derived from the sign of its amount (#1401).
