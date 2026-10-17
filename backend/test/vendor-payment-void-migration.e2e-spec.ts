@@ -1,5 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import * as fs from 'fs';
+import * as path from 'path';
 import { DataSource, QueryRunner } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
@@ -85,12 +87,17 @@ async function seedSupplier(qr: QueryRunner): Promise<void> {
   );
 }
 
-async function seedPo(qr: QueryRunner, poId: string, orderNumber: string): Promise<void> {
+async function seedPo(
+  qr: QueryRunner,
+  poId: string,
+  orderNumber: string,
+  paidAmount: string | number = 0,
+): Promise<void> {
   await seedSupplier(qr);
   await qr.query(
-    `INSERT INTO purchase_orders (id, "orderNumber", "orderDate", "supplierId")
-     VALUES ($1, $2, DATE '2026-01-10', $3)`,
-    [poId, orderNumber, SUPPLIER_ID],
+    `INSERT INTO purchase_orders (id, "orderNumber", "orderDate", "supplierId", "paidAmount")
+     VALUES ($1, $2, DATE '2026-01-10', $3, $4)`,
+    [poId, orderNumber, SUPPLIER_ID, paidAmount],
   );
 }
 
@@ -104,6 +111,7 @@ interface PaymentSeed {
   status?: string;
   isActive?: boolean;
   deletedAt?: Date | null;
+  createdAt?: Date | null;
 }
 
 async function seedPayment(qr: QueryRunner, payment: PaymentSeed): Promise<void> {
@@ -111,8 +119,8 @@ async function seedPayment(qr: QueryRunner, payment: PaymentSeed): Promise<void>
   await qr.query(
     `INSERT INTO vendor_payments
        (id, "supplierId", "purchaseOrderId", amount, "paymentDate", "paymentMethodId",
-        "referenceNumber", notes, status, "isActive", "deletedAt")
-     VALUES ($1, $2, $3, $4, DATE '2026-01-15', $5, $6, $7, $8, $9, $10)`,
+        "referenceNumber", notes, status, "isActive", "deletedAt", "createdAt")
+     VALUES ($1, $2, $3, $4, DATE '2026-01-15', $5, $6, $7, $8, $9, $10, COALESCE($11, now()))`,
     [
       payment.id,
       SUPPLIER_ID,
@@ -124,6 +132,7 @@ async function seedPayment(qr: QueryRunner, payment: PaymentSeed): Promise<void>
       payment.status ?? 'completed',
       payment.isActive ?? true,
       payment.deletedAt ?? null,
+      payment.createdAt ?? null,
     ],
   );
 }
@@ -222,6 +231,111 @@ async function voidFk(
       WHERE conrelid = 'vendor_payments'::regclass
         AND conname = 'FK_vendor_payments_void_reversal'`,
   );
+}
+
+const POSTCHECK_PATH = path.join(
+  process.cwd(),
+  'scripts/postcheck-vendor-payments-void.sql',
+);
+
+const sortedIds = (...ids: string[]): string[] => [...ids].sort();
+
+interface PostcheckFinding {
+  gate: 'blocking' | 'damage';
+  reason: string;
+  payment_id: string | null;
+  purchase_order_id: string | null;
+  journal_entry_ids: string[];
+  detail: string;
+  status: 'new' | 'dispositioned' | 'resolved';
+}
+
+interface BaselineEntry {
+  payment_id: string;
+  reason: string;
+  disposition: string;
+}
+
+const sqlLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+
+/**
+ * The postcheck reads its baseline through the psql `:'baseline'` variable,
+ * which this suite cannot pass; the tests substitute a SQL literal, exactly
+ * what psql does for `:'baseline'`. Full-line comments, `BEGIN READ ONLY;` and
+ * `ROLLBACK;` are stripped like the Task 1 preflight spec, and the statement
+ * count is asserted so a shape change fails loudly.
+ */
+function postcheckStatements(baseline: unknown): string[] {
+  const raw = fs.readFileSync(POSTCHECK_PATH, 'utf8');
+  expect(raw).toMatch(/BEGIN READ ONLY;/i);
+  expect(raw).toMatch(/ROLLBACK;/i);
+  expect(raw).toContain(":'baseline'::jsonb");
+  const substituted = raw
+    .replace(/BEGIN READ ONLY;/i, '')
+    .replace(/ROLLBACK;/i, '')
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n')
+    .replace(/:'baseline'::jsonb/g, `${sqlLiteral(JSON.stringify(baseline))}::jsonb`);
+  expect(substituted).not.toContain(":'baseline'");
+  return substituted
+    .split(';')
+    .map((statement) => statement.trim())
+    .filter((statement) => statement.length > 0);
+}
+
+async function runPostcheck(
+  qr: QueryRunner,
+  baseline: BaselineEntry[],
+): Promise<PostcheckFinding[]> {
+  const statements = postcheckStatements(baseline);
+  expect(statements).toHaveLength(2);
+  const validation: unknown[] = await qr.query(statements[0]);
+  expect(validation).toEqual([]);
+  return qr.query(statements[1]);
+}
+
+async function expectMalformedBaseline(
+  qr: QueryRunner,
+  baseline: unknown,
+  pattern: RegExp,
+): Promise<void> {
+  const statements = postcheckStatements(baseline);
+  expect(statements).toHaveLength(2);
+  await qr.query('SAVEPOINT postcheck_malformed');
+  try {
+    await expect(qr.query(statements[0])).rejects.toThrow(pattern);
+  } finally {
+    await qr.query('ROLLBACK TO SAVEPOINT postcheck_malformed');
+  }
+}
+
+function expectPostcheckFinding(
+  findings: PostcheckFinding[],
+  expected: {
+    reason: string;
+    status: PostcheckFinding['status'];
+    paymentId: string | null;
+    purchaseOrderId?: string | null;
+    journalEntryIds?: string[];
+  },
+): PostcheckFinding {
+  const matches = findings.filter(
+    (finding) =>
+      finding.reason === expected.reason &&
+      finding.payment_id === expected.paymentId &&
+      (expected.purchaseOrderId === undefined ||
+        finding.purchase_order_id === expected.purchaseOrderId),
+  );
+  expect(matches).toHaveLength(1);
+  const finding = matches[0];
+  expect(finding.status).toBe(expected.status);
+  expect(finding.gate).toBe(expected.status === 'new' ? 'blocking' : 'damage');
+  expect(finding.detail).toEqual(expect.any(String));
+  if (expected.journalEntryIds !== undefined) {
+    expect(finding.journal_entry_ids).toEqual(expected.journalEntryIds);
+  }
+  return finding;
 }
 
 describe('VoidVendorPayments migration e2e', () => {
@@ -829,6 +943,434 @@ describe('VoidVendorPayments migration e2e', () => {
         expect(await voidChecks(qr)).toEqual(checksBefore);
         expect(await paymentSnapshot(qr)).toEqual(rowsBefore);
         expect(await voidFk(qr)).toHaveLength(1);
+      });
+    });
+  });
+
+  describe('postcheck: after check', () => {
+    it('a clean converted state has no findings', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const ids: ConvertibleIds = {
+          poId: uuid(9001),
+          paymentId: uuid(9002),
+          originalId: uuid(9003),
+          reversalId: uuid(9004),
+        };
+        await seedConvertible(qr, ids, { orderNumber: 'PO-VOID-9001' });
+
+        await migration.up(qr);
+        const findings = await runPostcheck(qr, []);
+
+        expect(findings.filter((finding) => finding.payment_id === ids.paymentId)).toEqual([]);
+        expect(findings.filter((finding) => finding.purchase_order_id === ids.poId)).toEqual([]);
+        expect(findings.filter((finding) => finding.status === 'resolved')).toEqual([]);
+      });
+    });
+
+    it('a new live_original_reversed blocks', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const poId = uuid(9010);
+        const paymentId = uuid(9011);
+        const originalId = uuid(9012);
+        const reversalId = uuid(9013);
+        await seedPo(qr, poId, 'PO-VOID-9010', '100.0000');
+        await seedPayment(qr, { id: paymentId, purchaseOrderId: poId, amount: '100.0000' });
+        await seedEntry(qr, {
+          id: originalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+        });
+
+        await migration.up(qr);
+        await seedEntry(qr, {
+          id: reversalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+          reversalOfEntryId: originalId,
+        });
+
+        const findings = await runPostcheck(qr, []);
+
+        const finding = expectPostcheckFinding(findings, {
+          reason: 'live_original_reversed',
+          status: 'new',
+          paymentId,
+          purchaseOrderId: poId,
+          journalEntryIds: sortedIds(originalId, reversalId),
+        });
+        expect(finding.gate).toBe('blocking');
+        expect(finding.detail).toContain('status=completed');
+      });
+    });
+
+    it('an old payment that develops a problem after deploy blocks', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const poId = uuid(9020);
+        const paymentId = uuid(9021);
+        const originalId = uuid(9022);
+        const reversalId = uuid(9023);
+        await seedPo(qr, poId, 'PO-VOID-9020', '100.0000');
+        // Predates both `up` and the reversal below: no createdAt cutoff exists
+        // in the check, so an old row that goes wrong after deploy is new too.
+        await seedPayment(qr, {
+          id: paymentId,
+          purchaseOrderId: poId,
+          amount: '100.0000',
+          createdAt: new Date('2020-01-01T00:00:00.000Z'),
+        });
+        await seedEntry(qr, {
+          id: originalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+        });
+
+        await migration.up(qr);
+        await seedEntry(qr, {
+          id: reversalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+          reversalOfEntryId: originalId,
+        });
+
+        const findings = await runPostcheck(qr, []);
+
+        expectPostcheckFinding(findings, {
+          reason: 'live_original_reversed',
+          status: 'new',
+          paymentId,
+          purchaseOrderId: poId,
+          journalEntryIds: sortedIds(originalId, reversalId),
+        });
+      });
+    });
+
+    it('a dispositioned finding does not block', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const poId = uuid(9030);
+        const paymentId = uuid(9031);
+        const originalId = uuid(9032);
+        const reversalId = uuid(9033);
+        await seedPo(qr, poId, 'PO-VOID-9030', '100.0000');
+        await seedPayment(qr, { id: paymentId, purchaseOrderId: poId, amount: '100.0000' });
+        await seedEntry(qr, {
+          id: originalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+        });
+
+        await migration.up(qr);
+        await seedEntry(qr, {
+          id: reversalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+          reversalOfEntryId: originalId,
+        });
+
+        const disposition = 'verified correct against source documents, no action';
+        const findings = await runPostcheck(qr, [
+          { payment_id: paymentId, reason: 'live_original_reversed', disposition },
+        ]);
+
+        const finding = expectPostcheckFinding(findings, {
+          reason: 'live_original_reversed',
+          status: 'dispositioned',
+          paymentId,
+          purchaseOrderId: poId,
+          journalEntryIds: sortedIds(originalId, reversalId),
+        });
+        expect(finding.gate).toBe('damage');
+        expect(finding.detail).toContain(disposition);
+      });
+    });
+
+    it('a dispositioned key under a different reason still blocks', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const poId = uuid(9040);
+        const paymentId = uuid(9041);
+        const originalId = uuid(9042);
+        const reversalId = uuid(9043);
+        await seedPo(qr, poId, 'PO-VOID-9040', '100.0000');
+        await seedPayment(qr, { id: paymentId, purchaseOrderId: poId, amount: '100.0000' });
+        await seedEntry(qr, {
+          id: originalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+        });
+
+        await migration.up(qr);
+        await seedEntry(qr, {
+          id: reversalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+          reversalOfEntryId: originalId,
+        });
+
+        // The baseline key must match the reason as well as the payment.
+        const findings = await runPostcheck(qr, [
+          { payment_id: paymentId, reason: 'live_without_original', disposition: 'accepted' },
+        ]);
+
+        expectPostcheckFinding(findings, {
+          reason: 'live_original_reversed',
+          status: 'new',
+          paymentId,
+          purchaseOrderId: poId,
+        });
+        const resolved = expectPostcheckFinding(findings, {
+          reason: 'live_without_original',
+          status: 'resolved',
+          paymentId,
+        });
+        expect(resolved.purchase_order_id).toBeNull();
+      });
+    });
+
+    it('a new live_lookup_rejected blocks', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const poId = uuid(9050);
+        const paymentId = uuid(9051);
+        const refundId = uuid(9052);
+        await seedPo(qr, poId, 'PO-VOID-9050', '100.0000');
+        await seedPayment(qr, { id: paymentId, purchaseOrderId: poId, amount: '100.0000' });
+        // A positive payment expects PURCHASE_PAYMENT; a refund original rejects
+        // the strict lookup with unexpected_posting_type.
+        await seedEntry(qr, {
+          id: refundId,
+          paymentId,
+          postingType: 'PURCHASE_REFUND',
+          sourceDocumentId: poId,
+        });
+
+        await migration.up(qr);
+        const findings = await runPostcheck(qr, []);
+
+        const finding = expectPostcheckFinding(findings, {
+          reason: 'live_lookup_rejected',
+          status: 'new',
+          paymentId,
+          purchaseOrderId: poId,
+          journalEntryIds: [refundId],
+        });
+        expect(finding.gate).toBe('blocking');
+        expect(finding.detail).toContain('rejected=unexpected_posting_type');
+      });
+    });
+
+    it('soft_deleted_unreversed carries over to voided_original_unreversed', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const poId = uuid(9060);
+        const paymentId = uuid(9061);
+        const originalId = uuid(9062);
+        await seedPo(qr, poId, 'PO-VOID-9060');
+        await seedPayment(qr, {
+          id: paymentId,
+          purchaseOrderId: poId,
+          amount: '100.0000',
+          isActive: false,
+          deletedAt: DELETED_AT,
+        });
+        await seedEntry(qr, {
+          id: originalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+        });
+
+        await migration.up(qr);
+
+        // The before-check key dispositions the after-check reason it maps to.
+        const disposition = 'repair under 3b';
+        const dispositioned = await runPostcheck(qr, [
+          { payment_id: paymentId, reason: 'soft_deleted_unreversed', disposition },
+        ]);
+        const finding = expectPostcheckFinding(dispositioned, {
+          reason: 'voided_original_unreversed',
+          status: 'dispositioned',
+          paymentId,
+          purchaseOrderId: poId,
+          journalEntryIds: [originalId],
+        });
+        expect(finding.gate).toBe('damage');
+        expect(finding.detail).toContain(disposition);
+
+        // Without the key the same row is new and blocking.
+        const unflagged = await runPostcheck(qr, []);
+        const newFinding = expectPostcheckFinding(unflagged, {
+          reason: 'voided_original_unreversed',
+          status: 'new',
+          paymentId,
+          purchaseOrderId: poId,
+          journalEntryIds: [originalId],
+        });
+        expect(newFinding.gate).toBe('blocking');
+      });
+    });
+
+    it('a resolved baseline key is reported', async () => {
+      await inRolledBackTxn(async (qr) => {
+        await migration.up(qr);
+        const missingPayment = uuid(9070);
+        const disposition = 'verified correct against source documents, no action';
+
+        const findings = await runPostcheck(qr, [
+          { payment_id: missingPayment, reason: 'soft_deleted_no_original', disposition },
+        ]);
+
+        const finding = expectPostcheckFinding(findings, {
+          reason: 'soft_deleted_no_original',
+          status: 'resolved',
+          paymentId: missingPayment,
+        });
+        expect(finding.gate).toBe('damage');
+        expect(finding.purchase_order_id).toBeNull();
+        expect(finding.journal_entry_ids).toEqual([]);
+        expect(finding.detail).toContain(disposition);
+      });
+    });
+
+    it('a malformed baseline is rejected before any finding', async () => {
+      await inRolledBackTxn(async (qr) => {
+        await migration.up(qr);
+        const paymentId = uuid(9080);
+
+        await expectMalformedBaseline(
+          qr,
+          [{ payment_id: 'not-a-uuid', reason: 'live_without_original', disposition: 'x' }],
+          /not a uuid/,
+        );
+        await expectMalformedBaseline(
+          qr,
+          [{ payment_id: paymentId, reason: 'already_voided', disposition: 'x' }],
+          /damage reason/,
+        );
+        await expectMalformedBaseline(
+          qr,
+          [{ payment_id: paymentId, reason: 'live_without_original', disposition: '   ' }],
+          /disposition is empty/,
+        );
+        await expectMalformedBaseline(qr, [{}], /not a uuid/);
+        await expectMalformedBaseline(qr, { payment_id: paymentId }, /not a JSON array/);
+      });
+    });
+
+    it('soft_deleted_row_remains is new', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const ids: ConvertibleIds = {
+          poId: uuid(9100),
+          paymentId: uuid(9101),
+          originalId: uuid(9102),
+          reversalId: uuid(9103),
+        };
+        await seedConvertible(qr, ids, { orderNumber: 'PO-VOID-9100' });
+        await migration.up(qr);
+        // Only reachable inside this rolled-back transaction: the new CHECK
+        // forbids it everywhere else.
+        await qr.query(
+          `ALTER TABLE "vendor_payments" DROP CONSTRAINT "CHK_vendor_payments_never_soft_deleted"`,
+        );
+        await qr.query(`UPDATE vendor_payments SET "deletedAt" = now() WHERE id = $1`, [
+          ids.paymentId,
+        ]);
+
+        const findings = await runPostcheck(qr, []);
+
+        const finding = expectPostcheckFinding(findings, {
+          reason: 'soft_deleted_row_remains',
+          status: 'new',
+          paymentId: ids.paymentId,
+          purchaseOrderId: ids.poId,
+          journalEntryIds: sortedIds(ids.originalId, ids.reversalId),
+        });
+        expect(finding.gate).toBe('blocking');
+      });
+    });
+
+    it('voided_link_not_own_reversal is new', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const a: ConvertibleIds = {
+          poId: uuid(9110),
+          paymentId: uuid(9111),
+          originalId: uuid(9112),
+          reversalId: uuid(9113),
+        };
+        const b: ConvertibleIds = {
+          poId: uuid(9114),
+          paymentId: uuid(9115),
+          originalId: uuid(9116),
+          reversalId: uuid(9117),
+        };
+        await seedConvertible(qr, a, { orderNumber: 'PO-VOID-9110' });
+        await seedConvertible(qr, b, { orderNumber: 'PO-VOID-9114' });
+        await migration.up(qr);
+        // A's link points at B's reversal, not at the reversal of A's own
+        // expected original.
+        await qr.query(
+          `UPDATE vendor_payments SET "voidReversalEntryId" = $1 WHERE id = $2`,
+          [b.reversalId, a.paymentId],
+        );
+
+        const findings = await runPostcheck(qr, []);
+
+        const finding = expectPostcheckFinding(findings, {
+          reason: 'voided_link_not_own_reversal',
+          status: 'new',
+          paymentId: a.paymentId,
+          purchaseOrderId: a.poId,
+          journalEntryIds: sortedIds(a.originalId, a.reversalId),
+        });
+        expect(finding.gate).toBe('blocking');
+        expect(finding.detail).toContain(b.reversalId);
+
+        expect(findings.filter((f) => f.payment_id === b.paymentId)).toEqual([]);
+      });
+    });
+
+    it('paid_amount_mismatch is always new', async () => {
+      await inRolledBackTxn(async (qr) => {
+        const poId = uuid(9120);
+        const paymentId = uuid(9121);
+        const originalId = uuid(9122);
+        await seedPo(qr, poId, 'PO-VOID-9120', '999.0000');
+        await seedPayment(qr, { id: paymentId, purchaseOrderId: poId, amount: '100.0000' });
+        await seedEntry(qr, {
+          id: originalId,
+          paymentId,
+          postingType: 'PURCHASE_PAYMENT',
+          sourceDocumentId: poId,
+        });
+
+        await migration.up(qr);
+
+        // The key is (purchase_order_id, reason) and payment_id is null: no
+        // baseline entry can disposition it, even one keyed to this payment.
+        const findings = await runPostcheck(qr, [
+          { payment_id: paymentId, reason: 'live_original_reversed', disposition: 'accepted' },
+        ]);
+
+        const finding = expectPostcheckFinding(findings, {
+          reason: 'paid_amount_mismatch',
+          status: 'new',
+          paymentId: null,
+          purchaseOrderId: poId,
+        });
+        expect(finding.gate).toBe('blocking');
+        expect(finding.journal_entry_ids).toEqual([]);
+        expect(finding.detail).toContain('paidAmount=999.0000');
+        expect(finding.detail).toContain('liveSum=100.0000');
+        // The unrelated baseline key resolves instead.
+        expectPostcheckFinding(findings, {
+          reason: 'live_original_reversed',
+          status: 'resolved',
+          paymentId,
+        });
       });
     });
   });
