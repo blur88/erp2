@@ -223,8 +223,9 @@ ships with #1390.
 
 #1401 replaces vendor-payment soft delete with a void. Migration
 `VoidVendorPayments1792179464025` adds `voidedAt`, `voidedByUserId` and
-`voidReversalEntryId`, converts soft-deleted payments whose original is still
-unreversed, and adds CHECKs that forbid `deletedAt`. "Voided" is
+`voidReversalEntryId`, converts every soft-deleted payment to `voided` (no
+voider; `voidedAt` from `deletedAt`; `voidReversalEntryId` set to the reversal
+of its original when one exists), and adds CHECKs that forbid `deletedAt`. "Voided" is
 `status = 'voided'` and is the live predicate: a query that joins vendor
 payments without it double-counts. A payment row id must never be reused for a
 second posting — `UQ_journal_entry_source_event` absorbs it silently.
