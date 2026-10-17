@@ -211,55 +211,6 @@ export class BaseCostCalculatorService {
   }
 
   /**
-   * Remove stock when returning goods to supplier
-   * Validates that no stock has been sold from this batch, then deletes it
-   */
-  async removeStock(productId: string, purchaseOrderId: string, manager?: EntityManager): Promise<void> {
-    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
-    this.logger.log(`Removing stock for product ${productId} from purchase order ${purchaseOrderId}`);
-
-    // Find the batch(es) created for this purchase order
-    const batches = await costHistoryRepo.find({
-      where: {
-        productId,
-        purchaseOrderId,
-      },
-    });
-
-    if (batches.length === 0) {
-      this.logger.warn(`No cost history batches found for product ${productId} and purchase order ${purchaseOrderId}`);
-      return;
-    }
-
-    // Check if any stock has been sold from these batches
-    for (const batch of batches) {
-      const receivedQty = Number(batch.receivedQuantity);
-      const remainingQty = Number(batch.remainingQuantity);
-
-      if (remainingQty < receivedQty) {
-        const soldQty = receivedQty - remainingQty;
-        throw new Error(
-          `Cannot return goods: ${soldQty} units from this batch have already been sold. ` +
-          `Please ensure all goods are in stock before returning to supplier.`
-        );
-      }
-    }
-
-    // Delete all batches for this GRN (only if validation passed)
-    for (const batch of batches) {
-      this.logger.debug(
-        `Deleting batch ${batch.id}: ${batch.receivedQuantity} units (${batch.remainingQuantity} remaining) @ RM ${Number(batch.landedCost).toFixed(4)}`
-      );
-      await costHistoryRepo.delete(batch.id);
-    }
-
-    this.logger.log(`Deleted ${batches.length} cost history batch(es) for purchase order ${purchaseOrderId}`);
-
-    // Recalculate base cost after removal
-    await this.updateProductBaseCost(productId, manager);
-  }
-
-  /**
    * Allocate a PO's shipping across its lines, proportional to line value (#1241).
    *
    * Replaces the previous per-item float calculation, which computed each item's
@@ -304,62 +255,4 @@ export class BaseCostCalculatorService {
     });
   }
 
-  /**
-   * Restore stock when unfulfilling a sales order
-   * Adds quantities back to the cost history batches in FIFO order
-   * This reverses the reduceStock operation during fulfillment
-   */
-  async restoreStock(productId: string, quantityToRestore: number, manager?: EntityManager): Promise<void> {
-    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
-
-    this.logger.log(`Restoring stock for product ${productId}: ${quantityToRestore} units`);
-
-    // Get all batches for this product, including sold-out ones
-    const batches = await costHistoryRepo.find({
-      where: {
-        productId,
-      },
-      order: { receivedDate: 'ASC' }, // FIFO order - oldest first
-    });
-
-    if (batches.length === 0) {
-      this.logger.warn(`No cost history batches found for product ${productId}, cannot restore stock`);
-      return;
-    }
-
-    let remainingToRestore = quantityToRestore;
-
-    // Restore to oldest batches first (reverse of FIFO reduction)
-    for (const batch of batches) {
-      if (remainingToRestore <= 0) break;
-
-      const receivedQty = Number(batch.receivedQuantity);
-      const currentRemaining = Number(batch.remainingQuantity);
-      const maxCanRestore = receivedQty - currentRemaining; // Can only restore up to what was originally received
-
-      if (maxCanRestore <= 0) continue; // This batch is already full
-
-      const toRestore = Math.min(maxCanRestore, remainingToRestore);
-
-      await costHistoryRepo.update(batch.id, {
-        remainingQuantity: currentRemaining + toRestore,
-        updatedAt: new Date(),
-      });
-
-      this.logger.debug(
-        `Restored batch ${batch.id}: ${currentRemaining} + ${toRestore} = ${currentRemaining + toRestore} remaining (max: ${receivedQty})`
-      );
-
-      remainingToRestore -= toRestore;
-    }
-
-    if (remainingToRestore > 0) {
-      this.logger.warn(
-        `Could not fully restore stock for product ${productId}. Attempted to restore ${quantityToRestore}, but only ${quantityToRestore - remainingToRestore} could be restored to existing batches.`
-      );
-    }
-
-    // Recalculate base cost after restoration
-    await this.updateProductBaseCost(productId, manager);
-  }
 }

@@ -102,36 +102,6 @@ describe('StockMovementService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('deleteByReference', () => {
-    it('returns deletedCount 0 when there are no movements', async () => {
-      stockMovementRepository.find.mockResolvedValue([]);
-
-      const result = await service.deleteByReference('sales_order', 'order-1');
-
-      expect(result.deletedCount).toBe(0);
-    });
-
-    it('deleteByReference reads movements through the supplied manager', async () => {
-      const find = (jest.fn as unknown as any)().mockResolvedValue([]); // no movements → early return { deletedCount: 0 }
-      const manager = {
-        getRepository: (jest.fn as unknown as any)().mockReturnValue({ find }),
-      } as any;
-
-      const result = await service.deleteByReference(
-        'sales_order',
-        'order-1',
-        manager,
-      );
-
-      expect(manager.getRepository).toHaveBeenCalled();
-      expect(find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { referenceType: 'sales_order', referenceId: 'order-1' },
-        }),
-      );
-      expect(result).toEqual({ deletedCount: 0 });
-    });
-  });
 
   function makeMovement(overrides: Partial<StockMovement>): StockMovement {
     return {

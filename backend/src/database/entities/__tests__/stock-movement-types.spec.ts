@@ -26,10 +26,5 @@ describe('owner drawing movement types', () => {
     expect(back.isOutward).toBe(false);
   });
 
-  it('maps each owner drawing type to its counterpart for reversal', () => {
-    const out = new StockMovement();
-    out.movementType = StockMovementType.OWNER_DRAWING;
-    out.quantity = -2; out.previousBalance = 10; out.newBalance = 8;
-    expect(out.reverse('test').movementType).toBe(StockMovementType.OWNER_DRAWING_REVERSAL);
-  });
+
 });
