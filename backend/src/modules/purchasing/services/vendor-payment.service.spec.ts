@@ -1,8 +1,8 @@
 import { jest } from '@jest/globals';
-import { Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Logger, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 
 import { AuditLogService } from '../../audit-logs/services';
 import {
@@ -13,6 +13,7 @@ import {
   PurchaseOrderStatus,
 } from '../../../database/entities';
 import { CreateVendorPaymentDto } from '../dto';
+import { VENDOR_PAYMENT_VOIDED } from '../vendor-payment-status';
 import { VendorPaymentService } from './vendor-payment.service';
 
 describe('VendorPaymentService', () => {
@@ -235,7 +236,7 @@ describe('VendorPaymentService', () => {
       await service.findAllByPurchaseOrder('po-1');
 
       expect(vendorPaymentRepository.find).toHaveBeenCalledWith({
-        where: { purchaseOrderId: 'po-1', isActive: true },
+        where: { purchaseOrderId: 'po-1', status: Not(VENDOR_PAYMENT_VOIDED) },
       });
     });
 
@@ -247,40 +248,86 @@ describe('VendorPaymentService', () => {
 
       expect(manager.getRepository).toHaveBeenCalledWith(VendorPayment);
       expect(managerRepo.find).toHaveBeenCalledWith({
-        where: { purchaseOrderId: 'po-1', isActive: true },
+        where: { purchaseOrderId: 'po-1', status: Not(VENDOR_PAYMENT_VOIDED) },
       });
     });
   });
 
-  describe('softDeleteForUnpay', () => {
-    it('sets isActive=false and soft-deletes the payment', async () => {
-      const mockPayment = {
-        id: 'vp-1',
-        isActive: true,
-      } as VendorPayment;
+  describe('voidForUnpay', () => {
+    const voidedAt = new Date('2026-10-17T10:00:00.000Z');
 
-      vendorPaymentRepository.findOne.mockResolvedValue(mockPayment);
-      vendorPaymentRepository.save.mockResolvedValue({ ...mockPayment, isActive: false } as VendorPayment);
-      vendorPaymentRepository.softDelete.mockResolvedValue({} as any);
+    function managerWithUpdate(affected: number) {
+      const managerRepo = {
+        update: (jest.fn as unknown as any)().mockResolvedValue({ affected }),
+      };
+      const manager = {
+        getRepository: (jest.fn as unknown as any)().mockReturnValue(managerRepo),
+      } as any;
+      return { manager, managerRepo };
+    }
 
-      await service.softDeleteForUnpay('vp-1');
+    it('voids the row with a column-scoped update guarded on the live status', async () => {
+      const payment = { id: 'vp-1', status: 'completed' } as VendorPayment;
+      const { manager, managerRepo } = managerWithUpdate(1);
 
-      expect(vendorPaymentRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ isActive: false }),
+      await service.voidForUnpay(
+        payment,
+        { voidedByUserId: 'user-1', voidedAt, reversalEntryId: 'rev-1' },
+        manager,
       );
-      expect(vendorPaymentRepository.softDelete).toHaveBeenCalledWith('vp-1');
+
+      expect(manager.getRepository).toHaveBeenCalledWith(VendorPayment);
+      expect(managerRepo.update).toHaveBeenCalledWith(
+        { id: 'vp-1', status: Not(VENDOR_PAYMENT_VOIDED) },
+        {
+          status: VENDOR_PAYMENT_VOIDED,
+          isActive: false,
+          voidedAt,
+          voidedByUserId: 'user-1',
+          voidReversalEntryId: 'rev-1',
+        },
+      );
+    });
+
+    it('records a null reversal link when the payment never posted', async () => {
+      const payment = { id: 'vp-1', status: 'completed' } as VendorPayment;
+      const { manager, managerRepo } = managerWithUpdate(1);
+
+      await service.voidForUnpay(
+        payment,
+        { voidedByUserId: 'user-1', voidedAt, reversalEntryId: null },
+        manager,
+      );
+
+      expect(managerRepo.update).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ voidReversalEntryId: null }),
+      );
+    });
+
+    it('rejects when the guarded update affects no row', async () => {
+      const payment = { id: 'vp-1', status: 'completed' } as VendorPayment;
+      const { manager } = managerWithUpdate(0);
+
+      await expect(
+        service.voidForUnpay(
+          payment,
+          { voidedByUserId: 'user-1', voidedAt, reversalEntryId: 'rev-1' },
+          manager,
+        ),
+      ).rejects.toThrow(ConflictException);
     });
   });
 
   describe('findOne', () => {
-    it('returns an active payment with its relations', async () => {
+    it('returns a payment with its relations without filtering on isActive', async () => {
       const payment = { id: 'payment-123', isActive: true } as VendorPayment;
       vendorPaymentRepository.findOne.mockResolvedValue(payment);
 
       await expect(service.findOne('payment-123')).resolves.toBe(payment);
 
       expect(vendorPaymentRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 'payment-123', isActive: true },
+        where: { id: 'payment-123' },
         relations: {
           supplier: true,
           purchaseOrder: { items: { product: true } },

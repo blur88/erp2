@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, Not } from 'typeorm';
 import {
   VendorPayment,
   PurchaseOrder,
@@ -12,6 +12,7 @@ import {
 import { AuditLogService } from '../../audit-logs/services';
 import { repoFor } from '../../../common/db/tx-helpers';
 import { formatScale4 } from '@/common/utils/money';
+import { VENDOR_PAYMENT_VOIDED } from '../vendor-payment-status';
 
 @Injectable()
 export class VendorPaymentService {
@@ -85,7 +86,7 @@ export class VendorPaymentService {
    */
   async findOne(id: string): Promise<VendorPayment> {
     const vendorPayment = await this.vendorPaymentRepository.findOne({
-      where: { id, isActive: true },
+      where: { id },
       relations: {
         supplier: true,
         purchaseOrder: { items: { product: true } },
@@ -101,26 +102,48 @@ export class VendorPaymentService {
   }
 
   /**
-   * Soft delete a vendor payment during unpay without additional audit logging.
+   * Void a vendor payment during unpay (#1401) without additional audit
+   * logging — the caller owns the audit trail.
+   *
+   * A column-scoped UPDATE guarded on the live status, never a save of a
+   * loaded entity: two concurrent unpays must not both succeed, and a whole-
+   * row write cannot express "only if still live". The guard makes the second
+   * writer's `affected` zero, which becomes a ConflictException so its
+   * transaction rolls back instead of flatly overwriting the first vacuous
+   * void (which would also orphan the first void's reversal link).
    */
-  async softDeleteForUnpay(id: string, manager?: EntityManager): Promise<void> {
-    const paymentRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
-    const payment = await paymentRepo.findOne({ where: { id } });
-    if (!payment) return;
+  async voidForUnpay(
+    payment: VendorPayment,
+    ctx: { voidedByUserId: string; voidedAt: Date; reversalEntryId: string | null },
+    manager?: EntityManager,
+  ): Promise<void> {
+    const result = await repoFor(manager, VendorPayment, this.vendorPaymentRepository).update(
+      { id: payment.id, status: Not(VENDOR_PAYMENT_VOIDED) },
+      {
+        status: VENDOR_PAYMENT_VOIDED,
+        isActive: false,
+        voidedAt: ctx.voidedAt,
+        voidedByUserId: ctx.voidedByUserId,
+        voidReversalEntryId: ctx.reversalEntryId,
+      },
+    );
 
-    payment.isActive = false;
-    await paymentRepo.save(payment);
-    await paymentRepo.softDelete(id);
+    if (result.affected !== 1) {
+      throw new ConflictException(
+        `Vendor payment ${payment.id} is no longer live and cannot be voided again`,
+      );
+    }
   }
 
   /**
-   * Find all vendor payments for a purchase order
+   * Find all live vendor payments for a purchase order. Voided rows are
+   * history, not outstanding payments, so they are excluded (#1401).
    */
   async findAllByPurchaseOrder(poId: string, manager?: EntityManager): Promise<VendorPayment[]> {
     return repoFor(manager, VendorPayment, this.vendorPaymentRepository).find({
       where: {
         purchaseOrderId: poId,
-        isActive: true,
+        status: Not(VENDOR_PAYMENT_VOIDED),
       },
     });
   }
