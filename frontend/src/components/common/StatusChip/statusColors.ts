@@ -39,6 +39,7 @@ export const STATUS_MAP: Record<string, StatusConfig> = {
   closed: { color: 'default', label: 'Closed' },
   cancelled: { color: 'default', label: 'Cancelled' },
   refunded: { color: 'default', label: 'Refunded' },
+  voided: { color: 'default', label: 'Voided' },
   inactive: { color: 'default', label: 'Inactive' },
 }
 

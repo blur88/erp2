@@ -22,6 +22,18 @@ export interface PostOwnerCashDrawingRefundCmd extends Base { equityDocumentId: 
 // reversed entry (spec §5.2).
 export interface PostOwnerStockDrawingCmd extends Base { equityDocumentId: string; stockMovementId: string; amount: string; }
 export interface ReverseEntryCmd { originalEntryId: string; entryDate: string; createdBy?: string; }
+// One event's strict reversal lookup (#1401). The caller derives
+// expectedPostingType from the event row itself (e.g. payment sign) and lists
+// otherPostingTypes whose originals would make the event ambiguous.
+export interface ReverseEntryForEventCmd {
+  sourceType: AccountingSourceType;
+  sourceDocumentId: string;
+  sourceEventId: string;
+  expectedPostingType: PostingType;
+  otherPostingTypes: PostingType[];
+  entryDate: string;
+  createdBy?: string;
+}
 export interface PostProviderSettlementCmd {
   settlementId: string;
   sourceRef: string;

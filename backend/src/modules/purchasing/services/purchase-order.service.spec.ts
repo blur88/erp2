@@ -25,6 +25,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
+import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
 import { quantizeToCents, formatMoney, toMinorUnits } from '@common/utils/money';
 
 describe('PurchaseOrderService', () => {
@@ -156,7 +157,7 @@ describe('PurchaseOrderService', () => {
           provide: VendorPaymentService,
           useValue: {
             findAllByPurchaseOrder: (jest.fn as unknown as any)(),
-            softDeleteForUnpay: (jest.fn as unknown as any)(),
+            voidForUnpay: (jest.fn as unknown as any)(),
             create: (jest.fn as unknown as any)(),
             findOne: (jest.fn as unknown as any)(),
           },
@@ -182,6 +183,7 @@ describe('PurchaseOrderService', () => {
           provide: AuditLogService,
           useValue: {
             log: (jest.fn as unknown as any)(),
+            logInTransaction: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -199,7 +201,12 @@ describe('PurchaseOrderService', () => {
         },
         {
           provide: ACCOUNTING_POSTING_PORT,
-          useValue: { postPurchasePayment: (jest.fn as unknown as any)(), postPurchaseRefund: (jest.fn as unknown as any)(), reverseEntriesForDocument: (jest.fn as unknown as any)() },
+          useValue: {
+            postPurchasePayment: (jest.fn as unknown as any)(),
+            postPurchaseRefund: (jest.fn as unknown as any)(),
+            reverseEntryForEvent: (jest.fn as unknown as any)(),
+            reverseEntriesForDocument: (jest.fn as unknown as any)().mockResolvedValue([]),
+          },
         },
       ],
     }).compile();
@@ -651,21 +658,6 @@ describe('PurchaseOrderService', () => {
 
 
   describe('recordOrderPayments', () => {
-    const mockDeletedPayment = {
-      id: 'vp-old-1',
-      purchaseOrderId: 'po-1',
-      deletedAt: new Date('2026-02-19'),
-      isActive: false,
-      paymentMethodId: 'pm-bank',
-      amount: '100.0000',
-    } as unknown as VendorPayment;
-
-    const mockRestoredPayment = {
-      ...mockDeletedPayment,
-      deletedAt: null,
-      isActive: true,
-    } as unknown as VendorPayment;
-
     const mockPurchaseOrderForPayment = {
       ...mockPurchaseOrder,
       supplierId: 'supplier-1',
@@ -676,7 +668,6 @@ describe('PurchaseOrderService', () => {
     beforeEach(() => {
       purchaseOrderRepository.findOne.mockResolvedValue(mockPurchaseOrderForPayment);
       purchaseOrderRepository.save.mockResolvedValue(mockPurchaseOrderForPayment);
-      vendorPaymentService.findOne.mockResolvedValue(mockRestoredPayment);
       paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-cash', isActive: true, accountingChannel: 'BANK' });
       // Fresh order: no persisted active payments. Tests that assert the
       // reconcile-derived state queue the guard's pre-write read back-to-back
@@ -776,41 +767,42 @@ describe('PurchaseOrderService', () => {
       );
     });
 
-    it('creates a new vendor payment when no previous soft-deleted payment exists', async () => {
-      vendorPaymentRepository.findOne.mockResolvedValue(null);
-      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
-
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '40.0000', paymentDate: '2026-01-15' }]);
-
-      expect(vendorPaymentService.create).toHaveBeenCalled();
-      expect(vendorPaymentRepository.restore).not.toHaveBeenCalled();
-    });
-
-    it('restores the previous soft-deleted payment on re-pay', async () => {
-      vendorPaymentRepository.findOne
-        .mockResolvedValueOnce(mockDeletedPayment)
-        .mockResolvedValueOnce(mockRestoredPayment);
-      vendorPaymentRepository.restore.mockResolvedValue({} as any);
-      vendorPaymentRepository.update.mockResolvedValue({} as any);
-
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '40.0000', paymentDate: '2026-01-15' }]);
-
-      expect(vendorPaymentRepository.restore).toHaveBeenCalledWith('vp-old-1');
-    });
-
-    it('updates payment method and amount when restoring', async () => {
-      vendorPaymentRepository.findOne
-        .mockResolvedValueOnce(mockDeletedPayment)
-        .mockResolvedValueOnce(mockRestoredPayment);
-      vendorPaymentRepository.restore.mockResolvedValue({} as any);
-      vendorPaymentRepository.update.mockResolvedValue({} as any);
-
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '40.0000', paymentDate: '2026-01-15' }]);
-
-      expect(vendorPaymentRepository.update).toHaveBeenCalledWith(
-        'vp-old-1',
-        expect.objectContaining({ paymentMethodId: 'pm-cash', amount: '40.0000', isActive: true }),
+    it('pay-again creates new rows and never restores', async () => {
+      // A legacy soft-deleted row exists for this PO. Re-paying must ignore it
+      // entirely: every line creates a fresh row and a fresh posting keyed on
+      // that new row's id (#1401). Restoring the old id would collide with the
+      // already-reversed original under UQ_journal_entry_source_event.
+      const ctx = wireTx({ lockedPO: { ...mockPurchaseOrderForPayment, totalAmount: '200.0000' } });
+      ctx.vpRepo.findOne.mockResolvedValue({
+        id: 'vp-deleted-1',
+        purchaseOrderId: 'po-1',
+        deletedAt: new Date('2026-02-19'),
+        isActive: false,
+        paymentMethodId: 'pm-bank',
+        amount: '100.0000',
+      } as any);
+      let sequence = 0;
+      vendorPaymentService.create.mockImplementation(
+        (async (dto: any) => ({ id: `vp-new-${++sequence}`, ...dto })) as any,
       );
+      const accounting = module.get<{ postPurchasePayment: any }>(ACCOUNTING_POSTING_PORT);
+
+      await service.recordOrderPayments(
+        'po-1',
+        [
+          { paymentMethodId: 'pm-cash', amount: '60.0000', paymentDate: '2026-01-15', reference: 'NEW-1' },
+          { paymentMethodId: 'pm-cash', amount: '40.0000', paymentDate: '2026-01-15', reference: 'NEW-2' },
+        ],
+        'user-1',
+        'admin',
+      );
+
+      expect(ctx.vpRepo.restore).not.toHaveBeenCalled();
+      expect(ctx.vpRepo.update).not.toHaveBeenCalled();
+      expect(vendorPaymentService.create).toHaveBeenCalledTimes(2);
+      expect(
+        accounting.postPurchasePayment.mock.calls.map((call: any[]) => call[0].paymentRowId),
+      ).toEqual(['vp-new-1', 'vp-new-2']);
     });
 
     it('rejects payments for a CANCELLED purchase order', async () => {
@@ -1038,36 +1030,6 @@ describe('PurchaseOrderService', () => {
       expect(accountingPort.postPurchasePayment).not.toHaveBeenCalled();
       expect(vendorPaymentService.create).not.toHaveBeenCalled();
     });
-
-    it('counts every submitted line exactly once on the restore branch', async () => {
-      // A soft-deleted prior payment of 30.00 exists. findAllByPurchaseOrder
-      // EXCLUDES it (isActive: true, plus TypeORM's default withDeleted: false),
-      // so it contributes nothing to persisted net. The branch revives it with
-      // payments[0]'s amount and creates the rest as new rows: projected net is
-      // persisted + sum(ALL lines). Subtracting the restored row's OLD amount
-      // would be wrong. Total 100.00, lines sum to 100.00 => must be accepted.
-      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([] as any);
-      const ctx = wireTx({ lockedPO });
-      ctx.vpRepo.findOne
-        .mockResolvedValueOnce({
-          id: 'vp-old',
-          deletedAt: new Date('2026-09-01'),
-          referenceNumber: 'OLD-REF',
-        })
-        .mockResolvedValue({ id: 'vp-old' });
-
-      await service.recordOrderPayments('po-1', [
-        { paymentMethodId: 'pm-cash', amount: '70.0000', paymentDate: '2026-09-17' },
-        { paymentMethodId: 'pm-cash', amount: '30.0000', paymentDate: '2026-09-17' },
-      ]);
-
-      // payments[0] via restoration, payments.slice(1) as new rows: 2 rows, 100.00.
-      expect(ctx.vpRepo.restore).toHaveBeenCalledWith('vp-old');
-      expect(vendorPaymentService.create).toHaveBeenCalledTimes(1);
-      const posted = accountingPort.postPurchasePayment.mock.calls.map((c: any[]) => c[0].amount);
-      expect(posted).toHaveLength(2);
-      expect(posted.map((a: string) => Number(a)).reduce((x: number, y: number) => x + y, 0)).toBe(100);
-    });
   });
 
   describe('useForPurchases eligibility (#1246)', () => {
@@ -1128,7 +1090,9 @@ describe('PurchaseOrderService', () => {
         accountingChannel: 'BANK',
       } as any);
       wireTx({ lockedPO });
-      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([] as any);
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-paid', amount: '100.0000' },
+      ] as any);
       jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any);
       const accountingPort = module.get(ACCOUNTING_POSTING_PORT);
 
@@ -1198,9 +1162,14 @@ describe('PurchaseOrderService', () => {
     beforeEach(() => {
       jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-1' },
+        { id: 'vp-1', amount: '100.0000', status: 'completed' },
       ] as any);
-      vendorPaymentService.softDeleteForUnpay.mockResolvedValue(undefined as any);
+      vendorPaymentService.voidForUnpay.mockResolvedValue(undefined as any);
+      const accounting = module.get<{ reverseEntryForEvent: any }>(ACCOUNTING_POSTING_PORT);
+      accounting.reverseEntryForEvent.mockResolvedValue({
+        reversalEntryId: 'rev-1',
+        outcome: 'reversed',
+      });
       jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any);
     });
 
@@ -1222,6 +1191,139 @@ describe('PurchaseOrderService', () => {
 
       const [, , , entryDate] = accounting.reverseEntriesForDocument.mock.calls[0];
       expect(entryDate).toBe(expected);
+    });
+  });
+
+  describe('markAsUnpaid (#1401)', () => {
+    const lockedPO = {
+      id: 'po-1',
+      orderNumber: 'PO-001',
+      status: PurchaseOrderStatus.DRAFT,
+    } as unknown as PurchaseOrder;
+
+    const paymentA = { id: 'vp-a', amount: '60.0000', status: 'completed' } as VendorPayment;
+    const paymentB = { id: 'vp-b', amount: '-25.0000', status: 'completed' } as VendorPayment;
+
+    let accountingPort: any;
+
+    beforeEach(() => {
+      accountingPort = module.get(ACCOUNTING_POSTING_PORT);
+      // Returned in reverse id order: the service must void in id order.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([paymentB, paymentA]);
+      accountingPort.reverseEntryForEvent
+        .mockResolvedValueOnce({ reversalEntryId: 'rev-a', outcome: 'reversed' })
+        .mockResolvedValueOnce({ reversalEntryId: 'rev-b', outcome: 'reversed' });
+      vendorPaymentService.voidForUnpay.mockResolvedValue(undefined);
+      auditLogService.logInTransaction.mockResolvedValue(undefined);
+      wireTx({ lockedPO });
+    });
+
+    it('voids each live payment with its own reversal', async () => {
+      await service.markAsUnpaid('po-1', 'user-1', 'admin');
+
+      expect(accountingPort.reverseEntryForEvent).toHaveBeenCalledTimes(2);
+      expect(accountingPort.reverseEntryForEvent).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          sourceType: AccountingSourceType.PURCHASE_ORDER,
+          sourceDocumentId: 'po-1',
+          sourceEventId: 'vp-a',
+          expectedPostingType: PostingType.PURCHASE_PAYMENT,
+          otherPostingTypes: [PostingType.PURCHASE_REFUND],
+          createdBy: 'admin',
+        }),
+        expect.anything(),
+      );
+      expect(accountingPort.reverseEntryForEvent).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          sourceDocumentId: 'po-1',
+          sourceEventId: 'vp-b',
+          expectedPostingType: PostingType.PURCHASE_REFUND,
+          otherPostingTypes: [PostingType.PURCHASE_PAYMENT],
+        }),
+        expect.anything(),
+      );
+
+      expect(vendorPaymentService.voidForUnpay).toHaveBeenNthCalledWith(
+        1,
+        paymentA,
+        { voidedByUserId: 'user-1', voidedAt: expect.any(Date), reversalEntryId: 'rev-a' },
+        expect.anything(),
+      );
+      expect(vendorPaymentService.voidForUnpay).toHaveBeenNthCalledWith(
+        2,
+        paymentB,
+        { voidedByUserId: 'user-1', voidedAt: expect.any(Date), reversalEntryId: 'rev-b' },
+        expect.anything(),
+      );
+
+      expect(auditLogService.logInTransaction).toHaveBeenCalledTimes(2);
+      expect(auditLogService.logInTransaction).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        'VOID',
+        'VendorPayment',
+        expect.any(String),
+        expect.objectContaining({
+          entityId: 'vp-a',
+          userId: 'user-1',
+          username: 'admin',
+          oldValues: { status: 'completed' },
+          newValues: { status: 'voided', voidReversalEntryId: 'rev-a' },
+          metadata: { purchaseOrderId: 'po-1', reversalOutcome: 'reversed' },
+        }),
+      );
+      expect(auditLogService.logInTransaction).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        'VOID',
+        'VendorPayment',
+        expect.any(String),
+        expect.objectContaining({
+          entityId: 'vp-b',
+          oldValues: { status: 'completed' },
+          newValues: { status: 'voided', voidReversalEntryId: 'rev-b' },
+          metadata: { purchaseOrderId: 'po-1', reversalOutcome: 'reversed' },
+        }),
+      );
+
+      // The legacy sweep still runs after every payment was voided by id.
+      expect(accountingPort.reverseEntriesForDocument).toHaveBeenCalledWith(
+        AccountingSourceType.PURCHASE_ORDER,
+        'po-1',
+        [PostingType.PURCHASE_PAYMENT, PostingType.PURCHASE_REFUND],
+        expect.any(String),
+        expect.anything(),
+        'admin',
+      );
+    });
+
+    it('audits the legacy sweep when it reverses an orphan entry', async () => {
+      accountingPort.reverseEntriesForDocument.mockResolvedValueOnce([
+        { journalEntryId: 'rev-orphan' },
+      ]);
+
+      await service.markAsUnpaid('po-1', 'user-1', 'admin');
+
+      expect(auditLogService.logInTransaction).toHaveBeenCalledWith(
+        expect.anything(),
+        'UNPAY_SWEEP',
+        'PurchaseOrder',
+        expect.any(String),
+        expect.objectContaining({
+          entityId: 'po-1',
+          metadata: { sweptReversalEntryIds: ['rev-orphan'] },
+        }),
+      );
+    });
+
+    it('unpay without a user id is rejected', async () => {
+      await expect(service.markAsUnpaid('po-1')).rejects.toThrow(BadRequestException);
+
+      expect(vendorPaymentService.voidForUnpay).not.toHaveBeenCalled();
+      expect(accountingPort.reverseEntryForEvent).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
     });
   });
 
@@ -1248,6 +1350,11 @@ describe('PurchaseOrderService', () => {
         supplier: { companyName: 'Acme' },
         paymentMethodEntity: { code: 'CASH' },
       } as any)
+      // The net-paid guard reads the live rows through the vendor-payment
+      // service now (#1401); voided rows are excluded there.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-paid', amount: '100.0000' },
+      ])
       jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any)
     })
 
@@ -1304,22 +1411,23 @@ describe('PurchaseOrderService', () => {
       })
     })
 
-    it('rejects total refund exceeding net paid across ACTIVE rows (aggregate guard)', async () => {
+    it('rejects total refund exceeding net paid across live rows (aggregate guard)', async () => {
       wireTx({ lockedPO, existing: [{ amount: '100.0000', isActive: true }] })
       await expect(
         service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '150.0000' }], 'u'),
       ).rejects.toThrow(/exceeds net paid/i)
     })
 
-    it('computes netPaid from ACTIVE rows only (guard query filters isActive: true)', async () => {
+    it('computes netPaid from the live rows the vendor-payment service returns', async () => {
       const ctx = wireTx({ lockedPO })
       jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
 
       await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '40.0000' }], 'u')
 
-      expect(ctx.vpRepo.find).toHaveBeenCalledWith({
-        where: { purchaseOrderId: 'po-1', isActive: true },
-      })
+      expect(vendorPaymentService.findAllByPurchaseOrder).toHaveBeenCalledWith(
+        'po-1',
+        expect.anything(),
+      )
     })
 
     it('reconciles payment state INSIDE the transaction with the manager', async () => {
@@ -1420,12 +1528,15 @@ describe('PurchaseOrderService', () => {
 
     it('allows a refund exactly equal to net paid and resets the order to UNPAID', async () => {
       paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', isActive: true, accountingChannel: 'BANK' });
-      const ctx = wireTx({ lockedPO, existing: [{ id: 'vp-paid', amount: '100.0000', isActive: true }] });
-      // Net paid after the refund = 100.0000 - 100.0000 = 0.
-      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-paid', amount: '100.0000' } as unknown as VendorPayment,
-        { id: 'vp-refund', amount: '-100.0000' } as unknown as VendorPayment,
-      ]);
+      const ctx = wireTx({ lockedPO });
+      // Guard read sees the live 100.00 payment; the reconcile read after the
+      // refund sees it offset: net paid = 100.0000 - 100.0000 = 0.
+      vendorPaymentService.findAllByPurchaseOrder
+        .mockResolvedValueOnce([{ id: 'vp-paid', amount: '100.0000' } as unknown as VendorPayment])
+        .mockResolvedValue([
+          { id: 'vp-paid', amount: '100.0000' } as unknown as VendorPayment,
+          { id: 'vp-refund', amount: '-100.0000' } as unknown as VendorPayment,
+        ]);
 
       await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '100.0000' }], 'u');
 
@@ -1437,7 +1548,10 @@ describe('PurchaseOrderService', () => {
 
     it('rejects a refund that exceeds net paid by one minor unit', async () => {
       paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', isActive: true, accountingChannel: 'BANK' });
-      wireTx({ lockedPO, existing: [{ id: 'vp-paid', amount: '100.0000', isActive: true }] });
+      wireTx({ lockedPO });
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-paid', amount: '100.0000' } as unknown as VendorPayment,
+      ]);
 
       await expect(
         service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '100.0001' }], 'u'),
@@ -1509,6 +1623,9 @@ describe('PurchaseOrderService', () => {
 
     it('records a refund reference into referenceNumber, not notes (line 798)', async () => {
       const ctx = wireTx({ lockedPO })
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-paid', amount: '100.0000' },
+      ] as any)
 
       await service.recordRefunds(
         'po-1',
@@ -1537,84 +1654,6 @@ describe('PurchaseOrderService', () => {
         'user-1',
         'admin',
         ctx.manager,
-      )
-    })
-
-    it('records remaining-line references into referenceNumber (line 930)', async () => {
-      const ctx = wireTx({ lockedPO, existing: [] })
-      ctx.vpRepo.findOne
-        .mockResolvedValueOnce({
-          id: 'vp-old',
-          deletedAt: new Date(),
-          referenceNumber: null,
-          notes: null,
-        })
-        .mockResolvedValue({ id: 'vp-old' })
-
-      await service.recordOrderPayments(
-        'po-1',
-        [
-          { paymentMethodId: 'pm-1', amount: '60.0000', paymentDate: '2026-01-15', reference: 'FIRST-1' },
-          { paymentMethodId: 'pm-1', amount: '40.0000', paymentDate: '2026-01-15', reference: 'SECOND-2' },
-        ],
-        'user-1',
-        'admin',
-      )
-
-      expect(vendorPaymentService.create).toHaveBeenCalledWith(
-        expect.objectContaining({ referenceNumber: 'SECOND-2' }),
-        'user-1',
-        'admin',
-        ctx.manager,
-      )
-    })
-
-    it('restores a payment writing referenceNumber (line 901)', async () => {
-      const ctx = wireTx({ lockedPO, existing: [] })
-      ctx.vpRepo.findOne
-        .mockResolvedValueOnce({
-          id: 'vp-old',
-          deletedAt: new Date(),
-          referenceNumber: null,
-          notes: null,
-        })
-        .mockResolvedValue({ id: 'vp-old' })
-
-      await service.recordOrderPayments(
-        'po-1',
-        [{ paymentMethodId: 'pm-1', amount: '60.0000', paymentDate: '2026-01-15', reference: 'RESTORED-1' }],
-        'user-1',
-        'admin',
-      )
-
-      expect(ctx.vpRepo.restore).toHaveBeenCalledWith('vp-old')
-      expect(ctx.vpRepo.update).toHaveBeenCalledWith(
-        'vp-old',
-        expect.objectContaining({ referenceNumber: 'RESTORED-1' }),
-      )
-    })
-
-    it('preserves the prior referenceNumber when a restore supplies none (line 901)', async () => {
-      const ctx = wireTx({ lockedPO, existing: [] })
-      ctx.vpRepo.findOne
-        .mockResolvedValueOnce({
-          id: 'vp-old',
-          deletedAt: new Date(),
-          referenceNumber: 'OLD-REF',
-          notes: 'some note',
-        })
-        .mockResolvedValue({ id: 'vp-old' })
-
-      await service.recordOrderPayments(
-        'po-1',
-        [{ paymentMethodId: 'pm-1', amount: '60.0000', paymentDate: '2026-01-15' }],
-        'user-1',
-        'admin',
-      )
-
-      expect(ctx.vpRepo.update).toHaveBeenCalledWith(
-        'vp-old',
-        expect.objectContaining({ referenceNumber: 'OLD-REF' }),
       )
     })
   })

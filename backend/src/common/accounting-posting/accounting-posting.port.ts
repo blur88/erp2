@@ -8,12 +8,17 @@ import type {
   PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
   PostOwnerCapitalInjectionCmd, PostOwnerCapitalInjectionRefundCmd,
   PostOwnerCashDrawingCmd, PostOwnerCashDrawingRefundCmd, PostOwnerStockDrawingCmd,
-  ReverseEntryCmd, PostProviderSettlementCmd,
+  ReverseEntryCmd, PostProviderSettlementCmd, ReverseEntryForEventCmd,
 } from './posting-commands';
 
 export const ACCOUNTING_POSTING_PORT = 'ACCOUNTING_POSTING_PORT';
 
 export interface PostResult { journalEntryId: string; }
+
+export interface ReverseEntryForEventResult {
+  reversalEntryId: string | null;
+  outcome: 'reversed' | 'already_reversed' | 'no_original';
+}
 
 export interface AccountingPostingPort {
   postSalesPayment(cmd: PostSalesPaymentCmd, manager: EntityManager): Promise<PostResult>;
@@ -33,6 +38,10 @@ export interface AccountingPostingPort {
   postOwnerStockDrawing(cmd: PostOwnerStockDrawingCmd, manager: EntityManager): Promise<PostResult>;
   postProviderSettlement(cmd: PostProviderSettlementCmd, manager: EntityManager): Promise<PostResult>;
   reverseEntry(cmd: ReverseEntryCmd, manager: EntityManager): Promise<PostResult>;
+  reverseEntryForEvent(
+    cmd: ReverseEntryForEventCmd,
+    manager: EntityManager,
+  ): Promise<ReverseEntryForEventResult>;
   reverseEntriesForDocument(
     sourceType: AccountingSourceType,
     sourceDocumentId: string,

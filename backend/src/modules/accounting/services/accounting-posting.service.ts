@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
 import { EntityManager, IsNull } from 'typeorm';
 import { AccountingLookupService } from './accounting-lookup.service';
 import { SettingsService } from '../../settings/settings.service';
+import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { JournalEntry } from '../entities/journal-entry.entity';
 import { JournalEntryLine } from '../entities/journal-entry-line.entity';
@@ -10,7 +11,7 @@ import { PostingType } from '../entities/posting-type.enum';
 import { AccountingSourceType } from '../entities/source-type.enum';
 import { formatMoney, formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
 import type {
-  AccountingPostingPort, PostResult,
+  AccountingPostingPort, PostResult, ReverseEntryForEventResult,
 } from '../../../common/accounting-posting/accounting-posting.port';
 import type {
   PostSalesPaymentCmd, PostSalesRefundCmd, PostSalesFulfillmentCmd,
@@ -18,7 +19,7 @@ import type {
   PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
   PostOwnerCapitalInjectionCmd, PostOwnerCapitalInjectionRefundCmd,
   PostOwnerCashDrawingCmd, PostOwnerCashDrawingRefundCmd, PostOwnerStockDrawingCmd,
-  ReverseEntryCmd, PostProviderSettlementCmd,
+  ReverseEntryCmd, ReverseEntryForEventCmd, PostProviderSettlementCmd,
 } from '../../../common/accounting-posting/posting-commands';
 
 type DraftLine = { account: ChartOfAccount; debit: string; credit: string };
@@ -436,5 +437,88 @@ export class AccountingPostingService implements AccountingPostingPort {
       results.push(await this.reverseEntry({ originalEntryId: o.id, entryDate, createdBy }, manager));
     }
     return results;
+  }
+
+  /**
+   * Reverse exactly one event's own original entry, or report that there is
+   * nothing to reverse (#1401, vendor-payment void).
+   *
+   * `reverseEntriesForDocument` reverses a whole document by posting type; an
+   * unpay must reverse *this payment's* entry only. The caller derives
+   * `expectedPostingType` from the event row itself and names the
+   * `otherPostingTypes` whose originals would make the event ambiguous — an
+   * original of one of those types is a conflict, never a guess. The expected
+   * original must belong to `sourceDocumentId` too; one that drifted to
+   * another document is a conflict rather than a cross-document reversal.
+   *
+   * The original row is locked FOR UPDATE *before* its reversal is looked up,
+   * so two concurrent voids serialise: the loser finds the winner's reversal
+   * and returns `already_reversed` instead of posting a second one. (The
+   * database cannot do this with a unique index alone — a reversal row is
+   * exactly the row UQ_journal_entry_source_event exempts.)
+   */
+  async reverseEntryForEvent(
+    cmd: ReverseEntryForEventCmd,
+    manager: EntityManager,
+  ): Promise<ReverseEntryForEventResult> {
+    const entryRepo = manager.getRepository(JournalEntry);
+    // Originals only: a reversal row duplicates its original's
+    // (sourceType, sourceEventId, postingType) and must not be a candidate —
+    // otherwise an already-reversed event looks like a second original.
+    const originals: JournalEntry[] = await entryRepo.find({
+      where: {
+        sourceType: cmd.sourceType,
+        sourceEventId: cmd.sourceEventId,
+        reversalOfEntryId: IsNull(),
+      } as any,
+    });
+
+    const conflicting = originals.find((o) =>
+      o.postingType !== cmd.expectedPostingType,
+    );
+    if (conflicting) {
+      throw new ConflictException({
+        message: {
+          text:
+            `Event ${cmd.sourceEventId} has an original of unexpected posting type ` +
+            `${conflicting.postingType}; expected ${cmd.expectedPostingType}`,
+          reason: 'unexpected_posting_type',
+          sourceEventId: cmd.sourceEventId,
+        },
+      });
+    }
+
+    const expected = originals.find((o) => o.postingType === cmd.expectedPostingType);
+    if (!expected) return { reversalEntryId: null, outcome: 'no_original' };
+
+    if (expected.sourceDocumentId !== cmd.sourceDocumentId) {
+      throw new ConflictException({
+        message: {
+          text:
+            `Original entry for event ${cmd.sourceEventId} belongs to document ` +
+            `${expected.sourceDocumentId ?? 'none'}, not ${cmd.sourceDocumentId}`,
+          reason: 'foreign_document',
+          sourceEventId: cmd.sourceEventId,
+        },
+      });
+    }
+
+    // Lock first, then check: the parent transaction holds the row until it
+    // commits, so a concurrent reversal must wait and this check sees its row.
+    const locked = await lockRowForUpdate(manager, JournalEntry, expected.id, {
+      notFoundMessage: `Original entry ${expected.id} not found`,
+    });
+    const existingReversal: JournalEntry | null = await entryRepo.findOne({
+      where: { reversalOfEntryId: locked.id } as any,
+    });
+    if (existingReversal) {
+      return { reversalEntryId: (existingReversal as any).id, outcome: 'already_reversed' };
+    }
+
+    const { journalEntryId } = await this.reverseEntry(
+      { originalEntryId: locked.id, entryDate: cmd.entryDate, createdBy: cmd.createdBy },
+      manager,
+    );
+    return { reversalEntryId: journalEntryId, outcome: 'reversed' };
   }
 }

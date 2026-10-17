@@ -44,6 +44,11 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
 import {
+  LIVE_VENDOR_PAYMENT_SQL,
+  VENDOR_PAYMENT_VOIDED,
+  expectedVendorPaymentPostingType,
+} from '../vendor-payment-status';
+import {
   formatMoney,
   formatScale4,
   quantizeToCents,
@@ -69,8 +74,6 @@ export class PurchaseOrderService extends BaseCrudService<
     private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-    @InjectRepository(VendorPayment)
-    private readonly vendorPaymentRepository: Repository<VendorPayment>,
     @InjectRepository(PaymentMethodEntity)
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
     private readonly supplierService: SupplierService,
@@ -102,7 +105,7 @@ export class PurchaseOrderService extends BaseCrudService<
       .leftJoinAndSelect('po.supplier', 'supplier')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments');
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments', LIVE_VENDOR_PAYMENT_SQL('vendorPayments'));
 
     if (query.supplierId) {
       qb = qb.andWhere('po.supplierId = :supplierId', { supplierId: query.supplierId });
@@ -237,13 +240,9 @@ export class PurchaseOrderService extends BaseCrudService<
    *
    * Validates PROJECTED NET PAID after the operation, not a delta. `existing`
    * comes from findAllByPurchaseOrder inside the caller's locked transaction —
-   * never from purchaseOrder.paidAmount, a denormalized cache.
-   *
-   * On the restore branch the prior row is excluded from `existing` by TWO
-   * independent mechanisms (the isActive: true filter and TypeORM's default
-   * withDeleted: false), so it was never counted and the branch is additive:
-   * projected net is existing + sum(ALL lines). Do NOT subtract the restored
-   * row's old amount. Double-counting requires BOTH exclusions to be defeated.
+   * never from purchaseOrder.paidAmount, a denormalized cache. It contains
+   * live rows only: voided payments are history and contribute nothing, and
+   * there is no restore branch to exclude anything from (#1401).
    */
   private assertWithinTotal(
     purchaseOrder: PurchaseOrder,
@@ -521,7 +520,7 @@ export class PurchaseOrderService extends BaseCrudService<
       .leftJoinAndSelect('po.supplier', 'supplier')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments', LIVE_VENDOR_PAYMENT_SQL('vendorPayments'))
       .where('po.id = :id', { id })
       .getOne();
 
@@ -538,7 +537,7 @@ export class PurchaseOrderService extends BaseCrudService<
       .leftJoinAndSelect('po.supplier', 'supplier')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments', LIVE_VENDOR_PAYMENT_SQL('vendorPayments'))
       .where('po.orderNumber = :orderNumber', { orderNumber })
       .getOne();
 
@@ -840,7 +839,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
       const repo = manager.getRepository(VendorPayment);
 
-      const existing = await repo.find({ where: { purchaseOrderId: orderId, isActive: true } });
+      const existing = await this.vendorPaymentService.findAllByPurchaseOrder(orderId, manager);
       const netPaidMinor = sumMinor(existing.map((r) => r.amount));
       const totalRefundMinor = sumMinor(refunds.map((l) => l.amount));
       if (totalRefundMinor > netPaidMinor) {
@@ -955,99 +954,34 @@ export class PurchaseOrderService extends BaseCrudService<
         sumMinor(payments.map((p) => p.amount)),
       );
 
-      // Check for a previously soft-deleted payment for this PO (from a prior unpay)
-      const vpRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
-      const previousPayment = await vpRepo.findOne({
-        where: { purchaseOrderId: id },
-        withDeleted: true,
-        order: { deletedAt: 'DESC' } as any,
-      });
-
-      if (previousPayment?.deletedAt) {
-        // Restore the soft-deleted payment and update with first line details.
-        const firstLine = payments[0];
-        await vpRepo.restore(previousPayment.id);
-        await vpRepo.update(previousPayment.id, {
-          isActive: true,
-          paymentMethodId: firstLine.paymentMethodId,
-          amount: firstLine.amount,
-          referenceNumber: firstLine.reference || previousPayment.referenceNumber,
-          paymentDate: firstLine.paymentDate as any,
-        });
-        const restoredPayment = await vpRepo.findOne({
-          where: { id: previousPayment.id },
-        });
-        this.logger.log(`Restored vendor payment ${restoredPayment.id} for PO ${purchaseOrder.orderNumber}`);
-
-        const method = methodMap.get(firstLine.paymentMethodId)!;
+      // Every line creates a NEW row with its own posting. Paying again after
+      // an unpay is a fresh payment: the voided rows stay voided (#1401).
+      for (const line of payments) {
+        const savedPayment = await this.vendorPaymentService.create(
+          {
+            supplierId: purchaseOrder.supplierId,
+            purchaseOrderId: id,
+            amount: line.amount,
+            paymentDate: line.paymentDate,
+            paymentMethodId: line.paymentMethodId,
+            status: 'completed',
+            referenceNumber: line.reference || undefined,
+          },
+          actor,
+          username,
+          manager,
+        );
+        const method = methodMap.get(line.paymentMethodId)!;
         await this.accounting.postPurchasePayment({
           purchaseOrderId: id,
           sourceRef: purchaseOrder.orderNumber,
-          paymentRowId: restoredPayment.id,
+          paymentRowId: savedPayment.id,
           channel: method.accountingChannel,
           paymentMethodId: method.id,
-          amount: formatMoney(quantizeToCents(toMinorUnits(firstLine.amount))),
-          entryDate: firstLine.paymentDate,
+          amount: formatMoney(quantizeToCents(toMinorUnits(line.amount))),
+          entryDate: line.paymentDate,
           createdBy: username,
         }, manager);
-
-        // Create new payments for remaining lines.
-        for (const line of payments.slice(1)) {
-          const savedPayment = await this.vendorPaymentService.create(
-            {
-              supplierId: purchaseOrder.supplierId,
-              purchaseOrderId: id,
-              amount: line.amount,
-              paymentDate: line.paymentDate,
-              paymentMethodId: line.paymentMethodId,
-              status: 'completed',
-              referenceNumber: line.reference || undefined,
-            },
-            actor,
-            username,
-            manager,
-          );
-          const m = methodMap.get(line.paymentMethodId)!;
-          await this.accounting.postPurchasePayment({
-            purchaseOrderId: id,
-            sourceRef: purchaseOrder.orderNumber,
-            paymentRowId: savedPayment.id,
-            channel: m.accountingChannel,
-            paymentMethodId: m.id,
-            amount: formatMoney(quantizeToCents(toMinorUnits(line.amount))),
-            entryDate: line.paymentDate,
-            createdBy: username,
-          }, manager);
-        }
-      } else {
-        // No previous payment — create a vendor payment for each line.
-        for (const line of payments) {
-          const savedPayment = await this.vendorPaymentService.create(
-            {
-              supplierId: purchaseOrder.supplierId,
-              purchaseOrderId: id,
-              amount: line.amount,
-              paymentDate: line.paymentDate,
-              paymentMethodId: line.paymentMethodId,
-              status: 'completed',
-              referenceNumber: line.reference || undefined,
-            },
-            actor,
-            username,
-            manager,
-          );
-          const method = methodMap.get(line.paymentMethodId)!;
-          await this.accounting.postPurchasePayment({
-            purchaseOrderId: id,
-            sourceRef: purchaseOrder.orderNumber,
-            paymentRowId: savedPayment.id,
-            channel: method.accountingChannel,
-            paymentMethodId: method.id,
-            amount: formatMoney(quantizeToCents(toMinorUnits(line.amount))),
-            entryDate: line.paymentDate,
-            createdBy: username,
-          }, manager);
-        }
       }
 
       await this.reconcilePaymentState(purchaseOrder, manager);
@@ -1087,10 +1021,21 @@ export class PurchaseOrderService extends BaseCrudService<
   }
 
   /**
-   * Mark purchase order as unpaid by soft-deleting the vendor payment
+   * Unpay a purchase order by VOIDING every live payment (#1401).
+   *
+   * A void keeps the payment row: it records who voided it and when, is
+   * excluded from every live-row query, and links the reversal of its own
+   * journal entry. Paying again after an unpay therefore creates NEW rows —
+   * nothing here soft-deletes or restores anything.
    */
   async markAsUnpaid(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Marking purchase order as unpaid: ${id}`);
+
+    // A void must be attributable. Rejecting before any read or write makes
+    // "no user id" a no-op instead of a half-voided order.
+    if (!userId) {
+      throw new BadRequestException('A user id is required to mark a purchase order as unpaid');
+    }
 
     const timezone = await resolveAppTimezone(this.settingsService);
     const now = new Date();
@@ -1111,17 +1056,60 @@ export class PurchaseOrderService extends BaseCrudService<
         throw new NotFoundException('No payment found for this purchase order');
       }
 
-      for (const payment of existingPayments) {
-        await this.vendorPaymentService.softDeleteForUnpay(payment.id, manager);
+      const entryDate = formatDateInTimezone(now, timezone);
+
+      // Deterministic void order: a stable sequence makes concurrent unpay
+      // tests and audit trails reproducible, and reversed(sort) cannot
+      // reorder what the database returned.
+      const livePayments = [...existingPayments].sort((a, b) => a.id.localeCompare(b.id));
+
+      for (const payment of livePayments) {
+        const expectedPostingType = expectedVendorPaymentPostingType(payment.amount);
+        const otherPostingTypes =
+          expectedPostingType === PostingType.PURCHASE_PAYMENT
+            ? [PostingType.PURCHASE_REFUND]
+            : [PostingType.PURCHASE_PAYMENT];
+
+        const { reversalEntryId, outcome } = await this.accounting.reverseEntryForEvent(
+          {
+            sourceType: AccountingSourceType.PURCHASE_ORDER,
+            sourceDocumentId: id,
+            sourceEventId: payment.id,
+            expectedPostingType,
+            otherPostingTypes,
+            entryDate,
+            createdBy: username,
+          },
+          manager,
+        );
+
+        await this.vendorPaymentService.voidForUnpay(
+          payment,
+          { voidedByUserId: userId, voidedAt: now, reversalEntryId },
+          manager,
+        );
+
+        await this.auditLogService.logInTransaction(
+          manager,
+          'VOID',
+          'VendorPayment',
+          `Voided vendor payment ${payment.id} on unpay of purchase order ${id}`,
+          {
+            entityId: payment.id,
+            userId,
+            username,
+            oldValues: { status: payment.status },
+            newValues: { status: VENDOR_PAYMENT_VOIDED, voidReversalEntryId: reversalEntryId },
+            metadata: { purchaseOrderId: id, reversalOutcome: outcome },
+          },
+        );
       }
 
-      const entryDate = formatDateInTimezone(now, timezone);
-      purchaseOrder.paidAmount = '0.0000';
-      purchaseOrder.paymentStatus = PurchaseOrderPaymentStatus.UNPAID;
-      purchaseOrder.status = PurchaseOrderStatus.DRAFT;
-      await manager.getRepository(PurchaseOrder).save(purchaseOrder);
-
-      await this.accounting.reverseEntriesForDocument(
+      // Legacy sweep for originals that belong to no live payment row
+      // (pre-#1401 residue): reverse-by-document after the per-payment voids.
+      // Only when it actually reversed something is a sweep audit written —
+      // an empty sweep is not an event.
+      const swept = await this.accounting.reverseEntriesForDocument(
         AccountingSourceType.PURCHASE_ORDER,
         id,
         [PostingType.PURCHASE_PAYMENT, PostingType.PURCHASE_REFUND],
@@ -1129,6 +1117,25 @@ export class PurchaseOrderService extends BaseCrudService<
         manager,
         username,
       );
+      if (swept.length > 0) {
+        await this.auditLogService.logInTransaction(
+          manager,
+          'UNPAY_SWEEP',
+          'PurchaseOrder',
+          `Unpay of purchase order ${id} reversed ${swept.length} orphan journal entries`,
+          {
+            entityId: id,
+            userId,
+            username,
+            metadata: { sweptReversalEntryIds: swept.map((r) => r.journalEntryId) },
+          },
+        );
+      }
+
+      purchaseOrder.paidAmount = '0.0000';
+      purchaseOrder.paymentStatus = PurchaseOrderPaymentStatus.UNPAID;
+      purchaseOrder.status = PurchaseOrderStatus.DRAFT;
+      await manager.getRepository(PurchaseOrder).save(purchaseOrder);
     });
 
     return this.findOne(id);

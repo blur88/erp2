@@ -219,6 +219,54 @@ docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USE
 The script runs in `BEGIN READ ONLY … ROLLBACK` and writes nothing. No migration
 ships with #1390.
 
+### Vendor payments are voided, never deleted (#1401)
+
+#1401 replaces vendor-payment soft delete with a void. Migration
+`VoidVendorPayments1792179464025` adds `voidedAt`, `voidedByUserId` and
+`voidReversalEntryId`, converts every soft-deleted payment to `voided` (no
+voider; `voidedAt` from `deletedAt`; `voidReversalEntryId` set to the reversal
+of its original when one exists), and adds CHECKs that forbid `deletedAt`. "Voided" is
+`status = 'voided'` and is the live predicate: a query that joins vendor
+payments without it double-counts. A payment row id must never be reused for a
+second posting — `UQ_journal_entry_source_event` absorbs it silently.
+
+The **before** check is run twice: once before deploy to find rows the
+migration would abort on or that need a disposition, and its recorded output is
+also the **baseline** for the after check. The before check run after the
+migration is **not** the validation; the after check is.
+
+- [ ] 1. Run the **before** check read-only against production. Record its full
+      output in #1401.
+
+```bash
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < backend/scripts/preflight-vendor-payments-void.sql
+```
+
+- [ ] 2. Any `blocking` row: **HOLD**. The migration would abort anyway.
+- [ ] 3. Every `damage` row: a disposition per payment id is recorded in #1401
+      (for example "repair under 3b", "verified correct against source
+      documents, no action" or "accepted, with reason"). **Deploy waits until
+      every row has one.** Repair is not part of this deploy.
+- [ ] 4. Deploy.
+- [ ] 5. Run the **after** check with the recorded baseline from step 3. Any
+      `new` row: stop and report it in #1401; roll back only by decision
+      (`migration:revert` is allowed only while no application void exists).
+      Record the output, including `resolved` keys, in #1401.
+
+```bash
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -v baseline="$(cat vp-void-baseline.json)" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < backend/scripts/postcheck-vendor-payments-void.sql
+```
+
+- [ ] 6. The after check may be re-run any time later against the same
+      baseline; a `new` row then means a payment went wrong after deploy.
+
+The baseline file holds production ids, so it lives with the deploy record in
+#1401, not in the repository. A missing `baseline` variable is a psql error,
+never an empty baseline; an empty baseline is passed explicitly as `[]`. Both
+scripts run in `BEGIN READ ONLY … ROLLBACK` and write nothing.
+
 ### Customer order metrics are recalculated at deploy (#1355)
 
 Migration `RecalculateCustomerMetricsFromFulfilledOrders1791611629594` **rewrites
