@@ -1318,6 +1318,18 @@ describe('PurchaseOrderService', () => {
       );
     });
 
+    it('unpay of a RECEIVED order is refused with the received-goods message and voids nothing', async () => {
+      wireTx({ lockedPO: { ...lockedPO, status: PurchaseOrderStatus.RECEIVED } });
+
+      await expect(service.markAsUnpaid('po-1', 'user-1', 'admin')).rejects.toThrow(
+        new BadRequestException('Cannot unpay a purchase order with received goods.'),
+      );
+
+      expect(vendorPaymentService.voidForUnpay).not.toHaveBeenCalled();
+      expect(accountingPort.reverseEntryForEvent).not.toHaveBeenCalled();
+      expect(auditLogService.logInTransaction).not.toHaveBeenCalled();
+    });
+
     it('unpay without a user id is rejected', async () => {
       await expect(service.markAsUnpaid('po-1')).rejects.toThrow(BadRequestException);
 
