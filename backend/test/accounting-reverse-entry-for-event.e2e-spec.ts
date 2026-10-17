@@ -82,7 +82,7 @@ async function seedAccounts(qr: QueryRunner): Promise<void> {
 
 interface SeedEntry {
   id: string;
-  postingType: 'PURCHASE_PAYMENT' | 'PURCHASE_REFUND';
+  postingType: PostingType;
   sourceDocumentId: string | null;
   reversalOfEntryId?: string | null;
 }
@@ -157,6 +157,31 @@ function conflictMessage(error: ConflictException): {
   };
   return response.message;
 }
+
+it('rejects original with outside-pair posting type', async () => {
+  await inRolledBackTxn(async (qr) => {
+    await seedAccounts(qr);
+    const salesOriginalId = uuid(50);
+    await seedEntry(qr, {
+      id: salesOriginalId,
+      postingType: PostingType.SALES_PAYMENT,
+      sourceDocumentId: null,
+      reversalOfEntryId: null,
+    });
+    const cmd = {
+      sourceType: AccountingSourceType.PURCHASE_ORDER,
+      sourceDocumentId: PO_ID,
+      sourceEventId: EVENT_ID,
+      expectedPostingType: PostingType.PURCHASE_PAYMENT,
+      otherPostingTypes: [],
+      entryDate: '2026-07-20',
+      createdBy: 'tester',
+    };
+    await expect(
+      posting.reverseEntryForEvent(cmd, qr.manager),
+    ).rejects.toThrow(ConflictException);
+  });
+});
 
 describe('AccountingPostingService.reverseEntryForEvent (e2e)', () => {
   it('reverses the unreversed expected original with swapped lines', async () => {

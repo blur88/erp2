@@ -474,7 +474,7 @@ export class AccountingPostingService implements AccountingPostingPort {
     });
 
     const conflicting = originals.find((o) =>
-      cmd.otherPostingTypes.includes(o.postingType),
+      o.postingType !== cmd.expectedPostingType,
     );
     if (conflicting) {
       throw new ConflictException({
