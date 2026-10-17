@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -79,6 +79,38 @@ describe('SupplierPaymentsTab', () => {
     expect(screen.getByText('PO-26-001')).toBeInTheDocument()
     expect(screen.queryByText('Payment #')).not.toBeInTheDocument()
     expect(screen.getByText(/of 55 records/)).toBeInTheDocument()
+  })
+
+  it('shows a voided payment as Voided', () => {
+    mockQuery.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'vp-void',
+            paymentDate: '2026-01-02',
+            amount: 120,
+            status: 'voided',
+            voidedAt: '2026-01-03',
+            purchaseOrder: { orderNumber: 'PO-2' },
+          },
+          {
+            id: 'vp-live',
+            paymentDate: '2026-01-01',
+            amount: 100,
+            status: 'completed',
+            purchaseOrder: { orderNumber: 'PO-1' },
+          },
+        ],
+        meta: { total: 2 },
+      },
+      isLoading: false,
+    })
+    renderTab()
+    expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument()
+    const voidedRow = screen.getByText('Voided').closest('tr')
+    expect(voidedRow).not.toBeNull()
+    expect(within(voidedRow as HTMLElement).getByText('RM 120.00')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
   })
 
   it('shows the error state, not the empty state, when the query fails', () => {

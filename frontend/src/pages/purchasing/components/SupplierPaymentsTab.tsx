@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
+import { StatusChip } from '@/components/common/StatusChip'
 import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
 import { useListUrlState } from '@/hooks/useListUrlState'
 import { useGetSupplierPaymentsQuery } from '@/store/api/purchasingApi'
@@ -20,15 +21,16 @@ export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabP
   const total = data?.meta?.total ?? 0
 
   const columns: Column<(typeof payments)[number]>[] = [
-    { header: 'PO #', width: '18%', render: (p) => bold(p.purchaseOrder?.orderNumber ?? '-') },
-    { header: 'Date', width: '16%', render: (p) => formatDate(p.paymentDate) },
-    { header: 'Method', width: '18%', render: (p) => p.paymentMethodEntity?.name ?? '-' },
-    { header: 'Reference #', width: '18%', render: (p) => p.referenceNumber ?? '-' },
-    { header: 'Amount', align: 'right', width: '15%', render: (p) => formatCurrency(p.amount) },
+    { header: 'PO #', width: '15%', render: (p) => bold(p.purchaseOrder?.orderNumber ?? '-') },
+    { header: 'Date', width: '14%', render: (p) => formatDate(p.paymentDate) },
+    { header: 'Method', width: '15%', render: (p) => p.paymentMethodEntity?.name ?? '-' },
+    { header: 'Reference #', width: '15%', render: (p) => p.referenceNumber ?? '-' },
+    { header: 'Status', width: '15%', render: (p) => <StatusChip status={p.status} /> },
+    { header: 'Amount', align: 'right', width: '13%', render: (p) => formatCurrency(p.amount) },
     {
       header: 'Action',
       align: 'right',
-      width: '15%',
+      width: '13%',
       render: (p) => {
         const orderNumber = p.purchaseOrder?.orderNumber
         return viewAction(
