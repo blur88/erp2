@@ -26,7 +26,6 @@ function renderBar(order: SalesOrder, handlers = {}) {
   const defaults = {
     onPay: vi.fn(),
     onFulfill: vi.fn(),
-    onUnfulfill: vi.fn(),
     onRefund: vi.fn(),
     onEdit: vi.fn(),
     onCancel: vi.fn(),
@@ -121,13 +120,6 @@ describe('OrderActionBar', () => {
     renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'PAID' }), { onFulfill })
     await userEvent.click(screen.getByRole('button', { name: 'Fulfill' }))
     expect(onFulfill).toHaveBeenCalledTimes(1)
-  })
-
-  it('calls onUnfulfill when Unfulfill is clicked', async () => {
-    const onUnfulfill = vi.fn()
-    renderBar(makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' }), { onUnfulfill })
-    await userEvent.click(screen.getByRole('button', { name: 'Unfulfill' }))
-    expect(onUnfulfill).toHaveBeenCalledTimes(1)
   })
 
   it('calls onRefund when Refund is clicked', async () => {

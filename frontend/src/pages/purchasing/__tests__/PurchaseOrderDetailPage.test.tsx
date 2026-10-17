@@ -33,7 +33,6 @@ vi.mock('@/store/api/purchasingApi', async (importOriginal) => {
     useReceiveGoodsMutation: () => [vi.fn(), { isLoading: false }],
     useRecordPurchaseOrderRefundsMutation: () => [vi.fn(), { isLoading: false }],
     useRecordVendorPaymentsMutation: () => [vi.fn(), { isLoading: false }],
-    useReturnGoodsMutation: () => [vi.fn(), { isLoading: false }],
     useUncancelPurchaseOrderMutation: () => [vi.fn(), { isLoading: false }],
   }
 })

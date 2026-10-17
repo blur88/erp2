@@ -20,7 +20,6 @@ const filterBarSpy = vi.fn()
 vi.mock('@/store/api/purchasingApi', () => ({
   useGetPurchaseOrdersQuery,
   useReceiveGoodsMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
-  useReturnGoodsMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
   useCancelPurchaseOrderMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
   useUncancelPurchaseOrderMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
   useDuplicatePurchaseOrderMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),

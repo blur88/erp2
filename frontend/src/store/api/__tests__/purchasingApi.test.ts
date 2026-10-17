@@ -16,7 +16,6 @@ describe('purchasingApiSlice', () => {
     expect(purchasingApiSlice.endpoints.cancelPurchaseOrder).toBeDefined()
     expect(purchasingApiSlice.endpoints.uncancelPurchaseOrder).toBeDefined()
     expect(purchasingApiSlice.endpoints.receiveGoods).toBeDefined()
-    expect(purchasingApiSlice.endpoints.returnGoods).toBeDefined()
     expect(purchasingApiSlice.endpoints.recordVendorPayments).toBeDefined()
     expect(purchasingApiSlice.endpoints.getPurchaseOrderPayments).toBeDefined()
     // Single vendor payment read kept for the accounting journal-entry UI

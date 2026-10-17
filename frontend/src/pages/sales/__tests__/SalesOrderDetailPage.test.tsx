@@ -14,7 +14,6 @@ const {
   mockGetSalesOrderByNumber,
   mockGetSalesOrderPayments,
   mockFulfill,
-  mockUnfulfill,
   mockCancel,
   mockRecordPayments,
   mockRecordRefunds,
@@ -25,7 +24,6 @@ const {
   mockGetSalesOrderByNumber: vi.fn(),
   mockGetSalesOrderPayments: vi.fn(),
   mockFulfill: vi.fn(),
-  mockUnfulfill: vi.fn(),
   mockCancel: vi.fn(),
   mockRecordPayments: vi.fn(),
   mockRecordRefunds: vi.fn(),
@@ -52,7 +50,6 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
     useGetSalesOrderByNumberQuery: mockGetSalesOrderByNumber,
     useGetSalesOrderPaymentsQuery: mockGetSalesOrderPayments,
     useFulfillSalesOrderMutation: () => [mockFulfill, { isLoading: false }],
-    useUnfulfillSalesOrderMutation: () => [mockUnfulfill, { isLoading: false }],
     useCancelSalesOrderMutation: () => [mockCancel, { isLoading: false }],
     useRecordOrderPaymentsMutation: () => [mockRecordPayments, { isLoading: false }],
     useRecordOrderRefundsMutation: () => [mockRecordRefunds, { isLoading: false }],
@@ -233,13 +230,6 @@ describe('SalesOrderDetailPage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent(/out of stock/i)
     expect(screen.getByRole('button', { name: 'Fulfill' })).toBeDisabled()
-  })
-
-  it('shows confirm dialog when Unfulfill is clicked', async () => {
-    mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' }), isLoading: false })
-    renderPage()
-    await userEvent.click(screen.getByRole('button', { name: 'Unfulfill' }))
-    expect(screen.getByText(/Revert this order/i)).toBeInTheDocument()
   })
 
   it('opens PaymentDialog when Pay is clicked', async () => {

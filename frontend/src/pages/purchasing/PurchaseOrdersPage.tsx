@@ -18,7 +18,6 @@ import {
   useReceiveGoodsMutation,
   useRecordPurchaseOrderRefundsMutation,
   useRecordVendorPaymentsMutation,
-  useReturnGoodsMutation,
   useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
 import {
@@ -62,7 +61,7 @@ const filterConfig: FilterBarConfig<PurchaseOrderFilters> = {
   },
 }
 
-type ConfirmAction = 'receive' | 'return' | 'cancel' | 'uncancel'
+type ConfirmAction = 'receive' | 'cancel' | 'uncancel'
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (typeof error === 'object' && error !== null && 'data' in error) {
@@ -133,7 +132,6 @@ const PurchaseOrdersPage: React.FC = () => {
       : null
 
   const [receivePurchaseOrder, { isLoading: isReceiving }] = useReceiveGoodsMutation()
-  const [returnPurchaseOrder, { isLoading: isReturning }] = useReturnGoodsMutation()
   const [cancelPurchaseOrder, { isLoading: isCancelling }] = useCancelPurchaseOrderMutation()
   const [uncancelPurchaseOrder, { isLoading: isUncancelling }] = useUncancelPurchaseOrderMutation()
   const [duplicatePurchaseOrder] = useDuplicatePurchaseOrderMutation()
@@ -211,10 +209,6 @@ const PurchaseOrdersPage: React.FC = () => {
           await receivePurchaseOrder(confirmOrder.id).unwrap()
           showSuccess(`Purchase order ${confirmOrder.orderNumber} received`)
           break
-        case 'return':
-          await returnPurchaseOrder(confirmOrder.id).unwrap()
-          showSuccess(`Purchase order ${confirmOrder.orderNumber} returned`)
-          break
         case 'cancel':
           await cancelPurchaseOrder(confirmOrder.id).unwrap()
           showSuccess(`Purchase order ${confirmOrder.orderNumber} cancelled`)
@@ -240,7 +234,6 @@ const PurchaseOrdersPage: React.FC = () => {
     confirmAction,
     confirmOrder,
     receivePurchaseOrder,
-    returnPurchaseOrder,
     showError,
     showSuccess,
   ])
@@ -261,12 +254,6 @@ const PurchaseOrdersPage: React.FC = () => {
         confirmText: 'Receive',
         loading: isReceiving,
       },
-      return: {
-        title: 'Return Purchase Order',
-        message: `Return this purchase order to ready? (${confirmOrder.orderNumber})`,
-        confirmText: 'Return',
-        loading: isReturning,
-      },
       cancel: {
         title: 'Cancel Purchase Order',
         message: `Cancel this purchase order? (${confirmOrder.orderNumber})`,
@@ -283,7 +270,7 @@ const PurchaseOrdersPage: React.FC = () => {
     }
 
     return configs[confirmAction]
-  }, [confirmAction, confirmOrder, isCancelling, isUncancelling, isReceiving, isReturning])
+  }, [confirmAction, confirmOrder, isCancelling, isUncancelling, isReceiving])
 
   const handleDuplicateOrder = useCallback(async (order: PurchaseOrder) => {
     try {
@@ -344,7 +331,6 @@ const PurchaseOrdersPage: React.FC = () => {
             onEdit={(order) => navigate(withCurrentListQuery(`/purchasing/orders/${order.orderNumber}/edit`))}
             onPay={(order) => setPaymentOrder(order)}
             onReceive={(order) => openConfirm(order, 'receive')}
-            onReturn={(order) => openConfirm(order, 'return')}
             onCancel={(order) => openConfirm(order, 'cancel')}
             onUncancel={(order) => openConfirm(order, 'uncancel')}
             onDuplicate={handleDuplicateOrder}
