@@ -17,6 +17,7 @@ import { DiscountType, SalesOrderItem } from '../src/database/entities/sales-ord
 import { CustomerService } from '../src/modules/sales/services/customer.service';
 import { recalculateCustomerMetrics } from '../src/modules/sales/services/customer-metrics';
 import { SalesOrderFulfillmentService } from '../src/modules/sales/services/sales-order-fulfillment.service';
+import { UNFULFILL_UNAVAILABLE } from '../src/modules/inventory/stock-undo-unavailable';
 import { SalesOrderPaymentService } from '../src/modules/sales/services/sales-order-payment.service';
 import {
   seedCategory,
@@ -367,7 +368,7 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
   });
 
   describe('metrics follow fulfil and unfulfil', () => {
-    it('fulfil adds the order; unfulfil removes it; the last unfulfil resets', async () => {
+    it('fulfil adds the order; unfulfil is refused and leaves the metrics', async () => {
       const customer = await seedCustomer('lifecycle');
       const early = await seedReadyOrder(customer.id, '2026-01-05', 1); // 100
       const late = await seedReadyOrder(customer.id, '2026-03-10', 2); // 200
@@ -396,20 +397,12 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
         last: '2026-03-10',
       });
 
-      await fulfillment.unfulfillOrder(late.id);
+      await expect(fulfillment.unfulfillOrder(late.id)).rejects.toThrow(UNFULFILL_UNAVAILABLE);
       expect(await storedMetrics(customer.id)).toEqual({
-        totalOrders: 1,
-        totalSales: '100.0000',
+        totalOrders: 2,
+        totalSales: '300.0000',
         first: '2026-01-05',
-        last: '2026-01-05',
-      });
-
-      await fulfillment.unfulfillOrder(early.id);
-      expect(await storedMetrics(customer.id)).toEqual({
-        totalOrders: 0,
-        totalSales: '0.0000',
-        first: null,
-        last: null,
+        last: '2026-03-10',
       });
     });
 
@@ -576,19 +569,24 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
         `SELECT id FROM journal_entry WHERE "sourceDocumentId" = $1 ORDER BY id`,
         [orderId],
       );
-      const [a] = await ds.query(
-        `SELECT count(*)::int AS n FROM audit_logs WHERE "entityId" = $1`,
-        [orderId],
-      );
-      return {
-        status: o.status,
-        hasFulfilledAt: o.hasFulfilledAt,
-        stock: Number(p.stockQuantity),
-        stockMovements: m.n,
-        journalIds: journals.map((j) => j.id),
-        auditRows: a.n,
-        metrics: await storedMetrics(customerId),
-      };
+       const [a] = await ds.query(
+         `SELECT count(*)::int AS n FROM audit_logs WHERE "entityId" = $1`,
+         [orderId],
+       );
+       const [b] = await ds.query(
+         `SELECT COALESCE(sum("remainingQuantity"),0)::text AS r FROM purchase_cost_history WHERE "productId" = $1`,
+         [product.id],
+       );
+       return {
+         status: o.status,
+         hasFulfilledAt: o.hasFulfilledAt,
+         stock: Number(p.stockQuantity),
+         stockMovements: m.n,
+         journalIds: journals.map((j) => j.id),
+         auditRows: a.n,
+         metrics: await storedMetrics(customerId),
+         batchRemaining: b.r,
+       };
     }
 
     afterEach(allowMetrics);
@@ -617,7 +615,7 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
       expect(after.metrics.totalOrders).toBe(1);
     });
 
-    it('unfulfil: status, stock, postings and metrics are all as they were', async () => {
+    it('unfulfil is refused and changes nothing', async () => {
       const customer = await seedCustomer('refused-unfulfil');
       const order = await seedReadyOrder(customer.id, '2026-01-05', 5);
       await fulfillment.fulfillOrder(order.id);
@@ -631,19 +629,19 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
         last: '2026-01-05',
       });
 
-      await refuseMetricsFor(customer.id);
-      await expect(fulfillment.unfulfillOrder(order.id)).rejects.toThrow(REFUSED);
+      await expect(fulfillment.unfulfillOrder(order.id)).rejects.toThrow(UNFULFILL_UNAVAILABLE);
       await allowMetrics();
 
       expect(await effects(order.id, customer.id)).toEqual(before);
 
-      await fulfillment.unfulfillOrder(order.id);
-      const after = await effects(order.id, customer.id);
-      expect(after.status).toBe(SalesOrderStatus.READY);
-      expect(after.stock).toBe(before.stock + 5);
-      expect(after.stockMovements).toBe(0);
-      expect(after.journalIds.length).toBeGreaterThan(before.journalIds.length);
-      expect(after.metrics.totalOrders).toBe(0);
-    });
+      // HTTP case: stale tab still shows enabled button → 409 with explanation, nothing changes.
+      const customer2 = await seedCustomer('http-unfulfil');
+      const order2 = await seedReadyOrder(customer2.id, '2026-01-05', 5);
+      await fulfillment.fulfillOrder(order2.id);
+      const before2 = await effects(order2.id, customer2.id);
+      const res = await post(`/sales-orders/${order2.id}/unfulfill`).expect(409);
+      expect(res.body.message).toBe(UNFULFILL_UNAVAILABLE);
+      expect(await effects(order2.id, customer2.id)).toEqual(before2);
+  });
   });
 });
