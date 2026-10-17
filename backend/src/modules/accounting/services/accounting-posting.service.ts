@@ -145,7 +145,7 @@ export class AccountingPostingService implements AccountingPostingPort {
     const revenue = await this.build({
       sourceType: AccountingSourceType.SALES_ORDER, sourceDocumentId: cmd.salesOrderId,
       sourceRef: cmd.sourceRef, postingType: PostingType.SALES_FULFILLMENT_REVENUE, description: 'Sales fulfillment (revenue)',
-      entryDate: cmd.entryDate, createdBy: cmd.createdBy,
+      entryDate: cmd.entryDate, createdBy: cmd.createdBy, sourceEventId: cmd.occurrenceId ?? null,
       lines: [this.debitLine(customerDeposit, cmd.revenueAmount), this.creditLine(salesRevenue, cmd.revenueAmount)],
     }, manager);
 
@@ -162,7 +162,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       const cogsRes = await this.build({
         sourceType: AccountingSourceType.SALES_ORDER, sourceDocumentId: cmd.salesOrderId,
         sourceRef: cmd.sourceRef, postingType: PostingType.SALES_FULFILLMENT_COGS, description: 'Sales fulfillment (COGS)',
-        entryDate: cmd.entryDate, createdBy: cmd.createdBy,
+        entryDate: cmd.entryDate, createdBy: cmd.createdBy, sourceEventId: cmd.occurrenceId ?? null,
         lines: [this.debitLine(cogs, cmd.cogsAmount), this.creditLine(inventory, cmd.cogsAmount)],
       }, manager);
       cogsEntryId = cogsRes.journalEntryId;
@@ -197,6 +197,7 @@ export class AccountingPostingService implements AccountingPostingPort {
     const supplierDeposit = await this.lookup.resolveAccount('supplierDeposit', manager);
     return this.build({
       sourceType: AccountingSourceType.PURCHASE_ORDER, sourceDocumentId: cmd.purchaseOrderId,
+      sourceEventId: cmd.occurrenceId ?? null,
       sourceRef: cmd.sourceRef, postingType: PostingType.PURCHASE_RECEIVE, description: 'Goods received',
       entryDate: cmd.entryDate, createdBy: cmd.createdBy,
       lines: [this.debitLine(inventory, cmd.amount), this.creditLine(supplierDeposit, cmd.amount)],
@@ -473,8 +474,10 @@ export class AccountingPostingService implements AccountingPostingPort {
       } as any,
     });
 
+    const companions = cmd.companionPostingTypes ?? [];
     const conflicting = originals.find((o) =>
-      o.postingType !== cmd.expectedPostingType,
+      o.postingType !== cmd.expectedPostingType &&
+      !companions.includes(o.postingType as PostingType),
     );
     if (conflicting) {
       throw new ConflictException({
@@ -515,6 +518,48 @@ export class AccountingPostingService implements AccountingPostingPort {
       return { reversalEntryId: (existingReversal as any).id, outcome: 'already_reversed' };
     }
 
+    const { journalEntryId } = await this.reverseEntry(
+      { originalEntryId: locked.id, entryDate: cmd.entryDate, createdBy: cmd.createdBy },
+      manager,
+    );
+    return { reversalEntryId: journalEntryId, outcome: 'reversed' };
+  }
+
+  async reverseOriginalEntry(
+    cmd: {
+      originalEntryId: string;
+      expectedSourceType: AccountingSourceType;
+      expectedDocumentId: string;
+      expectedPostingType: PostingType;
+      entryDate: string;
+      createdBy?: string;
+    },
+    manager: EntityManager,
+  ): Promise<ReverseEntryForEventResult> {
+    const entryRepo = manager.getRepository(JournalEntry);
+    const original = await entryRepo.findOne({ where: { id: cmd.originalEntryId } as any });
+    if (!original) throw new ConflictException({ message: { text: `Original entry ${cmd.originalEntryId} not found`, reason: 'not_found' } });
+    if ((original as any).sourceType !== cmd.expectedSourceType) {
+      throw new ConflictException({ message: { text: `Original entry source type mismatch`, reason: 'source_type_mismatch' } });
+    }
+    if ((original as any).sourceDocumentId !== cmd.expectedDocumentId) {
+      throw new ConflictException({ message: { text: `Original entry document mismatch`, reason: 'foreign_document' } });
+    }
+    if ((original as any).postingType !== cmd.expectedPostingType) {
+      throw new ConflictException({ message: { text: `Original entry posting type mismatch`, reason: 'posting_type_mismatch' } });
+    }
+    if ((original as any).reversalOfEntryId !== null && (original as any).reversalOfEntryId !== undefined) {
+      throw new ConflictException({ message: { text: `Original entry is itself a reversal`, reason: 'reversal_row' } });
+    }
+    const locked = await lockRowForUpdate(manager, JournalEntry, cmd.originalEntryId, {
+      notFoundMessage: `Original entry ${cmd.originalEntryId} not found`,
+    });
+    const existingReversal: JournalEntry | null = await entryRepo.findOne({
+      where: { reversalOfEntryId: locked.id } as any,
+    });
+    if (existingReversal) {
+      return { reversalEntryId: (existingReversal as any).id, outcome: 'already_reversed' };
+    }
     const { journalEntryId } = await this.reverseEntry(
       { originalEntryId: locked.id, entryDate: cmd.entryDate, createdBy: cmd.createdBy },
       manager,

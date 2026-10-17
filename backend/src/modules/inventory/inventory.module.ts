@@ -5,6 +5,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from '../../database/entities/product.entity';
 import { Category } from '../../database/entities/category.entity';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
+import { StockOccurrence } from '../../database/entities/stock-occurrence.entity';
+import { StockBatchConsumption } from '../../database/entities/stock-batch-consumption.entity';
 import {
   StockAdjustment,
   StockAdjustmentItem,
@@ -61,6 +63,8 @@ import { ExportModule } from '../../common/export.module';
       Product,
       Category,
       StockMovement,
+      StockOccurrence,
+      StockBatchConsumption,
       StockAdjustment,
       StockAdjustmentItem,
       PurchaseCostHistory,

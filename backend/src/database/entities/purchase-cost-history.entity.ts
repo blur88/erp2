@@ -4,12 +4,14 @@ import {
   Index,
   ManyToOne,
   JoinColumn,
+  Check,
 } from 'typeorm';
 import {
   IsDecimal,
   Min,
   IsDate,
   IsUUID,
+  IsOptional,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import type { Product } from './product.entity';
@@ -22,6 +24,10 @@ import type { Product } from './product.entity';
 @Entity('purchase_cost_history')
 @Index(['productId', 'remainingQuantity'])
 @Index(['productId', 'receivedDate'])
+@Check(
+  'CHK_purchase_cost_history_reversed',
+  '("reversedAt" IS NULL) = ("reversedByOccurrenceId" IS NULL)',
+)
 export class PurchaseCostHistory extends BaseEntity {
   @Column({
     type: 'uuid',
@@ -98,11 +104,43 @@ export class PurchaseCostHistory extends BaseEntity {
 
   // Relationships
   @ManyToOne('Product', {
-    onDelete: 'CASCADE',
+    onDelete: 'RESTRICT',
     eager: false,
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
+
+  // #1406 occurrence linkage
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'Stock occurrence id',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  occurrenceId?: string;
+
+  @Column({
+    type: 'timestamptz',
+    nullable: true,
+    comment: 'When this batch was reversed',
+  })
+  @IsOptional()
+  @IsDate()
+  reversedAt?: Date;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'Reversal occurrence id',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  reversedByOccurrenceId?: string;
+
+  @ManyToOne('StockOccurrence', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'reversedByOccurrenceId' })
+  reversedByOccurrence?: any;
 
   // Computed properties
   get batchValue(): number {

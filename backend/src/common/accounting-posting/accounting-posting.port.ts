@@ -42,6 +42,17 @@ export interface AccountingPostingPort {
     cmd: ReverseEntryForEventCmd,
     manager: EntityManager,
   ): Promise<ReverseEntryForEventResult>;
+  reverseOriginalEntry(
+    cmd: {
+      originalEntryId: string;
+      expectedSourceType: AccountingSourceType;
+      expectedDocumentId: string;
+      expectedPostingType: PostingType;
+      entryDate: string;
+      createdBy?: string;
+    },
+    manager: EntityManager,
+  ): Promise<ReverseEntryForEventResult>;
   reverseEntriesForDocument(
     sourceType: AccountingSourceType,
     sourceDocumentId: string,
