@@ -60,12 +60,28 @@ afterAll(async () => {
   await app.close();
 });
 
+/**
+ * The script reads pre-migration columns only and the cases seed pre-migration
+ * row shapes, so the void-state CHECKs added by VoidVendorPayments1792179464025
+ * are dropped first. `IF EXISTS` keeps this working on an unmigrated database;
+ * the rollback restores the schema.
+ */
+async function dropPostMigrationConstraints(qr: QueryRunner): Promise<void> {
+  await qr.query(
+    `ALTER TABLE "vendor_payments" DROP CONSTRAINT IF EXISTS "CHK_vendor_payments_void_state"`,
+  );
+  await qr.query(
+    `ALTER TABLE "vendor_payments" DROP CONSTRAINT IF EXISTS "CHK_vendor_payments_never_soft_deleted"`,
+  );
+}
+
 /** Runs `fn` inside a transaction that is ALWAYS rolled back. */
 async function inRolledBackTxn(fn: (qr: QueryRunner) => Promise<void>): Promise<void> {
   const qr = ds.createQueryRunner();
   await qr.connect();
   await qr.startTransaction();
   try {
+    await dropPostMigrationConstraints(qr);
     await fn(qr);
   } finally {
     await qr.rollbackTransaction();
