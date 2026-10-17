@@ -44,6 +44,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
 import {
+  LIVE_VENDOR_PAYMENT_SQL,
   VENDOR_PAYMENT_VOIDED,
   expectedVendorPaymentPostingType,
 } from '../vendor-payment-status';
@@ -104,7 +105,7 @@ export class PurchaseOrderService extends BaseCrudService<
       .leftJoinAndSelect('po.supplier', 'supplier')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments');
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments', LIVE_VENDOR_PAYMENT_SQL('vendorPayments'));
 
     if (query.supplierId) {
       qb = qb.andWhere('po.supplierId = :supplierId', { supplierId: query.supplierId });
@@ -519,7 +520,7 @@ export class PurchaseOrderService extends BaseCrudService<
       .leftJoinAndSelect('po.supplier', 'supplier')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments', LIVE_VENDOR_PAYMENT_SQL('vendorPayments'))
       .where('po.id = :id', { id })
       .getOne();
 
@@ -536,7 +537,7 @@ export class PurchaseOrderService extends BaseCrudService<
       .leftJoinAndSelect('po.supplier', 'supplier')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments', LIVE_VENDOR_PAYMENT_SQL('vendorPayments'))
       .where('po.orderNumber = :orderNumber', { orderNumber })
       .getOne();
 

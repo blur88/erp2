@@ -41,6 +41,7 @@ describe('Unpay voids vendor payments; pay-again creates new rows (e2e)', () => 
   const ownedEntityIds: string[] = [];
   const ownedPurchaseOrderIds: string[] = [];
   let supplierId = '';
+  let analyticsSupplierId = '';
   let productId = '';
   let categoryId = '';
 
@@ -133,6 +134,9 @@ describe('Unpay voids vendor payments; pay-again creates new rows (e2e)', () => 
         if (supplierId) {
           await ds.query(`DELETE FROM suppliers WHERE id = $1`, [supplierId]);
         }
+        if (analyticsSupplierId) {
+          await ds.query(`DELETE FROM suppliers WHERE id = $1`, [analyticsSupplierId]);
+        }
 
         // Own-traces before removing the user (issue #1204).
         if (adminUserId || adminUsername) {
@@ -150,13 +154,17 @@ describe('Unpay voids vendor payments; pay-again creates new rows (e2e)', () => 
     }
   });
 
-  async function createOrder(total: string): Promise<{
+  async function createOrder(
+    total: string,
+    orderDate = '2026-09-17',
+    forSupplierId = supplierId,
+  ): Promise<{
     id: string;
     orderNumber: string;
   }> {
     const res = await post('/purchasing/orders', {
-      supplierId,
-      orderDate: '2026-09-17',
+      supplierId: forSupplierId,
+      orderDate,
       items: [{ productId, quantity: 1, unitPrice: Number(total) }],
     }).expect(201);
     const order = res.body.data ?? res.body;
@@ -617,5 +625,105 @@ describe('Unpay voids vendor payments; pay-again creates new rows (e2e)', () => 
       [[paymentId, order.id]],
     );
     expect(traces[0].count).toBe(0);
+  });
+
+  it('analytics ignore voided payments', async () => {
+    // A dedicated supplier keeps the dashboard hermetic: recentOrders carries
+    // no date window, so sharing a supplier with the other tests would leak
+    // their orders into the assertions.
+    const analyticsSupplierRes = await post('/purchasing/suppliers', {
+      type: 'local',
+      companyName: `Void Analytics Supplier ${runId}`,
+    }).expect(201);
+    const analyticsSupplier =
+      analyticsSupplierRes.body.data ?? analyticsSupplierRes.body;
+    analyticsSupplierId = analyticsSupplier.id;
+    ownedEntityIds.push(analyticsSupplierId);
+
+    const order = await createOrder('100.00', '2024-03-03', analyticsSupplierId);
+    await pay(order.id, '100.00', { reference: 'ANA-A' });
+    const [aId] = await livePaymentIds(order.id);
+    await post(`/purchasing/orders/${order.id}/unpay`).expect(200);
+    expect((await paymentRow(aId)).status).toBe('voided');
+    await pay(order.id, '30.00', { reference: 'ANA-B' });
+    const [bId] = await livePaymentIds(order.id);
+
+    const base =
+      `/purchasing/analytics/dashboard?supplierId=${analyticsSupplierId}` +
+      `&startDate=2024-03-01&endDate=2024-03-31`;
+
+    // Live payments sum to B (30 of 100) -> "partial". Counting the voided A
+    // as well would sum to 130 -> "overpaid", so each filter discriminates.
+    const partialRes = await get(`${base}&paymentStatus=partial`).expect(200);
+    const partial = partialRes.body.data ?? partialRes.body;
+    expect(partial.current.periodData).toEqual([
+      { period: '2024-03', spent: 100, orders: 1 },
+    ]);
+    expect(partial.recentOrders.map((o: any) => o.orderNumber)).toEqual([
+      order.orderNumber,
+    ]);
+
+    const overpaidRes = await get(`${base}&paymentStatus=overpaid`).expect(200);
+    const overpaid = overpaidRes.body.data ?? overpaidRes.body;
+    expect(overpaid.current.periodData).toEqual([]);
+    expect(overpaid.recentOrders).toEqual([]);
+
+    // The order itself reports B, not the voided A.
+    const po = await poRow(order.id);
+    expect(cents(po.paidAmount)).toBe(3000);
+    expect(po.paymentStatus).toBe('PARTIAL');
+    expect(bId).not.toBe(aId);
+  });
+
+  it("the order's vendorPayments list only live rows", async () => {
+    const order = await createOrder('100.00');
+    await pay(order.id, '100.00', { reference: 'LIST-A' });
+    const [aId] = await livePaymentIds(order.id);
+    await post(`/purchasing/orders/${order.id}/unpay`).expect(200);
+    await pay(order.id, '45.50', { reference: 'LIST-B' });
+    const [bId] = await livePaymentIds(order.id);
+
+    const byIdRes = await get(`/purchasing/orders/${order.id}`).expect(200);
+    const byId = byIdRes.body.data ?? byIdRes.body;
+    expect(byId.vendorPayments.map((p: any) => p.id)).toEqual([bId]);
+    expect(byId.vendorPayments[0].status).toBe('completed');
+    expect(cents(byId.paidAmount)).toBe(4550);
+    expect(byId.paymentStatus).toBe('PARTIAL');
+
+    const byNumberRes = await get(
+      `/purchasing/orders/by-number/${order.orderNumber}`,
+    ).expect(200);
+    const byNumber = byNumberRes.body.data ?? byNumberRes.body;
+    expect(byNumber.id).toBe(order.id);
+    expect(byNumber.vendorPayments.map((p: any) => p.id)).toEqual([bId]);
+    expect(byNumber.vendorPayments[0].status).toBe('completed');
+
+    // The voided row still exists; only the list hides it.
+    expect((await paymentRow(aId)).status).toBe('voided');
+  });
+
+  it('supplier payment history keeps voided rows', async () => {
+    const order = await createOrder('100.00');
+    await pay(order.id, '100.00', { reference: 'HIST-A' });
+    const [aId] = await livePaymentIds(order.id);
+    await post(`/purchasing/orders/${order.id}/unpay`).expect(200);
+    await pay(order.id, '45.50', { reference: 'HIST-B' });
+    const [bId] = await livePaymentIds(order.id);
+
+    const res = await get(
+      `/purchasing/suppliers/${supplierId}/payments?page=1&limit=100`,
+    ).expect(200);
+    const rows = res.body.data ?? res.body;
+    const a = rows.find((r: any) => r.id === aId);
+    const b = rows.find((r: any) => r.id === bId);
+
+    // History: the voided row stays visible with its void state...
+    expect(a).toBeDefined();
+    expect(a.status).toBe('voided');
+    expect(a.voidedAt).not.toBeNull();
+    // ...and the live row is normal.
+    expect(b).toBeDefined();
+    expect(b.status).toBe('completed');
+    expect(b.voidedAt).toBeNull();
   });
 });

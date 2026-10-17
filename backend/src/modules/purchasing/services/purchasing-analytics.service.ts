@@ -15,6 +15,7 @@ import {
 } from '../dto/purchasing-analytics.dto';
 import { GroupByPeriod } from '@/common/dto/analytics.dto';
 import { resolveDateRange } from '@/common/utils/date-range.util';
+import { LIVE_VENDOR_PAYMENT_SQL } from '../vendor-payment-status';
 
 interface PurchasingAnalyticsFilters {
   supplierId?: string;
@@ -184,7 +185,7 @@ export class PurchasingAnalyticsService {
     if (filters.paymentStatus) {
       const qb = this.purchaseOrderRepository
         .createQueryBuilder('po')
-        .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
+        .leftJoinAndSelect('po.vendorPayments', 'vendorPayments', LIVE_VENDOR_PAYMENT_SQL('vendorPayments'))
         .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
         .andWhere('po.deletedAt IS NULL')
         .andWhere('po.isActive = :isActive', { isActive: true });
@@ -338,7 +339,7 @@ export class PurchasingAnalyticsService {
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
       .leftJoinAndSelect('po.items', 'items')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments', LIVE_VENDOR_PAYMENT_SQL('vendorPayments'))
       .where('po.deletedAt IS NULL')
       .andWhere('po.isActive = :isActive', { isActive: true });
 
