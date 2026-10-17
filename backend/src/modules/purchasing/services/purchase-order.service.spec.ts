@@ -410,7 +410,7 @@ describe('PurchaseOrderService', () => {
 
       await expect(
         service.update('po-1', { shippingAmount: 10 } as any),
-      ).rejects.toThrow('Return the goods first.');
+      ).rejects.toThrow('Received orders cannot be edited.');
     });
 
     it('recomputes totals and reconciles on a shipping-only update (no items)', async () => {
