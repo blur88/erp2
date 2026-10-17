@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
+import { UNFULFILL_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
 import {
   SalesOrder,
   SalesOrderStatus,
@@ -11,8 +12,6 @@ import {
 } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { InventoryIntegrationService } from './inventory-integration.service';
-import { StockMovementService } from '../../inventory/services/stock-movement.service';
-import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
@@ -41,8 +40,6 @@ describe('SalesOrderFulfillmentService', () => {
   let service: SalesOrderFulfillmentService;
   let orderRepo: any;
   let inventoryService: any;
-  let stockMovementService: any;
-  let baseCostCalculator: any;
   let auditLogService: any;
   let dataSource: any;
   let accountingPort: any;
@@ -77,16 +74,6 @@ describe('SalesOrderFulfillmentService', () => {
           provide: InventoryIntegrationService,
           useValue: { adjustStock: (jest.fn as unknown as any)().mockResolvedValue(0n) },
         },
-        {
-          provide: StockMovementService,
-          useValue: {
-            deleteByReference: (jest.fn as unknown as any)().mockResolvedValue({ deletedCount: 1 }),
-          },
-        },
-        {
-          provide: BaseCostCalculatorService,
-          useValue: { restoreStock: (jest.fn as unknown as any)() },
-        },
         { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
         { provide: ACCOUNTING_POSTING_PORT, useValue: { postSalesFulfillment: (jest.fn as unknown as any)(), reverseEntriesForDocument: (jest.fn as unknown as any)() } },
         { provide: DataSource, useValue: { transaction: (jest.fn as unknown as any)() } },
@@ -97,8 +84,6 @@ describe('SalesOrderFulfillmentService', () => {
     service = module.get(SalesOrderFulfillmentService);
     orderRepo = module.get(getRepositoryToken(SalesOrder));
     inventoryService = module.get(InventoryIntegrationService);
-    stockMovementService = module.get(StockMovementService);
-    baseCostCalculator = module.get(BaseCostCalculatorService);
     auditLogService = module.get(AuditLogService);
     accountingPort = module.get(ACCOUNTING_POSTING_PORT);
     dataSource = module.get(DataSource) as any;
@@ -372,114 +357,12 @@ describe('SalesOrderFulfillmentService', () => {
   });
 
   describe('unfulfillOrder', () => {
-    it('throws ConflictException when order is not FULFILLED', async () => {
-      wireTransaction(mockOrder({ status: SalesOrderStatus.DRAFT }));
-      await expect(service.unfulfillOrder('order-1')).rejects.toThrow(ConflictException);
-    });
-
-    it('lock-reads the order, reverses inventory, and persists status READY via manager', async () => {
-      const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
-      const { findOne, update } = wireTransaction(order);
-
-      await service.unfulfillOrder('order-1');
-
-      expect(findOne).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'order-1' },
-          lock: { mode: 'pessimistic_write' },
-        }),
-      );
-      expect(baseCostCalculator.restoreStock).toHaveBeenCalledWith(
-        'product-1',
-        5,
-        expect.anything(),
-      );
-      expect(stockMovementService.deleteByReference).toHaveBeenCalledWith(
-        'sales_order',
-        'order-1',
-        expect.anything(),
-      );
-      expect(update).toHaveBeenCalledWith(
-        'order-1',
-        expect.objectContaining({ status: SalesOrderStatus.READY }),
-      );
-    });
-
-    it('rolls back (propagates) when stock-movement deletion fails — no swallow', async () => {
-      wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
-      stockMovementService.deleteByReference.mockRejectedValue(new Error('delete failed'));
-      await expect(service.unfulfillOrder('order-1')).rejects.toThrow('delete failed');
-    });
-
-    it('clears fulfilledAt on unfulfill', async () => {
-      const order = mockOrder({
-        status: SalesOrderStatus.FULFILLED,
-        fulfilledAt: new Date(),
-      });
-      const { update } = wireTransaction(order);
-
-      const result = await service.unfulfillOrder('order-1');
-
-      expect(update).toHaveBeenCalledWith(
-        'order-1',
-        expect.objectContaining({ fulfilledAt: null }),
-      );
-      expect(result.fulfilledAt).toBeUndefined();
-    });
-
-    it('recalculates the customer metrics in the same transaction, after the status update (#1355)', async () => {
-      const order = mockOrder({ status: SalesOrderStatus.FULFILLED, customerId: 'customer-1' });
-      const { update, query } = wireTransaction(order);
-
-      await service.unfulfillOrder('order-1');
-
-      expect(query.mock.calls.map((c: any[]) => c[1])).toEqual([
-        ['customer-1'],
-        ['customer-1', SalesOrderStatus.FULFILLED],
-      ]);
-      expect(update.mock.invocationCallOrder[0]).toBeLessThan(query.mock.invocationCallOrder[0]);
-    });
-
-    describe('business-calendar reversal entryDate (issue #1134)', () => {
-      const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
-
-      beforeEach(() => {
-        jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
-      });
-
-      afterEach(() => {
-        jest.useRealTimers();
-      });
-
-      it.each([
-        ['Asia/Kuala_Lumpur', '2026-08-25'],
-        ['UTC', '2026-08-24'],
-      ])('dates the reversal in %s as %s', async (timezone, expected) => {
-        appTimezone = timezone;
-        wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
-
-        await service.unfulfillOrder('order-1', 'u', 'admin');
-
-        const [, , , entryDate] =
-          accountingPort.reverseEntriesForDocument.mock.calls[0];
-        expect(entryDate).toBe(expected);
-      });
-    });
-
-    it('reverses fulfillment JEs on unfulfill', async () => {
-      const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
-      wireTransaction(order);
-
-      await service.unfulfillOrder('order-1', 'u', 'admin');
-
-      expect(accountingPort.reverseEntriesForDocument).toHaveBeenCalledWith(
-        'SALES_ORDER',
-        'order-1',
-        expect.arrayContaining(['SALES_FULFILLMENT_REVENUE', 'SALES_FULFILLMENT_COGS']),
-        expect.any(String),
-        expect.anything(),
-        'admin',
-      );
+    it('refuses with UNFULFILL_UNAVAILABLE and touches nothing', async () => {
+      await expect(service.unfulfillOrder('order-1', 'u1', 'alice'))
+        .rejects.toThrow(new ConflictException(UNFULFILL_UNAVAILABLE));
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(accountingPort.reverseEntriesForDocument).not.toHaveBeenCalled();
+      expect(auditLogService.log).not.toHaveBeenCalled();
     });
   });
 
@@ -509,17 +392,5 @@ describe('SalesOrderFulfillmentService', () => {
       expect(result.status).toBe(SalesOrderStatus.FULFILLED);
     });
 
-    it('unfulfills a FULFILLED order back to READY', async () => {
-      const order = mockOrder({
-        status: SalesOrderStatus.FULFILLED,
-        paymentStatus: SalesOrderPaymentStatus.PAID,
-        items: [],
-      });
-      wireTransaction(order);
-
-      const result = await service.unfulfillOrder('order-1');
-
-      expect(result.status).toBe(SalesOrderStatus.READY);
-    });
   });
 });

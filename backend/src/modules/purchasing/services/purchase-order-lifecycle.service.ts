@@ -3,7 +3,6 @@ import {
   ConflictException,
   Inject,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,7 +18,7 @@ import { StockMovementType } from '../../../database/entities/stock-movement.ent
 import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
-import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
+
 import { formatMoney, formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
@@ -27,12 +26,11 @@ import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
+import { RETURN_TO_READY_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
 import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class PurchaseOrderLifecycleService {
-  private readonly logger = new Logger(PurchaseOrderLifecycleService.name);
-
   constructor(
     @InjectRepository(PurchaseOrder)
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
@@ -60,13 +58,13 @@ export class PurchaseOrderLifecycleService {
   static assertStatusEditable(status: PurchaseOrderStatus): void {
     if (status !== PurchaseOrderStatus.DRAFT && status !== PurchaseOrderStatus.READY) {
       throw new BadRequestException(
-        `Cannot edit purchase order in ${status} status. ${
-          status === PurchaseOrderStatus.RECEIVED
-            ? 'Return the goods first.'
-            : status === PurchaseOrderStatus.CANCELLED
-              ? 'Uncancel the order first.'
-              : 'Order must be paid in full (Ready) before editing.'
-        }`,
+        status === PurchaseOrderStatus.RECEIVED
+          ? 'Cannot edit purchase order in RECEIVED status. Received orders cannot be edited.'
+          : `Cannot edit purchase order in ${status} status. ${
+              status === PurchaseOrderStatus.CANCELLED
+                ? 'Uncancel the order first.'
+                : 'Order must be paid in full (Ready) before editing.'
+            }`,
       );
     }
   }
@@ -265,56 +263,6 @@ export class PurchaseOrderLifecycleService {
   }
 
   async return(id: string, userId?: string, username?: string): Promise<PurchaseOrder> {
-    const timezone = await resolveAppTimezone(this.settingsService);
-    const returnInstant = new Date();
-
-    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, id, {
-        relations: { items: { product: true } },
-        notFoundMessage: 'Purchase order not found',
-      });
-
-      if (purchaseOrder.status !== PurchaseOrderStatus.RECEIVED) {
-        throw new ConflictException('Order is not received');
-      }
-
-      for (const item of purchaseOrder.items || []) {
-        await this.baseCostCalculator.removeStock(item.productId, purchaseOrder.id, manager);
-        await manager.getRepository(PurchaseOrderItem).update(item.id, {
-          receivedQuantity: 0,
-        });
-        item.receivedQuantity = 0;
-      }
-
-      await this.stockMovementService.deleteByReference('purchase_order', purchaseOrder.id, manager);
-
-      await this.accounting.reverseEntriesForDocument(
-        AccountingSourceType.PURCHASE_ORDER,
-        id,
-        [PostingType.PURCHASE_RECEIVE],
-        formatDateInTimezone(returnInstant, timezone),
-        manager,
-        username,
-      );
-
-      await manager.getRepository(PurchaseOrder).update(id, {
-        status: PurchaseOrderStatus.READY,
-        receivedDate: null,
-      });
-      purchaseOrder.status = PurchaseOrderStatus.READY;
-      purchaseOrder.receivedDate = null;
-
-      return purchaseOrder;
-    });
-
-    await this.auditLogService.log('UPDATE', 'PurchaseOrder', `Returned purchase order: ${saved.orderNumber}`, {
-      entityId: id,
-      userId: userId || 'system',
-      username,
-      oldValues: { status: PurchaseOrderStatus.RECEIVED },
-      newValues: { status: PurchaseOrderStatus.READY },
-    });
-
-    return saved;
+    throw new ConflictException(RETURN_TO_READY_UNAVAILABLE);
   }
 }

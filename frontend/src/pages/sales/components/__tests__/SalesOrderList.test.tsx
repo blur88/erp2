@@ -32,7 +32,6 @@ const defaultProps = {
   onEdit: noop,
   onPay: noop,
   onFulfill: noop,
-  onUnfulfill: noop,
   onRefund: noop,
   onCancel: noop,
   onUncancel: noop,

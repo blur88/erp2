@@ -206,12 +206,6 @@ export const purchasingApiSlice = createApi({
       invalidatesTags: ['PurchaseOrder'],
       onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
-    returnGoods: builder.mutation<PurchaseOrder, string>({
-      query: (purchaseOrderId) => ({ url: `/purchasing/orders/${purchaseOrderId}/return`, method: 'POST' }),
-      transformResponse: normalizeSingle<PurchaseOrder>,
-      invalidatesTags: ['PurchaseOrder'],
-      onQueryStarted: invalidateAccountingReportsOnSuccess,
-    }),
     recordVendorPayments: builder.mutation<
       PurchaseOrder,
       { purchaseOrderId: string; payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[] }
@@ -284,7 +278,6 @@ export const {
   useBulkRestorePurchaseOrdersMutation,
   useBulkPermanentDeletePurchaseOrdersMutation,
   useReceiveGoodsMutation,
-  useReturnGoodsMutation,
   useRecordVendorPaymentsMutation,
   useMarkPurchaseOrderAsUnpaidMutation,
   useDuplicatePurchaseOrderMutation,

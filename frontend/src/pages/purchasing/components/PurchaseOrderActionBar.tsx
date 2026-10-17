@@ -8,7 +8,6 @@ interface PurchaseOrderActionBarProps {
   order: PurchaseOrder
   onPay: () => void
   onReceive: () => void
-  onReturn: () => void
   onEdit: () => void
   onCancel: () => void
   onUncancel: () => void
@@ -21,7 +20,6 @@ export default function PurchaseOrderActionBar({
   order,
   onPay,
   onReceive,
-  onReturn,
   onEdit,
   onCancel,
   onUncancel,
@@ -34,7 +32,6 @@ export default function PurchaseOrderActionBar({
   const handlers: Record<string, () => void> = {
     pay: onPay,
     receive: onReceive,
-    return: onReturn,
     edit: onEdit,
     cancel: onCancel,
     uncancel: onUncancel,
@@ -69,18 +66,28 @@ export default function PurchaseOrderActionBar({
 
   return (
     <Box sx={{ display: 'flex', gap: 1, px: 3, pb: 1.5, flexWrap: 'wrap' }}>
-      {metas.map(({ action, disabled, tooltip }) => (
-        <Button
-          key={action}
-          variant={variants[action]}
-          size="small"
-          onClick={handlers[action]}
-          disabled={disabled}
-          title={tooltip}
-        >
-          {labels[action]}
-        </Button>
-      ))}
+      {metas.map(({ action, disabled, tooltip }) => {
+        const button = (
+          <Button
+            key={action}
+            variant={variants[action]}
+            size="small"
+            onClick={handlers[action]}
+            disabled={disabled}
+            title={disabled ? undefined : tooltip}
+          >
+            {labels[action]}
+          </Button>
+        )
+        if (disabled && tooltip) {
+          return (
+            <span key={action} title={tooltip}>
+              {button}
+            </span>
+          )
+        }
+        return button
+      })}
     </Box>
   )
 }

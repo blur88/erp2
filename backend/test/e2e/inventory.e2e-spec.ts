@@ -424,5 +424,13 @@ describe("Inventory (e2e)", () => {
 
       expect(res.body.message).toBeDefined();
     });
+
+    it("POST /inventory/stock/movements/:id/reverse is not a route", async () => {
+      await request(app.getHttpServer())
+        .post("/inventory/stock/movements/00000000-0000-0000-0000-000000000000/reverse")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ reason: "test" })
+        .expect(404);
+    });
   });
 });

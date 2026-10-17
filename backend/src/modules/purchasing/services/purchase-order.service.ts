@@ -1047,7 +1047,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
       if (purchaseOrder.status === PurchaseOrderStatus.RECEIVED) {
         throw new BadRequestException(
-          'Cannot unpay purchase order with received goods. Please return goods first.'
+          'Cannot unpay a purchase order with received goods.'
         );
       }
 

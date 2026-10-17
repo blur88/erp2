@@ -1,5 +1,6 @@
 import type { SalesOrder } from '@/types'
 import { getStockOffenders } from '@/utils/stockStatus'
+import { UNFULFILL_UNAVAILABLE } from '@/constants/stockUndoUnavailable'
 
 export type OrderAction =
   | 'pay'
@@ -62,9 +63,9 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
     metas.push(fulfillMeta)
   }
 
-  // Unfulfill — Fulfilled only.
+  // Unfulfill — Fulfilled only; unavailable (would erase stock/cost history).
   if (isFulfilled) {
-    metas.push({ action: 'unfulfill' })
+    metas.push({ action: 'unfulfill', disabled: true, tooltip: UNFULFILL_UNAVAILABLE })
   }
 
   // Refund — whenever a payment exists; disabled on Fulfilled.
@@ -72,7 +73,7 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
     metas.push({
       action: 'refund',
       disabled: isFulfilled,
-      tooltip: isFulfilled ? 'Cannot refund a fulfilled order. Please unfulfill first.' : undefined,
+      tooltip: isFulfilled ? 'Cannot refund a fulfilled order.' : undefined,
     })
   }
 

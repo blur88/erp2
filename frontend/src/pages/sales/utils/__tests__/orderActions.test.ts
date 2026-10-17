@@ -135,7 +135,7 @@ describe('getOrderActionMetas — disabled flags & tooltips', () => {
     const metas = getOrderActionMetas(makeOrder('FULFILLED', 'PAID'))
     const refund = metas.find((m) => m.action === 'refund')
     expect(refund?.disabled).toBe(true)
-    expect(refund?.tooltip).toMatch(/unfulfill first/i)
+    expect(refund?.tooltip).toBe('Cannot refund a fulfilled order.')
   })
 
   it('refund is enabled (not disabled) when DRAFT + PAID', () => {

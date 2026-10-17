@@ -15,7 +15,6 @@ import {
   useRecordOrderPaymentsMutation,
   useRecordOrderRefundsMutation,
   useUncancelSalesOrderMutation,
-  useUnfulfillSalesOrderMutation,
 } from '@/store/api/salesApi'
 import type { SalesOrder } from '@/types'
 import { ORDER_STATUS_OPTIONS } from '@/constants/filterOptions'
@@ -99,7 +98,6 @@ const OrdersPage: React.FC = () => {
   const total = ordersData?.meta.total ?? 0
 
   const [fulfillOrder] = useFulfillSalesOrderMutation()
-  const [unfulfillOrder] = useUnfulfillSalesOrderMutation()
   const [cancelOrder] = useCancelSalesOrderMutation()
   const [uncancelOrder] = useUncancelSalesOrderMutation()
   const [duplicateOrder] = useDuplicateSalesOrderMutation()
@@ -114,15 +112,6 @@ const OrdersPage: React.FC = () => {
       showError(e?.data?.message || `Failed to fulfill ${order.orderNumber}`)
     }
   }, [fulfillOrder, showError, showSuccess])
-
-  const handleUnfulfill = useCallback(async (order: SalesOrder) => {
-    try {
-      await unfulfillOrder(order.id).unwrap()
-      showSuccess(`Order ${order.orderNumber} unfulfilled`)
-    } catch (e: any) {
-      showError(e?.data?.message || `Failed to unfulfill ${order.orderNumber}`)
-    }
-  }, [showError, showSuccess, unfulfillOrder])
 
   const handleCancel = useCallback(async (order: SalesOrder) => {
     try {
@@ -206,7 +195,6 @@ const OrdersPage: React.FC = () => {
             onEdit={(order) => navigate(withCurrentListQuery(`/sales/orders/${order.orderNumber}/edit`))}
             onPay={(order) => setPaymentOrder(order)}
             onFulfill={handleFulfill}
-            onUnfulfill={handleUnfulfill}
             onRefund={handleRefund}
             onCancel={handleCancel}
             onUncancel={handleUncancel}
