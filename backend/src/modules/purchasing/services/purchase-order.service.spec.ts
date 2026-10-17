@@ -170,7 +170,6 @@ describe('PurchaseOrderService', () => {
           provide: StockMovementService,
           useValue: {
             create: (jest.fn as unknown as any)(),
-            deleteByReference: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -232,7 +231,6 @@ describe('PurchaseOrderService', () => {
     purchaseOrderRepository.save.mockResolvedValue(mockPurchaseOrder);
     productRepository.findOne.mockResolvedValue({ id: 'product-1' } as Product);
     stockMovementService.create.mockResolvedValue({} as any);
-    stockMovementService.deleteByReference.mockResolvedValue({ deletedCount: 1 } as any);
     purchaseOrderItemRepository.save.mockResolvedValue({} as any);
   });
 

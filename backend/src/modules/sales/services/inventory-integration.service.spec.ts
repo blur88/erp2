@@ -11,10 +11,10 @@ import { SettingsService } from '../../settings/settings.service';
 
 describe('InventoryIntegrationService', () => {
   let service: InventoryIntegrationService;
-  let baseCostCalculator: { reduceStock: any; restoreStock: any };
+  let baseCostCalculator: { reduceStock: any };
 
   beforeEach(async () => {
-    baseCostCalculator = { reduceStock: (jest.fn as unknown as any)(), restoreStock: (jest.fn as unknown as any)() };
+    baseCostCalculator = { reduceStock: (jest.fn as unknown as any)() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InventoryIntegrationService,

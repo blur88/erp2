@@ -27,8 +27,8 @@ describe('PurchaseOrderLifecycleService', () => {
   let vpRepository: any;
   let auditLogService: any;
   let dataSource: { transaction: any };
-  let stockMovementService: { deleteByReference: any; create: any };
-  let baseCostCalculator: { addStock: any; removeStock: any; allocateShippingByValue: any };
+  let stockMovementService: { create: any };
+  let baseCostCalculator: { addStock: any; allocateShippingByValue: any };
   let accountingPort: any;
   let settingsService: { getRegionalSettings: any };
   let appTimezone: string;
@@ -91,12 +91,10 @@ describe('PurchaseOrderLifecycleService', () => {
     } as unknown as any;
 
     stockMovementService = {
-      deleteByReference: (jest.fn as unknown as any)().mockResolvedValue({ deletedCount: 0 }),
       create: (jest.fn as unknown as any)().mockResolvedValue({}),
     };
     baseCostCalculator = {
       addStock: (jest.fn as unknown as any)().mockResolvedValue({ landedCost: 5, receivedQuantity: 10 }),
-      removeStock: (jest.fn as unknown as any)(),
       allocateShippingByValue: (jest.fn as unknown as any)().mockReturnValue([0n]),
     };
     accountingPort = {
@@ -419,8 +417,6 @@ describe('PurchaseOrderLifecycleService', () => {
       await expect(service.return('po-1', 'u1', 'alice'))
         .rejects.toThrow(new ConflictException(RETURN_TO_READY_UNAVAILABLE));
       expect(dataSource.transaction).not.toHaveBeenCalled();
-      expect(baseCostCalculator.removeStock).not.toHaveBeenCalled();
-      expect(stockMovementService.deleteByReference).not.toHaveBeenCalled();
       expect(accountingPort.reverseEntriesForDocument).not.toHaveBeenCalled();
       expect(auditLogService.log).not.toHaveBeenCalled();
     });

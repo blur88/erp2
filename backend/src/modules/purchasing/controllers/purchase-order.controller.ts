@@ -202,15 +202,14 @@ export class PurchaseOrderController {
   }
 
   @Post(':id/return')
-  @ApiOperation({ summary: 'Return goods for purchase order - reverses stock + cost, transitions RECEIVED -> READY' })
-  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Goods returned successfully',
-    type: PurchaseOrderResponseDto,
+  @ApiOperation({
+    summary: 'Return a received purchase order to Ready — currently unavailable (#1405)',
+    description:
+      'Always refused with 409: returning to Ready would erase the order\'s stock and cost history. ' +
+      'A non-destructive reversal is tracked in #1406.',
   })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  @ApiResponse({ status: 400, description: 'Order must be Received to return' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({ status: 409, description: 'Returning to Ready is unavailable; nothing is changed' })
   @HttpCode(HttpStatus.OK)
   async returnGoods(
     @Param('id', ParseUUIDPipe) id: string,

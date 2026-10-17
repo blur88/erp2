@@ -60,7 +60,7 @@ describe('StockMovementService', () => {
           },
         },
         {
-          // #1076: create()/deleteByReference()/reverseMovement() open their own
+          // #1076: create() opens its own
           // transaction when no manager is supplied, so the service now needs a
           // DataSource. The stub runs the callback against a manager whose
           // getRepository() returns the same mocks the tests already assert on,

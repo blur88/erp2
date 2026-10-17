@@ -20,7 +20,6 @@ import {
 import { resetSuiteBusinessRows } from "../utils/shared-e2e-business-fixture";
 import { removeSuiteTraces } from "../utils/shared-e2e-traces-fixture";
 import { configureTestAppValidation } from "../utils/configure-test-app-validation";
-import { RETURN_TO_READY_UNAVAILABLE } from "../../src/modules/inventory/stock-undo-unavailable";
 
 describe("Purchasing (e2e)", () => {
   let app: INestApplication;
@@ -360,7 +359,7 @@ describe("Purchasing (e2e)", () => {
     it("POST /purchasing/orders/:id/return — refused (409) and changes nothing", async () => {
       async function snapshot() {
         const [po] = await dataSource.query(
-          `SELECT status, "receivedDate" IS NOT NULL AS "hasReceivedDate" FROM purchase_orders WHERE id = $1`,
+          `SELECT status, "receivedDate"::text AS "receivedDate" FROM purchase_orders WHERE id = $1`,
           [purchaseOrderId],
         );
         const [p] = await dataSource.query(
@@ -375,18 +374,23 @@ describe("Purchasing (e2e)", () => {
           `SELECT count(*)::int AS n, COALESCE(sum("remainingQuantity"),0)::text AS r FROM purchase_cost_history WHERE "purchaseOrderId" = $1`,
           [purchaseOrderId],
         );
-        const [j] = await dataSource.query(
-          `SELECT count(*)::int AS n FROM journal_entry WHERE "sourceDocumentId" = $1`,
+        const journals: { id: string }[] = await dataSource.query(
+          `SELECT id FROM journal_entry WHERE "sourceDocumentId" = $1 ORDER BY id`,
+          [purchaseOrderId],
+        );
+        const [a] = await dataSource.query(
+          `SELECT count(*)::int AS n FROM audit_logs WHERE "entityId" = $1`,
           [purchaseOrderId],
         );
         return {
           status: po.status,
-          hasReceivedDate: po.hasReceivedDate,
+          receivedDate: po.receivedDate,
           stock: Number(p.stockQuantity),
           stockMovements: m.n,
           costHistoryCount: c.n,
           costHistoryRemaining: c.r,
-          journals: j.n,
+          journalIds: journals.map((row) => row.id),
+          auditRows: a.n,
         };
       }
 
@@ -395,10 +399,14 @@ describe("Purchasing (e2e)", () => {
         .post(`/purchasing/orders/${purchaseOrderId}/return`)
         .set("Authorization", `Bearer ${accessToken}`)
         .expect(409);
-      expect(res.body.message).toBe(RETURN_TO_READY_UNAVAILABLE);
+      expect(res.body.message).toBe(
+        "Returning a received purchase order to Ready is unavailable: it would erase its stock and cost history. It will return once stock reversals keep that history.",
+      );
       const after = await snapshot();
       expect(after).toEqual(before);
       expect(after.status).toBe("RECEIVED");
+      expect(after.receivedDate).not.toBeNull();
+      expect(after.journalIds.length).toBeGreaterThan(0);
     });
 
     it("GET /inventory/products/:id — stock increased after receiving goods", async () => {

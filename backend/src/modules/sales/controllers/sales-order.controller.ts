@@ -116,8 +116,14 @@ export class SalesOrderController {
   }
 
   @Post(':id/unfulfill')
-  @ApiOperation({ summary: 'Unfulfill order (always allowed from FULFILLED)' })
+  @ApiOperation({
+    summary: 'Unfulfill order — currently unavailable (#1405)',
+    description:
+      'Always refused with 409: unfulfilling would erase the order\'s stock and cost history. ' +
+      'A non-destructive reversal is tracked in #1406.',
+  })
   @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 409, description: 'Unfulfill is unavailable; nothing is changed' })
   async unfulfillOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('userId') userId: string,

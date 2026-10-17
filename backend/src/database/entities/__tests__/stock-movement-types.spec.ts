@@ -25,6 +25,4 @@ describe('owner drawing movement types', () => {
     expect(back.isInward).toBe(true);
     expect(back.isOutward).toBe(false);
   });
-
-
 });
