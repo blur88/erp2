@@ -177,9 +177,13 @@ it('rejects original with outside-pair posting type', async () => {
       entryDate: '2026-07-20',
       createdBy: 'tester',
     };
-    await expect(
+    const before = await eventEntryCount(qr);
+    const error = await captureConflict(() =>
       posting.reverseEntryForEvent(cmd, qr.manager),
-    ).rejects.toThrow(ConflictException);
+    );
+    expect(conflictMessage(error).reason).toBe('unexpected_posting_type');
+    expect(conflictMessage(error).sourceEventId).toBe(EVENT_ID);
+    expect(await eventEntryCount(qr)).toBe(before);
   });
 });
 
@@ -190,7 +194,7 @@ describe('AccountingPostingService.reverseEntryForEvent (e2e)', () => {
       const original = uuid(101);
       await seedEntry(qr, {
         id: original,
-        postingType: 'PURCHASE_PAYMENT',
+        postingType: PostingType.PURCHASE_PAYMENT,
         sourceDocumentId: PO_ID,
       });
 
@@ -236,12 +240,12 @@ describe('AccountingPostingService.reverseEntryForEvent (e2e)', () => {
       const reversal = uuid(103);
       await seedEntry(qr, {
         id: original,
-        postingType: 'PURCHASE_PAYMENT',
+        postingType: PostingType.PURCHASE_PAYMENT,
         sourceDocumentId: PO_ID,
       });
       await seedEntry(qr, {
         id: reversal,
-        postingType: 'PURCHASE_PAYMENT',
+        postingType: PostingType.PURCHASE_PAYMENT,
         sourceDocumentId: PO_ID,
         reversalOfEntryId: original,
       });
@@ -276,7 +280,7 @@ describe('AccountingPostingService.reverseEntryForEvent (e2e)', () => {
       await seedAccounts(qr);
       await seedEntry(qr, {
         id: uuid(104),
-        postingType: 'PURCHASE_REFUND',
+        postingType: PostingType.PURCHASE_REFUND,
         sourceDocumentId: PO_ID,
       });
       const before = await eventEntryCount(qr);
@@ -297,12 +301,12 @@ describe('AccountingPostingService.reverseEntryForEvent (e2e)', () => {
       await seedAccounts(qr);
       await seedEntry(qr, {
         id: uuid(105),
-        postingType: 'PURCHASE_PAYMENT',
+        postingType: PostingType.PURCHASE_PAYMENT,
         sourceDocumentId: PO_ID,
       });
       await seedEntry(qr, {
         id: uuid(106),
-        postingType: 'PURCHASE_REFUND',
+        postingType: PostingType.PURCHASE_REFUND,
         sourceDocumentId: PO_ID,
       });
       const before = await eventEntryCount(qr);
@@ -321,7 +325,7 @@ describe('AccountingPostingService.reverseEntryForEvent (e2e)', () => {
       await seedAccounts(qr);
       await seedEntry(qr, {
         id: uuid(107),
-        postingType: 'PURCHASE_PAYMENT',
+        postingType: PostingType.PURCHASE_PAYMENT,
         sourceDocumentId: OTHER_PO_ID,
       });
       const before = await eventEntryCount(qr);
@@ -344,12 +348,12 @@ describe('AccountingPostingService.reverseEntryForEvent (e2e)', () => {
       const reversal = uuid(109);
       await seedEntry(qr, {
         id: original,
-        postingType: 'PURCHASE_PAYMENT',
+        postingType: PostingType.PURCHASE_PAYMENT,
         sourceDocumentId: PO_ID,
       });
       await seedEntry(qr, {
         id: reversal,
-        postingType: 'PURCHASE_PAYMENT',
+        postingType: PostingType.PURCHASE_PAYMENT,
         sourceDocumentId: PO_ID,
         reversalOfEntryId: original,
       });
