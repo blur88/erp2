@@ -306,7 +306,8 @@ SQL
 ```
 
 - [ ] After deploy, run the same query: `will_be_rewritten` must be `0`. From
-      then on fulfil and unfulfil keep it at `0`.
+      then on fulfil keeps it at `0` (unfulfil is refused since #1405; when
+      #1406 restores a non-destructive unfulfil, it recalculates the metrics too).
 
 **Cost.** One statement. Measured 2026-10-10 on PostgreSQL 18.3 on the
 development host, on synthetic data in a scratch database: 20,000 customers and

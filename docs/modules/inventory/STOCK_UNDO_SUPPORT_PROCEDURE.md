@@ -7,12 +7,18 @@ stock, accounting and document status together (the destructive undo). Before
 deployment the user decides: accelerate a safe correction path, or accept the
 restriction explicitly.
 
+**Decided 2026-10-17:** the restriction is **not** accepted as the sole remedy.
+A safe, non-destructive correction path is tracked in **#1406** (scope
+approved; not implemented) and is to be released together with stage 0. This
+document is rewritten for that combined release before it can be accepted as
+the release gate.
+
 ## What the application offers today (supported actions only)
 
 | Action | Effect on stock | Ledger effect | Limits |
 |---|---|---|---|
 | Stock adjustment, increase / decrease | changes `stockQuantity`, writes a movement | Dr Inventory / Cr **default expense** account, or the reverse, at the line's entered unit cost | does **not** touch cost batches (§3.2 of the design), so the batches drift; does not change any order |
-| Sales order refund (`POST /sales-orders/:id/refunds`) | none | `postSalesRefund` (cash/bank out, against the order) | **backend accepts it on a FULFILLED order**; the UI disables the button ("Please unfulfill first"). Order stays FULFILLED; `paymentStatus` drops to PARTIAL/UNPAID |
+| Sales order refund (`POST /sales-orders/:id/refunds`) | none | `postSalesRefund` (cash/bank out, against the order) | **backend accepts it on a FULFILLED order**; the UI disables the button, with the tooltip "Cannot refund a fulfilled order." (#1405). Order stays FULFILLED; `paymentStatus` drops to PARTIAL/UNPAID |
 | PO refund / unpay | — | — | **refused** on RECEIVED by the backend (`purchase-order.service.ts:835`, `:1048`) |
 | Expenses, owner equity | — | their own postings | not designed for these cases; using them would misstate the accounts |
 | Manual journal entry | — | — | **does not exist** in the rebuilt accounting |
