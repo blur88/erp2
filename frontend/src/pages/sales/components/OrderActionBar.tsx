@@ -1,4 +1,6 @@
-import { Box, Button } from '@mui/material'
+import { Box } from '@mui/material'
+
+import ActionBarButton from '@/components/common/ActionBarButton'
 
 import type { SalesOrder } from '@/types'
 
@@ -66,28 +68,16 @@ export default function OrderActionBar({
 
   return (
     <Box sx={{ display: 'flex', gap: 1, px: 3, pb: 1.5, flexWrap: 'wrap' }}>
-      {metas.map(({ action, disabled, tooltip }) => {
-        const button = (
-          <Button
-            key={action}
-            variant={variants[action]}
-            size="small"
-            onClick={handlers[action]}
-            disabled={disabled}
-            title={disabled ? undefined : tooltip}
-          >
-            {labels[action]}
-          </Button>
-        )
-        if (disabled && tooltip) {
-          return (
-            <span key={action} title={tooltip}>
-              {button}
-            </span>
-          )
-        }
-        return button
-      })}
+      {metas.map(({ action, disabled, tooltip }) => (
+        <ActionBarButton
+          key={action}
+          label={labels[action]}
+          variant={variants[action]}
+          onClick={handlers[action]}
+          disabled={disabled}
+          tooltip={tooltip}
+        />
+      ))}
     </Box>
   )
 }
