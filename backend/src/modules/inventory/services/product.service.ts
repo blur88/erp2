@@ -881,6 +881,12 @@ export class ProductService extends BaseCrudService<
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(product, 'Product', id);
 
+    if (await this.hasStockHistory(product)) {
+      throw new ConflictException(
+        `Cannot permanently delete '${product.name}': it has stock history.`,
+      );
+    }
+
     // Check for dependencies before permanent deletion
     const dependencies = await this.checkProductDependencies(id);
 
@@ -912,14 +918,6 @@ export class ProductService extends BaseCrudService<
         },
       },
     );
-
-    // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT so the DB
-    // will reject the product delete if this row remains. purchase_cost_history has CASCADE so
-    // the DB removes it automatically; no explicit delete needed there.
-    await this.stockMovementRepository.delete({
-      productId: id,
-      movementType: StockMovementType.INITIAL_STOCK,
-    });
 
     // Hard delete the product from database
     await this.productRepository.delete(id);
@@ -961,6 +959,16 @@ export class ProductService extends BaseCrudService<
           continue;
         }
 
+        if (await this.hasStockHistory(product)) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            `Cannot permanently delete '${product.name}': it has stock history.`,
+            'STOCK_HISTORY',
+          );
+          continue;
+        }
+
         // Check for dependencies before permanent deletion
         const dependencies = await this.checkProductDependencies(id);
 
@@ -990,12 +998,6 @@ export class ProductService extends BaseCrudService<
             oldValues: { name: product.name, barcode: product.barcode },
           },
         );
-        // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT.
-        // purchase_cost_history has CASCADE so the DB removes it automatically.
-        await this.stockMovementRepository.delete({
-          productId: id,
-          movementType: StockMovementType.INITIAL_STOCK,
-        });
         await this.productRepository.delete(id);
 
         successCount++;
@@ -1012,6 +1014,33 @@ export class ProductService extends BaseCrudService<
       successCount,
       failedItems,
     );
+  }
+
+  /**
+   * Stock history and value provenance are permanent records. Check the records
+   * owned by this product before allowing a hard delete; exhausted batches
+   * and batches with consumption rows remain history too.
+   */
+  private async hasStockHistory(product: Product): Promise<boolean> {
+    if (toMinorUnits(String(product.stockQuantity)) !== 0n) {
+      return true;
+    }
+
+    const [movementCount, batchCount, provenanceRows] = await Promise.all([
+      this.stockMovementRepository.count({ where: { productId: product.id } }),
+      this.purchaseCostHistoryRepository.count({ where: { productId: product.id } }),
+      this.dataSource.query(
+        `SELECT EXISTS (
+           SELECT 1
+             FROM stock_batch_consumptions c
+             JOIN purchase_cost_history b ON b.id = c."batchId"
+            WHERE b."productId" = $1
+         ) AS "hasProvenance"`,
+        [product.id],
+      ),
+    ]);
+
+    return movementCount > 0 || batchCount > 0 || provenanceRows[0]?.hasProvenance === true;
   }
 
   /**

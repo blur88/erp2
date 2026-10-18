@@ -6,12 +6,10 @@ import {
   IsEnum,
   IsUUID,
   IsDate,
-  IsArray,
   IsBoolean,
   MaxLength,
   Min,
   Max,
-  ValidateNested,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -313,59 +311,4 @@ export class LowStockAlertDto {
 
   @ApiProperty({ description: 'Last movement date' })
   lastMovementDate?: Date;
-}
-
-// Bulk Stock Adjustment DTOs
-export class BulkStockAdjustmentItemDto {
-  @ApiProperty({ description: 'Product ID' })
-  @IsUUID(4)
-  productId: string;
-
-  @ApiProperty({ description: 'New quantity after adjustment' })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  newQuantity: number;
-
-  @ApiPropertyOptional({ description: 'Old quantity before adjustment (service uses current stock if omitted)' })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  oldQuantity?: number;
-
-  @ApiProperty({ description: 'Difference (newQuantity - oldQuantity)' })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  difference: number;
-}
-
-export class CreateBulkStockAdjustmentDto {
-  @ApiPropertyOptional({ description: 'Adjustment date (defaults to now if omitted)' })
-  @IsOptional()
-  @Transform(({ value }) => value ? new Date(value) : new Date())
-  @IsDate()
-  adjustmentDate?: Date;
-
-  @ApiPropertyOptional({ description: 'Additional notes' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiProperty({ description: 'Array of adjustment items', type: [BulkStockAdjustmentItemDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => BulkStockAdjustmentItemDto)
-  items: BulkStockAdjustmentItemDto[];
-}
-
-export class BulkStockAdjustmentResponseDto {
-  @ApiProperty({ description: 'Number of items adjusted' })
-  itemsAdjusted: number;
-
-  @ApiProperty({ description: 'Adjustment date' })
-  adjustmentDate: Date;
-
-  @ApiProperty({ description: 'Notes' })
-  notes?: string;
-
-  @ApiProperty({ description: 'Created stock movement IDs' })
-  movementIds: string[];
 }

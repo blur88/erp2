@@ -984,7 +984,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
     name: 'Test Product',
     barcode: 'SKU-001',
     baseCost: 10,
-    stockQuantity: 5,
+    stockQuantity: 0,
     deletedAt: new Date(),
   } as any;
 
@@ -995,10 +995,15 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
       count: (jest.fn as unknown as any)().mockResolvedValue(0),
       delete: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
     };
+    const purchaseCostHistoryRepo = makeCountRepo(0);
     const productRepo = {
       findOne: (jest.fn as unknown as any)().mockResolvedValue(softDeletedProduct),
       delete: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: (jest.fn as unknown as any)(),
+    };
+    const dataSource = {
+      ...createMockDataSource().dataSource,
+      query: (jest.fn as unknown as any)().mockResolvedValue([{ hasProvenance: false }]),
     };
 
     const defaults = [
@@ -1016,7 +1021,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
       },
       {
         token: getRepositoryToken(PurchaseCostHistory),
-        useValue: makeCountRepo(0),
+        useValue: purchaseCostHistoryRepo,
       },
     ];
 
@@ -1034,7 +1039,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
-        { provide: DataSource, useValue: createMockDataSource().dataSource },
+        { provide: DataSource, useValue: dataSource },
         { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
       ],
     }).compile();
@@ -1042,37 +1047,56 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
     return {
       service: module.get(ProductService),
       stockMovementRepo,
+      purchaseCostHistoryRepo,
       productRepo,
     };
   };
 
-  it('permanentDelete deletes initial_stock movement before hard-deleting the product', async () => {
+  it('refuses permanent delete when the product has only an INITIAL_STOCK movement', async () => {
     const { service, stockMovementRepo, productRepo } = await buildModule();
+    stockMovementRepo.count.mockResolvedValue(1);
+
+    await expect(service.permanentDelete('product-id', 'user-1', 'admin')).rejects.toThrow(
+      "Cannot permanently delete 'Test Product': it has stock history.",
+    );
+    expect(stockMovementRepo.delete).not.toHaveBeenCalled();
+    expect(productRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('refuses permanent delete when an exhausted batch remains', async () => {
+    const { service, purchaseCostHistoryRepo, productRepo } = await buildModule();
+    purchaseCostHistoryRepo.count.mockResolvedValue(1);
+
+    await expect(service.permanentDelete('product-id', 'user-1', 'admin')).rejects.toThrow(
+      "Cannot permanently delete 'Test Product': it has stock history.",
+    );
+    expect(productRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('reports stock-history ids in bulk and does not delete those products', async () => {
+    const { service, stockMovementRepo, productRepo } = await buildModule();
+    stockMovementRepo.count.mockResolvedValue(1);
+
+    const result = await service.bulkPermanentDelete(['product-id'], 'user-1', 'admin');
+
+    expect(result.successCount).toBe(0);
+    expect(result.failedItems).toEqual([
+      expect.objectContaining({
+        id: 'product-id',
+        reason: "Cannot permanently delete 'Test Product': it has stock history.",
+      }),
+    ]);
+    expect(productRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('still permits permanent delete when the product has no stock history', async () => {
+    const { service, stockMovementRepo, purchaseCostHistoryRepo, productRepo } = await buildModule();
 
     await service.permanentDelete('product-id', 'user-1', 'admin');
 
-    expect(stockMovementRepo.delete).toHaveBeenCalledWith({
-      productId: 'product-id',
-      movementType: StockMovementType.INITIAL_STOCK,
-    });
-    // cleanup must precede the hard delete
-    const cleanupOrder = stockMovementRepo.delete.mock.invocationCallOrder[0];
-    const deleteOrder = productRepo.delete.mock.invocationCallOrder[0];
-    expect(cleanupOrder).toBeLessThan(deleteOrder);
-  });
-
-  it('bulkPermanentDelete deletes initial_stock movement before hard-deleting each product', async () => {
-    const { service, stockMovementRepo, productRepo } = await buildModule();
-
-    await service.bulkPermanentDelete(['product-id'], 'user-1', 'admin');
-
-    expect(stockMovementRepo.delete).toHaveBeenCalledWith({
-      productId: 'product-id',
-      movementType: StockMovementType.INITIAL_STOCK,
-    });
-    const cleanupOrder = stockMovementRepo.delete.mock.invocationCallOrder[0];
-    const deleteOrder = productRepo.delete.mock.invocationCallOrder[0];
-    expect(cleanupOrder).toBeLessThan(deleteOrder);
+    expect(stockMovementRepo.delete).not.toHaveBeenCalled();
+    expect(purchaseCostHistoryRepo.count).toHaveBeenCalledWith({ where: { productId: 'product-id' } });
+    expect(productRepo.delete).toHaveBeenCalledWith('product-id');
   });
 });
 

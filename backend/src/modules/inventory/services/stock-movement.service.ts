@@ -33,8 +33,6 @@ import {
   StockReservationDto,
   StockSummaryDto,
   LowStockAlertDto,
-  CreateBulkStockAdjustmentDto,
-  BulkStockAdjustmentResponseDto,
 } from '../dto/stock.dto';
 import { ProductService } from './product.service';
 
@@ -311,46 +309,6 @@ export class StockMovementService {
     };
 
     return this.create(createMovementDto, userId, manager);
-  }
-
-  /**
-   * Record stock movement for sales
-   */
-  async recordSale(
-    productId: string,
-    quantity: number,
-    unitPrice: number,
-    referenceId: string,
-    userId?: string,
-  ): Promise<StockMovementResponseDto> {
-    const movementData = StockMovement.createSaleMovement(
-      productId,
-      quantity,
-      unitPrice,
-      referenceId,
-    );
-
-    return this.create(movementData as CreateStockMovementDto, userId);
-  }
-
-  /**
-   * Record stock movement for purchases
-   */
-  async recordPurchaseReceipt(
-    productId: string,
-    quantity: number,
-    unitCost: number,
-    referenceId: string,
-    userId?: string,
-  ): Promise<StockMovementResponseDto> {
-    const movementData = StockMovement.createPurchaseReceiptMovement(
-      productId,
-      quantity,
-      unitCost,
-      referenceId,
-    );
-
-    return this.create(movementData as CreateStockMovementDto, userId);
   }
 
   /**
@@ -651,120 +609,6 @@ export class StockMovementService {
       description: movement.getDescription(),
       createdAt: movement.createdAt,
       updatedAt: movement.updatedAt,
-    };
-  }
-
-  /**
-   * Create bulk stock adjustment with multiple products in one transaction.
-   *
-   * Stock-mutation contract (#1076): the whole batch runs in ONE transaction
-   * with every product locked, so a partial failure cannot leave some items
-   * applied. Items are processed in ascending product-id order so concurrent
-   * bulk adjustments over overlapping product sets acquire locks in the same
-   * order and cannot deadlock.
-   *
-   * (Before #1076 this method wrote through the default repositories with no
-   * transaction at all, despite the "in one transaction" claim in this comment.)
-   */
-  async createBulkStockAdjustment(
-    createBulkDto: CreateBulkStockAdjustmentDto,
-    userId?: string,
-  ): Promise<BulkStockAdjustmentResponseDto> {
-    return this.dataSource.transaction((manager) =>
-      this.createBulkStockAdjustmentInTx(createBulkDto, manager, userId),
-    );
-  }
-
-  private async createBulkStockAdjustmentInTx(
-    createBulkDto: CreateBulkStockAdjustmentDto,
-    manager: EntityManager,
-    userId?: string,
-  ): Promise<BulkStockAdjustmentResponseDto> {
-    this.logger.log(`Creating bulk stock adjustment with ${createBulkDto.items.length} items`);
-
-    const movementIds: string[] = [];
-    const productRepo = manager.getRepository(Product);
-    const movementRepo = manager.getRepository(StockMovement);
-
-    // Ascending product-id order — see the deadlock note above.
-    const orderedItems = [...createBulkDto.items].sort((a, b) =>
-      a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0,
-    );
-
-    // Process each item
-    for (const item of orderedItems) {
-      // Skip items with no difference
-      if (item.difference === 0) {
-        continue;
-      }
-
-      // Lock before reading stockQuantity (stock-mutation contract).
-      await lockProductForStockUpdate(manager, Product, item.productId);
-
-      // Fetch product to get current stock
-      const product = await productRepo.findOne({
-        where: { id: item.productId },
-        relations: { category: true },
-      });
-
-      if (!product) {
-        throw new NotFoundException(
-          `Product with ID '${item.productId}' not found`,
-        );
-      }
-
-      // Determine movement type based on difference
-      const movementType = item.difference > 0
-        ? StockMovementType.ADJUSTMENT_INCREASE
-        : StockMovementType.ADJUSTMENT_DECREASE;
-
-      // Calculate balances
-      const previousBalance = Number(product.stockQuantity);
-      const newBalance = Number(item.newQuantity);
-
-      // Validate new balance
-      if (newBalance < 0) {
-        throw new BadRequestException(
-          `Stock adjustment for ${product.name} would result in negative stock quantity`,
-        );
-      }
-
-      // Create stock movement
-      const stockMovement = movementRepo.create({
-        productId: item.productId,
-        movementType,
-        quantity: Math.abs(item.difference),
-        previousBalance,
-        newBalance,
-        movementDate: createBulkDto.adjustmentDate,
-        reason: 'Stock Adjustment',
-        notes: createBulkDto.notes || undefined,
-      });
-
-      const savedMovement = await movementRepo.save(stockMovement);
-      movementIds.push(savedMovement.id);
-
-      // Update product stock quantity — on the transaction manager, so the
-      // movement and the balance commit together.
-      await this.productService.updateStockQuantity(
-        product.id,
-        newBalance,
-        userId,
-        manager,
-      );
-
-      this.logger.log(
-        `Stock adjustment for ${product.name}: ${previousBalance} → ${newBalance} (${item.difference > 0 ? '+' : ''}${item.difference})`,
-      );
-    }
-
-    this.logger.log(`Bulk stock adjustment created successfully with ${movementIds.length} movements`);
-
-    return {
-      itemsAdjusted: movementIds.length,
-      adjustmentDate: createBulkDto.adjustmentDate,
-      notes: createBulkDto.notes,
-      movementIds,
     };
   }
 

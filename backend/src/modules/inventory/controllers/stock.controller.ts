@@ -1,8 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
-  Body,
   Param,
   Query,
   ParseUUIDPipe,
@@ -13,17 +11,13 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBody,
 } from '@nestjs/swagger';
 import { StockMovementService } from '../services/stock-movement.service';
 import {
-  CreateStockMovementDto,
   QueryStockMovementsDto,
   StockMovementResponseDto,
   StockSummaryDto,
   LowStockAlertDto,
-  CreateBulkStockAdjustmentDto,
-  BulkStockAdjustmentResponseDto,
 } from '../dto/stock.dto';
 
 @ApiTags('Stock Management')
@@ -33,42 +27,7 @@ export class StockController {
     private readonly stockMovementService: StockMovementService,
   ) {}
 
-  // Stock Movements
-  @Post('movements')
-  @ApiOperation({ summary: 'Create a stock movement' })
-  @ApiResponse({
-    status: 201,
-    description: 'Stock movement created successfully',
-    type: StockMovementResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid input data or insufficient stock' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiBody({ type: CreateStockMovementDto })
-  async createMovement(
-    @Body() createMovementDto: CreateStockMovementDto,
-  ): Promise<StockMovementResponseDto> {
-    return this.stockMovementService.create(createMovementDto);
-  }
-
-  @Post('adjustments/bulk')
-  @ApiOperation({
-    summary: 'Create bulk stock adjustment with multiple products (DEPRECATED - Use /inventory/stock-adjustments instead)',
-    deprecated: true,
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Bulk stock adjustment created successfully',
-    type: BulkStockAdjustmentResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid input data or insufficient stock' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiBody({ type: CreateBulkStockAdjustmentDto })
-  async createBulkAdjustment(
-    @Body() createBulkDto: CreateBulkStockAdjustmentDto,
-  ): Promise<BulkStockAdjustmentResponseDto> {
-    return this.stockMovementService.createBulkStockAdjustment(createBulkDto);
-  }
-
+  // Stock Movements (read-only)
   @Get('movements')
   @ApiOperation({ summary: 'Get all stock movements with filtering and pagination' })
   @ApiResponse({
@@ -132,75 +91,4 @@ export class StockController {
     return this.stockMovementService.getLowStockAlerts();
   }
 
-  // Utility endpoints
-  @Post('initial/:productId')
-  @ApiOperation({ summary: 'Record initial stock for a product' })
-  @ApiResponse({
-    status: 201,
-    description: 'Initial stock recorded successfully',
-    type: StockMovementResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiParam({ name: 'productId', description: 'Product ID' })
-  async recordInitialStock(
-    @Param('productId', ParseUUIDPipe) productId: string,
-    @Body() body: { quantity: number; unitCost?: number },
-  ): Promise<StockMovementResponseDto> {
-    return this.stockMovementService.recordInitialStock(
-      productId,
-      body.quantity,
-      body.unitCost,
-    );
-  }
-
-  @Post('sale/:productId')
-  @ApiOperation({ summary: 'Record stock movement for a sale' })
-  @ApiResponse({
-    status: 201,
-    description: 'Sale stock movement recorded successfully',
-    type: StockMovementResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Insufficient stock' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiParam({ name: 'productId', description: 'Product ID' })
-  async recordSale(
-    @Param('productId', ParseUUIDPipe) productId: string,
-    @Body() body: {
-      quantity: number;
-      unitPrice: number;
-      referenceId: string;
-    },
-  ): Promise<StockMovementResponseDto> {
-    return this.stockMovementService.recordSale(
-      productId,
-      body.quantity,
-      body.unitPrice,
-      body.referenceId,
-    );
-  }
-
-  @Post('purchase/:productId')
-  @ApiOperation({ summary: 'Record stock movement for a purchase receipt' })
-  @ApiResponse({
-    status: 201,
-    description: 'Purchase receipt stock movement recorded successfully',
-    type: StockMovementResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiParam({ name: 'productId', description: 'Product ID' })
-  async recordPurchaseReceipt(
-    @Param('productId', ParseUUIDPipe) productId: string,
-    @Body() body: {
-      quantity: number;
-      unitCost: number;
-      referenceId: string;
-    },
-  ): Promise<StockMovementResponseDto> {
-    return this.stockMovementService.recordPurchaseReceipt(
-      productId,
-      body.quantity,
-      body.unitCost,
-      body.referenceId,
-    );
-  }
 }

@@ -3,6 +3,7 @@ import { join, sep } from 'node:path';
 import { StockMovementService } from './services/stock-movement.service';
 import { BaseCostCalculatorService } from './services/base-cost-calculator.service';
 import { StockController } from './controllers/stock.controller';
+import { IntegrationService } from './services/integration.service';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
 
 /**
@@ -16,6 +17,7 @@ describe('known stock-history deletion patterns stay removed (#1398 P4 stage 0)'
     StockMovementService,
     BaseCostCalculatorService,
     StockController,
+    IntegrationService,
   };
 
   function methodNames(target: { prototype: object }): string[] {
@@ -37,7 +39,24 @@ describe('known stock-history deletion patterns stay removed (#1398 P4 stage 0)'
     'recalculateBalances',
     'removeStock',
     'restoreStock',
+    'recordSale',
+    'recordPurchaseReceipt',
+    'createBulkStockAdjustment',
+    'createBulkStockAdjustmentInTx',
+    'fulfillSalesOrder',
   ];
+
+  const removedStockRoutes = [
+    'createMovement',
+    'createBulkAdjustment',
+    'recordInitialStock',
+    'recordSale',
+    'recordPurchaseReceipt',
+  ];
+
+  it.each(removedStockRoutes)('StockController does not expose %s', (method) => {
+    expect(methodNames(StockController)).not.toContain(method);
+  });
 
   it.each(Object.entries(classes))(
     '%s has none of the forbidden stock-history deletion methods',
@@ -77,21 +96,6 @@ describe('known stock-history deletion patterns stay removed (#1398 P4 stage 0)'
       ['a repository delete on a stock-movement or cost-history repository', repositoryDelete],
     ];
 
-    /**
-     * The one known exception: product permanent delete removes the product's
-     * INITIAL_STOCK movement (single and bulk paths). It is owned by later
-     * projects (#1406 removes it). Only these exact two statements are allowed,
-     * and only for the repository pattern; anything else in the file fails.
-     */
-    const ALLOWLISTED_FILE = 'modules/inventory/services/product.service.ts';
-    const ALLOWED_INITIAL_STOCK_DELETE =
-      /this\.stockMovementRepository\.delete\(\{\s*productId: id,\s*movementType: StockMovementType\.INITIAL_STOCK,\s*\}\);/g;
-    const ALLOWED_COUNT = 2;
-
-    function withoutAllowed(file: string, text: string): string {
-      return file === ALLOWLISTED_FILE ? text.replace(ALLOWED_INITIAL_STOCK_DELETE, '') : text;
-    }
-
     it('reads the source tree', () => {
       expect(files.length).toBeGreaterThan(10);
     });
@@ -106,19 +110,11 @@ describe('known stock-history deletion patterns stay removed (#1398 P4 stage 0)'
       expect(pattern.test('await this.productRepository.delete(id)')).toBe(false);
     });
 
-    it.each(forbidden)('no file has %s outside the known exception', (_what, pattern) => {
+    it.each(forbidden)('no file has %s', (_what, pattern) => {
       const offenders = files
-        .filter(({ file, text }) => pattern.test(withoutAllowed(file, text)))
+        .filter(({ text }) => pattern.test(text))
         .map(({ file }) => file);
       expect(offenders).toEqual([]);
-    });
-
-    it(`the known exception is exactly ${ALLOWED_COUNT} INITIAL_STOCK deletes in ${ALLOWLISTED_FILE}`, () => {
-      const productFile = files.find(({ file }) => file === ALLOWLISTED_FILE);
-      expect(productFile).toBeDefined();
-      expect(productFile!.text.match(ALLOWED_INITIAL_STOCK_DELETE) ?? []).toHaveLength(
-        ALLOWED_COUNT,
-      );
     });
   });
 });
