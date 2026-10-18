@@ -518,6 +518,42 @@ describe('Stock unfulfil — restore recorded provenance (#1406, e2e)', () => {
     expect(occs.filter((o: any) => o.kind === 'fulfilment_reversal')).toHaveLength(1);
   });
 
+  it('an edit queued behind a fulfilment rejects its stale stock and preserves the fulfilment balance', async () => {
+    const productId = await newProduct();
+    await receive(productId, 5, 10);
+    const order = await newOrder([{ productId, quantity: 1, unitPrice: 50 }]);
+
+    // Queue the real fulfilment first on the product row, then queue an edit
+    // carrying the stock value it saw before fulfilment. The lock makes that
+    // stale value observable and the edit must not overwrite the sale.
+    const lock = await holdRowLock(ds, `SELECT id FROM products WHERE id = $1 FOR UPDATE`, [productId]);
+    let released = false;
+    const release = async () => {
+      if (!released) {
+        released = true;
+        await lock.release();
+      }
+    };
+    try {
+      const fulfilment = app.get(SalesOrderFulfillmentService).fulfillOrder(order.id);
+      await waitForBlockedBy(ds, lock, 1);
+      const editResponse = request(app.getHttpServer())
+        .patch(`/inventory/products/${productId}`)
+        .set(auth())
+        .send({ stockQuantity: 5 })
+        .then((response) => response);
+      await waitForBlockedBy(ds, lock, 2);
+      await release();
+
+      await fulfilment;
+      expect((await editResponse).status).toBe(400);
+    } finally {
+      await release();
+    }
+
+    expect(await stockOf(productId)).toBe(4);
+  });
+
   it('unfulfils a zero-cost order with no COGS reversal', async () => {
     const product = await newProduct();
     await ds.query(`UPDATE products SET "stockQuantity" = 5 WHERE id = $1`, [product]); // no batches

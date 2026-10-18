@@ -486,10 +486,16 @@ const CreateProductPage: React.FC = () => {
                             select
                             label="Product Type"
                             error={!!errors.type}
-                            helperText={errors.type?.message}
+                            helperText={
+                              errors.type?.message ||
+                              (isEditMode && currentStockQuantity !== 0
+                                ? 'A product with stock on hand or inventory value must stay a Stocked Product.'
+                                : undefined)
+                            }
                             required
                             fullWidth
                             size="small"
+                            disabled={isEditMode && currentStockQuantity !== 0}
                             onChange={(e) => {
                               const next = e.target.value as 'Stocked Product' | 'Service'
                               if (isEditMode && next !== field.value) {

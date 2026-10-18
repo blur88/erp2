@@ -234,6 +234,37 @@ describe("Inventory (e2e)", () => {
       expect(res.body.name).toBe("Laptop Pro 15 Updated");
     });
 
+    it("PATCH /inventory/products/:id — refuses Service conversion with remaining inventory value", async () => {
+      const product = await seedProduct(dataSource, categoryId, {
+        name: `Zero Quantity Value ${Date.now()}`,
+        stockQuantity: 0,
+        baseCost: 10,
+      });
+      ownedProductIds.push(product.id);
+      await dataSource.query(
+        `INSERT INTO purchase_cost_history
+          ("productId", "unitCost", "shippingPerUnit", "landedCost", "receivedQuantity", "remainingQuantity", "receivedDate")
+         VALUES ($1, 10, 0, 10, 1, 1, now())`,
+        [product.id],
+      );
+
+      const response = await request(app.getHttpServer())
+        .patch(`/inventory/products/${product.id}`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ type: "Service" })
+        .expect(400);
+
+      expect(response.body.message).toContain(
+        "A product with stock on hand or inventory value must stay a Stocked Product.",
+      );
+      const [stored] = await dataSource.query(
+        `SELECT type, "stockQuantity"::text AS "stockQuantity" FROM products WHERE id = $1`,
+        [product.id],
+      );
+      expect(stored.type).toBe("Stocked Product");
+      expect(Number(stored.stockQuantity)).toBe(0);
+    });
+
     it("DELETE /inventory/products/:id — soft-deletes the product", async () => {
       await request(app.getHttpServer())
         .delete(`/inventory/products/${productId}`)
