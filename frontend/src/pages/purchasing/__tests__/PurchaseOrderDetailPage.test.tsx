@@ -169,7 +169,7 @@ describe('PurchaseOrderDetailPage', () => {
     })
     mockGetPurchaseOrderPayments.mockReturnValue({ data: [], isLoading: false })
     mockReturn.mockReturnValue({
-      unwrap: () => Promise.reject({ data: { message: 'Product stock changed after receipt.' } }),
+      unwrap: () => Promise.reject({ status: 409, data: 'Product stock changed after receipt.' }),
     })
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Return' }))

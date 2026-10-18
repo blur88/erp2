@@ -11,6 +11,7 @@ import SalesOrderPrintDialog from './components/SalesOrderPrintDialog';
 import PaymentDialog from '@/components/common/PaymentDialog';
 import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog';
 import { getCurrentDate } from '@/utils/formatters';
+import { rtkErrorMessage } from '@/utils/errorMessage';
 import { currentListPath, forwardListQuery, withCurrentListQuery } from '@/utils/listQuery';
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency';
 import { TABLE_STYLES } from '@/constants/tableStyles';
@@ -43,12 +44,7 @@ interface TabPanelProps {
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
-  if (typeof error === 'object' && error !== null && 'data' in error) {
-    const data = (error as { data?: { message?: string } }).data;
-    return data?.message ?? fallback;
-  }
-
-  return fallback;
+  return rtkErrorMessage(error, fallback);
 }
 
 function TabPanel({ children, value, index }: TabPanelProps) {

@@ -9,6 +9,7 @@ import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
 import { withCurrentListQuery } from '@/utils/listQuery'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelPurchaseOrderMutation,
@@ -65,12 +66,7 @@ const filterConfig: FilterBarConfig<PurchaseOrderFilters> = {
 type ConfirmAction = 'receive' | 'return' | 'cancel' | 'uncancel'
 
 function getErrorMessage(error: unknown, fallback: string) {
-  if (typeof error === 'object' && error !== null && 'data' in error) {
-    const data = (error as { data?: { message?: string } }).data
-    return data?.message ?? fallback
-  }
-
-  return fallback
+  return rtkErrorMessage(error, fallback)
 }
 
 const PurchaseOrdersPage: React.FC = () => {

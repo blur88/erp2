@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NotificationProvider, useNotification } from './useNotification'
 
@@ -21,9 +21,17 @@ vi.mock('@/store/slices/notificationSlice', () => ({
 const Consumer = () => {
   const { showNotification } = useNotification()
   return (
-    <button onClick={() => showNotification('Saved item', 'success', 'Success', 0)}>
-      notify
-    </button>
+    <>
+      <button onClick={() => showNotification('First message', 'success', 'Success', 5000)}>
+        notify first
+      </button>
+      <button onClick={() => showNotification('Second message', 'error', 'Error', 7000)}>
+        notify second
+      </button>
+      <button onClick={() => showNotification('Saved item', 'success', 'Success', 0)}>
+        notify
+      </button>
+    </>
   )
 }
 
@@ -60,5 +68,33 @@ describe('NotificationProvider copy action', () => {
     await user.click(copyButton)
 
     expect(screen.getByTestId('CheckIcon')).toBeInTheDocument()
+  })
+
+  it('keeps a newer notification open when an older notification timer expires', async () => {
+    vi.useFakeTimers()
+    try {
+      render(
+        <NotificationProvider>
+          <Consumer />
+        </NotificationProvider>,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'notify first' }))
+      expect(screen.getByText('First message')).toBeInTheDocument()
+
+      await act(async () => {
+        vi.advanceTimersByTime(4000)
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'notify second' }))
+      expect(screen.getByText('Second message')).toBeInTheDocument()
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000)
+      })
+
+      expect(screen.getByText('Second message')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

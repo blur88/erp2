@@ -6,6 +6,7 @@ import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
 import { withCurrentListQuery } from '@/utils/listQuery'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelSalesOrderMutation,
@@ -123,7 +124,7 @@ const OrdersPage: React.FC = () => {
       showSuccess(`Order ${unfulfillOrder.orderNumber} unfulfilled`)
       setUnfulfillOrder(null)
     } catch (error: any) {
-      showError(error?.data?.message || `Failed to unfulfill ${unfulfillOrder.orderNumber}`)
+      showError(rtkErrorMessage(error, `Failed to unfulfill ${unfulfillOrder.orderNumber}`))
     }
   }, [unfulfillOrder, unfulfillSalesOrder, showError, showSuccess])
 

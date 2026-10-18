@@ -28,6 +28,7 @@ import type { VendorPayment } from '@/types'
 import RefundDialog from '@/components/common/RefundDialog'
 import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
 import { currentListPath, forwardListQuery, withCurrentListQuery } from '@/utils/listQuery'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 
 import { buildPoRefundSeed, poNetPaidMinor, toPoRefundPayload } from './utils/poRefund'
 import PurchaseOrderActionBar from './components/PurchaseOrderActionBar'
@@ -45,12 +46,7 @@ interface TabPanelProps {
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
-  if (typeof error === 'object' && error !== null && 'data' in error) {
-    const data = (error as { data?: { message?: string } }).data
-    return data?.message ?? fallback
-  }
-
-  return fallback
+  return rtkErrorMessage(error, fallback)
 }
 
 function TabPanel({ children, value, index }: TabPanelProps) {

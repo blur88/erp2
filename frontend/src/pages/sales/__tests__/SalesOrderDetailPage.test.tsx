@@ -246,7 +246,7 @@ describe('SalesOrderDetailPage', () => {
       isLoading: false,
     })
     mockUnfulfill.mockReturnValue({
-      unwrap: () => Promise.reject({ data: { message: 'Stock changed after fulfilment.' } }),
+      unwrap: () => Promise.reject({ status: 409, data: 'Stock changed after fulfilment.' }),
     })
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Unfulfill' }))
