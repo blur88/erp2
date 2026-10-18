@@ -33,7 +33,7 @@ vi.mock('@/store/api/salesApi', () => ({
     data: { data: [{ id: 'cust-1', name: 'Amuro Ray' }] },
   })),
   useFulfillSalesOrderMutation: vi.fn(() => [vi.fn()]),
-  useUnfulfillSalesOrderMutation: vi.fn(() => [vi.fn()]),
+  useUnfulfillSalesOrderMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
   useCancelSalesOrderMutation: vi.fn(() => [vi.fn()]),
   useRecordOrderPaymentsMutation: vi.fn(() => [vi.fn()]),
   useRecordOrderRefundsMutation: vi.fn(() => [vi.fn()]),

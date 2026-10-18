@@ -138,6 +138,15 @@ describe('Payment method posting matrix (e2e)', () => {
   afterAll(async () => {
     try {
       if (ds?.isInitialized) {
+        const documentIds = [...ownedSalesOrderIds, ...ownedPurchaseOrderIds];
+        const occurrenceIds: string[] = documentIds.length
+          ? (
+              await ds.query(
+                `SELECT id FROM stock_occurrences WHERE "documentId" = ANY($1)`,
+                [documentIds],
+              )
+            ).map((row: { id: string }) => row.id)
+          : [];
         if (ownedRefs.length) {
           await ds.query(
             `DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceRef" = ANY($1))`,
@@ -147,6 +156,14 @@ describe('Payment method posting matrix (e2e)', () => {
             `DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`,
             [ownedRefs],
           );
+        }
+        if (occurrenceIds.length) {
+          await ds.query(
+            `DELETE FROM journal_entry_line
+              WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceEventId" = ANY($1))`,
+            [occurrenceIds],
+          );
+          await ds.query(`DELETE FROM journal_entry WHERE "sourceEventId" = ANY($1)`, [occurrenceIds]);
         }
         if (ownedSalesOrderIds.length) {
           await ds.query(
@@ -204,6 +221,12 @@ describe('Payment method posting matrix (e2e)', () => {
             productId,
           ]);
           await ds.query(`DELETE FROM products WHERE id = $1`, [productId]);
+        }
+        if (documentIds.length) {
+          await ds.query(
+            `DELETE FROM stock_occurrences WHERE "documentId" = ANY($1)`,
+            [documentIds],
+          );
         }
         if (categoryId) {
           await ds.query(`DELETE FROM categories WHERE id = $1`, [categoryId]);
