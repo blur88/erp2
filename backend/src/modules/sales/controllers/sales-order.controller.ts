@@ -28,6 +28,7 @@ import {
   RecordRefundDto,
   RecordRefundsDto,
   RecordPaymentsDto,
+  UnfulfillOrderDto,
 } from '../dto/sales-order.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
@@ -117,19 +118,22 @@ export class SalesOrderController {
 
   @Post(':id/unfulfill')
   @ApiOperation({
-    summary: 'Unfulfill order — currently unavailable (#1405)',
+    summary: 'Unfulfill order (FULFILLED only)',
     description:
-      'Always refused with 409: unfulfilling would erase the order\'s stock and cost history. ' +
-      'A non-destructive reversal is tracked in #1406.',
+      'Restores exactly the stock and cost the fulfilment recorded, without deleting anything. ' +
+      'Refused with 409 when the recorded evidence is incomplete (pre-recording fulfilment, ' +
+      'missing provenance or a journal that cannot be reversed).',
   })
   @ApiParam({ name: 'id', type: 'string' })
-  @ApiResponse({ status: 409, description: 'Unfulfill is unavailable; nothing is changed' })
+  @ApiResponse({ status: 201, type: SalesOrderResponseDto })
+  @ApiResponse({ status: 409, description: 'The recorded evidence cannot support an exact reversal' })
   async unfulfillOrder(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UnfulfillOrderDto,
     @CurrentUser('userId') userId: string,
     @CurrentUser('username') username: string,
   ) {
-    const data = await this.salesOrderService.unfulfillOrder(id, userId, username);
+    const data = await this.salesOrderService.unfulfillOrder(id, dto.reason, userId, username);
     return { data };
   }
 

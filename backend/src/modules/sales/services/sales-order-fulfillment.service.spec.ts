@@ -4,7 +4,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
-import { UNFULFILL_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
+import { UNFULFILL_PRE_RECORDING } from '../../inventory/stock-undo-unavailable';
+import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import {
   SalesOrder,
   SalesOrderStatus,
@@ -56,6 +57,8 @@ describe('SalesOrderFulfillmentService', () => {
     const occRepo = {
       create: (jest.fn as unknown as any)((d: any) => d),
       save: (jest.fn as unknown as any)(async (d: any) => ({ ...d, id: 'occ-1' })),
+      find: (jest.fn as unknown as any)().mockResolvedValue([]),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
     };
     const getRepository = (jest.fn as unknown as any)().mockImplementation((entity: any) =>
       entity === StockOccurrence ? occRepo : { findOne, update },
@@ -101,6 +104,7 @@ describe('SalesOrderFulfillmentService', () => {
           },
         },
         { provide: BaseCostCalculatorService, useValue: baseCostCalculator },
+        { provide: StockMovementService, useValue: { create: (jest.fn as unknown as any)() } },
         { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
         {
           provide: ACCOUNTING_POSTING_PORT,
@@ -483,12 +487,24 @@ describe('SalesOrderFulfillmentService', () => {
   });
 
   describe('unfulfillOrder', () => {
-    it('refuses with UNFULFILL_UNAVAILABLE and touches nothing', async () => {
-      await expect(service.unfulfillOrder('order-1', 'u1', 'alice'))
-        .rejects.toThrow(new ConflictException(UNFULFILL_UNAVAILABLE));
-      expect(dataSource.transaction).not.toHaveBeenCalled();
+    it('refuses an order that is not fulfilled', async () => {
+      wireTransaction(mockOrder({ status: SalesOrderStatus.READY }));
+
+      await expect(service.unfulfillOrder('order-1', 'a valid reason', 'u1', 'alice')).rejects.toThrow(
+        'Order is not fulfilled',
+      );
       expect(accountingPort.reverseEntriesForDocument).not.toHaveBeenCalled();
       expect(auditLogService.log).not.toHaveBeenCalled();
+    });
+
+    it('refuses a pre-recording fulfilment (no live occurrence)', async () => {
+      // A FULFILLED order with no StockOccurrence rows: the fake occurrence repo
+      // returns none, so no live fulfilment can be found.
+      wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
+
+      await expect(service.unfulfillOrder('order-1', 'a valid reason', 'u1', 'alice')).rejects.toThrow(
+        UNFULFILL_PRE_RECORDING,
+      );
     });
   });
 

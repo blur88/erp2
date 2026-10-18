@@ -1,16 +1,28 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Product } from '../../../database/entities/product.entity';
-import { StockOccurrenceKind } from '../../../database/entities/stock-occurrence.entity';
+import {
+  StockOccurrence,
+  StockOccurrenceKind,
+} from '../../../database/entities/stock-occurrence.entity';
+import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { StockBatchConsumption } from '../../../database/entities/stock-batch-consumption.entity';
+import { JournalEntry } from '../../accounting/entities/journal-entry.entity';
+import { JournalEntryLine } from '../../accounting/entities/journal-entry-line.entity';
 import { createOccurrence } from '../../inventory/services/stock-occurrence';
+import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { lockRowForUpdate, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
 import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { AuditLogService } from '../../audit-logs/services';
 import { SettingsService } from '../../settings/settings.service';
-import { UNFULFILL_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
+import {
+  UNFULFILL_EVIDENCE_INCOMPLETE,
+  UNFULFILL_PRE_RECORDING,
+} from '../../inventory/stock-undo-unavailable';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { recalculateCustomerMetrics } from './customer-metrics';
@@ -27,6 +39,7 @@ export class SalesOrderFulfillmentService {
     private readonly salesOrderRepository: Repository<SalesOrder>,
     private readonly inventoryIntegrationService: InventoryIntegrationService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly stockMovementService: StockMovementService,
     private readonly auditLogService: AuditLogService,
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly accounting: AccountingPostingPort,
@@ -216,8 +229,303 @@ export class SalesOrderFulfillmentService {
     return saved;
   }
 
-  async unfulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
-    throw new ConflictException(UNFULFILL_UNAVAILABLE);
+  /**
+   * Undo a fulfilment non-destructively (#1406): restore exactly the batches and
+   * stock the fulfilment recorded, write one reversal movement per original sale
+   * movement, reverse both journal entries, and record a linked reversal
+   * occurrence. Every check runs before the first write; a state the records
+   * cannot prove is refused, not guessed.
+   */
+  async unfulfillOrder(
+    id: string,
+    reason: string,
+    userId?: string,
+    username?: string,
+  ): Promise<SalesOrder> {
+    const timezone = await resolveAppTimezone(this.settingsService);
+
+    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+      const order = await lockRowForUpdate(manager, SalesOrder, id, {
+        relations: { items: { product: true }, customer: true },
+        notFoundMessage: 'Sales order not found',
+      });
+      if (order.status !== SalesOrderStatus.FULFILLED) {
+        throw new ConflictException('Order is not fulfilled');
+      }
+
+      const occurrence = await this.findLiveFulfilmentOccurrence(manager, order.id);
+      if (!occurrence) {
+        throw new ConflictException(UNFULFILL_PRE_RECORDING);
+      }
+
+      const saleMovements = await this.loadSaleMovements(manager, occurrence.id);
+      const restoration = await this.assessRestorationEvidence(manager, occurrence, saleMovements);
+
+      const now = new Date();
+
+      // Lock every affected product once, ascending, before any write.
+      const productIds = [...new Set(saleMovements.map((m) => m.productId))].sort();
+      for (const productId of productIds) {
+        await lockProductForStockUpdate(manager, Product, productId);
+      }
+
+      // The reversal occurrence is created first so every reversal movement and
+      // restored batch can be traced to it.
+      const reversal = await createOccurrence(manager, {
+        kind: StockOccurrenceKind.FULFILMENT_REVERSAL,
+        documentType: 'sales_order',
+        documentId: order.id,
+        occurredAt: now,
+        actorUserId: userId,
+        actorUsername: username,
+        reversesOccurrenceId: occurrence.id,
+        postedAmount: Number(occurrence.postedAmount ?? 0),
+        reason,
+      });
+
+      // Restore each batch from its recorded provenance.
+      const costRepo = manager.getRepository(PurchaseCostHistory);
+      for (const [batchId, restoreMinor] of restoration.restoreByBatch) {
+        const batch = await costRepo.findOne({ where: { id: batchId } as any });
+        const remainingMinor = toMinorUnits(String(batch!.remainingQuantity));
+        await costRepo.update(batchId, {
+          remainingQuantity: formatScale4(remainingMinor + restoreMinor) as any,
+          updatedAt: now,
+        });
+      }
+
+      // One SALE_REVERSAL per sale movement, mirroring quantity and value.
+      for (const movement of saleMovements) {
+        await this.stockMovementService.create(
+          {
+            productId: movement.productId,
+            movementType: StockMovementType.SALE_REVERSAL,
+            quantity: Math.abs(Number(movement.quantity)),
+            reason: `Reversal: ${reason}`,
+            referenceType: 'sales_order',
+            referenceId: order.id,
+            occurrenceId: reversal.id,
+            reversesMovementId: movement.id,
+            totalValue: Number(movement.totalValue ?? 0),
+          } as any,
+          userId,
+          manager,
+        );
+      }
+
+      // Recalculate each product's base cost from its restored batches.
+      for (const productId of productIds) {
+        await this.baseCostCalculator.updateProductBaseCost(productId, manager);
+      }
+
+      await this.reverseFulfilmentJournal(
+        manager,
+        order.id,
+        occurrence.id,
+        toMinorUnits(String(occurrence.postedAmount ?? '0')),
+        formatDateInTimezone(now, timezone),
+        username,
+      );
+
+      await manager.getRepository(SalesOrder).update(id, {
+        status: SalesOrderStatus.READY,
+        updatedAt: now,
+        fulfilledAt: null,
+      });
+      order.status = SalesOrderStatus.READY;
+      order.fulfilledAt = null as any;
+
+      await this.recalculateMetrics(manager, order);
+
+      return order;
+    });
+
+    await this.auditLogService.log(
+      'UNFULFILL',
+      'SalesOrder',
+      `Unfulfilled sales order: ${saved.orderNumber}`,
+      {
+        entityId: id,
+        userId: userId || 'system',
+        username,
+        oldValues: { status: SalesOrderStatus.FULFILLED },
+        newValues: { status: SalesOrderStatus.READY, reason },
+      },
+    );
+
+    return saved;
+  }
+
+  private async findLiveFulfilmentOccurrence(
+    manager: EntityManager,
+    orderId: string,
+  ): Promise<StockOccurrence | null> {
+    const repo = manager.getRepository(StockOccurrence);
+    const candidates = await repo.find({
+      where: {
+        documentType: 'sales_order',
+        documentId: orderId,
+        kind: StockOccurrenceKind.FULFILMENT,
+      } as any,
+      order: { createdAt: 'DESC' },
+    });
+    for (const candidate of candidates) {
+      const reversal = await repo.findOne({ where: { reversesOccurrenceId: candidate.id } as any });
+      if (!reversal) return candidate;
+    }
+    return null;
+  }
+
+  private async loadSaleMovements(
+    manager: EntityManager,
+    occurrenceId: string,
+  ): Promise<StockMovement[]> {
+    const movements = await manager.getRepository(StockMovement).find({
+      where: { occurrenceId } as any,
+      order: { id: 'ASC' },
+    });
+    return movements.filter((m) => Number(m.quantity) < 0);
+  }
+
+  /**
+   * Validates the recorded provenance, batch capacity, movement values and
+   * journal entries. Returns the per-batch restoration to apply. Throws
+   * UNFULFILL_EVIDENCE_INCOMPLETE on any gap rather than guessing.
+   */
+  private async assessRestorationEvidence(
+    manager: EntityManager,
+    occurrence: StockOccurrence,
+    saleMovements: StockMovement[],
+  ): Promise<{ restoreByBatch: Map<string, bigint> }> {
+    const incomplete = () => new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+    if (saleMovements.length === 0) throw incomplete();
+
+    const consumptionRepo = manager.getRepository(StockBatchConsumption);
+    const costRepo = manager.getRepository(PurchaseCostHistory);
+
+    // A product with cost batches must have provenance for every unit it moved;
+    // a zero-cost product (no batches) legitimately has none.
+    const batchedProducts = new Set<string>();
+    for (const movement of saleMovements) batchedProducts.add(movement.productId);
+    for (const productId of batchedProducts) {
+      const count = await costRepo.count({ where: { productId } as any });
+      if (count === 0) batchedProducts.delete(productId);
+    }
+
+    const restoreByBatch = new Map<string, bigint>();
+    for (const movement of saleMovements) {
+      const provenance = await consumptionRepo.find({ where: { movementId: movement.id } as any });
+      if (!batchedProducts.has(movement.productId)) {
+        if (provenance.length > 0) throw incomplete();
+        continue;
+      }
+
+      let provenanceQtyMinor = 0n;
+      for (const row of provenance) {
+        const qtyMinor = toMinorUnits(String(row.quantity));
+        provenanceQtyMinor += qtyMinor;
+        restoreByBatch.set(row.batchId, (restoreByBatch.get(row.batchId) ?? 0n) + qtyMinor);
+
+        const batch = await costRepo.findOne({ where: { id: row.batchId } as any });
+        if (!batch) throw incomplete();
+        if (batch.reversedAt) throw incomplete();
+        if (batch.productId !== movement.productId) throw incomplete();
+      }
+
+      const movedQtyMinor = toMinorUnits(String(movement.quantity).replace('-', ''));
+      if (provenanceQtyMinor !== movedQtyMinor) throw incomplete();
+    }
+
+    for (const [batchId, restoreMinor] of restoreByBatch) {
+      const batch = await costRepo.findOne({ where: { id: batchId } as any });
+      const remainingMinor = toMinorUnits(String(batch!.remainingQuantity));
+      const receivedMinor = toMinorUnits(String(batch!.receivedQuantity));
+      if (remainingMinor + restoreMinor > receivedMinor) throw incomplete();
+    }
+
+    const movementsTotalMinor = saleMovements.reduce(
+      (sum, m) => sum + toMinorUnits(String(m.totalValue ?? '0')),
+      0n,
+    );
+    const postedMinor = toMinorUnits(String(occurrence.postedAmount ?? '0'));
+    if (movementsTotalMinor !== postedMinor) throw incomplete();
+
+    const entryRepo = manager.getRepository(JournalEntry);
+    const originals = await entryRepo.find({
+      where: {
+        sourceType: AccountingSourceType.SALES_ORDER,
+        sourceEventId: occurrence.id,
+        reversalOfEntryId: IsNull(),
+      } as any,
+    });
+    const revenueOriginal = originals.find(
+      (e) => e.postingType === PostingType.SALES_FULFILLMENT_REVENUE,
+    );
+    const cogsOriginal = originals.find((e) => e.postingType === PostingType.SALES_FULFILLMENT_COGS);
+    if (!revenueOriginal) throw incomplete();
+    if (await entryRepo.findOne({ where: { reversalOfEntryId: revenueOriginal.id } as any })) {
+      throw incomplete();
+    }
+
+    if (postedMinor > 0n) {
+      if (!cogsOriginal) throw incomplete();
+      if (await entryRepo.findOne({ where: { reversalOfEntryId: cogsOriginal.id } as any })) {
+        throw incomplete();
+      }
+      const cogsLines = await manager
+        .getRepository(JournalEntryLine)
+        .find({ where: { entryId: cogsOriginal.id } as any });
+      const cogsDebitMinor = cogsLines.reduce((sum, l) => sum + toMinorUnits(String(l.debit)), 0n);
+      if (cogsDebitMinor !== postedMinor) throw incomplete();
+    } else if (cogsOriginal) {
+      throw incomplete();
+    }
+
+    return { restoreByBatch };
+  }
+
+  private async reverseFulfilmentJournal(
+    manager: EntityManager,
+    orderId: string,
+    occurrenceId: string,
+    postedMinor: bigint,
+    entryDate: string,
+    username?: string,
+  ): Promise<void> {
+    const revenue = await this.accounting.reverseEntryForEvent(
+      {
+        sourceType: AccountingSourceType.SALES_ORDER,
+        sourceDocumentId: orderId,
+        sourceEventId: occurrenceId,
+        expectedPostingType: PostingType.SALES_FULFILLMENT_REVENUE,
+        otherPostingTypes: [],
+        companionPostingTypes: [PostingType.SALES_FULFILLMENT_COGS],
+        entryDate,
+        createdBy: username,
+      },
+      manager,
+    );
+    if (revenue.outcome !== 'reversed') {
+      throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+    }
+
+    const cogs = await this.accounting.reverseEntryForEvent(
+      {
+        sourceType: AccountingSourceType.SALES_ORDER,
+        sourceDocumentId: orderId,
+        sourceEventId: occurrenceId,
+        expectedPostingType: PostingType.SALES_FULFILLMENT_COGS,
+        otherPostingTypes: [],
+        companionPostingTypes: [PostingType.SALES_FULFILLMENT_REVENUE],
+        entryDate,
+        createdBy: username,
+      },
+      manager,
+    );
+    // A zero-cost fulfilment has no COGS original to reverse.
+    if (postedMinor > 0n ? cogs.outcome !== 'reversed' : cogs.outcome !== 'no_original') {
+      throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+    }
   }
 
   /**

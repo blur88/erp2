@@ -210,10 +210,11 @@ describe('SalesOrderService', () => {
   });
 
   it('delegates unfulfillOrder then reloads the response', async () => {
-    await service.unfulfillOrder('order-1', 'user-1', 'admin');
+    await service.unfulfillOrder('order-1', 'a valid reason', 'user-1', 'admin');
 
     expect(salesOrderFulfillmentService.unfulfillOrder).toHaveBeenCalledWith(
       'order-1',
+      'a valid reason',
       'user-1',
       'admin',
     );

@@ -17,7 +17,7 @@ import { DiscountType, SalesOrderItem } from '../src/database/entities/sales-ord
 import { CustomerService } from '../src/modules/sales/services/customer.service';
 import { recalculateCustomerMetrics } from '../src/modules/sales/services/customer-metrics';
 import { SalesOrderFulfillmentService } from '../src/modules/sales/services/sales-order-fulfillment.service';
-import { UNFULFILL_UNAVAILABLE } from '../src/modules/inventory/stock-undo-unavailable';
+import { UNFULFILL_PRE_RECORDING } from '../src/modules/inventory/stock-undo-unavailable';
 import { SalesOrderPaymentService } from '../src/modules/sales/services/sales-order-payment.service';
 import {
   seedCategory,
@@ -368,7 +368,7 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
   });
 
   describe('metrics follow fulfil and unfulfil', () => {
-    it('fulfil adds the order; unfulfil is refused and leaves the metrics', async () => {
+    it('fulfil adds the order; unfulfil removes it again', async () => {
       const customer = await seedCustomer('lifecycle');
       const early = await seedReadyOrder(customer.id, '2026-01-05', 1); // 100
       const late = await seedReadyOrder(customer.id, '2026-03-10', 2); // 200
@@ -397,12 +397,14 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
         last: '2026-03-10',
       });
 
-      await expect(fulfillment.unfulfillOrder(late.id)).rejects.toThrow(UNFULFILL_UNAVAILABLE);
+      // Unfulfil now reverses the recorded fulfilment, so the late order drops
+      // back out of the metrics and the early one remains.
+      await fulfillment.unfulfillOrder(late.id, 'customer changed their mind');
       expect(await storedMetrics(customer.id)).toEqual({
-        totalOrders: 2,
-        totalSales: '300.0000',
+        totalOrders: 1,
+        totalSales: '100.0000',
         first: '2026-01-05',
-        last: '2026-03-10',
+        last: '2026-01-05',
       });
     });
 
@@ -616,41 +618,35 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
     });
   });
 
-  describe('unfulfil is unavailable (#1405)', () => {
-    const MESSAGE =
-      "Unfulfill is unavailable: it would erase this order's stock and cost history. It will return once stock reversals keep that history.";
-
-    async function fulfilledOrder(tag: string) {
+  describe('unfulfil refuses a pre-recording fulfilment (#1405 → #1406)', () => {
+    /** A FULFILLED order seeded directly, as a pre-deploy fulfilment: no occurrence. */
+    async function preRecordingOrder(tag: string) {
       const customer = await seedCustomer(tag);
-      const order = await seedReadyOrder(customer.id, '2026-01-05', 5);
-      await fulfillment.fulfillOrder(order.id);
+      const order = await seedOrder(customer.id, SalesOrderStatus.FULFILLED, '2026-01-05', '500.0000');
       return { customer, order };
     }
 
     it('the service refuses and changes nothing', async () => {
-      const { customer, order } = await fulfilledOrder('refused-unfulfil');
+      const { customer, order } = await preRecordingOrder('pre-recording-unfulfil');
       const before = await effects(order.id, customer.id);
       expect(before.status).toBe(SalesOrderStatus.FULFILLED);
-      expect(before.hasFulfilledAt).toBe(true);
-      expect(before.metrics).toEqual({
-        totalOrders: 1,
-        totalSales: '500.0000',
-        first: '2026-01-05',
-        last: '2026-01-05',
-      });
 
-      await expect(fulfillment.unfulfillOrder(order.id)).rejects.toThrow(UNFULFILL_UNAVAILABLE);
+      await expect(fulfillment.unfulfillOrder(order.id, 'a valid reason')).rejects.toThrow(
+        UNFULFILL_PRE_RECORDING,
+      );
 
       expect(await effects(order.id, customer.id)).toEqual(before);
     });
 
     it('POST /sales-orders/:id/unfulfill answers 409 with the explanation and changes nothing', async () => {
-      const { customer, order } = await fulfilledOrder('http-unfulfil');
+      const { customer, order } = await preRecordingOrder('http-pre-recording-unfulfil');
       const before = await effects(order.id, customer.id);
 
-      const res = await post(`/sales-orders/${order.id}/unfulfill`).expect(409);
+      const res = await post(`/sales-orders/${order.id}/unfulfill`)
+        .send({ reason: 'a valid reason' })
+        .expect(409);
 
-      expect(res.body.message).toBe(MESSAGE);
+      expect(res.body.message).toBe(UNFULFILL_PRE_RECORDING);
       expect(await effects(order.id, customer.id)).toEqual(before);
     });
   });
