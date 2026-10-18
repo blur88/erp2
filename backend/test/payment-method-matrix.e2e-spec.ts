@@ -184,14 +184,23 @@ describe('Payment method posting matrix (e2e)', () => {
           ]);
         }
         if (productId) {
-          // stock_movements.productId -> products is ON DELETE RESTRICT
-          // (InitialSchema:166), so movements must go first or the product
-          // delete fails. The RECEIVED-purchase-order rejection case calls
-          // /receive, which posts stock, and this suite creates no movements
-          // anywhere else. Same ordering as
-          // shared-e2e-business-fixture.ts:199, which documents this FK as the
-          // one that blocks.
+          // stock_movements.productId -> products and
+          // purchase_cost_history.productId -> products are both ON DELETE
+          // RESTRICT (InitialSchema:166 and AddStockOccurrencesAndProvenance),
+          // so dependent rows must go first or the product delete fails. The
+          // RECEIVED-purchase-order rejection case calls /receive, which posts
+          // stock and writes a cost-history batch. Same ordering as
+          // shared-e2e-business-fixture.ts, which documents these FKs.
+          await ds.query(
+            `DELETE FROM stock_batch_consumptions
+               WHERE "movementId" IN (SELECT id FROM stock_movements WHERE "productId" = $1)
+                  OR "batchId" IN (SELECT id FROM purchase_cost_history WHERE "productId" = $1)`,
+            [productId],
+          );
           await ds.query(`DELETE FROM stock_movements WHERE "productId" = $1`, [
+            productId,
+          ]);
+          await ds.query(`DELETE FROM purchase_cost_history WHERE "productId" = $1`, [
             productId,
           ]);
           await ds.query(`DELETE FROM products WHERE id = $1`, [productId]);

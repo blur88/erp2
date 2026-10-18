@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
@@ -17,6 +18,7 @@ describe('BaseCostCalculatorService', () => {
     save: any;
     delete: any;
   };
+  let costingFactory: { getActiveStrategy: any; getCurrentCostingMethod: any };
 
   beforeEach(async () => {
     costHistoryRepository = {
@@ -27,18 +29,19 @@ describe('BaseCostCalculatorService', () => {
       save: (jest.fn as unknown as any)(),
       delete: (jest.fn as unknown as any)(),
     };
+    costingFactory = {
+      getActiveStrategy: (jest.fn as unknown as any)().mockResolvedValue({
+        determineBatchReduction: (jest.fn as unknown as any)().mockReturnValue([]),
+        calculateBaseCost: (jest.fn as unknown as any)().mockResolvedValue(0),
+      }),
+      getCurrentCostingMethod: (jest.fn as unknown as any)().mockResolvedValue('FIFO'),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BaseCostCalculatorService,
         { provide: getRepositoryToken(Product), useValue: { findOne: (jest.fn as unknown as any)(), update: (jest.fn as unknown as any)() } },
         { provide: getRepositoryToken(PurchaseCostHistory), useValue: costHistoryRepository },
-        {
-          provide: CostingStrategyFactory,
-          useValue: {
-            getActiveStrategy: (jest.fn as unknown as any)().mockResolvedValue({ determineBatchReduction: (jest.fn as unknown as any)().mockReturnValue([]), calculateBaseCost: (jest.fn as unknown as any)().mockResolvedValue(0) }),
-            getCurrentCostingMethod: (jest.fn as unknown as any)().mockResolvedValue('FIFO'),
-          },
-        },
+        { provide: CostingStrategyFactory, useValue: costingFactory },
       ],
     }).compile();
     service = module.get(BaseCostCalculatorService);
@@ -52,6 +55,40 @@ describe('BaseCostCalculatorService', () => {
 
     expect(manager.getRepository).toHaveBeenCalled();
     expect(find).toHaveBeenCalled();
+  });
+
+  it('planConsumption refuses a line whose batches cannot cover it (#1406)', async () => {
+    const batch = {
+      id: 'b1',
+      productId: 'product-1',
+      remainingQuantity: '2.0000',
+      landedCost: '5.0000',
+    };
+    const find = (jest.fn as unknown as any)().mockResolvedValue([batch]);
+    const manager = {
+      getRepository: (jest.fn as unknown as any)().mockReturnValue({ find, update: (jest.fn as unknown as any)() }),
+    } as any;
+    costingFactory.getActiveStrategy.mockResolvedValue({
+      determineBatchReduction: (jest.fn as unknown as any)().mockReturnValue([{ batchId: 'b1', quantity: 2 }]),
+      calculateBaseCost: (jest.fn as unknown as any)(),
+    });
+
+    await expect(
+      service.planConsumption(manager, [{ productId: 'product-1', quantity: 5 }]),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('planConsumption treats a product with no batches as zero-cost (#1406)', async () => {
+    const find = (jest.fn as unknown as any)().mockResolvedValue([]);
+    const manager = {
+      getRepository: (jest.fn as unknown as any)().mockReturnValue({ find, update: (jest.fn as unknown as any)() }),
+    } as any;
+
+    const plans = await service.planConsumption(manager, [{ productId: 'svc-1', quantity: 3 }]);
+
+    expect(plans).toHaveLength(1);
+    expect(plans[0].totalScale8).toBe(0n);
+    expect(plans[0].consumptions).toEqual([]);
   });
 
   it('keys addStock batches by purchaseOrderId and returns persisted values', async () => {
@@ -68,7 +105,7 @@ describe('BaseCostCalculatorService', () => {
         purchaseOrderId: 'po-1',
       }),
     );
-    expect(result).toEqual({ landedCost: 6, receivedQuantity: 10 });
+    expect(result).toEqual({ landedCost: 6, receivedQuantity: 10, batchId: 'batch-1' });
   });
 
   describe('landed-cost allocation (#1241)', () => {

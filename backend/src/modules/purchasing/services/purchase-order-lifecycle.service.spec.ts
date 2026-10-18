@@ -73,6 +73,9 @@ describe('PurchaseOrderLifecycleService', () => {
       manager: {
         getRepository: (jest.fn as unknown as any)().mockReturnValue({
           count: (jest.fn as unknown as any)().mockResolvedValue(0),
+          create: (jest.fn as unknown as any)().mockReturnValue({ id: 'occ-1' }),
+          save: (jest.fn as unknown as any)().mockResolvedValue({ id: 'occ-1' }),
+          update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
         }),
       },
     } as unknown as any;
@@ -94,7 +97,7 @@ describe('PurchaseOrderLifecycleService', () => {
       create: (jest.fn as unknown as any)().mockResolvedValue({}),
     };
     baseCostCalculator = {
-      addStock: (jest.fn as unknown as any)().mockResolvedValue({ landedCost: 5, receivedQuantity: 10 }),
+      addStock: (jest.fn as unknown as any)().mockResolvedValue({ landedCost: 5, receivedQuantity: 10, batchId: 'batch-1' }),
       allocateShippingByValue: (jest.fn as unknown as any)().mockReturnValue([0n]),
     };
     accountingPort = {
@@ -240,7 +243,7 @@ describe('PurchaseOrderLifecycleService', () => {
             getRepository: (entity: any) => {
               if (entity === PurchaseOrder) return poRepo;
               if (entity === PurchaseOrderItem) return itemRepo;
-              return {};
+              return { create: (jest.fn as any)().mockReturnValue({ id: 'occ-1' }), save: (jest.fn as any)().mockResolvedValue({ id: 'occ-1' }), update: (jest.fn as any)().mockResolvedValue(undefined) };
             },
           }),
         );
@@ -309,9 +312,9 @@ describe('PurchaseOrderLifecycleService', () => {
       dataSource.transaction.mockImplementation(async (cb: any) =>
         cb({
           getRepository: (entity: any) => {
-            if (entity === PurchaseOrder) return poRepo;
-            if (entity === PurchaseOrderItem) return itemRepo;
-            return {};
+if (entity === PurchaseOrder) return poRepo;
+              if (entity === PurchaseOrderItem) return itemRepo;
+              return { create: (jest.fn as any)().mockReturnValue({ id: 'occ-1' }), save: (jest.fn as any)().mockResolvedValue({ id: 'occ-1' }), update: (jest.fn as any)().mockResolvedValue(undefined) };
           },
         }),
       );
@@ -335,6 +338,7 @@ describe('PurchaseOrderLifecycleService', () => {
         0,
         expect.any(Date),
         expect.anything(),
+        'occ-1',
       );
       expect(accountingPort.postPurchaseReceive).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -387,9 +391,9 @@ describe('PurchaseOrderLifecycleService', () => {
       dataSource.transaction.mockImplementation(async (cb: any) =>
         cb({
           getRepository: (entity: any) => {
-            if (entity === PurchaseOrder) return poRepo;
-            if (entity === PurchaseOrderItem) return itemRepo;
-            return {};
+if (entity === PurchaseOrder) return poRepo;
+              if (entity === PurchaseOrderItem) return itemRepo;
+              return { create: (jest.fn as any)().mockReturnValue({ id: 'occ-1' }), save: (jest.fn as any)().mockResolvedValue({ id: 'occ-1' }), update: (jest.fn as any)().mockResolvedValue(undefined) };
           },
         }),
       );
@@ -404,6 +408,7 @@ describe('PurchaseOrderLifecycleService', () => {
         0,
         expect.any(Date),
         expect.anything(),
+        'occ-1',
       );
       // Stock movement unitValue must also be the net cost.
       expect(stockMovementService.create).toHaveBeenCalledWith(

@@ -9,9 +9,16 @@ describe('owner drawing movement types', () => {
     expect(StockMovementType.OWNER_DRAWING_REVERSAL).toBe('owner_drawing_reversal');
   });
 
-  it('appends them last to match ALTER TYPE ADD VALUE ordering', () => {
+  it('appends them to match ALTER TYPE ADD VALUE ordering', () => {
     const values = Object.values(StockMovementType);
-    expect(values.slice(-2)).toEqual(['owner_drawing', 'owner_drawing_reversal']);
+    // New enum members are only ever APPENDED (ALTER TYPE … ADD VALUE cannot
+    // reorder), so the owner-drawing pair stays contiguous and later additions
+    // (#1406 purchase_receipt_reversal) follow it.
+    expect(values.slice(-3)).toEqual([
+      'owner_drawing',
+      'owner_drawing_reversal',
+      'purchase_receipt_reversal',
+    ]);
   });
 
   it('classifies the drawing as outward and its reversal as inward', () => {

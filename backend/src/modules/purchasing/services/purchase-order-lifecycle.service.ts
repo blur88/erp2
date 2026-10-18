@@ -178,67 +178,111 @@ export class PurchaseOrderLifecycleService {
         itemValueWeightsMinor,
       );
 
+      // Pass 1: compute per-line landed cost and scale-8 value (no writes).
+      const linePlans: Array<{
+        item: any;
+        quantity: number;
+        netUnitCost: number;
+        shippingPerUnit: number;
+        landedCost: number;
+        scale8: bigint;
+        qtyMinor: bigint;
+      }> = [];
       let inventoryScale8 = 0n;
       for (let i = 0; i < items.length; i += 1) {
         const item = items[i];
         const quantity = Number(item.quantity);
-        // Capitalize inventory at the NET (after line discount) unit cost so the
-        // cost-history subledger matches the GL inventory debit, which the
-        // accounting entry posts from item.totalAmount (also net of discount).
-        // PO.subtotal is the sum of item.totalAmount, so the shipping-by-value
-        // share is computed on the same net basis for both numerator and
-        // denominator.
-        // item.totalAmount is the line total net of discount; divide back to a
-        // per-unit net cost. Fall back to the raw unitCost if the line total is
-        // missing or non-positive.
         const lineTotal = Number(item.totalAmount);
         const netUnitCost =
           quantity > 0 && Number.isFinite(lineTotal) && lineTotal > 0
             ? lineTotal / quantity
             : Number(item.unitCost);
 
-        // Per-unit landed-cost share = share / quantity, in minor units.
         const qtyMinor = toMinorUnits(String(quantity));
         const shippingShareMinor = shippingSharesMinor[i] ?? 0n;
         const shippingPerUnit = Number(
           formatScale4(qtyMinor > 0n ? (shippingShareMinor * 10000n) / qtyMinor : 0n),
         );
+        const landedCost = netUnitCost + shippingPerUnit;
+        const scale8b = qtyMinor * toMinorUnits(landedCost.toFixed(4));
+        inventoryScale8 += scale8b;
+
+        linePlans.push({
+          item,
+          quantity,
+          netUnitCost,
+          shippingPerUnit,
+          landedCost,
+          scale8: scale8b,
+          qtyMinor,
+        });
+      }
+
+      const inventoryMinor = (inventoryScale8 + 5000n) / 10000n;
+      const postedMinor = quantizeToCents(inventoryMinor);
+      const postedAmount = formatMoney(postedMinor);
+
+      // Create the occurrence first.
+      const { createOccurrence } = await import('../../inventory/services/stock-occurrence');
+      const occurrence = await createOccurrence(manager, {
+        kind: 'receipt' as any,
+        documentType: 'purchase_order',
+        documentId: purchaseOrder.id,
+        occurredAt: receiveDate,
+        actorUserId: userId,
+        actorUsername: username,
+        postedAmount: Number(postedAmount),
+        isLegacy: false,
+      });
+
+      // Allocate the posted amount across lines.
+      const { allocateCents } = await import('../../../common/utils/money');
+      const weightsScale8 = linePlans.map((p) => p.scale8);
+      const allocatedMinor = allocateCents(postedMinor, weightsScale8);
+
+      // Pass 2: writes.
+      for (let i = 0; i < linePlans.length; i += 1) {
+        const plan = linePlans[i];
+        const item = plan.item;
+        const allocated = allocatedMinor[i] ?? 0n;
+        const totalValue = Number(formatScale4(allocated));
 
         const movementDto: CreateStockMovementDto = {
           productId: item.productId,
           movementType: StockMovementType.PURCHASE_RECEIPT,
-          quantity,
+          quantity: plan.quantity,
           reason: `Purchase order received: ${purchaseOrder.orderNumber}`,
           referenceType: 'purchase_order',
           referenceId: purchaseOrder.id,
-          unitValue: netUnitCost,
+          unitValue: plan.netUnitCost,
+          occurrenceId: occurrence.id,
+          totalValue,
         };
 
         await this.stockMovementService.create(movementDto, userId, manager);
         const persisted = await this.baseCostCalculator.addStock(
           item.productId,
           purchaseOrder.id,
-          quantity,
-          netUnitCost,
-          shippingPerUnit,
+          plan.quantity,
+          plan.netUnitCost,
+          plan.shippingPerUnit,
           receiveDate,
           manager,
+          occurrence.id,
         );
-        inventoryScale8 += toMinorUnits(String(persisted.receivedQuantity)) * toMinorUnits(String(persisted.landedCost));
-
         await manager.getRepository(PurchaseOrderItem).update(item.id, {
-          receivedQuantity: quantity,
+          receivedQuantity: plan.quantity,
         });
-        item.receivedQuantity = quantity;
+        item.receivedQuantity = plan.quantity;
       }
 
-      const inventoryMinor = (inventoryScale8 + 5000n) / 10000n;
       await this.accounting.postPurchaseReceive({
         purchaseOrderId: id,
         sourceRef: purchaseOrder.orderNumber,
-          amount: formatMoney(quantizeToCents(inventoryMinor)),
+        amount: postedAmount,
         entryDate: formatDateInTimezone(receiveDate, timezone),
         createdBy: username,
+        occurrenceId: occurrence.id,
       }, manager);
 
       await manager.getRepository(PurchaseOrder).update(id, {

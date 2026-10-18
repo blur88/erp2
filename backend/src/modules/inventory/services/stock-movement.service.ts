@@ -126,11 +126,17 @@ export class StockMovementService {
       );
     }
 
+    // Assign per-product sequence under the lock.
+    const { nextProductSequence } = await import('./stock-occurrence');
+    const productSequence = await nextProductSequence(manager, createMovementDto.productId);
+
     // Create stock movement
     const stockMovement = stockMovementRepo.create({
       ...createMovementDto,
       previousBalance,
       newBalance,
+      productSequence,
+      actorUserId: userId,
     });
 
     const savedMovement = await stockMovementRepo.save(stockMovement);

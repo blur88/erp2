@@ -58,6 +58,21 @@ export class CreateStockMovementDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Stock occurrence id' })
+  @IsOptional()
+  @IsUUID(4)
+  occurrenceId?: string;
+
+  @ApiPropertyOptional({ description: 'Movement this one reverses' })
+  @IsOptional()
+  @IsUUID(4)
+  reversesMovementId?: string;
+
+  @ApiPropertyOptional({ description: 'Total value (overrides computed)' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  totalValue?: number;
 }
 
 export class QueryStockMovementsDto {

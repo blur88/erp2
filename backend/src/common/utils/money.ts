@@ -188,3 +188,15 @@ export function reconcileToCents(
 
   return rounded;
 }
+
+export function allocateCents(totalMinor: bigint, weightsScale8: readonly bigint[]): bigint[] {
+  if (weightsScale8.length === 0) {
+    return [];
+  }
+  if (totalMinor === 0n) {
+    return weightsScale8.map(() => 0n);
+  }
+  const cents = totalMinor / 100n;
+  const allocatedCents = allocate(cents, weightsScale8.map((w) => (w < 0n ? -w : w)));
+  return allocatedCents.map((c) => c * 100n);
+}

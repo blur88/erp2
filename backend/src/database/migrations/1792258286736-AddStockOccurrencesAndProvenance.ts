@@ -4,14 +4,11 @@ export class AddStockOccurrencesAndProvenance1792258286736 implements MigrationI
     name = 'AddStockOccurrencesAndProvenance1792258286736'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "bank_statement_reconciliations" DROP CONSTRAINT "FK_bsr_current_version"`);
         await queryRunner.query(`ALTER TABLE "purchase_cost_history" DROP CONSTRAINT "FK_a200937c3bef6072ce44d760fe3"`);
-        await queryRunner.query(`DROP INDEX "public"."UQ_price_lists_single_default"`);
         await queryRunner.query(`CREATE TYPE "public"."stock_occurrences_kind_enum" AS ENUM('receipt', 'fulfilment', 'receipt_reversal', 'fulfilment_reversal')`);
         await queryRunner.query(`CREATE TABLE "stock_occurrences" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "kind" "public"."stock_occurrences_kind_enum" NOT NULL, "documentType" character varying(30) NOT NULL, "documentId" uuid NOT NULL, "occurredAt" TIMESTAMP WITH TIME ZONE NOT NULL, "actorUserId" uuid, "actorUsername" character varying(255), "reversesOccurrenceId" uuid, "postedAmount" numeric(15,2), "isLegacy" boolean NOT NULL DEFAULT false, "legacyJournalEntryId" uuid, "reason" text, "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_bbb531cb0d4aea5ed2b2d4604eb" PRIMARY KEY ("id")); COMMENT ON COLUMN "stock_occurrences"."kind" IS 'Kind of stock occurrence'; COMMENT ON COLUMN "stock_occurrences"."documentType" IS 'Source document type (''purchase_order'' | ''sales_order'')'; COMMENT ON COLUMN "stock_occurrences"."documentId" IS 'Source document id'; COMMENT ON COLUMN "stock_occurrences"."occurredAt" IS 'When the occurrence happened'; COMMENT ON COLUMN "stock_occurrences"."actorUserId" IS 'Actor user id'; COMMENT ON COLUMN "stock_occurrences"."actorUsername" IS 'Actor username'; COMMENT ON COLUMN "stock_occurrences"."reversesOccurrenceId" IS 'The occurrence this one reverses'; COMMENT ON COLUMN "stock_occurrences"."postedAmount" IS 'Posted amount in currency units'; COMMENT ON COLUMN "stock_occurrences"."isLegacy" IS 'Whether this occurrence refers to pre-deploy (legacy) data'; COMMENT ON COLUMN "stock_occurrences"."legacyJournalEntryId" IS 'Legacy journal entry id (when isLegacy)'; COMMENT ON COLUMN "stock_occurrences"."reason" IS 'Reason for a reversal occurrence'`);
         await queryRunner.query(`CREATE UNIQUE INDEX "UQ_stock_occurrence_reverses" ON "stock_occurrences"  ("reversesOccurrenceId") WHERE "reversesOccurrenceId" IS NOT NULL`);
         await queryRunner.query(`CREATE TABLE "stock_batch_consumptions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "movementId" uuid NOT NULL, "batchId" uuid NOT NULL, "quantity" numeric(15,4) NOT NULL, "unitCost" numeric(15,4) NOT NULL, "valueScale8" numeric(24,8) NOT NULL, "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_7e6732fdb13b50ec7cc84409be3" PRIMARY KEY ("id")); COMMENT ON COLUMN "stock_batch_consumptions"."movementId" IS 'Stock movement id'; COMMENT ON COLUMN "stock_batch_consumptions"."batchId" IS 'Purchase cost history (batch) id'; COMMENT ON COLUMN "stock_batch_consumptions"."quantity" IS 'Quantity consumed from this batch (scale-4)'; COMMENT ON COLUMN "stock_batch_consumptions"."unitCost" IS 'Landed unit cost at consumption (scale-4)'; COMMENT ON COLUMN "stock_batch_consumptions"."valueScale8" IS 'Unrounded value (scale-8)'`);
-        await queryRunner.query(`ALTER TABLE "company_settings" ADD "registrationNumber" character varying(50)`);
         await queryRunner.query(`ALTER TABLE "purchase_cost_history" ADD "occurrenceId" uuid`);
         await queryRunner.query(`COMMENT ON COLUMN "purchase_cost_history"."occurrenceId" IS 'Stock occurrence id'`);
         await queryRunner.query(`ALTER TABLE "purchase_cost_history" ADD "reversedAt" TIMESTAMP WITH TIME ZONE`);
@@ -26,8 +23,6 @@ export class AddStockOccurrencesAndProvenance1792258286736 implements MigrationI
         await queryRunner.query(`COMMENT ON COLUMN "stock_movements"."reversesMovementId" IS 'The movement this one reverses'`);
         await queryRunner.query(`ALTER TABLE "stock_movements" ADD "productSequence" bigint`);
         await queryRunner.query(`COMMENT ON COLUMN "stock_movements"."productSequence" IS 'Per-product sequence assigned under the product lock'`);
-        await queryRunner.query(`ALTER TABLE "expenses" ALTER COLUMN "paidAmount" SET DEFAULT '0.0000'`);
-        await queryRunner.query(`ALTER TABLE "redis_alert_state" ALTER COLUMN "recentEpisodes" SET DEFAULT '[]'::jsonb`);
         await queryRunner.query(`ALTER TYPE "public"."stock_movements_movementtype_enum" ADD VALUE 'purchase_receipt_reversal'`);
         await queryRunner.query(`CREATE UNIQUE INDEX "UQ_stock_movement_reverses" ON "stock_movements"  ("reversesMovementId") WHERE "reversesMovementId" IS NOT NULL`);
         await queryRunner.query(`CREATE UNIQUE INDEX "UQ_stock_movement_product_sequence" ON "stock_movements"  ("productId", "productSequence") WHERE "productSequence" IS NOT NULL`);
@@ -56,8 +51,6 @@ export class AddStockOccurrencesAndProvenance1792258286736 implements MigrationI
         await queryRunner.query(`ALTER TABLE "stock_movements" ALTER COLUMN "movementType" TYPE "public"."stock_movements_movementtype_enum_old" USING "movementType"::"text"::"public"."stock_movements_movementtype_enum_old"`);
         await queryRunner.query(`DROP TYPE "public"."stock_movements_movementtype_enum"`);
         await queryRunner.query(`ALTER TYPE "public"."stock_movements_movementtype_enum_old" RENAME TO "stock_movements_movementtype_enum"`);
-        await queryRunner.query(`ALTER TABLE "redis_alert_state" ALTER COLUMN "recentEpisodes" SET DEFAULT '[]'`);
-        await queryRunner.query(`ALTER TABLE "expenses" ALTER COLUMN "paidAmount" SET DEFAULT 0.0000`);
         await queryRunner.query(`COMMENT ON COLUMN "stock_movements"."productSequence" IS 'Per-product sequence assigned under the product lock'`);
         await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN "productSequence"`);
         await queryRunner.query(`COMMENT ON COLUMN "stock_movements"."reversesMovementId" IS 'The movement this one reverses'`);
@@ -72,14 +65,11 @@ export class AddStockOccurrencesAndProvenance1792258286736 implements MigrationI
         await queryRunner.query(`ALTER TABLE "purchase_cost_history" DROP COLUMN "reversedAt"`);
         await queryRunner.query(`COMMENT ON COLUMN "purchase_cost_history"."occurrenceId" IS 'Stock occurrence id'`);
         await queryRunner.query(`ALTER TABLE "purchase_cost_history" DROP COLUMN "occurrenceId"`);
-        await queryRunner.query(`ALTER TABLE "company_settings" DROP COLUMN "registrationNumber"`);
         await queryRunner.query(`DROP TABLE "stock_batch_consumptions"`);
         await queryRunner.query(`DROP INDEX "public"."UQ_stock_occurrence_reverses"`);
         await queryRunner.query(`DROP TABLE "stock_occurrences"`);
         await queryRunner.query(`DROP TYPE "public"."stock_occurrences_kind_enum"`);
-        await queryRunner.query(`CREATE UNIQUE INDEX "UQ_price_lists_single_default" ON "price_lists" USING btree ("isDefault") WHERE (("isDefault" = true) AND ("deletedAt" IS NULL))`);
         await queryRunner.query(`ALTER TABLE "purchase_cost_history" ADD CONSTRAINT "FK_a200937c3bef6072ce44d760fe3" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "bank_statement_reconciliations" ADD CONSTRAINT "FK_bsr_current_version" FOREIGN KEY ("id", "currentVersionNo") REFERENCES "bank_statement_reconciliation_versions"("reconciliationId","versionNo") ON DELETE RESTRICT ON UPDATE NO ACTION`);
     }
 
 }

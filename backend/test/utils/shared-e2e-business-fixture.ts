@@ -196,6 +196,13 @@ export async function resetSuiteBusinessRows(
       `DELETE FROM sales_order_items WHERE "productId" = ANY($1)`,
       [productIds],
     );
+    // Consumption provenance RESTRICTs its movement (#1406), so it must go
+    // before the movements it explains.
+    await ds.query(
+      `DELETE FROM stock_batch_consumptions
+        WHERE "movementId" IN (SELECT id FROM stock_movements WHERE "productId" = ANY($1))`,
+      [productIds],
+    );
     await ds.query(`DELETE FROM stock_movements WHERE "productId" = ANY($1)`, [
       productIds,
     ]);
@@ -215,6 +222,23 @@ export async function resetSuiteBusinessRows(
       [productIds],
     );
     await ds.query(`DELETE FROM products WHERE id = ANY($1)`, [productIds]);
+  }
+
+  // --- stock occurrences (#1406) ---
+  //
+  // Occurrences are reached by their source document, not by product, so they
+  // are deleted only once the movements and batches that RESTRICT them are gone
+  // (above). A reversal occurrence references its original (self-FK RESTRICT),
+  // so target the full set for an owned document in one statement.
+  const occurrencesOr = (ids: string[]) =>
+    ids.length ? ids : ['00000000-0000-0000-0000-000000000000'];
+  if (salesOrderIds.length || purchaseOrderIds.length) {
+    await ds.query(
+      `DELETE FROM stock_occurrences
+        WHERE ("documentType" = 'sales_order' AND "documentId" = ANY($1))
+           OR ("documentType" = 'purchase_order' AND "documentId" = ANY($2))`,
+      [occurrencesOr(salesOrderIds), occurrencesOr(purchaseOrderIds)],
+    );
   }
 
   // --- roots ---
