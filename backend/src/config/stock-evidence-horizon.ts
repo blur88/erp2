@@ -10,6 +10,8 @@
  * A malformed value fails startup (read once at module init), like
  * `REFRESH_GRACE_SECONDS`.
  */
+export const STOCK_EVIDENCE_HORIZON = 'STOCK_EVIDENCE_HORIZON';
+
 const ISO_8601_INSTANT =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 

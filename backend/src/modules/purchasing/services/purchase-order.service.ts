@@ -738,8 +738,13 @@ export class PurchaseOrderService extends BaseCrudService<
     return this.findOne(saved.id);
   }
 
-  async return(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
-    const saved = await this.purchaseOrderLifecycleService.return(id, userId, username);
+  async return(
+    id: string,
+    reason: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PurchaseOrderResponseDto> {
+    const saved = await this.purchaseOrderLifecycleService.return(id, reason, userId, username);
     return this.findOne(saved.id);
   }
 

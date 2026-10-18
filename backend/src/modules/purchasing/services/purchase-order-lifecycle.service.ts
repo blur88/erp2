@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import {
+  Product,
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderPaymentStatus,
@@ -20,14 +21,24 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 
 import { formatMoney, formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
-import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { lockRowForUpdate, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
 import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
-import { RETURN_TO_READY_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
+import { createOccurrence } from '../../inventory/services/stock-occurrence';
 import { SettingsService } from '../../settings/settings.service';
+import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { StockOccurrenceKind } from '../../../database/entities/stock-occurrence.entity';
+import {
+  AccountingSourceType,
+  PostingType,
+} from '../../../common/accounting-posting/enums';
+import {
+  assessReceiptReversal,
+} from './receipt-reversal-evidence';
+import { STOCK_EVIDENCE_HORIZON } from '../../../config/stock-evidence-horizon';
 
 @Injectable()
 export class PurchaseOrderLifecycleService {
@@ -41,6 +52,8 @@ export class PurchaseOrderLifecycleService {
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly accounting: AccountingPostingPort,
     private readonly settingsService: SettingsService,
+    @Inject(STOCK_EVIDENCE_HORIZON)
+    private readonly horizon: Date | null,
   ) {}
 
   async assertEditAllowed(purchaseOrderId: string): Promise<void> {
@@ -306,7 +319,171 @@ export class PurchaseOrderLifecycleService {
     return saved;
   }
 
-  async return(id: string, userId?: string, username?: string): Promise<PurchaseOrder> {
-    throw new ConflictException(RETURN_TO_READY_UNAVAILABLE);
+  /**
+   * Return a received purchase order to Ready non-destructively (#1406): reverse
+   * exactly the receipt's stock, batches and journal entry, guarded by a
+   * fail-closed evidence assessment, and record a linked reversal occurrence.
+   * Nothing is deleted; a state the records cannot prove is refused.
+   */
+  async return(
+    id: string,
+    reason: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PurchaseOrder> {
+    const timezone = await resolveAppTimezone(this.settingsService);
+
+    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+      const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, id, {
+        relations: { items: { product: true }, supplier: true },
+        notFoundMessage: 'Purchase order not found',
+      });
+
+      if (purchaseOrder.status !== PurchaseOrderStatus.RECEIVED) {
+        throw new ConflictException('Order is not received');
+      }
+
+      const items = purchaseOrder.items ?? [];
+
+      // Lock the products (ascending), then the batches (ascending), before the
+      // assessment reads them: the locks are what make the assessment stable.
+      const productIds = [...new Set(items.map((i) => i.productId))].sort();
+      for (const productId of productIds) {
+        await lockProductForStockUpdate(manager, Product, productId);
+      }
+      const batchRows: { id: string }[] = await manager.query(
+        `SELECT id FROM purchase_cost_history WHERE "purchaseOrderId" = $1 ORDER BY id ASC`,
+        [id],
+      );
+      for (const row of batchRows) {
+        await lockRowForUpdate(manager, PurchaseCostHistory, row.id, {});
+      }
+
+      const assessment = await assessReceiptReversal(manager, purchaseOrder, this.horizon);
+      if (assessment.ok === false) {
+        throw new ConflictException(assessment.message);
+      }
+      const receipt = assessment.receipt;
+
+      const now = new Date();
+      const entryDate = formatDateInTimezone(now, timezone);
+
+      // The reversal occurrence is created first so every reversal movement and
+      // reversed batch can be traced to it.
+      const reversal = await createOccurrence(manager, {
+        kind: StockOccurrenceKind.RECEIPT_REVERSAL,
+        documentType: 'purchase_order',
+        documentId: id,
+        occurredAt: now,
+        actorUserId: userId,
+        actorUsername: username,
+        reversesOccurrenceId: receipt.occurrenceId ?? undefined,
+        isLegacy: receipt.occurrenceId == null,
+        legacyJournalEntryId: receipt.legacyEntryId ?? undefined,
+        reason,
+      });
+
+      // One reversal movement per receipt movement, inserted once with the
+      // original's value and its quantity negated.
+      for (const line of receipt.lines) {
+        const valueMinor = line.valueScale8 / 10000n;
+        await this.stockMovementService.create(
+          {
+            productId: line.productId,
+            movementType: StockMovementType.PURCHASE_RECEIPT_REVERSAL,
+            quantity: -Number(formatScale4(line.quantityMinor)),
+            reason: `Reversal: ${reason}`,
+            referenceType: 'purchase_order',
+            referenceId: id,
+            occurrenceId: reversal.id,
+            reversesMovementId: line.movementId,
+            totalValue: Number(formatScale4(valueMinor)),
+          } as CreateStockMovementDto,
+          userId,
+          manager,
+        );
+      }
+
+      // Zero and mark the batch, keeping the row.
+      await manager
+        .getRepository(PurchaseCostHistory)
+        .createQueryBuilder()
+        .update(PurchaseCostHistory)
+        .set({
+          remainingQuantity: 0,
+          reversedAt: now,
+          reversedByOccurrenceId: reversal.id,
+        } as any)
+        .where('"purchaseOrderId" = :id', { id })
+        .execute();
+
+      // Reverse the receipt entry: event-keyed for a new receipt, by entry id for
+      // a legacy one.
+      if (receipt.occurrenceId) {
+        const result = await this.accounting.reverseEntryForEvent(
+          {
+            sourceType: AccountingSourceType.PURCHASE_ORDER,
+            sourceDocumentId: id,
+            sourceEventId: receipt.occurrenceId,
+            expectedPostingType: PostingType.PURCHASE_RECEIVE,
+            otherPostingTypes: [],
+            entryDate,
+            createdBy: username,
+          },
+          manager,
+        );
+        if (result.outcome !== 'reversed') {
+          throw new ConflictException('The receipt entry is already reversed');
+        }
+      } else if (receipt.legacyEntryId) {
+        const result = await this.accounting.reverseOriginalEntry(
+          {
+            originalEntryId: receipt.legacyEntryId,
+            expectedSourceType: AccountingSourceType.PURCHASE_ORDER,
+            expectedDocumentId: id,
+            expectedPostingType: PostingType.PURCHASE_RECEIVE,
+            entryDate,
+            createdBy: username,
+          },
+          manager,
+        );
+        if (result.outcome !== 'reversed') {
+          throw new ConflictException('The receipt entry is already reversed');
+        }
+      }
+
+      // Recalculate each product's base cost from its (now empty) batches.
+      for (const productId of productIds) {
+        await this.baseCostCalculator.updateProductBaseCost(productId, manager);
+      }
+
+      await manager.getRepository(PurchaseOrderItem).update(
+        { purchaseOrderId: id } as any,
+        { receivedQuantity: 0 } as any,
+      );
+      await manager.getRepository(PurchaseOrder).update(id, {
+        status: PurchaseOrderStatus.READY,
+        receivedDate: null,
+      });
+      purchaseOrder.status = PurchaseOrderStatus.READY;
+      purchaseOrder.receivedDate = null;
+
+      return purchaseOrder;
+    });
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'PurchaseOrder',
+      `Returned purchase order: ${saved.orderNumber}`,
+      {
+        entityId: id,
+        userId: userId || 'system',
+        username,
+        oldValues: { status: PurchaseOrderStatus.RECEIVED },
+        newValues: { status: PurchaseOrderStatus.READY, reason },
+      },
+    );
+
+    return saved;
   }
 }

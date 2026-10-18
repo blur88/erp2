@@ -409,6 +409,20 @@ export class RecordVendorPaymentsDto {
 
 export class RecordOrderPaymentsDto extends RecordVendorPaymentsDto {}
 
+const REASON_MESSAGE = 'A reason of 3 to 500 characters is required.';
+
+export class ReturnOrderDto {
+  @ApiProperty({
+    description: 'Why the purchase order is being returned to Ready (3–500 characters)',
+    example: 'Goods returned to supplier',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: REASON_MESSAGE })
+  @MinLength(3, { message: REASON_MESSAGE })
+  @MaxLength(500, { message: REASON_MESSAGE })
+  reason: string;
+}
+
 export class RefundLineDto {
   @ApiProperty({ description: 'Payment method to refund against' })
   @IsUUID()

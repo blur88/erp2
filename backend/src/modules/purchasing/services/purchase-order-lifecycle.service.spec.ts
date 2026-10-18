@@ -17,7 +17,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
-import { RETURN_TO_READY_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
+import { STOCK_EVIDENCE_HORIZON } from '../../../config/stock-evidence-horizon';
 import { SettingsService } from '../../settings/settings.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 
@@ -111,6 +111,8 @@ describe('PurchaseOrderLifecycleService', () => {
       postOpeningBalance: (jest.fn as unknown as any)(),
       reverseEntry: (jest.fn as unknown as any)(),
       reverseEntriesForDocument: (jest.fn as unknown as any)(),
+      reverseEntryForEvent: (jest.fn as unknown as any)(),
+      reverseOriginalEntry: (jest.fn as unknown as any)(),
     } as unknown as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -124,6 +126,7 @@ describe('PurchaseOrderLifecycleService', () => {
         { provide: AuditLogService, useValue: auditLogService },
         { provide: ACCOUNTING_POSTING_PORT, useValue: accountingPort },
         { provide: SettingsService, useValue: settingsService },
+        { provide: STOCK_EVIDENCE_HORIZON, useValue: null },
       ],
     }).compile();
 
@@ -418,11 +421,43 @@ if (entity === PurchaseOrder) return poRepo;
       );
     });
 
-    it('return refuses with RETURN_TO_READY_UNAVAILABLE and touches nothing', async () => {
-      await expect(service.return('po-1', 'u1', 'alice'))
-        .rejects.toThrow(new ConflictException(RETURN_TO_READY_UNAVAILABLE));
-      expect(dataSource.transaction).not.toHaveBeenCalled();
-      expect(accountingPort.reverseEntriesForDocument).not.toHaveBeenCalled();
+    it('return rejects an order that is not received and touches nothing', async () => {
+      const orderRepo = {
+        findOne: (jest.fn as any)().mockResolvedValue({ ...mockOrder, status: PurchaseOrderStatus.READY, items: [] }),
+      };
+      dataSource.transaction.mockImplementation(async (cb: any) => cb({ getRepository: () => orderRepo }));
+
+      await expect(service.return('po-1', 'a valid reason', 'u1', 'alice')).rejects.toThrow(
+        'Order is not received',
+      );
+      expect(accountingPort.reverseEntryForEvent).not.toHaveBeenCalled();
+      expect(stockMovementService.create).not.toHaveBeenCalled();
+      expect(auditLogService.log).not.toHaveBeenCalled();
+    });
+
+    it('return surfaces the assessment refusal and writes nothing', async () => {
+      const order = {
+        ...mockOrder,
+        status: PurchaseOrderStatus.RECEIVED,
+        items: [{ productId: 'product-1', quantity: 4, product: { id: 'product-1', name: 'Widget' } }],
+      };
+      const productRepo = { findOne: (jest.fn as any)().mockResolvedValue({ id: 'product-1' }) };
+      const manager = {
+        query: (jest.fn as any)().mockResolvedValue([]),
+        getRepository: (entity: any) =>
+          entity === PurchaseOrder
+            ? { findOne: (jest.fn as any)().mockResolvedValue(order) }
+            : productRepo,
+      };
+      dataSource.transaction.mockImplementation(async (cb: any) => cb(manager));
+
+      // No live occurrence and no horizon: the assessment refuses before any write.
+      await expect(service.return('po-1', 'a valid reason', 'u1', 'alice')).rejects.toThrow(
+        /no evidence horizon has been approved/,
+      );
+      expect(stockMovementService.create).not.toHaveBeenCalled();
+      expect(accountingPort.reverseEntryForEvent).not.toHaveBeenCalled();
+      expect(accountingPort.reverseOriginalEntry).not.toHaveBeenCalled();
       expect(auditLogService.log).not.toHaveBeenCalled();
     });
   });

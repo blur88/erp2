@@ -4,9 +4,6 @@ export const UNFULFILL_PRE_RECORDING =
 export const UNFULFILL_EVIDENCE_INCOMPLETE =
   "This order's recorded stock consumption is incomplete, so it cannot be unfulfilled exactly.";
 
-export const RETURN_TO_READY_UNAVAILABLE =
-  'Returning a received purchase order to Ready is unavailable: it would erase its stock and cost history. It will return once stock reversals keep that history.';
-
 // #1406 receipt-reversal evidence refusals.
 export const RECEIPT_LATER_DECREASE = (product: string, type: string, date: string): string =>
   `Cannot return to Ready: stock of ${product} has left since this receipt (${type} on ${date}). This does not mean this receipt's goods were used — the records cannot show that they were not.`;

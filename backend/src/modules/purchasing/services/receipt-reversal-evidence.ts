@@ -405,7 +405,11 @@ async function assessProductAfterReceipt(
     }
   }
 
-  // R5 stock covers it.
+  // R5 is a defensive guard. Valid stock cannot reach this refusal: the receipt
+  // movement's newBalance is at least receivedQuantity, R2 excludes later
+  // decreases, and R3 reconciles the locked stock to that balance plus later
+  // movements. Therefore no dedicated e2e manufactures an invalid balance;
+  // keep this check fail-closed for inconsistent/corrupt records.
   const receivedMinor = toMinorUnits(batches[0]?.receivedQuantity ?? '0');
   if (stockMinor < receivedMinor) {
     return RECEIPT_INSUFFICIENT_STOCK(
