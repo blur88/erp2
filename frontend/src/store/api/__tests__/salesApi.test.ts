@@ -13,6 +13,7 @@ describe('salesApiSlice', () => {
     expect(salesApiSlice.endpoints.updateSalesOrder).toBeDefined();
     expect(salesApiSlice.endpoints.confirmSalesOrder).toBeDefined();
     expect(salesApiSlice.endpoints.recordOrderPayments).toBeDefined();
+    expect(salesApiSlice.endpoints.unfulfillSalesOrder).toBeDefined();
     expect(salesApiSlice.endpoints.getPayments).toBeDefined();
   });
 

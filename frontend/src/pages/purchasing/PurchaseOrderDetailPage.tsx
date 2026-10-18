@@ -15,6 +15,7 @@ import {
   useGetPurchaseOrderByNumberQuery,
   useGetPurchaseOrderPaymentsQuery,
   useReceiveGoodsMutation,
+  useReturnPurchaseOrderMutation,
   useRecordPurchaseOrderRefundsMutation,
   useRecordVendorPaymentsMutation,
   useUncancelPurchaseOrderMutation,
@@ -35,7 +36,7 @@ import PurchaseOrderPaymentsTab from './components/PurchaseOrderPaymentsTab'
 import PurchaseOrderPrintDialog from './components/PurchaseOrderPrintDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 
-type Dialog = 'pay' | 'receive' | 'cancel' | 'uncancel' | 'refund' | 'print' | null
+type Dialog = 'pay' | 'receive' | 'return' | 'cancel' | 'uncancel' | 'refund' | 'print' | null
 
 interface TabPanelProps {
   children?: ReactNode
@@ -99,6 +100,7 @@ export default function PurchaseOrderDetailPage() {
   const [cancelOrder, { isLoading: isCancelling }] = useCancelPurchaseOrderMutation()
   const [uncancelOrder, { isLoading: isUncancelling }] = useUncancelPurchaseOrderMutation()
   const [receiveOrder, { isLoading: isReceiving }] = useReceiveGoodsMutation()
+  const [returnOrder, { isLoading: isReturning }] = useReturnPurchaseOrderMutation()
   const [duplicateOrder] = useDuplicatePurchaseOrderMutation()
   const [recordRefunds] = useRecordPurchaseOrderRefundsMutation()
   const [recordPayments] = useRecordVendorPaymentsMutation()
@@ -157,6 +159,17 @@ export default function PurchaseOrderDetailPage() {
       setActiveDialog(null)
     } catch (error) {
       showError(getErrorMessage(error, 'Failed to receive purchase order'))
+    }
+  }
+
+  const handleReturnConfirm = async (reason?: string) => {
+    if (!reason) return
+    try {
+      await returnOrder({ id: order.id, reason }).unwrap()
+      showSuccess(`Purchase order ${order.orderNumber} returned to Ready`)
+      setActiveDialog(null)
+    } catch (error) {
+      showError(getErrorMessage(error, 'Failed to return purchase order'))
     }
   }
 
@@ -224,6 +237,7 @@ export default function PurchaseOrderDetailPage() {
         order={order}
         onPay={() => setActiveDialog('pay')}
         onReceive={() => setActiveDialog('receive')}
+        onReturn={() => setActiveDialog('return')}
         onEdit={() => navigate(forwardListQuery(`/purchasing/orders/${order.orderNumber}/edit`))}
         onCancel={() => setActiveDialog('cancel')}
         onUncancel={() => setActiveDialog('uncancel')}
@@ -278,6 +292,17 @@ export default function PurchaseOrderDetailPage() {
         onConfirm={handleReceiveConfirm}
         onCancel={() => setActiveDialog(null)}
         loading={isReceiving}
+      />
+
+      <ConfirmationDialog
+        open={activeDialog === 'return'}
+        title="Return Purchase Order to Ready"
+        message={`Return ${order.orderNumber} to Ready? This is only possible if none of its products has left stock since it was received.`}
+        confirmText="Return"
+        requireReason
+        onConfirm={handleReturnConfirm}
+        onCancel={() => setActiveDialog(null)}
+        loading={isReturning}
       />
 
       <ConfirmationDialog

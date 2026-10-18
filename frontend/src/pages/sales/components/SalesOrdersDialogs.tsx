@@ -1,5 +1,6 @@
 import { skipToken } from '@reduxjs/toolkit/query'
 import PaymentDialog, { type PaymentLineInput } from '@/components/common/PaymentDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog'
 import SalesOrderPrintDialog from './SalesOrderPrintDialog'
 import { useGetSalesOrderPaymentsQuery } from '@/store/api/salesApi'
@@ -19,6 +20,10 @@ interface SalesOrdersDialogsProps {
   onSubmitRefund: (
     refunds: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[],
   ) => Promise<void>
+  unfulfillOrder: SalesOrder | null
+  onCloseUnfulfill: () => void
+  onSubmitUnfulfill: (reason: string) => Promise<void>
+  unfulfillLoading: boolean
 }
 
 export default function SalesOrdersDialogs({
@@ -30,6 +35,10 @@ export default function SalesOrdersDialogs({
   refundOrder,
   onCloseRefund,
   onSubmitRefund,
+  unfulfillOrder,
+  onCloseUnfulfill,
+  onSubmitUnfulfill,
+  unfulfillLoading,
 }: SalesOrdersDialogsProps) {
   // Fetch payments for refund dialog only when needed
   // currentData, not data: switching between list rows would otherwise briefly
@@ -102,6 +111,18 @@ export default function SalesOrdersDialogs({
           onClose={onCloseRefund}
           onSubmit={handleRefundSubmit}
           orderNumber={refundOrder.orderNumber}
+        />
+      )}
+      {unfulfillOrder && (
+        <ConfirmationDialog
+          open
+          title="Unfulfill Order"
+          message={`Unfulfill ${unfulfillOrder.orderNumber}? Stock and cost are restored exactly as they were recorded. Orders fulfilled before this was recorded cannot be unfulfilled.`}
+          confirmText="Unfulfill"
+          requireReason
+          onConfirm={(reason) => reason ? onSubmitUnfulfill(reason) : undefined}
+          onCancel={onCloseUnfulfill}
+          loading={unfulfillLoading}
         />
       )}
     </>

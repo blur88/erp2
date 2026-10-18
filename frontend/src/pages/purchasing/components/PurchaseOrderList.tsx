@@ -18,6 +18,7 @@ interface PurchaseOrderListProps {
   onEdit: (order: PurchaseOrder) => void
   onPay: (order: PurchaseOrder) => void
   onReceive: (order: PurchaseOrder) => void
+  onReturn: (order: PurchaseOrder) => void
   onCancel: (order: PurchaseOrder) => void
   onUncancel: (order: PurchaseOrder) => void
   onDuplicate: (order: PurchaseOrder) => void
@@ -32,6 +33,7 @@ function buildActions(order: PurchaseOrder, props: PurchaseOrderListProps): RowA
   const handlers: Record<string, () => void> = {
     pay: () => props.onPay(order),
     receive: () => props.onReceive(order),
+    return: () => props.onReturn(order),
     edit: () => props.onEdit(order),
     cancel: () => props.onCancel(order),
     uncancel: () => props.onUncancel(order),

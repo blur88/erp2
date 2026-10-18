@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -6,6 +6,7 @@ import {
   DialogActions,
   Typography,
   Box,
+  TextField,
   useTheme
 } from '@mui/material'
 import { default as WarningIcon } from '@mui/icons-material/Warning'
@@ -19,10 +20,11 @@ interface ConfirmationDialogProps {
   message: string
   confirmText?: string
   cancelText?: string
-  onConfirm: () => void
+  onConfirm: (reason?: string) => void
   onCancel: () => void
   severity?: 'warning' | 'error' | 'info'
   loading?: boolean
+  requireReason?: boolean
 }
 
 const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
@@ -34,9 +36,17 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   onConfirm,
   onCancel,
   severity = 'warning',
-  loading = false
+  loading = false,
+  requireReason = false,
 }) => {
   const theme = useTheme()
+  const [reason, setReason] = useState('')
+  const trimmedReason = reason.trim()
+  const validReason = trimmedReason.length >= 3 && trimmedReason.length <= 500
+
+  useEffect(() => {
+    if (!open) setReason('')
+  }, [open])
 
   const getSeverityIcon = () => {
     switch (severity) {
@@ -83,6 +93,18 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         }}>
           {message}
         </Typography>
+        {requireReason && (
+          <TextField
+            autoFocus
+            fullWidth
+            required
+            label="Reason"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+            sx={{ mt: 2 }}
+          />
+        )}
       </DialogContent>
       <DialogActions sx={{ p: 3, pt: 1 }}>
         <AppButton
@@ -94,8 +116,8 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         </AppButton>
         <AppButton
           variant={severity === 'error' ? 'danger' : severity}
-          onClick={onConfirm}
-          disabled={loading}
+          onClick={() => onConfirm(requireReason ? trimmedReason : undefined)}
+          disabled={loading || (requireReason && !validReason)}
           loading={loading}
         >
           {confirmText}

@@ -18,6 +18,7 @@ import {
   useReceiveGoodsMutation,
   useRecordPurchaseOrderRefundsMutation,
   useRecordVendorPaymentsMutation,
+  useReturnPurchaseOrderMutation,
   useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
 import {
@@ -61,7 +62,7 @@ const filterConfig: FilterBarConfig<PurchaseOrderFilters> = {
   },
 }
 
-type ConfirmAction = 'receive' | 'cancel' | 'uncancel'
+type ConfirmAction = 'receive' | 'return' | 'cancel' | 'uncancel'
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (typeof error === 'object' && error !== null && 'data' in error) {
@@ -132,6 +133,7 @@ const PurchaseOrdersPage: React.FC = () => {
       : null
 
   const [receivePurchaseOrder, { isLoading: isReceiving }] = useReceiveGoodsMutation()
+  const [returnPurchaseOrder, { isLoading: isReturning }] = useReturnPurchaseOrderMutation()
   const [cancelPurchaseOrder, { isLoading: isCancelling }] = useCancelPurchaseOrderMutation()
   const [uncancelPurchaseOrder, { isLoading: isUncancelling }] = useUncancelPurchaseOrderMutation()
   const [duplicatePurchaseOrder] = useDuplicatePurchaseOrderMutation()
@@ -200,7 +202,7 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }, [paymentOrder, recordVendorPayments, showError, showSuccess])
 
-  const handleConfirmAction = useCallback(async () => {
+  const handleConfirmAction = useCallback(async (reason?: string) => {
     if (!confirmOrder || !confirmAction) return
 
     try {
@@ -208,6 +210,11 @@ const PurchaseOrdersPage: React.FC = () => {
         case 'receive':
           await receivePurchaseOrder(confirmOrder.id).unwrap()
           showSuccess(`Purchase order ${confirmOrder.orderNumber} received`)
+          break
+        case 'return':
+          if (!reason) return
+          await returnPurchaseOrder({ id: confirmOrder.id, reason }).unwrap()
+          showSuccess(`Purchase order ${confirmOrder.orderNumber} returned to Ready`)
           break
         case 'cancel':
           await cancelPurchaseOrder(confirmOrder.id).unwrap()
@@ -234,6 +241,7 @@ const PurchaseOrdersPage: React.FC = () => {
     confirmAction,
     confirmOrder,
     receivePurchaseOrder,
+    returnPurchaseOrder,
     showError,
     showSuccess,
   ])
@@ -247,12 +255,20 @@ const PurchaseOrdersPage: React.FC = () => {
       confirmText: string
       severity?: 'warning' | 'error'
       loading: boolean
+      requireReason?: boolean
     }> = {
       receive: {
         title: 'Receive Purchase Order',
         message: `Receive this purchase order? (${confirmOrder.orderNumber})`,
         confirmText: 'Receive',
         loading: isReceiving,
+      },
+      return: {
+        title: 'Return Purchase Order to Ready',
+        message: `Return ${confirmOrder.orderNumber} to Ready? This is only possible if none of its products has left stock since it was received.`,
+        confirmText: 'Return',
+        loading: isReturning,
+        requireReason: true,
       },
       cancel: {
         title: 'Cancel Purchase Order',
@@ -270,7 +286,7 @@ const PurchaseOrdersPage: React.FC = () => {
     }
 
     return configs[confirmAction]
-  }, [confirmAction, confirmOrder, isCancelling, isUncancelling, isReceiving])
+  }, [confirmAction, confirmOrder, isCancelling, isUncancelling, isReceiving, isReturning])
 
   const handleDuplicateOrder = useCallback(async (order: PurchaseOrder) => {
     try {
@@ -331,6 +347,7 @@ const PurchaseOrdersPage: React.FC = () => {
             onEdit={(order) => navigate(withCurrentListQuery(`/purchasing/orders/${order.orderNumber}/edit`))}
             onPay={(order) => setPaymentOrder(order)}
             onReceive={(order) => openConfirm(order, 'receive')}
+            onReturn={(order) => openConfirm(order, 'return')}
             onCancel={(order) => openConfirm(order, 'cancel')}
             onUncancel={(order) => openConfirm(order, 'uncancel')}
             onDuplicate={handleDuplicateOrder}
@@ -396,6 +413,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 onConfirm={handleConfirmAction}
                 onCancel={closeConfirm}
                 loading={confirmConfig.loading}
+                requireReason={confirmConfig.requireReason}
               />
             )}
           </>

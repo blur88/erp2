@@ -10,6 +10,7 @@ interface PurchaseOrderActionBarProps {
   order: PurchaseOrder
   onPay: () => void
   onReceive: () => void
+  onReturn: () => void
   onEdit: () => void
   onCancel: () => void
   onUncancel: () => void
@@ -22,6 +23,7 @@ export default function PurchaseOrderActionBar({
   order,
   onPay,
   onReceive,
+  onReturn,
   onEdit,
   onCancel,
   onUncancel,
@@ -34,6 +36,7 @@ export default function PurchaseOrderActionBar({
   const handlers: Record<string, () => void> = {
     pay: onPay,
     receive: onReceive,
+    return: onReturn,
     edit: onEdit,
     cancel: onCancel,
     uncancel: onUncancel,

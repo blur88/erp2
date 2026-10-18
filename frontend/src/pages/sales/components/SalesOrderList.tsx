@@ -18,6 +18,7 @@ interface SalesOrderListProps {
   onEdit: (order: SalesOrder) => void
   onPay: (order: SalesOrder) => void
   onFulfill: (order: SalesOrder) => void
+  onUnfulfill: (order: SalesOrder) => void
   onRefund: (order: SalesOrder) => void
   onCancel: (order: SalesOrder) => void
   onUncancel: (order: SalesOrder) => void
@@ -32,6 +33,7 @@ function buildActions(order: SalesOrder, props: SalesOrderListProps): RowAction[
   const handlers: Record<string, () => void> = {
     pay: () => props.onPay(order),
     fulfill: () => props.onFulfill(order),
+    unfulfill: () => props.onUnfulfill(order),
     refund: () => props.onRefund(order),
     edit: () => props.onEdit(order),
     cancel: () => props.onCancel(order),

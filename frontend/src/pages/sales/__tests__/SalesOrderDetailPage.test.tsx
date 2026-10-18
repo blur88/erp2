@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
@@ -19,6 +19,8 @@ const {
   mockRecordRefunds,
   mockUncancel,
   mockDuplicate,
+  mockUnfulfill,
+  mockShowError,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetSalesOrderByNumber: vi.fn(),
@@ -29,6 +31,8 @@ const {
   mockRecordRefunds: vi.fn(),
   mockUncancel: vi.fn(),
   mockDuplicate: vi.fn(),
+  mockUnfulfill: vi.fn(),
+  mockShowError: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -39,7 +43,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
-    showError: vi.fn(),
+    showError: mockShowError,
   }),
 }))
 
@@ -50,6 +54,7 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
     useGetSalesOrderByNumberQuery: mockGetSalesOrderByNumber,
     useGetSalesOrderPaymentsQuery: mockGetSalesOrderPayments,
     useFulfillSalesOrderMutation: () => [mockFulfill, { isLoading: false }],
+    useUnfulfillSalesOrderMutation: () => [mockUnfulfill, { isLoading: false }],
     useCancelSalesOrderMutation: () => [mockCancel, { isLoading: false }],
     useRecordOrderPaymentsMutation: () => [mockRecordPayments, { isLoading: false }],
     useRecordOrderRefundsMutation: () => [mockRecordRefunds, { isLoading: false }],
@@ -116,6 +121,7 @@ describe('SalesOrderDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSalesOrderPayments.mockReturnValue({ data: [], isLoading: false })
+    mockUnfulfill.mockReturnValue({ unwrap: () => Promise.resolve({}) })
   })
 
   it('shows loading state', () => {
@@ -214,6 +220,41 @@ describe('SalesOrderDetailPage', () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Fulfill' }))
     expect(screen.getByText(/Fulfill this order/i)).toBeInTheDocument()
+  })
+
+  it('requires a reason and sends it to the unfulfill endpoint', async () => {
+    mockGetSalesOrderByNumber.mockReturnValue({
+      data: makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' }),
+      isLoading: false,
+    })
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Unfulfill' }))
+    expect(screen.getByText('Unfulfill SO-26-001? Stock and cost are restored exactly as they were recorded. Orders fulfilled before this was recorded cannot be unfulfilled.')).toBeInTheDocument()
+    const confirm = within(screen.getByRole('dialog')).getByRole('button', { name: 'Unfulfill' })
+    expect(confirm).toBeDisabled()
+    await userEvent.type(screen.getByRole('textbox', { name: 'Reason' }), '  duplicate fulfillment  ')
+    expect(confirm).toBeEnabled()
+    await userEvent.click(confirm)
+
+    await waitFor(() => expect(mockUnfulfill).toHaveBeenCalledWith({ id: 'o1', reason: 'duplicate fulfillment' }))
+  })
+
+  it('shows the server message when unfulfill is rejected with a conflict', async () => {
+    mockGetSalesOrderByNumber.mockReturnValue({
+      data: makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' }),
+      isLoading: false,
+    })
+    mockUnfulfill.mockReturnValue({
+      unwrap: () => Promise.reject({ data: { message: 'Stock changed after fulfilment.' } }),
+    })
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Unfulfill' }))
+    const dialog = screen.getByRole('dialog')
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'undo mistake')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Unfulfill' }))
+
+    await waitFor(() => expect(mockShowError).toHaveBeenCalledWith('Stock changed after fulfilment.'))
   })
 
   it('shows stock alert and disables Fulfill when a READY order has out-of-stock items', () => {

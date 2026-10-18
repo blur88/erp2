@@ -20,6 +20,7 @@ import {
   useCancelSalesOrderMutation,
   useDuplicateSalesOrderMutation,
   useFulfillSalesOrderMutation,
+  useUnfulfillSalesOrderMutation,
   useGetSalesOrderByNumberQuery,
   useRecordOrderPaymentsMutation,
   useRecordOrderRefundsMutation,
@@ -33,7 +34,7 @@ import OrderPaymentsTab from './components/OrderPaymentsTab';
 import { StatusChip } from '@/components/common/StatusChip';
 import { getStockOffenders } from '@/utils/stockStatus';
 
-type Dialog = 'pay' | 'refund' | 'print' | 'fulfill' | 'cancel' | 'uncancel' | null;
+type Dialog = 'pay' | 'refund' | 'print' | 'fulfill' | 'unfulfill' | 'cancel' | 'uncancel' | null;
 
 interface TabPanelProps {
   children?: ReactNode;
@@ -91,6 +92,7 @@ export default function SalesOrderDetailPage() {
   }, [order?.orderNumber, navigate]);
 
   const [fulfillOrder, { isLoading: isFulfilling }] = useFulfillSalesOrderMutation();
+  const [unfulfillOrder, { isLoading: isUnfulfilling }] = useUnfulfillSalesOrderMutation();
   const [cancelOrder, { isLoading: isCancelling }] = useCancelSalesOrderMutation();
   const [uncancelOrder, { isLoading: isUncancelling }] = useUncancelSalesOrderMutation();
   const [duplicateOrder] = useDuplicateSalesOrderMutation();
@@ -166,6 +168,17 @@ export default function SalesOrderDetailPage() {
       setActiveDialog(null);
     } catch (error) {
       showError(getErrorMessage(error, 'Failed to fulfill order'));
+    }
+  };
+
+  const handleUnfulfillConfirm = async (reason?: string) => {
+    if (!reason) return;
+    try {
+      await unfulfillOrder({ id: order.id, reason }).unwrap();
+      showSuccess(`Order ${order.orderNumber} unfulfilled`);
+      setActiveDialog(null);
+    } catch (error) {
+      showError(getErrorMessage(error, 'Failed to unfulfill order'));
     }
   };
 
@@ -254,6 +267,7 @@ export default function SalesOrderDetailPage() {
         order={order}
         onPay={() => setActiveDialog('pay')}
         onFulfill={() => setActiveDialog('fulfill')}
+        onUnfulfill={() => setActiveDialog('unfulfill')}
         onRefund={() => setActiveDialog('refund')}
         onEdit={() => navigate(forwardListQuery(`/sales/orders/${order.orderNumber}/edit`))}
         onCancel={() => setActiveDialog('cancel')}
@@ -315,6 +329,17 @@ export default function SalesOrderDetailPage() {
         onConfirm={handleFulfillConfirm}
         onCancel={() => setActiveDialog(null)}
         loading={isFulfilling}
+      />
+
+      <ConfirmationDialog
+        open={activeDialog === 'unfulfill'}
+        title="Unfulfill Order"
+        message={`Unfulfill ${order.orderNumber}? Stock and cost are restored exactly as they were recorded. Orders fulfilled before this was recorded cannot be unfulfilled.`}
+        confirmText="Unfulfill"
+        requireReason
+        onConfirm={handleUnfulfillConfirm}
+        onCancel={() => setActiveDialog(null)}
+        loading={isUnfulfilling}
       />
 
       <ConfirmationDialog
