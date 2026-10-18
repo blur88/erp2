@@ -267,6 +267,45 @@ The baseline file holds production ids, so it lives with the deploy record in
 never an empty baseline; an empty baseline is passed explicitly as `[]`. Both
 scripts run in `BEGIN READ ONLY … ROLLBACK` and write nothing.
 
+### Stock correction path deploy gate (#1405 + #1406)
+
+Deploy #1405 and #1406 together. Before deploying, run the read-only preflight
+against the target database and retain all five labelled result sets in the
+deployment record:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < backend/scripts/preflight-stock-correction-path.sql
+```
+
+The preflight reports fulfilled sales orders and received POs; received POs
+whose legacy receipt shape does not match; products whose movement quantities
+do not reconcile to `stockQuantity`; the earliest journal-entry and audit dates
+plus correction audit/reversal mismatches; and products carrying batches or
+stock history. Review the findings with the release owner and record their
+disposition before proceeding.
+
+**The horizon section is context, not proof.** Earliest timestamps and no
+detected gaps cannot establish that history is complete. Leave
+`STOCK_EVIDENCE_HORIZON` unset unless independent evidence outside these tables
+supports complete history from a specific instant. Setting a value requires a
+recorded approval identifying the approver, approval date, exact value, and
+independent evidence relied on. With it unset, pre-deploy receipts stay refused.
+
+After both releases are deployed, run the read-only postcheck:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < backend/scripts/postcheck-stock-correction-path.sql
+```
+
+The result must be `stock-correction postcheck: PASS`. On `FAIL`, stop and
+investigate the FK rules, partial unique indexes, provenance links, or reversed
+batch occurrence links before proceeding. See
+[`../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md`](../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md)
+for correctable/refused cases and the support workflow. A passing postcheck is
+not approval to set the evidence horizon.
+
 ### Customer order metrics are recalculated at deploy (#1355)
 
 Migration `RecalculateCustomerMetricsFromFulfilledOrders1791611629594` **rewrites
