@@ -2,19 +2,23 @@ import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
-import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { Product } from '../../../database/entities/product.entity';
+import { StockOccurrenceKind } from '../../../database/entities/stock-occurrence.entity';
+import { createOccurrence } from '../../inventory/services/stock-occurrence';
+import { lockRowForUpdate, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
 import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { AuditLogService } from '../../audit-logs/services';
 import { SettingsService } from '../../settings/settings.service';
 import { UNFULFILL_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
 import { InventoryIntegrationService } from './inventory-integration.service';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { recalculateCustomerMetrics } from './customer-metrics';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType } from '../../../common/accounting-posting/enums';
 import { PostingType } from '../../../common/accounting-posting/enums';
-import { formatMoney, quantizeToCents, toMinorUnits } from '@/common/utils/money';
+import { formatMoney, quantizeToCents, toMinorUnits, allocateCents, formatScale4 } from '@/common/utils/money';
 
 @Injectable()
 export class SalesOrderFulfillmentService {
@@ -22,6 +26,7 @@ export class SalesOrderFulfillmentService {
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
     private readonly inventoryIntegrationService: InventoryIntegrationService,
+    private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly auditLogService: AuditLogService,
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly accounting: AccountingPostingPort,
@@ -79,23 +84,72 @@ export class SalesOrderFulfillmentService {
         );
       }
 
+      // Lock every affected product once, ascending, before the shared plan is
+      // built. adjustStock re-locks the same rows; that is a no-op while held.
+      const fulfilledItems = order.items.filter((item) => item.product);
+      const productIds = [...new Set(fulfilledItems.map((i) => i.productId))].sort();
+      for (const productId of productIds) {
+        await lockProductForStockUpdate(manager, Product, productId);
+      }
+
+      // Build ONE shared consumption plan across every line. Lines for the same
+      // product share a single in-memory balance view, so the second line cannot
+      // re-allocate the first line's batch quantity.
+      const plannedLines = fulfilledItems.map((item) => ({
+        productId: item.productId,
+        quantity: Number(item.quantity),
+      }));
+      const plans = await this.baseCostCalculator.planConsumption(manager, plannedLines);
+
       let cogsScale8 = 0n;
-      for (const item of order.items) {
-        if (item.product) {
-          const consumed = await this.inventoryIntegrationService.adjustStock(
-            item.productId,
-            -item.quantity,
-            `Sales order fulfillment: ${order.orderNumber}`,
-            order.id,
-            userId,
-            undefined,
-            manager,
-          );
-          cogsScale8 += consumed;
-        }
+      for (const plan of plans) {
+        cogsScale8 += plan.totalScale8;
       }
 
       const now = new Date();
+      // Round COGS once across ALL lines: (scale8 + 5000) / 10000, then to cents.
+      const cogsMinor = (cogsScale8 + 5000n) / 10000n;
+      const postedMinor = quantizeToCents(cogsMinor);
+      const postedAmount = formatMoney(postedMinor);
+
+      // The occurrence is created BEFORE any movement, so each movement can carry
+      // its occurrenceId at insert (write-once) and the occurrence records the
+      // exact posted COGS.
+      const occurrence = await createOccurrence(manager, {
+        kind: StockOccurrenceKind.FULFILMENT,
+        documentType: 'sales_order',
+        documentId: order.id,
+        occurredAt: now,
+        actorUserId: userId,
+        actorUsername: username,
+        postedAmount: Number(postedAmount),
+      });
+
+      // Split the posted cents across the lines by their scale-8 consumption.
+      const allocatedMinor = allocateCents(postedMinor, plans.map((p) => p.totalScale8));
+      const allocatedSum = allocatedMinor.reduce((a, b) => a + b, 0n);
+      if (allocatedSum !== postedMinor) {
+        throw new Error(
+          `Fulfilment value allocation mismatch: allocated ${allocatedSum} != posted ${postedMinor}`,
+        );
+      }
+
+      for (let i = 0; i < plans.length; i += 1) {
+        const plan = plans[i];
+        await this.inventoryIntegrationService.adjustStock(
+          plan.productId,
+          -Number(formatScale4(plan.requestedQuantityMinor)),
+          `Sales order fulfillment: ${order.orderNumber}`,
+          order.id,
+          userId,
+          undefined,
+          manager,
+          occurrence.id,
+          plan,
+          formatScale4(allocatedMinor[i] ?? 0n),
+        );
+      }
+
       await manager.getRepository(SalesOrder).update(id, {
         status: SalesOrderStatus.FULFILLED,
         updatedAt: now,
@@ -111,22 +165,35 @@ export class SalesOrderFulfillmentService {
       });
       const orderForPosting = pricedOrder ?? order;
 
-      // Round COGS once across ALL layers/products: (scale8 + 5000) / 10000
-      const cogsMinor = (cogsScale8 + 5000n) / 10000n;
       // Posting amounts are quantized to cents (#1241); the balance gate in the
       // posting service verifies the resulting journal before persistence.
       const revenueAmount = formatMoney(
         quantizeToCents(toMinorUnits(String(orderForPosting.totalAmount))),
       );
-      const cogsAmount = formatMoney(quantizeToCents(cogsMinor));
-      await this.accounting.postSalesFulfillment({
+      const cogsAmount = formatMoney(postedMinor);
+      if (toMinorUnits(cogsAmount) !== postedMinor) {
+        throw new Error(
+          `Fulfilment COGS mismatch: posted ${toMinorUnits(cogsAmount)} != recorded ${postedMinor}`,
+        );
+      }
+      const posted = await this.accounting.postSalesFulfillment({
         salesOrderId: id,
         sourceRef: order.orderNumber,
         revenueAmount,
         cogsAmount,
         entryDate: formatDateInTimezone(orderForPosting.fulfilledAt, timezone),
         createdBy: username,
+        occurrenceId: occurrence.id,
       }, manager);
+
+      // Verify the journal matches the recorded occurrence exactly: a nonzero
+      // occurrence must have a COGS entry, a zero-cost one must not.
+      if (postedMinor > 0n && !posted.cogsEntryId) {
+        throw new Error('Fulfilment COGS entry missing for a nonzero occurrence');
+      }
+      if (postedMinor === 0n && posted.cogsEntryId) {
+        throw new Error('Unexpected COGS entry for a zero-cost occurrence');
+      }
 
       await this.recalculateMetrics(manager, order);
 
