@@ -53,7 +53,7 @@ export class AddReceiptLineIdentity1792369500000 implements MigrationInterface {
       `ALTER TABLE "purchase_cost_history" DROP CONSTRAINT "CHK_purchase_cost_history_receipt_line_occurrence"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "purchase_cost_history" DROP CONSTRAINT "FK_purchase_cost_history_purchase_order_item"`,
+      `ALTER TABLE "purchase_cost_history" DROP CONSTRAINT "FK_54f778f185d6a7cec057169ce19"`,
     );
     await queryRunner.query(
       `ALTER TABLE "purchase_cost_history" DROP COLUMN "purchaseOrderItemId"`,
@@ -64,7 +64,7 @@ export class AddReceiptLineIdentity1792369500000 implements MigrationInterface {
       `ALTER TABLE "stock_movements" DROP CONSTRAINT "CHK_stock_movement_receipt_line_occurrence"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "stock_movements" DROP CONSTRAINT "FK_stock_movements_purchase_order_item"`,
+      `ALTER TABLE "stock_movements" DROP CONSTRAINT "FK_060822dfc7623d639b8c187bdda"`,
     );
     await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN "purchaseOrderItemId"`);
 
