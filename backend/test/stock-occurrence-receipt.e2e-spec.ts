@@ -161,6 +161,51 @@ describe('Stock occurrence — receipt (#1406, e2e)', () => {
     expect(occurrences).toHaveLength(1);
     const occurrence = occurrences[0];
 
+    const lineIdentityColumns: { table_name: string; column_name: string }[] = await ds.query(
+      `SELECT table_name, column_name FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND (table_name, column_name) IN (
+            ('stock_occurrences', 'receiptEvidenceVersion'),
+            ('stock_movements', 'purchaseOrderItemId'),
+            ('purchase_cost_history', 'purchaseOrderItemId')
+          )`,
+    );
+    expect(lineIdentityColumns).toEqual(expect.arrayContaining([
+      { table_name: 'stock_occurrences', column_name: 'receiptEvidenceVersion' },
+      { table_name: 'stock_movements', column_name: 'purchaseOrderItemId' },
+      { table_name: 'purchase_cost_history', column_name: 'purchaseOrderItemId' },
+    ]));
+    const [versionedOccurrence] = await ds.query(
+      `SELECT "receiptEvidenceVersion" FROM stock_occurrences WHERE id = $1`,
+      [occurrence.id],
+    );
+
+    const itemIds: { id: string }[] = await ds.query(
+      `SELECT id FROM purchase_order_items WHERE "purchaseOrderId" = $1 ORDER BY "lineNumber"`,
+      [po.id],
+    );
+    const identifiedMovements: { purchaseOrderItemId: string; occurrenceId: string }[] = await ds.query(
+      `SELECT "purchaseOrderItemId", "occurrenceId" FROM stock_movements
+        WHERE "occurrenceId" = $1 ORDER BY "productSequence"`,
+      [occurrence.id],
+    );
+    const identifiedBatches: { purchaseOrderItemId: string; occurrenceId: string }[] = await ds.query(
+      `SELECT "purchaseOrderItemId", "occurrenceId" FROM purchase_cost_history
+        WHERE "purchaseOrderId" = $1 ORDER BY id`,
+      [po.id],
+    );
+    expect(versionedOccurrence.receiptEvidenceVersion).toBe(1);
+    expect(identifiedMovements).toHaveLength(itemIds.length);
+    expect(identifiedBatches).toHaveLength(itemIds.length);
+    expect(identifiedMovements.map((row) => row.purchaseOrderItemId).sort()).toEqual(
+      itemIds.map((row) => row.id).sort(),
+    );
+    expect(identifiedBatches.map((row) => row.purchaseOrderItemId).sort()).toEqual(
+      itemIds.map((row) => row.id).sort(),
+    );
+    expect(identifiedMovements.every((row) => row.occurrenceId === occurrence.id)).toBe(true);
+    expect(identifiedBatches.every((row) => row.occurrenceId === occurrence.id)).toBe(true);
+
     // The receipt entry is keyed to the occurrence and its debit is the recorded amount.
     const [entry] = await ds.query(
       `SELECT id FROM journal_entry WHERE "sourceEventId" = $1 AND "postingType" = 'PURCHASE_RECEIVE'`,

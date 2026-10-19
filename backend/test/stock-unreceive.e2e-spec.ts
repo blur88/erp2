@@ -89,6 +89,32 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
     return id;
   }
 
+  async function createPoWithLines(
+    lines: Array<{ productId: string; quantity: number; unitPrice: number }>,
+  ): Promise<string> {
+    const po = await request(app.getHttpServer())
+      .post('/purchasing/orders')
+      .set(auth())
+      .send({ supplierId, orderDate: '2026-09-01', items: lines })
+      .expect(201);
+    const order = po.body.data ?? po.body;
+    ownedPoIds.push(order.id);
+    await request(app.getHttpServer())
+      .post(`/purchasing/orders/${order.id}/payments`)
+      .set(auth())
+      .send({
+        payments: [
+          {
+            paymentMethodId,
+            amount: formatMoney(toMinorUnits(order.totalAmount)),
+            paymentDate: '2026-09-01',
+          },
+        ],
+      })
+      .expect(200);
+    return order.id;
+  }
+
   async function createSalesOrder(productId: string, quantity: number, unitPrice: number): Promise<string> {
     const response = await request(app.getHttpServer())
       .post('/sales-orders')
@@ -159,11 +185,14 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
 
   async function makeLegacy(poId: string, receivedDate: string): Promise<void> {
     await ds.query(
-      `UPDATE stock_movements SET "occurrenceId" = NULL, "productSequence" = NULL
+      `UPDATE stock_movements SET "occurrenceId" = NULL, "productSequence" = NULL, "purchaseOrderItemId" = NULL
         WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1`,
       [poId],
     );
-    await ds.query(`UPDATE purchase_cost_history SET "occurrenceId" = NULL WHERE "purchaseOrderId" = $1`, [poId]);
+    await ds.query(
+      `UPDATE purchase_cost_history SET "occurrenceId" = NULL, "purchaseOrderItemId" = NULL WHERE "purchaseOrderId" = $1`,
+      [poId],
+    );
     await ds.query(
       `UPDATE journal_entry SET "sourceEventId" = NULL
         WHERE "sourceEventId" IN (SELECT id FROM stock_occurrences WHERE "documentId" = $1)`,
@@ -381,6 +410,415 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
     expect(await stockOf(product.id)).toBe(0);
   });
 
+  it('receive → return → receive → return preserves repeated-product line identity per occurrence', async () => {
+    const product = await newProduct();
+    const poId = await createPoWithLines([
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+      { productId: product.id, quantity: 3, unitPrice: 15 },
+    ]);
+    const cycleMovementIds: string[][] = [];
+    const stableItemIds: string[] = [];
+
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      await receive(poId).expect(200);
+      const [receipt] = await ds.query(
+        `SELECT id FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'receipt' ORDER BY "createdAt" DESC LIMIT 1`,
+        [poId],
+      );
+      const receiptLines: { itemId: string; movementId: string; batchId: string }[] = await ds.query(
+        `SELECT i.id AS "itemId", m.id AS "movementId", b.id AS "batchId"
+           FROM purchase_order_items i
+           JOIN stock_movements m ON m."purchaseOrderItemId" = i.id AND m."occurrenceId" = $2
+           JOIN purchase_cost_history b ON b."purchaseOrderItemId" = i.id AND b."occurrenceId" = $2
+          WHERE i."purchaseOrderId" = $1 ORDER BY i."lineNumber"`,
+        [poId, receipt.id],
+      );
+      expect(receiptLines).toHaveLength(2);
+      if (cycle === 0) stableItemIds.push(...receiptLines.map((line) => line.itemId));
+      expect(receiptLines.map((line) => line.itemId)).toEqual(stableItemIds);
+      cycleMovementIds.push(receiptLines.map((line) => line.movementId));
+
+      await unreceive(poId).expect(200);
+      const [reversal] = await ds.query(
+        `SELECT id FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'receipt_reversal'
+          ORDER BY "createdAt" DESC LIMIT 1`,
+        [poId],
+      );
+      const reversed: { purchaseOrderItemId: string; reversesMovementId: string }[] = await ds.query(
+        `SELECT "purchaseOrderItemId", "reversesMovementId" FROM stock_movements
+          WHERE "occurrenceId" = $1 ORDER BY "purchaseOrderItemId"`,
+        [reversal.id],
+      );
+      expect(reversed.map((line) => [line.purchaseOrderItemId, line.reversesMovementId])).toEqual(
+        receiptLines
+          .map((line) => [line.itemId, line.movementId])
+          .sort(([left], [right]) => left.localeCompare(right)),
+      );
+      const reversedBatches: { purchaseOrderItemId: string; reversedByOccurrenceId: string }[] =
+        await ds.query(
+          `SELECT "purchaseOrderItemId", "reversedByOccurrenceId" FROM purchase_cost_history
+            WHERE "occurrenceId" = $1 ORDER BY "purchaseOrderItemId"`,
+          [receipt.id],
+        );
+      expect(
+        reversedBatches
+          .map((batch) => [batch.purchaseOrderItemId, batch.reversedByOccurrenceId])
+          .sort(([left], [right]) => left.localeCompare(right)),
+      ).toEqual(
+        stableItemIds
+          .map((itemId) => [itemId, reversal.id])
+          .sort(([left], [right]) => left.localeCompare(right)),
+      );
+    }
+
+    expect(cycleMovementIds[0]).not.toEqual(cycleMovementIds[1]);
+    expect(await stockOf(product.id)).toBe(0);
+    const [totals] = await ds.query(
+      `SELECT sum(l.debit)::text AS debit, sum(l.credit)::text AS credit
+         FROM journal_entry e JOIN journal_entry_line l ON l."entryId" = e.id
+        WHERE e."sourceDocumentId" = $1 AND e."postingType" = 'PURCHASE_RECEIVE'`,
+      [poId],
+    );
+    expect(toMinorUnits(totals.debit)).toBe(toMinorUnits(totals.credit));
+  });
+
+  it('returns equal repeated-product receipt lines with one reversal per movement', async () => {
+    const product = await newProduct();
+    const poId = await createPoWithLines([
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+    ]);
+    await receive(poId).expect(200);
+
+    const [receipt] = await ds.query(
+      `SELECT id FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'receipt'`,
+      [poId],
+    );
+    const originalMovements: { id: string }[] = await ds.query(
+      `SELECT id FROM stock_movements WHERE "occurrenceId" = $1 ORDER BY id`,
+      [receipt.id],
+    );
+    expect(originalMovements).toHaveLength(2);
+    expect(new Set(originalMovements.map((row) => row.id)).size).toBe(2);
+
+    const receiptLines: {
+      itemId: string;
+      movementId: string;
+      batchId: string;
+      itemQuantity: string;
+      movementQuantity: string;
+      batchQuantity: string;
+      movementUnitValue: string;
+      batchUnitCost: string;
+    }[] = await ds.query(
+      `SELECT i.id AS "itemId", m.id AS "movementId", b.id AS "batchId",
+              i.quantity::text AS "itemQuantity", m.quantity::text AS "movementQuantity",
+              b."receivedQuantity"::text AS "batchQuantity",
+              m."unitValue"::text AS "movementUnitValue", b."unitCost"::text AS "batchUnitCost"
+         FROM purchase_order_items i
+         JOIN stock_movements m ON m."purchaseOrderItemId" = i.id AND m."occurrenceId" = $2
+         JOIN purchase_cost_history b ON b."purchaseOrderItemId" = i.id AND b."occurrenceId" = $2
+        WHERE i."purchaseOrderId" = $1 ORDER BY i."lineNumber"`,
+      [poId, receipt.id],
+    );
+    expect(receiptLines).toHaveLength(2);
+    expect(new Set(receiptLines.map((line) => line.itemId)).size).toBe(2);
+    expect(new Set(receiptLines.map((line) => line.movementId)).size).toBe(2);
+    expect(new Set(receiptLines.map((line) => line.batchId)).size).toBe(2);
+    for (const line of receiptLines) {
+      expect(Number(line.itemQuantity)).toBe(2);
+      expect(Number(line.movementQuantity)).toBe(2);
+      expect(Number(line.batchQuantity)).toBe(2);
+      expect(line.movementUnitValue).toBe(line.batchUnitCost);
+    }
+
+    await unreceive(poId).expect(200);
+
+    const [reversal] = await ds.query(
+      `SELECT id FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'receipt_reversal'`,
+      [poId],
+    );
+    const reversalMovements: { purchaseOrderItemId: string; reversesMovementId: string }[] = await ds.query(
+      `SELECT "purchaseOrderItemId", "reversesMovementId"
+         FROM stock_movements WHERE "occurrenceId" = $1 ORDER BY "purchaseOrderItemId"`,
+      [reversal.id],
+    );
+    expect(reversalMovements).toHaveLength(2);
+    expect(reversalMovements.map((row) => row.reversesMovementId).sort()).toEqual(
+      originalMovements.map((row) => row.id).sort(),
+    );
+    expect(reversalMovements.map((row) => row.purchaseOrderItemId).sort()).toEqual(
+      receiptLines.map((line) => line.itemId).sort(),
+    );
+    const reversedBatches: { purchaseOrderItemId: string; remainingQuantity: string; reversedByOccurrenceId: string }[] =
+      await ds.query(
+        `SELECT "purchaseOrderItemId", "remainingQuantity"::text AS "remainingQuantity", "reversedByOccurrenceId"
+           FROM purchase_cost_history WHERE "purchaseOrderId" = $1 ORDER BY "purchaseOrderItemId"`,
+        [poId],
+      );
+    expect(reversedBatches).toHaveLength(2);
+    expect(reversedBatches.map((row) => row.purchaseOrderItemId).sort()).toEqual(
+      receiptLines.map((line) => line.itemId).sort(),
+    );
+    expect(reversedBatches.every((row) => Number(row.remainingQuantity) === 0)).toBe(true);
+    expect(reversedBatches.every((row) => row.reversedByOccurrenceId === reversal.id)).toBe(true);
+
+    const journalLines: {
+      postingType: string;
+      reversalOfEntryId: string | null;
+      accountId: string;
+      debit: string;
+      credit: string;
+    }[] = await ds.query(
+      `SELECT e."postingType", e."reversalOfEntryId", l."accountId",
+              sum(l.debit)::text AS debit, sum(l.credit)::text AS credit
+         FROM journal_entry e JOIN journal_entry_line l ON l."entryId" = e.id
+        WHERE e."sourceDocumentId" = $1 AND e."postingType" = 'PURCHASE_RECEIVE'
+        GROUP BY e.id, e."postingType", e."reversalOfEntryId", l."accountId" ORDER BY e.id, l."accountId"`,
+      [poId],
+    );
+    const originalJournalLines = journalLines.filter((line) => line.reversalOfEntryId === null);
+    const reversedJournalLines = journalLines.filter((line) => line.reversalOfEntryId !== null);
+    expect(originalJournalLines.length).toBeGreaterThan(0);
+    expect(reversedJournalLines).toHaveLength(originalJournalLines.length);
+    for (const original of originalJournalLines) {
+      const reversalLine = reversedJournalLines.find((line) => line.accountId === original.accountId);
+      expect(reversalLine).toBeDefined();
+      expect(Number(reversalLine!.debit)).toBe(Number(original.credit));
+      expect(Number(reversalLine!.credit)).toBe(Number(original.debit));
+    }
+    expect(await stockOf(product.id)).toBe(0);
+  });
+
+  it('returns different-quantity and different-cost repeated-product lines to their own batches', async () => {
+    const product = await newProduct();
+    const poId = await createPoWithLines([
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+      { productId: product.id, quantity: 5, unitPrice: 15 },
+    ]);
+    await receive(poId).expect(200);
+
+    const [receipt] = await ds.query(
+      `SELECT id FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'receipt'`,
+      [poId],
+    );
+    const originalLines: {
+      itemId: string;
+      movementId: string;
+      quantity: string;
+      unitValue: string;
+      batchId: string;
+      batchQuantity: string;
+      unitCost: string;
+    }[] = await ds.query(
+      `SELECT i.id AS "itemId", m.id AS "movementId", m.quantity::text AS quantity,
+              m."unitValue"::text AS "unitValue", b.id AS "batchId",
+              b."receivedQuantity"::text AS "batchQuantity", b."unitCost"::text AS "unitCost"
+         FROM purchase_order_items i
+         JOIN stock_movements m ON m."purchaseOrderItemId" = i.id AND m."occurrenceId" = $2
+         JOIN purchase_cost_history b ON b."purchaseOrderItemId" = i.id AND b."occurrenceId" = $2
+        WHERE i."purchaseOrderId" = $1 ORDER BY i."lineNumber"`,
+      [poId, receipt.id],
+    );
+    expect(originalLines.map((line) => Number(line.quantity))).toEqual([2, 5]);
+    expect(originalLines.map((line) => Number(line.batchQuantity))).toEqual([2, 5]);
+    expect(originalLines.map((line) => Number(line.unitValue))).toEqual([10, 15]);
+    expect(originalLines.map((line) => Number(line.unitCost))).toEqual([10, 15]);
+
+    await unreceive(poId).expect(200);
+    const [reversal] = await ds.query(
+      `SELECT id FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'receipt_reversal'`,
+      [poId],
+    );
+    const reversals: { purchaseOrderItemId: string; reversesMovementId: string; quantity: string }[] =
+      await ds.query(
+        `SELECT "purchaseOrderItemId", "reversesMovementId", quantity::text AS quantity
+           FROM stock_movements WHERE "occurrenceId" = $1 ORDER BY "purchaseOrderItemId"`,
+        [reversal.id],
+      );
+    const originalsByMovement = new Map(
+      originalLines.map((line) => [line.movementId, line]),
+    );
+    for (const reversalLine of reversals) {
+      const original = originalsByMovement.get(reversalLine.reversesMovementId);
+      expect(original).toBeDefined();
+      expect(reversalLine.purchaseOrderItemId).toBe(original!.itemId);
+      expect(Number(reversalLine.quantity)).toBe(-Number(original!.quantity));
+    }
+    const [entryTotals] = await ds.query(
+      `SELECT count(*)::int AS entries,
+              sum(l.debit)::text AS debits, sum(l.credit)::text AS credits
+         FROM journal_entry e JOIN journal_entry_line l ON l."entryId" = e.id
+        WHERE e."sourceDocumentId" = $1 AND e."postingType" = 'PURCHASE_RECEIVE'`,
+      [poId],
+    );
+    expect(entryTotals.entries).toBeGreaterThanOrEqual(2);
+    expect(toMinorUnits(entryTotals.debits)).toBe(toMinorUnits(entryTotals.credits));
+    expect(await stockOf(product.id)).toBe(0);
+  });
+
+  it('keeps retained PO item IDs when editing line values after unreceive', async () => {
+    const product = await newProduct();
+    const poId = await createPoWithLines([
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+      { productId: product.id, quantity: 3, unitPrice: 15 },
+    ]);
+    await receive(poId).expect(200);
+    await unreceive(poId).expect(200);
+
+    const originalItems: { id: string; lineNumber: number }[] = await ds.query(
+      `SELECT id, "lineNumber" FROM purchase_order_items WHERE "purchaseOrderId" = $1 ORDER BY "lineNumber"`,
+      [poId],
+    );
+    const update = await request(app.getHttpServer())
+      .put(`/purchasing/orders/${poId}`)
+      .set(auth())
+      .send({
+        items: [
+          {
+            id: originalItems[0].id,
+            productId: product.id,
+            quantity: 4,
+            unitPrice: 11,
+            discountType: 'percentage',
+            discountPercent: 0,
+            discountAmount: 0,
+          },
+          {
+            id: originalItems[1].id,
+            productId: product.id,
+            quantity: 3,
+            unitPrice: 16,
+            discountType: 'percentage',
+            discountPercent: 0,
+            discountAmount: 0,
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(update.body.data ?? update.body).toBeTruthy();
+    const updatedItems: { id: string; lineNumber: number; quantity: string; unitCost: string }[] =
+      await ds.query(
+        `SELECT id, "lineNumber", quantity::text AS quantity, "unitCost"::text AS "unitCost"
+           FROM purchase_order_items WHERE "purchaseOrderId" = $1 ORDER BY "lineNumber"`,
+        [poId],
+      );
+    expect(updatedItems.map((item) => item.id)).toEqual(originalItems.map((item) => item.id));
+    expect(updatedItems.map((item) => Number(item.quantity))).toEqual([4, 3]);
+    expect(updatedItems.map((item) => Number(item.unitCost))).toEqual([11, 16]);
+  });
+
+  it('rejects removing or reassigning a referenced PO item without partial writes', async () => {
+    const product = await newProduct();
+    const otherProduct = await newProduct();
+    const poId = await createPoWithLines([
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+      { productId: product.id, quantity: 3, unitPrice: 15 },
+    ]);
+    await receive(poId).expect(200);
+    await unreceive(poId).expect(200);
+    const before = await snapshot(poId, product.id);
+    const originalItems: { id: string; productId: string }[] = await ds.query(
+      `SELECT id, "productId" FROM purchase_order_items WHERE "purchaseOrderId" = $1 ORDER BY "lineNumber"`,
+      [poId],
+    );
+
+    await request(app.getHttpServer())
+      .put(`/purchasing/orders/${poId}`)
+      .set(auth())
+      .send({
+        items: [{
+          id: originalItems[0].id,
+          productId: product.id,
+          quantity: 2,
+          unitPrice: 10,
+          discountType: 'percentage',
+          discountPercent: 0,
+          discountAmount: 0,
+        }],
+      })
+      .expect(409);
+    expect(await snapshot(poId, product.id)).toEqual(before);
+
+    await request(app.getHttpServer())
+      .put(`/purchasing/orders/${poId}`)
+      .set(auth())
+      .send({
+        items: originalItems.map((item, index) => ({
+          id: item.id,
+          productId: index === 0 ? otherProduct.id : product.id,
+          quantity: index === 0 ? 2 : 3,
+          unitPrice: index === 0 ? 10 : 15,
+          discountType: 'percentage',
+          discountPercent: 0,
+          discountAmount: 0,
+        })),
+      })
+      .expect(409);
+    expect(await snapshot(poId, product.id)).toEqual(before);
+    const afterItems: { id: string; productId: string }[] = await ds.query(
+      `SELECT id, "productId" FROM purchase_order_items WHERE "purchaseOrderId" = $1 ORDER BY "lineNumber"`,
+      [poId],
+    );
+    expect(afterItems).toEqual(originalItems);
+  });
+
+  it('rejects removing or reassigning a referenced PO item without partial writes', async () => {
+    const product = await newProduct();
+    const otherProduct = await newProduct();
+    const poId = await createPoWithLines([
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+      { productId: product.id, quantity: 3, unitPrice: 15 },
+    ]);
+    await receive(poId).expect(200);
+    await unreceive(poId).expect(200);
+    const before = await snapshot(poId, product.id);
+    const originalItems: { id: string; productId: string }[] = await ds.query(
+      `SELECT id, "productId" FROM purchase_order_items WHERE "purchaseOrderId" = $1 ORDER BY "lineNumber"`,
+      [poId],
+    );
+
+    await request(app.getHttpServer())
+      .put(`/purchasing/orders/${poId}`)
+      .set(auth())
+      .send({
+        items: [{
+          id: originalItems[0].id,
+          productId: product.id,
+          quantity: 2,
+          unitPrice: 10,
+          discountType: 'percentage',
+          discountPercent: 0,
+          discountAmount: 0,
+        }],
+      })
+      .expect(409);
+    expect(await snapshot(poId, product.id)).toEqual(before);
+
+    await request(app.getHttpServer())
+      .put(`/purchasing/orders/${poId}`)
+      .set(auth())
+      .send({
+        items: originalItems.map((item, index) => ({
+          id: item.id,
+          productId: index === 0 ? otherProduct.id : product.id,
+          quantity: index === 0 ? 2 : 3,
+          unitPrice: index === 0 ? 10 : 15,
+          discountType: 'percentage',
+          discountPercent: 0,
+          discountAmount: 0,
+        })),
+      })
+      .expect(409);
+    expect(await snapshot(poId, product.id)).toEqual(before);
+    const afterItems: { id: string; productId: string }[] = await ds.query(
+      `SELECT id, "productId" FROM purchase_order_items WHERE "purchaseOrderId" = $1 ORDER BY "lineNumber"`,
+      [poId],
+    );
+    expect(afterItems).toEqual(originalItems);
+  });
+
   it('reverses a legacy receipt after the approved horizon and records it', async () => {
     const product = await newProduct();
     const poId = await createPo(product.id, 4, 10);
@@ -399,6 +837,44 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
     expect(reversal.legacyJournalEntryId).toBeTruthy();
     expect(reversal.reversesOccurrenceId).toBeNull();
     expect(await stockOf(product.id)).toBe(0);
+  });
+
+  it('refuses an ambiguous repeated-product legacy receipt without partial writes', async () => {
+    const product = await newProduct();
+    const poId = await createPoWithLines([
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+    ]);
+    await receive(poId).expect(200);
+    await makeLegacy(poId, '2026-09-01');
+    const before = await snapshot(poId, product.id);
+
+    const response = await unreceive(poId).expect(409);
+
+    expect(response.body.message).toContain('stock records do not match its receipt entry');
+    expect(await snapshot(poId, product.id)).toEqual(before);
+  });
+
+  it('refuses missing line identity on a versioned receipt without legacy fallback or partial writes', async () => {
+    const product = await newProduct();
+    const poId = await createPoWithLines([
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+      { productId: product.id, quantity: 2, unitPrice: 10 },
+    ]);
+    await receive(poId).expect(200);
+    await ds.query(
+      `UPDATE stock_movements SET "purchaseOrderItemId" = NULL
+        WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1 AND id = (
+          SELECT id FROM stock_movements WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1 ORDER BY id LIMIT 1
+        )`,
+      [poId],
+    );
+    const before = await snapshot(poId, product.id);
+
+    const response = await unreceive(poId).expect(409);
+
+    expect(response.body.message).toContain('stock records do not match its receipt entry');
+    expect(await snapshot(poId, product.id)).toEqual(before);
   });
 
   it('stores the reason on the reversal occurrence, its movements and the audit row', async () => {

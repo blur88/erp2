@@ -30,7 +30,10 @@ import { StockMovementService } from '../../inventory/services/stock-movement.se
 import { createOccurrence } from '../../inventory/services/stock-occurrence';
 import { SettingsService } from '../../settings/settings.service';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
-import { StockOccurrenceKind } from '../../../database/entities/stock-occurrence.entity';
+import {
+  RECEIPT_LINE_EVIDENCE_VERSION,
+  StockOccurrenceKind,
+} from '../../../database/entities/stock-occurrence.entity';
 import {
   AccountingSourceType,
   PostingType,
@@ -246,6 +249,7 @@ export class PurchaseOrderLifecycleService {
         actorUsername: username,
         postedAmount: Number(postedAmount),
         isLegacy: false,
+        receiptEvidenceVersion: RECEIPT_LINE_EVIDENCE_VERSION,
       });
 
       // Allocate the posted amount across lines.
@@ -269,6 +273,7 @@ export class PurchaseOrderLifecycleService {
           referenceId: purchaseOrder.id,
           unitValue: plan.netUnitCost,
           occurrenceId: occurrence.id,
+          purchaseOrderItemId: item.id,
           totalValue,
         };
 
@@ -282,6 +287,7 @@ export class PurchaseOrderLifecycleService {
           receiveDate,
           manager,
           occurrence.id,
+          item.id,
         );
         await manager.getRepository(PurchaseOrderItem).update(item.id, {
           receivedQuantity: plan.quantity,
@@ -396,6 +402,7 @@ export class PurchaseOrderLifecycleService {
             referenceType: 'purchase_order',
             referenceId: id,
             occurrenceId: reversal.id,
+            purchaseOrderItemId: line.purchaseOrderItemId,
             reversesMovementId: line.movementId,
             totalValue: Number(formatScale4(valueMinor)),
           } as CreateStockMovementDto,

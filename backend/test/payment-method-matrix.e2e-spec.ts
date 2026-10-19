@@ -184,6 +184,20 @@ describe('Payment method posting matrix (e2e)', () => {
             [ownedPurchaseOrderIds],
           );
           await ds.query(
+            `DELETE FROM stock_batch_consumptions
+              WHERE "movementId" IN (SELECT id FROM stock_movements WHERE "referenceId" = ANY($1))
+                 OR "batchId" IN (SELECT id FROM purchase_cost_history WHERE "purchaseOrderId" = ANY($1))`,
+            [ownedPurchaseOrderIds],
+          );
+          await ds.query(
+            `DELETE FROM stock_movements WHERE "referenceId" = ANY($1)`,
+            [ownedPurchaseOrderIds],
+          );
+          await ds.query(
+            `DELETE FROM purchase_cost_history WHERE "purchaseOrderId" = ANY($1)`,
+            [ownedPurchaseOrderIds],
+          );
+          await ds.query(
             `DELETE FROM purchase_order_items WHERE "purchaseOrderId" = ANY($1)`,
             [ownedPurchaseOrderIds],
           );

@@ -8,6 +8,15 @@ import {
   RECEIPT_LATER_DECREASE,
   RECEIPT_PRE_RECORDING,
 } from '../../inventory/stock-undo-unavailable';
+import {
+  hasAggregateReceiptStockCoverage,
+  matchReceiptLines,
+  type ReceiptBatchEvidence,
+  type ReceiptLineItem,
+  type ReceiptLineMapping,
+  type ReceiptMovementEvidence,
+} from './receipt-line-matcher';
+import { RECEIPT_LINE_EVIDENCE_VERSION } from '../../../database/entities/stock-occurrence.entity';
 
 /**
  * Read-only, fail-closed assessment of whether a received purchase order can be
@@ -21,6 +30,7 @@ import {
 export interface ReceiptReversalLine {
   productId: string;
   productName: string;
+  purchaseOrderItemId: string;
   movementId: string;
   batchId: string;
   quantityMinor: bigint;
@@ -39,11 +49,12 @@ export type ReceiptReversalAssessment =
     }
   | { ok: false; message: string };
 
-interface MovementRow {
+interface MovementRow extends ReceiptMovementEvidence {
   id: string;
   productId: string;
   movementType: string;
   quantity: string;
+  unitValue: string | null;
   previousBalance: string;
   newBalance: string;
   totalValue: string | null;
@@ -51,23 +62,29 @@ interface MovementRow {
   movementDate: Date;
   productSequence: string | null;
   referenceType: string | null;
+  referenceId: string | null;
   occurrenceId: string | null;
 }
 
-interface BatchRow {
+interface BatchRow extends ReceiptBatchEvidence {
   id: string;
+  purchaseOrderId: string | null;
   productId: string;
   receivedQuantity: string;
   remainingQuantity: string;
+  unitCost: string;
+  shippingPerUnit: string;
   landedCost: string;
+  purchaseOrderItemId: string | null;
   reversedAt: Date | null;
   occurrenceId: string | null;
 }
 
-const MOVEMENT_SELECT = `id, "productId", "movementType", quantity::text AS quantity,
+const MOVEMENT_SELECT = `id, "productId", "purchaseOrderItemId", "movementType", quantity::text AS quantity,
+  "unitValue"::text AS "unitValue",
   "previousBalance"::text AS "previousBalance", "newBalance"::text AS "newBalance",
   "totalValue"::text AS "totalValue", "createdAt", "movementDate",
-  "productSequence"::text AS "productSequence", "referenceType", "occurrenceId"`;
+  "productSequence"::text AS "productSequence", "referenceType", "referenceId", "occurrenceId"`;
 
 const MOVEMENT_LABELS: Record<string, string> = {
   purchase_receipt: 'Purchase Receipt',
@@ -99,6 +116,24 @@ function dateOnly(value: Date): string {
   return new Date(value).toISOString().slice(0, 10);
 }
 
+function groupReceiptLinesByProduct<T extends ReceiptLineMapping>(lines: T[]): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const line of lines) {
+    const productLines = groups.get(line.item.productId) ?? [];
+    productLines.push(line);
+    groups.set(line.item.productId, productLines);
+  }
+  return groups;
+}
+
+function latestReceiptMovement(lines: MovementRow[]): MovementRow | null {
+  if (lines.length === 0 || lines.some((line) => line.productSequence == null)) return null;
+  return [...lines].sort((a, b) => {
+    const difference = BigInt(a.productSequence!) - BigInt(b.productSequence!);
+    return difference < 0n ? -1 : difference > 0n ? 1 : 0;
+  }).at(-1) as MovementRow;
+}
+
 const MISMATCH = () =>
   ({ ok: false, message: RECEIPT_PRE_RECORDING('its stock records do not match its receipt entry') }) as const;
 
@@ -107,11 +142,16 @@ export async function assessReceiptReversal(
   po: PurchaseOrder,
   horizon: Date | null,
 ): Promise<ReceiptReversalAssessment> {
-  const items = po.items ?? [];
+  const items = (po.items ?? []) as ReceiptLineItem[];
   if (items.length === 0) return MISMATCH();
 
-  const live: { id: string; occurredAt: Date; postedAmount: string | null }[] = await manager.query(
-    `SELECT id, "occurredAt", "postedAmount"::text AS "postedAmount"
+  const live: {
+    id: string;
+    occurredAt: Date;
+    postedAmount: string | null;
+    receiptEvidenceVersion: number | null;
+  }[] = await manager.query(
+    `SELECT id, "occurredAt", "postedAmount"::text AS "postedAmount", "receiptEvidenceVersion"
        FROM stock_occurrences
       WHERE "documentType" = 'purchase_order' AND "documentId" = $1 AND kind = 'receipt'
         AND NOT EXISTS (
@@ -122,27 +162,42 @@ export async function assessReceiptReversal(
 
   if (live.length > 1) return MISMATCH();
   return live.length === 1
-    ? assessNewReceipt(manager, po, items, live[0])
+    ? assessOccurrenceReceipt(manager, po, items, live[0])
     : assessLegacyReceipt(manager, po, items, horizon);
 }
 
-async function assessNewReceipt(
+async function assessOccurrenceReceipt(
   manager: EntityManager,
   po: PurchaseOrder,
-  items: any[],
-  occurrence: { id: string; occurredAt: Date; postedAmount: string | null },
+  items: ReceiptLineItem[],
+  occurrence: {
+    id: string;
+    occurredAt: Date;
+    postedAmount: string | null;
+    receiptEvidenceVersion: number | null;
+  },
 ): Promise<ReceiptReversalAssessment> {
   const movements: MovementRow[] = await manager.query(
     `SELECT ${MOVEMENT_SELECT} FROM stock_movements WHERE "occurrenceId" = $1`,
     [occurrence.id],
   );
   const batches: BatchRow[] = await manager.query(
-    `SELECT id, "productId", "receivedQuantity"::text AS "receivedQuantity",
-            "remainingQuantity"::text AS "remainingQuantity", "landedCost"::text AS "landedCost",
-            "reversedAt", "occurrenceId"
+    `SELECT id, "purchaseOrderId", "productId", "purchaseOrderItemId",
+            "receivedQuantity"::text AS "receivedQuantity", "remainingQuantity"::text AS "remainingQuantity",
+            "unitCost"::text AS "unitCost", "shippingPerUnit"::text AS "shippingPerUnit",
+            "landedCost"::text AS "landedCost", "reversedAt", "occurrenceId"
        FROM purchase_cost_history WHERE "occurrenceId" = $1`,
     [occurrence.id],
   );
+
+  const lineMatch = matchReceiptLines(
+    occurrence.receiptEvidenceVersion,
+    po.id,
+    items,
+    movements,
+    batches,
+  );
+  if (lineMatch.status !== 'matched') return MISMATCH();
 
   const [entry] = await manager.query(
     `SELECT id FROM journal_entry
@@ -154,33 +209,48 @@ async function assessNewReceipt(
 
   const lines: ReceiptReversalLine[] = [];
   let movementsTotalMinor = 0n;
-  for (const item of items) {
-    const movement = movements.find((m) => m.productId === item.productId);
-    const batch = batches.find((b) => b.productId === item.productId);
-    if (!movement || !batch || !item.product) return MISMATCH();
+  let batchValueScale8 = 0n;
+  for (const { item, movement, batch } of lineMatch.lines) {
+    if (!item.product) return MISMATCH();
     const valueMinor = movement.totalValue == null ? 0n : toMinorUnits(movement.totalValue);
     movementsTotalMinor += valueMinor;
+    const quantityMinor = toMinorUnits(batch.receivedQuantity);
+    const landedCostMinor = toMinorUnits(batch.landedCost);
+    batchValueScale8 += quantityMinor * landedCostMinor;
     lines.push({
       productId: item.productId,
       productName: item.product.name,
+      purchaseOrderItemId: item.id,
       movementId: movement.id,
       batchId: batch.id,
-      quantityMinor: toMinorUnits(movement.quantity),
-      valueScale8: valueMinor * 10000n,
+      quantityMinor,
+      valueScale8: quantityMinor * landedCostMinor,
     });
   }
 
   const postedMinor = occurrence.postedAmount == null ? 0n : toMinorUnits(occurrence.postedAmount);
-  if (movementsTotalMinor !== postedMinor || postedMinor !== entryDebitMinor) return MISMATCH();
+  if (
+    movementsTotalMinor !== postedMinor ||
+    postedMinor !== entryDebitMinor ||
+    quantizeToCents((batchValueScale8 + 5000n) / 10000n) !== entryDebitMinor
+  ) {
+    return MISMATCH();
+  }
 
-  for (const item of items) {
-    const movement = movements.find((m) => m.productId === item.productId)!;
-    const batch = batches.find((b) => b.productId === item.productId)!;
+  const productLines = groupReceiptLinesByProduct(lineMatch.lines);
+  for (const [productId, productReceiptLines] of productLines) {
+    const productName = productReceiptLines[0].item.product?.name;
+    if (!productName) return MISMATCH();
+    const productMovementIds = new Set(productReceiptLines.map((line) => line.movement.id));
+    const receiptMovement = latestReceiptMovement(
+      movements.filter((movement) => productMovementIds.has(movement.id)),
+    );
+    if (!receiptMovement) return MISMATCH();
     const refusal = await assessProductAfterReceipt(manager, {
-      productId: item.productId,
-      productName: item.product.name,
-      receiptMovement: movement,
-      batches: [batch],
+      productId,
+      productName,
+      receiptMovement,
+      batches: productReceiptLines.map((line) => line.batch),
       mode: 'new',
     });
     if (refusal) return { ok: false, message: refusal };
@@ -200,7 +270,7 @@ async function assessNewReceipt(
 async function assessLegacyReceipt(
   manager: EntityManager,
   po: PurchaseOrder,
-  items: any[],
+  items: ReceiptLineItem[],
   horizon: Date | null,
 ): Promise<ReceiptReversalAssessment> {
   if (!horizon) {
@@ -220,9 +290,10 @@ async function assessLegacyReceipt(
   const entryDebitMinor = await readEntryDebitMinor(manager, entryId);
 
   const batches: BatchRow[] = await manager.query(
-    `SELECT id, "productId", "receivedQuantity"::text AS "receivedQuantity",
-            "remainingQuantity"::text AS "remainingQuantity", "landedCost"::text AS "landedCost",
-            "reversedAt", "occurrenceId"
+    `SELECT id, "purchaseOrderId", "productId", "purchaseOrderItemId",
+            "receivedQuantity"::text AS "receivedQuantity", "remainingQuantity"::text AS "remainingQuantity",
+            "unitCost"::text AS "unitCost", "shippingPerUnit"::text AS "shippingPerUnit",
+            "landedCost"::text AS "landedCost", "reversedAt", "occurrenceId"
        FROM purchase_cost_history WHERE "purchaseOrderId" = $1 AND "occurrenceId" IS NULL`,
     [po.id],
   );
@@ -232,20 +303,22 @@ async function assessLegacyReceipt(
     [po.id],
   );
 
+  const lineMatch = matchReceiptLines(null, po.id, items, movements, batches);
+  if (lineMatch.status !== 'matched') return MISMATCH();
+
   const lines: ReceiptReversalLine[] = [];
   let expectedScale8 = 0n;
-  for (const item of items) {
-    const batch = batches.find((b) => b.productId === item.productId);
-    const movement = movements.find((m) => m.productId === item.productId);
-    if (!batch || !movement || !item.product) return MISMATCH();
-    if (toMinorUnits(batch.receivedQuantity) !== toMinorUnits(String(item.quantity))) return MISMATCH();
-    if (toMinorUnits(movement.quantity) !== toMinorUnits(String(item.quantity))) return MISMATCH();
+  let movementTotalMinor = 0n;
+  for (const { item, movement, batch } of lineMatch.lines) {
+    if (!item.product) return MISMATCH();
     const qtyMinor = toMinorUnits(batch.receivedQuantity);
     const landedMinor = toMinorUnits(batch.landedCost);
     expectedScale8 += qtyMinor * landedMinor;
+    movementTotalMinor += toMinorUnits(movement.totalValue ?? '0');
     lines.push({
       productId: item.productId,
       productName: item.product.name,
+      purchaseOrderItemId: item.id,
       movementId: movement.id,
       batchId: batch.id,
       quantityMinor: qtyMinor,
@@ -253,29 +326,41 @@ async function assessLegacyReceipt(
     });
   }
 
-  if (quantizeToCents((expectedScale8 + 5000n) / 10000n) !== entryDebitMinor) return MISMATCH();
+  if (
+    quantizeToCents((expectedScale8 + 5000n) / 10000n) !== entryDebitMinor ||
+    movementTotalMinor !== entryDebitMinor
+  ) {
+    return MISMATCH();
+  }
 
-  for (const item of items) {
-    const movement = movements.find((m) => m.productId === item.productId)!;
-    const batch = batches.find((b) => b.productId === item.productId)!;
-    const productName = item.product.name;
+  const productLines = groupReceiptLinesByProduct(lineMatch.lines);
+  for (const [productId, productReceiptLines] of productLines) {
+    const productName = productReceiptLines[0].item.product?.name;
+    if (!productName) return MISMATCH();
 
     // A rewrite anywhere in the product's history makes the chain untrustworthy.
-    if (await hasRewriteIndicator(manager, item.productId)) {
+    if (await hasRewriteIndicator(manager, productId)) {
       return {
         ok: false,
         message: RECEIPT_PRE_RECORDING(`stock history for ${productName} may have been rewritten`),
       };
     }
 
-    const chainRefusal = await assessLegacyChain(manager, item.productId, productName, movement.id);
-    if (chainRefusal) return { ok: false, message: chainRefusal };
+    const chain = await assessLegacyChain(
+      manager,
+      productId,
+      productName,
+      productReceiptLines.map((line) => line.movement.id),
+    );
+    if ('refusal' in chain) return { ok: false, message: chain.refusal };
+    const receiptMovement = movements.find((movement) => movement.id === chain.lastReceiptMovementId);
+    if (!receiptMovement) return MISMATCH();
 
     const refusal = await assessProductAfterReceipt(manager, {
-      productId: item.productId,
+      productId,
       productName,
-      receiptMovement: movement,
-      batches: [batch],
+      receiptMovement,
+      batches: productReceiptLines.map((line) => line.batch),
       mode: 'legacy',
     });
     if (refusal) return { ok: false, message: refusal };
@@ -296,8 +381,8 @@ async function assessLegacyChain(
   manager: EntityManager,
   productId: string,
   productName: string,
-  receiptMovementId: string,
-): Promise<string | null> {
+  receiptMovementIds: string[],
+): Promise<{ lastReceiptMovementId: string } | { refusal: string }> {
   const breakMsg = RECEIPT_PRE_RECORDING(
     `the order of ${productName}'s earlier stock movements cannot be established`,
   );
@@ -307,20 +392,26 @@ async function assessLegacyChain(
     [productId],
   );
   const legacy = rows.filter((r) => r.productSequence == null);
-  if (legacy.length === 0) return breakMsg;
+  if (legacy.length === 0) return { refusal: breakMsg };
   for (let i = 1; i < legacy.length; i += 1) {
     if (new Date(legacy[i].createdAt).getTime() === new Date(legacy[i - 1].createdAt).getTime()) {
-      return breakMsg;
+      return { refusal: breakMsg };
     }
   }
-  if (toMinorUnits(legacy[0].previousBalance) !== 0n) return breakMsg;
+  if (toMinorUnits(legacy[0].previousBalance) !== 0n) return { refusal: breakMsg };
   for (let i = 1; i < legacy.length; i += 1) {
     if (toMinorUnits(legacy[i].previousBalance) !== toMinorUnits(legacy[i - 1].newBalance)) {
-      return breakMsg;
+      return { refusal: breakMsg };
     }
   }
-  if (legacy[legacy.length - 1].id !== receiptMovementId) return breakMsg;
-  return null;
+  const receiptTail = legacy.slice(-receiptMovementIds.length);
+  if (
+    receiptTail.length !== receiptMovementIds.length ||
+    receiptTail.some((movement) => !receiptMovementIds.includes(movement.id))
+  ) {
+    return { refusal: breakMsg };
+  }
+  return { lastReceiptMovementId: receiptTail[receiptTail.length - 1].id };
 }
 
 async function assessProductAfterReceipt(
@@ -410,12 +501,20 @@ async function assessProductAfterReceipt(
   // decreases, and R3 reconciles the locked stock to that balance plus later
   // movements. Therefore no dedicated e2e manufactures an invalid balance;
   // keep this check fail-closed for inconsistent/corrupt records.
-  const receivedMinor = toMinorUnits(batches[0]?.receivedQuantity ?? '0');
-  if (stockMinor < receivedMinor) {
+  const requiredReceiptQuantityMinor = batches.reduce(
+    (sum, batch) => sum + toMinorUnits(batch.receivedQuantity),
+    0n,
+  );
+  if (
+    !hasAggregateReceiptStockCoverage(
+      batches.map((batch) => ({ productId, batch })),
+      new Map([[productId, formatScale4(stockMinor)]]),
+    )
+  ) {
     return RECEIPT_INSUFFICIENT_STOCK(
       productName,
       formatScale4(stockMinor),
-      formatScale4(receivedMinor),
+      formatScale4(requiredReceiptQuantityMinor),
     );
   }
 

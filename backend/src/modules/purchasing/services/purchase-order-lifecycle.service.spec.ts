@@ -342,6 +342,7 @@ if (entity === PurchaseOrder) return poRepo;
         expect.any(Date),
         expect.anything(),
         'occ-1',
+        'po-item-1',
       );
       expect(accountingPort.postPurchaseReceive).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -412,6 +413,7 @@ if (entity === PurchaseOrder) return poRepo;
         expect.any(Date),
         expect.anything(),
         'occ-1',
+        'po-item-1',
       );
       // Stock movement unitValue must also be the net cost.
       expect(stockMovementService.create).toHaveBeenCalledWith(

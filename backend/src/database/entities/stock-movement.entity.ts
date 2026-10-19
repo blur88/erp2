@@ -17,6 +17,7 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import type { Product } from './product.entity';
+import type { PurchaseOrderItem } from './purchase-order-item.entity';
 
 export enum StockMovementType {
   // Inward movements (increase stock)
@@ -67,6 +68,10 @@ export enum StockMovementType {
 @Index('UQ_stock_movement_reverses', ['reversesMovementId'], {
   unique: true,
   where: '"reversesMovementId" IS NOT NULL',
+})
+@Index('UQ_stock_movement_occurrence_item', ['occurrenceId', 'purchaseOrderItemId'], {
+  unique: true,
+  where: '"occurrenceId" IS NOT NULL AND "purchaseOrderItemId" IS NOT NULL',
 })
 export class StockMovement extends BaseEntity {
   @Column({
@@ -171,6 +176,19 @@ export class StockMovement extends BaseEntity {
   @ManyToOne('StockOccurrence', { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'occurrenceId' })
   occurrence?: any;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'Stable purchase-order item identity for receipt and reversal movements',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  purchaseOrderItemId?: string;
+
+  @ManyToOne('PurchaseOrderItem', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'purchaseOrderItemId' })
+  purchaseOrderItem?: PurchaseOrderItem;
 
   @Column({
     type: 'bigint',

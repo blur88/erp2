@@ -100,12 +100,20 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
     receivedDate: string,
     horizon: Date | null,
   ) {
+    const [purchaseOrder] = await ds.query(
+      `SELECT items.id, items."purchaseOrderId", items."productId",
+              items.quantity::text AS quantity, items."totalAmount"::text AS "totalAmount"
+         FROM purchase_order_items items
+        WHERE items."purchaseOrderId" = $1
+        ORDER BY items."lineNumber"`,
+      [poId],
+    );
     return assessReceiptReversal(
       ds.manager,
       {
         id: poId,
         receivedDate: new Date(`${receivedDate}T00:00:00Z`),
-        items: [{ productId: product.id, quantity, product: { id: product.id, name: product.name } }],
+        items: [{ ...purchaseOrder, quantity, product: { id: product.id, name: product.name } }],
       } as any,
       horizon,
     );
@@ -115,13 +123,18 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
     // Forget the occurrence and the per-product sequence so the receipt takes
     // the pre-deploy (legacy) shape.
     await ds.query(
-      `UPDATE stock_movements SET "occurrenceId" = NULL, "productSequence" = NULL
+      `UPDATE stock_movements SET "occurrenceId" = NULL, "productSequence" = NULL,
+              "purchaseOrderItemId" = NULL
         WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1`,
       [poId],
     );
-    await ds.query(`UPDATE purchase_cost_history SET "occurrenceId" = NULL WHERE "purchaseOrderId" = $1`, [
+    await ds.query(
+      `UPDATE purchase_cost_history SET "occurrenceId" = NULL, "purchaseOrderItemId" = NULL
+        WHERE "purchaseOrderId" = $1`,
+      [
       poId,
-    ]);
+      ],
+    );
     await ds.query(
       `UPDATE journal_entry SET "sourceEventId" = NULL
         WHERE "sourceEventId" IN (SELECT id FROM stock_occurrences WHERE "documentId" = $1)`,

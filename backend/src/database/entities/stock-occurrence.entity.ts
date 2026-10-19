@@ -25,6 +25,8 @@ export enum StockOccurrenceKind {
   FULFILMENT_REVERSAL = 'fulfilment_reversal',
 }
 
+export const RECEIPT_LINE_EVIDENCE_VERSION = 1;
+
 /**
  * A distinct, evidenced stock occurrence (receipt, fulfilment, or a reversal
  * of one). Each occurrence owns its movements, batches, provenance and journal
@@ -114,6 +116,14 @@ export class StockOccurrence {
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,2' })
   postedAmount?: number;
+
+  @Column({
+    type: 'smallint',
+    nullable: true,
+    comment: 'Receipt evidence version; null identifies receipts recorded before stable PO-line identity',
+  })
+  @IsOptional()
+  receiptEvidenceVersion?: number;
 
   @Column({
     type: 'boolean',

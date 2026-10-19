@@ -135,10 +135,6 @@ export async function resetSuiteBusinessRows(
       `DELETE FROM vendor_payments WHERE "purchaseOrderId" = ANY($1)`,
       [purchaseOrderIds],
     );
-    await ds.query(
-      `DELETE FROM purchase_order_items WHERE "purchaseOrderId" = ANY($1)`,
-      [purchaseOrderIds],
-    );
   }
   if (supplierIds.length) {
     await ds.query(`DELETE FROM vendor_payments WHERE "supplierId" = ANY($1)`, [
@@ -152,12 +148,6 @@ export async function resetSuiteBusinessRows(
       salesOrderIds,
     ]);
   }
-  if (purchaseOrderIds.length) {
-    await ds.query(`DELETE FROM purchase_orders WHERE id = ANY($1)`, [
-      purchaseOrderIds,
-    ]);
-  }
-
   // --- suite-owned headers, before products ---
   //
   // Order matters: stock_adjustment_items.productId is RESTRICT, so deleting
@@ -179,33 +169,45 @@ export async function resetSuiteBusinessRows(
 
   // --- product dependents that RESTRICT ---
   //
-  // Line items are reached through TWO independent roots: the order (supplier /
-  // customer) and the product (category). A suite can own the product via its
-  // category while the order belongs to a supplier it does not own — purchasing
-  // does exactly this. Scoping these by order id alone left the rows behind and
-  // the products DELETE then hit
-  //   FK_f87b1b82a3aff16d1cb5e49a656 ... violates RESTRICT
-  // rather than leaking silently, which is why the RESTRICT edges are worth
-  // keeping.
-  if (productIds.length) {
+  // Receipt movements and batches now restrict deletion of their PO item IDs,
+  // so delete all evidence traces before deleting the item rows. Items can be
+  // owned by either their order/supplier or their product/category; cleanup
+  // must scope through both roots just like the FK-protected item delete.
+  const stockMovementScope =
+    productIds.length || purchaseOrderIds.length;
+  if (stockMovementScope) {
     await ds.query(
-      `DELETE FROM purchase_order_items WHERE "productId" = ANY($1)`,
-      [productIds],
+      `DELETE FROM stock_batch_consumptions
+        WHERE "movementId" IN (
+          SELECT id FROM stock_movements
+           WHERE "productId" = ANY($1)
+              OR ("referenceType" = 'purchase_order' AND "referenceId" = ANY($2))
+        )`,
+      [productIds, purchaseOrderIds],
     );
+    await ds.query(
+      `DELETE FROM stock_movements
+        WHERE "productId" = ANY($1)
+           OR ("referenceType" = 'purchase_order' AND "referenceId" = ANY($2))`,
+      [productIds, purchaseOrderIds],
+    );
+    await ds.query(
+      `DELETE FROM purchase_cost_history
+        WHERE "productId" = ANY($1) OR "purchaseOrderId" = ANY($2)`,
+      [productIds, purchaseOrderIds],
+    );
+    await ds.query(
+      `DELETE FROM purchase_order_items
+        WHERE "productId" = ANY($1) OR "purchaseOrderId" = ANY($2)`,
+      [productIds, purchaseOrderIds],
+    );
+  }
+
+  if (productIds.length) {
     await ds.query(
       `DELETE FROM sales_order_items WHERE "productId" = ANY($1)`,
       [productIds],
     );
-    // Consumption provenance RESTRICTs its movement (#1406), so it must go
-    // before the movements it explains.
-    await ds.query(
-      `DELETE FROM stock_batch_consumptions
-        WHERE "movementId" IN (SELECT id FROM stock_movements WHERE "productId" = ANY($1))`,
-      [productIds],
-    );
-    await ds.query(`DELETE FROM stock_movements WHERE "productId" = ANY($1)`, [
-      productIds,
-    ]);
     await ds.query(
       `DELETE FROM stock_adjustment_items WHERE "productId" = ANY($1)`,
       [productIds],
@@ -217,10 +219,14 @@ export async function resetSuiteBusinessRows(
     await ds.query(`DELETE FROM price_list_items WHERE "productId" = ANY($1)`, [
       productIds,
     ]);
-    await ds.query(
-      `DELETE FROM purchase_cost_history WHERE "productId" = ANY($1)`,
-      [productIds],
-    );
+  }
+
+  // Items have been removed only after their receipt movements and batches.
+  if (purchaseOrderIds.length) {
+    await ds.query(`DELETE FROM purchase_orders WHERE id = ANY($1)`, [purchaseOrderIds]);
+  }
+
+  if (productIds.length) {
     await ds.query(`DELETE FROM products WHERE id = ANY($1)`, [productIds]);
   }
 

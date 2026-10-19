@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import type { Product } from './product.entity';
+import type { PurchaseOrderItem } from './purchase-order-item.entity';
 
 /**
  * Purchase Cost History entity
@@ -24,6 +25,10 @@ import type { Product } from './product.entity';
 @Entity('purchase_cost_history')
 @Index(['productId', 'remainingQuantity'])
 @Index(['productId', 'receivedDate'])
+@Index('UQ_purchase_cost_history_occurrence_item', ['occurrenceId', 'purchaseOrderItemId'], {
+  unique: true,
+  where: '"occurrenceId" IS NOT NULL AND "purchaseOrderItemId" IS NOT NULL',
+})
 @Check(
   'CHK_purchase_cost_history_reversed',
   '("reversedAt" IS NULL) = ("reversedByOccurrenceId" IS NULL)',
@@ -141,6 +146,19 @@ export class PurchaseCostHistory extends BaseEntity {
   @ManyToOne('StockOccurrence', { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'reversedByOccurrenceId' })
   reversedByOccurrence?: any;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'Stable purchase-order item identity for the receipt cost batch',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  purchaseOrderItemId?: string;
+
+  @ManyToOne('PurchaseOrderItem', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'purchaseOrderItemId' })
+  purchaseOrderItem?: PurchaseOrderItem;
 
   // Computed properties
   get batchValue(): number {

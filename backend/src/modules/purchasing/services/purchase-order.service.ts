@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException, HttpException, Inject } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException, ForbiddenException, HttpException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between, DataSource, EntityManager } from 'typeorm';
 import { applyPagination } from '@/common/pagination/apply-pagination';
@@ -576,7 +576,46 @@ export class PurchaseOrderService extends BaseCrudService<
         });
 
         if (updatePurchaseOrderDto.items) {
-          await itemRepo.delete({ purchaseOrderId: id });
+          const existingItems = await itemRepo.find({
+            where: { purchaseOrderId: id },
+            order: { lineNumber: 'ASC' },
+          });
+          const existingById = new Map(existingItems.map((item) => [item.id, item]));
+          const existingIds = existingItems.map((item) => item.id);
+          const evidenceRows: { purchaseOrderItemId: string }[] = existingIds.length
+            ? await manager.query(
+                `SELECT "purchaseOrderItemId" FROM stock_movements
+                  WHERE "purchaseOrderItemId" = ANY($1)
+                 UNION
+                 SELECT "purchaseOrderItemId" FROM purchase_cost_history
+                  WHERE "purchaseOrderItemId" = ANY($1)`,
+                [existingIds],
+              )
+            : [];
+          const referencedIds = new Set(evidenceRows.map((row) => row.purchaseOrderItemId));
+          const providedIds = updatePurchaseOrderDto.items
+            .map((item) => item.id)
+            .filter((itemId): itemId is string => Boolean(itemId));
+
+          if (new Set(providedIds).size !== providedIds.length) {
+            throw new BadRequestException('Purchase-order item IDs must be unique');
+          }
+
+          for (const itemId of providedIds) {
+            if (!existingById.has(itemId)) {
+              throw new BadRequestException('Purchase-order item does not belong to this order');
+            }
+          }
+
+          const providedIdSet = new Set(providedIds);
+          const omittedReferencedItem = existingItems.find(
+            (item) => referencedIds.has(item.id) && !providedIdSet.has(item.id),
+          );
+          if (omittedReferencedItem) {
+            throw new ConflictException(
+              'Cannot remove a purchase-order item with retained stock history.',
+            );
+          }
 
           const orderItems: PurchaseOrderItem[] = [];
           let subtotalMinor = 0n;
@@ -588,7 +627,14 @@ export class PurchaseOrderService extends BaseCrudService<
               throw new BadRequestException(`Product with ID ${itemDto.productId} not found`);
             }
 
-            const item = new PurchaseOrderItem();
+            const item = itemDto.id
+              ? existingById.get(itemDto.id)!
+              : new PurchaseOrderItem();
+            if (itemDto.id && referencedIds.has(item.id) && item.productId !== itemDto.productId) {
+              throw new ConflictException(
+                'Cannot change the product of a purchase-order item with retained stock history.',
+              );
+            }
             item.purchaseOrderId = id;
             item.productId = itemDto.productId;
             item.quantity = itemDto.quantity;
@@ -596,29 +642,20 @@ export class PurchaseOrderService extends BaseCrudService<
             item.discountType = itemDto.discountType || 'percentage';
             item.discountPercent = itemDto.discountPercent || 0;
             item.discountAmount = itemDto.discountAmount || 0;
-            item.status = 'pending' as any;
-            item.receivedQuantity = 0;
+            if (Number(item.receivedQuantity) === 0) item.status = 'pending' as any;
             item.lineNumber = lineNum;
-
-            // Same kernel line math as create (#1241).
-            const qtyMinor = toMinorUnits(String(item.quantity ?? 0));
-            const costMinor = toMinorUnits(String(item.unitCost ?? 0));
-            let unitDiscountMinor = 0n;
-            if (item.discountType === 'percentage') {
-              unitDiscountMinor =
-                (costMinor * toMinorUnits(String(item.discountPercent ?? 0))) / 1000000n;
-            } else if (item.discountType === 'fixed_amount') {
-              unitDiscountMinor = toMinorUnits(String(item.discountAmount ?? 0));
-            }
-            const lineTotalMinor = quantizeToCents(
-              (qtyMinor * (costMinor - unitDiscountMinor)) / 10000n,
-            );
-
+            item.calculateTotals();
             orderItems.push(item);
-            subtotalMinor += lineTotalMinor;
+            subtotalMinor += toMinorUnits(String(item.totalAmount));
             lineNum++;
           }
 
+          const omittedUnreferencedIds = existingItems
+            .filter((item) => !providedIdSet.has(item.id))
+            .map((item) => item.id);
+          if (omittedUnreferencedIds.length) {
+            await itemRepo.delete(omittedUnreferencedIds);
+          }
           await itemRepo.save(orderItems);
           purchaseOrder.subtotal = Number(formatScale4(subtotalMinor));
           purchaseOrder.items = orderItems;

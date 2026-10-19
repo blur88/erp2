@@ -338,6 +338,7 @@ describe('PurchaseOrderService', () => {
       };
       const itemManagerRepo = {
         delete: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+        find: (jest.fn as unknown as any)().mockResolvedValue([]),
         save: (jest.fn as unknown as any)().mockResolvedValue([]),
       };
       const productManagerRepo = {
@@ -393,7 +394,7 @@ describe('PurchaseOrderService', () => {
       } as any);
 
       expect(productManagerRepo.findOne).toHaveBeenCalled();
-      expect(itemManagerRepo.delete).toHaveBeenCalledWith({ purchaseOrderId: 'po-1' });
+      expect(itemManagerRepo.delete).not.toHaveBeenCalled();
       expect(itemManagerRepo.save).toHaveBeenCalled();
       expect(poManagerRepo.save).toHaveBeenCalled();
 

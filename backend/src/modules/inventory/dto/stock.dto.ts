@@ -62,6 +62,11 @@ export class CreateStockMovementDto {
   @IsUUID(4)
   occurrenceId?: string;
 
+  @ApiPropertyOptional({ description: 'Stable purchase-order item id for a receipt line' })
+  @IsOptional()
+  @IsUUID(4)
+  purchaseOrderItemId?: string;
+
   @ApiPropertyOptional({ description: 'Movement this one reverses' })
   @IsOptional()
   @IsUUID(4)

@@ -10,6 +10,7 @@ export interface CreateOccurrenceInput {
   actorUsername?: string;
   reversesOccurrenceId?: string;
   postedAmount?: number;
+  receiptEvidenceVersion?: number;
   isLegacy?: boolean;
   legacyJournalEntryId?: string;
   reason?: string;
@@ -29,6 +30,7 @@ export async function createOccurrence(
     actorUsername: input.actorUsername,
     reversesOccurrenceId: input.reversesOccurrenceId,
     postedAmount: input.postedAmount,
+    receiptEvidenceVersion: input.receiptEvidenceVersion,
     isLegacy: input.isLegacy ?? false,
     legacyJournalEntryId: input.legacyJournalEntryId,
     reason: input.reason,

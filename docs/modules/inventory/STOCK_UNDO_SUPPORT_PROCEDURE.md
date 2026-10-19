@@ -13,11 +13,20 @@ explicit decision about whether independent evidence supports an
 | Purchase order was received in error | **Return** from the purchase order detail or list | The evidence assessment proves the receipt's products have not decreased since receipt, batches remain untouched, stock still reconciles, and any legacy receipt meets the approved evidence-horizon and strict-shape rules. The server decides eligibility. |
 
 Both actions require a reason of 3–500 trimmed characters. A successful action
-adds linked reversal records; it does not delete or rewrite the original
-movements, batches, provenance, occurrence, or journal entries. Unfulfil
-restores the recorded cost-batch quantities and reverses the original revenue
-and COGS entries. Return restores the PO to Ready and reverses its receipt
-entry.
+adds linked reversal records without deleting or rewriting the original stock
+movements, receipt values, occurrence, or journal entries. Unfulfil restores the
+recorded cost-batch quantities and reverses the original revenue and COGS
+entries. Return restores the PO to Ready and reverses its receipt entry. For a
+returned receipt, the batch's original `receivedQuantity`, `unitCost`,
+`shippingPerUnit`, and `landedCost` are preserved; `remainingQuantity` is set to
+zero and `reversedAt` / `reversedByOccurrenceId` record its reversal state.
+
+Each new receipt line is linked by its stable purchase-order item ID to exactly
+one receipt movement and one cost batch. The reversal keeps that line identity
+on its movement and links the movement to the original. A missing or inconsistent
+line identity on a new-version receipt is refused. Older receipts without line
+IDs can be returned only when all PO lines have one unique mapping across the
+whole receipt; an absent or ambiguous mapping is refused.
 
 ## What remains refused
 
@@ -46,8 +55,10 @@ current stock quantity alone.
 3. An authorized user attempts Unfulfill or Return in the application and
    supplies the reason. The server performs the final evidence checks.
 4. If accepted, confirm the order status and stock after the mutation. The
-   application writes the linked accounting and audit reversals in the same
-   transaction.
+   application writes the stock, batch-state, order-state, and accounting
+   reversal changes in one transaction. After that transaction commits, the
+   application attempts to write the audit log; audit logging is best-effort
+   and non-throwing, so the audit row is not transactionally guaranteed.
 5. If refused, preserve the exact server message and follow the tracking
    procedure below. Do not retry by changing stock directly or by bypassing
    the UI/API checks.

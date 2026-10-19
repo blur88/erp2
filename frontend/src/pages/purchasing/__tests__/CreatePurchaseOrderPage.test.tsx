@@ -146,6 +146,46 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     expect(await screen.findByRole('heading', { name: 'Edit Purchase Order' })).toBeInTheDocument()
   })
 
+  it('submits the persisted PO item IDs when saving an edited order', async () => {
+    mockParams.mockReturnValue({ orderNumber: 'PO-TEST' })
+    mockFetchPurchaseOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        id: 'po-test-id',
+        supplierId: 'supplier-1',
+        orderDate: '2026-03-01T00:00:00.000Z',
+        shippingAmount: 0,
+        items: [
+          {
+            id: 'po-item-1',
+            lineNumber: 1,
+            productId: 'product-1',
+            product: { id: 'product-1', name: 'Alpha Widget', baseCost: 11 },
+            quantity: 1,
+            unitPrice: 11,
+            discountType: 'percentage',
+            discountPercent: 0,
+            discountAmount: 0,
+            totalAmount: 11,
+          },
+        ],
+      }),
+    })
+    mockUpdatePurchaseOrder.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
+
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>,
+    )
+
+    await screen.findByRole('heading', { name: 'Edit Purchase Order' })
+    await userEvent.click(screen.getByRole('button', { name: /update order/i }))
+
+    await waitFor(() => expect(mockUpdatePurchaseOrder).toHaveBeenCalledTimes(1))
+    const payload = mockUpdatePurchaseOrder.mock.calls[0][0].data
+    expect(payload.items[0].id).toBe('po-item-1')
+  })
+
   it('shows the backend message and an update-specific fallback when an edit submit fails', async () => {
     mockParams.mockReturnValue({ orderNumber: 'PO-TEST' })
     mockFetchPurchaseOrder.mockReturnValue({

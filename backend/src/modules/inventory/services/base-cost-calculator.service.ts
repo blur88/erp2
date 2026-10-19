@@ -267,6 +267,7 @@ export class BaseCostCalculatorService {
     receivedDate: Date,
     manager?: EntityManager,
     occurrenceId?: string,
+    purchaseOrderItemId?: string,
   ): Promise<{ landedCost: number; receivedQuantity: number; batchId: string }> {
     const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
     const landedCost = Number(unitCost) + Number(shippingPerUnit);
@@ -280,6 +281,7 @@ export class BaseCostCalculatorService {
       productId,
       purchaseOrderId: purchaseOrderId ?? undefined,
       occurrenceId,
+      purchaseOrderItemId,
       unitCost,
       shippingPerUnit,
       landedCost,
