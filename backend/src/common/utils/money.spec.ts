@@ -173,6 +173,22 @@ describe('allocateCents', () => {
   it('returns no shares when there are no lines', () => {
     expect(allocateCents(10000n, [])).toEqual([]);
   });
+
+  it('rejects a target that is not an exact cent amount', () => {
+    expect(() => allocateCents(10001n, [1n])).toThrow(/whole number of cents/i);
+  });
+
+  it('does not allocate the remainder to a zero-weight line', () => {
+    expect(allocateCents(100n, [1n, 1n, 0n])).toEqual([0n, 100n, 0n]);
+  });
+
+  it('rejects non-zero allocations without a positive weight', () => {
+    expect(() => allocateCents(100n, [0n, 0n])).toThrow(/no positive weights/i);
+  });
+
+  it('rejects negative weights instead of treating them as positive', () => {
+    expect(() => allocateCents(100n, [1n, -1n])).toThrow(/negative weight/i);
+  });
 });
 
 describe('reconcileToCents', () => {

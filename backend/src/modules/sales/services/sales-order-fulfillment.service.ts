@@ -1,6 +1,6 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Product } from '../../../database/entities/product.entity';
 import {
@@ -10,6 +10,10 @@ import {
 import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { StockBatchConsumption } from '../../../database/entities/stock-batch-consumption.entity';
+import {
+  StockMovementValuationGap,
+  StockMovementValuationGapStatus,
+} from '../../../database/entities/stock-movement-valuation-gap.entity';
 import { JournalEntry } from '../../accounting/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../accounting/entities/journal-entry-line.entity';
 import { createOccurrence } from '../../inventory/services/stock-occurrence';
@@ -22,6 +26,7 @@ import { SettingsService } from '../../settings/settings.service';
 import {
   UNFULFILL_EVIDENCE_INCOMPLETE,
   UNFULFILL_PRE_RECORDING,
+  UNFULFILL_VALUATION_GAP,
 } from '../../inventory/stock-undo-unavailable';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
@@ -114,6 +119,22 @@ export class SalesOrderFulfillmentService {
       }));
       const plans = await this.baseCostCalculator.planConsumption(manager, plannedLines);
 
+      for (const plan of plans) {
+        const actualBatchQuantityMinor = plan.consumptions.reduce(
+          (sum, consumption) => sum + consumption.quantityMinor,
+          0n,
+        );
+        if (
+          actualBatchQuantityMinor !== plan.coveredQuantityMinor ||
+          actualBatchQuantityMinor + plan.uncoveredQuantityMinor !== plan.requestedQuantityMinor ||
+          plan.uncoveredQuantityMinor < 0n
+        ) {
+          throw new Error(
+            `Fulfilment provenance does not reconcile for product ${plan.productId}`,
+          );
+        }
+      }
+
       let cogsScale8 = 0n;
       for (const plan of plans) {
         cogsScale8 += plan.totalScale8;
@@ -147,9 +168,10 @@ export class SalesOrderFulfillmentService {
         );
       }
 
+      const gapRepo = manager.getRepository(StockMovementValuationGap);
       for (let i = 0; i < plans.length; i += 1) {
         const plan = plans[i];
-        await this.inventoryIntegrationService.adjustStock(
+        const adjusted = await this.inventoryIntegrationService.adjustStock(
           plan.productId,
           -Number(formatScale4(plan.requestedQuantityMinor)),
           `Sales order fulfillment: ${order.orderNumber}`,
@@ -161,6 +183,22 @@ export class SalesOrderFulfillmentService {
           plan,
           formatScale4(allocatedMinor[i] ?? 0n),
         );
+        if (plan.uncoveredQuantityMinor > 0n) {
+          await gapRepo.save(
+            gapRepo.create({
+              movementId: adjusted.movementId,
+              quantity: formatScale4(plan.uncoveredQuantityMinor),
+              valueScale8: '0.00000000',
+              status: StockMovementValuationGapStatus.UNVALUED_GAP,
+            }),
+          );
+        }
+      }
+
+      if (plans.some((plan) => plan.uncoveredQuantityMinor > 0n)) {
+        await manager.getRepository(StockOccurrence).update(occurrence.id, {
+          hasValuationGap: true,
+        });
       }
 
       await manager.getRepository(SalesOrder).update(id, {
@@ -258,16 +296,80 @@ export class SalesOrderFulfillmentService {
         throw new ConflictException(UNFULFILL_PRE_RECORDING);
       }
 
-      const saleMovements = await this.loadSaleMovements(manager, occurrence.id);
-      const restoration = await this.assessRestorationEvidence(manager, occurrence, saleMovements);
-
-      const now = new Date();
-
-      // Lock every affected product once, ascending, before any write.
+      // The order row is locked first. Discover product IDs, lock all products
+      // ascending, then discover/lock all batch IDs ascending. Reload evidence
+      // after those locks and complete eligibility checks before any writes.
+      let saleMovements = await this.loadSaleMovements(manager, occurrence.id);
       const productIds = [...new Set(saleMovements.map((m) => m.productId))].sort();
       for (const productId of productIds) {
         await lockProductForStockUpdate(manager, Product, productId);
       }
+
+      const consumptionRepo = manager.getRepository(StockBatchConsumption);
+      const gapRepo = manager.getRepository(StockMovementValuationGap);
+      const movementIds = saleMovements.map((movement) => movement.id);
+      const initialConsumptions = movementIds.length
+        ? await consumptionRepo.find({ where: { movementId: In(movementIds) } as any })
+        : [];
+      const batchIds = [...new Set(initialConsumptions.map((row) => row.batchId))].sort();
+      if (batchIds.length > 0) {
+        await manager.getRepository(PurchaseCostHistory).find({
+          where: { id: In(batchIds) } as any,
+          order: { id: 'ASC' },
+          lock: { mode: 'pessimistic_write' },
+        });
+      }
+
+      const lockedOccurrence = await manager.getRepository(StockOccurrence).findOne({
+        where: { id: occurrence.id } as any,
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedOccurrence) throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+      saleMovements = await this.loadSaleMovements(manager, lockedOccurrence.id);
+      if (saleMovements.length !== movementIds.length) {
+        throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+      }
+
+      const lockedMovementIds = saleMovements.map((movement) => movement.id);
+      const consumptions = lockedMovementIds.length
+        ? await consumptionRepo.find({ where: { movementId: In(lockedMovementIds) } as any })
+        : [];
+      const valuationGaps = lockedMovementIds.length
+        ? await gapRepo.find({ where: { movementId: In(lockedMovementIds) } as any })
+        : [];
+      const consumptionsByMovement = new Map<string, StockBatchConsumption[]>();
+      for (const consumption of consumptions) {
+        const rows = consumptionsByMovement.get(consumption.movementId) ?? [];
+        rows.push(consumption);
+        consumptionsByMovement.set(consumption.movementId, rows);
+      }
+      const gapsByMovement = new Map(valuationGaps.map((gap) => [gap.movementId, gap]));
+
+      for (const movement of saleMovements) {
+        const consumedMinor = (consumptionsByMovement.get(movement.id) ?? []).reduce(
+          (sum, row) => sum + toMinorUnits(String(row.quantity)),
+          0n,
+        );
+        const gapMinor = toMinorUnits(String(gapsByMovement.get(movement.id)?.quantity ?? '0'));
+        const movedMinor = toMinorUnits(String(movement.quantity).replace('-', ''));
+        if (consumedMinor + gapMinor !== movedMinor) {
+          throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+        }
+      }
+
+      if (lockedOccurrence.hasValuationGap !== (valuationGaps.length > 0)) {
+        throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+      }
+      if (lockedOccurrence.hasValuationGap) {
+        throw new ConflictException(UNFULFILL_VALUATION_GAP);
+      }
+
+      const restoration = await this.assessRestorationEvidence(
+        manager,
+        lockedOccurrence,
+        saleMovements,
+      );
+      const now = new Date();
 
       // The reversal occurrence is created first so every reversal movement and
       // restored batch can be traced to it.
@@ -457,6 +559,8 @@ export class SalesOrderFulfillmentService {
         sourceEventId: occurrence.id,
         reversalOfEntryId: IsNull(),
       } as any,
+      order: { id: 'ASC' },
+      lock: { mode: 'pessimistic_write' },
     });
     const revenueOriginal = originals.find(
       (e) => e.postingType === PostingType.SALES_FULFILLMENT_REVENUE,

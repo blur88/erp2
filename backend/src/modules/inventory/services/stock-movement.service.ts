@@ -187,6 +187,7 @@ export class StockMovementService {
       .createQueryBuilder('movement')
       .leftJoinAndSelect('movement.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('movement.valuationGap', 'valuationGap')
       .where('movement.deletedAt IS NULL');
 
     // Apply filters
@@ -593,6 +594,13 @@ export class StockMovementService {
       newBalance: Number(movement.newBalance),
       unitValue: movement.unitValue ? Number(movement.unitValue) : undefined,
       totalValue: movement.totalValue ? Number(movement.totalValue) : undefined,
+      valuationGap: movement.valuationGap
+        ? {
+            quantity: Number(movement.valuationGap.quantity),
+            valueScale8: String(movement.valuationGap.valueScale8),
+            status: movement.valuationGap.status,
+          }
+        : undefined,
       referenceType: movement.referenceType,
       referenceId: movement.referenceId,
       referenceNumber,

@@ -1794,7 +1794,7 @@ export class ProductService extends BaseCrudService<
           if (existingProduct) {
             if (importDto.updateExisting) {
               // Update existing product
-              await this.update(existingProduct.id, productData as UpdateProductDto, 'system');
+              await this.update(existingProduct.id, productData as UpdateProductDto, undefined, 'system');
               result.updatedCount++;
               result.importedProductIds.push(existingProduct.id);
               result.warnings.push({
@@ -1820,7 +1820,7 @@ export class ProductService extends BaseCrudService<
             }
           } else {
             // Create new product
-            const createdProduct = await this.create(productData as CreateProductDto, 'system');
+            const createdProduct = await this.create(productData as CreateProductDto, undefined, 'system');
             result.successCount++;
             result.importedProductIds.push(createdProduct.id);
           }
@@ -2119,7 +2119,7 @@ export class ProductService extends BaseCrudService<
       type: normalizedType,
       categoryId,
       baseCost,
-      stockQuantity: parseNumber(row.stockquantity, 'stockQuantity') || 0,
+      stockQuantity: parseNumber(row.stockquantity, 'stockQuantity'),
       notes: row.notes?.trim() || undefined,
       isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true,
     };

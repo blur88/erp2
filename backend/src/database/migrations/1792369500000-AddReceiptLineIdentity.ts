@@ -48,6 +48,27 @@ export class AddReceiptLineIdentity1792369500000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    const evidence: {
+      movement_line_count: string;
+      batch_line_count: string;
+      versioned_receipt_count: string;
+    }[] = await queryRunner.query(`
+      SELECT
+        (SELECT count(*)::text FROM "stock_movements" WHERE "purchaseOrderItemId" IS NOT NULL) AS movement_line_count,
+        (SELECT count(*)::text FROM "purchase_cost_history" WHERE "purchaseOrderItemId" IS NOT NULL) AS batch_line_count,
+        (SELECT count(*)::text FROM "stock_occurrences" WHERE "receiptEvidenceVersion" IS NOT NULL) AS versioned_receipt_count
+    `);
+    const counts = evidence[0];
+    if (
+      BigInt(counts.movement_line_count) > 0n ||
+      BigInt(counts.batch_line_count) > 0n ||
+      BigInt(counts.versioned_receipt_count) > 0n
+    ) {
+      throw new Error(
+        'Cannot revert AddReceiptLineIdentity: receipt-line identity evidence would be lost.',
+      );
+    }
+
     await queryRunner.query(`DROP INDEX "public"."UQ_purchase_cost_history_occurrence_item"`);
     await queryRunner.query(
       `ALTER TABLE "purchase_cost_history" DROP CONSTRAINT "CHK_purchase_cost_history_receipt_line_occurrence"`,

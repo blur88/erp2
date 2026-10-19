@@ -236,7 +236,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         discountValue:
           discountType === 'percentage'
             ? item.discountPercent || 0
-            : item.discountAmount || 0,
+            : (Number(item.discountAmount) || 0) / (Number(item.quantity) || 1),
         discountPercent: item.discountPercent || 0,
         totalPrice: item.totalAmount || 0,
       }
@@ -633,4 +633,3 @@ const CreatePurchaseOrderPage: React.FC = () => {
 }
 
 export default CreatePurchaseOrderPage
-

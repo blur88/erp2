@@ -108,6 +108,11 @@ export interface StockMovement {
   newBalance: number;
   unitValue?: number;
   totalValue?: number;
+  valuationGap?: {
+    quantity: number;
+    valueScale8: string;
+    status: 'unvalued_gap';
+  };
   referenceType?: string;
   referenceId?: string;
   referenceNumber?: string;

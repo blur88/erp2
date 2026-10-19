@@ -12,6 +12,7 @@ import {
   VendorPayment,
 } from '../../../database/entities';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { Product } from '../../../database/entities/product.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
@@ -246,6 +247,7 @@ describe('PurchaseOrderLifecycleService', () => {
             getRepository: (entity: any) => {
               if (entity === PurchaseOrder) return poRepo;
               if (entity === PurchaseOrderItem) return itemRepo;
+              if (entity === Product) return { findOne: (jest.fn as any)().mockResolvedValue({ id: 'product-1', stockQuantity: 0 }) };
               return { create: (jest.fn as any)().mockReturnValue({ id: 'occ-1' }), save: (jest.fn as any)().mockResolvedValue({ id: 'occ-1' }), update: (jest.fn as any)().mockResolvedValue(undefined) };
             },
           }),
@@ -317,6 +319,7 @@ describe('PurchaseOrderLifecycleService', () => {
           getRepository: (entity: any) => {
 if (entity === PurchaseOrder) return poRepo;
               if (entity === PurchaseOrderItem) return itemRepo;
+              if (entity === Product) return { findOne: (jest.fn as any)().mockResolvedValue({ id: 'product-1', stockQuantity: 0 }) };
               return { create: (jest.fn as any)().mockReturnValue({ id: 'occ-1' }), save: (jest.fn as any)().mockResolvedValue({ id: 'occ-1' }), update: (jest.fn as any)().mockResolvedValue(undefined) };
           },
         }),
@@ -364,6 +367,57 @@ if (entity === PurchaseOrder) return poRepo;
       expect(result.receivedDate).toBeInstanceOf(Date);
     });
 
+    it('locks all receipt products in ascending ID order before writing movements', async () => {
+      const lockOrder: string[] = [];
+      const readyOrder = {
+        ...mockOrder,
+        status: PurchaseOrderStatus.READY,
+        items: [
+          {
+            id: 'po-item-z', productId: 'product-z', lineNumber: 1,
+            quantity: 1, unitCost: 5, totalAmount: 5, receivedQuantity: 0,
+          },
+          {
+            id: 'po-item-a', productId: 'product-a', lineNumber: 2,
+            quantity: 1, unitCost: 5, totalAmount: 5, receivedQuantity: 0,
+          },
+        ],
+        subtotal: 10,
+        shippingAmount: 0,
+        supplier: { companyName: 'Acme' },
+      } as any;
+      const poRepo = {
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(readyOrder),
+        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      };
+      const itemRepo = { update: (jest.fn as unknown as any)().mockResolvedValue(undefined) };
+      const stockOccurrenceRepo = {
+        create: (jest.fn as unknown as any)().mockReturnValue({ id: 'occ-1' }),
+        save: (jest.fn as unknown as any)().mockResolvedValue({ id: 'occ-1' }),
+      };
+      const productRepo = {
+        findOne: (jest.fn as unknown as any)().mockImplementation(async (options: any) => {
+          const productId = options.where.id;
+          lockOrder.push(productId);
+          return { id: productId, stockQuantity: 0 };
+        }),
+      };
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb({
+          getRepository: (entity: any) => {
+            if (entity === PurchaseOrder) return poRepo;
+            if (entity === PurchaseOrderItem) return itemRepo;
+            if (entity === Product) return productRepo;
+            return stockOccurrenceRepo;
+          },
+        }),
+      );
+
+      await service.receive('po-1', 'user-1', 'admin');
+
+      expect(lockOrder).toEqual(['product-a', 'product-z']);
+    });
+
     it('capitalizes inventory at the NET (after-discount) unit cost so GL matches the subledger', async () => {
       // unitCost 10, but line total 80 for qty 10 -> 20% line discount -> net 8/unit.
       // The GL entry debits inventory from item.totalAmount (80), so the cost
@@ -397,6 +451,7 @@ if (entity === PurchaseOrder) return poRepo;
           getRepository: (entity: any) => {
 if (entity === PurchaseOrder) return poRepo;
               if (entity === PurchaseOrderItem) return itemRepo;
+              if (entity === Product) return { findOne: (jest.fn as any)().mockResolvedValue({ id: 'product-1', stockQuantity: 0 }) };
               return { create: (jest.fn as any)().mockReturnValue({ id: 'occ-1' }), save: (jest.fn as any)().mockResolvedValue({ id: 'occ-1' }), update: (jest.fn as any)().mockResolvedValue(undefined) };
           },
         }),
@@ -473,6 +528,7 @@ if (entity === PurchaseOrder) return poRepo;
           getRepository: (entity: any) => {
             if (entity === PurchaseOrder) return poRepo;
             if (entity === PurchaseOrderItem) return itemRepo;
+            if (entity === Product) return { findOne: (jest.fn as any)().mockResolvedValue({ id: 'product-1', stockQuantity: 0 }) };
             return {
               create: (jest.fn as any)().mockReturnValue({ id: 'occ-1' }),
               save: (jest.fn as any)().mockResolvedValue({ id: 'occ-1' }),

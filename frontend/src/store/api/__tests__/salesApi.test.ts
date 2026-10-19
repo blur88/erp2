@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import api from '@/services/api';
+import { inventoryApiSlice } from '@/store/api/inventoryApi';
 import { salesApiSlice } from '@/store/api/salesApi';
+import { createTestStore } from '@/test/createTestStore';
+
+vi.mock('@/services/api', () => ({ default: vi.fn() }));
+
+afterEach(() => vi.clearAllMocks());
 
 describe('salesApiSlice', () => {
   it('defines consolidated sales endpoints', () => {
@@ -23,5 +30,17 @@ describe('salesApiSlice', () => {
 
     expect(names.length).toBeGreaterThan(0);
     expect(names.filter((name) => /delete|restore/i.test(name))).toEqual([]);
+  });
+
+  it('invalidates product and stock movement data after unfulfill', async () => {
+    vi.mocked(api).mockResolvedValue({ data: { data: { id: 'order-1' } } } as any);
+    const store = createTestStore({ apis: [salesApiSlice, inventoryApiSlice] });
+    const invalidateTags = vi.spyOn(inventoryApiSlice.util, 'invalidateTags');
+
+    await store.dispatch(
+      salesApiSlice.endpoints.unfulfillSalesOrder.initiate({ id: 'order-1', reason: 'correction' }),
+    );
+
+    expect(invalidateTags).toHaveBeenCalledWith(['Product', 'StockMovement']);
   });
 });

@@ -43,9 +43,9 @@ afterAll(async () => {
 });
 
 describe('preflight-stock-correction-path.sql', () => {
-  it('is a read-only script with five labelled result sets', async () => {
+  it('is a read-only script with seven labelled result sets', async () => {
     const { statements } = preflightStatements();
-    expect(statements).toHaveLength(5);
+    expect(statements).toHaveLength(7);
 
     const expectedSections = [
       'order_counts',
@@ -53,6 +53,8 @@ describe('preflight-stock-correction-path.sql', () => {
       'stock_balance_reconciliation',
       'history_horizon_context',
       'product_stock_history',
+      'fulfilment_batch_coverage_exposure',
+      'valuation_gap_exposure',
     ];
 
     const runner: QueryRunner = ds.createQueryRunner();
@@ -65,6 +67,60 @@ describe('preflight-stock-correction-path.sql', () => {
         const rows = await runner.query(statement);
         if (rows.length > 0) expect(rows[0].section).toBe(expectedSections[index]);
       }
+    } finally {
+      await runner.rollbackTransaction();
+      await runner.release();
+    }
+  });
+
+  it('reports persisted partial and wholly unbatched valuation gaps by product', async () => {
+    const { statements } = preflightStatements();
+    const runner = ds.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      await runner.query(`CREATE TEMP TABLE products (id uuid, name text)`);
+      await runner.query(`CREATE TEMP TABLE stock_occurrences (id uuid, kind text)`);
+      await runner.query(`CREATE TEMP TABLE stock_movements (
+        id uuid, "productId" uuid, "occurrenceId" uuid, "movementType" text, quantity numeric
+      )`);
+      await runner.query(`CREATE TEMP TABLE stock_movement_valuation_gaps (
+        "movementId" uuid, quantity numeric, "valueScale8" numeric, status text
+      )`);
+      const productId = '00000000-0000-4000-8000-000000000201';
+      const partialOccurrenceId = '00000000-0000-4000-8000-000000000202';
+      const unbatchedOccurrenceId = '00000000-0000-4000-8000-000000000203';
+      const partialMovementId = '00000000-0000-4000-8000-000000000204';
+      const unbatchedMovementId = '00000000-0000-4000-8000-000000000205';
+      await runner.query(`INSERT INTO products VALUES ($1, 'Gap product')`, [productId]);
+      await runner.query(
+        `INSERT INTO stock_occurrences VALUES ($1, 'fulfilment'), ($2, 'fulfilment')`,
+        [partialOccurrenceId, unbatchedOccurrenceId],
+      );
+      await runner.query(
+        `INSERT INTO stock_movements VALUES
+          ($1, $2, $3, 'sale', -8), ($4, $2, $5, 'sale', -8)`,
+        [partialMovementId, productId, partialOccurrenceId, unbatchedMovementId, unbatchedOccurrenceId],
+      );
+      await runner.query(
+        `INSERT INTO stock_movement_valuation_gaps VALUES
+          ($1, 3, 0, 'unvalued_gap'), ($2, 8, 0, 'unvalued_gap')`,
+        [partialMovementId, unbatchedMovementId],
+      );
+      await runner.query('SET TRANSACTION READ ONLY');
+
+      const rows = await runner.query(statements[6]);
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        section: 'valuation_gap_exposure',
+        product_id: productId,
+        product_name: 'Gap product',
+        fulfillment_occurrences: '2',
+        sale_movements: '2',
+        uncovered_quantity: '11',
+        valuation_status: 'unvalued, recorded zero posted value is not known zero cost',
+      });
     } finally {
       await runner.rollbackTransaction();
       await runner.release();

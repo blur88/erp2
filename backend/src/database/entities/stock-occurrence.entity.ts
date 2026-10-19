@@ -15,6 +15,8 @@ import {
   IsString,
   IsEnum,
   MaxLength,
+  MinLength,
+  ValidateIf,
   IsDecimal,
   Min,
 } from 'class-validator';
@@ -37,6 +39,14 @@ export const RECEIPT_LINE_EVIDENCE_VERSION = 1;
 @Check(
   'CHK_stock_occurrence_receipt_evidence_version',
   '"receiptEvidenceVersion" IS NULL OR ("kind" = \'receipt\' AND "receiptEvidenceVersion" >= 1)',
+)
+@Check(
+  'CHK_stock_occurrence_valuation_gap_kind',
+  'NOT "hasValuationGap" OR "kind" = \'fulfilment\'',
+)
+@Check(
+  'CHK_stock_occurrence_reversal_reason_length',
+  '"kind" NOT IN (\'receipt_reversal\', \'fulfilment_reversal\') OR ("reason" IS NOT NULL AND char_length(btrim("reason")) BETWEEN 3 AND 500)',
 )
 @Index('UQ_stock_occurrence_reverses', ['reversesOccurrenceId'], {
   unique: true,
@@ -133,6 +143,13 @@ export class StockOccurrence {
   @Column({
     type: 'boolean',
     default: false,
+    comment: 'Whether this fulfillment contains unvalued stock provenance gaps',
+  })
+  hasValuationGap: boolean;
+
+  @Column({
+    type: 'boolean',
+    default: false,
     comment: 'Whether this occurrence refers to pre-deploy (legacy) data',
   })
   isLegacy: boolean;
@@ -151,8 +168,15 @@ export class StockOccurrence {
     nullable: true,
     comment: 'Reason for a reversal occurrence',
   })
-  @IsOptional()
+  @ValidateIf(
+    (occurrence: StockOccurrence) =>
+      occurrence.kind === StockOccurrenceKind.RECEIPT_REVERSAL ||
+      occurrence.kind === StockOccurrenceKind.FULFILMENT_REVERSAL ||
+      (occurrence.reason !== undefined && occurrence.reason !== null),
+  )
   @IsString()
+  @MinLength(3)
+  @MaxLength(500)
   reason?: string;
 
   @CreateDateColumn({

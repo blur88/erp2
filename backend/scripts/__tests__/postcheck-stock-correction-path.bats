@@ -57,9 +57,43 @@ setup() {
     psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
     -v ON_ERROR_STOP=1 \
     -f /fixture.sql \
-    -c 'DROP INDEX "UQ_stock_movement_occurrence_item"; CREATE UNIQUE INDEX "UQ_stock_movement_occurrence_item" ON stock_movements ("productId") WHERE "productSequence" IS NOT NULL;' \
+    -c 'DROP INDEX "UQ_stock_movement_occurrence_item"; CREATE UNIQUE INDEX "UQ_stock_movement_occurrence_item" ON stock_movements ("productSequence") WHERE "productSequence" IS NOT NULL;' \
     -f /postcheck.sql
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
+}
+
+@test "postcheck: occurrence marker inconsistent with valuation-gap rows fails" {
+  run docker run --rm -i --network host \
+    -e PGPASSWORD="$DB_PASSWORD" \
+    --mount "type=bind,source=$FIXTURE,target=/fixture.sql,readonly" \
+    --mount "type=bind,source=$SCRIPT,target=/postcheck.sql,readonly" \
+    postgres:18.3-alpine3.23 \
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
+    -v ON_ERROR_STOP=1 \
+    -f /fixture.sql \
+    -c 'UPDATE stock_occurrences SET "hasValuationGap" = false WHERE id = '\''00000000-0000-4000-8000-000000000009'\'';' \
+    -f /postcheck.sql
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
+  [[ "$output" == *"gap_marker_mismatch_count"* ]]
+}
+
+@test "postcheck: batch allocation plus gap quantity mismatch fails" {
+  run docker run --rm -i --network host \
+    -e PGPASSWORD="$DB_PASSWORD" \
+    --mount "type=bind,source=$FIXTURE,target=/fixture.sql,readonly" \
+    --mount "type=bind,source=$SCRIPT,target=/postcheck.sql,readonly" \
+    postgres:18.3-alpine3.23 \
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
+    -v ON_ERROR_STOP=1 \
+    -f /fixture.sql \
+    -c 'UPDATE stock_movement_valuation_gaps SET quantity = 2;' \
+    -f /postcheck.sql
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
+  [[ "$output" == *"gap_quantity_mismatch_count"* ]]
 }

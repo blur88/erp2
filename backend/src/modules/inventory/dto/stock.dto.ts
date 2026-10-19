@@ -203,6 +203,15 @@ export class StockMovementResponseDto {
   @ApiPropertyOptional({ description: 'Total value' })
   totalValue?: number;
 
+  @ApiPropertyOptional({
+    description: 'Unvalued batch-coverage gap; zero value means unknown valuation, not known zero cost',
+  })
+  valuationGap?: {
+    quantity: number;
+    valueScale8: string;
+    status: 'unvalued_gap';
+  };
+
   @ApiPropertyOptional({ description: 'Reference type' })
   referenceType?: string;
 

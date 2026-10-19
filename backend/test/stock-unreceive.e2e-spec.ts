@@ -261,10 +261,6 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
          )`,
         [or(documentIds), or(occurrenceIds)],
       );
-      await ds.query(
-        `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1) OR "sourceEventId" = ANY($2)`,
-        [or(documentIds), or(occurrenceIds)],
-      );
       const admins: { id: string }[] = await ds.query(`SELECT id FROM users WHERE username = $1`, [USERNAME]);
       await removeSuiteTraces(ds, {
         userIds: admins.map((r) => r.id),
@@ -277,6 +273,10 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
         supplierIds: [supplierId],
         productIds,
       });
+      await ds.query(
+        `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1) OR "sourceEventId" = ANY($2)`,
+        [or(documentIds), or(occurrenceIds)],
+      );
       await ds.query(`DELETE FROM document_number_settings WHERE "documentName" = 'Goods Received'`);
       await removeSuiteAdmin(ds, USERNAME);
     }

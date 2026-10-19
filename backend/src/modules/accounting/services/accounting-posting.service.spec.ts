@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { ConflictException } from '@nestjs/common';
 import { AccountingPostingService, assertBalanced } from './accounting-posting.service';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { JournalEntry } from '../entities/journal-entry.entity';
@@ -42,6 +43,28 @@ function makeService(saved: any[], findOneMap?: Record<string, any>) {
 }
 
 describe('AccountingPostingService', () => {
+  it('rejects journal companion posting types outside the expected-type allowlist', async () => {
+    const { svc } = makeService([]);
+    const manager = {
+      getRepository: () => ({ find: async () => [] }),
+    } as any;
+
+    await expect(
+      svc.reverseEntryForEvent(
+        {
+          sourceType: AccountingSourceType.PURCHASE_ORDER,
+          sourceDocumentId: 'po-1',
+          sourceEventId: 'receipt-1',
+          expectedPostingType: PostingType.PURCHASE_RECEIVE,
+          otherPostingTypes: [],
+          companionPostingTypes: [PostingType.SALES_FULFILLMENT_REVENUE],
+          entryDate: '2026-10-19',
+        },
+        manager,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('posts a balanced sales payment JE (Cash debit, Customer Deposit credit)', async () => {
     const saved: any[] = [];
     const { svc, manager } = makeService(saved);

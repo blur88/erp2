@@ -57,7 +57,7 @@ describe('BaseCostCalculatorService', () => {
     expect(find).toHaveBeenCalled();
   });
 
-  it('planConsumption refuses a line whose batches cannot cover it (#1406)', async () => {
+  it('planConsumption separates actual batch coverage from uncovered quantity', async () => {
     const batch = {
       id: 'b1',
       productId: 'product-1',
@@ -73,22 +73,63 @@ describe('BaseCostCalculatorService', () => {
       calculateBaseCost: (jest.fn as unknown as any)(),
     });
 
-    await expect(
-      service.planConsumption(manager, [{ productId: 'product-1', quantity: 5 }]),
-    ).rejects.toThrow(ConflictException);
+    const plans = await service.planConsumption(manager, [{ productId: 'product-1', quantity: 5 }]);
+
+    expect(plans[0]).toEqual(
+      expect.objectContaining({
+        requestedQuantityMinor: 50000n,
+        coveredQuantityMinor: 20000n,
+        uncoveredQuantityMinor: 30000n,
+        totalScale8: 1000000000n,
+      }),
+    );
+    expect(plans[0].consumptions).toEqual([
+      expect.objectContaining({ batchId: 'b1', quantityMinor: 20000n }),
+    ]);
   });
 
-  it('planConsumption treats a product with no batches as zero-cost (#1406)', async () => {
+  it('reports 5 actually covered units and 3 uncovered when fulfilling 8 units', async () => {
+    const batch = {
+      id: 'b1',
+      productId: 'product-1',
+      remainingQuantity: '5.0000',
+      landedCost: '5.0000',
+    };
+    const find = (jest.fn as unknown as any)().mockResolvedValue([batch]);
+    const manager = {
+      getRepository: (jest.fn as unknown as any)().mockReturnValue({ find, update: (jest.fn as unknown as any)() }),
+    } as any;
+    costingFactory.getActiveStrategy.mockResolvedValue({
+      determineBatchReduction: (jest.fn as unknown as any)().mockReturnValue([{ batchId: 'b1', quantity: 5 }]),
+      calculateBaseCost: (jest.fn as unknown as any)(),
+    });
+
+    const [plan] = await service.planConsumption(manager, [{ productId: 'product-1', quantity: 8 }]);
+
+    expect(plan.consumptions.map((row) => row.quantityMinor)).toEqual([50000n]);
+    expect(plan.coveredQuantityMinor).toBe(50000n);
+    expect(plan.uncoveredQuantityMinor).toBe(30000n);
+    expect(plan.totalScale8).toBe(2500000000n);
+  });
+
+  it('planConsumption treats 8 units with no batches as zero-cost but uncovered (#1406)', async () => {
     const find = (jest.fn as unknown as any)().mockResolvedValue([]);
     const manager = {
       getRepository: (jest.fn as unknown as any)().mockReturnValue({ find, update: (jest.fn as unknown as any)() }),
     } as any;
 
-    const plans = await service.planConsumption(manager, [{ productId: 'svc-1', quantity: 3 }]);
+    const plans = await service.planConsumption(manager, [{ productId: 'svc-1', quantity: 8 }]);
 
     expect(plans).toHaveLength(1);
     expect(plans[0].totalScale8).toBe(0n);
     expect(plans[0].consumptions).toEqual([]);
+    expect(plans[0]).toEqual(
+      expect.objectContaining({
+        requestedQuantityMinor: 80000n,
+        coveredQuantityMinor: 0n,
+        uncoveredQuantityMinor: 80000n,
+      }),
+    );
   });
 
   it('keys addStock batches by purchaseOrderId and returns persisted values', async () => {

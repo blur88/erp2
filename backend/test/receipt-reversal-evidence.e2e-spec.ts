@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import {
   seedCategory,
@@ -76,11 +76,12 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
   async function createPoWithLines(
     items: Array<{ productId: string; quantity: number; unitPrice: number }>,
     orderDate = '2026-09-01',
+    shippingAmount = 0,
   ): Promise<string> {
     const po = await request(app.getHttpServer())
       .post('/purchasing/orders')
       .set(auth())
-      .send({ supplierId, orderDate, items })
+      .send({ supplierId, orderDate, shippingAmount, items })
       .expect(201);
     const id = (po.body.data ?? po.body).id;
     ownedPoIds.push(id);
@@ -135,7 +136,8 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
     // the pre-deploy (legacy) shape.
     await ds.query(
       `UPDATE stock_movements SET "occurrenceId" = NULL, "productSequence" = NULL,
-              "purchaseOrderItemId" = NULL
+              "purchaseOrderItemId" = NULL,
+              "totalValue" = abs(quantity) * "unitValue"
         WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1`,
       [poId],
     );
@@ -182,25 +184,25 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
     createdAt?: string;
     movementDate?: string;
     referenceType?: string;
-  }): Promise<void> {
-    await ds.query(
-      `INSERT INTO stock_movements
-         ("movementType","movementDate",quantity,"previousBalance","newBalance","productId",
-          "productSequence","createdAt","updatedAt","referenceType","isActive")
-       VALUES ($1::stock_movements_movementtype_enum, $2, $3, $4, $5, $6, $7,
-               COALESCE($8::timestamptz, now()), now(), $9, true)`,
-      [
-        opts.type,
-        opts.movementDate ?? '2026-09-05',
-        opts.quantity,
-        opts.previousBalance,
-        opts.newBalance,
-        opts.productId,
-        opts.sequence == null ? null : opts.sequence.toString(),
-        opts.createdAt ?? null,
-        opts.referenceType ?? null,
-      ],
-    );
+  }, runner?: QueryRunner): Promise<void> {
+    const sql = `INSERT INTO stock_movements
+       ("movementType","movementDate",quantity,"previousBalance","newBalance","productId",
+        "productSequence","createdAt","updatedAt","referenceType","isActive")
+     VALUES ($1::stock_movements_movementtype_enum, $2, $3, $4, $5, $6, $7,
+             COALESCE($8::timestamptz, now()), now(), $9, true)`;
+    const values = [
+      opts.type,
+      opts.movementDate ?? '2026-09-05',
+      opts.quantity,
+      opts.previousBalance,
+      opts.newBalance,
+      opts.productId,
+      opts.sequence == null ? null : opts.sequence.toString(),
+      opts.createdAt ?? null,
+      opts.referenceType ?? null,
+    ];
+    if (runner) await runner.query(sql, values);
+    else await ds.query(sql, values);
   }
 
   async function setStock(productId: string, stockQuantity: number): Promise<void> {
@@ -323,6 +325,74 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
       expect(result.receipt.legacyEntryId).toBeTruthy();
       expect(result.receipt.lines[0].movementValueMinor).toBe(toMinorUnits('40.0000'));
     }
+  });
+
+  it('matches legacy movement value without shipping against landed batches and posted journal total', async () => {
+    const product = await newProduct();
+    const poId = await createPoWithLines(
+      [{ productId: product.id, quantity: 4, unitPrice: 10 }],
+      '2026-09-01',
+      12,
+    );
+    await receive(poId);
+    await makeLegacy(poId, '2026-09-01');
+
+    const [movement] = await ds.query(
+      `SELECT "totalValue"::text AS "totalValue" FROM stock_movements
+        WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1 AND quantity > 0`,
+      [poId],
+    );
+    const [batch] = await ds.query(
+      `SELECT round("receivedQuantity" * "landedCost", 4)::text AS "landedValue"
+         FROM purchase_cost_history WHERE "purchaseOrderId" = $1`,
+      [poId],
+    );
+    const [entry] = await ds.query(
+      `SELECT e.id FROM journal_entry e
+        WHERE e."sourceDocumentId" = $1 AND e."postingType" = 'PURCHASE_RECEIVE'`,
+      [poId],
+    );
+    const [journal] = await ds.query(
+      `SELECT sum(debit)::text AS debit FROM journal_entry_line WHERE "entryId" = $1`,
+      [entry.id],
+    );
+    expect(toMinorUnits(movement.totalValue)).toBe(toMinorUnits('40.0000'));
+    expect(toMinorUnits(batch.landedValue)).toBe(toMinorUnits('52.0000'));
+    expect(toMinorUnits(journal.debit)).toBe(toMinorUnits('52.00'));
+
+    const result = await assess(poId, product, 4, '2026-09-01', new Date('2026-08-01T00:00:00Z'));
+    expect(result.ok).toBe(true);
+  });
+
+  it('refuses a legacy receipt when an individual historical movement balance does not add up', async () => {
+    const product = await newProduct(2);
+    await insertMovement({
+      productId: product.id,
+      type: 'initial_stock',
+      quantity: 2,
+      previousBalance: 0,
+      newBalance: 2,
+      createdAt: '2026-08-31T00:00:00.000Z',
+      movementDate: '2026-08-31',
+    });
+    const poId = await createPo(product.id, 4, 10);
+    await receive(poId);
+    await makeLegacy(poId, '2026-09-01');
+
+    const [receiptMovement] = await ds.query(
+      `SELECT id FROM stock_movements
+        WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1 AND "movementType" = 'purchase_receipt'`,
+      [poId],
+    );
+    await ds.query(`UPDATE stock_movements SET "newBalance" = 3 WHERE "productId" = $1 AND "movementType" = 'initial_stock'`, [product.id]);
+    await ds.query(`UPDATE stock_movements SET "previousBalance" = 3, "newBalance" = 7 WHERE id = $1`, [receiptMovement.id]);
+    await setStock(product.id, 7);
+
+    const result = await assess(poId, product, 4, '2026-09-01', new Date('2026-08-01T00:00:00Z'));
+    expect(result).toEqual({
+      ok: false,
+      message: RECEIPT_PRE_RECORDING(`a stock movement balance for ${product.name} is inconsistent`),
+    });
   });
 
   it('refuses a legacy receipt with no evidence horizon', async () => {
@@ -516,11 +586,71 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
       type: 'adjustment_increase',
       quantity: 1,
       previousBalance: 0,
-      newBalance: 99,
+      newBalance: 1,
       sequence: null,
       createdAt: receiptRow.createdAt,
       movementDate: '2026-08-30',
     });
+
+    const result = await assess(poId, product, 3, '2026-09-01', new Date('2026-08-01T00:00:00Z'));
+    expect(result).toEqual({
+      ok: false,
+      message: RECEIPT_PRE_RECORDING(
+        `the order of ${product.name}'s earlier stock movements cannot be established`,
+      ),
+    });
+  });
+
+  it('refuses tied movement timestamps committed by independent transactions', async () => {
+    const product = await newProduct();
+    const poId = await createPo(product.id, 3, 10);
+    await receive(poId);
+    await makeLegacy(poId, '2026-09-01');
+    const receiptId = await receiptMovementId(poId);
+    const [receiptRow] = await ds.query(`SELECT "createdAt" FROM stock_movements WHERE id = $1`, [receiptId]);
+    const first = ds.createQueryRunner();
+    const second = ds.createQueryRunner();
+    await Promise.all([first.connect(), second.connect()]);
+    await Promise.all([first.startTransaction(), second.startTransaction()]);
+    try {
+      await Promise.all([
+        insertMovement(
+          {
+            productId: product.id,
+            type: 'adjustment_increase',
+            quantity: 1,
+            previousBalance: 3,
+            newBalance: 4,
+            sequence: null,
+            createdAt: receiptRow.createdAt,
+            movementDate: '2026-08-30',
+          },
+          first,
+        ),
+        insertMovement(
+          {
+            productId: product.id,
+            type: 'adjustment_decrease',
+            quantity: -1,
+            previousBalance: 3,
+            newBalance: 2,
+            sequence: null,
+            createdAt: receiptRow.createdAt,
+            movementDate: '2026-08-30',
+          },
+          second,
+        ),
+      ]);
+      await Promise.all([first.commitTransaction(), second.commitTransaction()]);
+    } catch (error) {
+      await Promise.all([
+        first.isTransactionActive ? first.rollbackTransaction() : Promise.resolve(),
+        second.isTransactionActive ? second.rollbackTransaction() : Promise.resolve(),
+      ]);
+      throw error;
+    } finally {
+      await Promise.all([first.release(), second.release()]);
+    }
 
     const result = await assess(poId, product, 3, '2026-09-01', new Date('2026-08-01T00:00:00Z'));
     expect(result).toEqual({

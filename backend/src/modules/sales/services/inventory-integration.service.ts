@@ -18,6 +18,7 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import type { ProductConsumptionPlan } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
 import { repoFor, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
+import { nextProductSequence } from '../../inventory/services/stock-occurrence';
 
 export interface StockItem {
   productId: string;
@@ -501,10 +502,7 @@ export class InventoryIntegrationService {
     }
     const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
     // Assign the per-product sequence under the product lock (#1406).
-    const rows = await manager.query(
-      `SELECT COALESCE(MAX("productSequence"), 0) + 1 AS seq FROM stock_movements WHERE "productId" = $1`,
-      [productId],
-    );
+    const productSequence = await nextProductSequence(manager, productId);
     const movement = stockMovementRepo.create({
       productId,
       quantity,
@@ -517,7 +515,7 @@ export class InventoryIntegrationService {
       movementDate: new Date(),
       occurrenceId,
       actorUserId: userId,
-      productSequence: String(rows[0].seq),
+      productSequence,
       totalValue: plannedTotalValue !== undefined ? Number(plannedTotalValue) : undefined,
     });
 

@@ -63,7 +63,14 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
       render: (m) => `${m.isInward ? '+' : '-'}${formatNumber(m.quantity)}`,
     },
     { header: 'Balance', align: 'right', width: '12%', render: (m) => formatNumber(m.newBalance) },
-    { header: 'Notes', width: '20%', render: (m) => m.notes ?? '—' },
+    {
+      header: 'Valuation gap',
+      width: '15%',
+      render: (m) => m.valuationGap
+        ? `Unvalued stock gap: ${formatNumber(m.valuationGap.quantity)}`
+        : '—',
+    },
+    { header: 'Notes', width: '15%', render: (m) => m.notes ?? '—' },
     {
       header: 'Action',
       align: 'right',

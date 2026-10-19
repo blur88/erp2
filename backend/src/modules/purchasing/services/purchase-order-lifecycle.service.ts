@@ -185,6 +185,13 @@ export class PurchaseOrderLifecycleService {
         (left, right) => left.lineNumber - right.lineNumber,
       );
 
+      // Hold every product lock in a stable order before any movement or batch
+      // write. Line order is a business presentation detail, not a lock order.
+      const productIds = [...new Set(items.map((item) => item.productId))].sort();
+      for (const productId of productIds) {
+        await lockProductForStockUpdate(manager, Product, productId);
+      }
+
       // Allocate shipping across the whole PO at once so the shares sum to the
       // PO shipping total exactly (#1241). Weights are line values on the same
       // net basis the GL posts from: item.totalAmount (after line discount).

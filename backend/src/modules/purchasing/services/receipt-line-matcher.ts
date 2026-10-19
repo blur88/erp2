@@ -130,7 +130,7 @@ function matchHistoricalReceiptLines<
   const candidates = items.map((item) =>
     movements.flatMap((movement) =>
       batches
-        .filter((costBatch) => matchesLine(purchaseOrderId, item, movement, costBatch))
+        .filter((costBatch) => matchesLine(purchaseOrderId, item, movement, costBatch, true))
         .map((costBatch) => ({ item, movement, batch: costBatch })),
     ),
   );
@@ -172,6 +172,7 @@ function matchesLine(
   item: ReceiptLineItem,
   movement: ReceiptMovementEvidence,
   batch: ReceiptBatchEvidence,
+  historical = false,
 ): boolean {
   if (
     item.purchaseOrderId !== purchaseOrderId ||
@@ -204,7 +205,11 @@ function matchesLine(
       quantity === batchQuantity &&
       movementUnitCost === batchUnitCost &&
       movementUnitCost === expectedUnitCost &&
-      batchLandedCost === batchUnitCost + batchShipping
+      batchLandedCost === batchUnitCost + batchShipping &&
+      (!historical ||
+        (movement.totalValue != null &&
+          toMinorUnits(movement.totalValue) ===
+            divideRoundHalfUp(movementQuantity * movementUnitCost, 10000n)))
     );
   } catch {
     return false;

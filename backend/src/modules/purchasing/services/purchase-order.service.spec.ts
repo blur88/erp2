@@ -363,6 +363,7 @@ describe('PurchaseOrderService', () => {
       poManagerRepo.findOne.mockResolvedValue(lockedOrder);
 
       const manager = {
+        query: (jest.fn as unknown as any)().mockResolvedValue([]),
         getRepository: (jest.fn as unknown as any)().mockImplementation((entity: any) => {
           if (entity === PurchaseOrder) return poManagerRepo;
           if (entity === PurchaseOrderItem) return itemManagerRepo;
@@ -460,6 +461,104 @@ describe('PurchaseOrderService', () => {
       const finalSave = savedOrders[savedOrders.length - 1];
       expect(finalSave.discountAmount).toBe(0);
       expect(finalSave.totalAmount).toBe('100.0000');
+    });
+
+    it('resubmits an unchanged fixed discount as a per-unit value', async () => {
+      const { itemManagerRepo, manager } = setupTxMocks({
+        lockedStatus: PurchaseOrderStatus.DRAFT,
+      });
+      const item = Object.assign(new PurchaseOrderItem(), {
+        id: 'line-1',
+        purchaseOrderId: 'po-1',
+        productId: 'product-1',
+        quantity: 3,
+        unitCost: 10,
+        discountType: 'fixed_amount',
+        discountPercent: 0,
+        discountAmount: 3,
+        totalAmount: 27,
+        receivedQuantity: 0,
+        lineNumber: 1,
+      });
+      itemManagerRepo.find.mockResolvedValue([item]);
+
+      await service.update('po-1', {
+        items: [
+          {
+            id: 'line-1',
+            productId: 'product-1',
+            quantity: 3,
+            unitPrice: 10,
+            discountType: 'fixed_amount',
+            discountAmount: 1,
+          },
+        ],
+      } as any);
+
+      expect(manager.query).toHaveBeenCalled();
+      expect(item.totalAmount).toBe(27);
+      expect(item.discountAmount).toBe(3);
+      expect(item.id).toBe('line-1');
+    });
+
+    it('preserves referenced line identity and refuses its removal or product reassignment', async () => {
+      const setup = setupTxMocks({ lockedStatus: PurchaseOrderStatus.DRAFT });
+      const item = Object.assign(new PurchaseOrderItem(), {
+        id: 'line-1',
+        purchaseOrderId: 'po-1',
+        productId: 'product-1',
+        quantity: 3,
+        unitCost: 10,
+        discountType: 'fixed_amount',
+        discountPercent: 0,
+        discountAmount: 3,
+        totalAmount: 27,
+        receivedQuantity: 0,
+        lineNumber: 1,
+      });
+      setup.itemManagerRepo.find.mockResolvedValue([item]);
+      setup.manager.query.mockResolvedValue([{ purchaseOrderItemId: 'line-1' }]);
+
+      await expect(service.update('po-1', { items: [] } as any)).rejects.toThrow(
+        /Cannot remove a purchase-order item with retained stock history/i,
+      );
+      await expect(
+        service.update('po-1', {
+          items: [{ id: 'line-1', productId: 'product-2', quantity: 3, unitPrice: 10 }],
+        } as any),
+      ).rejects.toThrow(/Cannot change the product of a purchase-order item with retained stock history/i);
+    });
+
+    it('allows an unreferenced line to be reassigned while retaining its supplied ID', async () => {
+      const { itemManagerRepo, manager } = setupTxMocks({
+        lockedStatus: PurchaseOrderStatus.DRAFT,
+      });
+      const retained = Object.assign(new PurchaseOrderItem(), {
+        id: 'line-1', purchaseOrderId: 'po-1', productId: 'product-1', quantity: 1,
+        unitCost: 10, discountType: 'percentage', discountPercent: 0,
+        discountAmount: 0, totalAmount: 10, receivedQuantity: 0, lineNumber: 1,
+      });
+      const unreferenced = Object.assign(new PurchaseOrderItem(), {
+        id: 'line-2', purchaseOrderId: 'po-1', productId: 'product-1', quantity: 1,
+        unitCost: 10, discountType: 'percentage', discountPercent: 0,
+        discountAmount: 0, totalAmount: 10, receivedQuantity: 0, lineNumber: 2,
+      });
+      itemManagerRepo.find.mockResolvedValue([retained, unreferenced]);
+      manager.query.mockResolvedValue([{ purchaseOrderItemId: 'line-1' }]);
+
+      await service.update('po-1', {
+        items: [
+          { id: 'line-1', productId: 'product-1', quantity: 1, unitPrice: 10 },
+          { id: 'line-2', productId: 'product-2', quantity: 1, unitPrice: 8 },
+        ],
+      } as any);
+
+      expect(itemManagerRepo.delete).not.toHaveBeenCalled();
+      expect(itemManagerRepo.save.mock.calls[0][0].map((line: PurchaseOrderItem) => line.id)).toEqual([
+        'line-1',
+        'line-2',
+      ]);
+      expect(unreferenced.productId).toBe('product-2');
     });
   });
 

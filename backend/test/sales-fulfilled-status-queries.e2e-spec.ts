@@ -186,6 +186,12 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
     const category = await seedCategory(ds, `fulfilled-metrics-${run}`);
     categoryId = category.id;
     product = await seedProduct(ds, category.id, { baseCost: 100, stockQuantity: 1000 });
+    await ds.query(
+      `INSERT INTO purchase_cost_history
+         ("productId", "unitCost", "shippingPerUnit", "landedCost", "receivedQuantity", "remainingQuantity", "receivedDate")
+       VALUES ($1, 100, 0, 100, 1000, 1000, now())`,
+      [product.id],
+    );
     paymentMethod = await seedPaymentMethod(ds);
     await seedDocumentNumberSettings(ds);
 

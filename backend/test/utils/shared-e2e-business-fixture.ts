@@ -176,6 +176,10 @@ export async function resetSuiteBusinessRows(
   const stockMovementScope =
     productIds.length || purchaseOrderIds.length;
   if (stockMovementScope) {
+    // Gap evidence is immutable even to targeted test cleanup. E2E suites use
+    // one serial, disposable database, so truncate this evidence-only table
+    // before removing its suite-owned movement rows.
+    await ds.query(`TRUNCATE TABLE stock_movement_valuation_gaps`);
     await ds.query(
       `DELETE FROM stock_batch_consumptions
         WHERE "movementId" IN (

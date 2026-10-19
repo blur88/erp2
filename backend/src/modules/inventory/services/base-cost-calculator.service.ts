@@ -19,6 +19,8 @@ export interface ConsumptionLine {
 export interface ProductConsumptionPlan {
   productId: string;
   requestedQuantityMinor: bigint;
+  coveredQuantityMinor: bigint;
+  uncoveredQuantityMinor: bigint;
   consumptions: ConsumptionLine[];
   totalScale8: bigint;
 }
@@ -176,20 +178,19 @@ export class BaseCostCalculatorService {
         });
       }
 
-      const coveredMinor = consumptions.reduce((sum, c) => sum + c.quantityMinor, 0n) + carryMinor;
-      // A product with no batches at all is zero-cost (e.g. a service); allow it.
-      // A product that HAS batches must be fully covered, or its provenance would
-      // not sum to the line and unfulfil could not restore it exactly.
-      if (batches.length > 0 && coveredMinor < requestedMinor) {
+      const coveredMinor = consumptions.reduce((sum, c) => sum + c.quantityMinor, 0n);
+      if (coveredMinor > requestedMinor) {
         throw new ConflictException(
-          `Cannot fulfill — insufficient recorded stock for product ${line.productId} ` +
-            `(need ${formatScale4(requestedMinor)}, have ${formatScale4(coveredMinor)})`,
+          `Fulfilment consumption plan over-allocates product ${line.productId} ` +
+            `(requested ${formatScale4(requestedMinor)}, covered ${formatScale4(coveredMinor)})`,
         );
       }
 
       plans.push({
         productId: line.productId,
         requestedQuantityMinor: requestedMinor,
+        coveredQuantityMinor: coveredMinor,
+        uncoveredQuantityMinor: requestedMinor - coveredMinor,
         consumptions,
         totalScale8,
       });

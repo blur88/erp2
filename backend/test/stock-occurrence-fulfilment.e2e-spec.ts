@@ -13,6 +13,8 @@ import {
 import { formatMoney, toMinorUnits } from '../src/common/utils/money';
 import { ACCOUNTING_POSTING_PORT } from '../src/common/accounting-posting/accounting-posting.port';
 import { SalesOrderFulfillmentService } from '../src/modules/sales/services/sales-order-fulfillment.service';
+import { StockMovementService } from '../src/modules/inventory/services/stock-movement.service';
+import { StockMovementType } from '../src/database/entities/stock-movement.entity';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
 import { SESSION_PROTOCOL } from './utils/session-protocol';
 import { resetSuiteBusinessRows } from './utils/shared-e2e-business-fixture';
@@ -41,6 +43,7 @@ describe('Stock occurrence — fulfilment (#1406, e2e)', () => {
   let ds: DataSource;
   let token: string;
   let fulfillment: SalesOrderFulfillmentService;
+  let stockMovementService: StockMovementService;
   let postingPort: any;
 
   let categoryId: string;
@@ -129,6 +132,7 @@ describe('Stock occurrence — fulfilment (#1406, e2e)', () => {
 
     ds = app.get(DataSource);
     fulfillment = app.get(SalesOrderFulfillmentService);
+    stockMovementService = app.get(StockMovementService);
     postingPort = app.get(ACCOUNTING_POSTING_PORT);
 
     await seedSuiteAdmin(ds, USERNAME);
@@ -312,11 +316,63 @@ describe('Stock occurrence — fulfilment (#1406, e2e)', () => {
     await fulfil(order.id);
 
     const [occurrence] = await ds.query(
-      `SELECT id, "postedAmount" FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'fulfilment'`,
+      `SELECT id, "postedAmount", "hasValuationGap" FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'fulfilment'`,
       [order.id],
     );
     expect(occurrence).toBeTruthy();
     expect(toMinorUnits(occurrence.postedAmount)).toBe(0n);
+    expect(occurrence.hasValuationGap).toBe(true);
+
+    const [movement] = await ds.query(
+      `SELECT id, quantity FROM stock_movements WHERE "occurrenceId" = $1 AND quantity < 0`,
+      [occurrence.id],
+    );
+    const [gap] = await ds.query(
+      `SELECT quantity, "valueScale8", status FROM stock_movement_valuation_gaps WHERE "movementId" = $1`,
+      [movement.id],
+    );
+    expect(toMinorUnits(gap.quantity)).toBe(toMinorUnits('1.0000'));
+    expect(gap.valueScale8).toBe('0.00000000');
+    expect(gap.status).toBe('unvalued_gap');
+    await expect(
+      ds.query(`UPDATE stock_occurrences SET "hasValuationGap" = false WHERE id = $1`, [
+        occurrence.id,
+      ]),
+    ).rejects.toThrow(/valuation.gap records do not agree with occurrence marker/i);
+
+    const before = {
+      stock: await stockOf(productC),
+      movements: Number((await ds.query(
+        `SELECT count(*)::int AS n FROM stock_movements WHERE "referenceId" = $1`,
+        [order.id],
+      ))[0].n),
+      journal: Number((await ds.query(
+        `SELECT count(*)::int AS n FROM journal_entry WHERE "sourceDocumentId" = $1`,
+        [order.id],
+      ))[0].n),
+      gapCount: Number((await ds.query(
+        `SELECT count(*)::int AS n FROM stock_movement_valuation_gaps WHERE "movementId" = $1`,
+        [movement.id],
+      ))[0].n),
+    };
+    await expect(
+      fulfillment.unfulfillOrder(order.id, 'customer requested cancellation'),
+    ).rejects.toThrow(/unvalued stock.*cannot be automatically unfulfilled/i);
+    const [orderState] = await ds.query(`SELECT status FROM sales_orders WHERE id = $1`, [order.id]);
+    expect(orderState.status).toBe('FULFILLED');
+    expect(await stockOf(productC)).toBe(before.stock);
+    expect(Number((await ds.query(
+      `SELECT count(*)::int AS n FROM stock_movements WHERE "referenceId" = $1`,
+      [order.id],
+    ))[0].n)).toBe(before.movements);
+    expect(Number((await ds.query(
+      `SELECT count(*)::int AS n FROM journal_entry WHERE "sourceDocumentId" = $1`,
+      [order.id],
+    ))[0].n)).toBe(before.journal);
+    expect(Number((await ds.query(
+      `SELECT count(*)::int AS n FROM stock_movement_valuation_gaps WHERE "movementId" = $1`,
+      [movement.id],
+    ))[0].n)).toBe(before.gapCount);
 
     const cogs = await ds.query(
       `SELECT id FROM journal_entry WHERE "sourceEventId" = $1 AND "postingType" = 'SALES_FULFILLMENT_COGS'`,
@@ -331,6 +387,103 @@ describe('Stock occurrence — fulfilment (#1406, e2e)', () => {
 
     // Service-style stock is still decremented.
     expect(await stockOf(productC)).toBe(4);
+  });
+
+  it('partially covered fulfillment records only the uncovered quantity as an unvalued gap', async () => {
+    // The earlier split-line fulfilment consumed 6 of the original 10 batch
+    // units, leaving 4. Receive 6 more so this case has 10 batch-backed units
+    // plus the 2 unbatched units below for its 12-unit order.
+    await createPo(productA, 6, 10);
+    await stockMovementService.create({
+      productId: productA,
+      movementType: StockMovementType.ADJUSTMENT_INCREASE,
+      quantity: 2,
+      reason: 'Unbatched stock for valuation-gap coverage',
+    } as any);
+    const order = await createPaidOrder([{ productId: productA, quantity: 12, unitPrice: 50 }]);
+
+    await fulfil(order.id);
+
+    const [occurrence] = await ds.query(
+      `SELECT id, "postedAmount", "hasValuationGap" FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'fulfilment'`,
+      [order.id],
+    );
+    expect(occurrence.hasValuationGap).toBe(true);
+    // Four remaining units are landed at 20 each and six new receipt units at
+    // 10 each: the actual batch-backed COGS remains 140.00; the two gap units
+    // contribute no posted COGS during the interim.
+    expect(toMinorUnits(occurrence.postedAmount)).toBe(toMinorUnits('140.00'));
+
+    const [movement] = await ds.query(
+      `SELECT id, quantity, "totalValue" FROM stock_movements WHERE "occurrenceId" = $1 AND quantity < 0`,
+      [occurrence.id],
+    );
+    const consumptions: { quantity: string; batchId: string }[] = await ds.query(
+      `SELECT quantity, "batchId" FROM stock_batch_consumptions WHERE "movementId" = $1`,
+      [movement.id],
+    );
+    const [gap] = await ds.query(
+      `SELECT quantity, "valueScale8", status FROM stock_movement_valuation_gaps WHERE "movementId" = $1`,
+      [movement.id],
+    );
+    const consumedMinor = consumptions.reduce((sum, row) => sum + toMinorUnits(row.quantity), 0n);
+    expect(consumedMinor).toBe(toMinorUnits('10.0000'));
+    expect(toMinorUnits(gap.quantity)).toBe(toMinorUnits('2.0000'));
+    expect(consumedMinor + toMinorUnits(gap.quantity)).toBe(toMinorUnits(movement.quantity.replace('-', '')));
+    expect(gap.valueScale8).toBe('0.00000000');
+    expect(gap.status).toBe('unvalued_gap');
+    expect(toMinorUnits(movement.totalValue)).toBe(toMinorUnits('140.00'));
+    expect(await stockOf(productA)).toBe(0);
+    await expect(
+      ds.query(
+        `INSERT INTO stock_batch_consumptions ("movementId", "batchId", quantity, "unitCost", "valueScale8")
+         VALUES ($1, $2, 0, 10, 0)`,
+        [movement.id, consumptions[0].batchId],
+      ),
+    ).rejects.toThrow(/CHK_stock_batch_consumptions_quantity_positive/i);
+    const historyResponse = await request(app.getHttpServer())
+      .get('/inventory/stock/movements')
+      .query({ productId: productA, page: 1, limit: 100 })
+      .set(auth())
+      .expect(200);
+    const historyRows = historyResponse.body?.data?.data ?? historyResponse.body?.data ?? [];
+    const saleHistoryRow = historyRows.find((row: any) => row.id === movement.id);
+    expect(saleHistoryRow.valuationGap).toMatchObject({
+      quantity: 2,
+      status: 'unvalued_gap',
+      valueScale8: '0.00000000',
+    });
+    await expect(
+      ds.query(`UPDATE stock_movement_valuation_gaps SET quantity = 1 WHERE "movementId" = $1`, [
+        movement.id,
+      ]),
+    ).rejects.toThrow(/valuation gaps are immutable/i);
+    await expect(
+      ds.query(`DELETE FROM stock_movement_valuation_gaps WHERE "movementId" = $1`, [movement.id]),
+    ).rejects.toThrow(/valuation gaps are immutable/i);
+
+    const journalBefore = Number((await ds.query(
+      `SELECT count(*)::int AS n FROM journal_entry WHERE "sourceDocumentId" = $1`,
+      [order.id],
+    ))[0].n);
+    const reversalCountBefore = Number((await ds.query(
+      `SELECT count(*)::int AS n FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'fulfilment_reversal'`,
+      [order.id],
+    ))[0].n);
+    await expect(
+      fulfillment.unfulfillOrder(order.id, 'partial unvalued gap refusal'),
+    ).rejects.toThrow(/unvalued stock.*cannot be automatically unfulfilled/i);
+    const [orderAfterRefusal] = await ds.query(`SELECT status FROM sales_orders WHERE id = $1`, [order.id]);
+    expect(orderAfterRefusal.status).toBe('FULFILLED');
+    expect(await stockOf(productA)).toBe(0);
+    expect(Number((await ds.query(
+      `SELECT count(*)::int AS n FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'fulfilment_reversal'`,
+      [order.id],
+    ))[0].n)).toBe(reversalCountBefore);
+    expect(Number((await ds.query(
+      `SELECT count(*)::int AS n FROM journal_entry WHERE "sourceDocumentId" = $1`,
+      [order.id],
+    ))[0].n)).toBe(journalBefore);
   });
 
   it('insufficient stock refuses the fulfilment and writes nothing', async () => {
@@ -354,6 +507,7 @@ describe('Stock occurrence — fulfilment (#1406, e2e)', () => {
   });
 
   it('a journal that cannot be reconciled rolls the whole fulfilment back', async () => {
+    await createPo(productA, 1, 10);
     const order = await createPaidOrder([{ productId: productA, quantity: 1, unitPrice: 50 }]);
     const stockBefore = await stockOf(productA);
 

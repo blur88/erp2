@@ -18,8 +18,10 @@ WITH expected_foreign_keys(name, source_table_name, source_column_name, target_t
     ('FK_060822dfc7623d639b8c187bdda', 'stock_movements', 'purchaseOrderItemId', 'purchase_order_items', 'id'),
     ('FK_54f778f185d6a7cec057169ce19', 'purchase_cost_history', 'purchaseOrderItemId', 'purchase_order_items', 'id'),
     ('FK_a803b54b23d2fb8c0fe7f5389f9', 'stock_occurrences', 'reversesOccurrenceId', 'stock_occurrences', 'id'),
+    ('FK_stock_occurrences_legacy_journal', 'stock_occurrences', 'legacyJournalEntryId', 'journal_entry', 'id'),
     ('FK_7a90005ab332be99fb12c7d6c84', 'stock_batch_consumptions', 'movementId', 'stock_movements', 'id'),
-    ('FK_51f795684690dbcdee919a915f2', 'stock_batch_consumptions', 'batchId', 'purchase_cost_history', 'id')
+    ('FK_51f795684690dbcdee919a915f2', 'stock_batch_consumptions', 'batchId', 'purchase_cost_history', 'id'),
+    ('FK_stock_movement_valuation_gap_movement', 'stock_movement_valuation_gaps', 'movementId', 'stock_movements', 'id')
 ),
 foreign_key_check AS (
   SELECT count(DISTINCT expected.name)::int AS passing_count
@@ -85,6 +87,82 @@ unlinked_reversed_batches AS (
       OR (b."occurrenceId" IS NULL
         AND (o."isLegacy" IS NOT TRUE OR o."legacyJournalEntryId" IS NULL)))
 ),
+expected_gap_checks(name, table_name) AS (
+  VALUES
+    ('CHK_stock_occurrence_valuation_gap_kind', 'stock_occurrences'),
+    ('CHK_stock_movement_valuation_gap_quantity_positive', 'stock_movement_valuation_gaps'),
+    ('CHK_stock_movement_valuation_gap_value_zero', 'stock_movement_valuation_gaps'),
+    ('CHK_stock_movement_valuation_gap_status', 'stock_movement_valuation_gaps')
+),
+gap_check AS (
+  SELECT count(DISTINCT expected.name)::int AS passing_count
+  FROM expected_gap_checks expected
+  JOIN pg_constraint constraint_row ON constraint_row.conname = expected.name
+    AND constraint_row.contype = 'c'
+  JOIN pg_class table_class ON table_class.oid = constraint_row.conrelid
+    AND table_class.relname = expected.table_name
+),
+expected_gap_triggers(name, table_name) AS (
+  VALUES
+    ('trg_stock_movement_valuation_gap_immutable', 'stock_movement_valuation_gaps'),
+    ('trg_stock_occurrence_valuation_gap_consistency', 'stock_occurrences'),
+    ('trg_stock_movement_valuation_gap_consistency', 'stock_movement_valuation_gaps')
+),
+gap_trigger_check AS (
+  SELECT count(DISTINCT expected.name)::int AS passing_count
+  FROM expected_gap_triggers expected
+  JOIN pg_trigger trigger_row ON trigger_row.tgname = expected.name
+    AND NOT trigger_row.tgisinternal
+  JOIN pg_class table_class ON table_class.oid = trigger_row.tgrelid
+    AND table_class.relname = expected.table_name
+),
+expected_other_checks(name, table_name) AS (
+  VALUES
+    ('CHK_stock_occurrence_reversal_reason_length', 'stock_occurrences'),
+    ('CHK_stock_batch_consumptions_quantity_positive', 'stock_batch_consumptions')
+),
+other_check AS (
+  SELECT count(DISTINCT expected.name)::int AS passing_count
+  FROM expected_other_checks expected
+  JOIN pg_constraint constraint_row ON constraint_row.conname = expected.name
+    AND constraint_row.contype = 'c'
+  JOIN pg_class table_class ON table_class.oid = constraint_row.conrelid
+    AND table_class.relname = expected.table_name
+),
+valuation_gap_marker_mismatches AS (
+  SELECT count(*)::bigint AS violation_count
+  FROM stock_occurrences o
+  WHERE o."hasValuationGap" IS DISTINCT FROM EXISTS (
+    SELECT 1
+    FROM stock_movement_valuation_gaps g
+    JOIN stock_movements m ON m.id = g."movementId"
+    WHERE m."occurrenceId" = o.id
+  )
+),
+valuation_gap_invalid_rows AS (
+  SELECT count(*)::bigint AS violation_count
+  FROM stock_movement_valuation_gaps g
+  JOIN stock_movements m ON m.id = g."movementId"
+  JOIN stock_occurrences o ON o.id = m."occurrenceId"
+  WHERE g.quantity <= 0 OR g."valueScale8" <> 0 OR g.status <> 'unvalued_gap'
+     OR m."movementType"::text <> 'sale' OR m.quantity >= 0
+     OR o.kind::text <> 'fulfilment'
+),
+valuation_gap_quantity_mismatches AS (
+  SELECT count(*)::bigint AS violation_count
+  FROM stock_movements m
+  JOIN stock_occurrences o ON o.id = m."occurrenceId"
+  LEFT JOIN (
+    SELECT "movementId", sum(quantity)::numeric AS quantity
+    FROM stock_batch_consumptions
+    GROUP BY "movementId"
+  ) c ON c."movementId" = m.id
+  LEFT JOIN stock_movement_valuation_gaps g ON g."movementId" = m.id
+  WHERE m."movementType"::text = 'sale' AND m.quantity < 0
+    AND o.kind::text = 'fulfilment' AND o."isLegacy" IS NOT TRUE
+    AND (o."hasValuationGap" OR c.quantity IS NOT NULL OR g."movementId" IS NOT NULL)
+    AND abs(m.quantity)::numeric IS DISTINCT FROM (COALESCE(c.quantity, 0) + COALESCE(g.quantity, 0))::numeric
+),
 totals AS (
   SELECT
     (SELECT passing_count FROM foreign_key_check) AS passing_fks,
@@ -92,18 +170,38 @@ totals AS (
     (SELECT count(*)::int FROM expected_foreign_keys) AS expected_fks,
     (SELECT count(*)::int FROM expected_indexes) AS expected_indexes,
     (SELECT violation_count FROM orphan_provenance) AS orphan_provenance_count,
-    (SELECT violation_count FROM unlinked_reversed_batches) AS unlinked_reversed_batch_count
+    (SELECT violation_count FROM unlinked_reversed_batches) AS unlinked_reversed_batch_count,
+    (SELECT passing_count FROM gap_check) AS passing_gap_checks,
+    (SELECT count(*)::int FROM expected_gap_checks) AS expected_gap_checks,
+    (SELECT passing_count FROM gap_trigger_check) AS passing_gap_triggers,
+    (SELECT count(*)::int FROM expected_gap_triggers) AS expected_gap_triggers,
+    (SELECT passing_count FROM other_check) AS passing_other_checks,
+    (SELECT count(*)::int FROM expected_other_checks) AS expected_other_checks,
+    (SELECT violation_count FROM valuation_gap_marker_mismatches) AS gap_marker_mismatch_count,
+    (SELECT violation_count FROM valuation_gap_invalid_rows) AS invalid_gap_row_count,
+    (SELECT violation_count FROM valuation_gap_quantity_mismatches) AS gap_quantity_mismatch_count
 )
 SELECT CASE
          WHEN passing_fks = expected_fks
-          AND passing_indexes = expected_indexes
-          AND orphan_provenance_count = 0
-          AND unlinked_reversed_batch_count = 0
+           AND passing_indexes = expected_indexes
+           AND orphan_provenance_count = 0
+           AND unlinked_reversed_batch_count = 0
+           AND passing_gap_checks = expected_gap_checks
+           AND passing_gap_triggers = expected_gap_triggers
+           AND passing_other_checks = expected_other_checks
+           AND gap_marker_mismatch_count = 0
+           AND invalid_gap_row_count = 0
+           AND gap_quantity_mismatch_count = 0
          THEN 'stock-correction postcheck: PASS'
          ELSE 'stock-correction postcheck: FAIL'
        END AS result,
        passing_fks, expected_fks, passing_indexes, expected_indexes,
-       orphan_provenance_count, unlinked_reversed_batch_count
+        orphan_provenance_count, unlinked_reversed_batch_count,
+        passing_gap_checks, expected_gap_checks,
+        passing_gap_triggers, expected_gap_triggers,
+        passing_other_checks, expected_other_checks,
+        gap_marker_mismatch_count, invalid_gap_row_count,
+        gap_quantity_mismatch_count
 FROM totals;
 
 ROLLBACK;

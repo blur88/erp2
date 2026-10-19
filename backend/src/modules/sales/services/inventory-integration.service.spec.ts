@@ -47,6 +47,8 @@ describe('InventoryIntegrationService', () => {
       service.adjustStock('p1', -2, 'Sales order fulfillment: SO-1', 'order-1', 'user-1', undefined, manager, undefined, {
         productId: 'p1',
         requestedQuantityMinor: 20000n,
+        coveredQuantityMinor: 0n,
+        uncoveredQuantityMinor: 20000n,
         totalScale8: 0n,
         consumptions: [],
       }),

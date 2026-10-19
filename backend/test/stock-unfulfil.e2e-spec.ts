@@ -475,8 +475,8 @@ describe('Stock unfulfil — restore recorded provenance (#1406, e2e)', () => {
 
     await expect(
       ds.query(
-        `INSERT INTO stock_occurrences (kind, "documentType", "documentId", "occurredAt", "reversesOccurrenceId", "isLegacy")
-         VALUES ('fulfilment_reversal', 'sales_order', $1, now(), $2, false)`,
+        `INSERT INTO stock_occurrences (kind, "documentType", "documentId", "occurredAt", "reversesOccurrenceId", "isLegacy", reason)
+         VALUES ('fulfilment_reversal', 'sales_order', $1, now(), $2, false, 'duplicate reversal test')`,
         [order.id, live],
       ),
     ).rejects.toThrow(/23505|UQ_stock_occurrence_reverses/);
@@ -554,9 +554,15 @@ describe('Stock unfulfil — restore recorded provenance (#1406, e2e)', () => {
     expect(await stockOf(productId)).toBe(4);
   });
 
-  it('unfulfils a zero-cost order with no COGS reversal', async () => {
+  it('unfulfils a zero-cost batch-backed order with no COGS reversal', async () => {
     const product = await newProduct();
-    await ds.query(`UPDATE products SET "stockQuantity" = 5 WHERE id = $1`, [product]); // no batches
+    await ds.query(`UPDATE products SET "stockQuantity" = 5 WHERE id = $1`, [product]);
+    await ds.query(
+      `INSERT INTO purchase_cost_history
+         ("productId", "unitCost", "shippingPerUnit", "landedCost", "receivedQuantity", "remainingQuantity", "receivedDate")
+       VALUES ($1, 0, 0, 0, 5, 5, now())`,
+      [product],
+    );
     const order = await newOrder([{ productId: product, quantity: 1, unitPrice: 50 }]);
     await fulfil(order.id);
     const [live] = await liveFulfilmentOrderIds(order.id);
@@ -620,6 +626,24 @@ describe('Stock unfulfil — restore recorded provenance (#1406, e2e)', () => {
       .send({ reason: 'ab' })
       .expect(400);
     expect(JSON.stringify(short.body.message)).toContain('A reason of 3 to 500 characters is required');
+
+    const whitespace = await request(app.getHttpServer())
+      .post(`/sales-orders/${order.id}/unfulfill`)
+      .set(auth())
+      .send({ reason: '   ' })
+      .expect(400);
+    expect(JSON.stringify(whitespace.body.message)).toContain(
+      'A reason of 3 to 500 characters is required',
+    );
+
+    const overlong = await request(app.getHttpServer())
+      .post(`/sales-orders/${order.id}/unfulfill`)
+      .set(auth())
+      .send({ reason: 'x'.repeat(501) })
+      .expect(400);
+    expect(JSON.stringify(overlong.body.message)).toContain(
+      'A reason of 3 to 500 characters is required',
+    );
 
     // Nothing changed by the refused attempts.
     expect(await liveFulfilmentOrderIds(order.id)).toHaveLength(1);

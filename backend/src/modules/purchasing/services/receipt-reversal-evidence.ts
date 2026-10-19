@@ -164,6 +164,18 @@ function latestReceiptMovement(lines: MovementRow[]): MovementRow | null {
   }).at(-1) as MovementRow;
 }
 
+function movementBalancesAreConsistent(movements: MovementRow[]): boolean {
+  try {
+    return movements.every(
+      (movement) =>
+        toMinorUnits(movement.previousBalance) + toMinorUnits(movement.quantity) ===
+        toMinorUnits(movement.newBalance),
+    );
+  } catch {
+    return false;
+  }
+}
+
 const MISMATCH = () =>
   ({ ok: false, message: RECEIPT_PRE_RECORDING('its stock records do not match its receipt entry') }) as const;
 
@@ -213,6 +225,7 @@ async function assessOccurrenceReceipt(
     `SELECT ${MOVEMENT_SELECT} FROM stock_movements WHERE "occurrenceId" = $1`,
     [occurrence.id],
   );
+  if (!movementBalancesAreConsistent(movements)) return MISMATCH();
   const batches: BatchRow[] = await manager.query(
     `SELECT id, "purchaseOrderId", "productId", "purchaseOrderItemId",
             "receivedQuantity"::text AS "receivedQuantity", "remainingQuantity"::text AS "remainingQuantity",
@@ -335,6 +348,7 @@ async function assessLegacyReceipt(
       WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1 AND "movementType" = 'purchase_receipt'`,
     [po.id],
   );
+  if (!movementBalancesAreConsistent(movements)) return MISMATCH();
 
   const lineMatch = matchReceiptLines(null, po.id, items, movements, batches);
   if (lineMatch.status !== 'matched') return MISMATCH();
@@ -342,12 +356,14 @@ async function assessLegacyReceipt(
   const lines: ReceiptReversalLine[] = [];
   let expectedScale8 = 0n;
   let movementTotalMinor = 0n;
+  let purchaseOrderLineTotalMinor = 0n;
   for (const { item, movement, batch } of lineMatch.lines) {
     if (!item.product) return MISMATCH();
     const qtyMinor = toMinorUnits(batch.receivedQuantity);
     const landedMinor = toMinorUnits(batch.landedCost);
     expectedScale8 += qtyMinor * landedMinor;
     movementTotalMinor += toMinorUnits(movement.totalValue ?? '0');
+    purchaseOrderLineTotalMinor += toMinorUnits(String(item.totalAmount));
     lines.push({
       productId: item.productId,
       productName: item.product.name,
@@ -361,8 +377,7 @@ async function assessLegacyReceipt(
 
   if (
     quantizeToCents((expectedScale8 + 5000n) / 10000n) !== entryDebitMinor ||
-    movementTotalMinor !== entryDebitMinor ||
-    !receiptMovementValuesMatchLines(lineMatch.lines, entryDebitMinor)
+    movementTotalMinor !== purchaseOrderLineTotalMinor
   ) {
     return MISMATCH();
   }
@@ -425,6 +440,13 @@ async function assessLegacyChain(
       ORDER BY "createdAt" ASC, id ASC`,
     [productId],
   );
+  if (!movementBalancesAreConsistent(rows)) {
+    return {
+      refusal: RECEIPT_PRE_RECORDING(
+        `a stock movement balance for ${productName} is inconsistent`,
+      ),
+    };
+  }
   const legacy = rows.filter((r) => r.productSequence == null);
   if (legacy.length === 0) return { refusal: breakMsg };
   for (let i = 1; i < legacy.length; i += 1) {

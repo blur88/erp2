@@ -6,6 +6,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   PrimaryGeneratedColumn,
+  Check,
 } from 'typeorm';
 import {
   IsUUID,
@@ -21,6 +22,7 @@ import {
  * scale-8 value. Used to restore stock exactly on unfulfil.
  */
 @Entity('stock_batch_consumptions')
+@Check('CHK_stock_batch_consumptions_quantity_positive', '"quantity" > 0')
 export class StockBatchConsumption {
   @PrimaryGeneratedColumn('uuid')
   @IsOptional()

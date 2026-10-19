@@ -84,6 +84,26 @@ describe('StockMovementsTab', () => {
     expect(screen.getByText('first batch')).toBeInTheDocument()
   })
 
+  it('marks uncovered fulfillment quantity as an unvalued stock gap', () => {
+    movements = [
+      makeMovement({
+        movementType: StockMovementType.SALE,
+        isInward: false,
+        isOutward: true,
+        referenceType: 'sales_order',
+        valuationGap: {
+          quantity: 2,
+          valueScale8: '0.00000000',
+          status: 'unvalued_gap',
+        },
+      }),
+    ]
+
+    renderTab()
+
+    expect(screen.getByText('Unvalued stock gap: 2')).toBeInTheDocument()
+  })
+
   it('navigates to the sales order detail when View is clicked', async () => {
     movements = [
       makeMovement({

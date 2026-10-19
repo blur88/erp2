@@ -290,7 +290,6 @@ const CreateProductPage: React.FC = () => {
         type: data.type,
         categoryId: data.categoryId,
         baseCost: data.baseCost !== undefined && data.baseCost !== null ? Number(data.baseCost) : 0,
-        stockQuantity: data.type === 'Stocked Product' ? (data.stockQuantity !== undefined && data.stockQuantity !== null ? Number(data.stockQuantity) : 0) : 0,
         notes: data.notes || '',
         isActive: data.isActive,
       }
@@ -301,7 +300,10 @@ const CreateProductPage: React.FC = () => {
         const response = await updateProduct({ id: editingProductId, data: productData }).unwrap()
         productId = response?.id ?? editingProductId
       } else {
-        const response = await createProduct(productData).unwrap()
+        const stockQuantity = data.type === 'Stocked Product'
+          ? (data.stockQuantity !== undefined && data.stockQuantity !== null ? Number(data.stockQuantity) : 0)
+          : 0
+        const response = await createProduct({ ...productData, stockQuantity }).unwrap()
         productId = response?.id
       }
 

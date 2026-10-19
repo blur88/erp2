@@ -3,6 +3,7 @@ import {
   Column,
   Index,
   ManyToOne,
+  OneToOne,
   JoinColumn,
   BeforeInsert,
   Check,
@@ -181,6 +182,9 @@ export class StockMovement extends BaseEntity {
   @ManyToOne('StockOccurrence', { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'occurrenceId' })
   occurrence?: any;
+
+  @OneToOne('StockMovementValuationGap', 'movement')
+  valuationGap?: any;
 
   @Column({
     type: 'uuid',

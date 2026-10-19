@@ -45,6 +45,11 @@ export function assertBalanced(
   }
 }
 
+const APPROVED_EVENT_COMPANIONS: Partial<Record<PostingType, readonly PostingType[]>> = {
+  [PostingType.SALES_FULFILLMENT_REVENUE]: [PostingType.SALES_FULFILLMENT_COGS],
+  [PostingType.SALES_FULFILLMENT_COGS]: [PostingType.SALES_FULFILLMENT_REVENUE],
+};
+
 @Injectable()
 export class AccountingPostingService implements AccountingPostingPort {
   constructor(
@@ -462,6 +467,23 @@ export class AccountingPostingService implements AccountingPostingPort {
     cmd: ReverseEntryForEventCmd,
     manager: EntityManager,
   ): Promise<ReverseEntryForEventResult> {
+    const requestedCompanions = cmd.companionPostingTypes ?? [];
+    const approvedCompanions = APPROVED_EVENT_COMPANIONS[cmd.expectedPostingType] ?? [];
+    const unsupportedCompanion = requestedCompanions.find(
+      (type) => !approvedCompanions.includes(type),
+    );
+    if (unsupportedCompanion) {
+      throw new ConflictException({
+        message: {
+          text:
+            `Posting type ${unsupportedCompanion} is not an approved companion for ` +
+            `${cmd.expectedPostingType}`,
+          reason: 'unsupported_companion_posting_type',
+          sourceEventId: cmd.sourceEventId,
+        },
+      });
+    }
+
     const entryRepo = manager.getRepository(JournalEntry);
     // Originals only: a reversal row duplicates its original's
     // (sourceType, sourceEventId, postingType) and must not be a candidate —
@@ -474,7 +496,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       } as any,
     });
 
-    const companions = cmd.companionPostingTypes ?? [];
+    const companions = approvedCompanions;
     const conflicting = originals.find((o) =>
       o.postingType !== cmd.expectedPostingType &&
       !companions.includes(o.postingType as PostingType),

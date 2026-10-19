@@ -674,7 +674,7 @@ describe('ProductService pagination removal', () => {
       expect(updatePayload).not.toHaveProperty('stockQuantity');
     });
 
-    it('reports a CSV row stock edit as an error and leaves the existing product unchanged', async () => {
+    it('treats a blank CSV stock cell as unspecified when updating an existing product', async () => {
       const existing = createProduct('p1', { type: ProductType.GOODS, stockQuantity: 5 });
       const lockedProductRepository = {
         findOne: (jest.fn as unknown as any)().mockResolvedValue(existing),
@@ -699,7 +699,7 @@ describe('ProductService pagination removal', () => {
           type: 'Stocked Product',
           categoryname: 'Import Category',
           basecost: '12.50',
-          stockquantity: '6',
+          stockquantity: '',
         },
       ]);
 
@@ -708,12 +708,42 @@ describe('ProductService pagination removal', () => {
         { format: 'csv', updateExisting: true, skipDuplicates: false } as any,
       );
 
-      expect(result.failureCount).toBe(1);
-      expect(result.updatedCount).toBe(0);
-      expect(result.errors[0]).toMatchObject({ row: 2, field: 'general' });
-      expect(result.errors[0].message).toMatch(/stock quantity/i);
+      expect(result.failureCount).toBe(0);
+      expect(result.updatedCount).toBe(1);
       expect(existing.stockQuantity).toBe(5);
-      expect(lockedProductRepository.update).not.toHaveBeenCalled();
+      expect(lockedProductRepository.update).toHaveBeenCalledWith(
+        'p1',
+        expect.not.objectContaining({ stockQuantity: expect.anything() }),
+      );
+    });
+
+    it('imports initial stock as a system actor without putting a sentinel in the UUID argument', async () => {
+      (service as any).categoryRepository.find = (jest.fn as unknown as any)().mockResolvedValue([
+        { id: 'category-1', name: 'Import Category', isActive: true },
+      ]);
+      productRepository.findOne.mockResolvedValue(null);
+      jest.spyOn(service as any, 'parseImportFile').mockResolvedValue([
+        {
+          name: 'Imported stock product',
+          type: 'Stocked Product',
+          categoryname: 'Import Category',
+          basecost: '12.50',
+          stockquantity: '8',
+        },
+      ]);
+      const create = jest.spyOn(service, 'create').mockResolvedValue({ id: 'imported-1' } as any);
+
+      const result = await service.importProducts(
+        { originalname: 'products.csv', buffer: Buffer.from('') } as any,
+        { format: 'csv', updateExisting: false, skipDuplicates: false } as any,
+      );
+
+      expect(result.successCount).toBe(1);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ stockQuantity: 8 }),
+        undefined,
+        'system',
+      );
     });
 
     const pgUnique = (constraint: string) => {

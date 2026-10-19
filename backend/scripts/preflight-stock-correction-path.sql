@@ -10,7 +10,9 @@
 -- Result sets (each has a `section` label): order counts; received PO rows whose
 -- legacy receipt shape does not match; products whose movement sum differs from
 -- stockQuantity; horizon context and unmatched correction audit/reversal rows;
--- products carrying batches or other stock history.
+-- products carrying batches or other stock history; and product quantities that
+-- exceed current cost-batch coverage (ordinary fulfillment remains enabled for
+-- these rows during the interim valuation-gap release).
 
 BEGIN READ ONLY;
 
@@ -254,6 +256,40 @@ LEFT JOIN batch_counts b ON b.product_id = p.id
 LEFT JOIN movement_counts m ON m.product_id = p.id
 WHERE COALESCE(b.batch_count, 0) > 0 OR COALESCE(m.movement_count, 0) > 0
 ORDER BY p.name, p.id;
+
+WITH batch_coverage AS (
+  SELECT "productId" AS product_id,
+         COALESCE(sum("remainingQuantity"), 0)::numeric AS batch_quantity,
+         count(*)::bigint AS batch_count
+  FROM purchase_cost_history
+  GROUP BY "productId"
+)
+SELECT 'fulfilment_batch_coverage_exposure' AS section,
+       p.id AS product_id,
+       p.name AS product_name,
+       p."stockQuantity"::numeric AS stock_quantity,
+       COALESCE(b.batch_quantity, 0)::numeric AS batch_quantity,
+       (p."stockQuantity"::numeric - COALESCE(b.batch_quantity, 0))::numeric AS uncovered_quantity,
+       COALESCE(b.batch_count, 0)::bigint AS cost_batch_count,
+       'uncovered valuation is unknown, value is not assumed to be zero'::text AS interpretation
+FROM products p
+LEFT JOIN batch_coverage b ON b.product_id = p.id
+WHERE p."stockQuantity"::numeric > COALESCE(b.batch_quantity, 0)::numeric
+ORDER BY uncovered_quantity DESC, p.name, p.id;
+
+SELECT 'valuation_gap_exposure' AS section,
+       p.id AS product_id,
+       p.name AS product_name,
+       count(DISTINCT o.id)::bigint AS fulfillment_occurrences,
+       count(DISTINCT m.id)::bigint AS sale_movements,
+       sum(g.quantity)::numeric AS uncovered_quantity,
+       'unvalued, recorded zero posted value is not known zero cost'::text AS valuation_status
+FROM stock_movement_valuation_gaps g
+JOIN stock_movements m ON m.id = g."movementId"
+JOIN stock_occurrences o ON o.id = m."occurrenceId"
+JOIN products p ON p.id = m."productId"
+GROUP BY p.id, p.name
+ORDER BY uncovered_quantity DESC, p.name, p.id;
 
 -- IMPORTANT: this context does not prove historical completeness. The dates
 -- above and the absence of detected gaps cannot establish complete history.

@@ -138,6 +138,10 @@ describe('Payment method posting matrix (e2e)', () => {
   afterAll(async () => {
     try {
       if (ds?.isInitialized) {
+        // Gap rows are immutable and RESTRICT their source movements. E2E uses
+        // one serial disposable database, so clear evidence before deleting
+        // the suite-owned movements.
+        await ds.query(`TRUNCATE TABLE stock_movement_valuation_gaps`);
         const documentIds = [...ownedSalesOrderIds, ...ownedPurchaseOrderIds];
         const occurrenceIds: string[] = documentIds.length
           ? (
