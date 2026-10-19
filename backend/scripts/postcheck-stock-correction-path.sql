@@ -38,13 +38,13 @@ foreign_key_check AS (
     AND constraint_row.conkey = ARRAY[source_column.attnum::smallint]
     AND constraint_row.confkey = ARRAY[target_column.attnum::smallint]
 ),
-expected_indexes(name, table_name) AS (
+expected_indexes(name, table_name, key_columns, normalized_predicate) AS (
   VALUES
-    ('UQ_stock_occurrence_reverses', 'stock_occurrences'),
-    ('UQ_stock_movement_reverses', 'stock_movements'),
-    ('UQ_stock_movement_product_sequence', 'stock_movements'),
-    ('UQ_stock_movement_occurrence_item', 'stock_movements'),
-    ('UQ_purchase_cost_history_occurrence_item', 'purchase_cost_history')
+    ('UQ_stock_occurrence_reverses', 'stock_occurrences', ARRAY['reversesOccurrenceId']::text[], 'reversesoccurrenceidisnotnull'),
+    ('UQ_stock_movement_reverses', 'stock_movements', ARRAY['reversesMovementId']::text[], 'reversesmovementidisnotnull'),
+    ('UQ_stock_movement_product_sequence', 'stock_movements', ARRAY['productId', 'productSequence']::text[], 'productsequenceisnotnull'),
+    ('UQ_stock_movement_occurrence_item', 'stock_movements', ARRAY['occurrenceId', 'purchaseOrderItemId']::text[], 'occurrenceidisnotnullandpurchaseorderitemidisnotnull'),
+    ('UQ_purchase_cost_history_occurrence_item', 'purchase_cost_history', ARRAY['occurrenceId', 'purchaseOrderItemId']::text[], 'occurrenceidisnotnullandpurchaseorderitemidisnotnull')
 ),
 index_check AS (
   SELECT count(DISTINCT expected.name)::int AS passing_count
@@ -54,7 +54,16 @@ index_check AS (
   JOIN pg_class table_class ON table_class.oid = index_row.indrelid
     AND table_class.relname = expected.table_name
     AND table_class.relnamespace = index_class.relnamespace
+  CROSS JOIN LATERAL (
+    SELECT array_agg(attribute.attname::text ORDER BY index_keys.ordinality) AS key_columns
+    FROM unnest(index_row.indkey::smallint[]) WITH ORDINALITY AS index_keys(attnum, ordinality)
+    JOIN pg_attribute attribute ON attribute.attrelid = table_class.oid
+      AND attribute.attnum = index_keys.attnum AND NOT attribute.attisdropped
+    WHERE index_keys.ordinality <= index_row.indnkeyatts
+  ) actual_index
   WHERE index_row.indisunique AND index_row.indpred IS NOT NULL
+    AND actual_index.key_columns = expected.key_columns
+    AND lower(regexp_replace(replace(pg_get_expr(index_row.indpred, index_row.indrelid), '"', ''), '[()[:space:]]', '', 'g')) = expected.normalized_predicate
 ),
 orphan_provenance AS (
   SELECT count(*)::bigint AS violation_count
