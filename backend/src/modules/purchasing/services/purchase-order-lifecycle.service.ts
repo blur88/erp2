@@ -421,7 +421,9 @@ export class PurchaseOrderLifecycleService {
           reversedAt: now,
           reversedByOccurrenceId: reversal.id,
         } as any)
-        .where('"purchaseOrderId" = :id', { id })
+        .where('"id" IN (:...batchIds)', {
+          batchIds: receipt.lines.map((line) => line.batchId),
+        })
         .execute();
 
       // Reverse the receipt entry: event-keyed for a new receipt, by entry id for

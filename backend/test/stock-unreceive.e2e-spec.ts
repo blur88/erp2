@@ -418,6 +418,8 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
     ]);
     const cycleMovementIds: string[][] = [];
     const stableItemIds: string[] = [];
+    const receiptIds: string[] = [];
+    const reversalByReceiptId = new Map<string, string>();
 
     for (let cycle = 0; cycle < 2; cycle += 1) {
       await receive(poId).expect(200);
@@ -434,6 +436,7 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
         [poId, receipt.id],
       );
       expect(receiptLines).toHaveLength(2);
+      receiptIds.push(receipt.id);
       if (cycle === 0) stableItemIds.push(...receiptLines.map((line) => line.itemId));
       expect(receiptLines.map((line) => line.itemId)).toEqual(stableItemIds);
       cycleMovementIds.push(receiptLines.map((line) => line.movementId));
@@ -444,6 +447,7 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
           ORDER BY "createdAt" DESC LIMIT 1`,
         [poId],
       );
+      reversalByReceiptId.set(receipt.id, reversal.id);
       const reversed: { purchaseOrderItemId: string; reversesMovementId: string }[] = await ds.query(
         `SELECT "purchaseOrderItemId", "reversesMovementId" FROM stock_movements
           WHERE "occurrenceId" = $1 ORDER BY "purchaseOrderItemId"`,
@@ -472,6 +476,19 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
     }
 
     expect(cycleMovementIds[0]).not.toEqual(cycleMovementIds[1]);
+    const batchHistory: {
+      occurrenceId: string;
+      reversedByOccurrenceId: string;
+    }[] = await ds.query(
+      `SELECT "occurrenceId", "reversedByOccurrenceId" FROM purchase_cost_history
+        WHERE "purchaseOrderId" = $1 AND "occurrenceId" = ANY($2)
+        ORDER BY "occurrenceId", "purchaseOrderItemId"`,
+      [poId, receiptIds],
+    );
+    expect(batchHistory).toHaveLength(4);
+    for (const batch of batchHistory) {
+      expect(batch.reversedByOccurrenceId).toBe(reversalByReceiptId.get(batch.occurrenceId));
+    }
     expect(await stockOf(product.id)).toBe(0);
     const [totals] = await ds.query(
       `SELECT sum(l.debit)::text AS debit, sum(l.credit)::text AS credit
