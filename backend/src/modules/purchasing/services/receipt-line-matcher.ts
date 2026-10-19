@@ -4,6 +4,7 @@ export interface ReceiptLineItem {
   id: string;
   purchaseOrderId: string;
   productId: string;
+  lineNumber?: number;
   quantity: string | number;
   totalAmount: string | number;
   product?: { name: string };

@@ -172,7 +172,9 @@ export async function assessReceiptReversal(
   po: PurchaseOrder,
   horizon: Date | null,
 ): Promise<ReceiptReversalAssessment> {
-  const items = (po.items ?? []) as ReceiptLineItem[];
+  const items = [...((po.items ?? []) as ReceiptLineItem[])].sort(
+    (left, right) => (left.lineNumber ?? 0) - (right.lineNumber ?? 0),
+  );
   if (items.length === 0) return MISMATCH();
 
   const live: {

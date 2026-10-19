@@ -181,7 +181,9 @@ export class PurchaseOrderLifecycleService {
 
       const receiveDate = new Date();
 
-      const items = purchaseOrder.items || [];
+      const items = [...(purchaseOrder.items || [])].sort(
+        (left, right) => left.lineNumber - right.lineNumber,
+      );
 
       // Allocate shipping across the whole PO at once so the shares sum to the
       // PO shipping total exactly (#1241). Weights are line values on the same

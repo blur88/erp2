@@ -108,7 +108,7 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
     horizon: Date | null,
   ) {
     const purchaseOrderItems = await ds.query(
-      `SELECT items.id, items."purchaseOrderId", items."productId",
+      `SELECT items.id, items."purchaseOrderId", items."productId", items."lineNumber",
               items.quantity::text AS quantity, items."totalAmount"::text AS "totalAmount"
          FROM purchase_order_items items
         WHERE items."purchaseOrderId" = $1
