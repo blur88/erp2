@@ -33,6 +33,10 @@ import type { PurchaseOrderItem } from './purchase-order-item.entity';
   'CHK_purchase_cost_history_reversed',
   '("reversedAt" IS NULL) = ("reversedByOccurrenceId" IS NULL)',
 )
+@Check(
+  'CHK_purchase_cost_history_receipt_line_occurrence',
+  '"purchaseOrderItemId" IS NULL OR "occurrenceId" IS NOT NULL',
+)
 export class PurchaseCostHistory extends BaseEntity {
   @Column({
     type: 'uuid',
@@ -157,7 +161,10 @@ export class PurchaseCostHistory extends BaseEntity {
   purchaseOrderItemId?: string;
 
   @ManyToOne('PurchaseOrderItem', { onDelete: 'RESTRICT', nullable: true })
-  @JoinColumn({ name: 'purchaseOrderItemId' })
+  @JoinColumn({
+    name: 'purchaseOrderItemId',
+    foreignKeyConstraintName: 'FK_54f778f185d6a7cec057169ce19',
+  })
   purchaseOrderItem?: PurchaseOrderItem;
 
   // Computed properties

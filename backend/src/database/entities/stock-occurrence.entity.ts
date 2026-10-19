@@ -2,6 +2,7 @@ import {
   Entity,
   Column,
   Index,
+  Check,
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
@@ -33,6 +34,10 @@ export const RECEIPT_LINE_EVIDENCE_VERSION = 1;
  * entries. Nothing here is ever deleted.
  */
 @Entity('stock_occurrences')
+@Check(
+  'CHK_stock_occurrence_receipt_evidence_version',
+  '"receiptEvidenceVersion" IS NULL OR ("kind" = \'receipt\' AND "receiptEvidenceVersion" >= 1)',
+)
 @Index('UQ_stock_occurrence_reverses', ['reversesOccurrenceId'], {
   unique: true,
   where: '"reversesOccurrenceId" IS NOT NULL',

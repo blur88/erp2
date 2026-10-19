@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   BeforeInsert,
+  Check,
 } from 'typeorm';
 import {
   IsString,
@@ -56,6 +57,10 @@ export enum StockMovementType {
  * Provides comprehensive audit trail for stock changes
  */
 @Entity('stock_movements')
+@Check(
+  'CHK_stock_movement_receipt_line_occurrence',
+  '"purchaseOrderItemId" IS NULL OR "occurrenceId" IS NOT NULL',
+)
 @Index(['productId'])
 @Index(['movementType'])
 @Index(['movementDate'])
@@ -187,7 +192,10 @@ export class StockMovement extends BaseEntity {
   purchaseOrderItemId?: string;
 
   @ManyToOne('PurchaseOrderItem', { onDelete: 'RESTRICT', nullable: true })
-  @JoinColumn({ name: 'purchaseOrderItemId' })
+  @JoinColumn({
+    name: 'purchaseOrderItemId',
+    foreignKeyConstraintName: 'FK_060822dfc7623d639b8c187bdda',
+  })
   purchaseOrderItem?: PurchaseOrderItem;
 
   @Column({
