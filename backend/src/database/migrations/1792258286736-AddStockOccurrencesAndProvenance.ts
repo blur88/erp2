@@ -48,6 +48,11 @@ export class AddStockOccurrencesAndProvenance1792258286736 implements MigrationI
         await queryRunner.query(`DROP INDEX "public"."UQ_stock_movement_product_sequence"`);
         await queryRunner.query(`DROP INDEX "public"."UQ_stock_movement_reverses"`);
         await queryRunner.query(`CREATE TYPE "public"."stock_movements_movementtype_enum_old" AS ENUM('purchase_receipt', 'sales_return', 'sale_reversal', 'production_receipt', 'transfer_in', 'adjustment_increase', 'initial_stock', 'sale', 'purchase_return', 'production_consumption', 'transfer_out', 'adjustment_decrease', 'damage', 'expiry', 'theft', 'loss', 'owner_drawing', 'owner_drawing_reversal')`);
+        // A receipt reversal has no direct pre-#1406 enum equivalent. On
+        // downgrade, preserve its negative stock movement as a generic decrease
+        // before narrowing the enum; occurrence/provenance metadata is removed
+        // later in this migration's down() path.
+        await queryRunner.query(`UPDATE "stock_movements" SET "movementType" = 'adjustment_decrease' WHERE "movementType" = 'purchase_receipt_reversal'`);
         await queryRunner.query(`ALTER TABLE "stock_movements" ALTER COLUMN "movementType" TYPE "public"."stock_movements_movementtype_enum_old" USING "movementType"::"text"::"public"."stock_movements_movementtype_enum_old"`);
         await queryRunner.query(`DROP TYPE "public"."stock_movements_movementtype_enum"`);
         await queryRunner.query(`ALTER TYPE "public"."stock_movements_movementtype_enum_old" RENAME TO "stock_movements_movementtype_enum"`);
