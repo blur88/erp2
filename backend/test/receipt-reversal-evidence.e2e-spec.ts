@@ -70,10 +70,17 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
     unitPrice: number,
     orderDate = '2026-09-01',
   ): Promise<string> {
+    return createPoWithLines([{ productId, quantity, unitPrice }], orderDate);
+  }
+
+  async function createPoWithLines(
+    items: Array<{ productId: string; quantity: number; unitPrice: number }>,
+    orderDate = '2026-09-01',
+  ): Promise<string> {
     const po = await request(app.getHttpServer())
       .post('/purchasing/orders')
       .set(auth())
-      .send({ supplierId, orderDate, items: [{ productId, quantity, unitPrice }] })
+      .send({ supplierId, orderDate, items })
       .expect(201);
     const id = (po.body.data ?? po.body).id;
     ownedPoIds.push(id);
@@ -96,11 +103,11 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
   async function assess(
     poId: string,
     product: { id: string; name: string },
-    quantity: number,
+    quantity: number | null,
     receivedDate: string,
     horizon: Date | null,
   ) {
-    const [purchaseOrder] = await ds.query(
+    const purchaseOrderItems = await ds.query(
       `SELECT items.id, items."purchaseOrderId", items."productId",
               items.quantity::text AS quantity, items."totalAmount"::text AS "totalAmount"
          FROM purchase_order_items items
@@ -113,7 +120,11 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
       {
         id: poId,
         receivedDate: new Date(`${receivedDate}T00:00:00Z`),
-        items: [{ ...purchaseOrder, quantity, product: { id: product.id, name: product.name } }],
+        items: purchaseOrderItems.map((item: any) => ({
+          ...item,
+          quantity: quantity ?? item.quantity,
+          product: { id: product.id, name: product.name },
+        })),
       } as any,
       horizon,
     );
@@ -265,6 +276,38 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
       expect(result.receipt.lines[0].productId).toBe(product.id);
       expect(result.receipt.lines[0].quantityMinor).toBe(toMinorUnits('5.0000'));
     }
+  });
+
+  it('refuses new receipts when line movement values are shifted but the receipt total still matches', async () => {
+    const product = await newProduct();
+    const poId = await createPoWithLines([
+      { productId: product.id, quantity: 1, unitPrice: 10 },
+      { productId: product.id, quantity: 1, unitPrice: 20 },
+    ]);
+    await receive(poId);
+
+    const movements: { id: string; totalValue: string }[] = await ds.query(
+      `SELECT id, "totalValue"::text AS "totalValue" FROM stock_movements
+        WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1
+          AND "movementType" = 'purchase_receipt'
+        ORDER BY id`,
+      [poId],
+    );
+    expect(movements).toHaveLength(2);
+    await ds.query(`UPDATE stock_movements SET "totalValue" = $2 WHERE id = $1`, [
+      movements[0].id,
+      movements[1].totalValue,
+    ]);
+    await ds.query(`UPDATE stock_movements SET "totalValue" = $2 WHERE id = $1`, [
+      movements[1].id,
+      movements[0].totalValue,
+    ]);
+
+    const result = await assess(poId, product, null, '2026-09-01', null);
+    expect(result).toEqual({
+      ok: false,
+      message: RECEIPT_PRE_RECORDING('its stock records do not match its receipt entry'),
+    });
   });
 
   it('a clean legacy receipt after the horizon is ok', async () => {

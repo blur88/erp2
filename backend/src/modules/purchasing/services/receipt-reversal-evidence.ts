@@ -1,6 +1,11 @@
 import { EntityManager } from 'typeorm';
 import type { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
-import { toMinorUnits, quantizeToCents, formatScale4 } from '../../../common/utils/money';
+import {
+  allocateCents,
+  toMinorUnits,
+  quantizeToCents,
+  formatScale4,
+} from '../../../common/utils/money';
 import {
   RECEIPT_BATCH_TOUCHED,
   RECEIPT_CHANGED_OUTSIDE_MOVEMENTS,
@@ -126,6 +131,31 @@ function groupReceiptLinesByProduct<T extends ReceiptLineMapping>(lines: T[]): M
   return groups;
 }
 
+function receiptMovementValuesMatchLines<
+  Item extends ReceiptLineItem,
+  Movement extends ReceiptMovementEvidence,
+  Batch extends ReceiptBatchEvidence,
+>(
+  lines: ReceiptLineMapping<Item, Movement, Batch>[],
+  postedMinor: bigint,
+): boolean {
+  try {
+    const lineAllocations = allocateCents(
+      postedMinor,
+      lines.map(
+        ({ batch }) => toMinorUnits(batch.receivedQuantity) * toMinorUnits(batch.landedCost),
+      ),
+    );
+    return lines.every(
+      (line, index) =>
+        line.movement.totalValue != null &&
+        toMinorUnits(line.movement.totalValue) === lineAllocations[index],
+    );
+  } catch {
+    return false;
+  }
+}
+
 function latestReceiptMovement(lines: MovementRow[]): MovementRow | null {
   if (lines.length === 0 || lines.some((line) => line.productSequence == null)) return null;
   return [...lines].sort((a, b) => {
@@ -232,6 +262,7 @@ async function assessOccurrenceReceipt(
   if (
     movementsTotalMinor !== postedMinor ||
     postedMinor !== entryDebitMinor ||
+    !receiptMovementValuesMatchLines(lineMatch.lines, postedMinor) ||
     quantizeToCents((batchValueScale8 + 5000n) / 10000n) !== entryDebitMinor
   ) {
     return MISMATCH();
@@ -328,7 +359,8 @@ async function assessLegacyReceipt(
 
   if (
     quantizeToCents((expectedScale8 + 5000n) / 10000n) !== entryDebitMinor ||
-    movementTotalMinor !== entryDebitMinor
+    movementTotalMinor !== entryDebitMinor ||
+    !receiptMovementValuesMatchLines(lineMatch.lines, entryDebitMinor)
   ) {
     return MISMATCH();
   }

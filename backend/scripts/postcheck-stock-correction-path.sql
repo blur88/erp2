@@ -1,6 +1,7 @@
 -- #1406 read-only postcheck. Any FAIL is a stop-and-investigate result.
 -- It verifies the restrictive stock-history FKs, partial uniqueness guards,
--- provenance referential integrity, and receipt reversal occurrence linkage.
+-- receipt-line identity guards, provenance referential integrity, and receipt
+-- reversal occurrence linkage.
 --
 --   docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
 --     < backend/scripts/postcheck-stock-correction-path.sql
@@ -14,6 +15,8 @@ WITH expected_foreign_keys(name, source_table_name, source_column_name, target_t
     ('FK_a3acb59db67e977be45e382fc56', 'stock_movements', 'productId', 'products', 'id'),
     ('FK_6e87ea9ab16010d08671f12b633', 'stock_movements', 'reversesMovementId', 'stock_movements', 'id'),
     ('FK_ac607027d537535d292b28f3854', 'stock_movements', 'occurrenceId', 'stock_occurrences', 'id'),
+    ('FK_060822dfc7623d639b8c187bdda', 'stock_movements', 'purchaseOrderItemId', 'purchase_order_items', 'id'),
+    ('FK_54f778f185d6a7cec057169ce19', 'purchase_cost_history', 'purchaseOrderItemId', 'purchase_order_items', 'id'),
     ('FK_a803b54b23d2fb8c0fe7f5389f9', 'stock_occurrences', 'reversesOccurrenceId', 'stock_occurrences', 'id'),
     ('FK_7a90005ab332be99fb12c7d6c84', 'stock_batch_consumptions', 'movementId', 'stock_movements', 'id'),
     ('FK_51f795684690dbcdee919a915f2', 'stock_batch_consumptions', 'batchId', 'purchase_cost_history', 'id')
@@ -39,7 +42,9 @@ expected_indexes(name, table_name) AS (
   VALUES
     ('UQ_stock_occurrence_reverses', 'stock_occurrences'),
     ('UQ_stock_movement_reverses', 'stock_movements'),
-    ('UQ_stock_movement_product_sequence', 'stock_movements')
+    ('UQ_stock_movement_product_sequence', 'stock_movements'),
+    ('UQ_stock_movement_occurrence_item', 'stock_movements'),
+    ('UQ_purchase_cost_history_occurrence_item', 'purchase_cost_history')
 ),
 index_check AS (
   SELECT count(DISTINCT expected.name)::int AS passing_count
