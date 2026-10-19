@@ -392,7 +392,6 @@ export class PurchaseOrderLifecycleService {
       // One reversal movement per receipt movement, inserted once with the
       // original's value and its quantity negated.
       for (const line of receipt.lines) {
-        const valueMinor = line.valueScale8 / 10000n;
         await this.stockMovementService.create(
           {
             productId: line.productId,
@@ -404,7 +403,7 @@ export class PurchaseOrderLifecycleService {
             occurrenceId: reversal.id,
             purchaseOrderItemId: line.purchaseOrderItemId,
             reversesMovementId: line.movementId,
-            totalValue: Number(formatScale4(valueMinor)),
+            totalValue: Number(formatScale4(line.movementValueMinor)),
           } as CreateStockMovementDto,
           userId,
           manager,

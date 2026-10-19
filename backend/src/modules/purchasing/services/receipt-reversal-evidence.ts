@@ -39,7 +39,7 @@ export interface ReceiptReversalLine {
   movementId: string;
   batchId: string;
   quantityMinor: bigint;
-  valueScale8: bigint;
+  movementValueMinor: bigint;
 }
 
 export type ReceiptReversalAssessment =
@@ -254,7 +254,7 @@ async function assessOccurrenceReceipt(
       movementId: movement.id,
       batchId: batch.id,
       quantityMinor,
-      valueScale8: quantityMinor * landedCostMinor,
+      movementValueMinor: toMinorUnits(movement.totalValue!),
     });
   }
 
@@ -353,7 +353,7 @@ async function assessLegacyReceipt(
       movementId: movement.id,
       batchId: batch.id,
       quantityMinor: qtyMinor,
-      valueScale8: qtyMinor * landedMinor,
+      movementValueMinor: toMinorUnits(movement.totalValue ?? '0'),
     });
   }
 

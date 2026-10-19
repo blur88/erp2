@@ -321,7 +321,7 @@ describe('Receipt-reversal evidence (#1406, e2e)', () => {
     if (result.ok) {
       expect(result.receipt.occurrenceId).toBeNull();
       expect(result.receipt.legacyEntryId).toBeTruthy();
-      expect(result.receipt.lines[0].valueScale8).toBe(toMinorUnits('4.0000') * toMinorUnits('10.0000'));
+      expect(result.receipt.lines[0].movementValueMinor).toBe(toMinorUnits('40.0000'));
     }
   });
 

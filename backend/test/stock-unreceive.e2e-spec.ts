@@ -91,11 +91,12 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
 
   async function createPoWithLines(
     lines: Array<{ productId: string; quantity: number; unitPrice: number }>,
+    shippingAmount = 0,
   ): Promise<string> {
     const po = await request(app.getHttpServer())
       .post('/purchasing/orders')
       .set(auth())
-      .send({ supplierId, orderDate: '2026-09-01', items: lines })
+      .send({ supplierId, orderDate: '2026-09-01', shippingAmount, items: lines })
       .expect(201);
     const order = po.body.data ?? po.body;
     ownedPoIds.push(order.id);
@@ -497,6 +498,46 @@ describe('Stock unreceive — reverse an evidenced receipt (#1406, e2e)', () => 
       [poId],
     );
     expect(toMinorUnits(totals.debit)).toBe(toMinorUnits(totals.credit));
+  });
+
+  it('reversal movement values exactly mirror receipt cent allocations with shared shipping', async () => {
+    const product = await newProduct();
+    const poId = await createPoWithLines(
+      [
+        { productId: product.id, quantity: 1, unitPrice: 10 },
+        { productId: product.id, quantity: 1, unitPrice: 10 },
+        { productId: product.id, quantity: 1, unitPrice: 10 },
+      ],
+      10,
+    );
+    await receive(poId).expect(200);
+
+    const [receipt] = await ds.query(
+      `SELECT id FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'receipt'`,
+      [poId],
+    );
+    await unreceive(poId).expect(200);
+    const [reversal] = await ds.query(
+      `SELECT id FROM stock_occurrences WHERE "documentId" = $1 AND kind = 'receipt_reversal'`,
+      [poId],
+    );
+    const movementValues: { originalValue: string; reversalValue: string }[] = await ds.query(
+      `SELECT original."totalValue"::text AS "originalValue",
+              reversal."totalValue"::text AS "reversalValue"
+         FROM stock_movements reversal
+         JOIN stock_movements original ON original.id = reversal."reversesMovementId"
+        WHERE reversal."occurrenceId" = $1 AND original."occurrenceId" = $2
+        ORDER BY original."purchaseOrderItemId"`,
+      [reversal.id, receipt.id],
+    );
+
+    expect(movementValues).toHaveLength(3);
+    expect(new Set(movementValues.map((line) => line.originalValue))).toEqual(
+      new Set(['13.3300', '13.3400']),
+    );
+    expect(movementValues.map((line) => line.reversalValue)).toEqual(
+      movementValues.map((line) => line.originalValue),
+    );
   });
 
   it('returns equal repeated-product receipt lines with one reversal per movement', async () => {
