@@ -26,6 +26,7 @@ const movement = (
 ): ReceiptMovementEvidence => ({
   id,
   productId,
+  movementType: 'purchase_receipt',
   purchaseOrderItemId: itemId,
   referenceType: 'purchase_order',
   referenceId: poId,
@@ -75,6 +76,22 @@ describe('matchReceiptLines', () => {
       [item('item-a', '2.0000', '20.0000')],
       [movement('move-a', null, '2.0000', '10.0000', '20.0000')],
       [batch('batch-a', null, '2.0000', '10.0000')],
+    );
+
+    expect(result.status).toBe('mismatch');
+  });
+
+  it('refuses a non-receipt movement even when its other receipt evidence matches', () => {
+    const wrongMovement = {
+      ...movement('move-a', 'item-a', '2.0000', '10.0000', '20.0000'),
+      movementType: 'damage',
+    };
+    const result = matchReceiptLines(
+      1,
+      poId,
+      [item('item-a', '2.0000', '20.0000')],
+      [wrongMovement],
+      [batch('batch-a', 'item-a', '2.0000', '10.0000')],
     );
 
     expect(result.status).toBe('mismatch');

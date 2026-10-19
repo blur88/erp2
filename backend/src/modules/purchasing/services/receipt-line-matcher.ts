@@ -12,6 +12,7 @@ export interface ReceiptLineItem {
 export interface ReceiptMovementEvidence {
   id: string;
   productId: string;
+  movementType: string;
   purchaseOrderItemId: string | null;
   referenceType: string | null;
   referenceId: string | null;
@@ -176,6 +177,7 @@ function matchesLine(
     item.productId !== movement.productId ||
     item.productId !== batch.productId ||
     batch.purchaseOrderId !== purchaseOrderId ||
+    movement.movementType !== 'purchase_receipt' ||
     movement.referenceType !== 'purchase_order' ||
     movement.referenceId !== purchaseOrderId ||
     movement.unitValue == null ||
