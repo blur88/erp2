@@ -4,8 +4,12 @@
 -- establish that the complete stock history is present.
 --
 -- Run against the target database before deploying #1405/#1406:
---   docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+--   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
 --     < backend/scripts/preflight-stock-correction-path.sql
+--
+-- -X skips any psqlrc so startup configuration cannot affect execution. Exit 0
+-- means the report was generated, not that deployment is approved: reported
+-- discrepancies still need review and a recorded disposition.
 --
 -- Result sets (each has a `section` label): order counts; received PO rows whose
 -- legacy receipt shape does not match; products whose movement sum differs from

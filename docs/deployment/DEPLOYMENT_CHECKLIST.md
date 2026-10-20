@@ -274,9 +274,14 @@ against the target database and retain all seven labelled result sets in the
 deployment record:
 
 ```bash
-docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
   < backend/scripts/preflight-stock-correction-path.sql
 ```
+
+`-X` skips any `psqlrc` in the container, so startup configuration cannot change
+how the script runs. **Exit 0 means the report was generated, not that the
+release is approved:** every reported discrepancy still needs review and a
+recorded disposition.
 
 The preflight reports fulfilled sales orders and received POs; received POs
 whose legacy receipt shape does not match; products whose movement quantities
