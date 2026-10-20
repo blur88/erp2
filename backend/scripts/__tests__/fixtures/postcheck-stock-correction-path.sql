@@ -57,6 +57,9 @@ ALTER TABLE stock_occurrences ADD CONSTRAINT "CHK_stock_occurrence_reversal_reas
     (reason IS NOT NULL AND char_length(btrim(reason)) BETWEEN 3 AND 500));
 
 ALTER TABLE purchase_cost_history
+  ADD CONSTRAINT "FK_purchase_cost_history_occurrence"
+  FOREIGN KEY ("occurrenceId") REFERENCES stock_occurrences(id) ON DELETE RESTRICT;
+ALTER TABLE purchase_cost_history
   ADD CONSTRAINT "FK_a200937c3bef6072ce44d760fe3"
   FOREIGN KEY ("productId") REFERENCES products(id) ON DELETE RESTRICT;
 ALTER TABLE stock_movements
