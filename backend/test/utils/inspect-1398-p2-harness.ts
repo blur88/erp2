@@ -299,3 +299,21 @@ export async function seedProductRows(
     );
   }
 }
+
+
+export async function insertFixtureRow(
+  schema: string,
+  db: Client,
+  table: string,
+  values: Record<string, unknown>,
+): Promise<Record<string, string>> {
+  const columns = Object.keys(values);
+  const params = columns.map((column) => values[column]);
+  const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
+  const columnList = columns.map(quoteIdent).join(', ');
+  const { rows } = await db.query(
+    `INSERT INTO ${quoteIdent(schema)}.${quoteIdent(table)} (${columnList}) VALUES (${placeholders}) RETURNING *`,
+    params,
+  );
+  return rows[0] as Record<string, string>;
+}

@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
 import {
+  insertFixtureRow,
   metric,
   parseInspectionOutput,
   runInspection,
@@ -194,6 +195,133 @@ describe('inspect 1398 project 2', () => {
   it('classification guard: every migrated table is classified', async () => {
     const result = await runInspection();
     expect(metric(result.sets, 's02_soft_deleted_inactive', 'tables_unclassified')).toBe('0');
+  });
+
+
+  it('s03 counts payment statuses and soft-deleted rows', async () => {
+    await withFixtureSchema(
+      {
+        seed: async (schema, db) => {
+          for (const row of [
+            { status: 'completed' },
+            { status: 'completed' },
+            { status: 'voided' },
+            { status: 'pending', deletedAt: '2026-01-01T00:00:00Z' },
+          ]) {
+            await insertFixtureRow(schema, db, 'vendor_payments', {
+              supplierId: '00000000-0000-4000-8000-000000000001',
+              paymentDate: '2026-01-01',
+              ...row,
+            });
+          }
+        },
+      },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's03_vendor_payments', 'status.completed')).toBe('2');
+        expect(metric(result.sets, 's03_vendor_payments', 'status.voided')).toBe('1');
+        expect(metric(result.sets, 's03_vendor_payments', 'soft_deleted')).toBe('1');
+      },
+    );
+  });
+
+  it('s04 reports each active costing method and unavailable history', async () => {
+    await withFixtureSchema(
+      {
+        seed: async (schema, db) => {
+          await insertFixtureRow(schema, db, 'regional_settings', {
+            costingMethod: 'AVERAGE', createdAt: '2026-01-01T00:00:00Z',
+          });
+          await insertFixtureRow(schema, db, 'regional_settings', {
+            costingMethod: 'FIFO', createdAt: '2026-01-02T00:00:00Z',
+          });
+        },
+      },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's04_costing_method', 'active_settings_rows')).toBe('2');
+        expect(metric(result.sets, 's04_costing_method', 'costing_method.1')).toBe('AVERAGE');
+        expect(metric(result.sets, 's04_costing_method', 'costing_method.2')).toBe('FIFO');
+        const history = result.sets
+          .find((set) => set.section === 's04_costing_method')
+          ?.rows.find((row) => row.metric === 'costing_change_history');
+        expect(history?.value).toBe('unavailable');
+        expect(history?.note).toBe(
+          'unavailable audit evidence: regional settings updates write no audit log',
+        );
+      },
+    );
+  });
+
+  it('s04 detects audit rows that mention a costing method change', async () => {
+    await withFixtureSchema(
+      {
+        seed: (schema, db) =>
+          insertFixtureRow(schema, db, 'audit_logs', {
+            userId: 'test-user', action: 'UPDATE', entityType: 'settings', description: 'settings updated',
+            newValues: { costingMethod: 'FIFO' },
+          }).then(() => undefined),
+      },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(
+          metric(result.sets, 's04_costing_method', 'audit_rows_mentioning_costing_method'),
+        ).toBe('1');
+      },
+    );
+  });
+
+  it('s07 keeps owner drawing reversal evidence separate from document status', async () => {
+    await withFixtureSchema(
+      {
+        seed: async (schema, db) => {
+          const doc = await insertFixtureRow(schema, db, 'owner_equity_documents', {
+            referenceNumber: 'OE-1', equityDate: '2026-01-01', type: 'STOCK_DRAWING',
+            description: 'stock draw', documentStatus: 'DRAFT',
+            productId: '00000000-0000-4000-8000-000000000001', quantity: 1,
+          });
+          for (const movementType of ['owner_drawing', 'owner_drawing_reversal']) {
+            await insertFixtureRow(schema, db, 'stock_movements', {
+              movementType, quantity: 1, previousBalance: 1, newBalance: 2,
+              productId: '00000000-0000-4000-8000-000000000001',
+              referenceType: 'owner_equity', referenceId: doc.id,
+            });
+          }
+          const original = await insertFixtureRow(schema, db, 'journal_entry', {
+            journalNo: 'JE-OE-1', entryDate: '2026-01-01', sourceType: 'OWNER_EQUITY',
+            postingType: 'OWNER_STOCK_DRAWING', sourceDocumentId: doc.id,
+          });
+          await insertFixtureRow(schema, db, 'journal_entry', {
+            journalNo: 'JE-OE-2', entryDate: '2026-01-01', sourceType: 'OWNER_EQUITY',
+            postingType: 'OWNER_STOCK_DRAWING', sourceDocumentId: doc.id, reversalOfEntryId: original.id,
+          });
+        },
+      },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's07_undo_counts', 'completed_owner_stock_drawings')).toBe('0');
+        expect(metric(result.sets, 's07_undo_counts', 'owner_drawing_reversal_movements')).toBe('1');
+        expect(
+          metric(result.sets, 's07_undo_counts', 'owner_stock_drawing_journal_reversals'),
+        ).toBe('1');
+      },
+    );
+  });
+
+  it('s03 s04 and s07 expose every pinned metric on an empty baseline', async () => {
+    await withFixtureSchema({}, async (schema) => {
+      const result = await runInspection({ schema });
+      const metrics = new Set(result.sets.flatMap((set) => set.rows.map((row) => row.metric)));
+      for (const name of [
+        'status.completed', 'status.voided', 'soft_deleted', 'total',
+        'settings_rows', 'active_settings_rows', 'audit_rows_mentioning_costing_method', 'costing_change_history',
+        'fulfilled_sales_orders', 'received_purchase_orders', 'completed_stock_adjustments',
+        'reverted_stock_adjustments', 'completed_owner_stock_drawings', 'owner_drawing_reversal_movements',
+        'owner_stock_drawing_journal_reversals',
+      ]) {
+        expect(metrics.has(name)).toBe(true);
+      }
+    });
   });
 
 });

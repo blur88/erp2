@@ -38,6 +38,21 @@ SELECT 1 / 0;
 
 BEGIN READ ONLY;
 
+\echo '@@inspect-section s01_environment'
+SELECT section, metric, value, note
+FROM (VALUES
+  ('s01_environment'::text, 'database'::text, current_database()::text, ''::text, 1),
+  ('s01_environment', 'migrations_applied', (SELECT count(*)::text FROM migrations), '', 2),
+  ('s01_environment', 'latest_migration', COALESCE((SELECT name FROM migrations ORDER BY timestamp DESC LIMIT 1), 'n/a'), '', 3),
+  ('s01_environment', 'server_version', current_setting('server_version'), '', 4),
+  ('s01_environment', 'run_at', clock_timestamp()::text, '', 5),
+  ('s01_environment', 'app_version', :'app_version'::text, 'operator-supplied', 6),
+  ('s01_environment', 'image_id', :'image_id'::text, 'operator-supplied', 7),
+  ('s01_environment', 'env_label', :'env_label'::text, 'operator-supplied', 8),
+  ('s01_environment', 'script_sha', :'script_sha'::text, 'operator-supplied', 9)
+) AS report(section, metric, value, note, position)
+ORDER BY position;
+
 \echo '@@inspect-section s02_soft_deleted_inactive'
 WITH classifications(table_name, classification) AS (
   VALUES
@@ -140,20 +155,80 @@ SELECT string_agg(query_text, E'\nUNION ALL\n' ORDER BY table_name NULLS LAST, m
   FROM all_queries
 \gexec
 
-\echo '@@inspect-section s01_environment'
-SELECT section, metric, value, note
-FROM (VALUES
-  ('s01_environment'::text, 'database'::text, current_database()::text, ''::text, 1),
-  ('s01_environment', 'migrations_applied', (SELECT count(*)::text FROM migrations), '', 2),
-  ('s01_environment', 'latest_migration', COALESCE((SELECT name FROM migrations ORDER BY timestamp DESC LIMIT 1), 'n/a'), '', 3),
-  ('s01_environment', 'server_version', current_setting('server_version'), '', 4),
-  ('s01_environment', 'run_at', clock_timestamp()::text, '', 5),
-  ('s01_environment', 'app_version', :'app_version'::text, 'operator-supplied', 6),
-  ('s01_environment', 'image_id', :'image_id'::text, 'operator-supplied', 7),
-  ('s01_environment', 'env_label', :'env_label'::text, 'operator-supplied', 8),
-  ('s01_environment', 'script_sha', :'script_sha'::text, 'operator-supplied', 9)
-) AS report(section, metric, value, note, position)
-ORDER BY position;
+
+\echo '@@inspect-section s03_vendor_payments'
+WITH status_counts AS (
+  SELECT status::text AS status, count(*)::text AS count
+    FROM vendor_payments
+   GROUP BY status::text
+), metrics AS (
+  SELECT 'status.' || status AS metric, count AS value, ''::text AS note FROM status_counts
+  UNION ALL
+  SELECT 'status.completed', '0', '' WHERE NOT EXISTS (SELECT 1 FROM status_counts WHERE status = 'completed')
+  UNION ALL
+  SELECT 'status.voided', '0', '' WHERE NOT EXISTS (SELECT 1 FROM status_counts WHERE status = 'voided')
+  UNION ALL
+  SELECT 'soft_deleted', count(*) FILTER (WHERE "deletedAt" IS NOT NULL)::text, '' FROM vendor_payments
+  UNION ALL
+  SELECT 'total', count(*)::text, '' FROM vendor_payments
+)
+SELECT 's03_vendor_payments'::text AS section, metric, value, note FROM metrics;
+
+\echo '@@inspect-section s04_costing_method'
+WITH active_settings AS (
+  SELECT "costingMethod", "createdAt", id,
+         row_number() OVER (ORDER BY "createdAt", id) AS row_no
+    FROM regional_settings
+   WHERE "deletedAt" IS NULL AND "isActive" = true
+), metrics AS (
+  SELECT 'settings_rows'::text AS metric, count(*)::text AS value, ''::text AS note
+    FROM regional_settings
+  UNION ALL
+  SELECT 'active_settings_rows', count(*)::text, '' FROM active_settings
+  UNION ALL
+  SELECT 'costing_method.' || row_no::text, "costingMethod"::text, '' FROM active_settings
+  UNION ALL
+  SELECT 'audit_rows_mentioning_costing_method', count(*)::text, ''
+    FROM audit_logs
+   WHERE "deletedAt" IS NULL
+     AND ("oldValues" ? 'costingMethod' OR "newValues" ? 'costingMethod')
+  UNION ALL
+  SELECT 'costing_change_history', 'unavailable',
+         'unavailable audit evidence: regional settings updates write no audit log'
+)
+SELECT 's04_costing_method'::text AS section, metric, value, note FROM metrics;
+
+\echo '@@inspect-section s07_undo_counts'
+WITH metrics(metric, value, note) AS (
+  SELECT 'fulfilled_sales_orders', count(*) FILTER (WHERE status::text = 'FULFILLED')::text,
+         'soft-deleted documents excluded' FROM sales_orders WHERE "deletedAt" IS NULL
+  UNION ALL
+  SELECT 'received_purchase_orders', count(*) FILTER (WHERE status::text = 'RECEIVED')::text,
+         'soft-deleted documents excluded' FROM purchase_orders WHERE "deletedAt" IS NULL
+  UNION ALL
+  SELECT 'completed_stock_adjustments', count(*) FILTER (WHERE status::text = 'completed')::text,
+         'soft-deleted documents excluded' FROM stock_adjustments WHERE "deletedAt" IS NULL
+  UNION ALL
+  SELECT 'reverted_stock_adjustments', count(*) FILTER (WHERE status::text = 'reverted')::text,
+         'soft-deleted documents excluded' FROM stock_adjustments WHERE "deletedAt" IS NULL
+  UNION ALL
+  SELECT 'completed_owner_stock_drawings', count(*)::text,
+         'soft-deleted documents excluded' FROM owner_equity_documents
+   WHERE "deletedAt" IS NULL AND type::text = 'STOCK_DRAWING' AND "documentStatus"::text = 'COMPLETED'
+  UNION ALL
+  SELECT 'owner_drawing_reversal_movements', count(*)::text,
+         'soft-deleted documents excluded' FROM stock_movements
+   WHERE "deletedAt" IS NULL AND "movementType"::text = 'owner_drawing_reversal'
+  UNION ALL
+  SELECT 'owner_stock_drawing_journal_reversals', count(*)::text,
+         'soft-deleted documents excluded'
+    FROM journal_entry reversal
+    JOIN journal_entry original ON original.id = reversal."reversalOfEntryId"
+   WHERE reversal."deletedAt" IS NULL AND original."deletedAt" IS NULL
+     AND original."postingType"::text = 'OWNER_STOCK_DRAWING'
+)
+SELECT 's07_undo_counts'::text AS section, metric, value, note FROM metrics;
+
 
 ROLLBACK;
 \echo '@@inspect-end'
