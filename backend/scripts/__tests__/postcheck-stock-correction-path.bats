@@ -116,4 +116,3 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
 }
-

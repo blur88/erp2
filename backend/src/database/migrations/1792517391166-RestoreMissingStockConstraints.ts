@@ -85,12 +85,12 @@ export class RestoreMissingStockConstraints1792517391166 implements MigrationInt
     )
     SELECT e.name AS constraint_name, e."table" AS table_name,
       CASE
-        WHEN named.total = 1 AND named.matches = 1 THEN 'present'
+        WHEN named.total = 1 AND named.matches = 1 AND NOT equivalent.found THEN 'present'
         WHEN named.total > 0 OR equivalent.found THEN 'conflict'
         ELSE 'absent'
       END AS status,
       CASE
-        WHEN named.total = 1 AND named.matches = 1 THEN 'validated expected definition'
+        WHEN named.total = 1 AND named.matches = 1 AND NOT equivalent.found THEN 'validated expected definition'
         WHEN named.total > 0 THEN 'name exists with wrong table, kind, definition, or validation'
         WHEN equivalent.found THEN 'equivalent constraint exists under another name'
         ELSE 'expected constraint is absent'

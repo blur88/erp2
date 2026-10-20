@@ -22,9 +22,9 @@ WITH expected(name, table_name, kind, definition, source_column, target_table, t
   WHERE c.connamespace = 'public'::regnamespace
 ), statuses AS (
   SELECT e.name, e.table_name,
-    CASE WHEN named.total = 1 AND named.matches = 1 THEN 'present'
+    CASE WHEN named.total = 1 AND named.matches = 1 AND NOT equivalent.found THEN 'present'
          WHEN named.total > 0 OR equivalent.found THEN 'conflict' ELSE 'absent' END AS status,
-    CASE WHEN named.total = 1 AND named.matches = 1 THEN 'validated expected definition'
+    CASE WHEN named.total = 1 AND named.matches = 1 AND NOT equivalent.found THEN 'validated expected definition'
          WHEN named.total > 0 THEN 'name exists with wrong table, kind, definition, or validation'
          WHEN equivalent.found THEN 'equivalent constraint exists under another name'
          ELSE 'expected constraint is absent' END AS detail
@@ -86,7 +86,7 @@ WITH expected(name, table_name, kind, definition, source_column, target_table, t
   WHERE c.connamespace = 'public'::regnamespace
 ), statuses AS (
   SELECT e.name,
-    CASE WHEN named.total = 1 AND named.matches = 1 THEN 'present'
+    CASE WHEN named.total = 1 AND named.matches = 1 AND NOT equivalent.found THEN 'present'
          WHEN named.total > 0 OR equivalent.found THEN 'conflict' ELSE 'absent' END AS status
   FROM expected e
   CROSS JOIN LATERAL (

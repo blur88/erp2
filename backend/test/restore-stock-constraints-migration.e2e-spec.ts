@@ -87,17 +87,25 @@ function preflightStatements(): string[] {
   const withoutComments = raw.replace(/^\s*--.*$/gm, "");
   expect(withoutComments.trim()).toMatch(/^BEGIN READ ONLY;/i);
   expect(withoutComments.trim()).toMatch(/ROLLBACK;$/i);
+  assertPreflightReadOnly(withoutComments);
   const code = withoutComments
+    .replace(/BEGIN READ ONLY;/i, "")
+    .replace(/ROLLBACK;/i, "");
+  return code
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function assertPreflightReadOnly(sql: string): void {
+  const code = sql
+    .replace(/^\s*--.*$/gm, "")
     .replace(/BEGIN READ ONLY;/i, "")
     .replace(/ROLLBACK;/i, "");
   // Definitions contain ON DELETE/UPDATE as string data, not executable SQL.
   expect(code.replace(/'(?:[^']|'')*'/g, "''")).not.toMatch(
     /\b(INSERT|UPDATE|DELETE|ALTER|DROP|TRUNCATE|CREATE|GRANT|COPY)\b/i,
   );
-  return code
-    .split(";")
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 async function runPreflight(qr: QueryRunner) {
@@ -178,6 +186,10 @@ async function seedViolation(qr: QueryRunner, rule: string): Promise<void> {
 }
 
 describe("restore missing stock constraints (#1414)", () => {
+  it("read-only guard rejects a write token", () => {
+    expect(() => assertPreflightReadOnly("BEGIN READ ONLY; DELETE FROM x; ROLLBACK;"))
+      .toThrow();
+  });
   it("preflight queries execute in a read-only transaction", async () => {
     const qr = ds.createQueryRunner();
     await qr.connect();
@@ -295,6 +307,19 @@ describe("restore missing stock constraints (#1414)", () => {
       });
     },
   );
+  it("same-column CASCADE FK conflicts even when expected FK also exists", async () => {
+    await inTxn(async (qr) => {
+      await qr.query(
+        `ALTER TABLE purchase_cost_history ADD CONSTRAINT "FK_other_occurrence" FOREIGN KEY ("occurrenceId") REFERENCES stock_occurrences(id) ON DELETE CASCADE`,
+      );
+      const before = await catalogSnapshot(qr);
+      const result = await runPreflight(qr);
+      expect(result.statuses[rules[3][0]]).toBe("conflict");
+      expect(result.verdict).toBe("HOLD");
+      await expect(migration.up(qr)).rejects.toThrow(/no changes made/);
+      expect(await catalogSnapshot(qr)).toEqual(before);
+    });
+  });
   it("down() issues no statements", async () => {
     await inTxn(async (qr) => {
       const before = await catalogSnapshot(qr);
