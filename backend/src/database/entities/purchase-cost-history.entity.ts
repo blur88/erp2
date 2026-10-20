@@ -129,6 +129,13 @@ export class PurchaseCostHistory extends BaseEntity {
   @IsUUID(4)
   occurrenceId?: string;
 
+  @ManyToOne('StockOccurrence', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({
+    name: 'occurrenceId',
+    foreignKeyConstraintName: 'FK_purchase_cost_history_occurrence',
+  })
+  occurrence?: any;
+
   @Column({
     type: 'timestamptz',
     nullable: true,

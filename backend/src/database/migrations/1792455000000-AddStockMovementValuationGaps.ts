@@ -8,16 +8,19 @@ export class AddStockMovementValuationGaps1792455000000 implements MigrationInte
       `ALTER TABLE "stock_occurrences" ADD "hasValuationGap" boolean NOT NULL DEFAULT false`,
     );
     await queryRunner.query(
+      `COMMENT ON COLUMN "stock_occurrences"."hasValuationGap" IS 'Whether this fulfillment contains unvalued stock provenance gaps'`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "stock_occurrences" ADD CONSTRAINT "CHK_stock_occurrence_valuation_gap_kind" CHECK (NOT "hasValuationGap" OR "kind" = 'fulfilment')`,
     );
     await queryRunner.query(`
       CREATE TABLE "stock_movement_valuation_gaps" (
         "movementId" uuid NOT NULL,
         "quantity" numeric(15,4) NOT NULL,
-        "valueScale8" numeric(24,8) NOT NULL DEFAULT 0,
+        "valueScale8" numeric(24,8) NOT NULL DEFAULT '0',
         "status" character varying(30) NOT NULL DEFAULT 'unvalued_gap',
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_stock_movement_valuation_gaps" PRIMARY KEY ("movementId"),
+        CONSTRAINT "PK_572cc0ea03c004f55c866f58bdd" PRIMARY KEY ("movementId"),
         CONSTRAINT "CHK_stock_movement_valuation_gap_quantity_positive" CHECK ("quantity" > 0),
         CONSTRAINT "CHK_stock_movement_valuation_gap_value_zero" CHECK ("valueScale8" = 0),
         CONSTRAINT "CHK_stock_movement_valuation_gap_status" CHECK ("status" = 'unvalued_gap'),
@@ -29,6 +32,15 @@ export class AddStockMovementValuationGaps1792455000000 implements MigrationInte
       COMMENT ON TABLE "stock_movement_valuation_gaps" IS
         'Unvalued stock coverage gaps; zero posted value preserves interim COGS and does not assert known zero cost'
     `);
+    await queryRunner.query(
+      `COMMENT ON COLUMN "stock_movement_valuation_gaps"."movementId" IS 'Unique sale movement whose batch coverage is incomplete'`,
+    );
+    await queryRunner.query(
+      `COMMENT ON COLUMN "stock_movement_valuation_gaps"."quantity" IS 'Uncovered quantity, recorded separately from batch consumption'`,
+    );
+    await queryRunner.query(
+      `COMMENT ON COLUMN "stock_movement_valuation_gaps"."valueScale8" IS 'Compatibility posted value; zero is explicitly unvalued, not known zero cost'`,
+    );
     await queryRunner.query(`
       CREATE FUNCTION "stock_movement_valuation_gap_immutable"() RETURNS trigger AS $$
       DECLARE

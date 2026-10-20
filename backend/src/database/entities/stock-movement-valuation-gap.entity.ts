@@ -20,7 +20,11 @@ export enum StockMovementValuationGapStatus {
  *
  * Rows are inserted atomically with the sale movement and are immutable.
  */
-@Entity('stock_movement_valuation_gaps')
+@Entity({
+  name: 'stock_movement_valuation_gaps',
+  comment:
+    'Unvalued stock coverage gaps; zero posted value preserves interim COGS and does not assert known zero cost',
+})
 @Check('CHK_stock_movement_valuation_gap_quantity_positive', '"quantity" > 0')
 @Check('CHK_stock_movement_valuation_gap_value_zero', '"valueScale8" = 0')
 @Check('CHK_stock_movement_valuation_gap_status', '"status" = \'unvalued_gap\'')

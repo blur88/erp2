@@ -163,6 +163,13 @@ export class StockOccurrence {
   @IsUUID(4)
   legacyJournalEntryId?: string;
 
+  @ManyToOne('JournalEntry', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({
+    name: 'legacyJournalEntryId',
+    foreignKeyConstraintName: 'FK_stock_occurrences_legacy_journal',
+  })
+  legacyJournalEntry?: any;
+
   @Column({
     type: 'text',
     nullable: true,

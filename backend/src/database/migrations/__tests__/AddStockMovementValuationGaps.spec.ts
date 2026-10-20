@@ -12,6 +12,31 @@ describe('AddStockMovementValuationGaps migration rollback', () => {
     return { runner: { query } as unknown as QueryRunner, statements };
   }
 
+  it('matches schema-sync comments, numeric defaults, and primary-key naming', async () => {
+    const { runner, statements } = makeRunner('0', '0');
+
+    await new AddStockMovementValuationGaps1792455000000().up(runner);
+
+    const sql = statements.join(' ').replace(/\s+/g, ' ');
+    expect(sql).toContain(
+      `COMMENT ON TABLE "stock_movement_valuation_gaps" IS 'Unvalued stock coverage gaps; zero posted value preserves interim COGS and does not assert known zero cost'`,
+    );
+    expect(sql).toContain(
+      `COMMENT ON COLUMN "stock_movement_valuation_gaps"."movementId" IS 'Unique sale movement whose batch coverage is incomplete'`,
+    );
+    expect(sql).toContain(
+      `COMMENT ON COLUMN "stock_movement_valuation_gaps"."quantity" IS 'Uncovered quantity, recorded separately from batch consumption'`,
+    );
+    expect(sql).toContain(
+      `COMMENT ON COLUMN "stock_movement_valuation_gaps"."valueScale8" IS 'Compatibility posted value; zero is explicitly unvalued, not known zero cost'`,
+    );
+    expect(sql).toContain(
+      `COMMENT ON COLUMN "stock_occurrences"."hasValuationGap" IS 'Whether this fulfillment contains unvalued stock provenance gaps'`,
+    );
+    expect(sql).toContain(`"valueScale8" numeric(24,8) NOT NULL DEFAULT '0'`);
+    expect(sql).toContain('"PK_572cc0ea03c004f55c866f58bdd" PRIMARY KEY');
+  });
+
   it.each([
     ['gap rows', '1', '0'],
     ['occurrence markers', '0', '1'],
