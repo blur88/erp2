@@ -392,6 +392,133 @@ WITH settings AS (
 SELECT 's06_inventory_ledger'::text AS section, metric, value, note FROM metrics;
 
 
+\echo '@@inspect-section s08_outside_workflows'
+WITH allowed_pairs(reference_type, movement_type) AS (
+  VALUES
+    -- inventory/services/stock-movement.service.ts:305-309, product creation.
+    ('initial_stock', 'initial_stock'),
+    -- purchasing/services/purchase-order-lifecycle.service.ts:278-289.
+    ('purchase_order', 'purchase_receipt'),
+    -- purchasing/services/purchase-order-lifecycle.service.ts:404-416.
+    ('purchase_order', 'purchase_receipt_reversal'),
+    -- sales/services/inventory-integration.service.ts:487-514; caller: sales-order-fulfillment.service.ts:174.
+    ('sales_order', 'sale'),
+    -- sales/services/sales-order-fulfillment.service.ts:401-407.
+    ('sales_order', 'sale_reversal'),
+    -- inventory/services/stock-adjustment.service.ts:609-619.
+    ('stock_adjustment', 'adjustment_increase'),
+    ('stock_adjustment', 'adjustment_decrease'),
+    -- owner-equity/services/owner-equity-stock.service.ts:86-91.
+    ('owner_equity', 'owner_drawing'),
+    -- owner-equity/services/owner-equity-stock.service.ts:158-163.
+    ('owner_equity', 'owner_drawing_reversal')
+), live_movements AS (
+  SELECT movement.*,
+         NOT EXISTS (
+           SELECT 1 FROM allowed_pairs pair
+            WHERE pair.reference_type = movement."referenceType"
+              AND pair.movement_type = movement."movementType"::text
+         ) AS is_unrecognized,
+         movement."referenceType" = 'stock_movement_reversal' AS is_standalone_reversal,
+         CASE movement."referenceType"
+           WHEN 'purchase_order' THEN NOT EXISTS (SELECT 1 FROM purchase_orders ref WHERE ref.id = movement."referenceId")
+           WHEN 'sales_order' THEN NOT EXISTS (SELECT 1 FROM sales_orders ref WHERE ref.id = movement."referenceId")
+           WHEN 'stock_adjustment' THEN NOT EXISTS (SELECT 1 FROM stock_adjustments ref WHERE ref.id = movement."referenceId")
+           WHEN 'owner_equity' THEN NOT EXISTS (SELECT 1 FROM owner_equity_documents ref WHERE ref.id = movement."referenceId")
+           ELSE false
+         END AS has_missing_reference,
+         CASE movement."referenceType"
+           WHEN 'purchase_order' THEN EXISTS (SELECT 1 FROM purchase_orders ref WHERE ref.id = movement."referenceId" AND ref."deletedAt" IS NOT NULL)
+           WHEN 'sales_order' THEN EXISTS (SELECT 1 FROM sales_orders ref WHERE ref.id = movement."referenceId" AND ref."deletedAt" IS NOT NULL)
+           WHEN 'stock_adjustment' THEN EXISTS (SELECT 1 FROM stock_adjustments ref WHERE ref.id = movement."referenceId" AND ref."deletedAt" IS NOT NULL)
+           WHEN 'owner_equity' THEN EXISTS (SELECT 1 FROM owner_equity_documents ref WHERE ref.id = movement."referenceId" AND ref."deletedAt" IS NOT NULL)
+           ELSE false
+         END AS references_soft_deleted
+    FROM stock_movements movement
+   WHERE movement."deletedAt" IS NULL
+), metrics(metric, value, note) AS (
+  SELECT 'unrecognized_pairs', count(*) FILTER (WHERE is_unrecognized)::text,
+         'review candidate, not proof that a workflow was bypassed' FROM live_movements
+  UNION ALL
+  SELECT 'standalone_reversals', count(*) FILTER (WHERE is_standalone_reversal)::text,
+         'review candidate, not proof that a workflow was bypassed' FROM live_movements
+  UNION ALL
+  SELECT 'missing_references', count(*) FILTER (WHERE has_missing_reference)::text,
+         'review candidate, not proof that a workflow was bypassed' FROM live_movements
+  UNION ALL
+  SELECT 'references_to_soft_deleted_documents', count(*) FILTER (WHERE references_soft_deleted)::text,
+         'review candidate, not proof that a workflow was bypassed' FROM live_movements
+  UNION ALL
+  SELECT 'movements_checked', count(*)::text,
+         'review candidate, not proof that a workflow was bypassed' FROM live_movements
+  UNION ALL
+  SELECT 'soft_deleted_movements', count(*)::text,
+         'review candidate, not proof that a workflow was bypassed' FROM stock_movements WHERE "deletedAt" IS NOT NULL
+)
+SELECT 's08_outside_workflows'::text AS section, metric, value, note FROM metrics;
+
+\echo '@@inspect-section s08_outside_workflows_detail'
+WITH allowed_pairs(reference_type, movement_type) AS (
+  VALUES
+    -- inventory/services/stock-movement.service.ts:305-309, product creation.
+    ('initial_stock', 'initial_stock'),
+    -- purchasing/services/purchase-order-lifecycle.service.ts:278-289.
+    ('purchase_order', 'purchase_receipt'),
+    -- purchasing/services/purchase-order-lifecycle.service.ts:404-416.
+    ('purchase_order', 'purchase_receipt_reversal'),
+    -- sales/services/inventory-integration.service.ts:487-514; caller: sales-order-fulfillment.service.ts:174.
+    ('sales_order', 'sale'),
+    -- sales/services/sales-order-fulfillment.service.ts:401-407.
+    ('sales_order', 'sale_reversal'),
+    -- inventory/services/stock-adjustment.service.ts:609-619.
+    ('stock_adjustment', 'adjustment_increase'),
+    ('stock_adjustment', 'adjustment_decrease'),
+    -- owner-equity/services/owner-equity-stock.service.ts:86-91.
+    ('owner_equity', 'owner_drawing'),
+    -- owner-equity/services/owner-equity-stock.service.ts:158-163.
+    ('owner_equity', 'owner_drawing_reversal')
+), candidates AS (
+  -- initial_stock is a product-creation event; standalone reversals point to movements, not documents.
+  SELECT movement.*,
+         NOT EXISTS (SELECT 1 FROM allowed_pairs pair
+           WHERE pair.reference_type = movement."referenceType"
+             AND pair.movement_type = movement."movementType"::text) AS is_unrecognized,
+         movement."referenceType" = 'stock_movement_reversal' AS is_standalone_reversal,
+         CASE movement."referenceType"
+           WHEN 'purchase_order' THEN NOT EXISTS (SELECT 1 FROM purchase_orders ref WHERE ref.id = movement."referenceId")
+           WHEN 'sales_order' THEN NOT EXISTS (SELECT 1 FROM sales_orders ref WHERE ref.id = movement."referenceId")
+           WHEN 'stock_adjustment' THEN NOT EXISTS (SELECT 1 FROM stock_adjustments ref WHERE ref.id = movement."referenceId")
+           WHEN 'owner_equity' THEN NOT EXISTS (SELECT 1 FROM owner_equity_documents ref WHERE ref.id = movement."referenceId")
+           ELSE false END AS has_missing_reference,
+         CASE movement."referenceType"
+           WHEN 'purchase_order' THEN EXISTS (SELECT 1 FROM purchase_orders ref WHERE ref.id = movement."referenceId" AND ref."deletedAt" IS NOT NULL)
+           WHEN 'sales_order' THEN EXISTS (SELECT 1 FROM sales_orders ref WHERE ref.id = movement."referenceId" AND ref."deletedAt" IS NOT NULL)
+           WHEN 'stock_adjustment' THEN EXISTS (SELECT 1 FROM stock_adjustments ref WHERE ref.id = movement."referenceId" AND ref."deletedAt" IS NOT NULL)
+           WHEN 'owner_equity' THEN EXISTS (SELECT 1 FROM owner_equity_documents ref WHERE ref.id = movement."referenceId" AND ref."deletedAt" IS NOT NULL)
+           ELSE false END AS references_soft_deleted
+    FROM stock_movements movement
+   WHERE movement."deletedAt" IS NULL
+), detail_rows AS (
+  SELECT id, "productId", "referenceType", "movementType", "referenceId", 'unrecognized_pair'::text AS group_name
+    FROM candidates WHERE is_unrecognized
+  UNION ALL
+  SELECT id, "productId", "referenceType", "movementType", "referenceId", 'standalone_reversal'
+    FROM candidates WHERE is_standalone_reversal
+  UNION ALL
+  SELECT id, "productId", "referenceType", "movementType", "referenceId", 'missing_reference'
+    FROM candidates WHERE has_missing_reference
+  UNION ALL
+  SELECT id, "productId", "referenceType", "movementType", "referenceId", 'soft_deleted_reference'
+    FROM candidates WHERE references_soft_deleted
+)
+SELECT 's08_outside_workflows_detail'::text AS section,
+       id::text AS movement_id, "productId"::text AS product_id,
+       "referenceType" AS reference_type, "movementType"::text AS movement_type,
+       "referenceId"::text AS reference_id, group_name AS "group"
+  FROM detail_rows
+ ORDER BY movement_id, "group";
+
+
 \echo '@@inspect-section s07_undo_counts'
 WITH metrics(metric, value, note) AS (
   SELECT 'fulfilled_sales_orders', count(*) FILTER (WHERE status::text = 'FULFILLED')::text,

@@ -588,4 +588,90 @@ describe('inspect 1398 project 2', () => {
     });
   });
 
+
+  it('s08 recognizes initial stock as a workflow movement', async () => {
+    await withFixtureSchema(
+      { seed: (schema, db) => insertFixtureRow(schema, db, 'stock_movements', {
+        movementType: 'initial_stock', quantity: 3, previousBalance: 0, newBalance: 3,
+        productId: inventoryAccountId, referenceType: 'initial_stock',
+      }).then(() => undefined) },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's08_outside_workflows', 'unrecognized_pairs')).toBe('0');
+      },
+    );
+  });
+
+  it('s08 treats reference type comparison as exact', async () => {
+    await withFixtureSchema(
+      { seed: (schema, db) => insertFixtureRow(schema, db, 'stock_movements', {
+        movementType: 'sale', quantity: -1, previousBalance: 1, newBalance: 0,
+        productId: inventoryAccountId, referenceType: 'Sales_Order', referenceId: inventoryAccountId,
+      }).then(() => undefined) },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's08_outside_workflows', 'unrecognized_pairs')).toBe('1');
+      },
+    );
+  });
+
+  it('s08 reports a standalone reversal under both matching groups', async () => {
+    await withFixtureSchema(
+      { seed: (schema, db) => insertFixtureRow(schema, db, 'stock_movements', {
+        movementType: 'adjustment_increase', quantity: 1, previousBalance: 0, newBalance: 1,
+        productId: inventoryAccountId, referenceType: 'stock_movement_reversal', referenceId: inventoryAccountId,
+      }).then(() => undefined) },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's08_outside_workflows', 'unrecognized_pairs')).toBe('1');
+        expect(metric(result.sets, 's08_outside_workflows', 'standalone_reversals')).toBe('1');
+        const details = result.sets.find((set) => set.section === 's08_outside_workflows_detail')?.rows ?? [];
+        expect(details.map((row) => row.group).sort()).toEqual(['standalone_reversal', 'unrecognized_pair']);
+      },
+    );
+  });
+
+  it('s08 distinguishes missing references from soft-deleted documents', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          movementType: 'sale', quantity: -1, previousBalance: 1, newBalance: 0,
+          productId: inventoryAccountId, referenceType: 'sales_order',
+          referenceId: '00000000-0000-4000-8000-000000000099',
+        });
+        const order = await insertFixtureRow(schema, db, 'sales_orders', {
+          orderNumber: 'SO-DELETED', orderDate: '2026-01-01', customerId: inventoryAccountId,
+          deletedAt: '2026-01-01T00:00:00Z',
+        });
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          movementType: 'sale', quantity: -1, previousBalance: 1, newBalance: 0,
+          productId: inventoryAccountId, referenceType: 'sales_order', referenceId: order.id,
+        });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's08_outside_workflows', 'missing_references')).toBe('1');
+        expect(metric(result.sets, 's08_outside_workflows', 'references_to_soft_deleted_documents')).toBe('1');
+        const details = result.sets.find((set) => set.section === 's08_outside_workflows_detail')?.rows ?? [];
+        expect(details.some((row) => row.group === 'missing_reference')).toBe(true);
+        expect(details.some((row) => row.group === 'soft_deleted_reference')).toBe(true);
+      },
+    );
+  });
+
+  it('s08 exposes every pinned metric on an empty baseline', async () => {
+    await withFixtureSchema({}, async (schema) => {
+      const result = await runInspection({ schema });
+      const rows = result.sets.find((set) => set.section === 's08_outside_workflows')?.rows ?? [];
+      for (const name of [
+        'unrecognized_pairs', 'standalone_reversals', 'missing_references',
+        'references_to_soft_deleted_documents', 'movements_checked', 'soft_deleted_movements',
+      ]) {
+        expect(rows.some((row) => row.metric === name)).toBe(true);
+        expect(rows.find((row) => row.metric === name)?.note)
+          .toBe('review candidate, not proof that a workflow was bypassed');
+      }
+    });
+  });
+
 });
