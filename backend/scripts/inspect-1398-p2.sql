@@ -213,21 +213,23 @@ FROM (
   FROM users u
 ) x;
 
--- 13. Drafts and configuration that projects 5-7 will change.
+-- 13. Drafts and configuration that projects 5-7 will change. Item counts
+-- follow their parent's filter; soft-deleted drafts are counted separately.
 SELECT 'drafts_and_config' AS section,
        (SELECT count(*) FROM stock_adjustments WHERE status::text = 'draft' AND "deletedAt" IS NULL) AS draft_stock_adjustments,
        (SELECT count(*) FROM stock_adjustment_items i JOIN stock_adjustments a ON a.id = i."stockAdjustmentId"
-         WHERE a.status::text = 'draft') AS draft_stock_adjustment_items,
+         WHERE a.status::text = 'draft' AND a."deletedAt" IS NULL) AS draft_stock_adjustment_items,
+       (SELECT count(*) FROM stock_adjustments WHERE status::text = 'draft' AND "deletedAt" IS NOT NULL) AS soft_deleted_draft_stock_adjustments,
        (SELECT count(*) FROM provider_settlements WHERE status::text = 'DRAFT' AND "deletedAt" IS NULL) AS draft_provider_settlements,
        (SELECT count(*) FROM provider_settlement_lines l JOIN provider_settlements s ON s.id = l."settlementId"
-         WHERE s.status::text = 'DRAFT') AS draft_provider_settlement_lines,
+         WHERE s.status::text = 'DRAFT' AND s."deletedAt" IS NULL) AS draft_provider_settlement_lines,
        (SELECT count(*) FROM bank_statement_reconciliations WHERE status::text = 'DRAFT' AND "deletedAt" IS NULL) AS draft_bank_reconciliations,
        (SELECT count(*) FROM sales_orders WHERE status::text IN ('DRAFT', 'READY') AND "deletedAt" IS NULL) AS editable_sales_orders,
        (SELECT count(*) FROM sales_order_items i JOIN sales_orders o ON o.id = i."salesOrderId"
-         WHERE o.status::text IN ('DRAFT', 'READY')) AS editable_sales_order_items,
+         WHERE o.status::text IN ('DRAFT', 'READY') AND o."deletedAt" IS NULL) AS editable_sales_order_items,
        (SELECT count(*) FROM purchase_orders WHERE status::text IN ('DRAFT', 'READY') AND "deletedAt" IS NULL) AS editable_purchase_orders,
        (SELECT count(*) FROM purchase_order_items i JOIN purchase_orders o ON o.id = i."purchaseOrderId"
-         WHERE o.status::text IN ('DRAFT', 'READY')) AS editable_purchase_order_items,
+         WHERE o.status::text IN ('DRAFT', 'READY') AND o."deletedAt" IS NULL) AS editable_purchase_order_items,
        (SELECT count(*) FROM payment_method_account_mappings) AS account_mappings,
        (SELECT count(*) FROM payment_method_account_mappings WHERE "deletedAt" IS NOT NULL) AS account_mappings_soft_deleted,
        (SELECT count(*) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id = m."paymentMethodId"
