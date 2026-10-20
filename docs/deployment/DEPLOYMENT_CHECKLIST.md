@@ -326,6 +326,32 @@ batch occurrence links before proceeding. See
 for correctable/refused cases and the support workflow. A passing postcheck is
 not approval to set the evidence horizon.
 
+### Missing stock constraints restored (#1414)
+
+The [#1412 investigation](../modules/inventory/STOCK_CONSTRAINTS_1412_INVESTIGATION.md)
+confirmed that four constraints declared by the stock occurrence migration are
+missing from development because that migration had already been recorded as
+applied. Run this preflight against the target database before deploying the
+forward repair migration:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < backend/scripts/preflight-stock-constraints-1414.sql
+```
+
+**HOLD stops the deploy.** Any violation or constraint conflict needs a separate
+owner decision. Do not delete or rewrite rows to make a constraint fit. On a
+fresh or already repaired database, the preflight reports all four constraints
+as `present`, zero violations, and `PROCEED`; the migration then does nothing.
+After the repair, the #1406 postcheck above must report PASS with 13/13 foreign
+keys and 2/2 other checks.
+
+**Environment (recorded 2026-10-21):** this check and repair are for the local
+development machine (`NODE_ENV=development`, database `erp_db`). No production
+host exists. **When production is created, run this preflight afresh against it
+before deploying this migration there**, and record that run separately; the
+development result does not carry over.
+
 ### Customer order metrics are recalculated at deploy (#1355)
 
 Migration `RecalculateCustomerMetricsFromFulfilledOrders1791611629594` **rewrites
