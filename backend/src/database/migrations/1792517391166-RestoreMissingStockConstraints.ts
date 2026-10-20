@@ -91,8 +91,8 @@ export class RestoreMissingStockConstraints1792517391166 implements MigrationInt
       END AS status,
       CASE
         WHEN named.total = 1 AND named.matches = 1 AND NOT equivalent.found THEN 'validated expected definition'
-        WHEN named.total > 0 THEN 'name exists with wrong table, kind, definition, or validation'
         WHEN equivalent.found THEN 'equivalent constraint exists under another name'
+        WHEN named.total > 0 THEN 'name exists with wrong table, kind, definition, or validation'
         ELSE 'expected constraint is absent'
       END AS detail
     FROM expected e

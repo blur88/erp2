@@ -110,13 +110,16 @@ function assertPreflightReadOnly(sql: string): void {
 
 async function runPreflight(qr: QueryRunner) {
   const statuses: Record<string, string> = {};
+  const details: Record<string, string> = {};
   const violations: Record<string, number> = {};
   let verdict = "";
   for (const statement of preflightStatements()) {
     const rows = await qr.query(statement);
     for (const row of rows) {
-      if (row.section === "constraint_status")
+      if (row.section === "constraint_status") {
         statuses[row.constraint_name] = row.status;
+        details[row.constraint_name] = row.detail;
+      }
       if (row.section === "rule_violations")
         violations[row.rule] = Number(row.violations);
       if (row.section === "verdict") verdict = row.verdict;
@@ -124,7 +127,7 @@ async function runPreflight(qr: QueryRunner) {
   }
   expect(Object.keys(statuses)).toHaveLength(4);
   expect(Object.keys(violations)).toHaveLength(4);
-  return { statuses, violations, verdict };
+  return { statuses, details, violations, verdict };
 }
 
 function expectPreflight(
@@ -315,8 +318,13 @@ describe("restore missing stock constraints (#1414)", () => {
       const before = await catalogSnapshot(qr);
       const result = await runPreflight(qr);
       expect(result.statuses[rules[3][0]]).toBe("conflict");
+      expect(result.details[rules[3][0]]).toBe(
+        "equivalent constraint exists under another name",
+      );
       expect(result.verdict).toBe("HOLD");
-      await expect(migration.up(qr)).rejects.toThrow(/no changes made/);
+      await expect(migration.up(qr)).rejects.toThrow(
+        /FK_purchase_cost_history_occurrence: equivalent constraint exists under another name/,
+      );
       expect(await catalogSnapshot(qr)).toEqual(before);
     });
   });
