@@ -5,6 +5,19 @@ been deployed. The deploy remains gated on review of the preflight and an
 explicit decision about whether independent evidence supports an
 `STOCK_EVIDENCE_HORIZON` value. The default is unset.
 
+**Accepted by the owner on 2026-10-20** for the combined #1405 + #1406 release,
+with its documented restrictions:
+- the eight fulfillments that predate consumption recording stay blocked from
+  automatic unfulfil;
+- `STOCK_EVIDENCE_HORIZON` stays unset, so pre-deploy receipts stay refused;
+- a sale that exceeds batch coverage records a valuation gap and blocks
+  automatic unfulfil (accepted for the development product *Gundam RX-78-2 MG
+  1/100 Model Kit*, 2 units uncovered). No cost or allocation is invented to
+  remove a gap.
+
+This acceptance rests on the development preflight (PR #1408). A future
+production environment needs its own preflight and dispositions.
+
 ## What can be corrected
 
 | Case | Supported action | When it can succeed |
