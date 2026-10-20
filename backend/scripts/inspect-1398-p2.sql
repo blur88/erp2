@@ -744,5 +744,107 @@ WITH roles(role) AS (
 SELECT 's11_users'::text AS section, metric, value, note FROM metrics;
 
 
+
+\echo '@@inspect-section s12_project_records'
+WITH metrics(metric, value, note) AS (
+  SELECT 'p5.draft_stock_adjustments', (SELECT count(*) FROM stock_adjustments p WHERE p.status::text = 'draft' AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_stock_adjustments.soft_deleted', (SELECT count(*) FROM stock_adjustments p WHERE p.status::text = 'draft' AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_provider_settlements', (SELECT count(*) FROM provider_settlements p WHERE p.status::text = 'DRAFT' AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_provider_settlements.soft_deleted', (SELECT count(*) FROM provider_settlements p WHERE p.status::text = 'DRAFT' AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliations.first_time', (SELECT count(*) FROM bank_statement_reconciliations p WHERE p.status::text = 'DRAFT' AND p."currentVersionNo" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliations.first_time.soft_deleted', (SELECT count(*) FROM bank_statement_reconciliations p WHERE p.status::text = 'DRAFT' AND p."currentVersionNo" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliations.reopened', (SELECT count(*) FROM bank_statement_reconciliations p WHERE p.status::text = 'DRAFT' AND p."currentVersionNo" IS NOT NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliations.reopened.soft_deleted', (SELECT count(*) FROM bank_statement_reconciliations p WHERE p.status::text = 'DRAFT' AND p."currentVersionNo" IS NOT NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_provider_settlement_lines', (SELECT count(*) FROM provider_settlement_lines c JOIN provider_settlements p ON p.id = c."settlementId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_provider_settlement_lines.soft_deleted_parent', (SELECT count(*) FROM provider_settlement_lines c JOIN provider_settlements p ON p.id = c."settlementId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_provider_settlement_lines.soft_deleted_row', (SELECT count(*) FROM provider_settlement_lines c JOIN provider_settlements p ON p.id = c."settlementId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliation_lines', (SELECT count(*) FROM bank_statement_reconciliation_lines c JOIN bank_statement_reconciliations p ON p.id = c."reconciliationId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliation_lines.soft_deleted_parent', (SELECT count(*) FROM bank_statement_reconciliation_lines c JOIN bank_statement_reconciliations p ON p.id = c."reconciliationId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliation_lines.soft_deleted_row', (SELECT count(*) FROM bank_statement_reconciliation_lines c JOIN bank_statement_reconciliations p ON p.id = c."reconciliationId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliation_setup_marks', (SELECT count(*) FROM bank_statement_reconciliation_setup_marks c JOIN bank_statement_reconciliations p ON p.id = c."reconciliationId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliation_setup_marks.soft_deleted_parent', (SELECT count(*) FROM bank_statement_reconciliation_setup_marks c JOIN bank_statement_reconciliations p ON p.id = c."reconciliationId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p5.draft_bank_reconciliation_setup_marks.soft_deleted_row', (SELECT count(*) FROM bank_statement_reconciliation_setup_marks c JOIN bank_statement_reconciliations p ON p.id = c."reconciliationId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_orders.DRAFT', (SELECT count(*) FROM sales_orders p WHERE p.status::text = 'DRAFT' AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_orders.DRAFT.soft_deleted', (SELECT count(*) FROM sales_orders p WHERE p.status::text = 'DRAFT' AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_orders.READY', (SELECT count(*) FROM sales_orders p WHERE p.status::text = 'READY' AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_orders.READY.soft_deleted', (SELECT count(*) FROM sales_orders p WHERE p.status::text = 'READY' AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_orders.DRAFT', (SELECT count(*) FROM purchase_orders p WHERE p.status::text = 'DRAFT' AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_orders.DRAFT.soft_deleted', (SELECT count(*) FROM purchase_orders p WHERE p.status::text = 'DRAFT' AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_orders.READY', (SELECT count(*) FROM purchase_orders p WHERE p.status::text = 'READY' AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_orders.READY.soft_deleted', (SELECT count(*) FROM purchase_orders p WHERE p.status::text = 'READY' AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_order_items.DRAFT', (SELECT count(*) FROM sales_order_items c JOIN sales_orders p ON p.id = c."salesOrderId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_order_items.DRAFT.soft_deleted_parent', (SELECT count(*) FROM sales_order_items c JOIN sales_orders p ON p.id = c."salesOrderId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_order_items.DRAFT.soft_deleted_row', (SELECT count(*) FROM sales_order_items c JOIN sales_orders p ON p.id = c."salesOrderId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_order_items.READY', (SELECT count(*) FROM sales_order_items c JOIN sales_orders p ON p.id = c."salesOrderId" WHERE p.status::text = 'READY' AND c."deletedAt" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_order_items.READY.soft_deleted_parent', (SELECT count(*) FROM sales_order_items c JOIN sales_orders p ON p.id = c."salesOrderId" WHERE p.status::text = 'READY' AND c."deletedAt" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.sales_order_items.READY.soft_deleted_row', (SELECT count(*) FROM sales_order_items c JOIN sales_orders p ON p.id = c."salesOrderId" WHERE p.status::text = 'READY' AND c."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_order_items.DRAFT', (SELECT count(*) FROM purchase_order_items c JOIN purchase_orders p ON p.id = c."purchaseOrderId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_order_items.DRAFT.soft_deleted_parent', (SELECT count(*) FROM purchase_order_items c JOIN purchase_orders p ON p.id = c."purchaseOrderId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_order_items.DRAFT.soft_deleted_row', (SELECT count(*) FROM purchase_order_items c JOIN purchase_orders p ON p.id = c."purchaseOrderId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_order_items.READY', (SELECT count(*) FROM purchase_order_items c JOIN purchase_orders p ON p.id = c."purchaseOrderId" WHERE p.status::text = 'READY' AND c."deletedAt" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_order_items.READY.soft_deleted_parent', (SELECT count(*) FROM purchase_order_items c JOIN purchase_orders p ON p.id = c."purchaseOrderId" WHERE p.status::text = 'READY' AND c."deletedAt" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.purchase_order_items.READY.soft_deleted_row', (SELECT count(*) FROM purchase_order_items c JOIN purchase_orders p ON p.id = c."purchaseOrderId" WHERE p.status::text = 'READY' AND c."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.stock_adjustment_items.draft', (SELECT count(*) FROM stock_adjustment_items c JOIN stock_adjustments p ON p.id = c."stockAdjustmentId" WHERE p.status::text = 'draft' AND c."deletedAt" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.stock_adjustment_items.draft.soft_deleted_parent', (SELECT count(*) FROM stock_adjustment_items c JOIN stock_adjustments p ON p.id = c."stockAdjustmentId" WHERE p.status::text = 'draft' AND c."deletedAt" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.stock_adjustment_items.draft.soft_deleted_row', (SELECT count(*) FROM stock_adjustment_items c JOIN stock_adjustments p ON p.id = c."stockAdjustmentId" WHERE p.status::text = 'draft' AND c."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.provider_settlement_lines.draft', (SELECT count(*) FROM provider_settlement_lines c JOIN provider_settlements p ON p.id = c."settlementId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.provider_settlement_lines.draft.soft_deleted_parent', (SELECT count(*) FROM provider_settlement_lines c JOIN provider_settlements p ON p.id = c."settlementId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NULL AND p."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p6.provider_settlement_lines.draft.soft_deleted_row', (SELECT count(*) FROM provider_settlement_lines c JOIN provider_settlements p ON p.id = c."settlementId" WHERE p.status::text = 'DRAFT' AND c."deletedAt" IS NOT NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
+  UNION ALL
+  SELECT 'p7.account_mappings', (SELECT count(*) FROM payment_method_account_mappings)::text, ''
+  UNION ALL
+  SELECT 'p7.account_mappings.soft_deleted', (SELECT count(*) FROM payment_method_account_mappings WHERE "deletedAt" IS NOT NULL)::text, ''
+  UNION ALL
+  SELECT 'p7.account_mappings.inactive', (SELECT count(*) FROM payment_method_account_mappings WHERE "deletedAt" IS NULL AND "isActive" = false)::text, ''
+  UNION ALL
+  SELECT 'p7.balance_sheet_account_groups', (SELECT count(*) FROM balance_sheet_account_groups)::text, ''
+  UNION ALL
+  SELECT 'p7.mappings_to_soft_deleted_payment_methods', (SELECT count(*) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id = m."paymentMethodId" WHERE m."deletedAt" IS NULL AND pm."deletedAt" IS NOT NULL)::text, ''
+)
+SELECT 's12_project_records'::text AS section, metric, value, note FROM metrics;
+
+
 ROLLBACK;
 \echo '@@inspect-end'

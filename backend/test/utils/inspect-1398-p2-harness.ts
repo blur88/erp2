@@ -31,6 +31,25 @@ export const PRE_3_25_DROP: Record<string, string[]> = {
   purchase_cost_history: ['purchaseOrderItemId'],
 };
 export const OMIT_PRE_3_25: readonly string[] = ['stock_movement_valuation_gaps'];
+export const S12_METRICS: readonly string[] = [
+  'p5.draft_stock_adjustments', 'p5.draft_stock_adjustments.soft_deleted',
+  'p5.draft_provider_settlements', 'p5.draft_provider_settlements.soft_deleted',
+  'p5.draft_bank_reconciliations.first_time', 'p5.draft_bank_reconciliations.first_time.soft_deleted',
+  'p5.draft_bank_reconciliations.reopened', 'p5.draft_bank_reconciliations.reopened.soft_deleted',
+  'p5.draft_provider_settlement_lines', 'p5.draft_provider_settlement_lines.soft_deleted_parent', 'p5.draft_provider_settlement_lines.soft_deleted_row',
+  'p5.draft_bank_reconciliation_lines', 'p5.draft_bank_reconciliation_lines.soft_deleted_parent', 'p5.draft_bank_reconciliation_lines.soft_deleted_row',
+  'p5.draft_bank_reconciliation_setup_marks', 'p5.draft_bank_reconciliation_setup_marks.soft_deleted_parent', 'p5.draft_bank_reconciliation_setup_marks.soft_deleted_row',
+  'p6.sales_orders.DRAFT', 'p6.sales_orders.DRAFT.soft_deleted', 'p6.sales_orders.READY', 'p6.sales_orders.READY.soft_deleted',
+  'p6.purchase_orders.DRAFT', 'p6.purchase_orders.DRAFT.soft_deleted', 'p6.purchase_orders.READY', 'p6.purchase_orders.READY.soft_deleted',
+  'p6.sales_order_items.DRAFT', 'p6.sales_order_items.DRAFT.soft_deleted_parent', 'p6.sales_order_items.DRAFT.soft_deleted_row',
+  'p6.sales_order_items.READY', 'p6.sales_order_items.READY.soft_deleted_parent', 'p6.sales_order_items.READY.soft_deleted_row',
+  'p6.purchase_order_items.DRAFT', 'p6.purchase_order_items.DRAFT.soft_deleted_parent', 'p6.purchase_order_items.DRAFT.soft_deleted_row',
+  'p6.purchase_order_items.READY', 'p6.purchase_order_items.READY.soft_deleted_parent', 'p6.purchase_order_items.READY.soft_deleted_row',
+  'p6.stock_adjustment_items.draft', 'p6.stock_adjustment_items.draft.soft_deleted_parent', 'p6.stock_adjustment_items.draft.soft_deleted_row',
+  'p6.provider_settlement_lines.draft', 'p6.provider_settlement_lines.draft.soft_deleted_parent', 'p6.provider_settlement_lines.draft.soft_deleted_row',
+  'p7.account_mappings', 'p7.account_mappings.soft_deleted', 'p7.account_mappings.inactive',
+  'p7.balance_sheet_account_groups', 'p7.mappings_to_soft_deleted_payment_methods',
+];
 export const PRE_3_25_FIXTURE: FixtureSpec = {
   dropColumns: PRE_3_25_DROP,
   omitTables: OMIT_PRE_3_25,

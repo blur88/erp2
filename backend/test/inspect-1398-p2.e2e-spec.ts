@@ -8,6 +8,7 @@ import {
   metric,
   parseInspectionOutput,
   runInspection,
+  S12_METRICS,
   seedProductRows,
   withFixtureSchema,
 } from './utils/inspect-1398-p2-harness';
@@ -917,6 +918,91 @@ describe('inspect 1398 project 2', () => {
         'active.admin', 'active.manager', 'active.sales_staff', 'active.inventory_staff',
         'active.procurement_staff', 'inactive_users', 'has_active_admin', 'has_distinct_preparer',
       ]) expect(s11.some((row) => row.metric === name)).toBe(true);
+    });
+  });
+
+  it('s12 reports the complete fixed metric set at zero on an empty baseline', async () => {
+    await withFixtureSchema({}, async (schema) => {
+      const result = await runInspection({ schema });
+      const rows = result.sets.find((set) => set.section === 's12_project_records')?.rows ?? [];
+      expect(rows.map((row) => row.metric).sort()).toEqual([...S12_METRICS].sort());
+      expect(rows.every((row) => row.value === '0')).toBe(true);
+    });
+  });
+
+  it('s12 counts sales order items by live parent status and soft-deleted parent', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const liveDraft = await insertFixtureRow(schema, db, 'sales_orders', { orderNumber: 'SO-D', orderDate: '2026-01-01', customerId: '00000000-0000-4000-8000-000000000001', status: 'DRAFT' });
+      const ready = await insertFixtureRow(schema, db, 'sales_orders', { orderNumber: 'SO-R', orderDate: '2026-01-01', customerId: '00000000-0000-4000-8000-000000000001', status: 'READY' });
+      const deleted = await insertFixtureRow(schema, db, 'sales_orders', { orderNumber: 'SO-X', orderDate: '2026-01-01', customerId: '00000000-0000-4000-8000-000000000001', status: 'DRAFT', deletedAt: '2026-01-01' });
+      for (const [parent, count] of [[liveDraft, 2], [ready, 3], [deleted, 4]] as const) {
+        for (let i = 0; i < count; i += 1) await insertFixtureRow(schema, db, 'sales_order_items', { salesOrderId: parent.id, productId: '00000000-0000-4000-8000-000000000001', lineNumber: i + 1, quantity: 1, unitPrice: 1, unitCost: 1 });
+      }
+      await insertFixtureRow(schema, db, 'sales_orders', { orderNumber: 'SO-F', orderDate: '2026-01-01', customerId: '00000000-0000-4000-8000-000000000001', status: 'FULFILLED' });
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(metric(result.sets, 's12_project_records', 'p6.sales_orders.DRAFT')).toBe('1');
+      expect(metric(result.sets, 's12_project_records', 'p6.sales_orders.DRAFT.soft_deleted')).toBe('1');
+      expect(metric(result.sets, 's12_project_records', 'p6.sales_order_items.DRAFT')).toBe('2');
+      expect(metric(result.sets, 's12_project_records', 'p6.sales_order_items.READY')).toBe('3');
+      expect(metric(result.sets, 's12_project_records', 'p6.sales_order_items.DRAFT.soft_deleted_parent')).toBe('4');
+    });
+  });
+
+  it('s12 separates live, own-soft-deleted and soft-deleted-parent settlement lines', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const live = await insertFixtureRow(schema, db, 'provider_settlements', { referenceNumber: 'PS-L', providerPaymentMethodId: '00000000-0000-4000-8000-000000000001', clearingAccountId: '00000000-0000-4000-8000-000000000001', bankAccountId: '00000000-0000-4000-8000-000000000001', settlementDate: '2026-01-01', settlementAmount: 2, status: 'DRAFT' });
+      const deleted = await insertFixtureRow(schema, db, 'provider_settlements', { referenceNumber: 'PS-X', providerPaymentMethodId: '00000000-0000-4000-8000-000000000001', clearingAccountId: '00000000-0000-4000-8000-000000000001', bankAccountId: '00000000-0000-4000-8000-000000000001', settlementDate: '2026-01-01', settlementAmount: 3, status: 'DRAFT', deletedAt: '2026-01-01' });
+      await insertFixtureRow(schema, db, 'provider_settlement_lines', { settlementId: live.id, salesOrderPaymentId: '00000000-0000-4000-8000-000000000001', amount: 1 });
+      await insertFixtureRow(schema, db, 'provider_settlement_lines', { settlementId: live.id, salesOrderPaymentId: '00000000-0000-4000-8000-000000000002', amount: 1, deletedAt: '2026-01-01' });
+      await insertFixtureRow(schema, db, 'provider_settlement_lines', { settlementId: deleted.id, salesOrderPaymentId: '00000000-0000-4000-8000-000000000003', amount: 1 });
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(metric(result.sets, 's12_project_records', 'p5.draft_provider_settlement_lines')).toBe('1');
+      expect(metric(result.sets, 's12_project_records', 'p5.draft_provider_settlement_lines.soft_deleted_row')).toBe('1');
+      expect(metric(result.sets, 's12_project_records', 'p5.draft_provider_settlement_lines.soft_deleted_parent')).toBe('1');
+    });
+  });
+
+  it('s12 classifies first-time and reopened drafts and their bank reconciliation children', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const bank = '00000000-0000-4000-8000-000000000001';
+      const first = await insertFixtureRow(schema, db, 'bank_statement_reconciliations', { reconciliationNo: 'BR-1', bankAccountId: bank, sequenceNo: 1, periodFrom: '2026-01-01', periodTo: '2026-01-31', openingBalance: 0, closingBalance: 0, status: 'DRAFT' });
+      const reopened = await insertFixtureRow(schema, db, 'bank_statement_reconciliations', { reconciliationNo: 'BR-2', bankAccountId: bank, sequenceNo: 2, periodFrom: '2026-02-01', periodTo: '2026-02-28', openingBalance: 0, closingBalance: 0, status: 'DRAFT', currentVersionNo: 1 });
+      const deleted = await insertFixtureRow(schema, db, 'bank_statement_reconciliations', { reconciliationNo: 'BR-3', bankAccountId: bank, sequenceNo: 3, periodFrom: '2026-03-01', periodTo: '2026-03-31', openingBalance: 0, closingBalance: 0, status: 'DRAFT', deletedAt: '2026-01-01' });
+      for (const [parent, count] of [[first, 1], [reopened, 1], [deleted, 3]] as const) {
+        for (let i = 0; i < count; i += 1) await insertFixtureRow(schema, db, 'bank_statement_reconciliation_lines', { reconciliationId: parent.id, journalEntryLineId: `00000000-0000-4000-8000-${String(100 + i + count).padStart(12, '0')}`, kind: 'MATCHED', addedBy: 'fixture', addedAt: '2026-01-01T00:00:00Z' });
+      }
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(metric(result.sets, 's12_project_records', 'p5.draft_bank_reconciliations.first_time')).toBe('1');
+      expect(metric(result.sets, 's12_project_records', 'p5.draft_bank_reconciliations.reopened')).toBe('1');
+      expect(metric(result.sets, 's12_project_records', 'p5.draft_bank_reconciliations.first_time.soft_deleted')).toBe('1');
+      expect(metric(result.sets, 's12_project_records', 'p5.draft_bank_reconciliation_lines.soft_deleted_parent')).toBe('3');
+    });
+  });
+
+  it('s12 excludes a soft-deleted stock adjustment and its child from live draft counts', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const adjustment = await insertFixtureRow(schema, db, 'stock_adjustments', { adjustmentNumber: 'SA-FX', adjustmentDate: '2026-01-01', status: 'draft', deletedAt: '2026-01-01' });
+      await insertFixtureRow(schema, db, 'stock_adjustment_items', { stockAdjustmentId: adjustment.id, productId: '00000000-0000-4000-8000-000000000001', oldQuantity: 1, newQuantity: 2, difference: 1 });
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(metric(result.sets, 's12_project_records', 'p5.draft_stock_adjustments')).toBe('0');
+      expect(metric(result.sets, 's12_project_records', 'p5.draft_stock_adjustments.soft_deleted')).toBe('1');
+      expect(metric(result.sets, 's12_project_records', 'p6.stock_adjustment_items.draft')).toBe('0');
+      expect(metric(result.sets, 's12_project_records', 'p6.stock_adjustment_items.draft.soft_deleted_parent')).toBe('1');
+    });
+  });
+
+  it('s12 detects account mappings whose payment method is soft-deleted', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const method = await insertFixtureRow(schema, db, 'payment_methods', { code: 'FX', name: 'Fixture', deletedAt: '2026-01-01' });
+      await insertFixtureRow(schema, db, 'payment_method_account_mappings', { paymentMethodId: method.id, accountId: '00000000-0000-4000-8000-000000000001' });
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(metric(result.sets, 's12_project_records', 'p7.account_mappings')).toBe('1');
+      expect(metric(result.sets, 's12_project_records', 'p7.mappings_to_soft_deleted_payment_methods')).toBe('1');
     });
   });
 
