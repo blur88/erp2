@@ -392,6 +392,122 @@ WITH settings AS (
 SELECT 's06_inventory_ledger'::text AS section, metric, value, note FROM metrics;
 
 
+\echo '@@inspect-section s09_balance_chains'
+WITH base AS (
+  SELECT movement.id, movement."productId" AS product_id, movement."createdAt", movement."deletedAt",
+         movement.quantity, movement."previousBalance", movement."newBalance",
+         product."stockQuantity" AS stock_quantity,
+         count(*) OVER (PARTITION BY movement."productId", movement."createdAt") AS timestamp_count
+    FROM stock_movements movement
+    LEFT JOIN products product ON product.id = movement."productId"
+), ordered AS (
+  SELECT base.*,
+         row_number() OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS sequence,
+         lag("newBalance") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_new_balance,
+         lag("deletedAt") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_deleted_at,
+         lag(timestamp_count) OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_timestamp_count
+    FROM base
+), live_links AS (
+  SELECT *, (sequence > 1 AND "deletedAt" IS NULL AND prior_deleted_at IS NULL) AS has_live_link
+    FROM ordered
+), last_live AS (
+  SELECT *, row_number() OVER (PARTITION BY product_id ORDER BY "createdAt" DESC, id DESC) AS last_rank
+    FROM ordered WHERE "deletedAt" IS NULL
+), metrics(metric, value, note) AS (
+  SELECT 'products_checked', count(DISTINCT product_id) FILTER (WHERE "deletedAt" IS NULL)::text, '' FROM ordered
+  UNION ALL SELECT 'movements_checked', count(*) FILTER (WHERE "deletedAt" IS NULL)::text, '' FROM ordered
+  UNION ALL SELECT 'arithmetic_failures', count(*) FILTER (
+    WHERE "deletedAt" IS NULL AND "newBalance" IS DISTINCT FROM "previousBalance" + quantity)::text, '' FROM ordered
+  UNION ALL SELECT 'link_breaks', count(*) FILTER (
+    WHERE has_live_link AND timestamp_count = 1 AND prior_timestamp_count = 1
+      AND "previousBalance" IS DISTINCT FROM prior_new_balance)::text, '' FROM live_links
+  UNION ALL SELECT 'links_evaluated', count(*) FILTER (
+    WHERE has_live_link AND timestamp_count = 1 AND prior_timestamp_count = 1)::text, '' FROM live_links
+  UNION ALL SELECT 'links_order_unknown', count(*) FILTER (
+    WHERE has_live_link AND (timestamp_count > 1 OR prior_timestamp_count > 1))::text, '' FROM live_links
+  UNION ALL SELECT 'end_mismatches', count(*) FILTER (
+    WHERE last_rank = 1 AND timestamp_count = 1 AND "newBalance" IS DISTINCT FROM stock_quantity)::text, '' FROM last_live
+  UNION ALL SELECT 'end_order_unknown', count(*) FILTER (WHERE last_rank = 1 AND timestamp_count > 1)::text, '' FROM last_live
+  UNION ALL SELECT 'soft_deleted_movements', count(*) FILTER (WHERE "deletedAt" IS NOT NULL)::text, '' FROM ordered
+)
+SELECT 's09_balance_chains'::text AS section, metric, value, note FROM metrics;
+
+\echo '@@inspect-section s09_balance_chains_detail'
+WITH base AS (
+  SELECT movement.id, movement."productId" AS product_id, movement."createdAt", movement."deletedAt",
+         movement.quantity, movement."previousBalance", movement."newBalance",
+         product."stockQuantity" AS stock_quantity,
+         count(*) OVER (PARTITION BY movement."productId", movement."createdAt") AS timestamp_count
+    FROM stock_movements movement LEFT JOIN products product ON product.id = movement."productId"
+), ordered AS (
+  SELECT base.*,
+         row_number() OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS sequence,
+         lag("newBalance") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_new_balance,
+         lag("deletedAt") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_deleted_at,
+         lag(timestamp_count) OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_timestamp_count
+    FROM base
+), live_links AS (
+  SELECT *, (sequence > 1 AND "deletedAt" IS NULL AND prior_deleted_at IS NULL) AS has_live_link FROM ordered
+), last_live AS (
+  SELECT *, row_number() OVER (PARTITION BY product_id ORDER BY "createdAt" DESC, id DESC) AS last_rank
+    FROM ordered WHERE "deletedAt" IS NULL
+), details AS (
+  SELECT product_id, id AS movement_id, 'arithmetic'::text AS kind,
+         ("previousBalance" + quantity)::text AS expected, "newBalance"::text AS actual
+    FROM ordered WHERE "deletedAt" IS NULL AND "newBalance" IS DISTINCT FROM "previousBalance" + quantity
+  UNION ALL
+  SELECT product_id, id, 'link_break', prior_new_balance::text, "previousBalance"::text
+    FROM live_links WHERE has_live_link AND timestamp_count = 1 AND prior_timestamp_count = 1
+      AND "previousBalance" IS DISTINCT FROM prior_new_balance
+  UNION ALL
+  SELECT product_id, id, 'link_order_unknown', 'timestamp order shared', "previousBalance"::text
+    FROM live_links WHERE has_live_link AND (timestamp_count > 1 OR prior_timestamp_count > 1)
+  UNION ALL
+  SELECT product_id, id, 'end_mismatch', stock_quantity::text, "newBalance"::text
+    FROM last_live WHERE last_rank = 1 AND timestamp_count = 1
+      AND "newBalance" IS DISTINCT FROM stock_quantity
+  UNION ALL
+  SELECT product_id, id, 'end_order_unknown', 'timestamp order shared', "newBalance"::text
+    FROM last_live WHERE last_rank = 1 AND timestamp_count > 1
+)
+SELECT 's09_balance_chains_detail'::text AS section,
+       product_id::text AS product_id, movement_id::text AS movement_id, kind, expected, actual
+  FROM details ORDER BY product_id, movement_id, kind;
+
+
+\echo '@@inspect-section s07_undo_counts'
+WITH metrics(metric, value, note) AS (
+  SELECT 'fulfilled_sales_orders', count(*) FILTER (WHERE status::text = 'FULFILLED')::text,
+         'soft-deleted documents excluded' FROM sales_orders WHERE "deletedAt" IS NULL
+  UNION ALL
+  SELECT 'received_purchase_orders', count(*) FILTER (WHERE status::text = 'RECEIVED')::text,
+         'soft-deleted documents excluded' FROM purchase_orders WHERE "deletedAt" IS NULL
+  UNION ALL
+  SELECT 'completed_stock_adjustments', count(*) FILTER (WHERE status::text = 'completed')::text,
+         'soft-deleted documents excluded' FROM stock_adjustments WHERE "deletedAt" IS NULL
+  UNION ALL
+  SELECT 'reverted_stock_adjustments', count(*) FILTER (WHERE status::text = 'reverted')::text,
+         'soft-deleted documents excluded' FROM stock_adjustments WHERE "deletedAt" IS NULL
+  UNION ALL
+  SELECT 'completed_owner_stock_drawings', count(*)::text,
+         'soft-deleted documents excluded' FROM owner_equity_documents
+   WHERE "deletedAt" IS NULL AND type::text = 'STOCK_DRAWING' AND "documentStatus"::text = 'COMPLETED'
+  UNION ALL
+  SELECT 'owner_drawing_reversal_movements', count(*)::text,
+         'soft-deleted documents excluded' FROM stock_movements
+   WHERE "deletedAt" IS NULL AND "movementType"::text = 'owner_drawing_reversal'
+  UNION ALL
+  SELECT 'owner_stock_drawing_journal_reversals', count(*)::text,
+         'soft-deleted documents excluded'
+    FROM journal_entry reversal
+    JOIN journal_entry original ON original.id = reversal."reversalOfEntryId"
+   WHERE reversal."deletedAt" IS NULL AND original."deletedAt" IS NULL
+     AND original."postingType"::text = 'OWNER_STOCK_DRAWING'
+)
+SELECT 's07_undo_counts'::text AS section, metric, value, note FROM metrics;
+
+
+
 \echo '@@inspect-section s08_outside_workflows'
 WITH allowed_pairs(reference_type, movement_type) AS (
   VALUES
@@ -518,37 +634,6 @@ SELECT 's08_outside_workflows_detail'::text AS section,
   FROM detail_rows
  ORDER BY movement_id, "group";
 
-
-\echo '@@inspect-section s07_undo_counts'
-WITH metrics(metric, value, note) AS (
-  SELECT 'fulfilled_sales_orders', count(*) FILTER (WHERE status::text = 'FULFILLED')::text,
-         'soft-deleted documents excluded' FROM sales_orders WHERE "deletedAt" IS NULL
-  UNION ALL
-  SELECT 'received_purchase_orders', count(*) FILTER (WHERE status::text = 'RECEIVED')::text,
-         'soft-deleted documents excluded' FROM purchase_orders WHERE "deletedAt" IS NULL
-  UNION ALL
-  SELECT 'completed_stock_adjustments', count(*) FILTER (WHERE status::text = 'completed')::text,
-         'soft-deleted documents excluded' FROM stock_adjustments WHERE "deletedAt" IS NULL
-  UNION ALL
-  SELECT 'reverted_stock_adjustments', count(*) FILTER (WHERE status::text = 'reverted')::text,
-         'soft-deleted documents excluded' FROM stock_adjustments WHERE "deletedAt" IS NULL
-  UNION ALL
-  SELECT 'completed_owner_stock_drawings', count(*)::text,
-         'soft-deleted documents excluded' FROM owner_equity_documents
-   WHERE "deletedAt" IS NULL AND type::text = 'STOCK_DRAWING' AND "documentStatus"::text = 'COMPLETED'
-  UNION ALL
-  SELECT 'owner_drawing_reversal_movements', count(*)::text,
-         'soft-deleted documents excluded' FROM stock_movements
-   WHERE "deletedAt" IS NULL AND "movementType"::text = 'owner_drawing_reversal'
-  UNION ALL
-  SELECT 'owner_stock_drawing_journal_reversals', count(*)::text,
-         'soft-deleted documents excluded'
-    FROM journal_entry reversal
-    JOIN journal_entry original ON original.id = reversal."reversalOfEntryId"
-   WHERE reversal."deletedAt" IS NULL AND original."deletedAt" IS NULL
-     AND original."postingType"::text = 'OWNER_STOCK_DRAWING'
-)
-SELECT 's07_undo_counts'::text AS section, metric, value, note FROM metrics;
 
 
 ROLLBACK;

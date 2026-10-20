@@ -674,4 +674,149 @@ describe('inspect 1398 project 2', () => {
     });
   });
 
+
+  it('s09 accepts a clean arithmetic and balance chain', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedProductRows(schema, db, [{ name: 'Clean chain', stockQuantity: '3' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          productId, movementType: 'initial_stock', quantity: '5', previousBalance: '0', newBalance: '5',
+          createdAt: '2026-01-01T00:00:00Z',
+        });
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          productId, movementType: 'sale', quantity: '-2', previousBalance: '5', newBalance: '3',
+          createdAt: '2026-01-02T00:00:00Z',
+        });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        for (const name of ['arithmetic_failures', 'link_breaks', 'links_order_unknown', 'end_mismatches', 'end_order_unknown']) {
+          expect(metric(result.sets, 's09_balance_chains', name)).toBe('0');
+        }
+        expect(metric(result.sets, 's09_balance_chains', 'links_evaluated')).toBe('1');
+      },
+    );
+  });
+
+  it('s09 counts a break between uniquely ordered movements', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedProductRows(schema, db, [{ name: 'Broken link', stockQuantity: '2' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          productId, movementType: 'initial_stock', quantity: '5', previousBalance: '0', newBalance: '5',
+          createdAt: '2026-01-01T00:00:00Z',
+        });
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          productId, movementType: 'sale', quantity: '-2', previousBalance: '4', newBalance: '2',
+          createdAt: '2026-01-02T00:00:00Z',
+        });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's09_balance_chains', 'link_breaks')).toBe('1');
+      },
+    );
+  });
+
+  it('s09 treats shared timestamps as unknown order, not breaks or end mismatches', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedProductRows(schema, db, [{ name: 'Tied chain', stockQuantity: '10' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        for (const [quantity, previousBalance, newBalance] of [['5', '0', '5'], ['1', '9', '10']]) {
+          await insertFixtureRow(schema, db, 'stock_movements', {
+            productId, movementType: 'initial_stock', quantity, previousBalance, newBalance,
+            createdAt: '2026-01-01T00:00:00Z',
+          });
+        }
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's09_balance_chains', 'link_breaks')).toBe('0');
+        expect(metric(result.sets, 's09_balance_chains', 'links_order_unknown')).toBe('1');
+        expect(metric(result.sets, 's09_balance_chains', 'end_order_unknown')).toBe('1');
+        expect(metric(result.sets, 's09_balance_chains', 'end_mismatches')).toBe('0');
+      },
+    );
+  });
+
+  it('s09 checks arithmetic even when timestamp order is shared', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedProductRows(schema, db, [{ name: 'Tied arithmetic', stockQuantity: '10' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        for (const [quantity, previousBalance, newBalance] of [['5', '0', '5'], ['1', '9', '7']]) {
+          await insertFixtureRow(schema, db, 'stock_movements', {
+            productId, movementType: 'initial_stock', quantity, previousBalance, newBalance,
+            createdAt: '2026-01-01T00:00:00Z',
+          });
+        }
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's09_balance_chains', 'arithmetic_failures')).toBe('1');
+      },
+    );
+  });
+
+  it('s09 reports an unshared last movement that disagrees with stock', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedProductRows(schema, db, [{ name: 'End mismatch', stockQuantity: '8' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          productId, movementType: 'initial_stock', quantity: '3', previousBalance: '0', newBalance: '3',
+          createdAt: '2026-01-01T00:00:00Z',
+        });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's09_balance_chains', 'end_mismatches')).toBe('1');
+      },
+    );
+  });
+
+  it('s09 exposes every pinned metric on an empty baseline', async () => {
+    await withFixtureSchema({}, async (schema) => {
+      const result = await runInspection({ schema });
+      const rows = result.sets.find((set) => set.section === 's09_balance_chains')?.rows ?? [];
+      for (const name of [
+        'products_checked', 'movements_checked', 'arithmetic_failures', 'link_breaks',
+        'links_evaluated', 'links_order_unknown', 'end_mismatches', 'end_order_unknown',
+        'soft_deleted_movements',
+      ]) expect(rows.some((row) => row.metric === name)).toBe(true);
+    });
+  });
+
+
+  it('s09 counts soft-deleted movements without bridging over them', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedProductRows(schema, db, [{ name: 'Deleted movement gap', stockQuantity: '6' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          productId, movementType: 'initial_stock', quantity: '5', previousBalance: '0', newBalance: '5',
+          createdAt: '2026-01-01T00:00:00Z',
+        });
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          productId, movementType: 'adjustment_increase', quantity: '90', previousBalance: '5', newBalance: '95',
+          createdAt: '2026-01-02T00:00:00Z', deletedAt: '2026-01-03T00:00:00Z',
+        });
+        await insertFixtureRow(schema, db, 'stock_movements', {
+          productId, movementType: 'sale', quantity: '1', previousBalance: '100', newBalance: '6',
+          createdAt: '2026-01-04T00:00:00Z',
+        });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's09_balance_chains', 'soft_deleted_movements')).toBe('1');
+        expect(metric(result.sets, 's09_balance_chains', 'movements_checked')).toBe('2');
+        expect(metric(result.sets, 's09_balance_chains', 'links_evaluated')).toBe('0');
+        expect(metric(result.sets, 's09_balance_chains', 'link_breaks')).toBe('0');
+      },
+    );
+  });
+
 });
