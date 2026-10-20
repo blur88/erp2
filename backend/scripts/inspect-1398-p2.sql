@@ -392,89 +392,6 @@ WITH settings AS (
 SELECT 's06_inventory_ledger'::text AS section, metric, value, note FROM metrics;
 
 
-\echo '@@inspect-section s09_balance_chains'
-WITH base AS (
-  SELECT movement.id, movement."productId" AS product_id, movement."createdAt", movement."deletedAt",
-         movement.quantity, movement."previousBalance", movement."newBalance",
-         product."stockQuantity" AS stock_quantity,
-         count(*) OVER (PARTITION BY movement."productId", movement."createdAt") AS timestamp_count
-    FROM stock_movements movement
-    LEFT JOIN products product ON product.id = movement."productId"
-), ordered AS (
-  SELECT base.*,
-         row_number() OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS sequence,
-         lag("newBalance") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_new_balance,
-         lag("deletedAt") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_deleted_at,
-         lag(timestamp_count) OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_timestamp_count
-    FROM base
-), live_links AS (
-  SELECT *, (sequence > 1 AND "deletedAt" IS NULL AND prior_deleted_at IS NULL) AS has_live_link
-    FROM ordered
-), last_live AS (
-  SELECT *, row_number() OVER (PARTITION BY product_id ORDER BY "createdAt" DESC, id DESC) AS last_rank
-    FROM ordered WHERE "deletedAt" IS NULL
-), metrics(metric, value, note) AS (
-  SELECT 'products_checked', count(DISTINCT product_id) FILTER (WHERE "deletedAt" IS NULL)::text, '' FROM ordered
-  UNION ALL SELECT 'movements_checked', count(*) FILTER (WHERE "deletedAt" IS NULL)::text, '' FROM ordered
-  UNION ALL SELECT 'arithmetic_failures', count(*) FILTER (
-    WHERE "deletedAt" IS NULL AND "newBalance" IS DISTINCT FROM "previousBalance" + quantity)::text, '' FROM ordered
-  UNION ALL SELECT 'link_breaks', count(*) FILTER (
-    WHERE has_live_link AND timestamp_count = 1 AND prior_timestamp_count = 1
-      AND "previousBalance" IS DISTINCT FROM prior_new_balance)::text, '' FROM live_links
-  UNION ALL SELECT 'links_evaluated', count(*) FILTER (
-    WHERE has_live_link AND timestamp_count = 1 AND prior_timestamp_count = 1)::text, '' FROM live_links
-  UNION ALL SELECT 'links_order_unknown', count(*) FILTER (
-    WHERE has_live_link AND (timestamp_count > 1 OR prior_timestamp_count > 1))::text, '' FROM live_links
-  UNION ALL SELECT 'end_mismatches', count(*) FILTER (
-    WHERE last_rank = 1 AND timestamp_count = 1 AND "newBalance" IS DISTINCT FROM stock_quantity)::text, '' FROM last_live
-  UNION ALL SELECT 'end_order_unknown', count(*) FILTER (WHERE last_rank = 1 AND timestamp_count > 1)::text, '' FROM last_live
-  UNION ALL SELECT 'soft_deleted_movements', count(*) FILTER (WHERE "deletedAt" IS NOT NULL)::text, '' FROM ordered
-)
-SELECT 's09_balance_chains'::text AS section, metric, value, note FROM metrics;
-
-\echo '@@inspect-section s09_balance_chains_detail'
-WITH base AS (
-  SELECT movement.id, movement."productId" AS product_id, movement."createdAt", movement."deletedAt",
-         movement.quantity, movement."previousBalance", movement."newBalance",
-         product."stockQuantity" AS stock_quantity,
-         count(*) OVER (PARTITION BY movement."productId", movement."createdAt") AS timestamp_count
-    FROM stock_movements movement LEFT JOIN products product ON product.id = movement."productId"
-), ordered AS (
-  SELECT base.*,
-         row_number() OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS sequence,
-         lag("newBalance") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_new_balance,
-         lag("deletedAt") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_deleted_at,
-         lag(timestamp_count) OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_timestamp_count
-    FROM base
-), live_links AS (
-  SELECT *, (sequence > 1 AND "deletedAt" IS NULL AND prior_deleted_at IS NULL) AS has_live_link FROM ordered
-), last_live AS (
-  SELECT *, row_number() OVER (PARTITION BY product_id ORDER BY "createdAt" DESC, id DESC) AS last_rank
-    FROM ordered WHERE "deletedAt" IS NULL
-), details AS (
-  SELECT product_id, id AS movement_id, 'arithmetic'::text AS kind,
-         ("previousBalance" + quantity)::text AS expected, "newBalance"::text AS actual
-    FROM ordered WHERE "deletedAt" IS NULL AND "newBalance" IS DISTINCT FROM "previousBalance" + quantity
-  UNION ALL
-  SELECT product_id, id, 'link_break', prior_new_balance::text, "previousBalance"::text
-    FROM live_links WHERE has_live_link AND timestamp_count = 1 AND prior_timestamp_count = 1
-      AND "previousBalance" IS DISTINCT FROM prior_new_balance
-  UNION ALL
-  SELECT product_id, id, 'link_order_unknown', 'timestamp order shared', "previousBalance"::text
-    FROM live_links WHERE has_live_link AND (timestamp_count > 1 OR prior_timestamp_count > 1)
-  UNION ALL
-  SELECT product_id, id, 'end_mismatch', stock_quantity::text, "newBalance"::text
-    FROM last_live WHERE last_rank = 1 AND timestamp_count = 1
-      AND "newBalance" IS DISTINCT FROM stock_quantity
-  UNION ALL
-  SELECT product_id, id, 'end_order_unknown', 'timestamp order shared', "newBalance"::text
-    FROM last_live WHERE last_rank = 1 AND timestamp_count > 1
-)
-SELECT 's09_balance_chains_detail'::text AS section,
-       product_id::text AS product_id, movement_id::text AS movement_id, kind, expected, actual
-  FROM details ORDER BY product_id, movement_id, kind;
-
-
 \echo '@@inspect-section s07_undo_counts'
 WITH metrics(metric, value, note) AS (
   SELECT 'fulfilled_sales_orders', count(*) FILTER (WHERE status::text = 'FULFILLED')::text,
@@ -634,6 +551,197 @@ SELECT 's08_outside_workflows_detail'::text AS section,
   FROM detail_rows
  ORDER BY movement_id, "group";
 
+
+
+
+\echo '@@inspect-section s09_balance_chains'
+WITH base AS (
+  SELECT movement.id, movement."productId" AS product_id, movement."createdAt", movement."deletedAt",
+         movement.quantity, movement."previousBalance", movement."newBalance",
+         product."stockQuantity" AS stock_quantity,
+         count(*) OVER (PARTITION BY movement."productId", movement."createdAt") AS timestamp_count
+    FROM stock_movements movement
+    LEFT JOIN products product ON product.id = movement."productId"
+), ordered AS (
+  SELECT base.*,
+         row_number() OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS sequence,
+         lag("newBalance") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_new_balance,
+         lag("deletedAt") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_deleted_at,
+         lag(timestamp_count) OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_timestamp_count
+    FROM base
+), live_links AS (
+  SELECT *, (sequence > 1 AND "deletedAt" IS NULL AND prior_deleted_at IS NULL) AS has_live_link
+    FROM ordered
+), last_live AS (
+  SELECT *, row_number() OVER (PARTITION BY product_id ORDER BY "createdAt" DESC, id DESC) AS last_rank
+    FROM ordered WHERE "deletedAt" IS NULL
+), metrics(metric, value, note) AS (
+  SELECT 'products_checked', count(DISTINCT product_id) FILTER (WHERE "deletedAt" IS NULL)::text, '' FROM ordered
+  UNION ALL SELECT 'movements_checked', count(*) FILTER (WHERE "deletedAt" IS NULL)::text, '' FROM ordered
+  UNION ALL SELECT 'arithmetic_failures', count(*) FILTER (
+    WHERE "deletedAt" IS NULL AND "newBalance" IS DISTINCT FROM "previousBalance" + quantity)::text, '' FROM ordered
+  UNION ALL SELECT 'link_breaks', count(*) FILTER (
+    WHERE has_live_link AND timestamp_count = 1 AND prior_timestamp_count = 1
+      AND "previousBalance" IS DISTINCT FROM prior_new_balance)::text, '' FROM live_links
+  UNION ALL SELECT 'links_evaluated', count(*) FILTER (
+    WHERE has_live_link AND timestamp_count = 1 AND prior_timestamp_count = 1)::text, '' FROM live_links
+  UNION ALL SELECT 'links_order_unknown', count(*) FILTER (
+    WHERE has_live_link AND (timestamp_count > 1 OR prior_timestamp_count > 1))::text, '' FROM live_links
+  UNION ALL SELECT 'end_mismatches', count(*) FILTER (
+    WHERE last_rank = 1 AND timestamp_count = 1 AND "newBalance" IS DISTINCT FROM stock_quantity)::text, '' FROM last_live
+  UNION ALL SELECT 'end_order_unknown', count(*) FILTER (WHERE last_rank = 1 AND timestamp_count > 1)::text, '' FROM last_live
+  UNION ALL SELECT 'soft_deleted_movements', count(*) FILTER (WHERE "deletedAt" IS NOT NULL)::text, '' FROM ordered
+)
+SELECT 's09_balance_chains'::text AS section, metric, value, note FROM metrics;
+
+\echo '@@inspect-section s09_balance_chains_detail'
+WITH base AS (
+  SELECT movement.id, movement."productId" AS product_id, movement."createdAt", movement."deletedAt",
+         movement.quantity, movement."previousBalance", movement."newBalance",
+         product."stockQuantity" AS stock_quantity,
+         count(*) OVER (PARTITION BY movement."productId", movement."createdAt") AS timestamp_count
+    FROM stock_movements movement LEFT JOIN products product ON product.id = movement."productId"
+), ordered AS (
+  SELECT base.*,
+         row_number() OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS sequence,
+         lag("newBalance") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_new_balance,
+         lag("deletedAt") OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_deleted_at,
+         lag(timestamp_count) OVER (PARTITION BY product_id ORDER BY "createdAt", id) AS prior_timestamp_count
+    FROM base
+), live_links AS (
+  SELECT *, (sequence > 1 AND "deletedAt" IS NULL AND prior_deleted_at IS NULL) AS has_live_link FROM ordered
+), last_live AS (
+  SELECT *, row_number() OVER (PARTITION BY product_id ORDER BY "createdAt" DESC, id DESC) AS last_rank
+    FROM ordered WHERE "deletedAt" IS NULL
+), details AS (
+  SELECT product_id, id AS movement_id, 'arithmetic'::text AS kind,
+         ("previousBalance" + quantity)::text AS expected, "newBalance"::text AS actual
+    FROM ordered WHERE "deletedAt" IS NULL AND "newBalance" IS DISTINCT FROM "previousBalance" + quantity
+  UNION ALL
+  SELECT product_id, id, 'link_break', prior_new_balance::text, "previousBalance"::text
+    FROM live_links WHERE has_live_link AND timestamp_count = 1 AND prior_timestamp_count = 1
+      AND "previousBalance" IS DISTINCT FROM prior_new_balance
+  UNION ALL
+  SELECT product_id, id, 'link_order_unknown', 'timestamp order shared', "previousBalance"::text
+    FROM live_links WHERE has_live_link AND (timestamp_count > 1 OR prior_timestamp_count > 1)
+  UNION ALL
+  SELECT product_id, id, 'end_mismatch', stock_quantity::text, "newBalance"::text
+    FROM last_live WHERE last_rank = 1 AND timestamp_count = 1
+      AND "newBalance" IS DISTINCT FROM stock_quantity
+  UNION ALL
+  SELECT product_id, id, 'end_order_unknown', 'timestamp order shared', "newBalance"::text
+    FROM last_live WHERE last_rank = 1 AND timestamp_count > 1
+)
+SELECT 's09_balance_chains_detail'::text AS section,
+       product_id::text AS product_id, movement_id::text AS movement_id, kind, expected, actual
+  FROM details ORDER BY product_id, movement_id, kind;
+
+
+
+\echo '@@inspect-section s10_product_anomalies'
+WITH batches AS (
+  SELECT "productId", count(*) AS batch_count,
+         COALESCE(sum("remainingQuantity"), 0) AS batch_quantity,
+         COALESCE(sum(CASE WHEN "landedCost" IS NOT NULL AND "remainingQuantity" IS NOT NULL
+                           THEN "remainingQuantity" * "landedCost" END), 0)::numeric(24,4) AS batch_value
+    FROM purchase_cost_history WHERE "deletedAt" IS NULL GROUP BY "productId"
+), products_with_batches AS (
+  SELECT p.id, p.name, p.type::text AS product_type, p."stockQuantity" AS stock_quantity,
+         (p."deletedAt" IS NOT NULL) AS is_soft_deleted,
+         COALESCE(b.batch_count, 0) AS batch_count,
+         COALESCE(b.batch_quantity, 0)::numeric(18,4) AS batch_quantity,
+         COALESCE(b.batch_value, 0)::numeric(24,4) AS batch_value
+    FROM products p LEFT JOIN batches b ON b."productId" = p.id
+), metrics(metric, value, note) AS (
+  SELECT 'soft_deleted_with_stock', count(*) FILTER (
+    WHERE is_soft_deleted AND COALESCE(stock_quantity, 0) <> 0)::text, '' FROM products_with_batches
+  UNION ALL
+  SELECT 'soft_deleted_with_batches', count(*) FILTER (
+    WHERE is_soft_deleted AND EXISTS (
+      SELECT 1 FROM purchase_cost_history batch
+       WHERE batch."productId" = products_with_batches.id
+         AND batch."deletedAt" IS NULL AND batch."remainingQuantity" > 0))::text, ''
+    FROM products_with_batches
+  UNION ALL
+  SELECT 'service_with_stock', count(*) FILTER (
+    WHERE product_type = 'Service' AND COALESCE(stock_quantity, 0) <> 0)::text,
+    'non-stocked interpreted as type = Service' FROM products_with_batches
+  UNION ALL
+  SELECT 'service_with_batches', count(*) FILTER (
+    WHERE product_type = 'Service' AND batch_count > 0)::text,
+    'non-stocked interpreted as type = Service' FROM products_with_batches
+  UNION ALL
+  SELECT 'service_with_batch_value', count(*) FILTER (
+    WHERE product_type = 'Service' AND batch_value <> 0)::text,
+    'non-stocked interpreted as type = Service' FROM products_with_batches
+)
+SELECT 's10_product_anomalies'::text AS section, metric, value, note FROM metrics;
+
+\echo '@@inspect-section s10_product_anomalies_detail'
+WITH batches AS (
+  SELECT "productId", count(*) AS batch_count,
+         COALESCE(sum("remainingQuantity"), 0)::numeric(18,4) AS batch_quantity,
+         COALESCE(sum(CASE WHEN "landedCost" IS NOT NULL AND "remainingQuantity" IS NOT NULL
+                           THEN "remainingQuantity" * "landedCost" END), 0)::numeric(24,4) AS batch_value
+    FROM purchase_cost_history WHERE "deletedAt" IS NULL GROUP BY "productId"
+), products_with_batches AS (
+  SELECT p.id, p.name, p.type::text AS product_type, p."stockQuantity" AS stock_quantity,
+         (p."deletedAt" IS NOT NULL) AS is_soft_deleted,
+         COALESCE(b.batch_count, 0) AS batch_count,
+         COALESCE(b.batch_quantity, 0)::numeric(18,4) AS batch_quantity,
+         COALESCE(b.batch_value, 0)::numeric(24,4) AS batch_value
+    FROM products p LEFT JOIN batches b ON b."productId" = p.id
+), detail AS (
+  SELECT id, name, stock_quantity, batch_quantity, batch_value, 'soft_deleted_with_stock'::text AS kind
+    FROM products_with_batches WHERE is_soft_deleted AND COALESCE(stock_quantity, 0) <> 0
+  UNION ALL
+  SELECT p.id, p.name, p.stock_quantity, p.batch_quantity, p.batch_value, 'soft_deleted_with_batches'
+    FROM products_with_batches p WHERE p.is_soft_deleted AND EXISTS (
+      SELECT 1 FROM purchase_cost_history batch WHERE batch."productId" = p.id
+       AND batch."deletedAt" IS NULL AND batch."remainingQuantity" > 0)
+  UNION ALL
+  SELECT id, name, stock_quantity, batch_quantity, batch_value, 'service_with_stock'
+    FROM products_with_batches WHERE product_type = 'Service' AND COALESCE(stock_quantity, 0) <> 0
+  UNION ALL
+  SELECT id, name, stock_quantity, batch_quantity, batch_value, 'service_with_batches'
+    FROM products_with_batches WHERE product_type = 'Service' AND batch_count > 0
+  UNION ALL
+  SELECT id, name, stock_quantity, batch_quantity, batch_value, 'service_with_batch_value'
+    FROM products_with_batches WHERE product_type = 'Service' AND batch_value <> 0
+)
+SELECT 's10_product_anomalies_detail'::text AS section,
+       id::text AS product_id, name AS product_name, kind,
+       stock_quantity::text AS stock_quantity, batch_quantity::text AS batch_quantity,
+       batch_value::text AS batch_value
+  FROM detail ORDER BY product_id, kind;
+
+\echo '@@inspect-section s11_users'
+WITH roles(role) AS (
+  VALUES ('admin'), ('manager'), ('sales_staff'), ('inventory_staff'), ('procurement_staff')
+), active_users AS (
+  SELECT role::text AS role FROM users
+   WHERE "isActive" = true AND "deletedAt" IS NULL AND status::text = 'active'
+), role_counts AS (
+  SELECT roles.role, count(active_users.role)::text AS count
+    FROM roles LEFT JOIN active_users ON active_users.role = roles.role
+   GROUP BY roles.role
+), summary AS (
+  SELECT count(*) FILTER (WHERE role = 'admin') AS admins,
+         count(*) FILTER (WHERE role = 'manager') AS managers,
+         count(*) FILTER (WHERE role = 'inventory_staff') AS inventory_staff
+    FROM active_users
+), metrics(metric, value, note) AS (
+  SELECT 'active.' || role, count, '' FROM role_counts
+  UNION ALL
+  SELECT 'inactive_users', count(*) FILTER (
+    WHERE NOT ("isActive" = true AND "deletedAt" IS NULL AND status::text = 'active'))::text, '' FROM users
+  UNION ALL
+  SELECT 'has_active_admin', (admins > 0)::text, '' FROM summary
+  UNION ALL
+  SELECT 'has_distinct_preparer', (admins >= 2 OR (admins >= 1 AND managers + inventory_staff >= 1))::text,
+         'distinct accounts; the data cannot show distinct people' FROM summary
+)
+SELECT 's11_users'::text AS section, metric, value, note FROM metrics;
 
 
 ROLLBACK;

@@ -819,4 +819,105 @@ describe('inspect 1398 project 2', () => {
     );
   });
 
+
+  it('s10 reports soft-deleted stock and service products with batches', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedProductRows(schema, db, [
+          { name: 'Deleted stocked', stockQuantity: '2', deletedAt: '2026-01-01T00:00:00Z' },
+          { name: 'Service', type: 'Service', stockQuantity: '0' },
+        ]);
+        const products = await db.query('SELECT id, name FROM products ORDER BY name');
+        const serviceId = products.rows.find((row) => row.name === 'Service').id;
+        await seedBatch(schema, db, { productId: serviceId, quantity: '1', unitCost: '10', landedCost: '10' });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's10_product_anomalies', 'soft_deleted_with_stock')).toBe('1');
+        expect(metric(result.sets, 's10_product_anomalies', 'service_with_batches')).toBe('1');
+        const row = result.sets.find((set) => set.section === 's10_product_anomalies')
+          ?.rows.find((item) => item.metric === 'service_with_batches');
+        expect(row?.note).toBe('non-stocked interpreted as type = Service');
+      },
+    );
+  });
+
+  it('s11 recognizes one active administrator but no distinct preparer', async () => {
+    await withFixtureSchema(
+      { seed: (schema, db) => insertFixtureRow(schema, db, 'users', {
+        username: 'admin-one', password: 'hash', role: 'admin', status: 'active',
+      }).then(() => undefined) },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's11_users', 'has_active_admin')).toBe('true');
+        expect(metric(result.sets, 's11_users', 'has_distinct_preparer')).toBe('false');
+      },
+    );
+  });
+
+  it('s11 accepts two active administrators as distinct accounts', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        for (const username of ['admin-one', 'admin-two']) {
+          await insertFixtureRow(schema, db, 'users', { username, password: 'hash', role: 'admin', status: 'active' });
+        }
+      } },
+      async (schema) => {
+        expect(metric((await runInspection({ schema })).sets, 's11_users', 'has_distinct_preparer')).toBe('true');
+      },
+    );
+  });
+
+  it('s11 accepts an active inventory staff member alongside an administrator', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await insertFixtureRow(schema, db, 'users', { username: 'admin-one', password: 'hash', role: 'admin', status: 'active' });
+        await insertFixtureRow(schema, db, 'users', { username: 'inventory-one', password: 'hash', role: 'inventory_staff', status: 'active' });
+      } },
+      async (schema) => {
+        expect(metric((await runInspection({ schema })).sets, 's11_users', 'has_distinct_preparer')).toBe('true');
+      },
+    );
+  });
+
+  it('s11 excludes a suspended manager from the preparer count', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await insertFixtureRow(schema, db, 'users', { username: 'admin-one', password: 'hash', role: 'admin', status: 'active' });
+        await insertFixtureRow(schema, db, 'users', { username: 'manager-one', password: 'hash', role: 'manager', status: 'suspended' });
+      } },
+      async (schema) => {
+        expect(metric((await runInspection({ schema })).sets, 's11_users', 'has_distinct_preparer')).toBe('false');
+      },
+    );
+  });
+
+  it('s11 excludes inactive administrators from active role counts', async () => {
+    await withFixtureSchema(
+      { seed: (schema, db) => insertFixtureRow(schema, db, 'users', {
+        username: 'inactive-admin', password: 'hash', role: 'admin', status: 'active', isActive: false,
+      }).then(() => undefined) },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's11_users', 'active.admin')).toBe('0');
+        expect(metric(result.sets, 's11_users', 'inactive_users')).toBe('1');
+      },
+    );
+  });
+
+  it('s10 and s11 expose every pinned metric on an empty baseline', async () => {
+    await withFixtureSchema({}, async (schema) => {
+      const result = await runInspection({ schema });
+      const s10 = result.sets.find((set) => set.section === 's10_product_anomalies')?.rows ?? [];
+      for (const name of ['soft_deleted_with_stock', 'soft_deleted_with_batches', 'service_with_stock', 'service_with_batches', 'service_with_batch_value']) {
+        expect(s10.some((row) => row.metric === name)).toBe(true);
+      }
+      const s11 = result.sets.find((set) => set.section === 's11_users')?.rows ?? [];
+      for (const name of [
+        'active.admin', 'active.manager', 'active.sales_staff', 'active.inventory_staff',
+        'active.procurement_staff', 'inactive_users', 'has_active_admin', 'has_distinct_preparer',
+      ]) expect(s11.some((row) => row.metric === name)).toBe(true);
+    });
+  });
+
 });

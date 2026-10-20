@@ -285,6 +285,7 @@ export type ProductFixtureRow = {
   deletedAt?: string;
   isActive?: boolean;
   stockQuantity?: string;
+  type?: string;
 };
 
 export async function seedProductRows(
@@ -294,9 +295,9 @@ export async function seedProductRows(
 ): Promise<void> {
   for (const row of rows) {
     await db.query(
-      `INSERT INTO ${quoteIdent(schema)}.products (name, "baseCost", "categoryId", "deletedAt", "isActive", "stockQuantity") ` +
-        'VALUES ($1, 0, $2, $3, $4, $5)',
-      [row.name, '00000000-0000-4000-8000-000000000001', row.deletedAt ?? null, row.isActive ?? true, row.stockQuantity ?? '0'],
+      `INSERT INTO ${quoteIdent(schema)}.products (name, "baseCost", "categoryId", "deletedAt", "isActive", "stockQuantity", type) ` +
+        'VALUES ($1, 0, $2, $3, $4, $5, $6)',
+      [row.name, '00000000-0000-4000-8000-000000000001', row.deletedAt ?? null, row.isActive ?? true, row.stockQuantity ?? '0', row.type ?? 'Stocked Product'],
     );
   }
 }
