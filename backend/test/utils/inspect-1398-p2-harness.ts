@@ -278,3 +278,24 @@ export async function withFixtureSchema<T>(
   }
 }
 
+
+
+export type ProductFixtureRow = {
+  name: string;
+  deletedAt?: string;
+  isActive?: boolean;
+};
+
+export async function seedProductRows(
+  schema: string,
+  db: Client,
+  rows: ProductFixtureRow[],
+): Promise<void> {
+  for (const row of rows) {
+    await db.query(
+      `INSERT INTO ${quoteIdent(schema)}.products (name, "baseCost", "categoryId", "deletedAt", "isActive") ` +
+        'VALUES ($1, 0, $2, $3, $4)',
+      [row.name, '00000000-0000-4000-8000-000000000001', row.deletedAt ?? null, row.isActive ?? true],
+    );
+  }
+}

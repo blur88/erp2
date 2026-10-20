@@ -38,6 +38,108 @@ SELECT 1 / 0;
 
 BEGIN READ ONLY;
 
+\echo '@@inspect-section s02_soft_deleted_inactive'
+WITH classifications(table_name, classification) AS (
+  VALUES
+    ('audit_logs', 'operational'),
+    ('auth_sessions', 'operational'),
+    ('backup_logs', 'operational'),
+    ('backup_retention_settings', 'operational'),
+    ('backup_schedules', 'operational'),
+    ('refresh_tokens', 'operational'),
+    ('bank_statement_reconciliation_lines', 'business'),
+    ('bank_statement_reconciliation_setup_marks', 'business'),
+    ('bank_statement_reconciliations', 'business'),
+    ('categories', 'business'),
+    ('chart_of_account', 'business'),
+    ('company_settings', 'business'),
+    ('customers', 'business'),
+    ('document_number_settings', 'business'),
+    ('expense_payments', 'business'),
+    ('expenses', 'business'),
+    ('journal_entry', 'business'),
+    ('journal_entry_line', 'business'),
+    ('owner_equity_documents', 'business'),
+    ('owner_equity_settlements', 'business'),
+    ('payment_method_account_mappings', 'business'),
+    ('payment_methods', 'business'),
+    ('payments', 'business'),
+    ('price_list_items', 'business'),
+    ('price_lists', 'business'),
+    ('print_settings', 'business'),
+    ('products', 'business'),
+    ('provider_settlement_lines', 'business'),
+    ('provider_settlements', 'business'),
+    ('purchase_cost_history', 'business'),
+    ('purchase_order_items', 'business'),
+    ('purchase_orders', 'business'),
+    ('regional_settings', 'business'),
+    ('sales_order_items', 'business'),
+    ('sales_orders', 'business'),
+    ('stock_adjustment_items', 'business'),
+    ('stock_adjustments', 'business'),
+    ('stock_movements', 'business'),
+    ('suppliers', 'business'),
+    ('users', 'business'),
+    ('vendor_payments', 'business')
+), discovered AS (
+  SELECT c.table_name,
+         bool_or(c.column_name = 'deletedAt') AS has_deleted_at,
+         bool_or(c.column_name = 'isActive') AS has_is_active,
+         COALESCE(cl.classification, 'unknown — needs classification') AS classification
+    FROM information_schema.columns c
+    JOIN information_schema.tables t
+      ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+    LEFT JOIN classifications cl ON cl.table_name = c.table_name
+   WHERE c.table_schema = current_schema()
+     AND t.table_type = 'BASE TABLE'
+     AND c.column_name IN ('deletedAt', 'isActive')
+   GROUP BY c.table_name, cl.classification
+), metric_defs(metric_name, metric_order) AS (
+  VALUES ('total', 1), ('soft_deleted', 2), ('inactive', 3), ('soft_deleted_and_inactive', 4)
+), per_table AS (
+  SELECT d.table_name,
+         m.metric_order,
+         format(
+           'SELECT %L::text AS section, %L::text AS metric, (%s)::text AS value, %L::text AS note',
+           's02_soft_deleted_inactive',
+           d.table_name || '.' || m.metric_name,
+           CASE
+             WHEN m.metric_name = 'total' THEN
+               format('(SELECT count(*) FROM %s)', format('%I.%I', current_schema(), d.table_name))
+             WHEN m.metric_name = 'soft_deleted' AND d.has_deleted_at THEN
+               format('(SELECT count(*) FILTER (WHERE "deletedAt" IS NOT NULL) FROM %s)', format('%I.%I', current_schema(), d.table_name))
+             WHEN m.metric_name = 'inactive' AND d.has_is_active THEN
+               format('(SELECT count(*) FILTER (WHERE "isActive" = false) FROM %s)', format('%I.%I', current_schema(), d.table_name))
+             WHEN m.metric_name = 'soft_deleted_and_inactive' AND d.has_deleted_at AND d.has_is_active THEN
+               format('(SELECT count(*) FILTER (WHERE "deletedAt" IS NOT NULL AND "isActive" = false) FROM %s)', format('%I.%I', current_schema(), d.table_name))
+             ELSE quote_literal('n/a')
+           END,
+           CASE
+             WHEN m.metric_name = 'soft_deleted' AND NOT d.has_deleted_at THEN 'column absent'
+             WHEN m.metric_name = 'inactive' AND NOT d.has_is_active THEN 'column absent'
+             WHEN m.metric_name = 'soft_deleted_and_inactive' AND NOT (d.has_deleted_at AND d.has_is_active) THEN 'column absent'
+             ELSE d.classification
+           END
+         ) AS query_text
+    FROM discovered d CROSS JOIN metric_defs m
+), all_queries AS (
+  SELECT table_name, metric_order, query_text FROM per_table
+  UNION ALL
+  SELECT NULL, 1,
+         format('SELECT %L::text AS section, %L::text AS metric, %L::text AS value, %L::text AS note',
+           's02_soft_deleted_inactive', 'tables_discovered', count(*)::text, '')
+    FROM discovered
+  UNION ALL
+  SELECT NULL, 2,
+         format('SELECT %L::text AS section, %L::text AS metric, %L::text AS value, %L::text AS note',
+           's02_soft_deleted_inactive', 'tables_unclassified', count(*) FILTER (WHERE classification = 'unknown — needs classification')::text, '')
+    FROM discovered
+)
+SELECT string_agg(query_text, E'\nUNION ALL\n' ORDER BY table_name NULLS LAST, metric_order)
+  FROM all_queries
+\gexec
+
 \echo '@@inspect-section s01_environment'
 SELECT section, metric, value, note
 FROM (VALUES

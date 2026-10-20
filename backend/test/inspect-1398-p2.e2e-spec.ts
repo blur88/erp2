@@ -7,6 +7,7 @@ import {
   metric,
   parseInspectionOutput,
   runInspection,
+  seedProductRows,
   withFixtureSchema,
 } from './utils/inspect-1398-p2-harness';
 
@@ -129,4 +130,70 @@ describe('inspect 1398 project 2', () => {
       expect(result.stderr).toMatch(/relation "migrations" does not exist/);
     });
   });
+
+  it('s02 discovery sees only the fixture schema', async () => {
+    const real = await runInspection();
+    await withFixtureSchema({ omitTables: ['price_list_items'] }, async (schema, db) => {
+      const fixture = await runInspection({ schema });
+      const { rows } = await db.query(
+        "SELECT to_regclass('public.price_list_items') IS NOT NULL AS exists",
+      );
+      expect(Number(metric(fixture.sets, 's02_soft_deleted_inactive', 'tables_discovered'))).toBe(
+        Number(metric(real.sets, 's02_soft_deleted_inactive', 'tables_discovered')) - 1,
+      );
+      expect(
+        fixture.sets
+          .find((set) => set.section === 's02_soft_deleted_inactive')
+          ?.rows.some((row) => row.metric.startsWith('price_list_items.')),
+      ).toBe(false);
+      expect(rows[0].exists).toBe(true);
+    });
+  });
+
+  it('s02 counts soft-deleted and inactive rows', async () => {
+    await withFixtureSchema(
+      {
+        seed: (schema, db) =>
+          seedProductRows(schema, db, [
+            { name: 'live' },
+            { name: 'deleted', deletedAt: '2026-01-01T00:00:00Z' },
+            { name: 'inactive', isActive: false },
+            { name: 'deleted-inactive', deletedAt: '2026-01-01T00:00:00Z', isActive: false },
+          ]),
+      },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's02_soft_deleted_inactive', 'products.total')).toBe('4');
+        expect(metric(result.sets, 's02_soft_deleted_inactive', 'products.soft_deleted')).toBe('2');
+        expect(metric(result.sets, 's02_soft_deleted_inactive', 'products.inactive')).toBe('2');
+        expect(
+          metric(result.sets, 's02_soft_deleted_inactive', 'products.soft_deleted_and_inactive'),
+        ).toBe('1');
+        const row = result.sets
+          .find((set) => set.section === 's02_soft_deleted_inactive')
+          ?.rows.find((item) => item.metric === 'products.total');
+        expect(row?.note).toBe('business');
+      },
+    );
+  });
+
+  it('s02 flags an unclassified table', async () => {
+    await withFixtureSchema(
+      { extraDdl: ['CREATE TABLE zz_new (id uuid, "deletedAt" timestamptz)'] },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        const row = result.sets
+          .find((set) => set.section === 's02_soft_deleted_inactive')
+          ?.rows.find((item) => item.metric === 'zz_new.total');
+        expect(row?.note).toBe('unknown — needs classification');
+        expect(metric(result.sets, 's02_soft_deleted_inactive', 'tables_unclassified')).toBe('1');
+      },
+    );
+  });
+
+  it('classification guard: every migrated table is classified', async () => {
+    const result = await runInspection();
+    expect(metric(result.sets, 's02_soft_deleted_inactive', 'tables_unclassified')).toBe('0');
+  });
+
 });
