@@ -1025,6 +1025,60 @@ SELECT 'd1_receipt_line_identity_detail'::text AS section, NULL::text AS receipt
  WHERE false;
 \endif
 
+\echo '@@inspect-section d2_valuation_gaps'
+SELECT CASE WHEN to_regclass(format('%I.%I', current_schema(), 'stock_movement_valuation_gaps')) IS NOT NULL
+                  AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'stock_occurrences' AND column_name = 'hasValuationGap')
+            THEN 1 ELSE 0 END AS d2_ready
+\gset
+\if :d2_ready
+WITH gap_rows AS (
+  SELECT g."movementId" AS movement_id, g.quantity, m."productId" AS product_id,
+         m."occurrenceId" AS occurrence_id, o."hasValuationGap" AS flagged
+    FROM stock_movement_valuation_gaps g
+    JOIN stock_movements m ON m.id = g."movementId"
+    JOIN stock_occurrences o ON o.id = m."occurrenceId"
+   WHERE o.kind::text = 'fulfilment' AND m."movementType"::text = 'sale'
+), metrics(metric, value, note) AS (
+  SELECT 'status', 'evaluated', ''
+  UNION ALL SELECT 'products_with_gaps', count(DISTINCT product_id)::text, 'unvalued; a recorded zero posted value is not a known zero cost' FROM gap_rows
+  UNION ALL SELECT 'fulfilment_occurrences_with_gaps', count(DISTINCT occurrence_id)::text, 'unvalued; a recorded zero posted value is not a known zero cost' FROM gap_rows
+  UNION ALL SELECT 'sale_movements_with_gaps', count(DISTINCT movement_id)::text, 'unvalued; a recorded zero posted value is not a known zero cost' FROM gap_rows
+  UNION ALL SELECT 'uncovered_quantity', COALESCE(sum(quantity), 0)::numeric(15,4)::text, 'unvalued; a recorded zero posted value is not a known zero cost' FROM gap_rows
+  UNION ALL SELECT 'flagged_occurrences_without_gap_rows', count(*)::text, ''
+    FROM stock_occurrences o WHERE o.kind::text = 'fulfilment' AND o."hasValuationGap" = true
+      AND NOT EXISTS (SELECT 1 FROM stock_movement_valuation_gaps g JOIN stock_movements m ON m.id = g."movementId" WHERE m."occurrenceId" = o.id)
+  UNION ALL SELECT 'gap_rows_on_unflagged_occurrences', count(*)::text, ''
+    FROM stock_movement_valuation_gaps g JOIN stock_movements m ON m.id = g."movementId"
+    JOIN stock_occurrences o ON o.id = m."occurrenceId" WHERE o."hasValuationGap" = false
+)
+SELECT 'd2_valuation_gaps'::text AS section, metric, value, note FROM metrics;
+\else
+SELECT 'd2_valuation_gaps'::text AS section, 'status'::text AS metric,
+       'not evaluated: migration prerequisite absent'::text AS value,
+       'missing: ' || (SELECT string_agg(required.object_name, ', ' ORDER BY required.ordinal)
+         FROM (VALUES (1, 'stock_movement_valuation_gaps'), (2, 'stock_occurrences.hasValuationGap')) AS required(ordinal, object_name)
+        WHERE (required.ordinal = 1 AND to_regclass(format('%I.%I', current_schema(), 'stock_movement_valuation_gaps')) IS NULL)
+           OR (required.ordinal = 2 AND NOT EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema = current_schema() AND c.table_name = 'stock_occurrences' AND c.column_name = 'hasValuationGap'))) AS note;
+\endif
+
+\echo '@@inspect-section d2_valuation_gaps_detail'
+\if :d2_ready
+SELECT 'd2_valuation_gaps_detail'::text AS section, p.id::text AS product_id, p.name AS product_name,
+       count(DISTINCT o.id)::text AS fulfilment_occurrences,
+       count(DISTINCT m.id)::text AS sale_movements,
+       COALESCE(sum(g.quantity), 0)::numeric(15,4)::text AS uncovered_quantity
+  FROM stock_movement_valuation_gaps g
+  JOIN stock_movements m ON m.id = g."movementId"
+  JOIN stock_occurrences o ON o.id = m."occurrenceId" AND o.kind::text = 'fulfilment'
+  JOIN products p ON p.id = m."productId"
+ WHERE m."movementType"::text = 'sale'
+ GROUP BY p.id, p.name ORDER BY p.name, p.id;
+\else
+SELECT 'd2_valuation_gaps_detail'::text AS section, NULL::text AS product_id, NULL::text AS product_name,
+       NULL::text AS fulfilment_occurrences, NULL::text AS sale_movements, NULL::text AS uncovered_quantity
+ WHERE false;
+\endif
+
 
 ROLLBACK;
 \echo '@@inspect-end'

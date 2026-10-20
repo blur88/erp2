@@ -1263,4 +1263,52 @@ describe('inspect 1398 project 2', () => {
     });
   });
 
+  it('d2 is gated before the valuation-gap migration', async () => {
+    await withFixtureSchema(PRE_3_25_FIXTURE, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(metric(result.sets, 'd2_valuation_gaps', 'status')).toBe('not evaluated: migration prerequisite absent');
+      expect(result.sets.find((set) => set.section === 'd2_valuation_gaps_detail')?.rows).toEqual([]);
+    });
+  });
+
+  it('d2 exposes zero-valued metrics on an empty migrated baseline', async () => {
+    await withFixtureSchema({}, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(metric(result.sets, 'd2_valuation_gaps', 'status')).toBe('evaluated');
+      for (const name of [
+        'products_with_gaps', 'fulfilment_occurrences_with_gaps', 'sale_movements_with_gaps',
+        'flagged_occurrences_without_gap_rows', 'gap_rows_on_unflagged_occurrences',
+      ]) expect(metric(result.sets, 'd2_valuation_gaps', name)).toBe('0');
+      expect(metric(result.sets, 'd2_valuation_gaps', 'uncovered_quantity')).toBe('0.0000');
+    });
+  });
+
+  it('d2 reports valuation gaps and both directions of occurrence flag inconsistency', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const unflagged = await insertFixtureRow(schema, db, 'stock_occurrences', {
+        kind: 'fulfilment', documentType: 'sales_order', documentId: '00000000-0000-4000-8000-000000000001',
+        occurredAt: '2026-01-01T00:00:00Z', hasValuationGap: false,
+      });
+      const movement = await insertFixtureRow(schema, db, 'stock_movements', {
+        movementType: 'sale', quantity: -3, previousBalance: 3, newBalance: 0, productId: receiptProductP,
+        occurrenceId: unflagged.id, unitValue: 0, totalValue: 0,
+      });
+      await insertFixtureRow(schema, db, 'stock_movement_valuation_gaps', { movementId: movement.id, quantity: 3 });
+      await insertFixtureRow(schema, db, 'stock_occurrences', {
+        kind: 'fulfilment', documentType: 'sales_order', documentId: '00000000-0000-4000-8000-000000000002',
+        occurredAt: '2026-01-02T00:00:00Z', hasValuationGap: true,
+      });
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(metric(result.sets, 'd2_valuation_gaps', 'gap_rows_on_unflagged_occurrences')).toBe('1');
+      expect(metric(result.sets, 'd2_valuation_gaps', 'flagged_occurrences_without_gap_rows')).toBe('1');
+      expect(metric(result.sets, 'd2_valuation_gaps', 'products_with_gaps')).toBe('1');
+      expect(metric(result.sets, 'd2_valuation_gaps', 'fulfilment_occurrences_with_gaps')).toBe('1');
+      expect(metric(result.sets, 'd2_valuation_gaps', 'sale_movements_with_gaps')).toBe('1');
+      expect(metric(result.sets, 'd2_valuation_gaps', 'uncovered_quantity')).toBe('3.0000');
+      const row = result.sets.find((set) => set.section === 'd2_valuation_gaps')?.rows.find((item) => item.metric === 'uncovered_quantity');
+      expect(row?.note).toBe('unvalued; a recorded zero posted value is not a known zero cost');
+    });
+  });
+
 });
