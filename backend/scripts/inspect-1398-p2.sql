@@ -745,7 +745,7 @@ SELECT 's11_users'::text AS section, metric, value, note FROM metrics;
 
 
 
-\echo '@@inspect-section s12_project_records'
+\echo '@@inspect-section s12_affected_records'
 WITH metrics(metric, value, note) AS (
   SELECT 'p5.draft_stock_adjustments', (SELECT count(*) FROM stock_adjustments p WHERE p.status::text = 'draft' AND p."deletedAt" IS NULL)::text, 'source: local #1398 design spec §4–5; projects 5–6 have no GitHub issues'
   UNION ALL
@@ -843,7 +843,7 @@ WITH metrics(metric, value, note) AS (
   UNION ALL
   SELECT 'p7.mappings_to_soft_deleted_payment_methods', (SELECT count(*) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id = m."paymentMethodId" WHERE m."deletedAt" IS NULL AND pm."deletedAt" IS NOT NULL)::text, ''
 )
-SELECT 's12_project_records'::text AS section, metric, value, note FROM metrics;
+SELECT 's12_affected_records'::text AS section, metric, value, note FROM metrics;
 
 \echo '@@inspect-section d1_receipt_line_identity'
 SELECT CASE WHEN count(*) = 3 THEN 1 ELSE 0 END AS d1_ready

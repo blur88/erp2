@@ -95,6 +95,20 @@ async function seedBatch(
 
 
 describe('inspect 1398 project 2', () => {
+  afterAll(async () => {
+    const db = new Client({
+      host: process.env.DB_HOST || 'localhost', port: Number(process.env.DB_PORT || 5432),
+      user: process.env.DB_USERNAME || 'erp_user', password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE || 'erp_db_test',
+    });
+    await db.connect();
+    const { rows } = await db.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM pg_namespace WHERE nspname LIKE 'inspect_fx_%'",
+    );
+    await db.end();
+    expect(rows[0].count).toBe('0');
+  });
+
   it('psql container reaches the e2e database', () => {
     const output = execFileSync(
       'docker',
@@ -967,7 +981,7 @@ describe('inspect 1398 project 2', () => {
   it('s12 reports the complete fixed metric set at zero on an empty baseline', async () => {
     await withFixtureSchema({}, async (schema) => {
       const result = await runInspection({ schema });
-      const rows = result.sets.find((set) => set.section === 's12_project_records')?.rows ?? [];
+      const rows = result.sets.find((set) => set.section === 's12_affected_records')?.rows ?? [];
       expect(rows.map((row) => row.metric).sort()).toEqual([...S12_METRICS].sort());
       expect(rows.every((row) => row.value === '0')).toBe(true);
     });
@@ -984,11 +998,11 @@ describe('inspect 1398 project 2', () => {
       await insertFixtureRow(schema, db, 'sales_orders', { orderNumber: 'SO-F', orderDate: '2026-01-01', customerId: '00000000-0000-4000-8000-000000000001', status: 'FULFILLED' });
     } }, async (schema) => {
       const result = await runInspection({ schema });
-      expect(metric(result.sets, 's12_project_records', 'p6.sales_orders.DRAFT')).toBe('1');
-      expect(metric(result.sets, 's12_project_records', 'p6.sales_orders.DRAFT.soft_deleted')).toBe('1');
-      expect(metric(result.sets, 's12_project_records', 'p6.sales_order_items.DRAFT')).toBe('2');
-      expect(metric(result.sets, 's12_project_records', 'p6.sales_order_items.READY')).toBe('3');
-      expect(metric(result.sets, 's12_project_records', 'p6.sales_order_items.DRAFT.soft_deleted_parent')).toBe('4');
+      expect(metric(result.sets, 's12_affected_records', 'p6.sales_orders.DRAFT')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p6.sales_orders.DRAFT.soft_deleted')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p6.sales_order_items.DRAFT')).toBe('2');
+      expect(metric(result.sets, 's12_affected_records', 'p6.sales_order_items.READY')).toBe('3');
+      expect(metric(result.sets, 's12_affected_records', 'p6.sales_order_items.DRAFT.soft_deleted_parent')).toBe('4');
     });
   });
 
@@ -1001,9 +1015,9 @@ describe('inspect 1398 project 2', () => {
       await insertFixtureRow(schema, db, 'provider_settlement_lines', { settlementId: deleted.id, salesOrderPaymentId: '00000000-0000-4000-8000-000000000003', amount: 1 });
     } }, async (schema) => {
       const result = await runInspection({ schema });
-      expect(metric(result.sets, 's12_project_records', 'p5.draft_provider_settlement_lines')).toBe('1');
-      expect(metric(result.sets, 's12_project_records', 'p5.draft_provider_settlement_lines.soft_deleted_row')).toBe('1');
-      expect(metric(result.sets, 's12_project_records', 'p5.draft_provider_settlement_lines.soft_deleted_parent')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p5.draft_provider_settlement_lines')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p5.draft_provider_settlement_lines.soft_deleted_row')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p5.draft_provider_settlement_lines.soft_deleted_parent')).toBe('1');
     });
   });
 
@@ -1018,10 +1032,10 @@ describe('inspect 1398 project 2', () => {
       }
     } }, async (schema) => {
       const result = await runInspection({ schema });
-      expect(metric(result.sets, 's12_project_records', 'p5.draft_bank_reconciliations.first_time')).toBe('1');
-      expect(metric(result.sets, 's12_project_records', 'p5.draft_bank_reconciliations.reopened')).toBe('1');
-      expect(metric(result.sets, 's12_project_records', 'p5.draft_bank_reconciliations.first_time.soft_deleted')).toBe('1');
-      expect(metric(result.sets, 's12_project_records', 'p5.draft_bank_reconciliation_lines.soft_deleted_parent')).toBe('3');
+      expect(metric(result.sets, 's12_affected_records', 'p5.draft_bank_reconciliations.first_time')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p5.draft_bank_reconciliations.reopened')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p5.draft_bank_reconciliations.first_time.soft_deleted')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p5.draft_bank_reconciliation_lines.soft_deleted_parent')).toBe('3');
     });
   });
 
@@ -1031,10 +1045,10 @@ describe('inspect 1398 project 2', () => {
       await insertFixtureRow(schema, db, 'stock_adjustment_items', { stockAdjustmentId: adjustment.id, productId: '00000000-0000-4000-8000-000000000001', oldQuantity: 1, newQuantity: 2, difference: 1 });
     } }, async (schema) => {
       const result = await runInspection({ schema });
-      expect(metric(result.sets, 's12_project_records', 'p5.draft_stock_adjustments')).toBe('0');
-      expect(metric(result.sets, 's12_project_records', 'p5.draft_stock_adjustments.soft_deleted')).toBe('1');
-      expect(metric(result.sets, 's12_project_records', 'p6.stock_adjustment_items.draft')).toBe('0');
-      expect(metric(result.sets, 's12_project_records', 'p6.stock_adjustment_items.draft.soft_deleted_parent')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p5.draft_stock_adjustments')).toBe('0');
+      expect(metric(result.sets, 's12_affected_records', 'p5.draft_stock_adjustments.soft_deleted')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p6.stock_adjustment_items.draft')).toBe('0');
+      expect(metric(result.sets, 's12_affected_records', 'p6.stock_adjustment_items.draft.soft_deleted_parent')).toBe('1');
     });
   });
 
@@ -1044,8 +1058,8 @@ describe('inspect 1398 project 2', () => {
       await insertFixtureRow(schema, db, 'payment_method_account_mappings', { paymentMethodId: method.id, accountId: '00000000-0000-4000-8000-000000000001' });
     } }, async (schema) => {
       const result = await runInspection({ schema });
-      expect(metric(result.sets, 's12_project_records', 'p7.account_mappings')).toBe('1');
-      expect(metric(result.sets, 's12_project_records', 'p7.mappings_to_soft_deleted_payment_methods')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p7.account_mappings')).toBe('1');
+      expect(metric(result.sets, 's12_affected_records', 'p7.mappings_to_soft_deleted_payment_methods')).toBe('1');
     });
   });
 
@@ -1308,6 +1322,34 @@ describe('inspect 1398 project 2', () => {
       expect(metric(result.sets, 'd2_valuation_gaps', 'uncovered_quantity')).toBe('3.0000');
       const row = result.sets.find((set) => set.section === 'd2_valuation_gaps')?.rows.find((item) => item.metric === 'uncovered_quantity');
       expect(row?.note).toBe('unvalued; a recorded zero posted value is not a known zero cost');
+    });
+  });
+
+  it('section order and aggregate columns match the output contract', async () => {
+    const result = await runInspection();
+    const expected = [
+      's01_environment', 's02_soft_deleted_inactive', 's03_vendor_payments', 's04_costing_method',
+      's05_product_batches', 's05_product_batches_detail', 's05_zero_cost_batches_detail',
+      's06_inventory_ledger', 's07_undo_counts', 's08_outside_workflows', 's08_outside_workflows_detail',
+      's09_balance_chains', 's09_balance_chains_detail', 's10_product_anomalies',
+      's10_product_anomalies_detail', 's11_users', 's12_affected_records',
+      'd1_receipt_line_identity', 'd1_receipt_line_identity_detail', 'd2_valuation_gaps',
+      'd2_valuation_gaps_detail',
+    ];
+    expect(result.code).toBe(0);
+    expect(result.sets.map((set) => set.section)).toEqual(expected);
+    for (const set of result.sets.filter((candidate) => !candidate.section.endsWith('_detail'))) {
+      expect(set.columns).toEqual(['section', 'metric', 'value', 'note']);
+    }
+  });
+
+  it('the complete pre-3.25.0 fixture emits all sections and both deferred statuses', async () => {
+    await withFixtureSchema(PRE_3_25_FIXTURE, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(result.code).toBe(0);
+      expect(result.sets.map((set) => set.section)).toHaveLength(21);
+      expect(metric(result.sets, 'd1_receipt_line_identity', 'status')).toBe('not evaluated: migration prerequisite absent');
+      expect(metric(result.sets, 'd2_valuation_gaps', 'status')).toBe('not evaluated: migration prerequisite absent');
     });
   });
 
