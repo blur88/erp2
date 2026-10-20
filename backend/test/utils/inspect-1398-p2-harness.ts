@@ -50,6 +50,23 @@ export const S12_METRICS: readonly string[] = [
   'p7.account_mappings', 'p7.account_mappings.soft_deleted', 'p7.account_mappings.inactive',
   'p7.balance_sheet_account_groups', 'p7.mappings_to_soft_deleted_payment_methods',
 ];
+export const D1_VIOLATIONS: readonly string[] = [
+  'receipts.version_other', 'any.mixed_identity',
+  'v1.null_identity_rows', 'v1.item_not_exactly_one_movement', 'v1.item_not_exactly_one_batch',
+  'v1.unequal_counts', 'v1.identity_other_po', 'v1.product_mismatch', 'v1.movement_shape',
+  'v1.movement_values_null', 'reversal.unlinked', 'reversal.original_not_receipt',
+  'reversal.identity_not_preserved', 'historical.identity_present',
+  'historical.row_count_mismatch.occurrence', 'historical.row_count_mismatch.legacy',
+];
+
+export function expectD1(sets: ResultSet[], expected: Partial<Record<string, string>>): void {
+  for (const name of D1_VIOLATIONS) {
+    const actual = metric(sets, 'd1_receipt_line_identity', name);
+    if (actual !== (expected[name] ?? '0')) {
+      throw new Error(`${name}: expected ${expected[name] ?? '0'}, received ${actual}`);
+    }
+  }
+}
 export const PRE_3_25_FIXTURE: FixtureSpec = {
   dropColumns: PRE_3_25_DROP,
   omitTables: OMIT_PRE_3_25,

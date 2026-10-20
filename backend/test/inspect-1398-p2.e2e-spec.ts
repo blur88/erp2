@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
 import {
   insertFixtureRow,
+  D1_VIOLATIONS,
+  expectD1,
   metric,
+  PRE_3_25_FIXTURE,
   parseInspectionOutput,
   runInspection,
   S12_METRICS,
@@ -21,6 +24,46 @@ dotenv.config({
 const scriptPath = fileURLToPath(new URL('../scripts/inspect-1398-p2.sql', import.meta.url));
 
 const inventoryAccountId = '00000000-0000-4000-8000-000000000010';
+const receiptProductP = '00000000-0000-4000-8000-0000000000a1';
+const receiptProductQ = '00000000-0000-4000-8000-0000000000a2';
+
+async function seedCleanReceipt(schema: string, db: Client, version: number | null = 1) {
+  const po = await insertFixtureRow(schema, db, 'purchase_orders', {
+    orderNumber: `PO-${Math.random().toString(36).slice(2, 10)}`, orderDate: '2026-01-01',
+    supplierId: '00000000-0000-4000-8000-000000000001', status: 'RECEIVED',
+  });
+  const p = await insertFixtureRow(schema, db, 'purchase_order_items', {
+    purchaseOrderId: po.id, productId: receiptProductP, lineNumber: 1, quantity: 2, unitCost: 1,
+  });
+  const q = await insertFixtureRow(schema, db, 'purchase_order_items', {
+    purchaseOrderId: po.id, productId: receiptProductQ, lineNumber: 2, quantity: 3, unitCost: 2,
+  });
+  const occurrence = await insertFixtureRow(schema, db, 'stock_occurrences', {
+    kind: 'receipt', documentType: 'purchase_order', documentId: po.id,
+    occurredAt: '2026-01-01T00:00:00Z', receiptEvidenceVersion: version,
+  });
+  const movementP = await insertFixtureRow(schema, db, 'stock_movements', {
+    movementType: 'purchase_receipt', quantity: 2, previousBalance: 0, newBalance: 2,
+    productId: receiptProductP, occurrenceId: occurrence.id, purchaseOrderItemId: p.id,
+    referenceType: 'purchase_order', referenceId: po.id, unitValue: 1, totalValue: 2,
+  });
+  const movementQ = await insertFixtureRow(schema, db, 'stock_movements', {
+    movementType: 'purchase_receipt', quantity: 3, previousBalance: 0, newBalance: 3,
+    productId: receiptProductQ, occurrenceId: occurrence.id, purchaseOrderItemId: q.id,
+    referenceType: 'purchase_order', referenceId: po.id, unitValue: 2, totalValue: 6,
+  });
+  const batchP = await insertFixtureRow(schema, db, 'purchase_cost_history', {
+    productId: receiptProductP, purchaseOrderId: po.id, unitCost: 1, landedCost: 1,
+    receivedQuantity: 2, remainingQuantity: 2, receivedDate: '2026-01-01T00:00:00Z',
+    occurrenceId: occurrence.id, purchaseOrderItemId: p.id,
+  });
+  const batchQ = await insertFixtureRow(schema, db, 'purchase_cost_history', {
+    productId: receiptProductQ, purchaseOrderId: po.id, unitCost: 2, landedCost: 2,
+    receivedQuantity: 3, remainingQuantity: 3, receivedDate: '2026-01-01T00:00:00Z',
+    occurrenceId: occurrence.id, purchaseOrderItemId: q.id,
+  });
+  return { po, p, q, occurrence, movementP, movementQ, batchP, batchQ };
+}
 
 async function seedInventoryAccount(schema: string, db: Client, rows = 1): Promise<void> {
   await insertFixtureRow(schema, db, 'chart_of_account', {
@@ -1003,6 +1046,220 @@ describe('inspect 1398 project 2', () => {
       const result = await runInspection({ schema });
       expect(metric(result.sets, 's12_project_records', 'p7.account_mappings')).toBe('1');
       expect(metric(result.sets, 's12_project_records', 'p7.mappings_to_soft_deleted_payment_methods')).toBe('1');
+    });
+  });
+
+  it('d1 is gated before the receipt identity migration', async () => {
+    await withFixtureSchema(PRE_3_25_FIXTURE, async (schema) => {
+      const result = await runInspection({ schema });
+      const rows = result.sets.find((set) => set.section === 'd1_receipt_line_identity')?.rows ?? [];
+      expect(rows).toEqual([expect.objectContaining({
+        metric: 'status', value: 'not evaluated: migration prerequisite absent',
+        note: expect.stringContaining('missing: stock_occurrences.receiptEvidenceVersion, stock_movements.purchaseOrderItemId, purchase_cost_history.purchaseOrderItemId'),
+      })]);
+      expect(result.sets.find((set) => set.section === 'd1_receipt_line_identity_detail')?.rows).toEqual([]);
+    });
+  });
+
+  it('d1 exposes the evaluated metrics on a current schema', async () => {
+    await withFixtureSchema({}, async (schema) => {
+      const result = await runInspection({ schema });
+      expect(metric(result.sets, 'd1_receipt_line_identity', 'status')).toBe('evaluated');
+      for (const name of [
+        'receipts.version_null', 'receipts.version_1', 'receipts.version_other', 'receipts.legacy_no_occurrence',
+        ...D1_VIOLATIONS.filter((name) => name !== 'receipts.version_other'),
+        'historical.uniqueness_not_evaluated.occurrence', 'historical.uniqueness_not_evaluated.legacy',
+      ]) expect(metric(result.sets, 'd1_receipt_line_identity', name)).toBeDefined();
+    });
+  });
+
+  it('d1 accepts clean version-1 receipt identity evidence', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => { await seedCleanReceipt(schema, db); } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expectD1(result.sets, {});
+      expect(metric(result.sets, 'd1_receipt_line_identity', 'receipts.version_1')).toBe('1');
+    });
+  });
+
+  it('d1 counts null identity rows and detects missing item movement evidence', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const seeded = await seedCleanReceipt(schema, db);
+      await db.query(`UPDATE "${schema}".stock_movements SET "purchaseOrderItemId" = NULL WHERE id = $1`, [seeded.movementP.id]);
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expectD1(result.sets, { 'v1.null_identity_rows': '1', 'any.mixed_identity': '1', 'v1.item_not_exactly_one_movement': '1' });
+    });
+  });
+
+  it('d1 detects duplicate movement and batch identity rows', async () => {
+    for (const duplicate of ['movement', 'batch'] as const) {
+      await withFixtureSchema({ seed: async (schema, db) => {
+        const seeded = await seedCleanReceipt(schema, db);
+        if (duplicate === 'movement') await insertFixtureRow(schema, db, 'stock_movements', {
+          movementType: 'purchase_receipt', quantity: 2, previousBalance: 0, newBalance: 2,
+          productId: receiptProductP, occurrenceId: seeded.occurrence.id, purchaseOrderItemId: seeded.p.id,
+          referenceType: 'purchase_order', referenceId: seeded.po.id, unitValue: 1, totalValue: 2,
+        });
+        else await insertFixtureRow(schema, db, 'purchase_cost_history', {
+          productId: receiptProductP, purchaseOrderId: seeded.po.id, unitCost: 1, landedCost: 1,
+          receivedQuantity: 2, remainingQuantity: 2, receivedDate: '2026-01-01T00:00:00Z',
+          occurrenceId: seeded.occurrence.id, purchaseOrderItemId: seeded.p.id,
+        });
+      } }, async (schema) => {
+        const result = await runInspection({ schema });
+        if (duplicate === 'movement') expectD1(result.sets, { 'v1.item_not_exactly_one_movement': '1', 'v1.unequal_counts': '1' });
+        else expectD1(result.sets, { 'v1.item_not_exactly_one_batch': '1', 'v1.unequal_counts': '1' });
+      });
+    }
+  });
+
+  it('d1 detects version, product, movement shape and value defects independently', async () => {
+    for (const defect of ['version', 'product', 'reference', 'value'] as const) {
+      await withFixtureSchema({ seed: async (schema, db) => {
+        const seeded = await seedCleanReceipt(schema, db);
+        if (defect === 'version') await db.query(`UPDATE "${schema}".stock_occurrences SET "receiptEvidenceVersion" = 2 WHERE id = $1`, [seeded.occurrence.id]);
+        if (defect === 'product') await db.query(`UPDATE "${schema}".stock_movements SET "productId" = $2 WHERE id = $1`, [seeded.movementP.id, receiptProductQ]);
+        if (defect === 'reference') await db.query(`UPDATE "${schema}".stock_movements SET "referenceId" = $2 WHERE id = $1`, [seeded.movementP.id, '00000000-0000-4000-8000-000000000099']);
+        if (defect === 'value') await db.query(`UPDATE "${schema}".stock_movements SET "unitValue" = NULL WHERE id = $1`, [seeded.movementP.id]);
+      } }, async (schema) => {
+        const result = await runInspection({ schema });
+        const expected = defect === 'version' ? { 'receipts.version_other': '1' }
+          : defect === 'product' ? { 'v1.product_mismatch': '1' }
+          : defect === 'reference' ? { 'v1.movement_shape': '1' }
+          : { 'v1.movement_values_null': '1' };
+        expectD1(result.sets, expected);
+      });
+    }
+  });
+
+  it('d1 detects missing and cross-PO item identities', async () => {
+    for (const defect of ['third_item', 'other_po'] as const) {
+      await withFixtureSchema({ seed: async (schema, db) => {
+        const seeded = await seedCleanReceipt(schema, db);
+        if (defect === 'third_item') {
+          await insertFixtureRow(schema, db, 'purchase_order_items', { purchaseOrderId: seeded.po.id, productId: receiptProductQ, lineNumber: 3, quantity: 1, unitCost: 1 });
+        }
+        if (defect === 'other_po') {
+          const otherPo = await insertFixtureRow(schema, db, 'purchase_orders', { orderNumber: 'PO-OTHER', orderDate: '2026-01-01', supplierId: '00000000-0000-4000-8000-000000000001', status: 'DRAFT' });
+          const otherItem = await insertFixtureRow(schema, db, 'purchase_order_items', { purchaseOrderId: otherPo.id, productId: receiptProductP, lineNumber: 1, quantity: 2, unitCost: 1 });
+          await db.query(`UPDATE "${schema}".stock_movements SET "purchaseOrderItemId" = $2 WHERE id = $1`, [seeded.movementP.id, otherItem.id]);
+        }
+      } }, async (schema) => {
+        const result = await runInspection({ schema });
+        if (defect === 'third_item') expectD1(result.sets, {
+          'v1.unequal_counts': '1', 'v1.item_not_exactly_one_movement': '1', 'v1.item_not_exactly_one_batch': '1',
+        });
+        if (defect === 'other_po') expectD1(result.sets, {
+          'v1.identity_other_po': '1', 'v1.item_not_exactly_one_movement': '1',
+        });
+      });
+    }
+  });
+
+  it('d1 checks reversal linkage, original type and preserved item identity', async () => {
+    for (const defect of ['unlinked', 'not_receipt', 'identity_null', 'identity_other'] as const) {
+      await withFixtureSchema({ seed: async (schema, db) => {
+        const seeded = await seedCleanReceipt(schema, db);
+        const original = defect === 'not_receipt' ? await insertFixtureRow(schema, db, 'stock_movements', {
+          movementType: 'sale', quantity: -1, previousBalance: 2, newBalance: 1, productId: receiptProductP,
+          referenceType: 'sales_order', referenceId: seeded.po.id,
+          unitValue: 1, totalValue: 1, purchaseOrderItemId: seeded.p.id,
+        }) : seeded.movementP;
+        if (defect === 'unlinked') await insertFixtureRow(schema, db, 'stock_movements', {
+          movementType: 'purchase_receipt_reversal', quantity: -1, previousBalance: 2, newBalance: 1, productId: receiptProductP,
+        });
+        else await insertFixtureRow(schema, db, 'stock_movements', {
+          movementType: 'purchase_receipt_reversal', quantity: -1, previousBalance: 2, newBalance: 1,
+          productId: receiptProductP, occurrenceId: seeded.occurrence.id, reversesMovementId: original.id,
+          purchaseOrderItemId: defect === 'identity_other' ? seeded.q.id : defect === 'identity_null' ? null : seeded.p.id,
+        });
+      } }, async (schema) => {
+        const result = await runInspection({ schema });
+        const expected = defect === 'unlinked' ? { 'reversal.unlinked': '1' }
+          : defect === 'not_receipt' ? { 'reversal.original_not_receipt': '1' }
+          : { 'reversal.identity_not_preserved': '1' };
+        expectD1(result.sets, expected);
+      });
+    }
+  });
+
+  it('d1 distinguishes historical identity presence and count mismatches', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const clean = await seedCleanReceipt(schema, db, null);
+      await db.query(`UPDATE "${schema}".stock_movements SET "purchaseOrderItemId" = NULL WHERE id = $1`, [clean.movementQ.id]);
+      await db.query(`UPDATE "${schema}".purchase_cost_history SET "purchaseOrderItemId" = NULL`);
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expectD1(result.sets, { 'historical.identity_present': '1', 'any.mixed_identity': '1' });
+      expect(metric(result.sets, 'd1_receipt_line_identity', 'receipts.version_null')).toBe('1');
+      expect(metric(result.sets, 'd1_receipt_line_identity', 'historical.uniqueness_not_evaluated.occurrence')).toBe('0');
+    });
+  });
+
+  it('d1 checks historical occurrence and legacy row counts without claiming uniqueness', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const historical = await seedCleanReceipt(schema, db, null);
+      await db.query(`UPDATE "${schema}".stock_movements SET "purchaseOrderItemId" = NULL WHERE "occurrenceId" = $1`, [historical.occurrence.id]);
+      await db.query(`UPDATE "${schema}".purchase_cost_history SET "purchaseOrderItemId" = NULL WHERE "occurrenceId" = $1`, [historical.occurrence.id]);
+      await insertFixtureRow(schema, db, 'stock_movements', {
+        movementType: 'purchase_receipt', quantity: 1, previousBalance: 0, newBalance: 1,
+        productId: receiptProductP, occurrenceId: historical.occurrence.id, referenceType: 'purchase_order',
+        referenceId: historical.po.id, unitValue: 1, totalValue: 1,
+      });
+      const legacy = await insertFixtureRow(schema, db, 'purchase_orders', {
+        orderNumber: 'PO-LEGACY', orderDate: '2026-01-01', supplierId: '00000000-0000-4000-8000-000000000001', status: 'RECEIVED',
+      });
+      for (let i = 1; i <= 2; i += 1) await insertFixtureRow(schema, db, 'purchase_order_items', {
+        purchaseOrderId: legacy.id, productId: receiptProductP, lineNumber: i, quantity: 1, unitCost: 1,
+      });
+      await insertFixtureRow(schema, db, 'stock_movements', {
+        movementType: 'purchase_receipt', quantity: 1, previousBalance: 0, newBalance: 1,
+        productId: receiptProductP, referenceType: 'purchase_order', referenceId: legacy.id, unitValue: 1, totalValue: 1,
+      });
+      for (let i = 1; i <= 2; i += 1) await insertFixtureRow(schema, db, 'purchase_cost_history', {
+        productId: receiptProductP, purchaseOrderId: legacy.id, unitCost: 1, landedCost: 1,
+        receivedQuantity: 1, remainingQuantity: 1, receivedDate: '2026-01-01T00:00:00Z',
+      });
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expectD1(result.sets, {
+        'historical.row_count_mismatch.occurrence': '1', 'historical.row_count_mismatch.legacy': '1',
+      });
+      expect(metric(result.sets, 'd1_receipt_line_identity', 'receipts.legacy_no_occurrence')).toBe('1');
+      expect(metric(result.sets, 'd1_receipt_line_identity', 'historical.uniqueness_not_evaluated.occurrence')).toBe('0');
+    });
+  });
+
+  it('d1 labels clean historical receipts as uniqueness not evaluated', async () => {
+    await withFixtureSchema({ seed: async (schema, db) => {
+      const historicalOccurrence = await seedCleanReceipt(schema, db, null);
+      await db.query(`UPDATE "${schema}".stock_movements SET "purchaseOrderItemId" = NULL WHERE "occurrenceId" = $1`, [historicalOccurrence.occurrence.id]);
+      await db.query(`UPDATE "${schema}".purchase_cost_history SET "purchaseOrderItemId" = NULL WHERE "occurrenceId" = $1`, [historicalOccurrence.occurrence.id]);
+      const po = await insertFixtureRow(schema, db, 'purchase_orders', {
+        orderNumber: 'PO-LEGACY-CLEAN', orderDate: '2026-01-01', supplierId: '00000000-0000-4000-8000-000000000001', status: 'RECEIVED',
+      });
+      const item = await insertFixtureRow(schema, db, 'purchase_order_items', {
+        purchaseOrderId: po.id, productId: receiptProductP, lineNumber: 1, quantity: 1, unitCost: 1,
+      });
+      await insertFixtureRow(schema, db, 'stock_movements', {
+        movementType: 'purchase_receipt', quantity: 1, previousBalance: 0, newBalance: 1,
+        productId: receiptProductP, referenceType: 'purchase_order', referenceId: po.id, unitValue: 1, totalValue: 1,
+      });
+      await insertFixtureRow(schema, db, 'purchase_cost_history', {
+        productId: receiptProductP, purchaseOrderId: po.id, unitCost: 1, landedCost: 1,
+        receivedQuantity: 1, remainingQuantity: 1, receivedDate: '2026-01-01T00:00:00Z',
+      });
+      expect(item.id).toBeDefined();
+    } }, async (schema) => {
+      const result = await runInspection({ schema });
+      expectD1(result.sets, {});
+      expect(metric(result.sets, 'd1_receipt_line_identity', 'historical.uniqueness_not_evaluated.occurrence')).toBe('1');
+      expect(metric(result.sets, 'd1_receipt_line_identity', 'historical.uniqueness_not_evaluated.legacy')).toBe('1');
+      const notes = result.sets.find((set) => set.section === 'd1_receipt_line_identity')?.rows
+        .filter((row) => row.metric.startsWith('historical.uniqueness_not_evaluated.'))
+        .map((row) => row.note) ?? [];
+      expect(notes.every((note) => note === 'uniqueness not evaluated; determined by the application\'s matcher')).toBe(true);
+      expect(notes.join(' ')).not.toMatch(/returnable/i);
     });
   });
 

@@ -845,6 +845,186 @@ WITH metrics(metric, value, note) AS (
 )
 SELECT 's12_project_records'::text AS section, metric, value, note FROM metrics;
 
+\echo '@@inspect-section d1_receipt_line_identity'
+SELECT CASE WHEN count(*) = 3 THEN 1 ELSE 0 END AS d1_ready
+  FROM information_schema.columns
+ WHERE table_schema = current_schema()
+   AND (table_name, column_name) IN (
+     ('stock_occurrences', 'receiptEvidenceVersion'),
+     ('stock_movements', 'purchaseOrderItemId'),
+     ('purchase_cost_history', 'purchaseOrderItemId')
+   )
+\gset
+\if :d1_ready
+WITH receipt_occurrences AS (
+  SELECT id AS occurrence_id, "documentId" AS po_id, "receiptEvidenceVersion" AS version,
+         'occurrence'::text AS receipt_kind
+    FROM stock_occurrences WHERE kind::text = 'receipt'
+), receipts AS (
+  SELECT occurrence_id::text AS receipt_key, occurrence_id, po_id, version, receipt_kind
+    FROM receipt_occurrences
+  UNION ALL
+  SELECT po.id::text, NULL::uuid, po.id, NULL::smallint, 'legacy'
+    FROM purchase_orders po
+   WHERE po.status::text = 'RECEIVED'
+     AND NOT EXISTS (SELECT 1 FROM receipt_occurrences o WHERE o.po_id = po.id)
+), items AS (
+  SELECT r.receipt_key, r.po_id, i.id AS item_id, i."productId" AS product_id
+    FROM receipts r JOIN purchase_order_items i ON i."purchaseOrderId" = r.po_id
+   WHERE i."deletedAt" IS NULL
+), receipt_movements AS (
+  SELECT r.receipt_key, r.receipt_kind, r.version, r.po_id, m.*
+    FROM receipts r JOIN stock_movements m
+      ON ((r.receipt_kind = 'occurrence' AND m."occurrenceId" = r.occurrence_id)
+      OR (r.receipt_kind = 'legacy' AND m."referenceType" = 'purchase_order'
+          AND m."referenceId" = r.po_id AND m."movementType"::text = 'purchase_receipt'))
+     AND m."movementType"::text <> 'purchase_receipt_reversal'
+), receipt_batches AS (
+  SELECT r.receipt_key, r.receipt_kind, r.version, r.po_id, b.*
+    FROM receipts r JOIN purchase_cost_history b
+      ON (r.receipt_kind = 'occurrence' AND b."occurrenceId" = r.occurrence_id)
+      OR (r.receipt_kind = 'legacy' AND b."purchaseOrderId" = r.po_id)
+), item_movement_counts AS (
+  SELECT i.receipt_key, i.item_id, count(m.id) AS movement_count
+    FROM items i LEFT JOIN receipt_movements m ON m.receipt_key = i.receipt_key
+      AND m."purchaseOrderItemId" = i.item_id
+   GROUP BY i.receipt_key, i.item_id
+), item_batch_counts AS (
+  SELECT i.receipt_key, i.item_id, count(b.id) AS batch_count
+    FROM items i LEFT JOIN receipt_batches b ON b.receipt_key = i.receipt_key
+      AND b."purchaseOrderItemId" = i.item_id
+   GROUP BY i.receipt_key, i.item_id
+), product_keys AS (
+  SELECT receipt_key, product_id FROM items
+  UNION SELECT receipt_key, "productId" FROM receipt_movements
+  UNION SELECT receipt_key, "productId" FROM receipt_batches
+), product_counts AS (
+  SELECT k.receipt_key, k.product_id,
+         (SELECT count(*) FROM items i WHERE i.receipt_key = k.receipt_key AND i.product_id = k.product_id) AS item_count,
+         (SELECT count(*) FROM receipt_movements m WHERE m.receipt_key = k.receipt_key AND m."productId" = k.product_id) AS movement_count,
+         (SELECT count(*) FROM receipt_batches b WHERE b.receipt_key = k.receipt_key AND b."productId" = k.product_id) AS batch_count
+    FROM product_keys k
+), receipt_counts AS (
+  SELECT r.receipt_key, r.receipt_kind, r.version,
+         (SELECT count(*) FROM items i WHERE i.receipt_key = r.receipt_key) AS item_count,
+         (SELECT count(*) FROM receipt_movements m WHERE m.receipt_key = r.receipt_key) AS movement_count,
+         (SELECT count(*) FROM receipt_batches b WHERE b.receipt_key = r.receipt_key) AS batch_count,
+         (SELECT count(*) FROM receipt_movements m WHERE m.receipt_key = r.receipt_key AND m."purchaseOrderItemId" IS NULL)
+           + (SELECT count(*) FROM receipt_batches b WHERE b.receipt_key = r.receipt_key AND b."purchaseOrderItemId" IS NULL) AS null_identity_count,
+         (SELECT count(*) FROM receipt_movements m WHERE m.receipt_key = r.receipt_key AND m."purchaseOrderItemId" IS NOT NULL)
+           + (SELECT count(*) FROM receipt_batches b WHERE b.receipt_key = r.receipt_key AND b."purchaseOrderItemId" IS NOT NULL) AS identified_count
+    FROM receipts r
+), violations AS (
+  SELECT 'receipts.version_other'::text AS metric,
+         count(*) FILTER (WHERE receipt_kind = 'occurrence' AND version IS NOT NULL AND version <> 1)::text AS value FROM receipts
+  UNION ALL SELECT 'any.mixed_identity', count(*) FILTER (WHERE null_identity_count > 0 AND identified_count > 0)::text FROM receipt_counts
+  UNION ALL SELECT 'v1.null_identity_rows', ((SELECT count(*) FROM receipt_movements WHERE version = 1 AND "purchaseOrderItemId" IS NULL) + (SELECT count(*) FROM receipt_batches WHERE version = 1 AND "purchaseOrderItemId" IS NULL))::text
+  UNION ALL SELECT 'v1.item_not_exactly_one_movement', count(DISTINCT r.receipt_key) FILTER (WHERE r.receipt_kind = 'occurrence' AND r.version = 1 AND EXISTS (SELECT 1 FROM item_movement_counts x WHERE x.receipt_key = r.receipt_key AND x.movement_count <> 1))::text FROM receipts r
+  UNION ALL SELECT 'v1.item_not_exactly_one_batch', count(DISTINCT r.receipt_key) FILTER (WHERE r.receipt_kind = 'occurrence' AND r.version = 1 AND EXISTS (SELECT 1 FROM item_batch_counts x WHERE x.receipt_key = r.receipt_key AND x.batch_count <> 1))::text FROM receipts r
+  UNION ALL SELECT 'v1.unequal_counts', count(*) FILTER (WHERE receipt_kind = 'occurrence' AND version = 1 AND (item_count <> movement_count OR item_count <> batch_count))::text FROM receipt_counts
+  UNION ALL SELECT 'v1.identity_other_po', (SELECT count(*) FROM (
+    SELECT m.receipt_key FROM receipt_movements m JOIN purchase_order_items i ON i.id = m."purchaseOrderItemId" WHERE m.version = 1 AND i."purchaseOrderId" <> m.po_id
+    UNION SELECT b.receipt_key FROM receipt_batches b JOIN purchase_order_items i ON i.id = b."purchaseOrderItemId" WHERE b.version = 1 AND i."purchaseOrderId" <> b.po_id
+  ) defects)::text
+  UNION ALL SELECT 'v1.product_mismatch', (SELECT count(*) FROM (
+    SELECT m.receipt_key FROM receipt_movements m JOIN purchase_order_items i ON i.id = m."purchaseOrderItemId" WHERE m.version = 1 AND i."productId" <> m."productId"
+    UNION SELECT b.receipt_key FROM receipt_batches b JOIN purchase_order_items i ON i.id = b."purchaseOrderItemId" WHERE b.version = 1 AND i."productId" <> b."productId"
+  ) defects)::text
+  UNION ALL SELECT 'v1.movement_shape', count(DISTINCT receipt_key)::text FROM receipt_movements WHERE version = 1 AND ("movementType"::text <> 'purchase_receipt' OR "referenceType" IS DISTINCT FROM 'purchase_order' OR "referenceId" IS DISTINCT FROM po_id)
+  UNION ALL SELECT 'v1.movement_values_null', count(DISTINCT receipt_key)::text FROM receipt_movements WHERE version = 1 AND ("unitValue" IS NULL OR "totalValue" IS NULL)
+  UNION ALL SELECT 'reversal.unlinked', count(*)::text FROM stock_movements WHERE "movementType"::text = 'purchase_receipt_reversal' AND "reversesMovementId" IS NULL
+  UNION ALL SELECT 'reversal.original_not_receipt', count(*)::text FROM stock_movements r JOIN stock_movements o ON o.id = r."reversesMovementId" WHERE r."movementType"::text = 'purchase_receipt_reversal' AND o."movementType"::text <> 'purchase_receipt'
+  UNION ALL SELECT 'reversal.identity_not_preserved', count(*)::text FROM stock_movements r JOIN stock_movements o ON o.id = r."reversesMovementId" WHERE r."movementType"::text = 'purchase_receipt_reversal' AND r."purchaseOrderItemId" IS DISTINCT FROM o."purchaseOrderItemId"
+  UNION ALL SELECT 'historical.identity_present', count(*)::text FROM receipt_counts c WHERE (c.receipt_kind = 'legacy' OR c.version IS NULL) AND c.identified_count > 0
+  UNION ALL SELECT 'historical.row_count_mismatch.occurrence', count(DISTINCT receipt_key)::text FROM product_counts p JOIN receipts r USING (receipt_key) WHERE r.receipt_kind = 'occurrence' AND r.version IS NULL AND (p.item_count <> p.movement_count OR p.item_count <> p.batch_count)
+  UNION ALL SELECT 'historical.row_count_mismatch.legacy', count(DISTINCT receipt_key)::text FROM product_counts p JOIN receipts r USING (receipt_key) WHERE r.receipt_kind = 'legacy' AND (p.item_count <> p.movement_count OR p.item_count <> p.batch_count)
+)
+SELECT 'd1_receipt_line_identity'::text AS section, 'status'::text AS metric, 'evaluated'::text AS value, 'zero counts mean no violations of the listed rules, not that the requirements are satisfied'::text AS note
+UNION ALL SELECT 'd1_receipt_line_identity', 'receipts.version_null', count(*) FILTER (WHERE receipt_kind = 'occurrence' AND version IS NULL)::text, '' FROM receipts
+UNION ALL SELECT 'd1_receipt_line_identity', 'receipts.version_1', count(*) FILTER (WHERE receipt_kind = 'occurrence' AND version = 1)::text, '' FROM receipts
+UNION ALL SELECT 'd1_receipt_line_identity', 'receipts.version_other', count(*) FILTER (WHERE receipt_kind = 'occurrence' AND version IS NOT NULL AND version <> 1)::text, '' FROM receipts
+UNION ALL SELECT 'd1_receipt_line_identity', 'receipts.legacy_no_occurrence', count(*) FILTER (WHERE receipt_kind = 'legacy')::text, '' FROM receipts
+UNION ALL SELECT 'd1_receipt_line_identity', metric, value, '' FROM violations
+UNION ALL SELECT 'd1_receipt_line_identity', 'historical.uniqueness_not_evaluated.occurrence', count(*) FILTER (WHERE receipt_kind = 'occurrence' AND version IS NULL AND identified_count = 0 AND item_count = movement_count AND item_count = batch_count AND NOT EXISTS (SELECT 1 FROM product_counts p WHERE p.receipt_key = receipt_counts.receipt_key AND (p.item_count <> p.movement_count OR p.item_count <> p.batch_count)))::text, 'uniqueness not evaluated; determined by the application''s matcher' FROM receipt_counts
+UNION ALL SELECT 'd1_receipt_line_identity', 'historical.uniqueness_not_evaluated.legacy', count(*) FILTER (WHERE receipt_kind = 'legacy' AND identified_count = 0 AND item_count = movement_count AND item_count = batch_count AND NOT EXISTS (SELECT 1 FROM product_counts p WHERE p.receipt_key = receipt_counts.receipt_key AND (p.item_count <> p.movement_count OR p.item_count <> p.batch_count)))::text, 'uniqueness not evaluated; determined by the application''s matcher' FROM receipt_counts;
+\else
+SELECT 'd1_receipt_line_identity'::text AS section, 'status'::text AS metric,
+       'not evaluated: migration prerequisite absent'::text AS value,
+       'missing: ' || (SELECT string_agg(required.table_name || '.' || required.column_name, ', ' ORDER BY required.ordinal)
+         FROM (VALUES (1, 'stock_occurrences', 'receiptEvidenceVersion'), (2, 'stock_movements', 'purchaseOrderItemId'), (3, 'purchase_cost_history', 'purchaseOrderItemId')) AS required(ordinal, table_name, column_name)
+        WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema = current_schema() AND c.table_name = required.table_name AND c.column_name = required.column_name)) AS note;
+\endif
+
+\echo '@@inspect-section d1_receipt_line_identity_detail'
+\if :d1_ready
+WITH occurrence_receipts AS (
+  SELECT id AS occurrence_id, "documentId" AS po_id, "receiptEvidenceVersion" AS version,
+         'occurrence'::text AS receipt_kind
+    FROM stock_occurrences WHERE kind::text = 'receipt'
+), receipts AS (
+  SELECT occurrence_id::text AS receipt_key, occurrence_id, po_id, version, receipt_kind FROM occurrence_receipts
+  UNION ALL
+  SELECT po.id::text, NULL::uuid, po.id, NULL::smallint, 'legacy'
+    FROM purchase_orders po WHERE po.status::text = 'RECEIVED'
+      AND NOT EXISTS (SELECT 1 FROM occurrence_receipts o WHERE o.po_id = po.id)
+), movements AS (
+  SELECT r.receipt_key, r.receipt_kind, r.occurrence_id, r.po_id, r.version, m.*
+    FROM receipts r JOIN stock_movements m
+      ON ((r.receipt_kind = 'occurrence' AND m."occurrenceId" = r.occurrence_id)
+       OR (r.receipt_kind = 'legacy' AND m."referenceType" = 'purchase_order' AND m."referenceId" = r.po_id AND m."movementType"::text = 'purchase_receipt'))
+     AND m."movementType"::text <> 'purchase_receipt_reversal'
+), batches AS (
+  SELECT r.receipt_key, r.receipt_kind, r.occurrence_id, r.po_id, r.version, b.*
+    FROM receipts r JOIN purchase_cost_history b
+      ON (r.receipt_kind = 'occurrence' AND b."occurrenceId" = r.occurrence_id)
+       OR (r.receipt_kind = 'legacy' AND b."purchaseOrderId" = r.po_id)
+), item_counts AS (
+  SELECT r.receipt_key, r.receipt_kind, r.occurrence_id, r.po_id, r.version,
+         i.id AS item_id, i."productId" AS product_id,
+         (SELECT count(*) FROM movements m WHERE m.receipt_key = r.receipt_key AND m."purchaseOrderItemId" = i.id) AS movement_count,
+         (SELECT count(*) FROM batches b WHERE b.receipt_key = r.receipt_key AND b."purchaseOrderItemId" = i.id) AS batch_count
+    FROM receipts r JOIN purchase_order_items i ON i."purchaseOrderId" = r.po_id AND i."deletedAt" IS NULL
+), details AS (
+  SELECT receipt_kind, po_id, occurrence_id, 'receipts.version_other'::text AS rule
+    FROM receipts WHERE receipt_kind = 'occurrence' AND version IS NOT NULL AND version <> 1
+  UNION ALL SELECT r.receipt_kind, r.po_id, r.occurrence_id, 'any.mixed_identity'
+    FROM receipts r WHERE EXISTS (SELECT 1 FROM movements m WHERE m.receipt_key = r.receipt_key AND m."purchaseOrderItemId" IS NULL)
+      AND (EXISTS (SELECT 1 FROM movements m WHERE m.receipt_key = r.receipt_key AND m."purchaseOrderItemId" IS NOT NULL)
+        OR EXISTS (SELECT 1 FROM batches b WHERE b.receipt_key = r.receipt_key AND b."purchaseOrderItemId" IS NOT NULL))
+  UNION ALL SELECT receipt_kind, po_id, occurrence_id, 'v1.null_identity_rows' FROM movements WHERE version = 1 AND "purchaseOrderItemId" IS NULL
+  UNION ALL SELECT receipt_kind, po_id, occurrence_id, 'v1.null_identity_rows' FROM batches WHERE version = 1 AND "purchaseOrderItemId" IS NULL
+  UNION ALL SELECT DISTINCT receipt_kind, po_id, occurrence_id, 'v1.item_not_exactly_one_movement' FROM item_counts WHERE receipt_kind = 'occurrence' AND version = 1 AND movement_count <> 1
+  UNION ALL SELECT DISTINCT receipt_kind, po_id, occurrence_id, 'v1.item_not_exactly_one_batch' FROM item_counts WHERE receipt_kind = 'occurrence' AND version = 1 AND batch_count <> 1
+  UNION ALL SELECT r.receipt_kind, r.po_id, r.occurrence_id, 'v1.unequal_counts' FROM receipts r
+    WHERE r.receipt_kind = 'occurrence' AND r.version = 1 AND ((SELECT count(*) FROM item_counts i WHERE i.receipt_key = r.receipt_key) <> (SELECT count(*) FROM movements m WHERE m.receipt_key = r.receipt_key)
+       OR (SELECT count(*) FROM item_counts i WHERE i.receipt_key = r.receipt_key) <> (SELECT count(*) FROM batches b WHERE b.receipt_key = r.receipt_key))
+  UNION ALL SELECT DISTINCT m.receipt_kind, m.po_id, m.occurrence_id, 'v1.identity_other_po' FROM movements m JOIN purchase_order_items i ON i.id = m."purchaseOrderItemId" WHERE m.version = 1 AND i."purchaseOrderId" <> m.po_id
+  UNION ALL SELECT DISTINCT b.receipt_kind, b.po_id, b.occurrence_id, 'v1.identity_other_po' FROM batches b JOIN purchase_order_items i ON i.id = b."purchaseOrderItemId" WHERE b.version = 1 AND i."purchaseOrderId" <> b.po_id
+  UNION ALL SELECT DISTINCT m.receipt_kind, m.po_id, m.occurrence_id, 'v1.product_mismatch' FROM movements m JOIN purchase_order_items i ON i.id = m."purchaseOrderItemId" WHERE m.version = 1 AND i."productId" <> m."productId"
+  UNION ALL SELECT DISTINCT b.receipt_kind, b.po_id, b.occurrence_id, 'v1.product_mismatch' FROM batches b JOIN purchase_order_items i ON i.id = b."purchaseOrderItemId" WHERE b.version = 1 AND i."productId" <> b."productId"
+  UNION ALL SELECT DISTINCT receipt_kind, po_id, occurrence_id, 'v1.movement_shape' FROM movements WHERE version = 1 AND ("movementType"::text <> 'purchase_receipt' OR "referenceType" IS DISTINCT FROM 'purchase_order' OR "referenceId" IS DISTINCT FROM po_id)
+  UNION ALL SELECT DISTINCT receipt_kind, po_id, occurrence_id, 'v1.movement_values_null' FROM movements WHERE version = 1 AND ("unitValue" IS NULL OR "totalValue" IS NULL)
+  UNION ALL SELECT r.receipt_kind, r.po_id, r.occurrence_id, 'historical.identity_present' FROM receipts r
+    WHERE (r.receipt_kind = 'legacy' OR r.version IS NULL) AND (EXISTS (SELECT 1 FROM movements m WHERE m.receipt_key = r.receipt_key AND m."purchaseOrderItemId" IS NOT NULL) OR EXISTS (SELECT 1 FROM batches b WHERE b.receipt_key = r.receipt_key AND b."purchaseOrderItemId" IS NOT NULL))
+)
+SELECT 'd1_receipt_line_identity_detail'::text AS section, receipt_kind, po_id::text AS purchase_order_id,
+       occurrence_id::text AS occurrence_id, rule FROM details
+UNION ALL
+SELECT 'd1_receipt_line_identity_detail', 'occurrence'::text, COALESCE(r.po_id, m."referenceId")::text, m."occurrenceId"::text,
+       CASE WHEN m."reversesMovementId" IS NULL THEN 'reversal.unlinked'
+            WHEN original."movementType"::text <> 'purchase_receipt' THEN 'reversal.original_not_receipt'
+            ELSE 'reversal.identity_not_preserved' END
+  FROM stock_movements m LEFT JOIN stock_movements original ON original.id = m."reversesMovementId"
+  LEFT JOIN receipts r ON r.occurrence_id = m."occurrenceId"
+ WHERE m."movementType"::text = 'purchase_receipt_reversal'
+   AND (m."reversesMovementId" IS NULL OR original."movementType"::text <> 'purchase_receipt' OR m."purchaseOrderItemId" IS DISTINCT FROM original."purchaseOrderItemId")
+ORDER BY receipt_kind, purchase_order_id, occurrence_id, rule;
+\else
+SELECT 'd1_receipt_line_identity_detail'::text AS section, NULL::text AS receipt_kind,
+       NULL::text AS purchase_order_id, NULL::text AS occurrence_id, NULL::text AS rule
+ WHERE false;
+\endif
+
 
 ROLLBACK;
 \echo '@@inspect-end'
