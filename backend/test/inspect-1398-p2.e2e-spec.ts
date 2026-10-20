@@ -19,6 +19,37 @@ dotenv.config({
 
 const scriptPath = fileURLToPath(new URL('../scripts/inspect-1398-p2.sql', import.meta.url));
 
+const inventoryAccountId = '00000000-0000-4000-8000-000000000010';
+
+async function seedInventoryAccount(schema: string, db: Client, rows = 1): Promise<void> {
+  await insertFixtureRow(schema, db, 'chart_of_account', {
+    id: inventoryAccountId, code: '1300', name: 'Inventory', type: 'Asset', openingBalance: 0,
+  });
+  for (let i = 0; i < rows; i += 1) {
+    await insertFixtureRow(schema, db, 'accounting_settings', {
+      id: i === 0, cashAccountId: inventoryAccountId, bankAccountId: inventoryAccountId,
+      inventoryAccountId, supplierDepositAccountId: inventoryAccountId,
+      customerDepositAccountId: inventoryAccountId, openingBalanceEquityAccountId: inventoryAccountId,
+      ownerCapitalAccountId: inventoryAccountId, ownerDrawingsAccountId: inventoryAccountId,
+      salesRevenueAccountId: inventoryAccountId, cogsAccountId: inventoryAccountId,
+      defaultExpenseAccountId: inventoryAccountId,
+    });
+  }
+}
+
+async function seedBatch(
+  schema: string,
+  db: Client,
+  row: { productId: string; quantity: string | null; unitCost: string; landedCost: string | null; deletedAt?: string },
+): Promise<Record<string, string>> {
+  return insertFixtureRow(schema, db, 'purchase_cost_history', {
+    productId: row.productId, unitCost: row.unitCost, landedCost: row.landedCost,
+    receivedQuantity: row.quantity ?? '0', remainingQuantity: row.quantity,
+    receivedDate: '2026-01-01', ...(row.deletedAt ? { deletedAt: row.deletedAt } : {}),
+  });
+}
+
+
 describe('inspect 1398 project 2', () => {
   it('psql container reaches the e2e database', () => {
     const output = execFileSync(
@@ -320,6 +351,239 @@ describe('inspect 1398 project 2', () => {
         'owner_stock_drawing_journal_reversals',
       ]) {
         expect(metrics.has(name)).toBe(true);
+      }
+    });
+  });
+
+
+  it('s05 compares live stock with purchase batches and includes soft-deleted products', async () => {
+    await withFixtureSchema(
+      {
+        seed: async (schema, db) => {
+          await seedProductRows(schema, db, [
+            { name: 'A', stockQuantity: '8' }, { name: 'B', stockQuantity: '0' },
+            { name: 'C', stockQuantity: '5' },
+            { name: 'D', stockQuantity: '2', deletedAt: '2026-01-01T00:00:00Z' },
+          ]);
+          const products = await db.query('SELECT id, name FROM products ORDER BY name');
+          const byName = Object.fromEntries(products.rows.map((row) => [row.name, row.id]));
+          await seedBatch(schema, db, { productId: byName.A, quantity: '6', unitCost: '10', landedCost: '10' });
+          await seedBatch(schema, db, { productId: byName.D, quantity: '2', unitCost: '10', landedCost: '10' });
+        },
+      },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's05_product_batches', 'stock_exceeds_batches')).toBe('1');
+        expect(metric(result.sets, 's05_product_batches', 'stock_without_batches')).toBe('1');
+        expect(metric(result.sets, 's05_product_batches', 'soft_deleted_products_flagged')).toBe('1');
+        expect(metric(result.sets, 's05_product_batches', 'total_batch_value')).toBe('80.0000');
+      },
+    );
+  });
+
+  it('s05 keeps unknown batch costs out of value totals and marks them incomplete', async () => {
+    await withFixtureSchema(
+      {
+        extraDdl: ['ALTER TABLE purchase_cost_history ALTER COLUMN "landedCost" DROP NOT NULL'],
+        seed: async (schema, db) => {
+          await seedProductRows(schema, db, [{ name: 'Unknown cost', stockQuantity: '10' }]);
+          const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+          await seedBatch(schema, db, { productId, quantity: '4', unitCost: '10', landedCost: null });
+          await seedBatch(schema, db, { productId, quantity: '6', unitCost: '10', landedCost: '10' });
+        },
+      },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's05_product_batches', 'unknown_cost_batches')).toBe('1');
+        expect(metric(result.sets, 's05_product_batches', 'unknown_cost_quantity')).toBe('4.0000');
+        expect(metric(result.sets, 's05_product_batches', 'total_batch_value')).toBe('60.0000');
+        expect(metric(result.sets, 's05_product_batches', 'total_batch_value_complete')).toBe('false');
+        expect(
+          result.sets.find((set) => set.section === 's05_product_batches')?.rows
+            .find((row) => row.metric === 'total_batch_value')?.note,
+        ).toMatch(/^incomplete:/);
+        expect(result.sets.find((set) => set.section === 's05_product_batches_detail')
+          ?.rows[0].batch_value_complete).toBe('false');
+      },
+    );
+  });
+
+  it('s05 treats a known zero cost as valued', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedProductRows(schema, db, [{ name: 'Zero cost', stockQuantity: '1' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        await seedBatch(schema, db, { productId, quantity: '1', unitCost: '0', landedCost: '0' });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's05_product_batches', 'zero_cost_batches')).toBe('1');
+        expect(metric(result.sets, 's05_product_batches', 'unknown_cost_batches')).toBe('0');
+        expect(metric(result.sets, 's05_product_batches', 'total_batch_value_complete')).toBe('true');
+      },
+    );
+  });
+
+  it('s05 excludes soft-deleted batches from live totals', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedProductRows(schema, db, [{ name: 'Deleted batch', stockQuantity: '0' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        await seedBatch(schema, db, {
+          productId, quantity: '7', unitCost: '5', landedCost: '5', deletedAt: '2026-01-01T00:00:00Z',
+        });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's05_product_batches', 'soft_deleted_batches')).toBe('1');
+        expect(metric(result.sets, 's05_product_batches', 'total_batch_quantity')).toBe('0.0000');
+        expect(metric(result.sets, 's05_product_batches', 'total_batch_value')).toBe('0.0000');
+      },
+    );
+  });
+
+  it('s06 compares inventory ledger balance to batch value', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedInventoryAccount(schema, db);
+        await seedProductRows(schema, db, [{ name: 'Ledger product', stockQuantity: '8' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        await seedBatch(schema, db, { productId, quantity: '8', unitCost: '10', landedCost: '10' });
+        for (const [number, posting, debit, credit, deletedAt] of [
+          ['JE-100', 'SALES_PAYMENT', '100', '0', null],
+          ['JE-101', 'SALES_PAYMENT', '0', '15', null],
+          ['JE-102', 'SALES_PAYMENT', '999', '0', '2026-01-01T00:00:00Z'],
+        ]) {
+          const entry = await insertFixtureRow(schema, db, 'journal_entry', {
+            journalNo: number, entryDate: '2026-01-01', sourceType: 'SALES_ORDER', postingType: posting,
+          });
+          await insertFixtureRow(schema, db, 'journal_entry_line', {
+            entryId: entry.id, accountId: inventoryAccountId, debit, credit, deletedAt,
+          });
+        }
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's06_inventory_ledger', 'ledger_balance')).toBe('85.00');
+        expect(metric(result.sets, 's06_inventory_ledger', 'difference')).toBe('5.00');
+        expect(result.sets.find((set) => set.section === 's06_inventory_ledger')
+          ?.rows.find((row) => row.metric === 'difference')?.note).toBe('ledger − batches');
+      },
+    );
+  });
+
+  it('s06 refuses to select an inventory account when settings are not singular', async () => {
+    await withFixtureSchema(
+      { seed: (schema, db) => seedInventoryAccount(schema, db, 2) },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        const ledger = result.sets.find((set) => set.section === 's06_inventory_ledger');
+        expect(metric(result.sets, 's06_inventory_ledger', 'ledger_balance')).toBe('n/a');
+        expect(ledger?.rows.find((row) => row.metric === 'ledger_balance')?.note)
+          .toBe('accounting_settings is not a single row');
+      },
+    );
+  });
+
+  it('s06 labels the ledger comparison incomplete when batches have unknown costs', async () => {
+    await withFixtureSchema(
+      { extraDdl: ['ALTER TABLE purchase_cost_history ALTER COLUMN "landedCost" DROP NOT NULL'], seed: async (schema, db) => {
+        await seedInventoryAccount(schema, db);
+        await seedProductRows(schema, db, [{ name: 'Unknown cost', stockQuantity: '4' }]);
+        const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+        await seedBatch(schema, db, { productId, quantity: '4', unitCost: '10', landedCost: null });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's06_inventory_ledger', 'difference_complete')).toBe('false');
+        const note = result.sets.find((set) => set.section === 's06_inventory_ledger')
+          ?.rows.find((row) => row.metric === 'difference')?.note;
+        expect(note).toContain('ledger − batches');
+        expect(note).toContain('incomplete:');
+      },
+    );
+  });
+
+  it('s06 reports opening balance fields and opening journal lines separately', async () => {
+    await withFixtureSchema(
+      { seed: async (schema, db) => {
+        await seedInventoryAccount(schema, db);
+        const entry = await insertFixtureRow(schema, db, 'journal_entry', {
+          journalNo: 'JE-OPEN', entryDate: '2026-01-01', sourceType: 'OPENING_BALANCE', postingType: 'OPENING_BALANCE',
+        });
+        await insertFixtureRow(schema, db, 'journal_entry_line', {
+          entryId: entry.id, accountId: inventoryAccountId, debit: '40', credit: '0',
+        });
+      } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's06_inventory_ledger', 'opening_balance_entries')).toBe('1');
+        expect(metric(result.sets, 's06_inventory_ledger', 'opening_balance_lines_sum')).toBe('40.00');
+        expect(metric(result.sets, 's06_inventory_ledger', 'opening_balance_field')).toBe('0.00');
+      },
+    );
+  });
+
+
+  it('s05 keeps products with unknown batch quantity and marks value incomplete', async () => {
+    await withFixtureSchema(
+      { extraDdl: ['ALTER TABLE purchase_cost_history ALTER COLUMN "remainingQuantity" DROP NOT NULL'],
+        seed: async (schema, db) => {
+          await seedProductRows(schema, db, [{ name: 'Unknown quantity', stockQuantity: '2' }]);
+          const productId = (await db.query('SELECT id FROM products LIMIT 1')).rows[0].id;
+          await seedBatch(schema, db, { productId, quantity: null, unitCost: '10', landedCost: '10' });
+        } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        const details = result.sets.find((set) => set.section === 's05_product_batches_detail')?.rows ?? [];
+        expect(details).toHaveLength(1);
+        expect(details[0].batch_value_complete).toBe('false');
+        expect(metric(result.sets, 's05_product_batches', 'total_batch_quantity')).toBe('0.0000');
+        expect(metric(result.sets, 's05_product_batches', 'total_batch_value_complete')).toBe('false');
+        expect(result.sets.find((set) => set.section === 's05_product_batches')?.rows
+          .find((row) => row.metric === 'total_batch_value')?.note).toContain('unknown quantity');
+      },
+    );
+  });
+
+  it('s06 leaves a NULL opening balance visibly unknown', async () => {
+    await withFixtureSchema(
+      { extraDdl: ['ALTER TABLE chart_of_account ALTER COLUMN "openingBalance" DROP NOT NULL'],
+        seed: async (schema, db) => {
+          await seedInventoryAccount(schema, db);
+          await db.query('UPDATE chart_of_account SET "openingBalance" = NULL WHERE id = $1', [inventoryAccountId]);
+        } },
+      async (schema) => {
+        const result = await runInspection({ schema });
+        expect(metric(result.sets, 's06_inventory_ledger', 'opening_balance_field')).toBe('n/a');
+        expect(result.sets.find((set) => set.section === 's06_inventory_ledger')?.rows
+          .find((row) => row.metric === 'opening_balance_field')?.note).toBe('opening balance field is NULL');
+      },
+    );
+  });
+
+
+  it('s05 and s06 expose every pinned metric on an empty baseline', async () => {
+    await withFixtureSchema({}, async (schema) => {
+      const result = await runInspection({ schema });
+      const metricsBySection = new Map(
+        result.sets.map((set) => [set.section, new Set(set.rows.map((row) => row.metric))]),
+      );
+      for (const name of [
+        'products_with_stock_or_batches', 'stock_exceeds_batches', 'batches_exceed_stock',
+        'stock_without_batches', 'soft_deleted_products_flagged', 'zero_cost_batches',
+        'unknown_cost_batches', 'unknown_cost_quantity', 'total_batch_quantity',
+        'total_batch_value', 'total_batch_value_complete', 'soft_deleted_batches',
+        'soft_deleted_batches.quantity', 'soft_deleted_batches.value',
+      ]) {
+        expect(metricsBySection.get('s05_product_batches')?.has(name)).toBe(true);
+      }
+      for (const name of [
+        'accounting_settings_rows', 'inventory_account_id', 'inventory_account_code', 'ledger_balance',
+        'batch_value', 'difference', 'difference_complete', 'opening_balance_field',
+        'opening_balance_entries', 'opening_balance_lines_sum', 'inventory_account_has_children',
+      ]) {
+        expect(metricsBySection.get('s06_inventory_ledger')?.has(name)).toBe(true);
       }
     });
   });

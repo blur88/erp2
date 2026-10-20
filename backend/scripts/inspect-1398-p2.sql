@@ -198,6 +198,200 @@ WITH active_settings AS (
 )
 SELECT 's04_costing_method'::text AS section, metric, value, note FROM metrics;
 
+\echo '@@inspect-section s05_product_batches'
+WITH live_batches AS (
+  SELECT "productId",
+         count(*) AS batch_count,
+         COALESCE(sum("remainingQuantity"), 0) AS batch_quantity,
+         COALESCE(sum(CASE WHEN "landedCost" IS NOT NULL AND "remainingQuantity" IS NOT NULL
+                           THEN "remainingQuantity" * "landedCost" END), 0)::numeric(24,4) AS batch_value,
+         count(*) FILTER (WHERE "landedCost" IS NULL AND "remainingQuantity" > 0) AS unknown_cost_count,
+         count(*) FILTER (WHERE "remainingQuantity" IS NULL) AS unknown_quantity_count,
+         COALESCE(sum("remainingQuantity") FILTER (
+           WHERE "landedCost" IS NULL AND "remainingQuantity" > 0), 0) AS unknown_cost_quantity
+    FROM purchase_cost_history
+   WHERE "deletedAt" IS NULL
+   GROUP BY "productId"
+), product_totals AS (
+  SELECT p.id AS product_id, p.name AS product_name,
+         COALESCE(p."stockQuantity", 0) AS stock_quantity,
+         COALESCE(b.batch_count, 0) AS batch_count,
+         COALESCE(b.batch_quantity, 0) AS batch_quantity,
+         COALESCE(b.batch_value, 0)::numeric(24,4) AS batch_value,
+         COALESCE(b.unknown_cost_count, 0) AS unknown_cost_count,
+         COALESCE(b.unknown_quantity_count, 0) AS unknown_quantity_count,
+         COALESCE(b.unknown_cost_quantity, 0) AS unknown_cost_quantity,
+         (p."deletedAt" IS NOT NULL) AS is_soft_deleted,
+         CASE
+           WHEN COALESCE(p."stockQuantity", 0) <> 0 AND COALESCE(b.batch_count, 0) = 0 THEN 'stock_without_batches'
+           WHEN COALESCE(p."stockQuantity", 0) > COALESCE(b.batch_quantity, 0) AND COALESCE(b.batch_count, 0) > 0 THEN 'stock_exceeds_batches'
+           WHEN COALESCE(b.batch_quantity, 0) > COALESCE(p."stockQuantity", 0) THEN 'batches_exceed_stock'
+           ELSE 'none'
+         END AS flag
+    FROM products p
+    LEFT JOIN live_batches b ON b."productId" = p.id
+   WHERE COALESCE(p."stockQuantity", 0) <> 0 OR COALESCE(b.batch_count, 0) > 0
+), totals AS (
+  SELECT count(*) FILTER (WHERE flag = 'stock_exceeds_batches')::text AS stock_exceeds_batches,
+         count(*) FILTER (WHERE flag = 'batches_exceed_stock')::text AS batches_exceed_stock,
+         count(*) FILTER (WHERE flag = 'stock_without_batches')::text AS stock_without_batches,
+         count(*) FILTER (WHERE is_soft_deleted)::text AS soft_deleted_products_flagged
+    FROM product_totals
+), batch_totals AS (
+  SELECT count(*) FILTER (WHERE "unitCost" = 0 OR "landedCost" = 0)::text AS zero_cost_batches,
+         count(*) FILTER (WHERE "landedCost" IS NULL AND "remainingQuantity" > 0)::text AS unknown_cost_batches,
+         COALESCE(sum("remainingQuantity") FILTER (
+           WHERE "landedCost" IS NULL AND "remainingQuantity" > 0), 0)::numeric(15,4)::text AS unknown_cost_quantity,
+         COALESCE(sum("remainingQuantity"), 0)::numeric(18,4)::text AS total_batch_quantity,
+         COALESCE(sum(CASE WHEN "landedCost" IS NOT NULL AND "remainingQuantity" IS NOT NULL
+                           THEN "remainingQuantity" * "landedCost" END), 0)::numeric(24,4)::text AS total_batch_value,
+         count(*) FILTER (WHERE "landedCost" IS NULL AND "remainingQuantity" > 0) AS unknown_count,
+         COALESCE(sum("remainingQuantity") FILTER (
+           WHERE "landedCost" IS NULL AND "remainingQuantity" > 0), 0)::numeric(15,4)::text AS unknown_quantity,
+         count(*) FILTER (WHERE "remainingQuantity" IS NULL) AS unknown_quantity_count
+    FROM purchase_cost_history
+   WHERE "deletedAt" IS NULL
+), deleted_batches AS (
+  SELECT count(*)::text AS count,
+         COALESCE(sum("remainingQuantity"), 0)::numeric(18,4)::text AS quantity,
+         COALESCE(sum(CASE WHEN "landedCost" IS NOT NULL AND "remainingQuantity" IS NOT NULL
+                           THEN "remainingQuantity" * "landedCost" END), 0)::numeric(24,4)::text AS value
+    FROM purchase_cost_history
+   WHERE "deletedAt" IS NOT NULL
+), metrics(metric, value, note) AS (
+  SELECT 'products_with_stock_or_batches', count(*)::text, '' FROM product_totals
+  UNION ALL SELECT 'stock_exceeds_batches', stock_exceeds_batches, '' FROM totals
+  UNION ALL SELECT 'batches_exceed_stock', batches_exceed_stock, '' FROM totals
+  UNION ALL SELECT 'stock_without_batches', stock_without_batches, '' FROM totals
+  UNION ALL SELECT 'soft_deleted_products_flagged', soft_deleted_products_flagged, '' FROM totals
+  UNION ALL SELECT 'zero_cost_batches', zero_cost_batches, '' FROM batch_totals
+  UNION ALL SELECT 'unknown_cost_batches', unknown_cost_batches, '' FROM batch_totals
+  UNION ALL SELECT 'unknown_cost_quantity', unknown_cost_quantity, '' FROM batch_totals
+  UNION ALL SELECT 'total_batch_quantity', total_batch_quantity, '' FROM batch_totals
+  UNION ALL SELECT 'total_batch_value', total_batch_value,
+    CASE
+      WHEN unknown_count > 0 AND unknown_quantity_count > 0 THEN format('incomplete: excludes %s batches (%s units) with unknown cost; excludes %s batches with unknown quantity', unknown_count, unknown_quantity, unknown_quantity_count)
+      WHEN unknown_count > 0 THEN format('incomplete: excludes %s batches (%s units) with unknown cost', unknown_count, unknown_quantity)
+      WHEN unknown_quantity_count > 0 THEN format('incomplete: excludes %s batches with unknown quantity', unknown_quantity_count)
+      ELSE ''
+    END FROM batch_totals
+  UNION ALL SELECT 'total_batch_value_complete', CASE WHEN unknown_count > 0 OR unknown_quantity_count > 0 THEN 'false' ELSE 'true' END, '' FROM batch_totals
+  UNION ALL SELECT 'soft_deleted_batches', count, '' FROM deleted_batches
+  UNION ALL SELECT 'soft_deleted_batches.quantity', quantity, '' FROM deleted_batches
+  UNION ALL SELECT 'soft_deleted_batches.value', value, '' FROM deleted_batches
+)
+SELECT 's05_product_batches'::text AS section, metric, value, note FROM metrics;
+
+\echo '@@inspect-section s05_product_batches_detail'
+WITH live_batches AS (
+  SELECT "productId", count(*) AS batch_count,
+         COALESCE(sum("remainingQuantity"), 0)::numeric(18,4) AS batch_quantity,
+         COALESCE(sum(CASE WHEN "landedCost" IS NOT NULL AND "remainingQuantity" IS NOT NULL
+                           THEN "remainingQuantity" * "landedCost" END), 0)::numeric(24,4) AS batch_value,
+         count(*) FILTER (WHERE "landedCost" IS NULL AND "remainingQuantity" > 0) AS unknown_cost_count,
+         count(*) FILTER (WHERE "remainingQuantity" IS NULL) AS unknown_quantity_count
+    FROM purchase_cost_history WHERE "deletedAt" IS NULL GROUP BY "productId"
+)
+SELECT 's05_product_batches_detail'::text AS section,
+       p.id::text AS product_id, p.name AS product_name, p."stockQuantity"::text AS stock_quantity,
+       COALESCE(b.batch_quantity, 0)::numeric(18,4)::text AS batch_quantity,
+       COALESCE(b.batch_value, 0)::numeric(24,4)::text AS batch_value,
+       (p."deletedAt" IS NOT NULL)::text AS is_soft_deleted,
+       CASE WHEN COALESCE(b.unknown_cost_count, 0) > 0 OR COALESCE(b.unknown_quantity_count, 0) > 0 THEN 'false' ELSE 'true' END AS batch_value_complete,
+       CASE
+         WHEN p."stockQuantity" <> 0 AND COALESCE(b.batch_count, 0) = 0 THEN 'stock_without_batches'
+         WHEN p."stockQuantity" > COALESCE(b.batch_quantity, 0) AND COALESCE(b.batch_count, 0) > 0 THEN 'stock_exceeds_batches'
+         WHEN COALESCE(b.batch_quantity, 0) > p."stockQuantity" THEN 'batches_exceed_stock'
+         ELSE 'none'
+       END AS flag
+  FROM products p LEFT JOIN live_batches b ON b."productId" = p.id
+ WHERE COALESCE(p."stockQuantity", 0) <> 0 OR COALESCE(b.batch_count, 0) > 0
+ ORDER BY p.id;
+
+\echo '@@inspect-section s05_zero_cost_batches_detail'
+SELECT 's05_zero_cost_batches_detail'::text AS section,
+       id::text AS batch_id, "productId"::text AS product_id,
+       "unitCost"::text AS unit_cost, "landedCost"::text AS landed_cost,
+       CASE WHEN "landedCost" IS NULL AND "remainingQuantity" > 0 THEN 'unknown' ELSE 'zero' END AS cost_state
+  FROM purchase_cost_history
+ WHERE "deletedAt" IS NULL
+   AND ("unitCost" = 0 OR "landedCost" = 0 OR ("landedCost" IS NULL AND "remainingQuantity" > 0))
+ ORDER BY id;
+
+\echo '@@inspect-section s06_inventory_ledger'
+WITH settings AS (
+  SELECT count(*)::int AS settings_rows,
+         CASE WHEN count(*) = 1 THEN (array_agg("inventoryAccountId"))[1]::text END AS account_id
+    FROM accounting_settings
+), batch_totals AS (
+  SELECT COALESCE(sum(CASE WHEN "landedCost" IS NOT NULL AND "remainingQuantity" IS NOT NULL
+                           THEN "remainingQuantity" * "landedCost" END), 0)::numeric(24,4) AS batch_value,
+         count(*) FILTER (WHERE "landedCost" IS NULL AND "remainingQuantity" > 0) AS unknown_count,
+         count(*) FILTER (WHERE "remainingQuantity" IS NULL) AS unknown_quantity_count
+    FROM purchase_cost_history WHERE "deletedAt" IS NULL
+), account AS (
+  SELECT coa.id, coa.code, coa."openingBalance",
+         EXISTS (SELECT 1 FROM chart_of_account child WHERE child."parentId" = coa.id) AS has_children
+    FROM chart_of_account coa CROSS JOIN settings s
+   WHERE s.settings_rows = 1 AND coa.id::text = s.account_id
+), ledger AS (
+  SELECT COALESCE(sum(line.debit - line.credit), 0)::numeric(18,2) AS balance
+    FROM journal_entry_line line
+    JOIN journal_entry entry ON entry.id = line."entryId"
+    CROSS JOIN settings s
+   WHERE s.settings_rows = 1 AND line."accountId"::text = s.account_id
+     AND line."deletedAt" IS NULL AND entry."deletedAt" IS NULL
+), opening AS (
+  SELECT count(DISTINCT entry.id)::text AS entries,
+         COALESCE(sum(line.debit - line.credit), 0)::numeric(18,2)::text AS lines_sum
+    FROM journal_entry_line line
+    JOIN journal_entry entry ON entry.id = line."entryId"
+    CROSS JOIN settings s
+   WHERE s.settings_rows = 1 AND line."accountId"::text = s.account_id
+     AND entry."postingType"::text = 'OPENING_BALANCE'
+     AND line."deletedAt" IS NULL AND entry."deletedAt" IS NULL
+), metrics(metric, value, note) AS (
+  SELECT 'accounting_settings_rows', settings_rows::text, '' FROM settings
+  UNION ALL
+  SELECT 'inventory_account_id', COALESCE(account_id, 'n/a'),
+         CASE WHEN settings_rows = 1 THEN '' ELSE 'accounting_settings is not a single row' END FROM settings
+  UNION ALL
+  SELECT 'inventory_account_code', COALESCE((SELECT code FROM account), 'n/a'),
+         CASE WHEN settings_rows = 1 THEN '' ELSE 'accounting_settings is not a single row' END FROM settings
+  UNION ALL
+  SELECT 'ledger_balance', CASE WHEN settings_rows = 1 THEN (SELECT balance::text FROM ledger) ELSE 'n/a' END,
+         CASE WHEN settings_rows = 1 THEN '' ELSE 'accounting_settings is not a single row' END FROM settings
+  UNION ALL
+  SELECT 'batch_value', CASE WHEN settings_rows = 1 THEN (SELECT batch_value::text FROM batch_totals) ELSE 'n/a' END,
+         CASE WHEN settings_rows <> 1 THEN 'accounting_settings is not a single row'
+              WHEN (SELECT unknown_count FROM batch_totals) > 0 AND (SELECT unknown_quantity_count FROM batch_totals) > 0 THEN format('incomplete: batch value excludes %s batches with unknown cost; excludes %s batches with unknown quantity', (SELECT unknown_count FROM batch_totals), (SELECT unknown_quantity_count FROM batch_totals))
+              WHEN (SELECT unknown_count FROM batch_totals) > 0 THEN format('incomplete: batch value excludes %s batches with unknown cost', (SELECT unknown_count FROM batch_totals))
+              WHEN (SELECT unknown_quantity_count FROM batch_totals) > 0 THEN format('incomplete: batch value excludes %s batches with unknown quantity', (SELECT unknown_quantity_count FROM batch_totals)) ELSE '' END FROM settings
+  UNION ALL
+  SELECT 'difference', CASE WHEN settings_rows = 1 THEN ((SELECT balance FROM ledger) - (SELECT batch_value FROM batch_totals))::numeric(18,2)::text ELSE 'n/a' END,
+         CASE WHEN settings_rows <> 1 THEN 'accounting_settings is not a single row'
+              WHEN (SELECT unknown_count FROM batch_totals) > 0 AND (SELECT unknown_quantity_count FROM batch_totals) > 0 THEN format('ledger − batches; incomplete: batch value excludes %s batches with unknown cost; excludes %s batches with unknown quantity', (SELECT unknown_count FROM batch_totals), (SELECT unknown_quantity_count FROM batch_totals))
+              WHEN (SELECT unknown_count FROM batch_totals) > 0 THEN format('ledger − batches; incomplete: batch value excludes %s batches with unknown cost', (SELECT unknown_count FROM batch_totals))
+              WHEN (SELECT unknown_quantity_count FROM batch_totals) > 0 THEN format('ledger − batches; incomplete: batch value excludes %s batches with unknown quantity', (SELECT unknown_quantity_count FROM batch_totals)) ELSE 'ledger − batches' END FROM settings
+  UNION ALL
+  SELECT 'difference_complete', CASE WHEN settings_rows <> 1 THEN 'n/a' WHEN (SELECT unknown_count FROM batch_totals) > 0 OR (SELECT unknown_quantity_count FROM batch_totals) > 0 THEN 'false' ELSE 'true' END,
+         CASE WHEN settings_rows = 1 THEN '' ELSE 'accounting_settings is not a single row' END FROM settings
+  UNION ALL
+  SELECT 'opening_balance_field', CASE WHEN settings_rows <> 1 OR (SELECT "openingBalance" FROM account) IS NULL THEN 'n/a' ELSE (SELECT "openingBalance"::numeric(18,2)::text FROM account) END,
+         CASE WHEN settings_rows <> 1 THEN 'accounting_settings is not a single row' WHEN (SELECT "openingBalance" FROM account) IS NULL THEN 'opening balance field is NULL' ELSE '' END FROM settings
+  UNION ALL
+  SELECT 'opening_balance_entries', CASE WHEN settings_rows = 1 THEN (SELECT entries FROM opening) ELSE 'n/a' END,
+         CASE WHEN settings_rows = 1 THEN '' ELSE 'accounting_settings is not a single row' END FROM settings
+  UNION ALL
+  SELECT 'opening_balance_lines_sum', CASE WHEN settings_rows = 1 THEN (SELECT lines_sum FROM opening) ELSE 'n/a' END,
+         CASE WHEN settings_rows = 1 THEN '' ELSE 'accounting_settings is not a single row' END FROM settings
+  UNION ALL
+  SELECT 'inventory_account_has_children', CASE WHEN settings_rows <> 1 THEN 'n/a' WHEN COALESCE((SELECT has_children FROM account), false) THEN 'true' ELSE 'false' END,
+         CASE WHEN settings_rows = 1 THEN '' ELSE 'accounting_settings is not a single row' END FROM settings
+)
+SELECT 's06_inventory_ledger'::text AS section, metric, value, note FROM metrics;
+
+
 \echo '@@inspect-section s07_undo_counts'
 WITH metrics(metric, value, note) AS (
   SELECT 'fulfilled_sales_orders', count(*) FILTER (WHERE status::text = 'FULFILLED')::text,
