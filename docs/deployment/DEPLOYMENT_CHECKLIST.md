@@ -271,7 +271,15 @@ scripts run in `BEGIN READ ONLY … ROLLBACK` and write nothing.
 
 Deploy #1405 and #1406 together. Before deploying, run the read-only preflight
 against the target database and retain all seven labelled result sets in the
-deployment record:
+deployment record.
+
+**Environments (recorded 2026-10-20):** the only environment is the local
+development machine (`NODE_ENV=development`, database `erp_db`); no production
+host exists. The preflight was run there for #1405/#1406 and its dispositions are
+recorded on PR #1408. That run describes development data only. **When a
+production environment is created, run this preflight afresh against it before
+#1405/#1406 (or any later release) is deployed there**, and record that run's
+dispositions separately; the development record does not carry over.
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
