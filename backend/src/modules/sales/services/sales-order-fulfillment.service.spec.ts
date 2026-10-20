@@ -4,14 +4,25 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
-import { UNFULFILL_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
+import {
+  UNFULFILL_EVIDENCE_INCOMPLETE,
+  UNFULFILL_PRE_RECORDING,
+} from '../../inventory/stock-undo-unavailable';
+import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import {
   SalesOrder,
   SalesOrderStatus,
   SalesOrderPaymentStatus,
 } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { StockOccurrence } from '../../../database/entities/stock-occurrence.entity';
+import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { StockBatchConsumption } from '../../../database/entities/stock-batch-consumption.entity';
+import { StockMovementValuationGap } from '../../../database/entities/stock-movement-valuation-gap.entity';
+import { Product } from '../../../database/entities/product.entity';
+import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { InventoryIntegrationService } from './inventory-integration.service';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
@@ -40,6 +51,7 @@ describe('SalesOrderFulfillmentService', () => {
   let service: SalesOrderFulfillmentService;
   let orderRepo: any;
   let inventoryService: any;
+  let baseCostCalculator: any;
   let auditLogService: any;
   let dataSource: any;
   let accountingPort: any;
@@ -50,8 +62,17 @@ describe('SalesOrderFulfillmentService', () => {
     const findOne = (jest.fn as unknown as any)().mockResolvedValue(order);
     const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
     const query = (jest.fn as unknown as any)().mockResolvedValue([{}]);
+    const occRepo = {
+      create: (jest.fn as unknown as any)((d: any) => d),
+      save: (jest.fn as unknown as any)(async (d: any) => ({ ...d, id: 'occ-1' })),
+      find: (jest.fn as unknown as any)().mockResolvedValue([]),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+    };
+    const getRepository = (jest.fn as unknown as any)().mockImplementation((entity: any) =>
+      entity === StockOccurrence ? occRepo : { findOne, update },
+    );
     const manager = {
-      getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
+      getRepository,
       query,
     } as unknown as EntityManager;
     (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
@@ -63,6 +84,29 @@ describe('SalesOrderFulfillmentService', () => {
     settingsService = {
       getRegionalSettings: (jest.fn as unknown as any)(async () => ({ timezone: appTimezone })),
     };
+    baseCostCalculator = {
+      // One shared plan per line; default is zero-cost unless a test overrides.
+      planConsumption: (jest.fn as unknown as any)().mockImplementation(async (_m: any, lines: any[]) =>
+        lines.map((l) => {
+          const requestedQuantityMinor = BigInt(Math.round(l.quantity * 10000));
+          return {
+            productId: l.productId,
+            requestedQuantityMinor,
+            coveredQuantityMinor: requestedQuantityMinor,
+            uncoveredQuantityMinor: 0n,
+            consumptions: [
+              {
+                batchId: `batch-${l.productId}`,
+                quantityMinor: requestedQuantityMinor,
+                unitCostMinor: 0n,
+                valueScale8: 0n,
+              },
+            ],
+            totalScale8: 0n,
+          };
+        }),
+      ),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesOrderFulfillmentService,
@@ -72,10 +116,23 @@ describe('SalesOrderFulfillmentService', () => {
         },
         {
           provide: InventoryIntegrationService,
-          useValue: { adjustStock: (jest.fn as unknown as any)().mockResolvedValue(0n) },
+          useValue: {
+            adjustStock: (jest.fn as unknown as any)().mockResolvedValue({
+              movementId: 'm1',
+              totalScale8: 0n,
+            }),
+          },
         },
+        { provide: BaseCostCalculatorService, useValue: baseCostCalculator },
+        { provide: StockMovementService, useValue: { create: (jest.fn as unknown as any)() } },
         { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
-        { provide: ACCOUNTING_POSTING_PORT, useValue: { postSalesFulfillment: (jest.fn as unknown as any)(), reverseEntriesForDocument: (jest.fn as unknown as any)() } },
+        {
+          provide: ACCOUNTING_POSTING_PORT,
+          useValue: {
+            postSalesFulfillment: (jest.fn as unknown as any)().mockResolvedValue({}),
+            reverseEntriesForDocument: (jest.fn as unknown as any)(),
+          },
+        },
         { provide: DataSource, useValue: { transaction: (jest.fn as unknown as any)() } },
         { provide: SettingsService, useValue: settingsService },
       ],
@@ -139,6 +196,9 @@ describe('SalesOrderFulfillmentService', () => {
         undefined,
         undefined,
         expect.anything(),
+        'occ-1',
+        expect.objectContaining({ productId: 'product-1' }),
+        expect.any(String),
       );
     });
 
@@ -182,8 +242,14 @@ describe('SalesOrderFulfillmentService', () => {
         .mockResolvedValueOnce(repricedOrder); // priced re-read before posting
       const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
       const query = (jest.fn as unknown as any)().mockResolvedValue([{}]);
+      const occRepo = {
+        create: (jest.fn as unknown as any)((d: any) => d),
+        save: (jest.fn as unknown as any)(async (d: any) => ({ ...d, id: 'occ-1' })),
+      };
       const manager = {
-        getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
+        getRepository: (jest.fn as unknown as any)().mockImplementation((entity: any) =>
+          entity === StockOccurrence ? occRepo : { findOne, update },
+        ),
         query,
       } as unknown as EntityManager;
       (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
@@ -341,7 +407,24 @@ describe('SalesOrderFulfillmentService', () => {
         totalAmount: '1000.0000',
       });
       wireTransaction(order);
-      inventoryService.adjustStock.mockResolvedValue(349_995_000n);
+      baseCostCalculator.planConsumption.mockResolvedValue([
+        {
+          productId: 'product-1',
+          requestedQuantityMinor: 50000n,
+          coveredQuantityMinor: 50000n,
+          uncoveredQuantityMinor: 0n,
+          consumptions: [
+            {
+              batchId: 'batch-product-1',
+              quantityMinor: 50000n,
+              unitCostMinor: 7000n,
+              valueScale8: 350_000_000n,
+            },
+          ],
+          totalScale8: 350_000_000n,
+        },
+      ]);
+      accountingPort.postSalesFulfillment.mockResolvedValue({ cogsEntryId: 'cogs-1' });
 
       await service.fulfillOrder('order-1', 'u', 'admin');
 
@@ -354,16 +437,186 @@ describe('SalesOrderFulfillmentService', () => {
         expect.anything(),
       );
     });
+
+    it('plans all lines once and consumes a repeated product exactly once (#1406)', async () => {
+      const order = mockOrder({
+        status: SalesOrderStatus.READY,
+        items: [
+          { id: 'item-1', productId: 'product-1', quantity: 3, product: { id: 'product-1', name: 'Widget', stockQuantity: 100 } },
+          { id: 'item-2', productId: 'product-1', quantity: 4, product: { id: 'product-1', name: 'Widget', stockQuantity: 100 } },
+        ] as SalesOrderItem[],
+      });
+      wireTransaction(order);
+
+      await service.fulfillOrder('order-1');
+
+      expect(baseCostCalculator.planConsumption).toHaveBeenCalledTimes(1);
+      expect(baseCostCalculator.planConsumption).toHaveBeenCalledWith(expect.anything(), [
+        { productId: 'product-1', quantity: 3 },
+        { productId: 'product-1', quantity: 4 },
+      ]);
+      expect(inventoryService.adjustStock).toHaveBeenCalledTimes(2);
+      expect(inventoryService.adjustStock.mock.calls[0][1]).toBe(-3);
+      expect(inventoryService.adjustStock.mock.calls[1][1]).toBe(-4);
+      expect(inventoryService.adjustStock.mock.calls[0][7]).toBe('occ-1');
+      expect(inventoryService.adjustStock.mock.calls[1][7]).toBe('occ-1');
+    });
+
+    it('allocates the rounded posted COGS across lines and lets the last line absorb the residual (#1406)', async () => {
+      const order = mockOrder({
+        status: SalesOrderStatus.READY,
+        items: [
+          { id: 'item-1', productId: 'product-1', quantity: 1, product: { id: 'product-1', name: 'A', stockQuantity: 10 } },
+          { id: 'item-2', productId: 'product-2', quantity: 1, product: { id: 'product-2', name: 'B', stockQuantity: 10 } },
+          { id: 'item-3', productId: 'product-3', quantity: 1, product: { id: 'product-3', name: 'C', stockQuantity: 10 } },
+        ] as SalesOrderItem[],
+      });
+      wireTransaction(order);
+      baseCostCalculator.planConsumption.mockResolvedValue([
+        { productId: 'product-1', requestedQuantityMinor: 10000n, coveredQuantityMinor: 10000n, uncoveredQuantityMinor: 0n, consumptions: [{ batchId: 'batch-1', quantityMinor: 10000n, unitCostMinor: 150n, valueScale8: 1_500_000n }], totalScale8: 1_500_000n },
+        { productId: 'product-2', requestedQuantityMinor: 10000n, coveredQuantityMinor: 10000n, uncoveredQuantityMinor: 0n, consumptions: [{ batchId: 'batch-2', quantityMinor: 10000n, unitCostMinor: 150n, valueScale8: 1_500_000n }], totalScale8: 1_500_000n },
+        { productId: 'product-3', requestedQuantityMinor: 10000n, coveredQuantityMinor: 10000n, uncoveredQuantityMinor: 0n, consumptions: [{ batchId: 'batch-3', quantityMinor: 10000n, unitCostMinor: 150n, valueScale8: 1_500_000n }], totalScale8: 1_500_000n },
+      ]);
+      accountingPort.postSalesFulfillment.mockResolvedValue({ cogsEntryId: 'cogs-1' });
+
+      await service.fulfillOrder('order-1');
+
+      // total 0.0450 rounds up to 0.0500 (500 scale-4); 5 cents over 3 equal
+      // weights => [1,1,3] cents, so the last line carries the residual.
+      const plannedValues = inventoryService.adjustStock.mock.calls.map((c: any[]) => c[9]);
+      expect(plannedValues).toEqual(['0.0100', '0.0100', '0.0300']);
+      expect(accountingPort.postSalesFulfillment).toHaveBeenCalledWith(
+        expect.objectContaining({ cogsAmount: '0.05' }),
+        expect.anything(),
+      );
+    });
+
+    it('rolls back when the journal cannot be reconciled to a nonzero occurrence (#1406)', async () => {
+      wireTransaction(mockOrder({ status: SalesOrderStatus.READY }));
+      baseCostCalculator.planConsumption.mockResolvedValue([
+        { productId: 'product-1', requestedQuantityMinor: 50000n, coveredQuantityMinor: 50000n, uncoveredQuantityMinor: 0n, consumptions: [{ batchId: 'batch-1', quantityMinor: 50000n, unitCostMinor: 20n, valueScale8: 1_000_000n }], totalScale8: 1_000_000n },
+      ]);
+      // Nonzero COGS recorded, but the posting reports no COGS entry.
+      accountingPort.postSalesFulfillment.mockResolvedValue({});
+
+      await expect(service.fulfillOrder('order-1', 'u', 'admin')).rejects.toThrow(
+        /COGS entry missing/,
+      );
+    });
+
+    it('rolls back when a zero-cost occurrence receives a COGS entry (#1406)', async () => {
+      wireTransaction(mockOrder({ status: SalesOrderStatus.READY }));
+      // Default plan is zero-cost; a COGS entry must not appear.
+      accountingPort.postSalesFulfillment.mockResolvedValue({ cogsEntryId: 'cogs-1' });
+
+      await expect(service.fulfillOrder('order-1', 'u', 'admin')).rejects.toThrow(
+        /Unexpected COGS entry/,
+      );
+    });
   });
 
   describe('unfulfillOrder', () => {
-    it('refuses with UNFULFILL_UNAVAILABLE and touches nothing', async () => {
-      await expect(service.unfulfillOrder('order-1', 'u1', 'alice'))
-        .rejects.toThrow(new ConflictException(UNFULFILL_UNAVAILABLE));
-      expect(dataSource.transaction).not.toHaveBeenCalled();
+    it('refuses an order that is not fulfilled', async () => {
+      wireTransaction(mockOrder({ status: SalesOrderStatus.READY }));
+
+      await expect(service.unfulfillOrder('order-1', 'a valid reason', 'u1', 'alice')).rejects.toThrow(
+        'Order is not fulfilled',
+      );
       expect(accountingPort.reverseEntriesForDocument).not.toHaveBeenCalled();
       expect(auditLogService.log).not.toHaveBeenCalled();
     });
+
+    it('refuses a pre-recording fulfilment (no live occurrence)', async () => {
+      // A FULFILLED order with no StockOccurrence rows: the fake occurrence repo
+      // returns none, so no live fulfilment can be found.
+      wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
+
+      await expect(service.unfulfillOrder('order-1', 'a valid reason', 'u1', 'alice')).rejects.toThrow(
+        UNFULFILL_PRE_RECORDING,
+      );
+    });
+
+    it.each([
+      ['gap without occurrence marker', false, true, 3],
+      ['occurrence marker without gap row', true, false, 0],
+      ['gap quantity that does not reconcile to movement quantity', true, true, 2],
+    ])(
+      'refuses inconsistent valuation-gap evidence: %s before writes',
+      async (_label, marked, hasGap, gapQuantity) => {
+      const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
+      const occurrence = { id: 'occ-1', hasValuationGap: marked, postedAmount: '0.00' };
+      const movement = {
+        id: 'movement-1',
+        productId: 'product-1',
+        quantity: -3,
+        totalValue: '0.0000',
+      };
+      const consumptionRows = hasGap
+        ? []
+        : [{ movementId: movement.id, batchId: 'batch-1', quantity: 3 }];
+      const gapRows = hasGap
+        ? [{ movementId: movement.id, quantity: gapQuantity, valueScale8: '0.00000000', status: 'unvalued_gap' }]
+        : [];
+      const salesOrderRepo = {
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(order),
+        update: (jest.fn as unknown as any)(),
+      };
+      const occurrenceRepo = {
+        find: (jest.fn as unknown as any)().mockResolvedValue([occurrence]),
+        findOne: (jest.fn as unknown as any)().mockImplementation(async (options: any) =>
+          options.where.reversesOccurrenceId ? null : occurrence,
+      )};
+      const movementRepo = {
+        find: (jest.fn as unknown as any)().mockResolvedValue([movement]),
+      };
+      const consumptionRepo = {
+        find: (jest.fn as unknown as any)().mockResolvedValue(consumptionRows),
+        update: (jest.fn as unknown as any)(),
+        delete: (jest.fn as unknown as any)(),
+      };
+      const gapRepo = {
+        find: (jest.fn as unknown as any)().mockResolvedValue(gapRows),
+        update: (jest.fn as unknown as any)(),
+        delete: (jest.fn as unknown as any)(),
+      };
+      const productRepo = {
+        findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }),
+        update: (jest.fn as unknown as any)(),
+      };
+      const batchRepo = {
+        find: (jest.fn as unknown as any)().mockResolvedValue([]),
+        update: (jest.fn as unknown as any)(),
+      };
+      const manager = {
+        getRepository: (jest.fn as unknown as any)().mockImplementation((entity: any) => {
+          if (entity === SalesOrder) return salesOrderRepo;
+          if (entity === StockOccurrence) return occurrenceRepo;
+          if (entity === StockMovement) return movementRepo;
+          if (entity === StockBatchConsumption) return consumptionRepo;
+          if (entity === StockMovementValuationGap) return gapRepo;
+          if (entity === Product) return productRepo;
+          if (entity === PurchaseCostHistory) return batchRepo;
+          return { findOne: (jest.fn as unknown as any)(), update: (jest.fn as unknown as any)() };
+        }),
+      };
+      dataSource.transaction.mockImplementation(async (callback: any) => callback(manager));
+
+      await expect(
+        service.unfulfillOrder('order-1', 'a valid reason', 'u1', 'alice'),
+      ).rejects.toThrow(UNFULFILL_EVIDENCE_INCOMPLETE);
+
+      expect(salesOrderRepo.update).not.toHaveBeenCalled();
+      expect(productRepo.update).not.toHaveBeenCalled();
+      expect(consumptionRepo.update).not.toHaveBeenCalled();
+      expect(consumptionRepo.delete).not.toHaveBeenCalled();
+      expect(gapRepo.update).not.toHaveBeenCalled();
+      expect(gapRepo.delete).not.toHaveBeenCalled();
+      expect(batchRepo.update).not.toHaveBeenCalled();
+      expect(service['stockMovementService'].create).not.toHaveBeenCalled();
+      expect(accountingPort.reverseEntriesForDocument).not.toHaveBeenCalled();
+      expect(auditLogService.log).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('fulfill/unfulfill with READY status', () => {

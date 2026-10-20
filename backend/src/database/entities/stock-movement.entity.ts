@@ -3,8 +3,10 @@ import {
   Column,
   Index,
   ManyToOne,
+  OneToOne,
   JoinColumn,
   BeforeInsert,
+  Check,
 } from 'typeorm';
 import {
   IsString,
@@ -17,6 +19,7 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import type { Product } from './product.entity';
+import type { PurchaseOrderItem } from './purchase-order-item.entity';
 
 export enum StockMovementType {
   // Inward movements (increase stock)
@@ -45,6 +48,9 @@ export enum StockMovementType {
   // compensating movement, NOT reverseMovement().
   OWNER_DRAWING = 'owner_drawing',
   OWNER_DRAWING_REVERSAL = 'owner_drawing_reversal',
+  // Appended for #1406 stock correction path — declaration order must match the
+  // migration's ALTER TYPE ... ADD VALUE order.
+  PURCHASE_RECEIPT_REVERSAL = 'purchase_receipt_reversal',
 }
 
 /**
@@ -52,11 +58,27 @@ export enum StockMovementType {
  * Provides comprehensive audit trail for stock changes
  */
 @Entity('stock_movements')
+@Check(
+  'CHK_stock_movement_receipt_line_occurrence',
+  '"purchaseOrderItemId" IS NULL OR "occurrenceId" IS NOT NULL',
+)
 @Index(['productId'])
 @Index(['movementType'])
 @Index(['movementDate'])
 @Index(['referenceType', 'referenceId'])
 @Index(['quantity'])
+@Index('UQ_stock_movement_product_sequence', ['productId', 'productSequence'], {
+  unique: true,
+  where: '"productSequence" IS NOT NULL',
+})
+@Index('UQ_stock_movement_reverses', ['reversesMovementId'], {
+  unique: true,
+  where: '"reversesMovementId" IS NOT NULL',
+})
+@Index('UQ_stock_movement_occurrence_item', ['occurrenceId', 'purchaseOrderItemId'], {
+  unique: true,
+  where: '"occurrenceId" IS NOT NULL AND "purchaseOrderItemId" IS NOT NULL',
+})
 export class StockMovement extends BaseEntity {
   @Column({
     type: 'enum',
@@ -124,6 +146,69 @@ export class StockMovement extends BaseEntity {
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
   totalValue?: number;
+
+  // #1406 occurrence linkage
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'Stock occurrence id',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  occurrenceId?: string;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'Actor user id',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  actorUserId?: string;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'The movement this one reverses',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  reversesMovementId?: string;
+
+  @ManyToOne('StockMovement', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'reversesMovementId' })
+  reversesMovement?: any;
+
+  @ManyToOne('StockOccurrence', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'occurrenceId' })
+  occurrence?: any;
+
+  @OneToOne('StockMovementValuationGap', 'movement')
+  valuationGap?: any;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'Stable purchase-order item identity for receipt and reversal movements',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  purchaseOrderItemId?: string;
+
+  @ManyToOne('PurchaseOrderItem', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({
+    name: 'purchaseOrderItemId',
+    foreignKeyConstraintName: 'FK_060822dfc7623d639b8c187bdda',
+  })
+  purchaseOrderItem?: PurchaseOrderItem;
+
+  @Column({
+    type: 'bigint',
+    nullable: true,
+    comment: 'Per-product sequence assigned under the product lock',
+  })
+  @IsOptional()
+  productSequence?: string;
 
   // Reference Information
   @Column({
@@ -205,8 +290,9 @@ export class StockMovement extends BaseEntity {
       StockMovementType.EXPIRY,
       StockMovementType.THEFT,
       StockMovementType.LOSS,
-      StockMovementType.OWNER_DRAWING,
-    ].includes(this.movementType);
+       StockMovementType.OWNER_DRAWING,
+       StockMovementType.PURCHASE_RECEIPT_REVERSAL,
+     ].includes(this.movementType);
   }
 
   get isAdjustment(): boolean {
@@ -223,6 +309,11 @@ export class StockMovement extends BaseEntity {
   // Hooks
   @BeforeInsert()
   calculateTotalValue() {
+    // Keep an explicitly supplied totalValue (#1406 correction plan: movements are
+    // inserted once with their final value).
+    if (this.totalValue !== undefined && this.totalValue !== null) {
+      return;
+    }
     if (this.unitValue && this.quantity) {
       this.totalValue = Math.abs(Number(this.quantity)) * Number(this.unitValue);
     }
@@ -301,8 +392,9 @@ export class StockMovement extends BaseEntity {
       [StockMovementType.THEFT]: 'Theft',
       [StockMovementType.LOSS]: 'Loss',
       [StockMovementType.OWNER_DRAWING]: 'Owner Drawing',
-      [StockMovementType.OWNER_DRAWING_REVERSAL]: 'Owner Drawing Reversal',
-    };
+       [StockMovementType.OWNER_DRAWING_REVERSAL]: 'Owner Drawing Reversal',
+       [StockMovementType.PURCHASE_RECEIPT_REVERSAL]: 'Purchase Receipt Reversal',
+     };
 
     return typeDescriptions[this.movementType] || 'Unknown Movement';
   }

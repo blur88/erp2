@@ -6,11 +6,13 @@ import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
 import { withCurrentListQuery } from '@/utils/listQuery'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelSalesOrderMutation,
   useDuplicateSalesOrderMutation,
   useFulfillSalesOrderMutation,
+  useUnfulfillSalesOrderMutation,
   useGetSalesOrdersQuery,
   useRecordOrderPaymentsMutation,
   useRecordOrderRefundsMutation,
@@ -64,6 +66,7 @@ const OrdersPage: React.FC = () => {
   const [printOrder, setPrintOrder] = useState<SalesOrder | null>(null)
   const [paymentOrder, setPaymentOrder] = useState<SalesOrder | null>(null)
   const [refundOrder, setRefundOrder] = useState<SalesOrder | null>(null)
+  const [unfulfillOrder, setUnfulfillOrder] = useState<SalesOrder | null>(null)
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
     onApply: resetPage,
@@ -98,6 +101,7 @@ const OrdersPage: React.FC = () => {
   const total = ordersData?.meta.total ?? 0
 
   const [fulfillOrder] = useFulfillSalesOrderMutation()
+  const [unfulfillSalesOrder, { isLoading: isUnfulfilling }] = useUnfulfillSalesOrderMutation()
   const [cancelOrder] = useCancelSalesOrderMutation()
   const [uncancelOrder] = useUncancelSalesOrderMutation()
   const [duplicateOrder] = useDuplicateSalesOrderMutation()
@@ -112,6 +116,17 @@ const OrdersPage: React.FC = () => {
       showError(e?.data?.message || `Failed to fulfill ${order.orderNumber}`)
     }
   }, [fulfillOrder, showError, showSuccess])
+
+  const handleUnfulfill = useCallback(async (reason: string) => {
+    if (!unfulfillOrder) return
+    try {
+      await unfulfillSalesOrder({ id: unfulfillOrder.id, reason }).unwrap()
+      showSuccess(`Order ${unfulfillOrder.orderNumber} unfulfilled`)
+      setUnfulfillOrder(null)
+    } catch (error: any) {
+      showError(rtkErrorMessage(error, `Failed to unfulfill ${unfulfillOrder.orderNumber}`))
+    }
+  }, [unfulfillOrder, unfulfillSalesOrder, showError, showSuccess])
 
   const handleCancel = useCallback(async (order: SalesOrder) => {
     try {
@@ -195,6 +210,7 @@ const OrdersPage: React.FC = () => {
             onEdit={(order) => navigate(withCurrentListQuery(`/sales/orders/${order.orderNumber}/edit`))}
             onPay={(order) => setPaymentOrder(order)}
             onFulfill={handleFulfill}
+            onUnfulfill={setUnfulfillOrder}
             onRefund={handleRefund}
             onCancel={handleCancel}
             onUncancel={handleUncancel}
@@ -222,6 +238,10 @@ const OrdersPage: React.FC = () => {
         refundOrder={refundOrder}
         onCloseRefund={() => setRefundOrder(null)}
         onSubmitRefund={handleSubmitRefund}
+        unfulfillOrder={unfulfillOrder}
+        onCloseUnfulfill={() => setUnfulfillOrder(null)}
+        onSubmitUnfulfill={handleUnfulfill}
+        unfulfillLoading={isUnfulfilling}
       />
     </>
   )

@@ -203,6 +203,11 @@ describe('Profit & Loss (e2e)', () => {
         sourceRef: `PL-E2E-FUL-${Date.now()}`,
         revenueAmount: SEEDED_REVENUE,
         cogsAmount: SEEDED_COGS,
+        // Every fulfilment posting is keyed to the stock occurrence that
+        // recorded it (#1406). This suite posts a bare journal, so a synthetic
+        // id is sufficient — no occurrence row is required (sourceEventId is a
+        // plain string, not an FK).
+        occurrenceId: randomUUID(),
         entryDate: `${year}-03-15`,
       }, m);
       ownedJournalIds.push(res.revenueEntryId);

@@ -356,7 +356,7 @@ describe("Purchasing (e2e)", () => {
       expect(body.status).toBe("RECEIVED");
     });
 
-    it("POST /purchasing/orders/:id/return — refused (409) and changes nothing", async () => {
+    it("POST /purchasing/orders/:id/return — reverses received stock and keeps its history", async () => {
       async function snapshot() {
         const [po] = await dataSource.query(
           `SELECT status, "receivedDate"::text AS "receivedDate" FROM purchase_orders WHERE id = $1`,
@@ -398,15 +398,18 @@ describe("Purchasing (e2e)", () => {
       const res = await request(app.getHttpServer())
         .post(`/purchasing/orders/${purchaseOrderId}/return`)
         .set("Authorization", `Bearer ${accessToken}`)
-        .expect(409);
-      expect(res.body.message).toBe(
-        "Returning a received purchase order to Ready is unavailable: it would erase its stock and cost history. It will return once stock reversals keep that history.",
-      );
+        .send({ reason: "Supplier requested return" })
+        .expect(200);
+      expect((res.body.data ?? res.body).status).toBe("READY");
       const after = await snapshot();
-      expect(after).toEqual(before);
-      expect(after.status).toBe("RECEIVED");
-      expect(after.receivedDate).not.toBeNull();
-      expect(after.journalIds.length).toBeGreaterThan(0);
+      expect(after.status).toBe("READY");
+      expect(after.receivedDate).toBeNull();
+      expect(after.stock).toBe(0);
+      expect(after.stockMovements).toBe(before.stockMovements + 1);
+      expect(after.costHistoryCount).toBe(before.costHistoryCount);
+      expect(Number(after.costHistoryRemaining)).toBe(0);
+      expect(after.journalIds).toHaveLength(before.journalIds.length + 1);
+      expect(after.auditRows).toBe(before.auditRows + 1);
     });
 
     it("GET /inventory/products/:id — stock increased after receiving goods", async () => {
@@ -415,8 +418,8 @@ describe("Purchasing (e2e)", () => {
         .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
-      // Product started at 0 stock; received 10 units
-      expect(Number(res.body.stockQuantity)).toBe(10);
+      // Returning the receipt reverses its 10 units without deleting history.
+      expect(Number(res.body.stockQuantity)).toBe(0);
     });
   });
 

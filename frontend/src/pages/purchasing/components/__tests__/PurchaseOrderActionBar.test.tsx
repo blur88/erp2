@@ -1,14 +1,16 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { PurchaseOrder } from '@/types'
 
 import PurchaseOrderActionBar from '../PurchaseOrderActionBar'
 
-function renderBar(order: Partial<PurchaseOrder>) {
+function renderBar(order: Partial<PurchaseOrder>, overrides = {}) {
   const handlers = {
     onPay: vi.fn(),
     onReceive: vi.fn(),
+    onReturn: vi.fn(),
     onEdit: vi.fn(),
     onCancel: vi.fn(),
     onUncancel: vi.fn(),
@@ -16,25 +18,25 @@ function renderBar(order: Partial<PurchaseOrder>) {
     onRefund: vi.fn(),
     onPrint: vi.fn(),
   }
-  render(<PurchaseOrderActionBar order={order as PurchaseOrder} {...handlers} />)
-  return handlers
+  const merged = { ...handlers, ...overrides }
+  render(<PurchaseOrderActionBar order={order as PurchaseOrder} {...merged} />)
+  return merged
 }
 
 describe('PurchaseOrderActionBar — received order', () => {
-  it('Return is disabled, explains why to mouse and screen-reader users, and calls nothing', () => {
-    const handlers = renderBar({ id: 'po-1', status: 'RECEIVED', paymentStatus: 'PAID' })
+  it('calls onReturn when Return is clicked', async () => {
+    const onReturn = vi.fn()
+    const handlers = renderBar({ id: 'po-1', status: 'RECEIVED', paymentStatus: 'PAID' }, { onReturn })
     const ret = screen.getByRole('button', { name: 'Return' })
-    expect(ret).toBeDisabled()
-    expect(ret).toHaveAccessibleDescription("Returning a received purchase order to Ready is unavailable: it would erase its stock and cost history. It will return once stock reversals keep that history.")
-    expect(ret.closest('span[title]')).toHaveAttribute('title', "Returning a received purchase order to Ready is unavailable: it would erase its stock and cost history. It will return once stock reversals keep that history.")
-    fireEvent.click(ret)
-    for (const handler of Object.values(handlers)) expect(handler).not.toHaveBeenCalled()
+    expect(ret).toBeEnabled()
+    await userEvent.click(ret)
+    expect(handlers.onReturn).toHaveBeenCalledTimes(1)
   })
 
-  it('Refund is disabled and explains why', () => {
+  it('refund is disabled and explains return eligibility', () => {
     renderBar({ id: 'po-1', status: 'RECEIVED', paymentStatus: 'PAID' })
     const refund = screen.getByRole('button', { name: 'Refund' })
     expect(refund).toBeDisabled()
-    expect(refund).toHaveAccessibleDescription('Cannot refund a received order.')
+    expect(refund).toHaveAccessibleDescription('Cannot refund a received order. Return it to Ready first, if it qualifies.')
   })
 })

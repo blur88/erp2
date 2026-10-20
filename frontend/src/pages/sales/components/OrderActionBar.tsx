@@ -10,6 +10,7 @@ interface OrderActionBarProps {
   order: SalesOrder
   onPay: () => void
   onFulfill: () => void
+  onUnfulfill: () => void
   onRefund: () => void
   onEdit: () => void
   onCancel: () => void
@@ -22,6 +23,7 @@ export default function OrderActionBar({
   order,
   onPay,
   onFulfill,
+  onUnfulfill,
   onRefund,
   onEdit,
   onCancel,
@@ -34,6 +36,7 @@ export default function OrderActionBar({
   const handlers: Record<string, () => void> = {
     pay: onPay,
     fulfill: onFulfill,
+    unfulfill: onUnfulfill,
     refund: onRefund,
     edit: onEdit,
     cancel: onCancel,

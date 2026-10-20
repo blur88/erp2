@@ -100,7 +100,7 @@ describe('CreateProductPage', () => {
         type: 'Stocked Product',
         categoryId: 'cat-1',
         baseCost: 0,
-        stockQuantity: 0,
+        stockQuantity: 5,
         notes: '',
         isActive: true,
         category: { id: 'cat-1', name: 'Category 1' },
@@ -174,6 +174,7 @@ describe('CreateProductPage', () => {
         }),
       })
     })
+    expect(mockUpdateProduct.mock.calls[0][0].data).not.toHaveProperty('stockQuantity')
   })
 
   it('invalidates PriceListItem cache for the product after updating prices in edit mode', async () => {

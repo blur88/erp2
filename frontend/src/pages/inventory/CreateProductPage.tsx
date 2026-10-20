@@ -290,7 +290,6 @@ const CreateProductPage: React.FC = () => {
         type: data.type,
         categoryId: data.categoryId,
         baseCost: data.baseCost !== undefined && data.baseCost !== null ? Number(data.baseCost) : 0,
-        stockQuantity: data.type === 'Stocked Product' ? (data.stockQuantity !== undefined && data.stockQuantity !== null ? Number(data.stockQuantity) : 0) : 0,
         notes: data.notes || '',
         isActive: data.isActive,
       }
@@ -301,7 +300,10 @@ const CreateProductPage: React.FC = () => {
         const response = await updateProduct({ id: editingProductId, data: productData }).unwrap()
         productId = response?.id ?? editingProductId
       } else {
-        const response = await createProduct(productData).unwrap()
+        const stockQuantity = data.type === 'Stocked Product'
+          ? (data.stockQuantity !== undefined && data.stockQuantity !== null ? Number(data.stockQuantity) : 0)
+          : 0
+        const response = await createProduct({ ...productData, stockQuantity }).unwrap()
         productId = response?.id
       }
 
@@ -486,10 +488,16 @@ const CreateProductPage: React.FC = () => {
                             select
                             label="Product Type"
                             error={!!errors.type}
-                            helperText={errors.type?.message}
+                            helperText={
+                              errors.type?.message ||
+                              (isEditMode && currentStockQuantity !== 0
+                                ? 'A product with stock on hand or inventory value must stay a Stocked Product.'
+                                : undefined)
+                            }
                             required
                             fullWidth
                             size="small"
+                            disabled={isEditMode && currentStockQuantity !== 0}
                             onChange={(e) => {
                               const next = e.target.value as 'Stocked Product' | 'Service'
                               if (isEditMode && next !== field.value) {

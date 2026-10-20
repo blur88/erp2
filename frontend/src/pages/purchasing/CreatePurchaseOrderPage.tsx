@@ -50,6 +50,7 @@ import { rtkErrorMessage } from '@/utils/errorMessage'
 import { currentListPath } from '@/utils/listQuery'
 
 interface PurchaseOrderItem {
+  purchaseOrderItemId?: string
   productId: string
   product?: any
   quantity: number
@@ -77,6 +78,7 @@ const schema = yup.object({
     .array()
     .of(
       yup.object({
+        purchaseOrderItemId: yup.string().optional(),
         productId: yup.string().required('Product is required'),
         quantity: yup
           .number()
@@ -225,6 +227,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
               : 'amount'
 
       return {
+        purchaseOrderItemId: item.id,
         productId: item.productId || item.product?.id || '',
         product: item.product,
         quantity: parseInt(item.quantity) || 1,
@@ -233,7 +236,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         discountValue:
           discountType === 'percentage'
             ? item.discountPercent || 0
-            : item.discountAmount || 0,
+            : (Number(item.discountAmount) || 0) / (Number(item.quantity) || 1),
         discountPercent: item.discountPercent || 0,
         totalPrice: item.totalAmount || 0,
       }
@@ -326,6 +329,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
         items: data.items.map((item, index) => {
           const discountValue = Number(item.discountValue) || 0
           return {
+            ...(isEditMode && item.purchaseOrderItemId
+              ? { id: item.purchaseOrderItemId }
+              : {}),
             lineNumber: index + 1,
             productId: item.productId,
             quantity: Number(item.quantity),
@@ -627,5 +633,3 @@ const CreatePurchaseOrderPage: React.FC = () => {
 }
 
 export default CreatePurchaseOrderPage
-
-

@@ -141,10 +141,12 @@ export function allocate(targetMinor: bigint, weightsMinor: readonly bigint[]): 
   const neg = targetMinor < 0n;
   const absTarget = neg ? -targetMinor : targetMinor;
 
-  // Truncate each magnitude, then hand every leftover unit to the last line.
+  // Truncate each magnitude, then hand every leftover unit to the last
+  // positive-weight line. Zero-weight lines must never receive allocation.
   const shares = weightsMinor.map((w) => (w * absTarget) / weightTotal);
   const distributed = shares.reduce((sum, s) => sum + s, 0n);
-  shares[shares.length - 1] += absTarget - distributed;
+  const lastEligibleIndex = weightsMinor.findLastIndex((weight) => weight > 0n);
+  shares[lastEligibleIndex] += absTarget - distributed;
 
   return neg ? shares.map((s) => -s) : shares;
 }
@@ -187,4 +189,16 @@ export function reconcileToCents(
   }
 
   return rounded;
+}
+
+export function allocateCents(totalMinor: bigint, weightsScale8: readonly bigint[]): bigint[] {
+  if (totalMinor % 100n !== 0n) {
+    throw new Error(`allocateCents: target must be a whole number of cents: ${totalMinor}`);
+  }
+  if (weightsScale8.length === 0) {
+    return [];
+  }
+  const cents = totalMinor / 100n;
+  const allocatedCents = allocate(cents, weightsScale8);
+  return allocatedCents.map((c) => c * 100n);
 }

@@ -50,6 +50,9 @@ import { SearchClick } from '../database/entities/search-click.entity';
 import { SearchQuery } from '../database/entities/search-query.entity';
 import { StockAdjustment, StockAdjustmentItem } from '../database/entities/stock-adjustment.entity';
 import { StockMovement } from '../database/entities/stock-movement.entity';
+import { StockOccurrence } from '../database/entities/stock-occurrence.entity';
+import { StockBatchConsumption } from '../database/entities/stock-batch-consumption.entity';
+import { StockMovementValuationGap } from '../database/entities/stock-movement-valuation-gap.entity';
 import { Supplier } from '../database/entities/supplier.entity';
 import { User } from '../database/entities/user.entity';
 import { VendorPayment } from '../database/entities/vendor-payment.entity';
@@ -158,6 +161,9 @@ export function createDatabaseConfig(
       StockAdjustment,
       StockAdjustmentItem,
       StockMovement,
+      StockOccurrence,
+      StockBatchConsumption,
+      StockMovementValuationGap,
       Supplier,
       User,
       VendorPayment,

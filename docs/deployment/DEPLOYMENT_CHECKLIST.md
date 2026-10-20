@@ -267,6 +267,65 @@ The baseline file holds production ids, so it lives with the deploy record in
 never an empty baseline; an empty baseline is passed explicitly as `[]`. Both
 scripts run in `BEGIN READ ONLY … ROLLBACK` and write nothing.
 
+### Stock correction path deploy gate (#1405 + #1406)
+
+Deploy #1405 and #1406 together. Before deploying, run the read-only preflight
+against the target database and retain all seven labelled result sets in the
+deployment record.
+
+**Environments (recorded 2026-10-20):** the only environment is the local
+development machine (`NODE_ENV=development`, database `erp_db`); no production
+host exists. The preflight was run there for #1405/#1406 and its dispositions are
+recorded on PR #1408. That run describes development data only. **When a
+production environment is created, run this preflight afresh against it before
+#1405/#1406 (or any later release) is deployed there**, and record that run's
+dispositions separately; the development record does not carry over.
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < backend/scripts/preflight-stock-correction-path.sql
+```
+
+`-X` skips any `psqlrc` in the container, so startup configuration cannot change
+how the script runs. **Exit 0 means the report was generated, not that the
+release is approved:** every reported discrepancy still needs review and a
+recorded disposition.
+
+The preflight reports fulfilled sales orders and received POs; received POs
+whose legacy receipt shape does not match; products whose movement quantities
+do not reconcile to `stockQuantity`; the earliest journal-entry and audit dates
+plus correction audit/reversal mismatches; products carrying batches or stock
+history; and products whose current stock exceeds cost-batch coverage. Before
+the #1406 migration, `valuation_gap_exposure` reports that it is not migrated
+yet; no valuation-gap records can exist at that point. For the pre-deploy stock
+exposure review, use `fulfilment_batch_coverage_exposure` (quantity not covered
+by current cost batches). Review the findings with the release owner and record
+their disposition before proceeding.
+
+**The horizon section is context, not proof.** Earliest timestamps and no
+detected gaps cannot establish that history is complete. Leave
+`STOCK_EVIDENCE_HORIZON` unset unless independent evidence outside these tables
+supports complete history from a specific instant. Setting a value requires a
+recorded approval identifying the approver, approval date, exact value, and
+independent evidence relied on. With it unset, pre-deploy receipts stay refused.
+
+After both releases are deployed, run the read-only postcheck. In addition to
+the schema/integrity PASS result, it reports persisted valuation gaps by
+product and in total; review and retain this post-deploy exposure with the
+deployment record:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < backend/scripts/postcheck-stock-correction-path.sql
+```
+
+The result must be `stock-correction postcheck: PASS`. On `FAIL`, stop and
+investigate the FK rules, partial unique indexes, provenance links, or reversed
+batch occurrence links before proceeding. See
+[`../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md`](../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md)
+for correctable/refused cases and the support workflow. A passing postcheck is
+not approval to set the evidence horizon.
+
 ### Customer order metrics are recalculated at deploy (#1355)
 
 Migration `RecalculateCustomerMetricsFromFulfilledOrders1791611629594` **rewrites

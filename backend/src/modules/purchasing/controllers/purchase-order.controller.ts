@@ -30,6 +30,7 @@ import {
   PurchaseOrderSummaryDto,
   RecordOrderPaymentsDto,
   RecordPurchaseOrderRefundsDto,
+  ReturnOrderDto,
 } from '../dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
@@ -203,20 +204,23 @@ export class PurchaseOrderController {
 
   @Post(':id/return')
   @ApiOperation({
-    summary: 'Return a received purchase order to Ready — currently unavailable (#1405)',
+    summary: 'Return a received purchase order to Ready (#1406)',
     description:
-      'Always refused with 409: returning to Ready would erase the order\'s stock and cost history. ' +
-      'A non-destructive reversal is tracked in #1406.',
+      'Reverses the receipt without deleting anything, but only when the records can show ' +
+      'its goods are untouched. Refused with 409 (nothing changed) otherwise; the reason is required.',
   })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({ status: 409, description: 'Returning to Ready is unavailable; nothing is changed' })
+  @ApiResponse({ status: 200, description: 'Returned to Ready; stock and cost reversed exactly' })
+  @ApiResponse({ status: 400, description: 'A reason of 3 to 500 characters is required.' })
+  @ApiResponse({ status: 409, description: 'The receipt cannot be reversed; nothing is changed' })
   @HttpCode(HttpStatus.OK)
   async returnGoods(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReturnOrderDto,
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.return(id, currentUserId, currentUsername);
+    const data = await this.purchaseOrderService.return(id, dto.reason, currentUserId, currentUsername);
     return { data };
   }
 

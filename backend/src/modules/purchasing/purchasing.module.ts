@@ -1,5 +1,10 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import {
+  readStockEvidenceHorizon,
+  STOCK_EVIDENCE_HORIZON,
+} from '../../config/stock-evidence-horizon';
 
 // Entities
 import {
@@ -61,6 +66,14 @@ import { SettingsModule } from '../settings/settings.module';
     PurchaseOrderLifecycleService,
     VendorPaymentService,
     PurchasingAnalyticsService,
+    {
+      // Read once at module init: a malformed STOCK_EVIDENCE_HORIZON fails
+      // startup rather than silently changing what unreceive will accept.
+      provide: STOCK_EVIDENCE_HORIZON,
+      useFactory: (config: ConfigService) =>
+        readStockEvidenceHorizon(config.get<string>('STOCK_EVIDENCE_HORIZON')),
+      inject: [ConfigService],
+    },
   ],
 
   exports: [

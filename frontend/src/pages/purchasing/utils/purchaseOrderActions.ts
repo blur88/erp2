@@ -1,5 +1,4 @@
 import type { PurchaseOrder } from '@/types'
-import { RETURN_TO_READY_UNAVAILABLE } from '@/constants/stockUndoUnavailable'
 
 export type PurchaseOrderAction =
   | 'pay'
@@ -49,9 +48,9 @@ export function getPurchaseOrderActionMetas(order: PurchaseOrder): PurchaseOrder
     metas.push({ action: 'receive' })
   }
 
-  // Return — Received only; unavailable (would erase stock/cost history).
+  // Return — Received only; the server validates whether recorded stock can be restored.
   if (isReceived) {
-    metas.push({ action: 'return', disabled: true, tooltip: RETURN_TO_READY_UNAVAILABLE })
+    metas.push({ action: 'return' })
   }
 
   // Refund — only when fully paid (or overpaid); disabled on Received.
@@ -59,7 +58,9 @@ export function getPurchaseOrderActionMetas(order: PurchaseOrder): PurchaseOrder
     metas.push({
       action: 'refund',
       disabled: isReceived,
-      tooltip: isReceived ? 'Cannot refund a received order.' : undefined,
+      tooltip: isReceived
+        ? 'Cannot refund a received order. Return it to Ready first, if it qualifies.'
+        : undefined,
     })
   }
 
@@ -80,4 +81,3 @@ export function getPurchaseOrderActionMetas(order: PurchaseOrder): PurchaseOrder
 
   return metas
 }
-

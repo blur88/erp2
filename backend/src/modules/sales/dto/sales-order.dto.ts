@@ -4,6 +4,7 @@ import {
   IsUUID,
   MaxLength,
   Min,
+  MinLength,
   IsArray,
   ValidateNested,
   IsInt,
@@ -375,4 +376,18 @@ export class RecordPaymentsDto {
   @ValidateNested({ each: true })
   @Type(() => RecordPaymentDto)
   payments: RecordPaymentDto[];
+}
+
+const REASON_MESSAGE = 'A reason of 3 to 500 characters is required.';
+
+export class UnfulfillOrderDto {
+  @ApiProperty({
+    description: 'Why the order is being returned to Ready (3–500 characters)',
+    example: 'Customer changed their mind',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: REASON_MESSAGE })
+  @MinLength(3, { message: REASON_MESSAGE })
+  @MaxLength(500, { message: REASON_MESSAGE })
+  reason: string;
 }

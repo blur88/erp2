@@ -138,6 +138,19 @@ describe('Payment method posting matrix (e2e)', () => {
   afterAll(async () => {
     try {
       if (ds?.isInitialized) {
+        // Gap rows are immutable and RESTRICT their source movements. E2E uses
+        // one serial disposable database, so clear evidence before deleting
+        // the suite-owned movements.
+        await ds.query(`TRUNCATE TABLE stock_movement_valuation_gaps`);
+        const documentIds = [...ownedSalesOrderIds, ...ownedPurchaseOrderIds];
+        const occurrenceIds: string[] = documentIds.length
+          ? (
+              await ds.query(
+                `SELECT id FROM stock_occurrences WHERE "documentId" = ANY($1)`,
+                [documentIds],
+              )
+            ).map((row: { id: string }) => row.id)
+          : [];
         if (ownedRefs.length) {
           await ds.query(
             `DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceRef" = ANY($1))`,
@@ -147,6 +160,14 @@ describe('Payment method posting matrix (e2e)', () => {
             `DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`,
             [ownedRefs],
           );
+        }
+        if (occurrenceIds.length) {
+          await ds.query(
+            `DELETE FROM journal_entry_line
+              WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceEventId" = ANY($1))`,
+            [occurrenceIds],
+          );
+          await ds.query(`DELETE FROM journal_entry WHERE "sourceEventId" = ANY($1)`, [occurrenceIds]);
         }
         if (ownedSalesOrderIds.length) {
           await ds.query(
@@ -167,6 +188,20 @@ describe('Payment method posting matrix (e2e)', () => {
             [ownedPurchaseOrderIds],
           );
           await ds.query(
+            `DELETE FROM stock_batch_consumptions
+              WHERE "movementId" IN (SELECT id FROM stock_movements WHERE "referenceId" = ANY($1))
+                 OR "batchId" IN (SELECT id FROM purchase_cost_history WHERE "purchaseOrderId" = ANY($1))`,
+            [ownedPurchaseOrderIds],
+          );
+          await ds.query(
+            `DELETE FROM stock_movements WHERE "referenceId" = ANY($1)`,
+            [ownedPurchaseOrderIds],
+          );
+          await ds.query(
+            `DELETE FROM purchase_cost_history WHERE "purchaseOrderId" = ANY($1)`,
+            [ownedPurchaseOrderIds],
+          );
+          await ds.query(
             `DELETE FROM purchase_order_items WHERE "purchaseOrderId" = ANY($1)`,
             [ownedPurchaseOrderIds],
           );
@@ -184,17 +219,32 @@ describe('Payment method posting matrix (e2e)', () => {
           ]);
         }
         if (productId) {
-          // stock_movements.productId -> products is ON DELETE RESTRICT
-          // (InitialSchema:166), so movements must go first or the product
-          // delete fails. The RECEIVED-purchase-order rejection case calls
-          // /receive, which posts stock, and this suite creates no movements
-          // anywhere else. Same ordering as
-          // shared-e2e-business-fixture.ts:199, which documents this FK as the
-          // one that blocks.
+          // stock_movements.productId -> products and
+          // purchase_cost_history.productId -> products are both ON DELETE
+          // RESTRICT (InitialSchema:166 and AddStockOccurrencesAndProvenance),
+          // so dependent rows must go first or the product delete fails. The
+          // RECEIVED-purchase-order rejection case calls /receive, which posts
+          // stock and writes a cost-history batch. Same ordering as
+          // shared-e2e-business-fixture.ts, which documents these FKs.
+          await ds.query(
+            `DELETE FROM stock_batch_consumptions
+               WHERE "movementId" IN (SELECT id FROM stock_movements WHERE "productId" = $1)
+                  OR "batchId" IN (SELECT id FROM purchase_cost_history WHERE "productId" = $1)`,
+            [productId],
+          );
           await ds.query(`DELETE FROM stock_movements WHERE "productId" = $1`, [
             productId,
           ]);
+          await ds.query(`DELETE FROM purchase_cost_history WHERE "productId" = $1`, [
+            productId,
+          ]);
           await ds.query(`DELETE FROM products WHERE id = $1`, [productId]);
+        }
+        if (documentIds.length) {
+          await ds.query(
+            `DELETE FROM stock_occurrences WHERE "documentId" = ANY($1)`,
+            [documentIds],
+          );
         }
         if (categoryId) {
           await ds.query(`DELETE FROM categories WHERE id = $1`, [categoryId]);

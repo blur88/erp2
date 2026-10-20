@@ -3,11 +3,34 @@ import { createApi } from '@reduxjs/toolkit/query/react';
 import type { Customer, PaginatedResponse, Payment, SalesOrder, SalesOrderPayment } from '@/types';
 
 import { axiosBaseQuery } from './baseQuery';
+import { inventoryApiSlice } from './inventoryApi';
 import { normalizeSingle } from './normalizers';
 import {
   invalidateAccountingReportsOnSuccess,
   invalidateSettlementEligibilityOnSuccess,
 } from './invalidateAccountingReports';
+
+const invalidateInventoryStockViewsOnSuccess = async (
+  _arg: unknown,
+  { dispatch, queryFulfilled }: { dispatch: any; queryFulfilled: Promise<unknown> },
+): Promise<void> => {
+  try {
+    await queryFulfilled;
+  } catch {
+    return;
+  }
+  dispatch(inventoryApiSlice.util.invalidateTags(['Product', 'StockMovement']));
+};
+
+const invalidateUnfulfillViewsOnSuccess = async (
+  arg: unknown,
+  context: { dispatch: any; queryFulfilled: Promise<unknown> },
+): Promise<void> => {
+  await Promise.all([
+    invalidateAccountingReportsOnSuccess(arg, context),
+    invalidateInventoryStockViewsOnSuccess(arg, context),
+  ]);
+};
 
 const defaultMeta = {
   total: 0,
@@ -224,6 +247,16 @@ export const salesApiSlice = createApi({
       invalidatesTags: ['SalesOrder'],
       onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
+    unfulfillSalesOrder: builder.mutation<SalesOrder, { id: string; reason: string }>({
+      query: ({ id, reason }) => ({
+        url: `/sales-orders/${id}/unfulfill`,
+        method: 'POST',
+        data: { reason },
+      }),
+      transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
+      invalidatesTags: ['SalesOrder'],
+      onQueryStarted: invalidateUnfulfillViewsOnSuccess,
+    }),
     getPayments: builder.query<PaginatedResponse<Payment>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/payments', params: params ?? {} }),
       transformResponse: (response: any) => normalizeNamedCollection<Payment>(response, 'payments'),
@@ -259,5 +292,6 @@ export const {
   useRecordOrderRefundsMutation,
   useUnpaySalesOrderMutation,
   useFulfillSalesOrderMutation,
+  useUnfulfillSalesOrderMutation,
   useGetPaymentsQuery,
 } = salesApiSlice;

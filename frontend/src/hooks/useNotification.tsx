@@ -42,6 +42,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   })
   const [copied, setCopied] = React.useState(false)
   const snackbarRef = React.useRef<HTMLDivElement>(null)
+  const snackbarTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showNotification = useCallback(
     (
@@ -50,6 +51,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       title?: string,
       duration: number = 5000
     ) => {
+      if (snackbarTimerRef.current !== null) {
+        clearTimeout(snackbarTimerRef.current)
+        snackbarTimerRef.current = null
+      }
+
       // Add to global notifications store
       dispatch(addNotification({
         type,
@@ -68,7 +74,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       // Auto-hide snackbar
       if (duration > 0) {
-        setTimeout(() => {
+        snackbarTimerRef.current = setTimeout(() => {
+          snackbarTimerRef.current = null
           setSnackbar(prev => ({ ...prev, open: false }))
         }, duration)
       }
@@ -108,8 +115,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (reason === 'clickaway') {
       return
     }
+    if (snackbarTimerRef.current !== null) {
+      clearTimeout(snackbarTimerRef.current)
+      snackbarTimerRef.current = null
+    }
     setSnackbar(prev => ({ ...prev, open: false }))
   }
+
+  React.useEffect(() => () => {
+    if (snackbarTimerRef.current !== null) clearTimeout(snackbarTimerRef.current)
+  }, [])
 
   const handleCopy = async () => {
     const text = snackbar.title ? `${snackbar.title}: ${snackbar.message}` : snackbar.message

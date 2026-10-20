@@ -19,7 +19,7 @@ import {
   Matches,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 import { IsMoneyAtLeast } from '../../../common/validators/is-money-at-least.validator';
 import { IsCalendarDate } from '../../../common/validators/is-calendar-date.validator';
@@ -103,7 +103,23 @@ export class CreatePurchaseOrderDto {
   items: CreatePurchaseOrderItemDto[];
 }
 
-export class UpdatePurchaseOrderDto extends PartialType(CreatePurchaseOrderDto) {}
+export class UpdatePurchaseOrderItemDto extends PartialType(CreatePurchaseOrderItemDto) {
+  @ApiPropertyOptional({ description: 'Existing purchase-order item ID to update without replacing its identity' })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+}
+
+export class UpdatePurchaseOrderDto extends PartialType(
+  OmitType(CreatePurchaseOrderDto, ['items'] as const),
+) {
+  @ApiPropertyOptional({ description: 'Updated purchase-order item lines', type: [UpdatePurchaseOrderItemDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdatePurchaseOrderItemDto)
+  items?: UpdatePurchaseOrderItemDto[];
+}
 
 export class PurchaseOrderQueryDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by supplier ID' })
@@ -408,6 +424,20 @@ export class RecordVendorPaymentsDto {
 }
 
 export class RecordOrderPaymentsDto extends RecordVendorPaymentsDto {}
+
+const REASON_MESSAGE = 'A reason of 3 to 500 characters is required.';
+
+export class ReturnOrderDto {
+  @ApiProperty({
+    description: 'Why the purchase order is being returned to Ready (3–500 characters)',
+    example: 'Goods returned to supplier',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: REASON_MESSAGE })
+  @MinLength(3, { message: REASON_MESSAGE })
+  @MaxLength(500, { message: REASON_MESSAGE })
+  reason: string;
+}
 
 export class RefundLineDto {
   @ApiProperty({ description: 'Payment method to refund against' })

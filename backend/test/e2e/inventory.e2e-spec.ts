@@ -224,6 +224,56 @@ describe("Inventory (e2e)", () => {
       expect(res.body.name).toBe("Laptop Pro 15");
     });
 
+    it("removed stock-writing routes return 404 without changing stock history", async () => {
+      const routeProduct = await seedProduct(dataSource, categoryId, {
+        name: `Legacy Route Target ${Date.now()}`,
+        stockQuantity: 0,
+      });
+      ownedProductIds.push(routeProduct.id);
+      const [before] = await dataSource.query(
+        `SELECT p."stockQuantity"::text AS stock,
+                (SELECT count(*)::int FROM stock_movements m WHERE m."productId" = p.id) AS movements
+           FROM products p WHERE p.id = $1`,
+        [routeProduct.id],
+      );
+      const post = (path: string, body: Record<string, unknown>) =>
+        request(app.getHttpServer())
+          .post(path)
+          .set("Authorization", `Bearer ${accessToken}`)
+          .send(body)
+          .expect(404);
+
+      await post("/inventory/stock/movements", {
+        productId: routeProduct.id,
+        movementType: "adjustment_increase",
+        quantity: 1,
+        reason: "legacy route",
+      });
+      await post("/inventory/stock/adjustments/bulk", {
+        adjustmentDate: "2026-08-20",
+        items: [{ productId: routeProduct.id, oldQuantity: 0, newQuantity: 1, difference: 1 }],
+      });
+      await post(`/inventory/stock/initial/${routeProduct.id}`, { quantity: 1, unitCost: 10 });
+      await post(`/inventory/stock/sale/${routeProduct.id}`, {
+        quantity: 1,
+        unitPrice: 10,
+        referenceId: "legacy-sale",
+      });
+      await post(`/inventory/stock/purchase/${routeProduct.id}`, {
+        quantity: 1,
+        unitCost: 10,
+        referenceId: "legacy-purchase",
+      });
+
+      const [after] = await dataSource.query(
+        `SELECT p."stockQuantity"::text AS stock,
+                (SELECT count(*)::int FROM stock_movements m WHERE m."productId" = p.id) AS movements
+           FROM products p WHERE p.id = $1`,
+        [routeProduct.id],
+      );
+      expect(after).toEqual(before);
+    });
+
     it("PATCH /inventory/products/:id — updates the product", async () => {
       const res = await request(app.getHttpServer())
         .patch(`/inventory/products/${productId}`)
@@ -232,6 +282,37 @@ describe("Inventory (e2e)", () => {
         .expect(200);
 
       expect(res.body.name).toBe("Laptop Pro 15 Updated");
+    });
+
+    it("PATCH /inventory/products/:id — refuses Service conversion with remaining inventory value", async () => {
+      const product = await seedProduct(dataSource, categoryId, {
+        name: `Zero Quantity Value ${Date.now()}`,
+        stockQuantity: 0,
+        baseCost: 10,
+      });
+      ownedProductIds.push(product.id);
+      await dataSource.query(
+        `INSERT INTO purchase_cost_history
+          ("productId", "unitCost", "shippingPerUnit", "landedCost", "receivedQuantity", "remainingQuantity", "receivedDate")
+         VALUES ($1, 10, 0, 10, 1, 1, now())`,
+        [product.id],
+      );
+
+      const response = await request(app.getHttpServer())
+        .patch(`/inventory/products/${product.id}`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ type: "Service" })
+        .expect(400);
+
+      expect(response.body.message).toContain(
+        "A product with stock on hand or inventory value must stay a Stocked Product.",
+      );
+      const [stored] = await dataSource.query(
+        `SELECT type, "stockQuantity"::text AS "stockQuantity" FROM products WHERE id = $1`,
+        [product.id],
+      );
+      expect(stored.type).toBe("Stocked Product");
+      expect(Number(stored.stockQuantity)).toBe(0);
     });
 
     it("DELETE /inventory/products/:id — soft-deletes the product", async () => {
@@ -248,6 +329,183 @@ describe("Inventory (e2e)", () => {
         .expect(200);
 
       expect(res.body.id).toBe(productId);
+    });
+
+    it("permanent delete refuses a product with only initial stock history", async () => {
+      const name = `Initial History ${Date.now()}`;
+      const created = await request(app.getHttpServer())
+        .post("/inventory/products")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ name, categoryId, baseCost: 0, stockQuantity: 2 })
+        .expect(201);
+      const id = created.body.id;
+      ownedProductIds.push(id);
+      await request(app.getHttpServer())
+        .delete(`/inventory/products/${id}`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(204);
+
+      const response = await request(app.getHttpServer())
+        .delete(`/inventory/products/${id}/permanent`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(409);
+
+      expect(response.body.message).toBe(`Cannot permanently delete '${name}': it has stock history.`);
+      const movements = await dataSource.query(
+        `SELECT "movementType" FROM stock_movements WHERE "productId" = $1`,
+        [id],
+      );
+      expect(movements.map((row: { movementType: string }) => row.movementType)).toEqual(['initial_stock']);
+      expect(await dataSource.query(`SELECT id FROM products WHERE id = $1`, [id])).toHaveLength(1);
+    });
+
+    it("permanent delete refuses an exhausted cost batch", async () => {
+      const name = `Exhausted Batch ${Date.now()}`;
+      const product = await seedProduct(dataSource, categoryId, {
+        name,
+        stockQuantity: 0,
+        baseCost: 10,
+      });
+      const id = product.id;
+      ownedProductIds.push(id);
+      await dataSource.query(
+        `INSERT INTO purchase_cost_history
+          ("productId", "unitCost", "shippingPerUnit", "landedCost", "receivedQuantity", "remainingQuantity", "receivedDate")
+         VALUES ($1, 10, 0, 10, 1, 0, now())`,
+        [id],
+      );
+      await request(app.getHttpServer())
+        .delete(`/inventory/products/${id}`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(204);
+
+      const response = await request(app.getHttpServer())
+        .delete(`/inventory/products/${id}/permanent`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(409);
+
+      expect(response.body.message).toBe(`Cannot permanently delete '${name}': it has stock history.`);
+      const batches = await dataSource.query(
+        `SELECT id FROM purchase_cost_history WHERE "productId" = $1`,
+        [id],
+      );
+      expect(batches).toHaveLength(1);
+      const movements = await dataSource.query(
+        `SELECT id FROM stock_movements WHERE "productId" = $1`,
+        [id],
+      );
+      expect(movements).toHaveLength(0);
+      expect(await dataSource.query(`SELECT id FROM products WHERE id = $1`, [id])).toHaveLength(1);
+    });
+
+    it("permanent delete refuses provenance and a direct product DELETE is restricted by its batch", async () => {
+      const name = `Batch Provenance ${Date.now()}`;
+      const created = await request(app.getHttpServer())
+        .post("/inventory/products")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ name, categoryId, baseCost: 10, stockQuantity: 2 })
+        .expect(201);
+      const id = created.body.id;
+      ownedProductIds.push(id);
+      const [batch] = await dataSource.query(
+        `SELECT id FROM purchase_cost_history WHERE "productId" = $1`,
+        [id],
+      );
+      const [movement] = await dataSource.query(
+        `INSERT INTO stock_movements
+          ("movementType", quantity, "previousBalance", "newBalance", "productId", "referenceType", "referenceId", "isActive")
+         VALUES ('sale', -1, 2, 1, $1, 'sales_order', $2, true)
+         RETURNING id`,
+        [id, "00000000-0000-0000-0000-000000000000"],
+      );
+      await dataSource.query(
+        `INSERT INTO stock_batch_consumptions ("movementId", "batchId", quantity, "unitCost", "valueScale8")
+         VALUES ($1, $2, 1, 10, 10.00000000)`,
+        [movement.id, batch.id],
+      );
+      await dataSource.query(`UPDATE products SET "stockQuantity" = 1 WHERE id = $1`, [id]);
+      await dataSource.query(
+        `UPDATE purchase_cost_history SET "remainingQuantity" = 1 WHERE id = $1`,
+        [batch.id],
+      );
+      await request(app.getHttpServer())
+        .delete(`/inventory/products/${id}`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(204);
+
+      const response = await request(app.getHttpServer())
+        .delete(`/inventory/products/${id}/permanent`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(409);
+      expect(response.body.message).toBe(`Cannot permanently delete '${name}': it has stock history.`);
+      expect(
+        await dataSource.query(
+          `SELECT id FROM stock_batch_consumptions WHERE "movementId" = $1 AND "batchId" = $2`,
+          [movement.id, batch.id],
+        ),
+      ).toHaveLength(1);
+      expect(await dataSource.query(`SELECT id FROM stock_movements WHERE id = $1`, [movement.id])).toHaveLength(1);
+      expect(await dataSource.query(`SELECT id FROM purchase_cost_history WHERE id = $1`, [batch.id])).toHaveLength(1);
+      expect(await dataSource.query(`SELECT id FROM products WHERE id = $1`, [id])).toHaveLength(1);
+
+      let deleteError: any;
+      try {
+        await dataSource.query(`DELETE FROM products WHERE id = $1`, [id]);
+      } catch (error) {
+        deleteError = error;
+      }
+      // PostgreSQL reports an ON DELETE RESTRICT failure as 23001
+      // (restrict_violation), rather than a foreign_key_violation (23503).
+      expect(deleteError?.code).toBe("23001");
+    });
+
+    it("bulk permanent delete reports stock-history refusals and keeps the products", async () => {
+      const ids: string[] = [];
+      for (const name of [`Bulk History A ${Date.now()}`, `Bulk History B ${Date.now()}`]) {
+        const created = await request(app.getHttpServer())
+          .post("/inventory/products")
+          .set("Authorization", `Bearer ${accessToken}`)
+          .send({ name, categoryId, baseCost: 0, stockQuantity: 1 })
+          .expect(201);
+        ids.push(created.body.id);
+        ownedProductIds.push(created.body.id);
+        await request(app.getHttpServer())
+          .delete(`/inventory/products/${created.body.id}`)
+          .set("Authorization", `Bearer ${accessToken}`)
+          .expect(204);
+      }
+
+      const response = await request(app.getHttpServer())
+        .post("/inventory/products/bulk-permanent-delete")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ productIds: ids })
+        .expect(200);
+
+      expect(response.body.deletedCount).toBe(0);
+      expect(response.body.failedIds.sort()).toEqual(ids.sort());
+      const remaining = await dataSource.query(`SELECT id FROM products WHERE id = ANY($1)`, [ids]);
+      expect(remaining.map((row: { id: string }) => row.id).sort()).toEqual(ids.sort());
+    });
+
+    it("allows permanent delete when the product has no stock history", async () => {
+      const name = `No History ${Date.now()}`;
+      const created = await request(app.getHttpServer())
+        .post("/inventory/products")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ name, categoryId, baseCost: 0, stockQuantity: 0 })
+        .expect(201);
+      const id = created.body.id;
+      ownedProductIds.push(id);
+      await request(app.getHttpServer())
+        .delete(`/inventory/products/${id}`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .delete(`/inventory/products/${id}/permanent`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(204);
+      expect(await dataSource.query(`SELECT id FROM products WHERE id = $1`, [id])).toHaveLength(0);
     });
 
     it("POST /inventory/products — concurrent case-variant creates: one 201, one 409 (#984)", async () => {

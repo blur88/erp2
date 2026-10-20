@@ -131,12 +131,13 @@ describe('getOrderActionMetas — disabled flags & tooltips', () => {
     expect(cancel?.disabled).toBeFalsy()
   })
 
-  it('FULFILLED: unfulfill is disabled with the stage 0 explanation (exact copy)', () => {
+  it('FULFILLED: unfulfill is enabled and refund explains it must happen first', () => {
     const metas = getOrderActionMetas(makeOrder('FULFILLED', 'PAID'))
-    expect(metas.find((m) => m.action === 'unfulfill')).toEqual({
-      action: 'unfulfill',
+    expect(metas.find((m) => m.action === 'unfulfill')).toEqual({ action: 'unfulfill' })
+    expect(metas.find((m) => m.action === 'refund')).toEqual({
+      action: 'refund',
       disabled: true,
-      tooltip: "Unfulfill is unavailable: it would erase this order's stock and cost history. It will return once stock reversals keep that history.",
+      tooltip: 'Cannot refund a fulfilled order. Unfulfill it first, if it qualifies.',
     })
   })
 
@@ -144,7 +145,7 @@ describe('getOrderActionMetas — disabled flags & tooltips', () => {
     const metas = getOrderActionMetas(makeOrder('FULFILLED', 'PAID'))
     const refund = metas.find((m) => m.action === 'refund')
     expect(refund?.disabled).toBe(true)
-    expect(refund?.tooltip).toBe('Cannot refund a fulfilled order.')
+    expect(refund?.tooltip).toBe('Cannot refund a fulfilled order. Unfulfill it first, if it qualifies.')
   })
 
   it('refund is enabled (not disabled) when DRAFT + PAID', () => {

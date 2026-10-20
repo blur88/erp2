@@ -114,6 +114,7 @@ services:
       - DB_LOGGING=${DATABASE_LOGGING:-false}
       - DB_SYNCHRONIZE=${DATABASE_SYNCHRONIZE:-false}
       - DB_SSL=${DATABASE_SSL:-false}
+      - STOCK_EVIDENCE_HORIZON=${STOCK_EVIDENCE_HORIZON:-}
 
       # Redis
       - REDIS_HOST=${REDIS_HOST:-redis}

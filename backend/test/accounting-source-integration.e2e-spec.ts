@@ -155,6 +155,7 @@ describe('Accounting Source Integration (e2e)', () => {
       await ds.transaction((m) =>
         posting.postPurchaseReceive({
           purchaseOrderId: PO_ID, sourceRef: 'PO-001', amount: '1000.0000',
+          occurrenceId: randomUUID(),
           entryDate: '2026-07-11', createdBy: 'admin',
         }, m),
       );
@@ -236,6 +237,7 @@ describe('Accounting Source Integration (e2e)', () => {
       await ds.transaction((m) =>
         posting.postPurchaseReceive({
           purchaseOrderId: PO_ID, sourceRef: 'PO-002', amount: '500.0000',
+          occurrenceId: randomUUID(),
           entryDate: '2026-07-15', createdBy: 'admin',
         }, m),
       );

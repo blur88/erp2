@@ -127,7 +127,6 @@ describe('Required field validation (e2e) — #973', () => {
     it.each([
       ['/inventory/products'],
       ['/sales-orders'],
-      ['/inventory/stock/movements'],
       ['/accounting/expenses'],
     ])('POST %s with {} returns 400', async (route) => {
       const response = await request(app.getHttpServer())
@@ -138,6 +137,14 @@ describe('Required field validation (e2e) — #973', () => {
       expect(response.status).toBe(400);
       expect(response.body.message).toContain('Validation failed');
     });
+  });
+
+  it('POST /inventory/stock/movements is removed', async () => {
+    await request(app.getHttpServer())
+      .post('/inventory/stock/movements')
+      .set(auth())
+      .send({})
+      .expect(404);
   });
 
   describe('expense amount grammar (#1001)', () => {

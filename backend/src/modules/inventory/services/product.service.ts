@@ -881,6 +881,12 @@ export class ProductService extends BaseCrudService<
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(product, 'Product', id);
 
+    if (await this.hasStockHistory(product)) {
+      throw new ConflictException(
+        `Cannot permanently delete '${product.name}': it has stock history.`,
+      );
+    }
+
     // Check for dependencies before permanent deletion
     const dependencies = await this.checkProductDependencies(id);
 
@@ -912,14 +918,6 @@ export class ProductService extends BaseCrudService<
         },
       },
     );
-
-    // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT so the DB
-    // will reject the product delete if this row remains. purchase_cost_history has CASCADE so
-    // the DB removes it automatically; no explicit delete needed there.
-    await this.stockMovementRepository.delete({
-      productId: id,
-      movementType: StockMovementType.INITIAL_STOCK,
-    });
 
     // Hard delete the product from database
     await this.productRepository.delete(id);
@@ -961,6 +959,16 @@ export class ProductService extends BaseCrudService<
           continue;
         }
 
+        if (await this.hasStockHistory(product)) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            `Cannot permanently delete '${product.name}': it has stock history.`,
+            'STOCK_HISTORY',
+          );
+          continue;
+        }
+
         // Check for dependencies before permanent deletion
         const dependencies = await this.checkProductDependencies(id);
 
@@ -990,12 +998,6 @@ export class ProductService extends BaseCrudService<
             oldValues: { name: product.name, barcode: product.barcode },
           },
         );
-        // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT.
-        // purchase_cost_history has CASCADE so the DB removes it automatically.
-        await this.stockMovementRepository.delete({
-          productId: id,
-          movementType: StockMovementType.INITIAL_STOCK,
-        });
         await this.productRepository.delete(id);
 
         successCount++;
@@ -1015,6 +1017,33 @@ export class ProductService extends BaseCrudService<
   }
 
   /**
+   * Stock history and value provenance are permanent records. Check the records
+   * owned by this product before allowing a hard delete; exhausted batches
+   * and batches with consumption rows remain history too.
+   */
+  private async hasStockHistory(product: Product): Promise<boolean> {
+    if (toMinorUnits(String(product.stockQuantity)) !== 0n) {
+      return true;
+    }
+
+    const [movementCount, batchCount, provenanceRows] = await Promise.all([
+      this.stockMovementRepository.count({ where: { productId: product.id } }),
+      this.purchaseCostHistoryRepository.count({ where: { productId: product.id } }),
+      this.dataSource.query(
+        `SELECT EXISTS (
+           SELECT 1
+             FROM stock_batch_consumptions c
+             JOIN purchase_cost_history b ON b.id = c."batchId"
+            WHERE b."productId" = $1
+         ) AS "hasProvenance"`,
+        [product.id],
+      ),
+    ]);
+
+    return movementCount > 0 || batchCount > 0 || provenanceRows[0]?.hasProvenance === true;
+  }
+
+  /**
    * Update a product
    */
   async update(
@@ -1025,143 +1054,141 @@ export class ProductService extends BaseCrudService<
   ): Promise<ProductResponseDto> {
     this.logger.log(`Updating product with ID: ${id}`);
 
-    const product = await this.productRepository.findOne({
-      where: { id },
-      relations: { category: true },
-    });
+    let changes: Record<string, { from: any; to: any }> = {};
+    await this.dataSource.transaction(async (manager: EntityManager) => {
+      // Stock edits serialize with every stock writer. The locked row is the
+      // authority; an earlier API/UI snapshot is never used to write quantity.
+      const product = await lockProductForStockUpdate(manager, Product, id);
+      const currentStockMinor = toMinorUnits(String(product.stockQuantity));
 
-    if (!product) {
-      throw new NotFoundException(`Product with ID '${id}' not found`);
-    }
-
-    // Y6 (#775/#804): block Stocked→Service conversion while stock remains.
-    // Avoids silently zeroing stock without an audit trail.
-    if (
-      updateProductDto.type === ProductType.SERVICE &&
-      product.type === ProductType.GOODS &&
-      Number(product.stockQuantity) > 0
-    ) {
-      throw new BadRequestException(
-        'Reduce stock to 0 via a Stock Adjustment before converting to a Service',
-      );
-    }
-
-    // Check for name conflicts if name is being changed (case-insensitive)
-    if (
-      updateProductDto.name &&
-      updateProductDto.name.toLowerCase() !== product.name.toLowerCase()
-    ) {
-      const existingProductByName = await this.productRepository
-        .createQueryBuilder('product')
-        .where('LOWER(product.name) = LOWER(:name)', {
-          name: updateProductDto.name.trim(),
-        })
-        .andWhere('product.id != :id', { id: product.id })
-        .withDeleted()
-        .getOne();
-
-      if (existingProductByName) {
-        if (existingProductByName.deletedAt) {
-          throw new ConflictException(
-            `Product with name '${updateProductDto.name}' was previously deleted but cannot be reused. ` +
-              `Please choose a different name or restore the deleted product.`,
-          );
-        } else {
-          throw new ConflictException(
-            `Product with name '${updateProductDto.name}' already exists`,
-          );
-        }
-      }
-    }
-
-    // Check for barcode conflicts if barcode is being changed (case-insensitive)
-    if (
-      updateProductDto.barcode &&
-      updateProductDto.barcode.toLowerCase() !== product.barcode?.toLowerCase()
-    ) {
-      const existingProduct = await this.productRepository
-        .createQueryBuilder('product')
-        .where('LOWER(product.barcode) = LOWER(:barcode)', {
-          barcode: updateProductDto.barcode.trim(),
-        })
-        .andWhere('product.id != :id', { id: product.id })
-        .withDeleted()
-        .getOne();
-
-      if (existingProduct) {
-        if (existingProduct.deletedAt) {
-          throw new ConflictException(
-            `Product with barcode '${updateProductDto.barcode}' was previously deleted but cannot be reused. ` +
-              `Please choose a different barcode or restore the deleted product.`,
-          );
-        } else {
-          throw new ConflictException(
-            `Product with barcode '${updateProductDto.barcode}' already exists`,
-          );
-        }
-      }
-    }
-
-    // Validate category if being changed
-    if (updateProductDto.categoryId && updateProductDto.categoryId !== product.categoryId) {
-      const category = await this.categoryRepository.findOne({
-        where: { id: updateProductDto.categoryId, isEnabled: true },
-      });
-
-      if (!category) {
-        throw new NotFoundException(
-          `Category with ID '${updateProductDto.categoryId}' not found or inactive`,
+      if (
+        updateProductDto.stockQuantity !== undefined &&
+        updateProductDto.stockQuantity !== null &&
+        toMinorUnits(String(updateProductDto.stockQuantity)) !== currentStockMinor
+      ) {
+        throw new BadRequestException(
+          'Stock quantity cannot be changed directly. Use Stock Adjustments to update stock.',
         );
       }
-    }
 
-    // Transform DTO fields to match entity fields FIRST
-    const updateData: any = { ...updateProductDto };
-    const nameChanged =
-      updateProductDto.name !== undefined && updateProductDto.name !== product.name;
-    if (nameChanged) {
-      updateData.slug = await this.generateUniqueSlug(updateProductDto.name!, id);
-    }
+      // A product cannot stop tracking inventory while either physical quantity
+      // or value remains. Quantity alone is not sufficient: exhausted stock can
+      // still leave value in an unreversed batch.
+      if (
+        updateProductDto.type === ProductType.SERVICE &&
+        product.type === ProductType.GOODS
+      ) {
+        const rows: { hasRemainingInventoryValue: boolean }[] = await manager.query(
+          `SELECT COALESCE(SUM("remainingQuantity" * "landedCost"), 0)::numeric <> 0 AS "hasRemainingInventoryValue"
+             FROM purchase_cost_history
+            WHERE "productId" = $1 AND "remainingQuantity" > 0 AND "reversedAt" IS NULL`,
+          [id],
+        );
+        if (currentStockMinor !== 0n || rows[0]?.hasRemainingInventoryValue) {
+          throw new BadRequestException(
+            'A product with stock on hand or inventory value must stay a Stocked Product.',
+          );
+        }
+      }
 
-    // stockQuantity is handled directly in the DTO
+      // Check for name conflicts if name is being changed (case-insensitive).
+      if (
+        updateProductDto.name &&
+        updateProductDto.name.toLowerCase() !== product.name.toLowerCase()
+      ) {
+        const existingProductByName = await this.productRepository
+          .createQueryBuilder('product')
+          .where('LOWER(product.name) = LOWER(:name)', {
+            name: updateProductDto.name.trim(),
+          })
+          .andWhere('product.id != :id', { id: product.id })
+          .withDeleted()
+          .getOne();
 
-    // Update pricingTiers - prioritize direct pricingTiers if provided
-    if (updateData.pricingTiers && Object.keys(updateData.pricingTiers).length > 0) {
-      // Direct pricingTiers provided (from new UI) - use as-is
-      this.logger.log('Using directly provided pricingTiers from DTO');
-    }
+        if (existingProductByName) {
+          if (existingProductByName.deletedAt) {
+            throw new ConflictException(
+              `Product with name '${updateProductDto.name}' was previously deleted but cannot be reused. ` +
+                `Please choose a different name or restore the deleted product.`,
+            );
+          }
+          throw new ConflictException(`Product with name '${updateProductDto.name}' already exists`);
+        }
+      }
 
-    // Validate pricing if any pricing changes
-    if (updateData.pricingTiers || this.hasPricingChanges(updateData)) {
-      this.validatePricing({ ...product, ...updateData } as any);
-    }
+      // Check for barcode conflicts if barcode is being changed (case-insensitive).
+      if (
+        updateProductDto.barcode &&
+        updateProductDto.barcode.toLowerCase() !== product.barcode?.toLowerCase()
+      ) {
+        const existingProduct = await this.productRepository
+          .createQueryBuilder('product')
+          .where('LOWER(product.barcode) = LOWER(:barcode)', {
+            barcode: updateProductDto.barcode.trim(),
+          })
+          .andWhere('product.id != :id', { id: product.id })
+          .withDeleted()
+          .getOne();
 
-    // Track changes for audit (use transformed data)
-    const changes: Record<string, { from: any; to: any }> = {};
-    Object.keys(updateData).forEach((key) => {
-      if (updateData[key] !== product[key]) {
-        changes[key] = { from: product[key], to: updateData[key] };
+        if (existingProduct) {
+          if (existingProduct.deletedAt) {
+            throw new ConflictException(
+              `Product with barcode '${updateProductDto.barcode}' was previously deleted but cannot be reused. ` +
+                `Please choose a different barcode or restore the deleted product.`,
+            );
+          }
+          throw new ConflictException(`Product with barcode '${updateProductDto.barcode}' already exists`);
+        }
+      }
+
+      if (updateProductDto.categoryId && updateProductDto.categoryId !== product.categoryId) {
+        const category = await this.categoryRepository.findOne({
+          where: { id: updateProductDto.categoryId, isEnabled: true },
+        });
+        if (!category) {
+          throw new NotFoundException(
+            `Category with ID '${updateProductDto.categoryId}' not found or inactive`,
+          );
+        }
+      }
+
+      const updateData: any = { ...updateProductDto };
+      // The incoming value is a consistency assertion only. Stock quantity is
+      // mutated exclusively by stock movements and is never part of this write.
+      delete updateData.stockQuantity;
+
+      const nameChanged =
+        updateProductDto.name !== undefined && updateProductDto.name !== product.name;
+      if (nameChanged) {
+        updateData.slug = await this.generateUniqueSlug(updateProductDto.name!, id);
+      }
+
+      if (updateData.pricingTiers && Object.keys(updateData.pricingTiers).length > 0) {
+        this.logger.log('Using directly provided pricingTiers from DTO');
+      }
+      if (updateData.pricingTiers || this.hasPricingChanges(updateData)) {
+        this.validatePricing({ ...product, ...updateData } as any);
+      }
+
+      changes = {};
+      Object.keys(updateData).forEach((key) => {
+        if (updateData[key] !== product[key]) {
+          changes[key] = { from: product[key], to: updateData[key] };
+        }
+      });
+
+      Object.assign(product, updateData);
+      if (Object.keys(updateData).length > 0) {
+        try {
+          await repoFor(manager, Product, this.productRepository).update(id, updateData);
+        } catch (error) {
+          await this.translateUniqueViolation(error, {
+            name: updateProductDto.name ?? product.name,
+            barcode: updateProductDto.barcode ?? product.barcode,
+          });
+        }
       }
     });
-
-    // Update product with transformed data
-    Object.assign(product, updateData);
-
-    // Stock status is computed automatically in the entity
-
-    // Use direct update with ID string for better control over what gets updated
-    try {
-      await this.productRepository.update(
-        id, // Use the ID parameter directly, not product.id
-        updateData,
-      );
-    } catch (error) {
-      // #984: same race as create(), reached by a rename.
-      await this.translateUniqueViolation(error, {
-        name: updateProductDto.name ?? product.name,
-        barcode: updateProductDto.barcode ?? product.barcode,
-      });
-    }
 
     // Reload the product with category and price list relations to ensure fresh data
     const productWithCategory = await this.productRepository.findOne({
@@ -1767,7 +1794,7 @@ export class ProductService extends BaseCrudService<
           if (existingProduct) {
             if (importDto.updateExisting) {
               // Update existing product
-              await this.update(existingProduct.id, productData as UpdateProductDto, 'system');
+              await this.update(existingProduct.id, productData as UpdateProductDto, undefined, 'system');
               result.updatedCount++;
               result.importedProductIds.push(existingProduct.id);
               result.warnings.push({
@@ -1793,7 +1820,7 @@ export class ProductService extends BaseCrudService<
             }
           } else {
             // Create new product
-            const createdProduct = await this.create(productData as CreateProductDto, 'system');
+            const createdProduct = await this.create(productData as CreateProductDto, undefined, 'system');
             result.successCount++;
             result.importedProductIds.push(createdProduct.id);
           }
@@ -2092,7 +2119,7 @@ export class ProductService extends BaseCrudService<
       type: normalizedType,
       categoryId,
       baseCost,
-      stockQuantity: parseNumber(row.stockquantity, 'stockQuantity') || 0,
+      stockQuantity: parseNumber(row.stockquantity, 'stockQuantity'),
       notes: row.notes?.trim() || undefined,
       isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true,
     };

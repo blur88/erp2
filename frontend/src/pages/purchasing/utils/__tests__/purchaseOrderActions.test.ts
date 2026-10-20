@@ -34,17 +34,13 @@ describe('getPurchaseOrderActionMetas', () => {
     expect(metas.find((m) => m.action === 'refund')?.disabled).toBe(true)
   })
 
-  it('received: return is disabled with the stage 0 explanation (exact copy)', () => {
+  it('received: return is enabled and refund explains it must happen first', () => {
     const metas = getPurchaseOrderActionMetas(order('RECEIVED', 'PAID'))
-    expect(metas.find((m) => m.action === 'return')).toEqual({
-      action: 'return',
-      disabled: true,
-      tooltip: "Returning a received purchase order to Ready is unavailable: it would erase its stock and cost history. It will return once stock reversals keep that history.",
-    })
+    expect(metas.find((m) => m.action === 'return')).toEqual({ action: 'return' })
     expect(metas.find((m) => m.action === 'refund')).toEqual({
       action: 'refund',
       disabled: true,
-      tooltip: 'Cannot refund a received order.',
+      tooltip: 'Cannot refund a received order. Return it to Ready first, if it qualifies.',
     })
   })
 

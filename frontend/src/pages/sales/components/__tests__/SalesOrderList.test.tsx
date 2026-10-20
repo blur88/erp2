@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -32,6 +32,7 @@ const defaultProps = {
   onEdit: noop,
   onPay: noop,
   onFulfill: noop,
+  onUnfulfill: noop,
   onRefund: noop,
   onCancel: noop,
   onUncancel: noop,
@@ -176,23 +177,18 @@ describe('SalesOrderList row actions — Cancelled', () => {
   })
 })
 
-describe('SalesOrderList row actions — Fulfilled, unfulfil unavailable', () => {
-  it('Unfulfill is disabled with the explanation and clicking it calls nothing', async () => {
-    const handlers = Object.fromEntries(
-      Object.entries(defaultProps)
-        .filter(([key]) => key.startsWith('on'))
-        .map(([key]) => [key, vi.fn()]),
-    )
+describe('SalesOrderList row actions — Fulfilled', () => {
+  it('Unfulfill is enabled and calls the handler for the row', async () => {
+    const onUnfulfill = vi.fn()
     renderList({
       ...defaultProps,
-      ...handlers,
+      onUnfulfill,
       orders: [makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' })],
     } as typeof defaultProps)
     await openMenu()
     const item = screen.getByRole('menuitem', { name: /^unfulfill$/i })
-    expect(item).toHaveAttribute('aria-disabled', 'true')
-    expect(item.closest('[data-tooltip]')).toHaveAttribute('data-tooltip', "Unfulfill is unavailable: it would erase this order's stock and cost history. It will return once stock reversals keep that history.")
-    fireEvent.click(item)
-    for (const handler of Object.values(handlers)) expect(handler).not.toHaveBeenCalled()
+    expect(item).not.toHaveAttribute('aria-disabled', 'true')
+    await userEvent.click(item)
+    expect(onUnfulfill).toHaveBeenCalledWith(expect.objectContaining({ id: 'ord-1' }))
   })
 })

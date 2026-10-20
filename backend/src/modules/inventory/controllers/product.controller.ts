@@ -497,10 +497,11 @@ export class ProductController {
     description: 'Product permanently deleted successfully',
   })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiResponse({ 
+  @ApiResponse({
     status: 400, 
     description: 'Product must be soft-deleted first or has active references' 
   })
+  @ApiResponse({ status: 409, description: 'Product has stock history and cannot be permanently deleted' })
   @ApiParam({ name: 'id', description: 'Product ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async permanentDelete(

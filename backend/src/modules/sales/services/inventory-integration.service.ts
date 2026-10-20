@@ -10,11 +10,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { StockBatchConsumption } from '../../../database/entities/stock-batch-consumption.entity';
+import { formatScale4 } from '../../../common/utils/money';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import type { ProductConsumptionPlan } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
 import { repoFor, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
+import { nextProductSequence } from '../../inventory/services/stock-occurrence';
 
 export interface StockItem {
   productId: string;
@@ -349,7 +353,10 @@ export class InventoryIntegrationService {
     userId?: string,
     movementTypeOverride?: StockMovementType,
     manager?: EntityManager,
-  ): Promise<bigint> {
+    occurrenceId?: string,
+    plannedConsumption?: ProductConsumptionPlan,
+    plannedTotalValue?: string,
+  ): Promise<{ movementId: string; totalScale8: bigint }> {
     const productRepo = repoFor(manager, Product, this.productRepository);
 
     // Stock-mutation contract (#1076): lock before reading stockQuantity so the
@@ -394,7 +401,7 @@ export class InventoryIntegrationService {
       ? StockMovementType.ADJUSTMENT_INCREASE
       : StockMovementType.SALE);
 
-    await this.createStockMovementWithBalances(
+    const movement = await this.createStockMovementWithBalances(
       productId,
       quantityChange,
       currentStock,
@@ -404,21 +411,49 @@ export class InventoryIntegrationService {
       referenceId,
       userId,
       manager,
+      occurrenceId,
+      plannedTotalValue,
     );
 
-    let consumedScale8 = 0n;
-
-    // Update FIFO cost history for sales (negative quantity changes).
+    // Sales consume batches from the plan the caller already built (#1406). The
+    // batches were chosen under the lock by planConsumption across the whole
+    // order, so this path must NOT re-select — a repeated product's second line
+    // depends on applying exactly what was planned.
+    let totalScale8 = 0n;
     if (quantityChange < 0) {
-      const quantitySold = Math.abs(quantityChange);
-      consumedScale8 = await this.baseCostCalculator.reduceStock(productId, quantitySold, manager);
+      if (!plannedConsumption) {
+        throw new Error(
+          'adjustStock requires a planned consumption for a sale movement (#1406)',
+        );
+      }
+      totalScale8 = plannedConsumption.totalScale8;
+      await this.baseCostCalculator.applyConsumptionPlan(manager, plannedConsumption.consumptions);
+
+      // Record consumption provenance for this sale movement (#1406).
+      if (plannedConsumption.consumptions.length > 0) {
+        const consumptionRepo = manager.getRepository(StockBatchConsumption);
+        for (const c of plannedConsumption.consumptions) {
+          const valueScale8Str = `${c.valueScale8 / 100000000n}.${(c.valueScale8 % 100000000n)
+            .toString()
+            .padStart(8, '0')}`;
+          await consumptionRepo.save(
+            consumptionRepo.create({
+              movementId: movement.id,
+              batchId: c.batchId,
+              quantity: Number(formatScale4(c.quantityMinor)),
+              unitCost: Number(formatScale4(c.unitCostMinor)),
+              valueScale8: valueScale8Str as any,
+            } as any),
+          );
+        }
+      }
     }
 
     // Update product stock quantity. Guaranteed >= 0 by the check above.
     product.stockQuantity = Number(newStockQuantity);
     await productRepo.save(product);
 
-    return consumedScale8;
+    return { movementId: movement.id, totalScale8 };
   }
 
   // Private helper methods
@@ -459,8 +494,15 @@ export class InventoryIntegrationService {
     referenceId?: string,
     userId?: string,
     manager?: EntityManager,
+    occurrenceId?: string,
+    plannedTotalValue?: string,
   ): Promise<StockMovement> {
+    if (!manager) {
+      throw new Error('createStockMovementWithBalances requires an EntityManager');
+    }
     const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
+    // Assign the per-product sequence under the product lock (#1406).
+    const productSequence = await nextProductSequence(manager, productId);
     const movement = stockMovementRepo.create({
       productId,
       quantity,
@@ -471,6 +513,10 @@ export class InventoryIntegrationService {
       referenceId,
       referenceType: referenceId ? 'sales_order' : null, // Set referenceType if referenceId is provided
       movementDate: new Date(),
+      occurrenceId,
+      actorUserId: userId,
+      productSequence,
+      totalValue: plannedTotalValue !== undefined ? Number(plannedTotalValue) : undefined,
     });
 
     return await stockMovementRepo.save(movement);

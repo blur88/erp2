@@ -80,27 +80,20 @@ function renderEdit() {
 }
 
 describe('CreateProductPage type change', () => {
-  it('blocks Stocked→Service when stock > 0 (no Confirm, type unchanged)', async () => {
+  it('keeps stock read-only and disables type changes when stock is nonzero', async () => {
     productState.stockQuantity = 5
     productState.type = 'Stocked Product'
-    const user = userEvent.setup()
     renderEdit()
 
     await waitFor(() => expect(screen.getByDisplayValue('Widget')).toBeInTheDocument())
 
     const typeSelect = screen.getByLabelText(/Product Type/i)
-    await user.click(typeSelect)
-    await user.click(await screen.findByRole('option', { name: 'Service' }))
-
+    expect(typeSelect).toHaveAttribute('aria-disabled', 'true')
     expect(
-      await screen.findByText(/Reduce stock to 0 via a Stock Adjustment before converting to a Service/i),
+      screen.getByText('A product with stock on hand or inventory value must stay a Stocked Product.'),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Confirm$/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Close$/i })).toBeInTheDocument()
-
-    // Close dialog, then verify type field unchanged
-    await user.click(screen.getByRole('button', { name: /^Close$/i }))
     expect(screen.getByDisplayValue('Stocked Product')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Current Stock/i)).toBeDisabled()
   })
 
   it('warns (with Confirm) on Stocked→Service when stock is 0', async () => {

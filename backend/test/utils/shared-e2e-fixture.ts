@@ -38,6 +38,11 @@ export const E2E_ADMIN_USERNAMES = {
   transitions: `${SHARED_E2E_NS}_transitions_admin`,
   precision: `${SHARED_E2E_NS}_precision_admin`,
   fulfilledMetrics: `${SHARED_E2E_NS}_fulfilled_metrics_admin`,
+  stockOccurrenceReceipt: `${SHARED_E2E_NS}_stock_occ_receipt_admin`,
+  stockOccurrenceFulfilment: `${SHARED_E2E_NS}_stock_occ_fulfilment_admin`,
+  stockUnfulfil: `${SHARED_E2E_NS}_stock_unfulfil_admin`,
+  receiptReversalEvidence: `${SHARED_E2E_NS}_receipt_reversal_evidence_admin`,
+  stockUnreceive: `${SHARED_E2E_NS}_stock_unreceive_admin`,
 } as const;
 
 export const E2E_ADMIN_PASSWORD = "Admin@123!";

@@ -755,10 +755,11 @@ export class SalesOrderService {
 
   async unfulfillOrder(
     id: string,
+    reason: string,
     userId?: string,
     username?: string,
   ): Promise<SalesOrderResponseDto> {
-    await this.salesOrderFulfillmentService.unfulfillOrder(id, userId, username);
+    await this.salesOrderFulfillmentService.unfulfillOrder(id, reason, userId, username);
     return this.salesOrderQueryService.findById(id);
   }
 }

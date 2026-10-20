@@ -7,6 +7,7 @@ import {
   quantizeToCents,
   formatMoney,
   allocate,
+  allocateCents,
   reconcileToCents,
 } from './money';
 import { QUANTIZE_VECTORS, FORMAT_VECTORS, ALLOCATE_VECTORS } from './money-vectors';
@@ -150,6 +151,43 @@ describe('allocate', () => {
 
   it('allocates nothing when the target is zero, even with zero weights', () => {
     expect(allocate(0n, [0n, 0n])).toEqual([0n, 0n]);
+  });
+});
+
+describe('allocateCents', () => {
+  it('splits a scale-4 cent total across scale-8 weights, conserving it', () => {
+    // RM10.00 over three equal scale-8 weights.
+    const total = toMinorUnits('10.0000');
+    const shares = allocateCents(total, [100000000n, 100000000n, 100000000n]);
+    expect(shares.reduce((a, b) => a + b, 0n)).toBe(total);
+    for (const share of shares) {
+      expect(share % 100n).toBe(0n);
+    }
+    expect([...shares].sort()).toEqual([33300n, 33300n, 33400n]); // 3.33, 3.33, 3.34
+  });
+
+  it('returns a zero share per line when the total is zero', () => {
+    expect(allocateCents(0n, [5n, 5n])).toEqual([0n, 0n]);
+  });
+
+  it('returns no shares when there are no lines', () => {
+    expect(allocateCents(10000n, [])).toEqual([]);
+  });
+
+  it('rejects a target that is not an exact cent amount', () => {
+    expect(() => allocateCents(10001n, [1n])).toThrow(/whole number of cents/i);
+  });
+
+  it('does not allocate the remainder to a zero-weight line', () => {
+    expect(allocateCents(100n, [1n, 1n, 0n])).toEqual([0n, 100n, 0n]);
+  });
+
+  it('rejects non-zero allocations without a positive weight', () => {
+    expect(() => allocateCents(100n, [0n, 0n])).toThrow(/no positive weights/i);
+  });
+
+  it('rejects negative weights instead of treating them as positive', () => {
+    expect(() => allocateCents(100n, [1n, -1n])).toThrow(/negative weight/i);
   });
 });
 

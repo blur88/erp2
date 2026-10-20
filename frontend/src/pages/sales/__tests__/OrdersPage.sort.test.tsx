@@ -15,6 +15,7 @@ vi.mock('@/store/api/salesApi', () => ({
   useGetSalesOrdersQuery: vi.fn(() => ({ data: { data: [], meta: { total: 0 } }, isFetching: false, error: undefined })),
   useGetCustomersQuery: vi.fn(() => ({ data: undefined, isFetching: false })),
   useFulfillSalesOrderMutation: vi.fn(() => [vi.fn()]),
+  useUnfulfillSalesOrderMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
   useCancelSalesOrderMutation: vi.fn(() => [vi.fn()]),
   useRecordOrderPaymentsMutation: vi.fn(() => [vi.fn()]),
   useRecordOrderRefundsMutation: vi.fn(() => [vi.fn()]),

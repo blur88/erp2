@@ -11,7 +11,6 @@ import { In, Repository } from 'typeorm';
 import { Product } from '../../../database/entities/product.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
-import { StockMovementService } from './stock-movement.service';
 import { ProductService } from './product.service';
 import { PricingService } from './pricing.service';
 import { SettingsService } from '../../settings/settings.service';
@@ -66,8 +65,6 @@ export class IntegrationService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
-    @Inject(forwardRef(() => StockMovementService))
-    private readonly stockMovementService: any,
     @Inject(forwardRef(() => ProductService))
     private readonly productService: any,
     private readonly pricingService: PricingService,
@@ -146,42 +143,6 @@ export class IntegrationService {
       pricing: pricingResults,
       totalValue,
     };
-  }
-
-  /**
-   * Fulfill sales order - create stock movements for sold items
-   */
-  async fulfillSalesOrder(
-    orderId: string,
-    orderNumber: string,
-    items: Array<{
-      productId: string;
-      quantity: number;
-      unitPrice: number;
-    }>,
-    userId?: string,
-  ): Promise<void> {
-    this.logger.log(`Fulfilling sales order: ${orderId}`);
-
-    // Create stock movements for each sold item
-    const movementPromises = items.map(item =>
-      this.stockMovementService.recordSale(
-        item.productId,
-        item.quantity,
-        item.unitPrice,
-        orderId, // referenceId
-        userId,
-      ),
-    );
-
-    await Promise.all(movementPromises);
-
-    // Release any remaining reservations for this order
-    await this.releaseOrderReservations(orderId, userId);
-
-    // Audit logging removed with authentication system
-
-    this.logger.log(`Sales order fulfilled successfully: ${orderId}`);
   }
 
   /**

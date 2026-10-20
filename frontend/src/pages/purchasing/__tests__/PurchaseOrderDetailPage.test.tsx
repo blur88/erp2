@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
@@ -9,11 +9,13 @@ import type { PurchaseOrder } from '@/types'
 
 import PurchaseOrderDetailPage from '../PurchaseOrderDetailPage'
 
-const { mockNavigate, mockGetPurchaseOrderByNumber, mockGetPurchaseOrderPayments } = vi.hoisted(
+const { mockNavigate, mockGetPurchaseOrderByNumber, mockGetPurchaseOrderPayments, mockReturn, mockShowError } = vi.hoisted(
   () => ({
     mockNavigate: vi.fn(),
     mockGetPurchaseOrderByNumber: vi.fn(),
     mockGetPurchaseOrderPayments: vi.fn(),
+    mockReturn: vi.fn(),
+    mockShowError: vi.fn(),
   }),
 )
 
@@ -31,6 +33,7 @@ vi.mock('@/store/api/purchasingApi', async (importOriginal) => {
     useCancelPurchaseOrderMutation: () => [vi.fn(), { isLoading: false }],
     useDuplicatePurchaseOrderMutation: () => [vi.fn(), { isLoading: false }],
     useReceiveGoodsMutation: () => [vi.fn(), { isLoading: false }],
+    useReturnPurchaseOrderMutation: () => [mockReturn, { isLoading: false }],
     useRecordPurchaseOrderRefundsMutation: () => [vi.fn(), { isLoading: false }],
     useRecordVendorPaymentsMutation: () => [vi.fn(), { isLoading: false }],
     useUncancelPurchaseOrderMutation: () => [vi.fn(), { isLoading: false }],
@@ -38,7 +41,7 @@ vi.mock('@/store/api/purchasingApi', async (importOriginal) => {
 })
 
 vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
+  useNotification: () => ({ showSuccess: vi.fn(), showError: mockShowError }),
 }))
 
 vi.mock('@/store/api/paymentMethodsApi', () => ({
@@ -48,11 +51,10 @@ vi.mock('@/store/api/paymentMethodsApi', () => ({
 
 vi.mock('../components/PurchaseOrderOverviewTab', () => ({ default: () => <div>OverviewTab</div> }))
 vi.mock('../components/PurchaseOrderPaymentsTab', () => ({ default: () => <div>PaymentsTab</div> }))
-vi.mock('../components/PurchaseOrderActionBar', () => ({ default: () => <div>ActionBar</div> }))
+vi.mock('../components/PurchaseOrderActionBar', () => ({ default: ({ onReturn }: any) => <button onClick={onReturn}>Return</button> }))
 vi.mock('../components/PurchaseOrderPrintDialog', () => ({ default: () => null }))
 vi.mock('@/components/common/PaymentDialog', () => ({ default: () => null }))
 vi.mock('@/components/common/RefundDialog', () => ({ default: () => null }))
-vi.mock('@/components/common/ConfirmationDialog', () => ({ default: () => null }))
 
 const order: Partial<PurchaseOrder> = {
   id: 'po-1',
@@ -84,6 +86,8 @@ describe('PurchaseOrderDetailPage', () => {
   // read it, so reset between tests (#1131 review).
   beforeEach(() => {
     window.history.replaceState(null, '', '/')
+    vi.clearAllMocks()
+    mockReturn.mockReturnValue({ unwrap: () => Promise.resolve({}) })
   })
 
   it('preserves other query params when the tab changes', async () => {
@@ -137,5 +141,42 @@ describe('PurchaseOrderDetailPage', () => {
     await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders')
+  })
+
+  it('requires a reason and sends it to the return endpoint', async () => {
+    mockGetPurchaseOrderByNumber.mockReturnValue({
+      data: { ...order, status: 'RECEIVED', paymentStatus: 'PAID' },
+      isLoading: false,
+    })
+    mockGetPurchaseOrderPayments.mockReturnValue({ data: [], isLoading: false })
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Return' }))
+    expect(screen.getByText('Return PO-26-001 to Ready? This is only possible if none of its products has left stock since it was received.')).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog')
+    const confirm = within(dialog).getByRole('button', { name: 'Return' })
+    expect(confirm).toBeDisabled()
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'receipt mistake')
+    await userEvent.click(confirm)
+
+    await waitFor(() => expect(mockReturn).toHaveBeenCalledWith({ id: 'po-1', reason: 'receipt mistake' }))
+  })
+
+  it('shows the server conflict message when return is refused', async () => {
+    mockGetPurchaseOrderByNumber.mockReturnValue({
+      data: { ...order, status: 'RECEIVED', paymentStatus: 'PAID' },
+      isLoading: false,
+    })
+    mockGetPurchaseOrderPayments.mockReturnValue({ data: [], isLoading: false })
+    mockReturn.mockReturnValue({
+      unwrap: () => Promise.reject({ status: 409, data: 'Product stock changed after receipt.' }),
+    })
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Return' }))
+    const dialog = screen.getByRole('dialog')
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'receipt error')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Return' }))
+
+    await waitFor(() => expect(mockShowError).toHaveBeenCalledWith('Product stock changed after receipt.'))
   })
 })

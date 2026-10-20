@@ -67,6 +67,30 @@ describe('ProductService pagination removal', () => {
       ...overrides,
     }) as Product;
 
+  const setupUpdateTransaction = (
+    lockedProduct: Product,
+    options: { savedProduct?: Product; hasRemainingInventoryValue?: boolean } = {},
+  ) => {
+    const productManagerRepository = {
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(lockedProduct),
+      update: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+    };
+    const manager = {
+      getRepository: (jest.fn as unknown as any)((entity: any) =>
+        entity === Product ? productManagerRepository : {},
+      ),
+      query: (jest.fn as unknown as any)().mockResolvedValue([
+        { hasRemainingInventoryValue: options.hasRemainingInventoryValue ?? false },
+      ]),
+    };
+    (service as any).dataSource.transaction.mockImplementation(
+      async (callback: (value: any) => Promise<any>) => callback(manager),
+    );
+    productRepository.findOne.mockResolvedValue(options.savedProduct ?? lockedProduct);
+    productRepository.update = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 });
+    return { manager, productManagerRepository };
+  };
+
   const createQueryBuilder = (products: Product[]) => {
     const qb = {
       leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
@@ -513,14 +537,13 @@ describe('ProductService pagination removal', () => {
       const existing = createProduct('prod-1', {
         priceListItems: productWithPriceList.priceListItems,
       });
-      productRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(existing);
-      productRepository.update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      setupUpdateTransaction(existing);
 
       // No name/barcode change → no conflict query builders are invoked.
       const result = await service.update('prod-1', {} as any);
 
-      // Second findOne is the reload returned to the client.
-      expect(productRepository.findOne).toHaveBeenNthCalledWith(2, {
+      // The one injected-repository read is the post-transaction reload.
+      expect(productRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'prod-1' },
         relations: { category: true, priceListItems: { priceList: true } },
       });
@@ -534,15 +557,12 @@ describe('ProductService pagination removal', () => {
         type: ProductType.GOODS,
         stockQuantity: 5,
       });
-      productRepository.findOne.mockResolvedValue(product);
+      setupUpdateTransaction(product);
 
       await expect(
         service.update('p1', { type: ProductType.SERVICE } as any),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.update('p1', { type: ProductType.SERVICE } as any),
       ).rejects.toThrow(
-        'Reduce stock to 0 via a Stock Adjustment before converting to a Service',
+        'A product with stock on hand or inventory value must stay a Stocked Product.',
       );
     });
 
@@ -555,20 +575,175 @@ describe('ProductService pagination removal', () => {
         type: ProductType.SERVICE,
         stockQuantity: 0,
       });
-      // update() calls findOne twice: initial load, then reload-with-relations.
-      productRepository.findOne
-        .mockResolvedValueOnce(loaded)
-        .mockResolvedValueOnce(reloaded);
-      productRepository.update = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 });
+      const { productManagerRepository } = setupUpdateTransaction(loaded, { savedProduct: reloaded });
 
       const result = await service.update('p1', {
         type: ProductType.SERVICE,
       } as any);
 
-      expect(productRepository.update).toHaveBeenCalledWith('p1', {
-        type: ProductType.SERVICE,
-      });
+      expect(productManagerRepository.update).toHaveBeenCalledWith('p1', { type: ProductType.SERVICE });
       expect(result.type).toBe(ProductType.SERVICE);
+    });
+
+    it('refuses an edit that submits a different stock quantity', async () => {
+      const product = createProduct('p1', { type: ProductType.GOODS, stockQuantity: 10 });
+      setupUpdateTransaction(product);
+
+      await expect(service.update('p1', { stockQuantity: 11 } as any)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(productRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('does not write an unchanged stock quantity in another numeric form', async () => {
+      const lockedProduct = createProduct('p1', { type: ProductType.GOODS, stockQuantity: 10 });
+      const savedProduct = createProduct('p1', { type: ProductType.GOODS, stockQuantity: 10 });
+      const managerProductRepository = {
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(lockedProduct),
+        update: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+      };
+      const manager = {
+        getRepository: (jest.fn as unknown as any)((entity: any) =>
+          entity === Product ? managerProductRepository : {},
+        ),
+        query: (jest.fn as unknown as any)().mockResolvedValue([{ hasRemainingInventoryValue: false }]),
+      };
+      const dataSource = (service as any).dataSource;
+      dataSource.transaction.mockImplementation(async (callback: (value: any) => Promise<any>) => callback(manager));
+      productRepository.update = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 });
+      productRepository.findOne.mockResolvedValue(savedProduct);
+
+      await service.update('p1', { stockQuantity: '10.0000', notes: 'Updated note' } as any);
+
+      expect(managerProductRepository.update).toHaveBeenCalledTimes(1);
+      expect(managerProductRepository.update.mock.calls[0][1]).not.toHaveProperty('stockQuantity');
+    });
+
+    it('refuses GOODS→SERVICE when stock is negative', async () => {
+      const product = createProduct('p1', { type: ProductType.GOODS, stockQuantity: -1 });
+      setupUpdateTransaction(product);
+
+      await expect(service.update('p1', { type: ProductType.SERVICE } as any)).rejects.toThrow(
+        'A product with stock on hand or inventory value must stay a Stocked Product.',
+      );
+    });
+
+    it('refuses GOODS→SERVICE when stock is zero but remaining batch value is nonzero', async () => {
+      const lockedProduct = createProduct('p1', { type: ProductType.GOODS, stockQuantity: 0 });
+      const managerProductRepository = {
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(lockedProduct),
+      };
+      const manager = {
+        getRepository: (jest.fn as unknown as any)((entity: any) =>
+          entity === Product ? managerProductRepository : {},
+        ),
+        query: (jest.fn as unknown as any)().mockResolvedValue([{ hasRemainingInventoryValue: true }]),
+      };
+      const dataSource = (service as any).dataSource;
+      dataSource.transaction.mockImplementation(async (callback: (value: any) => Promise<any>) => callback(manager));
+      productRepository.findOne.mockResolvedValue(lockedProduct);
+      productRepository.update = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 });
+
+      await expect(service.update('p1', { type: ProductType.SERVICE } as any)).rejects.toThrow(
+        'A product with stock on hand or inventory value must stay a Stocked Product.',
+      );
+    });
+
+    it('allows GOODS→SERVICE when both stock and remaining batch value are zero', async () => {
+      const lockedProduct = createProduct('p1', { type: ProductType.GOODS, stockQuantity: 0 });
+      const savedProduct = createProduct('p1', { type: ProductType.SERVICE, stockQuantity: 0 });
+      const managerProductRepository = {
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(lockedProduct),
+        update: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+      };
+      const manager = {
+        getRepository: (jest.fn as unknown as any)((entity: any) =>
+          entity === Product ? managerProductRepository : {},
+        ),
+        query: (jest.fn as unknown as any)().mockResolvedValue([{ hasRemainingInventoryValue: false }]),
+      };
+      const dataSource = (service as any).dataSource;
+      dataSource.transaction.mockImplementation(async (callback: (value: any) => Promise<any>) => callback(manager));
+      productRepository.findOne.mockResolvedValue(savedProduct);
+      productRepository.update = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 });
+
+      await service.update('p1', { type: ProductType.SERVICE } as any);
+
+      const updatePayload = managerProductRepository.update.mock.calls[0]?.[1] ?? productRepository.update.mock.calls[0][1];
+      expect(updatePayload).toMatchObject({ type: ProductType.SERVICE });
+      expect(updatePayload).not.toHaveProperty('stockQuantity');
+    });
+
+    it('treats a blank CSV stock cell as unspecified when updating an existing product', async () => {
+      const existing = createProduct('p1', { type: ProductType.GOODS, stockQuantity: 5 });
+      const lockedProductRepository = {
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(existing),
+        update: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+      };
+      const manager = {
+        getRepository: (jest.fn as unknown as any)((entity: any) =>
+          entity === Product ? lockedProductRepository : {},
+        ),
+        query: (jest.fn as unknown as any)().mockResolvedValue([{ hasRemainingInventoryValue: true }]),
+      };
+      const dataSource = (service as any).dataSource;
+      dataSource.transaction.mockImplementation(async (callback: (value: any) => Promise<any>) => callback(manager));
+      (service as any).categoryRepository.find = (jest.fn as unknown as any)().mockResolvedValue([
+        { id: 'category-1', name: 'Import Category', isActive: true },
+      ]);
+      productRepository.findOne.mockResolvedValue(existing);
+      productRepository.update = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 });
+      jest.spyOn(service as any, 'parseImportFile').mockResolvedValue([
+        {
+          name: existing.name,
+          type: 'Stocked Product',
+          categoryname: 'Import Category',
+          basecost: '12.50',
+          stockquantity: '',
+        },
+      ]);
+
+      const result = await service.importProducts(
+        { originalname: 'products.csv', buffer: Buffer.from('') } as any,
+        { format: 'csv', updateExisting: true, skipDuplicates: false } as any,
+      );
+
+      expect(result.failureCount).toBe(0);
+      expect(result.updatedCount).toBe(1);
+      expect(existing.stockQuantity).toBe(5);
+      expect(lockedProductRepository.update).toHaveBeenCalledWith(
+        'p1',
+        expect.not.objectContaining({ stockQuantity: expect.anything() }),
+      );
+    });
+
+    it('imports initial stock as a system actor without putting a sentinel in the UUID argument', async () => {
+      (service as any).categoryRepository.find = (jest.fn as unknown as any)().mockResolvedValue([
+        { id: 'category-1', name: 'Import Category', isActive: true },
+      ]);
+      productRepository.findOne.mockResolvedValue(null);
+      jest.spyOn(service as any, 'parseImportFile').mockResolvedValue([
+        {
+          name: 'Imported stock product',
+          type: 'Stocked Product',
+          categoryname: 'Import Category',
+          basecost: '12.50',
+          stockquantity: '8',
+        },
+      ]);
+      const create = jest.spyOn(service, 'create').mockResolvedValue({ id: 'imported-1' } as any);
+
+      const result = await service.importProducts(
+        { originalname: 'products.csv', buffer: Buffer.from('') } as any,
+        { format: 'csv', updateExisting: false, skipDuplicates: false } as any,
+      );
+
+      expect(result.successCount).toBe(1);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ stockQuantity: 8 }),
+        undefined,
+        'system',
+      );
     });
 
     const pgUnique = (constraint: string) => {
@@ -579,7 +754,7 @@ describe('ProductService pagination removal', () => {
     };
 
     it('#984: a 23505 from productRepository.update becomes a 409', async () => {
-      productRepository.findOne.mockResolvedValue(
+      const { productManagerRepository } = setupUpdateTransaction(
         createProduct('p1', { type: ProductType.GOODS, stockQuantity: 0 }),
       );
       // The pre-flight duplicate check must PASS so the failure comes from the
@@ -593,7 +768,7 @@ describe('ProductService pagination removal', () => {
       // generateUniqueSlug walks the repository; stub it so its loop cannot
       // interfere with the mocked query builder above.
       jest.spyOn(service as any, 'generateUniqueSlug').mockResolvedValue('widget');
-      productRepository.update = (jest.fn as unknown as any)().mockRejectedValue(
+      productManagerRepository.update.mockRejectedValue(
         pgUnique('UQ_products_lower_name'),
       );
 
@@ -603,7 +778,7 @@ describe('ProductService pagination removal', () => {
     });
 
     it('#984: a non-unique database error propagates unchanged', async () => {
-      productRepository.findOne.mockResolvedValue(
+      const { productManagerRepository } = setupUpdateTransaction(
         createProduct('p1', { type: ProductType.GOODS, stockQuantity: 0 }),
       );
       productRepository.createQueryBuilder = (jest.fn as unknown as any)(() => ({
@@ -616,7 +791,7 @@ describe('ProductService pagination removal', () => {
 
       const notUnique: any = new Error('deadlock detected');
       notUnique.code = '40P01';
-      productRepository.update = (jest.fn as unknown as any)().mockRejectedValue(notUnique);
+      productManagerRepository.update.mockRejectedValue(notUnique);
 
       await expect(service.update('p1', { name: 'Widget' } as any)).rejects.toBe(notUnique);
     });
@@ -839,7 +1014,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
     name: 'Test Product',
     barcode: 'SKU-001',
     baseCost: 10,
-    stockQuantity: 5,
+    stockQuantity: 0,
     deletedAt: new Date(),
   } as any;
 
@@ -850,10 +1025,15 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
       count: (jest.fn as unknown as any)().mockResolvedValue(0),
       delete: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
     };
+    const purchaseCostHistoryRepo = makeCountRepo(0);
     const productRepo = {
       findOne: (jest.fn as unknown as any)().mockResolvedValue(softDeletedProduct),
       delete: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: (jest.fn as unknown as any)(),
+    };
+    const dataSource = {
+      ...createMockDataSource().dataSource,
+      query: (jest.fn as unknown as any)().mockResolvedValue([{ hasProvenance: false }]),
     };
 
     const defaults = [
@@ -871,7 +1051,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
       },
       {
         token: getRepositoryToken(PurchaseCostHistory),
-        useValue: makeCountRepo(0),
+        useValue: purchaseCostHistoryRepo,
       },
     ];
 
@@ -889,7 +1069,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
-        { provide: DataSource, useValue: createMockDataSource().dataSource },
+        { provide: DataSource, useValue: dataSource },
         { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
       ],
     }).compile();
@@ -897,37 +1077,56 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
     return {
       service: module.get(ProductService),
       stockMovementRepo,
+      purchaseCostHistoryRepo,
       productRepo,
     };
   };
 
-  it('permanentDelete deletes initial_stock movement before hard-deleting the product', async () => {
+  it('refuses permanent delete when the product has only an INITIAL_STOCK movement', async () => {
     const { service, stockMovementRepo, productRepo } = await buildModule();
+    stockMovementRepo.count.mockResolvedValue(1);
+
+    await expect(service.permanentDelete('product-id', 'user-1', 'admin')).rejects.toThrow(
+      "Cannot permanently delete 'Test Product': it has stock history.",
+    );
+    expect(stockMovementRepo.delete).not.toHaveBeenCalled();
+    expect(productRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('refuses permanent delete when an exhausted batch remains', async () => {
+    const { service, purchaseCostHistoryRepo, productRepo } = await buildModule();
+    purchaseCostHistoryRepo.count.mockResolvedValue(1);
+
+    await expect(service.permanentDelete('product-id', 'user-1', 'admin')).rejects.toThrow(
+      "Cannot permanently delete 'Test Product': it has stock history.",
+    );
+    expect(productRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('reports stock-history ids in bulk and does not delete those products', async () => {
+    const { service, stockMovementRepo, productRepo } = await buildModule();
+    stockMovementRepo.count.mockResolvedValue(1);
+
+    const result = await service.bulkPermanentDelete(['product-id'], 'user-1', 'admin');
+
+    expect(result.successCount).toBe(0);
+    expect(result.failedItems).toEqual([
+      expect.objectContaining({
+        id: 'product-id',
+        reason: "Cannot permanently delete 'Test Product': it has stock history.",
+      }),
+    ]);
+    expect(productRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('still permits permanent delete when the product has no stock history', async () => {
+    const { service, stockMovementRepo, purchaseCostHistoryRepo, productRepo } = await buildModule();
 
     await service.permanentDelete('product-id', 'user-1', 'admin');
 
-    expect(stockMovementRepo.delete).toHaveBeenCalledWith({
-      productId: 'product-id',
-      movementType: StockMovementType.INITIAL_STOCK,
-    });
-    // cleanup must precede the hard delete
-    const cleanupOrder = stockMovementRepo.delete.mock.invocationCallOrder[0];
-    const deleteOrder = productRepo.delete.mock.invocationCallOrder[0];
-    expect(cleanupOrder).toBeLessThan(deleteOrder);
-  });
-
-  it('bulkPermanentDelete deletes initial_stock movement before hard-deleting each product', async () => {
-    const { service, stockMovementRepo, productRepo } = await buildModule();
-
-    await service.bulkPermanentDelete(['product-id'], 'user-1', 'admin');
-
-    expect(stockMovementRepo.delete).toHaveBeenCalledWith({
-      productId: 'product-id',
-      movementType: StockMovementType.INITIAL_STOCK,
-    });
-    const cleanupOrder = stockMovementRepo.delete.mock.invocationCallOrder[0];
-    const deleteOrder = productRepo.delete.mock.invocationCallOrder[0];
-    expect(cleanupOrder).toBeLessThan(deleteOrder);
+    expect(stockMovementRepo.delete).not.toHaveBeenCalled();
+    expect(purchaseCostHistoryRepo.count).toHaveBeenCalledWith({ where: { productId: 'product-id' } });
+    expect(productRepo.delete).toHaveBeenCalledWith('product-id');
   });
 });
 
