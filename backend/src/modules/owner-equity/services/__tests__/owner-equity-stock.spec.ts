@@ -70,7 +70,6 @@ describe('OwnerEquityStockService', () => {
     };
     movementMock = {
       create: (jest.fn as unknown as any)().mockResolvedValue({ id: 'mv-1' }),
-      reverseMovement: (jest.fn as unknown as any)().mockResolvedValue({}),
     };
     postingMock = {
       postOwnerStockDrawing: (jest.fn as unknown as any)()
@@ -254,7 +253,6 @@ describe('OwnerEquityStockService', () => {
         completedBy: 'alice',
       });
       await stock.uncomplete(completedRef);
-      expect(movementMock.reverseMovement).not.toHaveBeenCalled();
       expect(movementMock.create).toHaveBeenCalledWith(
         expect.objectContaining({ movementType: 'owner_drawing_reversal', quantity: 2 }),
         undefined, expect.anything(),

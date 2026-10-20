@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -17,6 +17,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
+import { RETURN_TO_READY_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
 import { SettingsService } from '../../settings/settings.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 
@@ -26,8 +27,8 @@ describe('PurchaseOrderLifecycleService', () => {
   let vpRepository: any;
   let auditLogService: any;
   let dataSource: { transaction: any };
-  let stockMovementService: { deleteByReference: any; create: any };
-  let baseCostCalculator: { addStock: any; removeStock: any; allocateShippingByValue: any };
+  let stockMovementService: { create: any };
+  let baseCostCalculator: { addStock: any; allocateShippingByValue: any };
   let accountingPort: any;
   let settingsService: { getRegionalSettings: any };
   let appTimezone: string;
@@ -90,12 +91,10 @@ describe('PurchaseOrderLifecycleService', () => {
     } as unknown as any;
 
     stockMovementService = {
-      deleteByReference: (jest.fn as unknown as any)().mockResolvedValue({ deletedCount: 0 }),
       create: (jest.fn as unknown as any)().mockResolvedValue({}),
     };
     baseCostCalculator = {
       addStock: (jest.fn as unknown as any)().mockResolvedValue({ landedCost: 5, receivedQuantity: 10 }),
-      removeStock: (jest.fn as unknown as any)(),
       allocateShippingByValue: (jest.fn as unknown as any)().mockReturnValue([0n]),
     };
     accountingPort = {
@@ -193,10 +192,10 @@ describe('PurchaseOrderLifecycleService', () => {
       ).not.toThrow();
     });
 
-    it('throws "Return the goods first." for RECEIVED', () => {
+    it('throws "Received orders cannot be edited." for RECEIVED', () => {
       expect(() =>
         PurchaseOrderLifecycleService.assertStatusEditable(PurchaseOrderStatus.RECEIVED),
-      ).toThrow('Return the goods first.');
+      ).toThrow('Received orders cannot be edited.');
     });
 
     it('throws "Uncancel the order first." for CANCELLED', () => {
@@ -275,19 +274,7 @@ describe('PurchaseOrderLifecycleService', () => {
         expect((receiveDate as Date).toISOString()).toBe('2026-08-24T16:30:00.000Z');
       });
 
-      it.each([
-        ['Asia/Kuala_Lumpur', '2026-08-25'],
-        ['UTC', '2026-08-24'],
-      ])('return dates the reversal in %s as %s', async (timezone, expected) => {
-        appTimezone = timezone;
-        wireOrder(PurchaseOrderStatus.RECEIVED);
 
-        await service.return('po-1', 'user-1', 'admin');
-
-        const [, , , entryDate] =
-          accountingPort.reverseEntriesForDocument.mock.calls[0];
-        expect(entryDate).toBe(expected);
-      });
     });
 
     it('receive posts stock + cost + GL and sets RECEIVED', async () => {
@@ -426,72 +413,12 @@ describe('PurchaseOrderLifecycleService', () => {
       );
     });
 
-    it('return reverses stock + cost + GL and sets READY', async () => {
-      const receivedOrder = {
-        ...mockOrder,
-        status: PurchaseOrderStatus.RECEIVED,
-        receivedDate: new Date('2026-06-01'),
-        items: [
-          {
-            id: 'po-item-1',
-            productId: 'product-1',
-            quantity: 10,
-            unitCost: 5,
-            receivedQuantity: 10,
-            product: { id: 'product-1' },
-          },
-        ],
-      } as any;
-
-      const poRepo = {
-        findOne: (jest.fn as unknown as any)()
-          .mockResolvedValueOnce(receivedOrder)
-          .mockResolvedValueOnce(receivedOrder),
-        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
-      } as any;
-      const itemRepo = {
-        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
-      } as any;
-      dataSource.transaction.mockImplementation(async (cb: any) =>
-        cb({
-          getRepository: (entity: any) => {
-            if (entity === PurchaseOrder) return poRepo;
-            if (entity === PurchaseOrderItem) return itemRepo;
-            return {};
-          },
-        }),
-      );
-
-      const result = await service.return('po-1', 'user-1', 'admin');
-
-      expect(baseCostCalculator.removeStock).toHaveBeenCalledWith(
-        'product-1',
-        'po-1',
-        expect.anything(),
-      );
-      expect(accountingPort.reverseEntriesForDocument).toHaveBeenCalledWith(
-        'PURCHASE_ORDER',
-        'po-1',
-        ['PURCHASE_RECEIVE'],
-        expect.any(String),
-        expect.anything(),
-        'admin',
-      );
-      expect(stockMovementService.deleteByReference).toHaveBeenCalledWith(
-        'purchase_order',
-        'po-1',
-        expect.anything(),
-      );
-      expect(result.status).toBe(PurchaseOrderStatus.READY);
-
-      expect(poRepo.update).toHaveBeenCalledWith(
-        'po-1',
-        expect.objectContaining({
-          status: PurchaseOrderStatus.READY,
-          receivedDate: null,
-        }),
-      );
-      expect(result.receivedDate).toBeNull();
+    it('return refuses with RETURN_TO_READY_UNAVAILABLE and touches nothing', async () => {
+      await expect(service.return('po-1', 'u1', 'alice'))
+        .rejects.toThrow(new ConflictException(RETURN_TO_READY_UNAVAILABLE));
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(accountingPort.reverseEntriesForDocument).not.toHaveBeenCalled();
+      expect(auditLogService.log).not.toHaveBeenCalled();
     });
   });
 

@@ -17,6 +17,7 @@ import { DiscountType, SalesOrderItem } from '../src/database/entities/sales-ord
 import { CustomerService } from '../src/modules/sales/services/customer.service';
 import { recalculateCustomerMetrics } from '../src/modules/sales/services/customer-metrics';
 import { SalesOrderFulfillmentService } from '../src/modules/sales/services/sales-order-fulfillment.service';
+import { UNFULFILL_UNAVAILABLE } from '../src/modules/inventory/stock-undo-unavailable';
 import { SalesOrderPaymentService } from '../src/modules/sales/services/sales-order-payment.service';
 import {
   seedCategory,
@@ -367,7 +368,7 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
   });
 
   describe('metrics follow fulfil and unfulfil', () => {
-    it('fulfil adds the order; unfulfil removes it; the last unfulfil resets', async () => {
+    it('fulfil adds the order; unfulfil is refused and leaves the metrics', async () => {
       const customer = await seedCustomer('lifecycle');
       const early = await seedReadyOrder(customer.id, '2026-01-05', 1); // 100
       const late = await seedReadyOrder(customer.id, '2026-03-10', 2); // 200
@@ -396,20 +397,12 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
         last: '2026-03-10',
       });
 
-      await fulfillment.unfulfillOrder(late.id);
+      await expect(fulfillment.unfulfillOrder(late.id)).rejects.toThrow(UNFULFILL_UNAVAILABLE);
       expect(await storedMetrics(customer.id)).toEqual({
-        totalOrders: 1,
-        totalSales: '100.0000',
+        totalOrders: 2,
+        totalSales: '300.0000',
         first: '2026-01-05',
-        last: '2026-01-05',
-      });
-
-      await fulfillment.unfulfillOrder(early.id);
-      expect(await storedMetrics(customer.id)).toEqual({
-        totalOrders: 0,
-        totalSales: '0.0000',
-        first: null,
-        last: null,
+        last: '2026-03-10',
       });
     });
 
@@ -535,6 +528,44 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
     });
   });
 
+  /** Everything a fulfil or unfulfil writes, read back from the tables. */
+  async function effects(orderId: string, customerId: string) {
+    const [o] = await ds.query(
+      `SELECT status, "fulfilledAt" IS NOT NULL AS "hasFulfilledAt" FROM sales_orders WHERE id = $1`,
+      [orderId],
+    );
+    const [p] = await ds.query(`SELECT "stockQuantity" FROM products WHERE id = $1`, [
+      product.id,
+    ]);
+    const [m] = await ds.query(
+      `SELECT count(*)::int AS n FROM stock_movements
+        WHERE "referenceType" = 'sales_order' AND "referenceId" = $1`,
+      [orderId],
+    );
+    const journals: { id: string }[] = await ds.query(
+      `SELECT id FROM journal_entry WHERE "sourceDocumentId" = $1 ORDER BY id`,
+      [orderId],
+    );
+    const [a] = await ds.query(
+      `SELECT count(*)::int AS n FROM audit_logs WHERE "entityId" = $1`,
+      [orderId],
+    );
+    const [b] = await ds.query(
+      `SELECT COALESCE(sum("remainingQuantity"),0)::text AS r FROM purchase_cost_history WHERE "productId" = $1`,
+      [product.id],
+    );
+    return {
+      status: o.status,
+      hasFulfilledAt: o.hasFulfilledAt,
+      stock: Number(p.stockQuantity),
+      stockMovements: m.n,
+      journalIds: journals.map((j) => j.id),
+      auditRows: a.n,
+      metrics: await storedMetrics(customerId),
+      batchRemaining: b.r,
+    };
+  }
+
   describe('a failed metrics write rolls the whole transition back', () => {
     // A trigger that refuses any write to the four metric columns of ONE
     // customer: the failure happens in the metrics UPDATE itself, after the
@@ -556,39 +587,6 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
     async function allowMetrics(): Promise<void> {
       await ds.query(`DROP TRIGGER IF EXISTS ${fn} ON customers`);
       await ds.query(`DROP FUNCTION IF EXISTS ${fn}()`);
-    }
-
-    /** Everything a fulfil or unfulfil writes, read back from the tables. */
-    async function effects(orderId: string, customerId: string) {
-      const [o] = await ds.query(
-        `SELECT status, "fulfilledAt" IS NOT NULL AS "hasFulfilledAt" FROM sales_orders WHERE id = $1`,
-        [orderId],
-      );
-      const [p] = await ds.query(`SELECT "stockQuantity" FROM products WHERE id = $1`, [
-        product.id,
-      ]);
-      const [m] = await ds.query(
-        `SELECT count(*)::int AS n FROM stock_movements
-          WHERE "referenceType" = 'sales_order' AND "referenceId" = $1`,
-        [orderId],
-      );
-      const journals: { id: string }[] = await ds.query(
-        `SELECT id FROM journal_entry WHERE "sourceDocumentId" = $1 ORDER BY id`,
-        [orderId],
-      );
-      const [a] = await ds.query(
-        `SELECT count(*)::int AS n FROM audit_logs WHERE "entityId" = $1`,
-        [orderId],
-      );
-      return {
-        status: o.status,
-        hasFulfilledAt: o.hasFulfilledAt,
-        stock: Number(p.stockQuantity),
-        stockMovements: m.n,
-        journalIds: journals.map((j) => j.id),
-        auditRows: a.n,
-        metrics: await storedMetrics(customerId),
-      };
     }
 
     afterEach(allowMetrics);
@@ -616,11 +614,21 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
       expect(after.journalIds.length).toBeGreaterThan(before.journalIds.length);
       expect(after.metrics.totalOrders).toBe(1);
     });
+  });
 
-    it('unfulfil: status, stock, postings and metrics are all as they were', async () => {
-      const customer = await seedCustomer('refused-unfulfil');
+  describe('unfulfil is unavailable (#1405)', () => {
+    const MESSAGE =
+      "Unfulfill is unavailable: it would erase this order's stock and cost history. It will return once stock reversals keep that history.";
+
+    async function fulfilledOrder(tag: string) {
+      const customer = await seedCustomer(tag);
       const order = await seedReadyOrder(customer.id, '2026-01-05', 5);
       await fulfillment.fulfillOrder(order.id);
+      return { customer, order };
+    }
+
+    it('the service refuses and changes nothing', async () => {
+      const { customer, order } = await fulfilledOrder('refused-unfulfil');
       const before = await effects(order.id, customer.id);
       expect(before.status).toBe(SalesOrderStatus.FULFILLED);
       expect(before.hasFulfilledAt).toBe(true);
@@ -631,19 +639,19 @@ describe('Fulfilled-status queries and customer metrics (#1355, e2e)', () => {
         last: '2026-01-05',
       });
 
-      await refuseMetricsFor(customer.id);
-      await expect(fulfillment.unfulfillOrder(order.id)).rejects.toThrow(REFUSED);
-      await allowMetrics();
+      await expect(fulfillment.unfulfillOrder(order.id)).rejects.toThrow(UNFULFILL_UNAVAILABLE);
 
       expect(await effects(order.id, customer.id)).toEqual(before);
+    });
 
-      await fulfillment.unfulfillOrder(order.id);
-      const after = await effects(order.id, customer.id);
-      expect(after.status).toBe(SalesOrderStatus.READY);
-      expect(after.stock).toBe(before.stock + 5);
-      expect(after.stockMovements).toBe(0);
-      expect(after.journalIds.length).toBeGreaterThan(before.journalIds.length);
-      expect(after.metrics.totalOrders).toBe(0);
+    it('POST /sales-orders/:id/unfulfill answers 409 with the explanation and changes nothing', async () => {
+      const { customer, order } = await fulfilledOrder('http-unfulfil');
+      const before = await effects(order.id, customer.id);
+
+      const res = await post(`/sales-orders/${order.id}/unfulfill`).expect(409);
+
+      expect(res.body.message).toBe(MESSAGE);
+      expect(await effects(order.id, customer.id)).toEqual(before);
     });
   });
 });

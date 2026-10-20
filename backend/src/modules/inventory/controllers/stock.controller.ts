@@ -99,23 +99,6 @@ export class StockController {
     return this.stockMovementService.findOne(id);
   }
 
-  @Post('movements/:id/reverse')
-  @ApiOperation({ summary: 'Reverse a stock movement' })
-  @ApiResponse({
-    status: 201,
-    description: 'Stock movement reversed successfully',
-    type: StockMovementResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Movement cannot be reversed' })
-  @ApiResponse({ status: 404, description: 'Stock movement not found' })
-  @ApiParam({ name: 'id', description: 'Stock movement ID' })
-  async reverseMovement(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { reason: string },
-  ): Promise<StockMovementResponseDto> {
-    return this.stockMovementService.reverseMovement(id, body.reason);
-  }
-
   // Stock Summary and Reports
   @Get('summary/:productId')
   @ApiOperation({ summary: 'Get stock summary for a product' })

@@ -71,35 +71,6 @@ describe('BaseCostCalculatorService', () => {
     expect(result).toEqual({ landedCost: 6, receivedQuantity: 10 });
   });
 
-  it('removes stock batches through the supplied manager using purchaseOrderId', async () => {
-    jest.spyOn(service as any, 'updateProductBaseCost').mockResolvedValue(undefined);
-    const find = (jest.fn as unknown as any)().mockResolvedValue([
-      {
-        id: 'batch-1',
-        productId: 'product-1',
-        purchaseOrderId: 'po-1',
-        receivedQuantity: 10,
-        remainingQuantity: 10,
-        landedCost: 6,
-      },
-    ]);
-    const deleteFn = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 });
-    const manager = { getRepository: (jest.fn as unknown as any)().mockReturnValue({ find, delete: deleteFn, update: (jest.fn as unknown as any)() }) } as any;
-
-    await service.removeStock('product-1', 'po-1', manager);
-
-    expect(manager.getRepository).toHaveBeenCalled();
-    expect(find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          productId: 'product-1',
-          purchaseOrderId: 'po-1',
-        },
-      }),
-    );
-    expect(deleteFn).toHaveBeenCalled();
-  });
-
   describe('landed-cost allocation (#1241)', () => {
     it('conserves the PO shipping total across items that do not divide evenly', () => {
       // RM10 shipping across 3 equally-valued items

@@ -170,7 +170,6 @@ describe('PurchaseOrderService', () => {
           provide: StockMovementService,
           useValue: {
             create: (jest.fn as unknown as any)(),
-            deleteByReference: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -232,7 +231,6 @@ describe('PurchaseOrderService', () => {
     purchaseOrderRepository.save.mockResolvedValue(mockPurchaseOrder);
     productRepository.findOne.mockResolvedValue({ id: 'product-1' } as Product);
     stockMovementService.create.mockResolvedValue({} as any);
-    stockMovementService.deleteByReference.mockResolvedValue({ deletedCount: 1 } as any);
     purchaseOrderItemRepository.save.mockResolvedValue({} as any);
   });
 
@@ -410,7 +408,7 @@ describe('PurchaseOrderService', () => {
 
       await expect(
         service.update('po-1', { shippingAmount: 10 } as any),
-      ).rejects.toThrow('Return the goods first.');
+      ).rejects.toThrow('Received orders cannot be edited.');
     });
 
     it('recomputes totals and reconciles on a shipping-only update (no items)', async () => {
@@ -1316,6 +1314,18 @@ describe('PurchaseOrderService', () => {
           metadata: { sweptReversalEntryIds: ['rev-orphan'] },
         }),
       );
+    });
+
+    it('unpay of a RECEIVED order is refused with the received-goods message and voids nothing', async () => {
+      wireTx({ lockedPO: { ...lockedPO, status: PurchaseOrderStatus.RECEIVED } });
+
+      await expect(service.markAsUnpaid('po-1', 'user-1', 'admin')).rejects.toThrow(
+        new BadRequestException('Cannot unpay a purchase order with received goods.'),
+      );
+
+      expect(vendorPaymentService.voidForUnpay).not.toHaveBeenCalled();
+      expect(accountingPort.reverseEntryForEvent).not.toHaveBeenCalled();
+      expect(auditLogService.logInTransaction).not.toHaveBeenCalled();
     });
 
     it('unpay without a user id is rejected', async () => {

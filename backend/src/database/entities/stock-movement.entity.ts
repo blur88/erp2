@@ -228,49 +228,6 @@ export class StockMovement extends BaseEntity {
     }
   }
 
-  // Helper methods
-  reverse(reason: string): StockMovement {
-    const reversal = new StockMovement();
-    reversal.movementType = this.getReversalType();
-    reversal.movementDate = new Date();
-    reversal.quantity = -Number(this.quantity);
-    reversal.previousBalance = Number(this.newBalance);
-    reversal.newBalance = Number(this.previousBalance);
-    reversal.unitValue = this.unitValue;
-    reversal.totalValue = this.totalValue;
-    reversal.reason = `Reversal of movement ${this.id}: ${reason}`;
-    reversal.referenceType = 'stock_movement_reversal';
-    reversal.referenceId = this.id;
-    reversal.productId = this.productId;
-
-    return reversal;
-  }
-
-  private getReversalType(): StockMovementType {
-    const reversalMap: Record<StockMovementType, StockMovementType> = {
-      [StockMovementType.PURCHASE_RECEIPT]: StockMovementType.PURCHASE_RETURN,
-      [StockMovementType.SALES_RETURN]: StockMovementType.SALE,
-      [StockMovementType.SALE_REVERSAL]: StockMovementType.SALE,
-      [StockMovementType.PRODUCTION_RECEIPT]: StockMovementType.PRODUCTION_CONSUMPTION,
-      [StockMovementType.TRANSFER_IN]: StockMovementType.TRANSFER_OUT,
-      [StockMovementType.ADJUSTMENT_INCREASE]: StockMovementType.ADJUSTMENT_DECREASE,
-      [StockMovementType.INITIAL_STOCK]: StockMovementType.ADJUSTMENT_DECREASE,
-      [StockMovementType.SALE]: StockMovementType.SALES_RETURN,
-      [StockMovementType.PURCHASE_RETURN]: StockMovementType.PURCHASE_RECEIPT,
-      [StockMovementType.PRODUCTION_CONSUMPTION]: StockMovementType.PRODUCTION_RECEIPT,
-      [StockMovementType.TRANSFER_OUT]: StockMovementType.TRANSFER_IN,
-      [StockMovementType.ADJUSTMENT_DECREASE]: StockMovementType.ADJUSTMENT_INCREASE,
-      [StockMovementType.DAMAGE]: StockMovementType.ADJUSTMENT_INCREASE,
-      [StockMovementType.EXPIRY]: StockMovementType.ADJUSTMENT_INCREASE,
-      [StockMovementType.THEFT]: StockMovementType.ADJUSTMENT_INCREASE,
-      [StockMovementType.LOSS]: StockMovementType.ADJUSTMENT_INCREASE,
-      [StockMovementType.OWNER_DRAWING]: StockMovementType.OWNER_DRAWING_REVERSAL,
-      [StockMovementType.OWNER_DRAWING_REVERSAL]: StockMovementType.OWNER_DRAWING,
-    };
-
-    return reversalMap[this.movementType] || StockMovementType.ADJUSTMENT_INCREASE;
-  }
-
   // Static factory methods
   static createSaleMovement(
     productId: string,

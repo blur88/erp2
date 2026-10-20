@@ -1,4 +1,6 @@
-import { Box, Button } from '@mui/material'
+import { Box } from '@mui/material'
+
+import ActionBarButton from '@/components/common/ActionBarButton'
 
 import type { SalesOrder } from '@/types'
 
@@ -8,7 +10,6 @@ interface OrderActionBarProps {
   order: SalesOrder
   onPay: () => void
   onFulfill: () => void
-  onUnfulfill: () => void
   onRefund: () => void
   onEdit: () => void
   onCancel: () => void
@@ -21,7 +22,6 @@ export default function OrderActionBar({
   order,
   onPay,
   onFulfill,
-  onUnfulfill,
   onRefund,
   onEdit,
   onCancel,
@@ -34,7 +34,6 @@ export default function OrderActionBar({
   const handlers: Record<string, () => void> = {
     pay: onPay,
     fulfill: onFulfill,
-    unfulfill: onUnfulfill,
     refund: onRefund,
     edit: onEdit,
     cancel: onCancel,
@@ -70,16 +69,14 @@ export default function OrderActionBar({
   return (
     <Box sx={{ display: 'flex', gap: 1, px: 3, pb: 1.5, flexWrap: 'wrap' }}>
       {metas.map(({ action, disabled, tooltip }) => (
-        <Button
+        <ActionBarButton
           key={action}
+          label={labels[action]}
           variant={variants[action]}
-          size="small"
           onClick={handlers[action]}
           disabled={disabled}
-          title={tooltip}
-        >
-          {labels[action]}
-        </Button>
+          tooltip={tooltip}
+        />
       ))}
     </Box>
   )

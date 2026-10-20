@@ -356,6 +356,59 @@ describe("Purchasing (e2e)", () => {
       expect(body.status).toBe("RECEIVED");
     });
 
+    it("POST /purchasing/orders/:id/return — refused (409) and changes nothing", async () => {
+      async function snapshot() {
+        const [po] = await dataSource.query(
+          `SELECT status, "receivedDate"::text AS "receivedDate" FROM purchase_orders WHERE id = $1`,
+          [purchaseOrderId],
+        );
+        const [p] = await dataSource.query(
+          `SELECT "stockQuantity" FROM products WHERE id = $1`,
+          [productId],
+        );
+        const [m] = await dataSource.query(
+          `SELECT count(*)::int AS n FROM stock_movements WHERE "referenceType" = 'purchase_order' AND "referenceId" = $1`,
+          [purchaseOrderId],
+        );
+        const [c] = await dataSource.query(
+          `SELECT count(*)::int AS n, COALESCE(sum("remainingQuantity"),0)::text AS r FROM purchase_cost_history WHERE "purchaseOrderId" = $1`,
+          [purchaseOrderId],
+        );
+        const journals: { id: string }[] = await dataSource.query(
+          `SELECT id FROM journal_entry WHERE "sourceDocumentId" = $1 ORDER BY id`,
+          [purchaseOrderId],
+        );
+        const [a] = await dataSource.query(
+          `SELECT count(*)::int AS n FROM audit_logs WHERE "entityId" = $1`,
+          [purchaseOrderId],
+        );
+        return {
+          status: po.status,
+          receivedDate: po.receivedDate,
+          stock: Number(p.stockQuantity),
+          stockMovements: m.n,
+          costHistoryCount: c.n,
+          costHistoryRemaining: c.r,
+          journalIds: journals.map((row) => row.id),
+          auditRows: a.n,
+        };
+      }
+
+      const before = await snapshot();
+      const res = await request(app.getHttpServer())
+        .post(`/purchasing/orders/${purchaseOrderId}/return`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(409);
+      expect(res.body.message).toBe(
+        "Returning a received purchase order to Ready is unavailable: it would erase its stock and cost history. It will return once stock reversals keep that history.",
+      );
+      const after = await snapshot();
+      expect(after).toEqual(before);
+      expect(after.status).toBe("RECEIVED");
+      expect(after.receivedDate).not.toBeNull();
+      expect(after.journalIds.length).toBeGreaterThan(0);
+    });
+
     it("GET /inventory/products/:id — stock increased after receiving goods", async () => {
       const res = await request(app.getHttpServer())
         .get(`/inventory/products/${productId}`)

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -26,7 +26,6 @@ function renderBar(order: SalesOrder, handlers = {}) {
   const defaults = {
     onPay: vi.fn(),
     onFulfill: vi.fn(),
-    onUnfulfill: vi.fn(),
     onRefund: vi.fn(),
     onEdit: vi.fn(),
     onCancel: vi.fn(),
@@ -123,13 +122,6 @@ describe('OrderActionBar', () => {
     expect(onFulfill).toHaveBeenCalledTimes(1)
   })
 
-  it('calls onUnfulfill when Unfulfill is clicked', async () => {
-    const onUnfulfill = vi.fn()
-    renderBar(makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' }), { onUnfulfill })
-    await userEvent.click(screen.getByRole('button', { name: 'Unfulfill' }))
-    expect(onUnfulfill).toHaveBeenCalledTimes(1)
-  })
-
   it('calls onRefund when Refund is clicked', async () => {
     const onRefund = vi.fn()
     renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'PAID' }), { onRefund })
@@ -170,5 +162,15 @@ describe('OrderActionBar', () => {
     renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'UNPAID' }), { onDuplicate })
     await userEvent.click(screen.getByRole('button', { name: 'Duplicate' }))
     expect(onDuplicate).toHaveBeenCalledTimes(1)
+  })
+
+  it('Fulfilled: Unfulfill is disabled, explains why to mouse and screen-reader users, and calls nothing', () => {
+    const { handlers } = renderBar(makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' }))
+    const unfulfill = screen.getByRole('button', { name: 'Unfulfill' })
+    expect(unfulfill).toBeDisabled()
+    expect(unfulfill).toHaveAccessibleDescription("Unfulfill is unavailable: it would erase this order's stock and cost history. It will return once stock reversals keep that history.")
+    expect(unfulfill.closest('span[title]')).toHaveAttribute('title', "Unfulfill is unavailable: it would erase this order's stock and cost history. It will return once stock reversals keep that history.")
+    fireEvent.click(unfulfill)
+    for (const handler of Object.values(handlers)) expect(handler).not.toHaveBeenCalled()
   })
 })

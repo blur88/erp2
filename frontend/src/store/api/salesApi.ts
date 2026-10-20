@@ -224,13 +224,6 @@ export const salesApiSlice = createApi({
       invalidatesTags: ['SalesOrder'],
       onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
-    unfulfillSalesOrder: builder.mutation<SalesOrder, string>({
-      query: (id) => ({ url: `/sales-orders/${id}/unfulfill`, method: 'POST' }),
-      transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
-      invalidatesTags: ['SalesOrder'],
-      onQueryStarted: invalidateAccountingReportsOnSuccess,
-    }),
-
     getPayments: builder.query<PaginatedResponse<Payment>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/payments', params: params ?? {} }),
       transformResponse: (response: any) => normalizeNamedCollection<Payment>(response, 'payments'),
@@ -266,6 +259,5 @@ export const {
   useRecordOrderRefundsMutation,
   useUnpaySalesOrderMutation,
   useFulfillSalesOrderMutation,
-  useUnfulfillSalesOrderMutation,
   useGetPaymentsQuery,
 } = salesApiSlice;

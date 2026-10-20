@@ -1,14 +1,13 @@
-import { ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
 import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
-import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { AuditLogService } from '../../audit-logs/services';
-import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
+import { UNFULFILL_UNAVAILABLE } from '../../inventory/stock-undo-unavailable';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { recalculateCustomerMetrics } from './customer-metrics';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
@@ -19,14 +18,10 @@ import { formatMoney, quantizeToCents, toMinorUnits } from '@/common/utils/money
 
 @Injectable()
 export class SalesOrderFulfillmentService {
-  private readonly logger = new Logger(SalesOrderFulfillmentService.name);
-
   constructor(
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
     private readonly inventoryIntegrationService: InventoryIntegrationService,
-    private readonly stockMovementService: StockMovementService,
-    private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly auditLogService: AuditLogService,
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly accounting: AccountingPostingPort,
@@ -155,67 +150,7 @@ export class SalesOrderFulfillmentService {
   }
 
   async unfulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
-    const timezone = await resolveAppTimezone(this.settingsService);
-    const unfulfillInstant = new Date();
-
-    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await lockRowForUpdate(manager, SalesOrder, id, {
-        relations: { items: { product: true } },
-        notFoundMessage: 'Sales order not found',
-      });
-      if (order.status !== SalesOrderStatus.FULFILLED) {
-        throw new ConflictException('Order is not fulfilled');
-      }
-
-      for (const item of order.items) {
-        if (item.product) {
-          await this.baseCostCalculator.restoreStock(item.productId, item.quantity, manager);
-        }
-      }
-
-      const result = await this.stockMovementService.deleteByReference(
-        'sales_order',
-        order.id,
-        manager,
-      );
-      this.logger.log(`Deleted ${result.deletedCount} stock movements for ${order.orderNumber}`);
-
-      await manager.getRepository(SalesOrder).update(id, {
-        status: SalesOrderStatus.READY,
-        fulfilledAt: null as any,
-      });
-      order.status = SalesOrderStatus.READY;
-      order.fulfilledAt = undefined;
-
-      const entryDate = formatDateInTimezone(unfulfillInstant, timezone);
-      await this.accounting.reverseEntriesForDocument(
-        AccountingSourceType.SALES_ORDER,
-        order.id,
-        [PostingType.SALES_FULFILLMENT_REVENUE, PostingType.SALES_FULFILLMENT_COGS],
-        entryDate,
-        manager,
-        username,
-      );
-
-      await this.recalculateMetrics(manager, order);
-
-      return order;
-    });
-
-    await this.auditLogService.log(
-      'UPDATE',
-      'SalesOrder',
-      `Unfulfilled sales order: ${saved.orderNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: { status: SalesOrderStatus.FULFILLED },
-        newValues: { status: SalesOrderStatus.READY },
-      },
-    );
-
-    return saved;
+    throw new ConflictException(UNFULFILL_UNAVAILABLE);
   }
 
   /**
