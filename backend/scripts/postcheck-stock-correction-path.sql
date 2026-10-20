@@ -204,4 +204,44 @@ SELECT CASE
         gap_quantity_mismatch_count
 FROM totals;
 
+WITH gap_exposure AS (
+  SELECT p.id AS product_id,
+         p.name AS product_name,
+         count(DISTINCT o.id)::bigint AS fulfillment_occurrences,
+         count(DISTINCT m.id)::bigint AS sale_movements,
+         sum(g.quantity)::numeric AS uncovered_quantity
+  FROM stock_movement_valuation_gaps g
+  JOIN stock_movements m ON m.id = g."movementId"
+  JOIN stock_occurrences o ON o.id = m."occurrenceId"
+  JOIN products p ON p.id = m."productId"
+  GROUP BY p.id, p.name
+), gap_summary AS (
+  SELECT count(DISTINCT o.id)::bigint AS fulfillment_occurrences,
+         count(DISTINCT m.id)::bigint AS sale_movements,
+         COALESCE(sum(g.quantity), 0)::numeric AS uncovered_quantity
+  FROM stock_movement_valuation_gaps g
+  JOIN stock_movements m ON m.id = g."movementId"
+  JOIN stock_occurrences o ON o.id = m."occurrenceId"
+)
+SELECT 'valuation_gap_exposure' AS section,
+       'summary'::text AS record_type,
+       NULL::uuid AS product_id,
+       NULL::text AS product_name,
+       gap_summary.fulfillment_occurrences,
+       gap_summary.sale_movements,
+       gap_summary.uncovered_quantity,
+       'unvalued, recorded zero posted value is not known zero cost'::text AS valuation_status
+FROM gap_summary
+UNION ALL
+SELECT 'valuation_gap_exposure',
+       'product',
+       product_id,
+       product_name,
+       fulfillment_occurrences,
+       sale_movements,
+       uncovered_quantity,
+       'unvalued, recorded zero posted value is not known zero cost'::text
+FROM gap_exposure
+ORDER BY record_type, product_name, product_id;
+
 ROLLBACK;

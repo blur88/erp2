@@ -1,7 +1,7 @@
 -- Isolated temporary catalog/data fixture for the postcheck script test.
 -- The postcheck runs in the same psql session, so these tables shadow any
 -- application tables and disappear automatically when the connection closes.
-CREATE TEMP TABLE products (id uuid PRIMARY KEY);
+CREATE TEMP TABLE products (id uuid PRIMARY KEY, name text NOT NULL);
 CREATE TEMP TABLE purchase_order_items (id uuid PRIMARY KEY);
 CREATE TEMP TABLE journal_entry (id uuid PRIMARY KEY);
 CREATE TEMP TABLE stock_occurrences (
@@ -113,7 +113,7 @@ CREATE UNIQUE INDEX "UQ_purchase_cost_history_occurrence_item"
   ON purchase_cost_history ("occurrenceId", "purchaseOrderItemId")
   WHERE "occurrenceId" IS NOT NULL AND "purchaseOrderItemId" IS NOT NULL;
 
-INSERT INTO products VALUES ('00000000-0000-4000-8000-000000000001');
+INSERT INTO products VALUES ('00000000-0000-4000-8000-000000000001', 'Gap exposure product');
 INSERT INTO purchase_order_items VALUES ('00000000-0000-4000-8000-000000000008');
 INSERT INTO stock_occurrences
   (id, kind, "reversesOccurrenceId", "documentType", "documentId", "isLegacy", "legacyJournalEntryId", "hasValuationGap", reason)

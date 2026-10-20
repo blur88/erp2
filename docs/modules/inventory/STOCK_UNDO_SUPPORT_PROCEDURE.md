@@ -85,10 +85,14 @@ does not change the order's status or reverse its accounting.
 Before release, run `backend/scripts/preflight-stock-correction-path.sql` on the
 target database and retain its complete output with the deployment record. The
 preflight reports order counts, legacy receipt-shape failures, stock-balance
-mismatches, earliest journal/audit timestamps, unmatched correction
-audit/reversal records, and products carrying batches or stock history. It is
-read-only. Its timestamps and lack of findings are not independent evidence of
-completeness.
+mismatches, earliest journal/audit timestamps, unmatched correction audit and
+reversal records, products carrying batches or stock history, and stock not
+covered by current cost batches. Before the #1406 migration, its valuation-gap
+section explicitly reports that no gaps can yet be recorded. This pre-deploy
+batch-coverage result is the meaningful interim exposure figure; review
+persisted valuation-gap records in the post-deploy postcheck. Both scripts are
+read-only. Their timestamps and lack of findings are not independent evidence
+of completeness.
 
 Keep `STOCK_EVIDENCE_HORIZON` unset unless evidence outside these stock tables
 supports complete history from a specific instant. Any proposed value requires
@@ -97,6 +101,8 @@ and the independent evidence relied on. Without that approval, pre-deploy
 receipts remain refused.
 
 After deploying #1405 and #1406 together, run
-`backend/scripts/postcheck-stock-correction-path.sql`. Any `FAIL` is a
-stop-and-investigate result. Use the procedure above for correction requests;
-do not interpret a passing postcheck as approval to set the evidence horizon.
+`backend/scripts/postcheck-stock-correction-path.sql`. Review its recorded
+valuation-gap exposure by product and in total, as well as the schema/integrity
+result. Any `FAIL` is a stop-and-investigate result. Use the procedure above for
+correction requests; do not interpret a passing postcheck as approval to set the
+evidence horizon.

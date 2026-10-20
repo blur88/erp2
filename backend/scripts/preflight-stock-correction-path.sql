@@ -10,9 +10,11 @@
 -- Result sets (each has a `section` label): order counts; received PO rows whose
 -- legacy receipt shape does not match; products whose movement sum differs from
 -- stockQuantity; horizon context and unmatched correction audit/reversal rows;
--- products carrying batches or other stock history; and product quantities that
+-- products carrying batches or other stock history; product quantities that
 -- exceed current cost-batch coverage (ordinary fulfillment remains enabled for
--- these rows during the interim valuation-gap release).
+-- these rows during the interim valuation-gap release); and recorded valuation
+-- gaps when the #1406 migration has been applied. Before that migration, no gap
+-- records can exist and the last section reports that fact.
 
 BEGIN READ ONLY;
 
@@ -277,19 +279,26 @@ LEFT JOIN batch_coverage b ON b.product_id = p.id
 WHERE p."stockQuantity"::numeric > COALESCE(b.batch_quantity, 0)::numeric
 ORDER BY uncovered_quantity DESC, p.name, p.id;
 
-SELECT 'valuation_gap_exposure' AS section,
-       p.id AS product_id,
-       p.name AS product_name,
-       count(DISTINCT o.id)::bigint AS fulfillment_occurrences,
-       count(DISTINCT m.id)::bigint AS sale_movements,
-       sum(g.quantity)::numeric AS uncovered_quantity,
-       'unvalued, recorded zero posted value is not known zero cost'::text AS valuation_status
-FROM stock_movement_valuation_gaps g
-JOIN stock_movements m ON m.id = g."movementId"
-JOIN stock_occurrences o ON o.id = m."occurrenceId"
-JOIN products p ON p.id = m."productId"
-GROUP BY p.id, p.name
-ORDER BY uncovered_quantity DESC, p.name, p.id;
+SELECT CASE
+  WHEN to_regclass('stock_movement_valuation_gaps') IS NULL THEN
+    $$SELECT 'valuation_gap_exposure' AS section,
+             'not migrated yet, no gaps can be recorded before #1406'::text AS status$$
+  ELSE
+    $$SELECT 'valuation_gap_exposure' AS section,
+             p.id AS product_id,
+             p.name AS product_name,
+             count(DISTINCT o.id)::bigint AS fulfillment_occurrences,
+             count(DISTINCT m.id)::bigint AS sale_movements,
+             sum(g.quantity)::numeric AS uncovered_quantity,
+             'unvalued, recorded zero posted value is not known zero cost'::text AS valuation_status
+      FROM stock_movement_valuation_gaps g
+      JOIN stock_movements m ON m.id = g."movementId"
+      JOIN stock_occurrences o ON o.id = m."occurrenceId"
+      JOIN products p ON p.id = m."productId"
+      GROUP BY p.id, p.name
+      ORDER BY uncovered_quantity DESC, p.name, p.id$$
+END AS query
+\gexec
 
 -- IMPORTANT: this context does not prove historical completeness. The dates
 -- above and the absence of detected gaps cannot establish complete history.

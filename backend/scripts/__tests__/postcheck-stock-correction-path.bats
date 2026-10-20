@@ -30,6 +30,9 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"stock-correction postcheck: PASS"* ]]
   [[ "$output" != *"stock-correction postcheck: FAIL"* ]]
+  [[ "$output" == *"valuation_gap_exposure"* ]]
+  [[ "$output" == *"Gap exposure product"* ]]
+  [[ "$output" == *"11.0000"* ]]
 }
 
 @test "postcheck: a batch reversal linked to another receipt fails" {

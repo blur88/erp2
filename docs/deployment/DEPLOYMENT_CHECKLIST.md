@@ -270,7 +270,7 @@ scripts run in `BEGIN READ ONLY … ROLLBACK` and write nothing.
 ### Stock correction path deploy gate (#1405 + #1406)
 
 Deploy #1405 and #1406 together. Before deploying, run the read-only preflight
-against the target database and retain all five labelled result sets in the
+against the target database and retain all seven labelled result sets in the
 deployment record:
 
 ```bash
@@ -281,9 +281,13 @@ docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USE
 The preflight reports fulfilled sales orders and received POs; received POs
 whose legacy receipt shape does not match; products whose movement quantities
 do not reconcile to `stockQuantity`; the earliest journal-entry and audit dates
-plus correction audit/reversal mismatches; and products carrying batches or
-stock history. Review the findings with the release owner and record their
-disposition before proceeding.
+plus correction audit/reversal mismatches; products carrying batches or stock
+history; and products whose current stock exceeds cost-batch coverage. Before
+the #1406 migration, `valuation_gap_exposure` reports that it is not migrated
+yet; no valuation-gap records can exist at that point. For the pre-deploy stock
+exposure review, use `fulfilment_batch_coverage_exposure` (quantity not covered
+by current cost batches). Review the findings with the release owner and record
+their disposition before proceeding.
 
 **The horizon section is context, not proof.** Earliest timestamps and no
 detected gaps cannot establish that history is complete. Leave
@@ -292,7 +296,10 @@ supports complete history from a specific instant. Setting a value requires a
 recorded approval identifying the approver, approval date, exact value, and
 independent evidence relied on. With it unset, pre-deploy receipts stay refused.
 
-After both releases are deployed, run the read-only postcheck:
+After both releases are deployed, run the read-only postcheck. In addition to
+the schema/integrity PASS result, it reports persisted valuation gaps by
+product and in total; review and retain this post-deploy exposure with the
+deployment record:
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \

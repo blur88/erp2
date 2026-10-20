@@ -30,6 +30,19 @@ function preflightStatements(): { raw: string; statements: string[] } {
   return { raw, statements };
 }
 
+async function executePreflightStatement(
+  runner: QueryRunner,
+  statement: string,
+): Promise<Record<string, unknown>[]> {
+  const psqlExec = statement.match(/^(.*)\\gexec\s*$/s);
+  if (!psqlExec) return runner.query(statement);
+
+  const generated = await runner.query(psqlExec[1]);
+  expect(generated).toHaveLength(1);
+  expect(typeof generated[0].query).toBe('string');
+  return runner.query(generated[0].query);
+}
+
 beforeAll(async () => {
   const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
   app = moduleFixture.createNestApplication();
@@ -64,11 +77,70 @@ describe('preflight-stock-correction-path.sql', () => {
       await runner.query('SET TRANSACTION READ ONLY');
       for (const [index, statement] of statements.entries()) {
         expect(statement).toContain(`'${expectedSections[index]}'`);
-        const rows = await runner.query(statement);
+        const rows = await executePreflightStatement(runner, statement);
         if (rows.length > 0) expect(rows[0].section).toBe(expectedSections[index]);
       }
     } finally {
       await runner.rollbackTransaction();
+      await runner.release();
+    }
+  });
+
+  it('runs all seven sections when the valuation-gap migration is absent', async () => {
+    const { statements } = preflightStatements();
+    const runner = ds.createQueryRunner();
+    await runner.connect();
+    try {
+      for (const table of [
+        'sales_orders',
+        'purchase_orders',
+        'purchase_order_items',
+        'stock_movements',
+        'purchase_cost_history',
+        'journal_entry',
+        'journal_entry_line',
+        'products',
+        'audit_logs',
+      ]) {
+        await runner.query(`CREATE TEMP TABLE ${table} AS TABLE public.${table} WITH NO DATA`);
+      }
+
+      await runner.startTransaction();
+      await runner.query('SET TRANSACTION READ ONLY');
+      await runner.query('SET LOCAL search_path TO pg_temp, pg_catalog');
+      let valuationGapRows: Record<string, unknown>[] = [];
+      for (const [index, statement] of statements.entries()) {
+        expect(statement).toContain(`'${[
+          'order_counts',
+          'legacy_receipt_shape',
+          'stock_balance_reconciliation',
+          'history_horizon_context',
+          'product_stock_history',
+          'fulfilment_batch_coverage_exposure',
+          'valuation_gap_exposure',
+        ][index]}'`);
+        const rows = await executePreflightStatement(runner, statement);
+        if (index === 6) valuationGapRows = rows;
+        if (rows.length > 0) expect(rows[0].section).toBeDefined();
+      }
+      expect(valuationGapRows).toEqual([
+        {
+          section: 'valuation_gap_exposure',
+          status: 'not migrated yet, no gaps can be recorded before #1406',
+        },
+      ]);
+    } finally {
+      if (runner.isTransactionActive) await runner.rollbackTransaction();
+      await runner.query(`DROP TABLE IF EXISTS
+        pg_temp.sales_orders,
+        pg_temp.purchase_orders,
+        pg_temp.purchase_order_items,
+        pg_temp.stock_movements,
+        pg_temp.purchase_cost_history,
+        pg_temp.journal_entry,
+        pg_temp.journal_entry_line,
+        pg_temp.products,
+        pg_temp.audit_logs`);
       await runner.release();
     }
   });
@@ -109,7 +181,7 @@ describe('preflight-stock-correction-path.sql', () => {
       );
       await runner.query('SET TRANSACTION READ ONLY');
 
-      const rows = await runner.query(statements[6]);
+      const rows = await executePreflightStatement(runner, statements[6]);
 
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
