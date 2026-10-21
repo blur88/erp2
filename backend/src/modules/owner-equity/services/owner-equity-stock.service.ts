@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -21,6 +22,10 @@ import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
 import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { SettingsService } from '../../settings/settings.service';
+import { InventoryValuationService } from '../../inventory/valuation/inventory-valuation.service';
+import { StockValuationEntryKind } from '../../../database/entities/stock-valuation-entry.entity';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { unitValueScale4 } from '../../inventory/valuation/valuation-math';
 import {
   toMinorUnits,
   formatMoney,
@@ -43,6 +48,8 @@ export class OwnerEquityStockService {
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly posting: AccountingPostingPort,
     private readonly settingsService: SettingsService,
+    private readonly inventoryValuation: InventoryValuationService,
+    private readonly baseCostCalculator: BaseCostCalculatorService,
   ) {}
 
   async complete(
@@ -80,8 +87,18 @@ export class OwnerEquityStockService {
             `${trimTrailingZeros(String(product.stockQuantity))}`,
         );
       }
-      const unitCostMinor = toMinorUnits(String(product.baseCost ?? 0));
-      const totalCostMinor = mulMinor(qtyMinor, unitCostMinor);
+      const valuationActive = await this.inventoryValuation.isActive(manager);
+      const physicalPlan = valuationActive
+        ? (await this.baseCostCalculator.planPhysicalConsumption(manager, [{ productId: product.id, quantity: Number(doc.quantity) }]))[0]
+        : undefined;
+      const pending = valuationActive
+        ? await this.inventoryValuation.valueDecrease(manager, product.id, qtyMinor, StockValuationEntryKind.ISSUE)
+        : undefined;
+      const valueCents = pending ? -pending.valueCents : 0n;
+      const unitCostMinor = pending
+        ? unitValueScale4(qtyMinor, valueCents) ?? 0n
+        : toMinorUnits(String(product.baseCost ?? 0));
+      const totalCostMinor = pending ? valueCents * 100n : mulMinor(qtyMinor, unitCostMinor);
 
       const movement = await this.stockMovementService.create({
         productId: product.id,
@@ -93,6 +110,9 @@ export class OwnerEquityStockService {
         reason: `Owner Stock Drawing ${doc.referenceNumber}`,
         notes: doc.notes,
       }, undefined, manager);
+      if (valuationActive && pending && physicalPlan) {
+        await this.baseCostCalculator.recordConsumptions(manager, movement.id, physicalPlan.consumptions);
+      }
 
       // One instant for both the JE date and completedAt, so the two can never
       // straddle a midnight boundary. The JE takes the completion ACTION date,
@@ -106,8 +126,9 @@ export class OwnerEquityStockService {
       // CHK_jel_nonneg-adjacent. Mirrors postSalesFulfillment's COGS gate
       // (accounting-posting.service.ts:110-121). Uncomplete then legitimately
       // finds nothing to reverse.
+      let journalEntryId: string | null = null;
       if (totalCostMinor > 0n) {
-        await this.posting.postOwnerStockDrawing({
+        const posted = await this.posting.postOwnerStockDrawing({
           equityDocumentId: doc.id,
           stockMovementId: movement.id,
           amount: formatMoney(quantizeToCents(totalCostMinor)),
@@ -115,7 +136,10 @@ export class OwnerEquityStockService {
           entryDate: actionDate,
           createdBy: username,
         }, manager);
+        journalEntryId = posted.journalEntryId;
       }
+      if (valuationActive && pending)
+        await this.inventoryValuation.commit(manager, [pending], [movement.id], journalEntryId, _userId);
 
       doc.unitCost = formatScale4(unitCostMinor);
       doc.totalCost = formatScale4(totalCostMinor);
@@ -151,11 +175,29 @@ export class OwnerEquityStockService {
       } as any);
       if (!product) throw new BadRequestException('Product not found');
 
+      const valuationActive = await this.inventoryValuation.isActive(manager);
+      let pending;
+      let originalMovementId: string | undefined;
+      if (valuationActive) {
+        const [movement] = await manager.query(
+          `SELECT id FROM stock_movements WHERE "referenceType" = 'owner_equity' AND "referenceId" = $1 AND "movementType" = 'owner_drawing' ORDER BY "productSequence" DESC LIMIT 1 FOR UPDATE`,
+          [doc.id],
+        );
+        originalMovementId = movement?.id;
+        const original = originalMovementId
+          ? await this.inventoryValuation.entryForMovement(manager, originalMovementId)
+          : null;
+        if (!original)
+          throw new ConflictException('This drawing predates inventory valuation; its value is part of the approved opening position. Use a stock correction.');
+        pending = await this.inventoryValuation.valueDecreaseReversal(manager, original);
+        await this.baseCostCalculator.restoreConsumptions(manager, originalMovementId!);
+      }
+
       // Compensating movement, never reverseMovement(): the latter absolute-sets
       // stock to the original movement's newBalance
       // (stock-movement.service.ts:272-300), overwriting any movement recorded
       // in between.
-      await this.stockMovementService.create({
+      const reversalMovement = await this.stockMovementService.create({
         productId: doc.productId,
         movementType: StockMovementType.OWNER_DRAWING_REVERSAL,
         quantity: Number(doc.quantity),
@@ -166,7 +208,7 @@ export class OwnerEquityStockService {
         notes: doc.notes,
       }, undefined, manager);
 
-      await this.posting.reverseEntriesForDocument(
+      const reversals = await this.posting.reverseEntriesForDocument(
         AccountingSourceType.OWNER_EQUITY,
         doc.id,
         [PostingType.OWNER_STOCK_DRAWING],
@@ -175,6 +217,14 @@ export class OwnerEquityStockService {
         manager,
         username,
       );
+      if (valuationActive && pending)
+        await this.inventoryValuation.commit(
+          manager,
+          [pending],
+          [reversalMovement.id],
+          reversals[0]?.journalEntryId ?? null,
+          _userId,
+        );
 
       doc.unitCost = null;
       doc.totalCost = null;

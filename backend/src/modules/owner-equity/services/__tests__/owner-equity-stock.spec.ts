@@ -15,6 +15,8 @@ import {
 import { StockMovementService } from '../../../inventory/services/stock-movement.service';
 import { SettingsService } from '../../../settings/settings.service';
 import { formatScale4 } from '@/common/utils/money';
+import { InventoryValuationService } from '../../../inventory/valuation/inventory-valuation.service';
+import { BaseCostCalculatorService } from '../../../inventory/services/base-cost-calculator.service';
 
 describe('OwnerEquityStockService', () => {
   let stock: OwnerEquityStockService;
@@ -86,6 +88,8 @@ describe('OwnerEquityStockService', () => {
         { provide: ACCOUNTING_POSTING_PORT, useValue: postingMock },
         { provide: DataSource, useValue: dataSource },
         { provide: SettingsService, useValue: settingsService },
+        { provide: InventoryValuationService, useValue: { isActive: async () => false } },
+        { provide: BaseCostCalculatorService, useValue: { planPhysicalConsumption: async () => [], recordConsumptions: async () => {}, restoreConsumptions: async () => new Map() } },
       ],
     }).compile();
 
