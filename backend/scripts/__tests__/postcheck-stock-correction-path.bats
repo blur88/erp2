@@ -18,6 +18,14 @@ setup() {
   : "${DB_PASSWORD:?DB_PASSWORD is not set}"
 }
 
+teardown() {
+  docker run --rm --network host \
+    -e PGPASSWORD="$DB_PASSWORD" \
+    postgres:18.3-alpine3.23 \
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
+    -c 'DROP DATABASE IF EXISTS postcheck_stock_fixture' >/dev/null 2>&1 || true
+}
+
 @test "postcheck: stock correction schema and retained history invariants pass" {
   run docker run --rm -i --network host \
     -e PGPASSWORD="$DB_PASSWORD" \
