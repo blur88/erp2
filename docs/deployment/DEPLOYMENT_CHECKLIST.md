@@ -328,8 +328,13 @@ to `public`. Each expected FK and CHECK must match its recorded full
 PostgreSQL 18.3 migration. Each valuation-gap trigger must be enabled
 (`tgenabled = 'O'`) and match its recorded `pg_get_triggerdef`. The four #1414
 constraints use the same definitions as the #1414 preflight, kept in step by a
-bats test (#1418). The postcheck does not verify trigger function bodies, index
-validity, or duplicate or alternate-name constraints. On `FAIL`, stop and
+bats test (#1418). Partial unique indexes are matched by key columns and
+predicate only, not by their full definition. The postcheck does not verify
+trigger function bodies, index validity, or duplicate or alternate-name
+constraints. The recorded definitions are PostgreSQL 18.3's deparsed text, and a
+PostgreSQL version change may alter it: investigate any `FAIL` after an upgrade,
+and update an expected definition only after verifying it against a fresh
+migration on the new version. On `FAIL`, stop and
 investigate the FK rules, CHECK constraints, partial unique indexes, provenance
 links, or reversed batch occurrence links before proceeding. See
 [`../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md`](../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md)
