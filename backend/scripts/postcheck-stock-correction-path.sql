@@ -4,45 +4,42 @@
 -- reversal occurrence linkage, including FK_purchase_cost_history_occurrence (#1414).
 -- Every expected FK and CHECK must be validated: a NOT VALID constraint has never
 -- been checked against existing rows, so it counts as missing (#1416).
+-- #1418: expected constraints must live in public and match their captured definitions.
+-- #1418: gap triggers must be enabled and match their captured definitions, which name public tables.
+-- #1418: expected partial unique indexes must belong to tables in public.
 --
 --   docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
 --     < backend/scripts/postcheck-stock-correction-path.sql
 
 BEGIN READ ONLY;
+SET LOCAL search_path = pg_catalog, public, pg_temp;
 
-WITH expected_foreign_keys(name, source_table_name, source_column_name, target_table_name, target_column_name) AS (
+WITH expected_foreign_keys(name, source_table_name, definition) AS (
   VALUES
-    ('FK_purchase_cost_history_occurrence', 'purchase_cost_history', 'occurrenceId', 'stock_occurrences', 'id'),
-    ('FK_a200937c3bef6072ce44d760fe3', 'purchase_cost_history', 'productId', 'products', 'id'),
-    ('FK_5c780823d6beebab76e469e2e17', 'purchase_cost_history', 'reversedByOccurrenceId', 'stock_occurrences', 'id'),
-    ('FK_a3acb59db67e977be45e382fc56', 'stock_movements', 'productId', 'products', 'id'),
-    ('FK_6e87ea9ab16010d08671f12b633', 'stock_movements', 'reversesMovementId', 'stock_movements', 'id'),
-    ('FK_ac607027d537535d292b28f3854', 'stock_movements', 'occurrenceId', 'stock_occurrences', 'id'),
-    ('FK_060822dfc7623d639b8c187bdda', 'stock_movements', 'purchaseOrderItemId', 'purchase_order_items', 'id'),
-    ('FK_54f778f185d6a7cec057169ce19', 'purchase_cost_history', 'purchaseOrderItemId', 'purchase_order_items', 'id'),
-    ('FK_a803b54b23d2fb8c0fe7f5389f9', 'stock_occurrences', 'reversesOccurrenceId', 'stock_occurrences', 'id'),
-    ('FK_stock_occurrences_legacy_journal', 'stock_occurrences', 'legacyJournalEntryId', 'journal_entry', 'id'),
-    ('FK_7a90005ab332be99fb12c7d6c84', 'stock_batch_consumptions', 'movementId', 'stock_movements', 'id'),
-    ('FK_51f795684690dbcdee919a915f2', 'stock_batch_consumptions', 'batchId', 'purchase_cost_history', 'id'),
-    ('FK_stock_movement_valuation_gap_movement', 'stock_movement_valuation_gaps', 'movementId', 'stock_movements', 'id')
+    ('FK_purchase_cost_history_occurrence', 'purchase_cost_history', 'FOREIGN KEY ("occurrenceId") REFERENCES stock_occurrences(id) ON DELETE RESTRICT'),
+    ('FK_a200937c3bef6072ce44d760fe3', 'purchase_cost_history', 'FOREIGN KEY ("productId") REFERENCES products(id) ON DELETE RESTRICT'),
+    ('FK_5c780823d6beebab76e469e2e17', 'purchase_cost_history', 'FOREIGN KEY ("reversedByOccurrenceId") REFERENCES stock_occurrences(id) ON DELETE RESTRICT'),
+    ('FK_a3acb59db67e977be45e382fc56', 'stock_movements', 'FOREIGN KEY ("productId") REFERENCES products(id) ON DELETE RESTRICT'),
+    ('FK_6e87ea9ab16010d08671f12b633', 'stock_movements', 'FOREIGN KEY ("reversesMovementId") REFERENCES stock_movements(id) ON DELETE RESTRICT'),
+    ('FK_ac607027d537535d292b28f3854', 'stock_movements', 'FOREIGN KEY ("occurrenceId") REFERENCES stock_occurrences(id) ON DELETE RESTRICT'),
+    ('FK_060822dfc7623d639b8c187bdda', 'stock_movements', 'FOREIGN KEY ("purchaseOrderItemId") REFERENCES purchase_order_items(id) ON DELETE RESTRICT'),
+    ('FK_54f778f185d6a7cec057169ce19', 'purchase_cost_history', 'FOREIGN KEY ("purchaseOrderItemId") REFERENCES purchase_order_items(id) ON DELETE RESTRICT'),
+    ('FK_a803b54b23d2fb8c0fe7f5389f9', 'stock_occurrences', 'FOREIGN KEY ("reversesOccurrenceId") REFERENCES stock_occurrences(id) ON DELETE RESTRICT'),
+    ('FK_stock_occurrences_legacy_journal', 'stock_occurrences', 'FOREIGN KEY ("legacyJournalEntryId") REFERENCES journal_entry(id) ON DELETE RESTRICT'),
+    ('FK_7a90005ab332be99fb12c7d6c84', 'stock_batch_consumptions', 'FOREIGN KEY ("movementId") REFERENCES stock_movements(id) ON DELETE RESTRICT'),
+    ('FK_51f795684690dbcdee919a915f2', 'stock_batch_consumptions', 'FOREIGN KEY ("batchId") REFERENCES purchase_cost_history(id) ON DELETE RESTRICT'),
+    ('FK_stock_movement_valuation_gap_movement', 'stock_movement_valuation_gaps', 'FOREIGN KEY ("movementId") REFERENCES stock_movements(id) ON DELETE RESTRICT')
 ),
 foreign_key_check AS (
   SELECT count(DISTINCT expected.name)::int AS passing_count
   FROM expected_foreign_keys expected
   JOIN pg_constraint constraint_row ON constraint_row.conname = expected.name
+    AND constraint_row.connamespace = 'public'::regnamespace
   JOIN pg_class source_table ON source_table.oid = constraint_row.conrelid
     AND source_table.relname = expected.source_table_name
-  JOIN pg_attribute source_column ON source_column.attrelid = source_table.oid
-    AND source_column.attname = expected.source_column_name AND NOT source_column.attisdropped
-  JOIN pg_class target_table ON target_table.oid = constraint_row.confrelid
-    AND target_table.relname = expected.target_table_name
-  JOIN pg_attribute target_column ON target_column.attrelid = target_table.oid
-    AND target_column.attname = expected.target_column_name AND NOT target_column.attisdropped
   WHERE constraint_row.contype = 'f'
-    AND constraint_row.confdeltype = 'r'
     AND constraint_row.convalidated
-    AND constraint_row.conkey = ARRAY[source_column.attnum::smallint]
-    AND constraint_row.confkey = ARRAY[target_column.attnum::smallint]
+    AND pg_get_constraintdef(constraint_row.oid) = expected.definition
 ),
 expected_indexes(name, table_name, key_columns, normalized_predicate) AS (
   VALUES
@@ -68,6 +65,7 @@ index_check AS (
     WHERE index_keys.ordinality <= index_row.indnkeyatts
   ) actual_index
   WHERE index_row.indisunique AND index_row.indpred IS NOT NULL
+    AND table_class.relnamespace = 'public'::regnamespace
     AND actual_index.key_columns = expected.key_columns
     AND lower(regexp_replace(replace(pg_get_expr(index_row.indpred, index_row.indrelid), '"', ''), '[()[:space:]]', '', 'g')) = expected.normalized_predicate
 ),
@@ -91,12 +89,12 @@ unlinked_reversed_batches AS (
       OR (b."occurrenceId" IS NULL
         AND (o."isLegacy" IS NOT TRUE OR o."legacyJournalEntryId" IS NULL)))
 ),
-expected_gap_checks(name, table_name) AS (
+expected_gap_checks(name, table_name, definition) AS (
   VALUES
-    ('CHK_stock_occurrence_valuation_gap_kind', 'stock_occurrences'),
-    ('CHK_stock_movement_valuation_gap_quantity_positive', 'stock_movement_valuation_gaps'),
-    ('CHK_stock_movement_valuation_gap_value_zero', 'stock_movement_valuation_gaps'),
-    ('CHK_stock_movement_valuation_gap_status', 'stock_movement_valuation_gaps')
+    ('CHK_stock_occurrence_valuation_gap_kind', 'stock_occurrences', 'CHECK (((NOT "hasValuationGap") OR (kind = ''fulfilment''::stock_occurrences_kind_enum)))'),
+    ('CHK_stock_movement_valuation_gap_quantity_positive', 'stock_movement_valuation_gaps', 'CHECK ((quantity > (0)::numeric))'),
+    ('CHK_stock_movement_valuation_gap_value_zero', 'stock_movement_valuation_gaps', 'CHECK (("valueScale8" = (0)::numeric))'),
+    ('CHK_stock_movement_valuation_gap_status', 'stock_movement_valuation_gaps', 'CHECK (((status)::text = ''unvalued_gap''::text))')
 ),
 gap_check AS (
   SELECT count(DISTINCT expected.name)::int AS passing_count
@@ -104,14 +102,16 @@ gap_check AS (
   JOIN pg_constraint constraint_row ON constraint_row.conname = expected.name
     AND constraint_row.contype = 'c'
     AND constraint_row.convalidated
+    AND constraint_row.connamespace = 'public'::regnamespace
+    AND pg_get_constraintdef(constraint_row.oid) = expected.definition
   JOIN pg_class table_class ON table_class.oid = constraint_row.conrelid
     AND table_class.relname = expected.table_name
 ),
-expected_gap_triggers(name, table_name) AS (
+expected_gap_triggers(name, table_name, definition) AS (
   VALUES
-    ('trg_stock_movement_valuation_gap_immutable', 'stock_movement_valuation_gaps'),
-    ('trg_stock_occurrence_valuation_gap_consistency', 'stock_occurrences'),
-    ('trg_stock_movement_valuation_gap_consistency', 'stock_movement_valuation_gaps')
+    ('trg_stock_movement_valuation_gap_immutable', 'stock_movement_valuation_gaps', 'CREATE TRIGGER trg_stock_movement_valuation_gap_immutable BEFORE DELETE OR UPDATE ON public.stock_movement_valuation_gaps FOR EACH ROW EXECUTE FUNCTION stock_movement_valuation_gap_immutable()'),
+    ('trg_stock_occurrence_valuation_gap_consistency', 'stock_occurrences', 'CREATE CONSTRAINT TRIGGER trg_stock_occurrence_valuation_gap_consistency AFTER INSERT OR UPDATE ON public.stock_occurrences DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION stock_occurrence_valuation_gap_consistency()'),
+    ('trg_stock_movement_valuation_gap_consistency', 'stock_movement_valuation_gaps', 'CREATE CONSTRAINT TRIGGER trg_stock_movement_valuation_gap_consistency AFTER INSERT ON public.stock_movement_valuation_gaps DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION stock_occurrence_valuation_gap_consistency()')
 ),
 gap_trigger_check AS (
   SELECT count(DISTINCT expected.name)::int AS passing_count
@@ -120,11 +120,13 @@ gap_trigger_check AS (
     AND NOT trigger_row.tgisinternal
   JOIN pg_class table_class ON table_class.oid = trigger_row.tgrelid
     AND table_class.relname = expected.table_name
+  WHERE trigger_row.tgenabled = 'O'
+    AND pg_get_triggerdef(trigger_row.oid) = expected.definition
 ),
-expected_other_checks(name, table_name) AS (
+expected_other_checks(name, table_name, definition) AS (
   VALUES
-    ('CHK_stock_occurrence_reversal_reason_length', 'stock_occurrences'),
-    ('CHK_stock_batch_consumptions_quantity_positive', 'stock_batch_consumptions')
+    ('CHK_stock_occurrence_reversal_reason_length', 'stock_occurrences', 'CHECK (((kind <> ALL (ARRAY[''receipt_reversal''::stock_occurrences_kind_enum, ''fulfilment_reversal''::stock_occurrences_kind_enum])) OR ((reason IS NOT NULL) AND ((char_length(btrim(reason)) >= 3) AND (char_length(btrim(reason)) <= 500)))))'),
+    ('CHK_stock_batch_consumptions_quantity_positive', 'stock_batch_consumptions', 'CHECK ((quantity > (0)::numeric))')
 ),
 other_check AS (
   SELECT count(DISTINCT expected.name)::int AS passing_count
@@ -132,6 +134,8 @@ other_check AS (
   JOIN pg_constraint constraint_row ON constraint_row.conname = expected.name
     AND constraint_row.contype = 'c'
     AND constraint_row.convalidated
+    AND constraint_row.connamespace = 'public'::regnamespace
+    AND pg_get_constraintdef(constraint_row.oid) = expected.definition
   JOIN pg_class table_class ON table_class.oid = constraint_row.conrelid
     AND table_class.relname = expected.table_name
 ),
