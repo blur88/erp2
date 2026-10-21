@@ -108,7 +108,9 @@ export class SalesOrderFulfillmentService {
 
       // Lock every affected product once, ascending, before the shared plan is
       // built. adjustStock re-locks the same rows; that is a no-op while held.
-      const fulfilledItems = order.items.filter((item) => item.product);
+      const fulfilledItems = order.items
+        .filter((item) => item.product)
+        .sort((a, b) => a.lineNumber - b.lineNumber);
       const productIds = [...new Set(fulfilledItems.map((i) => i.productId))].sort();
       for (const productId of productIds) {
         await lockProductForStockUpdate(manager, Product, productId);
