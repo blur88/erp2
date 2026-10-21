@@ -44,10 +44,16 @@ export class CreateProductDto {
   @IsUUID(4)
   categoryId: string;
 
-  @ApiProperty({ description: 'Base cost price', minimum: 0 })
+  @ApiPropertyOptional({ description: 'Reference base cost price', minimum: 0 })
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  baseCost: number;
+  baseCost?: number;
+
+  @ApiPropertyOptional({ description: 'Confirm zero-value opening stock' })
+  @IsOptional()
+  @IsBoolean()
+  openingZeroCostConfirmed?: boolean;
 
   @ApiPropertyOptional({ description: 'Current stock quantity', minimum: 0, default: 0 })
   @IsOptional()

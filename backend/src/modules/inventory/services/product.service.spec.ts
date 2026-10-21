@@ -4,6 +4,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, Not, DataSource, EntityManager } from 'typeorm';
 import { ProductService } from './product.service';
+import { InventoryValuationService } from '../valuation/inventory-valuation.service';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
@@ -111,6 +113,8 @@ describe('ProductService pagination removal', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductService,
+        { provide: InventoryValuationService, useValue: { isActive: async () => false } },
+        { provide: ACCOUNTING_POSTING_PORT, useValue: { postInventoryOpening: async () => ({ journalEntryId: 'je-test' }) } },
         {
           provide: getRepositoryToken(Product),
           useValue: {
@@ -927,6 +931,8 @@ describe('checkProductDependencies', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductService,
+        { provide: InventoryValuationService, useValue: { isActive: async () => false } },
+        { provide: ACCOUNTING_POSTING_PORT, useValue: { postInventoryOpening: async () => ({ journalEntryId: 'je-test' }) } },
         ...mergedProviders,
         { provide: CategoryService, useValue: { resolveFullPaths: (jest.fn as unknown as any)().mockResolvedValue(new Map()) } },
         { provide: StockMovementService, useValue: {} },
@@ -1064,6 +1070,8 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductService,
+        { provide: InventoryValuationService, useValue: { isActive: async () => false } },
+        { provide: ACCOUNTING_POSTING_PORT, useValue: { postInventoryOpening: async () => ({ journalEntryId: 'je-test' }) } },
         ...providers,
         { provide: CategoryService, useValue: { resolveFullPaths: (jest.fn as unknown as any)().mockResolvedValue(new Map()) } },
         { provide: StockMovementService, useValue: {} },
@@ -1180,6 +1188,8 @@ describe('create() transaction wrap (#978)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductService,
+        { provide: InventoryValuationService, useValue: { isActive: async () => false } },
+        { provide: ACCOUNTING_POSTING_PORT, useValue: { postInventoryOpening: async () => ({ journalEntryId: 'je-test' }) } },
         { provide: getRepositoryToken(Product), useValue: injectedProductRepo },
         {
           provide: getRepositoryToken(Category),

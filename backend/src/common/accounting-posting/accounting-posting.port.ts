@@ -5,7 +5,7 @@ import {
 import type {
   PostSalesPaymentCmd, PostSalesRefundCmd, PostSalesFulfillmentCmd,
   PostPurchasePaymentCmd, PostPurchaseRefundCmd, PostPurchaseReceiveCmd,
-  PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
+  PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostInventoryOpeningCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
   PostOwnerCapitalInjectionCmd, PostOwnerCapitalInjectionRefundCmd,
   PostOwnerCashDrawingCmd, PostOwnerCashDrawingRefundCmd, PostOwnerStockDrawingCmd,
   ReverseEntryCmd, PostProviderSettlementCmd, ReverseEntryForEventCmd,
@@ -29,6 +29,7 @@ export interface AccountingPostingPort {
   postPurchaseReceive(cmd: PostPurchaseReceiveCmd, manager: EntityManager): Promise<PostResult>;
   postStockAdjustment(cmd: PostStockAdjustmentCmd, manager: EntityManager): Promise<PostResult>;
   postOpeningBalance(cmd: PostOpeningBalanceCmd, manager: EntityManager): Promise<PostResult>;
+  postInventoryOpening(cmd: PostInventoryOpeningCmd, manager: EntityManager): Promise<PostResult>;
   postExpensePayment(cmd: PostExpensePaymentCmd, manager: EntityManager): Promise<PostResult>;
   postExpenseRefund(cmd: PostExpenseRefundCmd, manager: EntityManager): Promise<PostResult>;
   postOwnerCapitalInjection(cmd: PostOwnerCapitalInjectionCmd, manager: EntityManager): Promise<PostResult>;

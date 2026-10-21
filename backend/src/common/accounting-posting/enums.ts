@@ -34,6 +34,9 @@ export enum PostingType {
   // order here must match, or verify-baseline.sh fails comparing a migrated
   // schema against a schema:sync reference.
   PROVIDER_SETTLEMENT = 'PROVIDER_SETTLEMENT',
+
+  // Appended for inventory opening valuation (#1398 P4 stage 1).
+  INVENTORY_OPENING = 'INVENTORY_OPENING',
 }
 
 export enum AccountingSourceType {
@@ -44,6 +47,7 @@ export enum AccountingSourceType {
   EXPENSE = 'EXPENSE',
   OWNER_EQUITY = 'OWNER_EQUITY',   // appended — see PostingType comment above
   PROVIDER_SETTLEMENT = 'PROVIDER_SETTLEMENT', // appended — see PostingType comment
+  PRODUCT = 'PRODUCT', // appended — see inventory opening valuation comment
 }
 
 export type PaymentChannel = 'CASH' | 'BANK';

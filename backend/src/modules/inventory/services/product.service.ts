@@ -58,6 +58,12 @@ import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
 import { repoFor, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
+import { InventoryValuationService } from '../valuation/inventory-valuation.service';
+import { StockValuationEntryKind } from '../../../database/entities/stock-valuation-entry.entity';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
+import { resolveAppTimezone } from '../../../common/utils/app-calendar';
+import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 
 @Injectable()
 export class ProductService extends BaseCrudService<
@@ -94,6 +100,9 @@ export class ProductService extends BaseCrudService<
     private readonly settingsService: SettingsService,
     private readonly dataSource: DataSource,
     auditLogService: AuditLogService,
+    private readonly inventoryValuation: InventoryValuationService,
+    @Inject(ACCOUNTING_POSTING_PORT)
+    private readonly accounting: AccountingPostingPort,
   ) {
     super(productRepository, auditLogService);
   }
@@ -286,11 +295,16 @@ export class ProductService extends BaseCrudService<
 
     // Validate pricing logic
     this.validatePricing(createProductDto);
+    const valuationActive = await this.inventoryValuation.isActive(this.dataSource.manager);
+    if (createProductDto.baseCost == null && !valuationActive)
+      throw new BadRequestException('Base cost is required.');
 
     // Create product with stockQuantity=0 — the initial stock movement below sets the real balance.
     // Saving the requested quantity here would cause a double-count (saved qty + movement qty).
+    const { openingZeroCostConfirmed: _openingZeroCostConfirmed, ...productInput } = createProductDto;
     const product = this.productRepository.create({
-      ...createProductDto,
+      ...productInput,
+      baseCost: createProductDto.baseCost ?? 0,
       stockQuantity: 0,
       isActive: createProductDto.isActive ?? true,
       type: createProductDto.type || ProductType.GOODS,
@@ -302,13 +316,41 @@ export class ProductService extends BaseCrudService<
       savedProduct = await this.dataSource.transaction(async (manager: EntityManager) => {
         const productRepo = manager.getRepository(Product);
         const saved = await productRepo.save(product);
+        const activeInTransaction = await this.inventoryValuation.isActive(manager);
+        if (activeInTransaction) await this.inventoryValuation.ensureBalance(manager, saved.id);
 
         // Create initial stock movement if current stock provided.
         // The movement updates stockQuantity via updateStockQuantity, so the product is saved with 0 above.
         // For system users (no userId), skip the movement but set stockQuantity directly so the value isn't lost.
         if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0) {
-          if (userId) {
-            await this.stockMovementService.recordInitialStock(
+          let openingMovement: any;
+          let openingPending: any;
+          let openingValueCents = 0n;
+          if (activeInTransaction) {
+            if (createProductDto.baseCost == null)
+              throw new BadRequestException('Opening stock needs a unit cost.');
+            if (createProductDto.baseCost === 0 && !createProductDto.openingZeroCostConfirmed)
+              throw new BadRequestException('Opening stock with zero cost must be confirmed.');
+            openingMovement = await this.stockMovementService.recordInitialStock(
+              saved.id,
+              createProductDto.stockQuantity,
+              createProductDto.baseCost,
+              userId,
+              manager,
+            );
+            const quantityMinor = toMinorUnits(String(createProductDto.stockQuantity));
+            const unitCostMinor = toMinorUnits(String(createProductDto.baseCost));
+            openingValueCents = (quantityMinor * unitCostMinor + 500_000n) / 1_000_000n;
+            openingPending = await this.inventoryValuation.valueIncrease(
+              manager,
+              saved.id,
+              quantityMinor,
+              openingValueCents,
+              StockValuationEntryKind.OPENING,
+              { explanation: 'Initial product stock' },
+            );
+          } else if (userId) {
+            openingMovement = await this.stockMovementService.recordInitialStock(
               saved.id,
               createProductDto.stockQuantity,
               createProductDto.baseCost,
@@ -327,7 +369,7 @@ export class ProductService extends BaseCrudService<
           saved.stockQuantity = createProductDto.stockQuantity;
 
           // Create initial cost history for products with stock
-          if (createProductDto.baseCost) {
+          if (createProductDto.baseCost || activeInTransaction) {
             await this.baseCostCalculator.addStock(
               saved.id,
               null, // No GRN for initial stock
@@ -337,6 +379,22 @@ export class ProductService extends BaseCrudService<
               new Date(), // Current date as received date
               manager,
             );
+          }
+          if (activeInTransaction && openingPending && openingMovement) {
+            let journalEntryId: string | null = null;
+            if (openingValueCents > 0n) {
+              const timezone = await resolveAppTimezone(this.settingsService);
+              const posted = await this.accounting.postInventoryOpening({
+                productId: saved.id,
+                stockMovementId: openingMovement.id,
+                amount: formatMoney(openingValueCents * 100n),
+                sourceRef: saved.name,
+                entryDate: formatDateInTimezone(new Date(), timezone),
+                createdBy: username,
+              }, manager);
+              journalEntryId = posted.journalEntryId;
+            }
+            await this.inventoryValuation.commit(manager, [openingPending], [openingMovement.id], journalEntryId, userId);
           }
         }
 
@@ -1819,6 +1877,15 @@ export class ProductService extends BaseCrudService<
               });
             }
           } else {
+            if (
+              (await this.inventoryValuation.isActive(this.dataSource.manager)) &&
+              Number(productData.stockQuantity ?? 0) > 0 &&
+              !(Number(productData.baseCost ?? 0) > 0)
+            ) {
+              throw new BadRequestException(
+                'Opening stock needs a positive unit cost in an import.',
+              );
+            }
             // Create new product
             const createdProduct = await this.create(productData as CreateProductDto, undefined, 'system');
             result.successCount++;
@@ -2035,12 +2102,13 @@ export class ProductService extends BaseCrudService<
     categoryMap: Map<string, string>,
     result: ProductImportResultDto,
   ): Promise<CreateProductDto | null> {
+    const valuationActive = await this.inventoryValuation.isActive(this.dataSource.manager);
     // Check required fields
     const requiredFields = {
       name: row.name,
       type: row.type,
       categoryname: row.categoryname,
-      basecost: row.basecost,
+      ...(valuationActive ? {} : { basecost: row.basecost }),
     };
 
     for (const [field, value] of Object.entries(requiredFields)) {
@@ -2109,7 +2177,11 @@ export class ProductService extends BaseCrudService<
     };
 
     const baseCost = parseNumber(row.basecost, 'baseCost');
-    if (baseCost === undefined) return null;
+    const stockQuantity = parseNumber(row.stockquantity, 'stockQuantity');
+    if (baseCost === undefined) {
+      const active = await this.inventoryValuation.isActive(this.dataSource.manager);
+      if (!active || !(Number(stockQuantity ?? 0) > 0)) return null;
+    }
 
     // Build product data (pricing is now managed via Price Lists, not product fields)
     const productData: any = {
@@ -2118,8 +2190,8 @@ export class ProductService extends BaseCrudService<
       barcode: row.barcode?.trim() || undefined,
       type: normalizedType,
       categoryId,
-      baseCost,
-      stockQuantity: parseNumber(row.stockquantity, 'stockQuantity'),
+      baseCost: baseCost ?? 0,
+      stockQuantity,
       notes: row.notes?.trim() || undefined,
       isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true,
     };

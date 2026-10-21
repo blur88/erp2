@@ -17,6 +17,7 @@ import type {
   PostSalesPaymentCmd, PostSalesRefundCmd, PostSalesFulfillmentCmd,
   PostPurchasePaymentCmd, PostPurchaseRefundCmd, PostPurchaseReceiveCmd,
   PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
+  PostInventoryOpeningCmd,
   PostOwnerCapitalInjectionCmd, PostOwnerCapitalInjectionRefundCmd,
   PostOwnerCashDrawingCmd, PostOwnerCashDrawingRefundCmd, PostOwnerStockDrawingCmd,
   ReverseEntryCmd, ReverseEntryForEventCmd, PostProviderSettlementCmd,
@@ -378,6 +379,30 @@ export class AccountingPostingService implements AccountingPostingPort {
       sourceType: AccountingSourceType.OPENING_BALANCE, sourceDocumentId: cmd.accountId,
       sourceRef: cmd.sourceRef, postingType: PostingType.OPENING_BALANCE, description: 'Opening balance',
       entryDate: cmd.entryDate, createdBy: cmd.createdBy, lines,
+    }, manager);
+  }
+
+
+  async postInventoryOpening(cmd: PostInventoryOpeningCmd, manager: EntityManager): Promise<PostResult> {
+    const existing = await this.findExistingEntry(
+      AccountingSourceType.PRODUCT,
+      cmd.stockMovementId,
+      PostingType.INVENTORY_OPENING,
+      manager,
+    );
+    if (existing) return existing;
+    const inventory = await this.lookup.resolveAccount('inventory', manager);
+    const openingEquity = await this.lookup.resolveAccount('openingBalanceEquity', manager);
+    return this.build({
+      sourceType: AccountingSourceType.PRODUCT,
+      sourceDocumentId: cmd.productId,
+      sourceEventId: cmd.stockMovementId,
+      sourceRef: cmd.sourceRef,
+      postingType: PostingType.INVENTORY_OPENING,
+      description: 'Product opening stock',
+      entryDate: cmd.entryDate,
+      createdBy: cmd.createdBy,
+      lines: [this.debitLine(inventory, cmd.amount), this.creditLine(openingEquity, cmd.amount)],
     }, manager);
   }
 
