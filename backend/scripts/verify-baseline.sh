@@ -249,13 +249,14 @@ fi
 #   - 8 bank reconciliation triggers (migration 1791044381374)
 #   - FK_bsr_current_version foreign key (migration 1791044381374)
 #   - 2 stock valuation-gap guard functions and 3 triggers (migration 1792455000000)
+#   - 3 stage-1 valuation guard functions and triggers (migration 1792680000000)
 # Anything else in the diff fails the gate.
 
 # (a) Negative: only the allowlisted statements may appear as differences.
 UNEXPECTED=$(grep -E '^[+-]' "$OUT/diff.txt" \
   | grep -vE '^(\+\+\+|---)' \
   | grep -vE \
-'^\+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;|^\+COMMENT ON EXTENSION pg_trgm IS|^\+CREATE UNIQUE INDEX "UQ_price_lists_single_default"|^\+CREATE UNIQUE INDEX "UQ_products_lower_(name|barcode)"|^\+CREATE INDEX idx_(customers|products|sales_orders|purchase_orders|suppliers|vendor_payments)_[a-z]+_trgm|^\+CREATE FUNCTION public\.bsr_(assert_version_sealed|guard_classification|guard_current_version|guard_immutable_ids|guard_version|guard_version_line)\(\)|^\+CREATE TRIGGER trg_bsr_(current_version_sealed|line_classification|line_immutable_ids|mark_classification|mark_immutable_ids|version_guard|version_line_guard) |^\+CREATE CONSTRAINT TRIGGER trg_bsr_version_sealed_at_commit |^\+ALTER TABLE ONLY public\.bank_statement_reconciliations ADD CONSTRAINT "FK_bsr_current_version" FOREIGN KEY \(id, "currentVersionNo"\) REFERENCES public\.bank_statement_reconciliation_versions\("reconciliationId", "versionNo"\) ON DELETE RESTRICT;|^\+CREATE FUNCTION public\.stock_(movement_valuation_gap_immutable|occurrence_valuation_gap_consistency)\(\)|^\+CREATE TRIGGER trg_stock_movement_valuation_gap_immutable |^\+CREATE CONSTRAINT TRIGGER trg_stock_(movement|occurrence)_valuation_gap_consistency ' \
+'^\+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;|^\+COMMENT ON EXTENSION pg_trgm IS|^\+CREATE UNIQUE INDEX "UQ_price_lists_single_default"|^\+CREATE UNIQUE INDEX "UQ_products_lower_(name|barcode)"|^\+CREATE INDEX idx_(customers|products|sales_orders|purchase_orders|suppliers|vendor_payments)_[a-z]+_trgm|^\+CREATE FUNCTION public\.bsr_(assert_version_sealed|guard_classification|guard_current_version|guard_immutable_ids|guard_version|guard_version_line)\(\)|^\+CREATE TRIGGER trg_bsr_(current_version_sealed|line_classification|line_immutable_ids|mark_classification|mark_immutable_ids|version_guard|version_line_guard) |^\+CREATE CONSTRAINT TRIGGER trg_bsr_version_sealed_at_commit |^\+ALTER TABLE ONLY public\.bank_statement_reconciliations ADD CONSTRAINT "FK_bsr_current_version" FOREIGN KEY \(id, "currentVersionNo"\) REFERENCES public\.bank_statement_reconciliation_versions\("reconciliationId", "versionNo"\) ON DELETE RESTRICT;|^\+CREATE FUNCTION public\.stock_(movement_valuation_gap_immutable|occurrence_valuation_gap_consistency)\(\)|^\+CREATE TRIGGER trg_stock_movement_valuation_gap_immutable |^\+CREATE CONSTRAINT TRIGGER trg_stock_(movement|occurrence)_valuation_gap_consistency |^\+CREATE FUNCTION public\.(inventory_layer_consumption_immutable|stock_movement_valuation_coverage|stock_valuation_entry_immutable)\(\)|^\+CREATE TRIGGER trg_(inventory_layer_consumption_immutable|stock_valuation_entry_immutable) |^\+CREATE CONSTRAINT TRIGGER trg_stock_movement_valuation_coverage ' \
   || true)
 
 if [ -n "$UNEXPECTED" ]; then
@@ -442,5 +443,48 @@ if [ "$ACTUAL_GAP_TRIGGERS" != "$EXPECTED_GAP_TRIGGERS" ]; then
   exit 1
 fi
 
-echo "PASS: pg_trgm installed, all 11 migration-index definitions exact, 6 bsr functions, 8 bsr triggers, FK_bsr_current_version exact, 2 stock valuation-gap functions and 3 triggers, no other differences"
+EXPECTED_VALUATION_FUNCS="inventory_layer_consumption_immutable
+stock_movement_valuation_coverage
+stock_valuation_entry_immutable"
+
+ACTUAL_VALUATION_FUNCS=$(q_cand "
+  SELECT proname
+    FROM pg_proc
+   WHERE proname IN (
+     'inventory_layer_consumption_immutable',
+     'stock_movement_valuation_coverage',
+     'stock_valuation_entry_immutable'
+   )
+   ORDER BY proname;")
+
+if [ "$ACTUAL_VALUATION_FUNCS" != "$EXPECTED_VALUATION_FUNCS" ]; then
+  echo "FAIL: stage-1 valuation guard functions do not match exactly."
+  echo "--- expected ---"; echo "$EXPECTED_VALUATION_FUNCS"
+  echo "--- actual ---";   echo "$ACTUAL_VALUATION_FUNCS"
+  exit 1
+fi
+
+EXPECTED_VALUATION_TRIGGERS="inventory_layer_consumptions|trg_inventory_layer_consumption_immutable|27|O|false|false
+stock_movements|trg_stock_movement_valuation_coverage|5|O|true|true
+stock_valuation_entries|trg_stock_valuation_entry_immutable|27|O|false|false"
+
+ACTUAL_VALUATION_TRIGGERS=$(q_cand "
+  SELECT c.relname || '|' || t.tgname || '|' || t.tgtype::text || '|' || t.tgenabled::text || '|' || t.tgdeferrable::text || '|' || t.tginitdeferred::text
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+   WHERE t.tgname IN (
+     'trg_inventory_layer_consumption_immutable',
+     'trg_stock_movement_valuation_coverage',
+     'trg_stock_valuation_entry_immutable'
+   )
+   ORDER BY t.tgname;")
+
+if [ "$ACTUAL_VALUATION_TRIGGERS" != "$EXPECTED_VALUATION_TRIGGERS" ]; then
+  echo "FAIL: stage-1 valuation triggers do not match exact timing, events, or enabled/deferred state."
+  echo "--- expected ---"; echo "$EXPECTED_VALUATION_TRIGGERS"
+  echo "--- actual ---";   echo "$ACTUAL_VALUATION_TRIGGERS"
+  exit 1
+fi
+
+echo "PASS: pg_trgm installed, all 11 migration-index definitions exact, 6 bsr functions, 8 bsr triggers, FK_bsr_current_version exact, 2 stock valuation-gap functions and 3 triggers, 3 stage-1 valuation functions and triggers, no other differences"
 exit 0
