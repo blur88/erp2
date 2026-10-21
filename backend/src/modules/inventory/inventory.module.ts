@@ -26,6 +26,8 @@ import { InventoryValuationService } from './valuation/inventory-valuation.servi
 import { ValuationController } from './valuation/valuation.controller';
 import { CostingMethodChangeController } from './valuation/costing-method-change.controller';
 import { CostingMethodChangeService } from './valuation/costing-method-change.service';
+import { InventoryReconciliationController } from './valuation/inventory-reconciliation.controller';
+import { InventoryReconciliationService } from './valuation/inventory-reconciliation.service';
 import { InventoryValuationState } from '../../database/entities/inventory-valuation-state.entity';
 import { ProductValuationBalance } from '../../database/entities/product-valuation-balance.entity';
 import { InventoryCostLayer } from '../../database/entities/inventory-cost-layer.entity';
@@ -111,6 +113,7 @@ import { ExportModule } from '../../common/export.module';
     CostingController,
     ValuationController,
     CostingMethodChangeController,
+    InventoryReconciliationController,
   ],
   providers: [
     // Core services
@@ -119,6 +122,7 @@ import { ExportModule } from '../../common/export.module';
     StockMovementService,
     InventoryValuationService,
     CostingMethodChangeService,
+    InventoryReconciliationService,
     StockAdjustmentService,
     PricingService,
     IntegrationService,
@@ -137,6 +141,7 @@ import { ExportModule } from '../../common/export.module';
     StockMovementService,
     InventoryValuationService,
     CostingMethodChangeService,
+    InventoryReconciliationService,
     StockAdjustmentService,
     PricingService,
     IntegrationService,
