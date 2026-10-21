@@ -2,6 +2,8 @@
 -- It verifies the restrictive stock-history FKs, partial uniqueness guards,
 -- receipt-line identity guards, provenance referential integrity, and receipt
 -- reversal occurrence linkage, including FK_purchase_cost_history_occurrence (#1414).
+-- Every expected FK and CHECK must be validated: a NOT VALID constraint has never
+-- been checked against existing rows, so it counts as missing (#1416).
 --
 --   docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
 --     < backend/scripts/postcheck-stock-correction-path.sql
@@ -38,6 +40,7 @@ foreign_key_check AS (
     AND target_column.attname = expected.target_column_name AND NOT target_column.attisdropped
   WHERE constraint_row.contype = 'f'
     AND constraint_row.confdeltype = 'r'
+    AND constraint_row.convalidated
     AND constraint_row.conkey = ARRAY[source_column.attnum::smallint]
     AND constraint_row.confkey = ARRAY[target_column.attnum::smallint]
 ),
@@ -100,6 +103,7 @@ gap_check AS (
   FROM expected_gap_checks expected
   JOIN pg_constraint constraint_row ON constraint_row.conname = expected.name
     AND constraint_row.contype = 'c'
+    AND constraint_row.convalidated
   JOIN pg_class table_class ON table_class.oid = constraint_row.conrelid
     AND table_class.relname = expected.table_name
 ),
@@ -127,6 +131,7 @@ other_check AS (
   FROM expected_other_checks expected
   JOIN pg_constraint constraint_row ON constraint_row.conname = expected.name
     AND constraint_row.contype = 'c'
+    AND constraint_row.convalidated
   JOIN pg_class table_class ON table_class.oid = constraint_row.conrelid
     AND table_class.relname = expected.table_name
 ),
