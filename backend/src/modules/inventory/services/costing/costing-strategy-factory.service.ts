@@ -1,12 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { RegionalSettings } from '../../../../database/entities/regional-settings.entity';
-import { IBaseCostingStrategy } from './base-costing-strategy.interface';
-import { AverageCostingStrategy } from './average-costing-strategy.service';
-import { FifoCostingStrategy } from './fifo-costing-strategy.service';
-import { LifoCostingStrategy } from './lifo-costing-strategy.service';
-import { StandardCostingStrategy } from './standard-costing-strategy.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { RegionalSettings } from "../../../../database/entities/regional-settings.entity";
+import { IBaseCostingStrategy } from "./base-costing-strategy.interface";
+import { AverageCostingStrategy } from "./average-costing-strategy.service";
+import { FifoCostingStrategy } from "./fifo-costing-strategy.service";
 
 /**
  * Factory service to get the appropriate costing strategy based on settings
@@ -22,15 +20,11 @@ export class CostingStrategyFactory {
     private regionalSettingsRepository: Repository<RegionalSettings>,
     private averageStrategy: AverageCostingStrategy,
     private fifoStrategy: FifoCostingStrategy,
-    private lifoStrategy: LifoCostingStrategy,
-    private standardStrategy: StandardCostingStrategy,
   ) {
     // Initialize strategy map
     this.strategies = new Map<string, IBaseCostingStrategy>([
-      ['AVERAGE', this.averageStrategy],
-      ['FIFO', this.fifoStrategy],
-      ['LIFO', this.lifoStrategy],
-      ['STANDARD', this.standardStrategy],
+      ["AVERAGE", this.averageStrategy],
+      ["FIFO", this.fifoStrategy],
     ]);
   }
 
@@ -38,23 +32,12 @@ export class CostingStrategyFactory {
    * Get the active costing strategy based on current settings
    */
   async getActiveStrategy(): Promise<IBaseCostingStrategy> {
+    let costingMethod = "AVERAGE";
     try {
       const settings = await this.regionalSettingsRepository.findOne({
         where: { isActive: true },
       });
-
-      const costingMethod = settings?.costingMethod || 'AVERAGE';
-      const strategy = this.strategies.get(costingMethod);
-
-      if (!strategy) {
-        this.logger.warn(
-          `Unknown costing method "${costingMethod}", falling back to AVERAGE`,
-        );
-        return this.averageStrategy;
-      }
-
-      this.logger.debug(`Using costing strategy: ${costingMethod}`);
-      return strategy;
+      costingMethod = settings?.costingMethod || "AVERAGE";
     } catch (error) {
       this.logger.error(
         `Failed to get active costing strategy: ${error.message}`,
@@ -63,6 +46,13 @@ export class CostingStrategyFactory {
       // Fallback to AVERAGE on error
       return this.averageStrategy;
     }
+
+    const strategy = this.strategies.get(costingMethod);
+    if (!strategy) {
+      throw new Error(`Unsupported costing method "${costingMethod}"`);
+    }
+    this.logger.debug(`Using costing strategy: ${costingMethod}`);
+    return strategy;
   }
 
   /**
@@ -72,10 +62,7 @@ export class CostingStrategyFactory {
   getStrategyByMethod(method: string): IBaseCostingStrategy {
     const strategy = this.strategies.get(method.toUpperCase());
     if (!strategy) {
-      this.logger.warn(
-        `Unknown costing method "${method}", falling back to AVERAGE`,
-      );
-      return this.averageStrategy;
+      throw new Error(`Unsupported costing method "${method}"`);
     }
     return strategy;
   }
@@ -88,13 +75,13 @@ export class CostingStrategyFactory {
       const settings = await this.regionalSettingsRepository.findOne({
         where: { isActive: true },
       });
-      return settings?.costingMethod || 'AVERAGE';
+      return settings?.costingMethod || "AVERAGE";
     } catch (error) {
       this.logger.error(
         `Failed to get current costing method: ${error.message}`,
         error.stack,
       );
-      return 'AVERAGE';
+      return "AVERAGE";
     }
   }
 

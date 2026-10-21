@@ -46,8 +46,6 @@ import { InventoryAnalyticsService } from './services/inventory-analytics.servic
 import { CostingStrategyFactory } from './services/costing/costing-strategy-factory.service';
 import { AverageCostingStrategy } from './services/costing/average-costing-strategy.service';
 import { FifoCostingStrategy } from './services/costing/fifo-costing-strategy.service';
-import { LifoCostingStrategy } from './services/costing/lifo-costing-strategy.service';
-import { StandardCostingStrategy } from './services/costing/standard-costing-strategy.service';
 import { CostingRecalculationService } from './services/costing-recalculation.service';
 
 // Other modules
@@ -112,8 +110,6 @@ import { ExportModule } from '../../common/export.module';
     CostingStrategyFactory,
     AverageCostingStrategy,
     FifoCostingStrategy,
-    LifoCostingStrategy,
-    StandardCostingStrategy,
     CostingRecalculationService,
   ],
   exports: [

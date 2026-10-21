@@ -2,6 +2,22 @@ import { validate } from 'class-validator';
 import { UpdateRegionalSettingsDto } from './update-regional-settings.dto';
 
 describe('UpdateRegionalSettingsDto', () => {
+  it.each(['LIFO', 'STANDARD'])('rejects unsupported costing method %s', async (costingMethod) => {
+    const dto = new UpdateRegionalSettingsDto();
+    dto.costingMethod = costingMethod;
+
+    const errors = await validate(dto);
+
+    expect(errors[0]?.constraints).toHaveProperty('isIn');
+  });
+
+  it.each(['AVERAGE', 'FIFO'])('accepts supported costing method %s', async (costingMethod) => {
+    const dto = new UpdateRegionalSettingsDto();
+    dto.costingMethod = costingMethod;
+
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
   it('accepts all supported date formats', async () => {
     const supportedFormats = [
       'DD/MM/YYYY',

@@ -16,7 +16,7 @@ export class CostingController {
   @Get('method')
   @ApiOperation({
     summary: 'Get current costing method',
-    description: 'Returns the currently configured costing method (AVERAGE, FIFO, LIFO, STANDARD)',
+    description: 'Returns the currently configured costing method (AVERAGE or FIFO)',
   })
   @ApiResponse({
     status: 200,
@@ -24,7 +24,7 @@ export class CostingController {
     schema: {
       example: {
         costingMethod: 'AVERAGE',
-        availableMethods: ['AVERAGE', 'FIFO', 'LIFO', 'STANDARD'],
+        availableMethods: ['AVERAGE', 'FIFO'],
       },
     },
   })

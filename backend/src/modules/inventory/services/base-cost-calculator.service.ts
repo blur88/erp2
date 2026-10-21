@@ -39,7 +39,7 @@ export class BaseCostCalculatorService {
 
   /**
    * Calculate base cost using configured costing strategy
-   * Strategy is determined by settings (AVERAGE, FIFO, LIFO, STANDARD)
+   * Strategy is determined by settings (AVERAGE or FIFO)
    */
   async calculateBaseCostFromCurrentStock(productId: string, manager?: EntityManager): Promise<number> {
     const productRepo = repoFor(manager, Product, this.productRepository);

@@ -2,7 +2,7 @@ import { PurchaseCostHistory } from '../../../../database/entities/purchase-cost
 
 /**
  * Base interface for costing strategies
- * Each costing method (AVERAGE, FIFO, LIFO, STANDARD) implements this interface
+ * Each supported costing method (AVERAGE, FIFO) implements this interface
  */
 export interface IBaseCostingStrategy {
   /**

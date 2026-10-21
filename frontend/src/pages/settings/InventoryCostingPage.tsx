@@ -34,8 +34,6 @@ const schema = yup.object({
 const COSTING_METHODS = [
   { value: 'AVERAGE', label: 'Average Cost' },
   { value: 'FIFO', label: 'FIFO (First In, First Out)' },
-  { value: 'LIFO', label: 'LIFO (Last In, First Out)' },
-  { value: 'STANDARD', label: 'Standard Cost' },
 ]
 
 const InventoryCostingPage: React.FC = () => {
