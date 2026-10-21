@@ -322,11 +322,19 @@ docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USE
 The result must be `stock-correction postcheck: PASS`. The postcheck requires
 every expected constraint to be validated: an expected FK or CHECK that exists
 only as `NOT VALID` has never been checked against the existing rows, so it
-counts as missing and the result is `FAIL` (#1416). It matches each expected
-constraint by name, table, type and validation (plus, for FKs, the columns and
-`ON DELETE RESTRICT`). It does not compare CHECK expressions, FK deferrability
-or the schema, so `PASS` does not prove that each constraint has its expected
-definition. On `FAIL`, stop and
+counts as missing and the result is `FAIL` (#1416). Every lookup is restricted
+to `public`. Each expected FK and CHECK must match its recorded full
+`pg_get_constraintdef`, including FK deferrability, captured from a fresh
+PostgreSQL 18.3 migration. Each valuation-gap trigger must be enabled
+(`tgenabled = 'O'`) and match its recorded `pg_get_triggerdef`. The four #1414
+constraints use the same definitions as the #1414 preflight, kept in step by a
+bats test (#1418). Partial unique indexes are matched by key columns and
+predicate only, not by their full definition. The postcheck does not verify
+trigger function bodies, index validity, or duplicate or alternate-name
+constraints. The recorded definitions are PostgreSQL 18.3's deparsed text, and a
+PostgreSQL version change may alter it: investigate any `FAIL` after an upgrade,
+and update an expected definition only after verifying it against a fresh
+migration on the new version. On `FAIL`, stop and
 investigate the FK rules, CHECK constraints, partial unique indexes, provenance
 links, or reversed batch occurrence links before proceeding. See
 [`../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md`](../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md)

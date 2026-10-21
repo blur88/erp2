@@ -1,12 +1,15 @@
--- Isolated temporary catalog/data fixture for the postcheck script test.
--- The postcheck runs in the same psql session, so these tables shadow any
--- application tables and disappear automatically when the connection closes.
-CREATE TEMP TABLE products (id uuid PRIMARY KEY, name text NOT NULL);
-CREATE TEMP TABLE purchase_order_items (id uuid PRIMARY KEY);
-CREATE TEMP TABLE journal_entry (id uuid PRIMARY KEY);
-CREATE TEMP TABLE stock_occurrences (
+-- Disposable database fixture for the postcheck script test; bats teardown drops it.
+DROP DATABASE IF EXISTS postcheck_stock_fixture;
+CREATE DATABASE postcheck_stock_fixture;
+\connect postcheck_stock_fixture
+
+CREATE TYPE stock_occurrences_kind_enum AS ENUM ('receipt', 'fulfilment', 'receipt_reversal', 'fulfilment_reversal');
+CREATE TABLE products (id uuid PRIMARY KEY, name text NOT NULL);
+CREATE TABLE purchase_order_items (id uuid PRIMARY KEY);
+CREATE TABLE journal_entry (id uuid PRIMARY KEY);
+CREATE TABLE stock_occurrences (
   id uuid PRIMARY KEY,
-  kind text NOT NULL,
+  kind stock_occurrences_kind_enum NOT NULL,
   "reversesOccurrenceId" uuid,
   "documentType" text NOT NULL,
   "documentId" uuid NOT NULL,
@@ -15,7 +18,7 @@ CREATE TEMP TABLE stock_occurrences (
   "hasValuationGap" boolean NOT NULL DEFAULT false,
   reason text
 );
-CREATE TEMP TABLE stock_movements (
+CREATE TABLE stock_movements (
   id uuid PRIMARY KEY,
   "productId" uuid NOT NULL,
   "movementType" text,
@@ -27,7 +30,7 @@ CREATE TEMP TABLE stock_movements (
   "reversesMovementId" uuid,
   "productSequence" bigint
 );
-CREATE TEMP TABLE purchase_cost_history (
+CREATE TABLE purchase_cost_history (
   id uuid PRIMARY KEY,
   "productId" uuid NOT NULL,
   "purchaseOrderId" uuid,
@@ -36,17 +39,17 @@ CREATE TEMP TABLE purchase_cost_history (
   "reversedAt" timestamptz,
   "reversedByOccurrenceId" uuid
 );
-CREATE TEMP TABLE stock_batch_consumptions (
+CREATE TABLE stock_batch_consumptions (
   id uuid PRIMARY KEY,
   "movementId" uuid NOT NULL,
   "batchId" uuid NOT NULL,
   quantity numeric(15,4) NOT NULL CONSTRAINT "CHK_stock_batch_consumptions_quantity_positive" CHECK (quantity > 0)
 );
-CREATE TEMP TABLE stock_movement_valuation_gaps (
+CREATE TABLE stock_movement_valuation_gaps (
   "movementId" uuid PRIMARY KEY,
   quantity numeric(15,4) NOT NULL CONSTRAINT "CHK_stock_movement_valuation_gap_quantity_positive" CHECK (quantity > 0),
   "valueScale8" numeric(24,8) NOT NULL DEFAULT 0 CONSTRAINT "CHK_stock_movement_valuation_gap_value_zero" CHECK ("valueScale8" = 0),
-  status text NOT NULL DEFAULT 'unvalued_gap' CONSTRAINT "CHK_stock_movement_valuation_gap_status" CHECK (status = 'unvalued_gap'),
+  status character varying(30) NOT NULL DEFAULT 'unvalued_gap' CONSTRAINT "CHK_stock_movement_valuation_gap_status" CHECK (status = 'unvalued_gap'),
   CONSTRAINT "FK_stock_movement_valuation_gap_movement"
     FOREIGN KEY ("movementId") REFERENCES stock_movements(id) ON DELETE RESTRICT
 );
@@ -92,16 +95,17 @@ ALTER TABLE stock_batch_consumptions
 ALTER TABLE stock_batch_consumptions
   ADD CONSTRAINT "FK_51f795684690dbcdee919a915f2"
   FOREIGN KEY ("batchId") REFERENCES purchase_cost_history(id) ON DELETE RESTRICT;
-CREATE FUNCTION pg_temp.noop_gap_trigger() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
+CREATE FUNCTION stock_movement_valuation_gap_immutable() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
+CREATE FUNCTION stock_occurrence_valuation_gap_consistency() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$;
 CREATE TRIGGER "trg_stock_movement_valuation_gap_immutable"
-  BEFORE UPDATE OR DELETE ON stock_movement_valuation_gaps
-  FOR EACH ROW EXECUTE FUNCTION pg_temp.noop_gap_trigger();
+  BEFORE DELETE OR UPDATE ON stock_movement_valuation_gaps
+  FOR EACH ROW EXECUTE FUNCTION stock_movement_valuation_gap_immutable();
 CREATE CONSTRAINT TRIGGER "trg_stock_occurrence_valuation_gap_consistency"
   AFTER INSERT OR UPDATE ON stock_occurrences DEFERRABLE INITIALLY DEFERRED
-  FOR EACH ROW EXECUTE FUNCTION pg_temp.noop_gap_trigger();
+  FOR EACH ROW EXECUTE FUNCTION stock_occurrence_valuation_gap_consistency();
 CREATE CONSTRAINT TRIGGER "trg_stock_movement_valuation_gap_consistency"
   AFTER INSERT ON stock_movement_valuation_gaps DEFERRABLE INITIALLY DEFERRED
-  FOR EACH ROW EXECUTE FUNCTION pg_temp.noop_gap_trigger();
+  FOR EACH ROW EXECUTE FUNCTION stock_occurrence_valuation_gap_consistency();
 
 CREATE UNIQUE INDEX "UQ_stock_occurrence_reverses"
   ON stock_occurrences ("reversesOccurrenceId") WHERE "reversesOccurrenceId" IS NOT NULL;
