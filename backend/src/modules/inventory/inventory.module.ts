@@ -22,6 +22,12 @@ import { Supplier } from '../../database/entities/supplier.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.entity';
 import { OwnerEquityDocument } from '../owner-equity/entities/owner-equity-document.entity';
+import { InventoryValuationService } from './valuation/inventory-valuation.service';
+import { InventoryValuationState } from '../../database/entities/inventory-valuation-state.entity';
+import { ProductValuationBalance } from '../../database/entities/product-valuation-balance.entity';
+import { InventoryCostLayer } from '../../database/entities/inventory-cost-layer.entity';
+import { InventoryLayerConsumption } from '../../database/entities/inventory-layer-consumption.entity';
+import { StockValuationEntry } from '../../database/entities/stock-valuation-entry.entity';
 
 
 // Controllers
@@ -80,6 +86,11 @@ import { ExportModule } from '../../common/export.module';
       // movement's referenceNumber for display. Importing OwnerEquityModule
       // would cycle: it already imports InventoryModule (#1022).
       OwnerEquityDocument,
+      InventoryValuationState,
+      ProductValuationBalance,
+      InventoryCostLayer,
+      InventoryLayerConsumption,
+      StockValuationEntry,
     ]),
     // Import users module for user-related operations
     forwardRef(() => UsersModule),
@@ -101,6 +112,7 @@ import { ExportModule } from '../../common/export.module';
     ProductService,
     CategoryService,
     StockMovementService,
+    InventoryValuationService,
     StockAdjustmentService,
     PricingService,
     IntegrationService,
@@ -117,6 +129,7 @@ import { ExportModule } from '../../common/export.module';
     ProductService,
     CategoryService,
     StockMovementService,
+    InventoryValuationService,
     StockAdjustmentService,
     PricingService,
     IntegrationService,
