@@ -13,10 +13,10 @@ describe('owner equity posting enums', () => {
     expect(AccountingSourceType.OWNER_EQUITY).toBe('OWNER_EQUITY');
   });
 
-  it('appends new members last so ALTER TYPE ADD VALUE order matches', () => {
+  it('preserves migration order for provider settlements and inventory opening', () => {
     const types = Object.values(PostingType);
-    expect(types[types.length - 1]).toBe(PostingType.PROVIDER_SETTLEMENT);
+    expect(types.slice(-2)).toEqual([PostingType.PROVIDER_SETTLEMENT, PostingType.INVENTORY_OPENING]);
     const sources = Object.values(AccountingSourceType);
-    expect(sources[sources.length - 1]).toBe(AccountingSourceType.PROVIDER_SETTLEMENT);
+    expect(sources.slice(-2)).toEqual([AccountingSourceType.PROVIDER_SETTLEMENT, AccountingSourceType.PRODUCT]);
   });
 });

@@ -21,10 +21,10 @@ describe('provider settlement entities', () => {
     expect(idx!.where).toBe('"releasedAt" IS NULL');
   });
 
-  it('appends its posting enum members last so ALTER TYPE order matches', () => {
+  it('keeps settlement enum members before later inventory valuation additions', () => {
     const sources = Object.values(AccountingSourceType);
-    expect(sources[sources.length - 1]).toBe('PROVIDER_SETTLEMENT');
+    expect(sources.slice(-2)).toEqual(['PROVIDER_SETTLEMENT', 'PRODUCT']);
     const postings = Object.values(PostingType);
-    expect(postings[postings.length - 1]).toBe('PROVIDER_SETTLEMENT');
+    expect(postings.slice(-2)).toEqual(['PROVIDER_SETTLEMENT', 'INVENTORY_OPENING']);
   });
 });
