@@ -116,3 +116,51 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
 }
+
+@test "postcheck: a NOT VALID expected foreign key fails" {
+  run docker run --rm -i --network host \
+    -e PGPASSWORD="$DB_PASSWORD" \
+    --mount "type=bind,source=$FIXTURE,target=/fixture.sql,readonly" \
+    --mount "type=bind,source=$SCRIPT,target=/postcheck.sql,readonly" \
+    postgres:18.3-alpine3.23 \
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
+    -v ON_ERROR_STOP=1 \
+    -f /fixture.sql \
+    -c 'ALTER TABLE stock_occurrences DROP CONSTRAINT "FK_stock_occurrences_legacy_journal"; ALTER TABLE stock_occurrences ADD CONSTRAINT "FK_stock_occurrences_legacy_journal" FOREIGN KEY ("legacyJournalEntryId") REFERENCES journal_entry(id) ON DELETE RESTRICT NOT VALID;' \
+    -f /postcheck.sql
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
+}
+
+@test "postcheck: a NOT VALID valuation-gap check fails" {
+  run docker run --rm -i --network host \
+    -e PGPASSWORD="$DB_PASSWORD" \
+    --mount "type=bind,source=$FIXTURE,target=/fixture.sql,readonly" \
+    --mount "type=bind,source=$SCRIPT,target=/postcheck.sql,readonly" \
+    postgres:18.3-alpine3.23 \
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
+    -v ON_ERROR_STOP=1 \
+    -f /fixture.sql \
+    -c 'ALTER TABLE stock_movement_valuation_gaps DROP CONSTRAINT "CHK_stock_movement_valuation_gap_quantity_positive"; ALTER TABLE stock_movement_valuation_gaps ADD CONSTRAINT "CHK_stock_movement_valuation_gap_quantity_positive" CHECK (quantity > 0) NOT VALID;' \
+    -f /postcheck.sql
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
+}
+
+@test "postcheck: a NOT VALID other check fails" {
+  run docker run --rm -i --network host \
+    -e PGPASSWORD="$DB_PASSWORD" \
+    --mount "type=bind,source=$FIXTURE,target=/fixture.sql,readonly" \
+    --mount "type=bind,source=$SCRIPT,target=/postcheck.sql,readonly" \
+    postgres:18.3-alpine3.23 \
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
+    -v ON_ERROR_STOP=1 \
+    -f /fixture.sql \
+    -c 'ALTER TABLE stock_batch_consumptions DROP CONSTRAINT "CHK_stock_batch_consumptions_quantity_positive"; ALTER TABLE stock_batch_consumptions ADD CONSTRAINT "CHK_stock_batch_consumptions_quantity_positive" CHECK (quantity > 0) NOT VALID;' \
+    -f /postcheck.sql
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
+}

@@ -319,9 +319,12 @@ docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USE
   < backend/scripts/postcheck-stock-correction-path.sql
 ```
 
-The result must be `stock-correction postcheck: PASS`. On `FAIL`, stop and
-investigate the FK rules, partial unique indexes, provenance links, or reversed
-batch occurrence links before proceeding. See
+The result must be `stock-correction postcheck: PASS`. The postcheck requires
+every expected constraint to be validated: an expected FK or CHECK that exists
+only as `NOT VALID` has never been checked against the existing rows, so it
+counts as missing and the result is `FAIL` (#1416). On `FAIL`, stop and
+investigate the FK rules, CHECK constraints, partial unique indexes, provenance
+links, or reversed batch occurrence links before proceeding. See
 [`../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md`](../modules/inventory/STOCK_UNDO_SUPPORT_PROCEDURE.md)
 for correctable/refused cases and the support workflow. A passing postcheck is
 not approval to set the evidence horizon.
