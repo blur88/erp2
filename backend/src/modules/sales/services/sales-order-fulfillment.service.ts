@@ -1,6 +1,6 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Product } from '../../../database/entities/product.entity';
 import {
@@ -36,6 +36,9 @@ import type { AccountingPostingPort } from '../../../common/accounting-posting/a
 import { AccountingSourceType } from '../../../common/accounting-posting/enums';
 import { PostingType } from '../../../common/accounting-posting/enums';
 import { formatMoney, quantizeToCents, toMinorUnits, allocateCents, formatScale4 } from '@/common/utils/money';
+import { InventoryValuationService } from '../../inventory/valuation/inventory-valuation.service';
+import { StockValuationEntry, StockValuationEntryKind } from '../../../database/entities/stock-valuation-entry.entity';
+import { unitValueScale4 } from '../../inventory/valuation/valuation-math';
 
 @Injectable()
 export class SalesOrderFulfillmentService {
@@ -50,6 +53,7 @@ export class SalesOrderFulfillmentService {
     private readonly accounting: AccountingPostingPort,
     private readonly dataSource: DataSource,
     private readonly settingsService: SettingsService,
+    private readonly inventoryValuation: InventoryValuationService,
   ) {}
 
   async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
@@ -117,7 +121,10 @@ export class SalesOrderFulfillmentService {
         productId: item.productId,
         quantity: Number(item.quantity),
       }));
-      const plans = await this.baseCostCalculator.planConsumption(manager, plannedLines);
+      const valuationActive = await this.inventoryValuation.isActive(manager);
+      const plans = valuationActive
+        ? await this.baseCostCalculator.planPhysicalConsumption(manager, plannedLines)
+        : await this.baseCostCalculator.planConsumption(manager, plannedLines);
 
       for (const plan of plans) {
         const actualBatchQuantityMinor = plan.consumptions.reduce(
@@ -135,15 +142,29 @@ export class SalesOrderFulfillmentService {
         }
       }
 
-      let cogsScale8 = 0n;
-      for (const plan of plans) {
-        cogsScale8 += plan.totalScale8;
+      const pendingValuations = [];
+      if (valuationActive) {
+        for (const plan of plans) {
+          pendingValuations.push(
+            await this.inventoryValuation.valueDecrease(
+              manager,
+              plan.productId,
+              plan.requestedQuantityMinor,
+              StockValuationEntryKind.ISSUE,
+            ),
+          );
+        }
       }
+
+      let cogsScale8 = 0n;
+      for (const plan of plans) cogsScale8 += plan.totalScale8;
 
       const now = new Date();
       // Round COGS once across ALL lines: (scale8 + 5000) / 10000, then to cents.
       const cogsMinor = (cogsScale8 + 5000n) / 10000n;
-      const postedMinor = quantizeToCents(cogsMinor);
+      const postedMinor = valuationActive
+        ? pendingValuations.reduce((sum, pending) => sum + (pending.valueCents < 0n ? -pending.valueCents : pending.valueCents) * 100n, 0n)
+        : quantizeToCents(cogsMinor);
       const postedAmount = formatMoney(postedMinor);
 
       // The occurrence is created BEFORE any movement, so each movement can carry
@@ -160,7 +181,9 @@ export class SalesOrderFulfillmentService {
       });
 
       // Split the posted cents across the lines by their scale-8 consumption.
-      const allocatedMinor = allocateCents(postedMinor, plans.map((p) => p.totalScale8));
+      const allocatedMinor = valuationActive
+        ? pendingValuations.map((pending) => (pending.valueCents < 0n ? -pending.valueCents : pending.valueCents) * 100n)
+        : allocateCents(postedMinor, plans.map((p) => p.totalScale8));
       const allocatedSum = allocatedMinor.reduce((a, b) => a + b, 0n);
       if (allocatedSum !== postedMinor) {
         throw new Error(
@@ -169,6 +192,7 @@ export class SalesOrderFulfillmentService {
       }
 
       const gapRepo = manager.getRepository(StockMovementValuationGap);
+      const movementIds: string[] = [];
       for (let i = 0; i < plans.length; i += 1) {
         const plan = plans[i];
         const adjusted = await this.inventoryIntegrationService.adjustStock(
@@ -183,6 +207,18 @@ export class SalesOrderFulfillmentService {
           plan,
           formatScale4(allocatedMinor[i] ?? 0n),
         );
+        movementIds.push(adjusted.movementId);
+        if (valuationActive) {
+          const pending = pendingValuations[i];
+          const unitValue = unitValueScale4(
+            pending.quantityMinor < 0n ? -pending.quantityMinor : pending.quantityMinor,
+            pending.valueCents < 0n ? -pending.valueCents : pending.valueCents,
+          );
+          await manager.getRepository(StockMovement).update(adjusted.movementId, {
+            unitValue: Number(formatScale4(unitValue ?? 0n)),
+            totalValue: Number(formatScale4((pending.valueCents < 0n ? -pending.valueCents : pending.valueCents) * 100n)),
+          } as any);
+        }
         if (plan.uncoveredQuantityMinor > 0n) {
           await gapRepo.save(
             gapRepo.create({
@@ -236,6 +272,16 @@ export class SalesOrderFulfillmentService {
         createdBy: username,
         occurrenceId: occurrence.id,
       }, manager);
+
+      if (valuationActive) {
+        await this.inventoryValuation.commit(
+          manager,
+          pendingValuations,
+          movementIds,
+          posted.cogsEntryId,
+          userId,
+        );
+      }
 
       // Verify the journal matches the recorded occurrence exactly: a nonzero
       // occurrence must have a COGS entry, a zero-cost one must not.
@@ -364,6 +410,17 @@ export class SalesOrderFulfillmentService {
         throw new ConflictException(UNFULFILL_VALUATION_GAP);
       }
 
+      const valuationActive = await this.inventoryValuation.isActive(manager);
+      const originalValuations = new Map<string, StockValuationEntry | null>();
+      if (valuationActive) {
+        for (const movement of saleMovements) {
+          originalValuations.set(
+            movement.id,
+            await this.inventoryValuation.findEntryForMovement(manager, movement.id),
+          );
+        }
+      }
+
       const restoration = await this.assessRestorationEvidence(
         manager,
         lockedOccurrence,
@@ -397,8 +454,10 @@ export class SalesOrderFulfillmentService {
       }
 
       // One SALE_REVERSAL per sale movement, mirroring quantity and value.
+      const valuationReversals = [];
+      const reversalMovementIds: string[] = [];
       for (const movement of saleMovements) {
-        await this.stockMovementService.create(
+        const reversedMovement = await this.stockMovementService.create(
           {
             productId: movement.productId,
             movementType: StockMovementType.SALE_REVERSAL,
@@ -413,6 +472,27 @@ export class SalesOrderFulfillmentService {
           userId,
           manager,
         );
+        reversalMovementIds.push(reversedMovement.id);
+        if (valuationActive) {
+          const original = originalValuations.get(movement.id) ?? {
+            id: '',
+            productId: movement.productId,
+            method: await this.inventoryValuation.currentMethod(manager, movement.productId),
+            quantity: String(movement.quantity),
+            value: `-${String(movement.totalValue ?? '0')}`,
+            createdAt: movement.movementDate,
+          } as StockValuationEntry;
+          const pending = await this.inventoryValuation.valueDecreaseReversal(manager, original);
+          valuationReversals.push(pending);
+          const unitValue = unitValueScale4(
+            pending.quantityMinor < 0n ? -pending.quantityMinor : pending.quantityMinor,
+            pending.valueCents < 0n ? -pending.valueCents : pending.valueCents,
+          );
+          await manager.getRepository(StockMovement).update(reversedMovement.id, {
+            unitValue: Number(formatScale4(unitValue ?? 0n)),
+            totalValue: Number(formatScale4((pending.valueCents < 0n ? -pending.valueCents : pending.valueCents) * 100n)),
+          } as any);
+        }
       }
 
       // Recalculate each product's base cost from its restored batches.
@@ -428,6 +508,26 @@ export class SalesOrderFulfillmentService {
         formatDateInTimezone(now, timezone),
         username,
       );
+
+      if (valuationActive) {
+        const cogsReversal = await manager.getRepository(JournalEntry).findOne({
+          where: {
+            sourceType: AccountingSourceType.SALES_ORDER,
+            sourceDocumentId: order.id,
+            sourceEventId: occurrence.id,
+            postingType: PostingType.SALES_FULFILLMENT_COGS,
+            reversalOfEntryId: Not(IsNull()),
+          } as any,
+          order: { createdAt: 'DESC' },
+        });
+        await this.inventoryValuation.commit(
+          manager,
+          valuationReversals,
+          reversalMovementIds,
+          cogsReversal?.id ?? null,
+          userId,
+        );
+      }
 
       await manager.getRepository(SalesOrder).update(id, {
         status: SalesOrderStatus.READY,

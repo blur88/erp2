@@ -27,6 +27,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { SettingsService } from '../../settings/settings.service';
+import { InventoryValuationService } from '../../inventory/valuation/inventory-valuation.service';
 
 const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
   ({
@@ -55,6 +56,7 @@ describe('SalesOrderFulfillmentService', () => {
   let auditLogService: any;
   let dataSource: any;
   let accountingPort: any;
+  let inventoryValuation: any;
   let settingsService: { getRegionalSettings: any };
   let appTimezone: string;
 
@@ -83,6 +85,14 @@ describe('SalesOrderFulfillmentService', () => {
     appTimezone = 'Asia/Kuala_Lumpur';
     settingsService = {
       getRegionalSettings: (jest.fn as unknown as any)(async () => ({ timezone: appTimezone })),
+    };
+    inventoryValuation = {
+      isActive: (jest.fn as unknown as any)().mockResolvedValue(false),
+      valueDecrease: (jest.fn as unknown as any)(),
+      valueDecreaseReversal: (jest.fn as unknown as any)(),
+      findEntryForMovement: (jest.fn as unknown as any)().mockResolvedValue(null),
+      currentMethod: (jest.fn as unknown as any)().mockResolvedValue('AVERAGE'),
+      commit: (jest.fn as unknown as any)().mockResolvedValue([]),
     };
     baseCostCalculator = {
       // One shared plan per line; default is zero-cost unless a test overrides.
@@ -135,6 +145,7 @@ describe('SalesOrderFulfillmentService', () => {
         },
         { provide: DataSource, useValue: { transaction: (jest.fn as unknown as any)() } },
         { provide: SettingsService, useValue: settingsService },
+        { provide: InventoryValuationService, useValue: inventoryValuation },
       ],
     }).compile();
 

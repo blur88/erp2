@@ -244,7 +244,7 @@ export class InventoryValuationService {
       runningValueCents,
       layerDraws: [],
       openLayer,
-      reversesEntryId: original.id,
+      reversesEntryId: original.id || undefined,
     };
   }
 
