@@ -3,6 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, EntityManager } from 'typeorm';
 import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { StockBatchConsumption } from '../../../database/entities/stock-batch-consumption.entity';
+import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { UNFULFILL_EVIDENCE_INCOMPLETE } from '../stock-undo-unavailable';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
 import { repoFor } from '../../../common/db/tx-helpers';
 import { toMinorUnits, formatScale4, allocate } from '@/common/utils/money';
@@ -197,6 +200,206 @@ export class BaseCostCalculatorService {
     }
 
     return plans;
+  }
+
+  /** Strategy-independent oldest-first planning for active valuation flows. */
+  async planPhysicalConsumption(
+    manager: EntityManager | undefined,
+    lines: ReadonlyArray<{ productId: string; quantity: number }>,
+  ): Promise<ProductConsumptionPlan[]> {
+    if (!manager) {
+      throw new Error(
+        'planPhysicalConsumption requires a transaction manager for FOR UPDATE locking',
+      );
+    }
+    const costHistoryRepo = repoFor(
+      manager,
+      PurchaseCostHistory,
+      this.costHistoryRepository,
+    );
+    const productIds = [...new Set(lines.map((line) => line.productId))].sort();
+    const batchesByProduct = new Map<string, PurchaseCostHistory[]>();
+    const remainingMinor = new Map<string, bigint>();
+    for (const productId of productIds) {
+      const batches = await costHistoryRepo.find({
+        where: { productId, remainingQuantity: MoreThan(0) },
+        order: { receivedDate: 'ASC', id: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      batches.sort((left, right) => {
+        const dateOrder =
+          new Date(left.receivedDate).getTime() -
+          new Date(right.receivedDate).getTime();
+        return dateOrder || left.id.localeCompare(right.id);
+      });
+      batchesByProduct.set(productId, batches);
+      for (const batch of batches)
+        remainingMinor.set(
+          batch.id,
+          toMinorUnits(String(batch.remainingQuantity)),
+        );
+    }
+
+    return lines.map((line) => {
+      const requestedQuantityMinor = toMinorUnits(line.quantity.toFixed(4));
+      const consumptions: ConsumptionLine[] = [];
+      let remaining = requestedQuantityMinor;
+      let totalScale8 = 0n;
+      for (const batch of batchesByProduct.get(line.productId) ?? []) {
+        if (remaining === 0n) break;
+        const available = remainingMinor.get(batch.id) ?? 0n;
+        if (available <= 0n) continue;
+        const quantityMinor = available < remaining ? available : remaining;
+        const unitCostMinor = toMinorUnits(String(batch.landedCost));
+        const valueScale8 = quantityMinor * unitCostMinor;
+        consumptions.push({
+          batchId: batch.id,
+          quantityMinor,
+          unitCostMinor,
+          valueScale8,
+        });
+        remainingMinor.set(batch.id, available - quantityMinor);
+        remaining -= quantityMinor;
+        totalScale8 += valueScale8;
+      }
+      if (remaining > 0n) {
+        throw new ConflictException(
+          `Stock batches do not cover ${formatScale4(remaining)} of ${line.productId}`,
+        );
+      }
+      return {
+        productId: line.productId,
+        requestedQuantityMinor,
+        coveredQuantityMinor: requestedQuantityMinor,
+        uncoveredQuantityMinor: 0n,
+        consumptions,
+        totalScale8,
+      };
+    });
+  }
+
+  /** Apply physical quantities and save their immutable movement provenance. */
+  async recordConsumptions(
+    manager: EntityManager | undefined,
+    movementId: string,
+    consumptions: ConsumptionLine[],
+  ): Promise<void> {
+    if (!manager)
+      throw new Error('recordConsumptions requires a transaction manager');
+    const costHistoryRepo = repoFor(
+      manager,
+      PurchaseCostHistory,
+      this.costHistoryRepository,
+    );
+    const consumptionRepo = manager.getRepository(StockBatchConsumption);
+    const touchedProducts = new Set<string>();
+    for (const consumption of consumptions) {
+      const batch = await costHistoryRepo.findOne({
+        where: { id: consumption.batchId } as any,
+      });
+      if (!batch) throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+      const remainingMinor = toMinorUnits(String(batch.remainingQuantity));
+      if (
+        consumption.quantityMinor <= 0n ||
+        consumption.quantityMinor > remainingMinor
+      ) {
+        throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+      }
+      await costHistoryRepo.update(batch.id, {
+        remainingQuantity: formatScale4(
+          remainingMinor - consumption.quantityMinor,
+        ) as any,
+        updatedAt: new Date(),
+      });
+      const row = consumptionRepo.create({
+        movementId,
+        batchId: batch.id,
+        quantity: formatScale4(consumption.quantityMinor),
+        unitCost: formatScale4(consumption.unitCostMinor),
+        valueScale8: this.formatScale8(consumption.valueScale8),
+      } as any);
+      await consumptionRepo.save(row);
+      touchedProducts.add(batch.productId);
+    }
+    for (const productId of touchedProducts)
+      await this.updateProductBaseCost(productId, manager);
+  }
+
+  /** Restore exactly the batch rows recorded for a movement, with #1406 caps. */
+  async restoreConsumptions(
+    manager: EntityManager | undefined,
+    movementId: string,
+  ): Promise<Map<string, bigint>> {
+    if (!manager)
+      throw new Error('restoreConsumptions requires a transaction manager');
+    const consumptionRepo = manager.getRepository(StockBatchConsumption);
+    const costHistoryRepo = repoFor(
+      manager,
+      PurchaseCostHistory,
+      this.costHistoryRepository,
+    );
+    const movement = await manager.findOne(StockMovement, {
+      where: { id: movementId } as any,
+    });
+    const rows = await consumptionRepo.find({ where: { movementId } as any });
+    if (!movement || rows.length === 0)
+      throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+    const provenanceQuantityMinor = rows.reduce(
+      (sum, row) => sum + toMinorUnits(String(row.quantity)),
+      0n,
+    );
+    const movedQuantityMinor = toMinorUnits(
+      String(movement.quantity).replace('-', ''),
+    );
+    if (provenanceQuantityMinor !== movedQuantityMinor)
+      throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+
+    const restoreByBatch = new Map<string, bigint>();
+    for (const row of rows) {
+      const quantityMinor = toMinorUnits(String(row.quantity));
+      restoreByBatch.set(
+        row.batchId,
+        (restoreByBatch.get(row.batchId) ?? 0n) + quantityMinor,
+      );
+    }
+    const batches = new Map<string, PurchaseCostHistory>();
+    for (const [batchId, quantityMinor] of [...restoreByBatch].sort(([a], [b]) => a.localeCompare(b))) {
+      const batch = await costHistoryRepo.findOne({
+        where: { id: batchId } as any,
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (
+        !batch ||
+        batch.reversedAt ||
+        batch.productId !== movement.productId
+      ) {
+        throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+      }
+      const remainingMinor = toMinorUnits(String(batch.remainingQuantity));
+      const receivedMinor = toMinorUnits(String(batch.receivedQuantity));
+      if (remainingMinor + quantityMinor > receivedMinor) {
+        throw new ConflictException(UNFULFILL_EVIDENCE_INCOMPLETE);
+      }
+      batches.set(batchId, batch);
+    }
+    for (const [batchId, quantityMinor] of [...restoreByBatch].sort(([a], [b]) => a.localeCompare(b))) {
+      const batch = batches.get(batchId)!;
+      const remainingMinor = toMinorUnits(String(batch.remainingQuantity));
+      await costHistoryRepo.update(batchId, {
+        remainingQuantity: formatScale4(remainingMinor + quantityMinor) as any,
+        updatedAt: new Date(),
+      });
+    }
+    await this.updateProductBaseCost(movement.productId, manager);
+    return restoreByBatch;
+  }
+
+  private formatScale8(value: bigint): string {
+    const negative = value < 0n;
+    const magnitude = negative ? -value : value;
+    const whole = magnitude / 100000000n;
+    const fraction = (magnitude % 100000000n).toString().padStart(8, '0');
+    return `${negative ? '-' : ''}${whole}.${fraction}`;
   }
 
   /**

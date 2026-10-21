@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { StockBatchConsumption } from '../../../database/entities/stock-batch-consumption.entity';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
 import { reconcileToCents, toMinorUnits } from '@common/utils/money';
 
@@ -130,6 +131,140 @@ describe('BaseCostCalculatorService', () => {
         uncoveredQuantityMinor: 80000n,
       }),
     );
+  });
+
+  describe('physical batch consumption', () => {
+    it('consumes batches by received date even when ids sort in the opposite order', async () => {
+      const older = {
+        id: 'z-old',
+        productId: 'p1',
+        receivedDate: new Date('2025-01-01'),
+        remainingQuantity: '3.0000',
+        landedCost: '10.0000',
+      };
+      const newer = {
+        id: 'a-new',
+        productId: 'p1',
+        receivedDate: new Date('2025-02-01'),
+        remainingQuantity: '3.0000',
+        landedCost: '20.0000',
+      };
+      const find = jest.fn(async () => [older, newer]);
+      const manager = { getRepository: jest.fn(() => ({ find })) } as any;
+      const [plan] = await service.planPhysicalConsumption(manager, [
+        { productId: 'p1', quantity: 4 },
+      ]);
+      expect(find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          order: { receivedDate: 'ASC', id: 'ASC' },
+          lock: { mode: 'pessimistic_write' },
+        }),
+      );
+      expect(
+        plan.consumptions.map((row) => [row.batchId, row.quantityMinor]),
+      ).toEqual([
+        ['z-old', 30000n],
+        ['a-new', 10000n],
+      ]);
+      expect(plan.totalScale8).toBe(5000000000n);
+    });
+
+    it('refuses physical consumption when batches do not cover the requested quantity', async () => {
+      const find = jest.fn(async () => [
+        {
+          id: 'b1',
+          productId: 'p1',
+          receivedDate: new Date(),
+          remainingQuantity: '2.0000',
+          landedCost: '5.0000',
+        },
+      ]);
+      const manager = { getRepository: jest.fn(() => ({ find })) } as any;
+      await expect(
+        service.planPhysicalConsumption(manager, [
+          { productId: 'p1', quantity: 3 },
+        ]),
+      ).rejects.toThrow('Stock batches do not cover 1.0000 of p1');
+    });
+
+    it('refuses to restore batch provenance beyond the received quantity', async () => {
+      const batchRepo = {
+        findOne: jest.fn(async () => ({
+          id: 'b1',
+          productId: 'p1',
+          remainingQuantity: '4.0000',
+          receivedQuantity: '5.0000',
+        })),
+        update: jest.fn(),
+      };
+      const consumptionRepo = {
+        find: jest.fn(async () => [{ batchId: 'b1', quantity: '2.0000' }]),
+      };
+      const manager = {
+        getRepository: jest.fn((entity: any) =>
+          entity === PurchaseCostHistory ? batchRepo : consumptionRepo,
+        ),
+        findOne: jest.fn(async () => ({ id: 'movement-1', productId: 'p1', quantity: '-2.0000' })),
+      } as any;
+      await expect(
+        service.restoreConsumptions(manager, 'movement-1'),
+      ).rejects.toThrow(
+        "This order's recorded stock consumption is incomplete",
+      );
+      expect(batchRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('records exact batch provenance and decrements the physical batch', async () => {
+      const batchRepo = {
+        findOne: jest.fn(async () => ({ id: 'b1', productId: 'p1', remainingQuantity: '2.0000' })),
+        update: jest.fn(),
+      };
+      const consumptionRepo = {
+        create: jest.fn((row) => row),
+        save: jest.fn(),
+      };
+      const manager = {
+        getRepository: jest.fn((entity: any) => entity === PurchaseCostHistory ? batchRepo : consumptionRepo),
+      } as any;
+      jest.spyOn(service as any, 'updateProductBaseCost').mockResolvedValue(0);
+      await service.recordConsumptions(manager, 'movement-1', [{ batchId: 'b1', quantityMinor: 10000n, unitCostMinor: 50000n, valueScale8: 500000000n }]);
+      expect(batchRepo.update).toHaveBeenCalledWith('b1', expect.objectContaining({ remainingQuantity: '1.0000' }));
+      expect(consumptionRepo.create).toHaveBeenCalledWith(expect.objectContaining({ movementId: 'movement-1', batchId: 'b1', quantity: '1.0000', unitCost: '5.0000', valueScale8: '5.00000000' }));
+      expect(consumptionRepo.save).toHaveBeenCalled();
+    });
+
+    it('restores recorded quantities to their source batches', async () => {
+      const batchRepo = {
+        findOne: jest.fn(async () => ({
+          id: 'b1',
+          productId: 'p1',
+          remainingQuantity: '3.0000',
+          receivedQuantity: '5.0000',
+        })),
+        update: jest.fn(),
+      };
+      const consumptionRepo = {
+        find: jest.fn(async () => [{ batchId: 'b1', quantity: '2.0000' }]),
+      };
+      const manager = {
+        getRepository: jest.fn((entity: any) =>
+          entity === PurchaseCostHistory ? batchRepo : consumptionRepo,
+        ),
+        findOne: jest.fn(async () => ({
+          id: 'movement-1',
+          productId: 'p1',
+          quantity: '-2.0000',
+        })),
+      } as any;
+      jest.spyOn(service as any, 'updateProductBaseCost').mockResolvedValue(0);
+      await expect(service.restoreConsumptions(manager, 'movement-1')).resolves.toEqual(
+        new Map([['b1', 20000n]]),
+      );
+      expect(batchRepo.update).toHaveBeenCalledWith(
+        'b1',
+        expect.objectContaining({ remainingQuantity: '5.0000' }),
+      );
+    });
   });
 
   it('keys addStock batches by purchaseOrderId and returns persisted values', async () => {
