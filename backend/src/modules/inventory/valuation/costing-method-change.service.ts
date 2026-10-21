@@ -5,6 +5,8 @@ import { CostingMethodChangeStatus } from '../../../database/entities/costing-me
 import { averageToLayers } from './valuation-math';
 import { toMinorUnits, formatScale4, formatMoney } from '../../../common/utils/money';
 
+function dateOnly(value: string | Date): string { return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10); }
+
 @Injectable()
 export class CostingMethodChangeService {
   constructor(private readonly ds: DataSource) {}
@@ -14,10 +16,11 @@ export class CostingMethodChangeService {
       const [setting] = await m.query(`SELECT "costingMethod" FROM regional_settings ORDER BY "createdAt" LIMIT 1`);
       const fromMethod = setting?.costingMethod;
       if (!fromMethod || fromMethod === dto.toMethod) throw new ConflictException('The proposed costing method must differ from the current method.');
-      const today = new Date().toISOString().slice(0, 10);
+      const [appDate] = await m.query(`SELECT to_char(now() AT TIME ZONE COALESCE((SELECT timezone FROM regional_settings ORDER BY "createdAt" LIMIT 1),'Asia/Kuala_Lumpur'),'YYYY-MM-DD') AS today`);
+      const today = appDate.today;
       if (dto.effectiveDate < today) throw new ConflictException('The effective date cannot be before today.');
       const [latest] = await m.query(`SELECT MAX("movementDate")::date AS day FROM stock_movements`);
-      if (latest?.day && dto.effectiveDate < String(latest.day).slice(0,10)) throw new ConflictException('The effective date cannot be before the latest stock movement.');
+      if (latest?.day && dto.effectiveDate < dateOnly(latest.day)) throw new ConflictException('The effective date cannot be before the latest stock movement.');
       const [row] = await m.query(`INSERT INTO costing_method_changes ("fromMethod","toMethod","requestedEffectiveDate",status,"preparedByUserId",explanation,"snapshotTakenAt") VALUES ($1,$2,$3,'proposed',$4,$5,now()) RETURNING *`, [fromMethod,dto.toMethod,dto.effectiveDate,user.userId,dto.explanation]);
       await this.preview(m, row.id, dto.toMethod);
       return this.findOne(row.id, m);
@@ -100,20 +103,26 @@ export class CostingMethodChangeService {
     if (state?.status !== 'active' || !state.pausedAt) throw new ConflictException('Inventory valuation must be paused before applying a costing method change.');
     const record = await this.findOne(id,manager);
     if (record.status !== 'approved') throw new ConflictException('The costing method change must be approved.');
-    if (new Date().toISOString().slice(0,10) < String(record.requestedEffectiveDate).slice(0,10)) throw new ConflictException('The requested effective date has not arrived.');
+    const [appDate] = await manager.query(`SELECT to_char(now() AT TIME ZONE COALESCE((SELECT timezone FROM regional_settings ORDER BY "createdAt" LIMIT 1),'Asia/Kuala_Lumpur'),'YYYY-MM-DD') AS today`);
+    if (appDate.today < dateOnly(record.requestedEffectiveDate)) throw new ConflictException('The requested effective date has not arrived.');
     if (record.contentHash !== contentHash(this.approvalContent(record, record.products))) throw new ConflictException('Stock has changed since this change was approved; refresh the preview and approve again.');
     for (const p of record.products) {
       const [balance] = await manager.query(`SELECT * FROM product_valuation_balances WHERE "productId"=$1 FOR UPDATE`,[p.productId]);
       const liveLayers = await manager.query(`SELECT id,"remainingQuantity"::text AS "remainingQty","remainingValue"::text AS "remainingValue" FROM inventory_cost_layers WHERE "productId"=$1 AND "remainingQuantity">0 ORDER BY "createdAt",id FOR UPDATE`,[p.productId]);
-      if (!balance || balance.quantityOnHand !== p.quantity || balance.valueOnHand !== p.valueBefore || JSON.stringify(liveLayers) !== JSON.stringify(p.layersBefore)) throw new ConflictException('Stock has changed since this change was approved; refresh the preview and approve again.');
+      const liveBatches = await manager.query(`SELECT id AS "batchId","remainingQuantity"::text AS "remainingQty" FROM purchase_cost_history WHERE "productId"=$1 AND "remainingQuantity">0 ORDER BY "receivedDate",id FOR UPDATE`,[p.productId]);
+      if (!balance || balance.quantityOnHand !== p.quantity || balance.valueOnHand !== p.valueBefore || JSON.stringify(liveLayers) !== JSON.stringify(p.layersBefore) || JSON.stringify(liveBatches) !== JSON.stringify(p.batchesBefore)) throw new ConflictException('Stock has changed since this change was approved; refresh the preview and approve again.');
       await manager.query(`UPDATE inventory_cost_layers SET "remainingQuantity"=0,"remainingValue"=0 WHERE "productId"=$1 AND "remainingQuantity">0`,[p.productId]);
-      if (record.toMethod === 'FIFO') {
-        for (const layer of p.layersAfter as any[]) await manager.query(`INSERT INTO inventory_cost_layers ("productId",quantity,"unitValue","remainingQuantity","remainingValue") VALUES ($1,$2,$3,$2,$4)`,[p.productId,layer.quantity, (Number(layer.value)/Number(layer.quantity)).toFixed(4),layer.value]);
-      }
       const inserted = await manager.query(`INSERT INTO stock_valuation_entries ("productId",kind,method,quantity,value,"runningQuantity","runningValue","journalEntryId","reversesEntryId","defaultUnitValue",explanation,"actorUserId") VALUES ($1,'method_change',$2,0,0,$3,$4,NULL,NULL,NULL,$5,$6) RETURNING id`,[p.productId,record.toMethod,p.quantity,p.valueBefore,record.explanation,record.approvedByUserId]);
+      if (record.toMethod === 'FIFO') {
+        for (const layer of p.layersAfter as any[]) {
+          const qty=toMinorUnits(String(layer.quantity)); const value=toMinorUnits(String(layer.value));
+          const unit=qty===0n?0n:(value*10000n+qty/2n)/qty;
+          await manager.query(`INSERT INTO inventory_cost_layers ("productId","sourceEntryId",quantity,"unitValue","remainingQuantity","remainingValue") VALUES ($1,$2,$3,$4,$3,$5)`,[p.productId,inserted[0].id,layer.quantity,formatScale4(unit),layer.value]);
+        }
+      }
       await manager.query(`UPDATE product_valuation_balances SET method=$2,"lastEntryId"=$3 WHERE "productId"=$1`,[p.productId,record.toMethod,inserted[0]?.id]);
     }
     await manager.query(`UPDATE regional_settings SET "costingMethod"=$1`,[record.toMethod]);
-    await manager.query(`UPDATE costing_method_changes SET status='applied',"appliedAt"=now(),"appliedDate"=current_date,"appliedByUserId"=$2 WHERE id=$1`,[id,record.approvedByUserId]);
+    await manager.query(`UPDATE costing_method_changes SET status='applied',"appliedAt"=now(),"appliedDate"=(now() AT TIME ZONE COALESCE((SELECT timezone FROM regional_settings ORDER BY "createdAt" LIMIT 1),'Asia/Kuala_Lumpur'))::date,"appliedByUserId"=$2 WHERE id=$1`,[id,record.approvedByUserId]);
   }
 }
