@@ -334,6 +334,10 @@ missing from development because that migration had already been recorded as
 applied. Run this preflight against the target database before deploying the
 forward repair migration:
 
+Before applying the migration, take a fresh backup of the target database and
+verify the backup archive using the mandatory Backup section at the top of this
+checklist.
+
 ```bash
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
   < backend/scripts/preflight-stock-constraints-1414.sql
@@ -343,6 +347,8 @@ docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_
 owner decision. Do not delete or rewrite rows to make a constraint fit. On a
 fresh or already repaired database, the preflight reports all four constraints
 as `present`, zero violations, and `PROCEED`; the migration then does nothing.
+After applying the migration, run the preflight again. It must report all four
+constraints as `present`, zero violations, and `PROCEED` before continuing.
 After the repair, the #1406 postcheck above must report PASS with 13/13 foreign
 keys and 2/2 other checks.
 

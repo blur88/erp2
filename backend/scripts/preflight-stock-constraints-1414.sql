@@ -1,4 +1,4 @@
--- Run from the repository root against the development database:
+-- Run from the repository root against the target database:
 -- docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < backend/scripts/preflight-stock-constraints-1414.sql
 BEGIN READ ONLY;
 SHOW transaction_read_only;

@@ -106,12 +106,16 @@ describe('restore stock constraints migration atomicity', () => {
   it("the executor's transaction rolls back earlier additions when a later one fails", async () => {
     const runner = dataSource.createQueryRunner();
     await runner.connect();
+    const successfulAdds: string[] = [];
     const query = runner.query.bind(runner);
     runner.query = async (sql: string, parameters?: unknown[], useStructuredResult?: boolean) => {
       if (sql.includes('ADD CONSTRAINT "FK_purchase_cost_history_occurrence"')) {
         throw new Error('injected final constraint failure');
       }
-      return query(sql, parameters, useStructuredResult);
+      const result = await query(sql, parameters, useStructuredResult);
+      const addedConstraint = sql.match(/ADD CONSTRAINT "([^"]+)"/);
+      if (addedConstraint) successfulAdds.push(addedConstraint[1]);
+      return result;
     };
     try {
       const executor = new MigrationExecutor(dataSource, runner);
@@ -122,6 +126,7 @@ describe('restore stock constraints migration atomicity', () => {
     } finally {
       await runner.release();
     }
+    expect(successfulAdds).toEqual(expectedNames.slice(0, 3));
     expect(await committedSnapshot()).toEqual({ constraints: [], migrations: [] });
   });
 
