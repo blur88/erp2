@@ -778,3 +778,14 @@ WHERE t."sessionId" = s.id
 **Document Version**: 1.1
 **Last Updated**: October 5, 2026
 **Maintained By**: ERP Development Team
+
+### Inventory valuation stage 1 preflight (#1398 P4)
+
+Valuation ships inactive. Before applying the costing-method migration, run the read-only preflight against the target database:
+
+```bash
+docker compose exec -T postgres psql -X -U erp_user -d erp_db < backend/scripts/preflight-costing-method-p4s1.sql
+```
+
+Proceed only when the final row says `PASS: all costing methods are AVERAGE or FIFO`. **Any unsupported row is a HOLD**: resolve it with the business owner and rerun the preflight before deployment. Stage 1 creates valuation and protection records but has no activation or pause route; leave the singleton valuation state `inactive`.
+
