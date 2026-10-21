@@ -100,3 +100,19 @@ setup() {
   [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
   [[ "$output" == *"gap_quantity_mismatch_count"* ]]
 }
+
+@test "postcheck: missing FK_purchase_cost_history_occurrence fails" {
+  run docker run --rm -i --network host \
+    -e PGPASSWORD="$DB_PASSWORD" \
+    --mount "type=bind,source=$FIXTURE,target=/fixture.sql,readonly" \
+    --mount "type=bind,source=$SCRIPT,target=/postcheck.sql,readonly" \
+    postgres:18.3-alpine3.23 \
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
+    -v ON_ERROR_STOP=1 \
+    -f /fixture.sql \
+    -c 'ALTER TABLE purchase_cost_history DROP CONSTRAINT "FK_purchase_cost_history_occurrence";' \
+    -f /postcheck.sql
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"stock-correction postcheck: FAIL"* ]]
+}

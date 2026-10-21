@@ -1,7 +1,7 @@
 -- #1406 read-only postcheck. Any FAIL is a stop-and-investigate result.
 -- It verifies the restrictive stock-history FKs, partial uniqueness guards,
 -- receipt-line identity guards, provenance referential integrity, and receipt
--- reversal occurrence linkage.
+-- reversal occurrence linkage, including FK_purchase_cost_history_occurrence (#1414).
 --
 --   docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
 --     < backend/scripts/postcheck-stock-correction-path.sql
@@ -10,6 +10,7 @@ BEGIN READ ONLY;
 
 WITH expected_foreign_keys(name, source_table_name, source_column_name, target_table_name, target_column_name) AS (
   VALUES
+    ('FK_purchase_cost_history_occurrence', 'purchase_cost_history', 'occurrenceId', 'stock_occurrences', 'id'),
     ('FK_a200937c3bef6072ce44d760fe3', 'purchase_cost_history', 'productId', 'products', 'id'),
     ('FK_5c780823d6beebab76e469e2e17', 'purchase_cost_history', 'reversedByOccurrenceId', 'stock_occurrences', 'id'),
     ('FK_a3acb59db67e977be45e382fc56', 'stock_movements', 'productId', 'products', 'id'),
