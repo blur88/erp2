@@ -19,6 +19,11 @@ vi.mock('@/store/api/inventoryApi', async () => {
   }
 })
 
+vi.mock('@/store/api/valuationApi', () => ({
+  useGetValuationStatusQuery: () => ({ data: { active: false, method: 'AVERAGE' } }),
+  useGetProductValuationQuery: () => ({ data: null }),
+}))
+
 import { inventoryApiSlice } from '@/store/api/inventoryApi'
 import { settingsApiSlice } from '@/store/api/settingsApi'
 

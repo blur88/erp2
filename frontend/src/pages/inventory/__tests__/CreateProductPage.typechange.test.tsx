@@ -57,6 +57,10 @@ vi.mock('@/store/api/priceListApi', async (importOriginal) => {
   }
 })
 
+vi.mock('@/store/api/valuationApi', () => ({
+  useGetValuationStatusQuery: () => ({ data: { active: false, method: 'AVERAGE' } }),
+}))
+
 import { NotificationProvider } from '@/hooks/useNotification'
 import { inventoryApiSlice } from '@/store/api/inventoryApi'
 import { settingsApiSlice } from '@/store/api/settingsApi'

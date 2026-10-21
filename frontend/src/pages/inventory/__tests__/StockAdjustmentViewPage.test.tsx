@@ -43,6 +43,10 @@ vi.mock('@/store/api/inventoryApi', () => ({
   useRevertStockAdjustmentMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
 }))
 
+vi.mock('@/store/api/valuationApi', () => ({
+  useGetValuationStatusQuery: () => ({ data: { active: false, method: 'AVERAGE' } }),
+}))
+
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
