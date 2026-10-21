@@ -2,6 +2,61 @@ import { jest } from '@jest/globals';
 import { SettingsService } from './settings.service';
 
 describe('SettingsService', () => {
+  describe('updateRegionalSettings costing method lock', () => {
+    const setup = (hasMovements: boolean, currentMethod = 'AVERAGE') => {
+      const settings = { id: 'settings-1', costingMethod: currentMethod, isActive: true };
+      const regionalSettingsRepository = {
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(settings),
+        save: (jest.fn as unknown as any)().mockImplementation(async (value: any) => value),
+        create: (jest.fn as unknown as any)((value: any) => value),
+      };
+      const dataSource = {
+        query: (jest.fn as unknown as any)().mockResolvedValue([{ exists: hasMovements }]),
+      };
+      const service = new SettingsService(
+        {} as any, regionalSettingsRepository as any, {} as any, {} as any,
+        {} as any, {} as any, {} as any, dataSource as any,
+      );
+      return { service, regionalSettingsRepository, dataSource, settings };
+    };
+
+    it('refuses a changed method after stock has moved without saving', async () => {
+      const { service, regionalSettingsRepository, dataSource, settings } = setup(true);
+
+      await expect(service.updateRegionalSettings({ costingMethod: 'FIFO' })).rejects.toMatchObject({
+        response: {
+          message: 'The costing method cannot be changed directly once stock has moved. Use a costing method change (Inventory → Valuation).',
+        },
+        status: 409,
+      });
+
+      expect(settings.costingMethod).toBe('AVERAGE');
+      expect(regionalSettingsRepository.save).not.toHaveBeenCalled();
+      expect(dataSource.query).toHaveBeenCalledWith(
+        'SELECT EXISTS (SELECT 1 FROM stock_movements) AS "exists"',
+      );
+    });
+
+    it('allows the unchanged method with other settings after stock has moved', async () => {
+      const { service, regionalSettingsRepository, dataSource } = setup(true);
+
+      await service.updateRegionalSettings({ costingMethod: 'AVERAGE', lowStockThreshold: 23 });
+
+      expect(regionalSettingsRepository.save.mock.calls[0][0].lowStockThreshold).toBe(23);
+      expect(regionalSettingsRepository.save).toHaveBeenCalledTimes(1);
+      expect(dataSource.query).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows changing the method when no stock movement exists', async () => {
+      const { service, regionalSettingsRepository } = setup(false);
+
+      const response = await service.updateRegionalSettings({ costingMethod: 'FIFO' });
+
+      expect(regionalSettingsRepository.save).toHaveBeenCalledTimes(1);
+      expect(response.costingMethodLocked).toBe(false);
+    });
+  });
+
   /*
    * The seeded row carries a placeholder registration number, like the other
    * fields — but the VALUE must stay self-evidently fake.

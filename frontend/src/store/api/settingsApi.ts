@@ -41,6 +41,7 @@ export interface RegionalSettings {
   id: string
   currency: string
   costingMethod: string
+  costingMethodLocked: boolean
   dateFormat: string
   timeFormat: string
   numberFormat: string

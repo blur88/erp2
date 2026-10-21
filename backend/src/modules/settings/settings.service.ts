@@ -3,6 +3,8 @@ import {
   NotFoundException,
   Logger,
   InternalServerErrorException,
+  HttpException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -254,7 +256,9 @@ export class SettingsService {
         settings = await this.createDefaultRegionalSettings();
       }
 
-      return this.mapToRegionalSettingsResponseDto(settings);
+      const response = this.mapToRegionalSettingsResponseDto(settings);
+      response.costingMethodLocked = await this.isCostingMethodLocked();
+      return response;
     } catch (error) {
       this.logger.error(`Failed to get price and costing settings: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to retrieve price and costing settings');
@@ -280,6 +284,15 @@ export class SettingsService {
           isActive: true,
         });
       } else {
+        if (
+          updateDto.costingMethod !== undefined &&
+          updateDto.costingMethod !== settings.costingMethod &&
+          (await this.isCostingMethodLocked())
+        ) {
+          throw new ConflictException(
+            'The costing method cannot be changed directly once stock has moved. Use a costing method change (Inventory → Valuation).',
+          );
+        }
         // Update existing settings
         Object.assign(settings, updateDto);
       }
@@ -288,14 +301,26 @@ export class SettingsService {
 
       this.logger.log(`Price and costing settings updated by ${updatedBy}`);
 
-      return this.mapToRegionalSettingsResponseDto(savedSettings);
+      const response = this.mapToRegionalSettingsResponseDto(savedSettings);
+      response.costingMethodLocked = await this.isCostingMethodLocked();
+      return response;
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       this.logger.error(
         `Failed to update price and costing settings: ${error.message}`,
         error.stack,
       );
       throw new InternalServerErrorException('Failed to update price and costing settings');
     }
+  }
+
+  async isCostingMethodLocked(manager?: EntityManager): Promise<boolean> {
+    const [result] = await (manager ?? this.dataSource).query(
+      'SELECT EXISTS (SELECT 1 FROM stock_movements) AS "exists"',
+    );
+    return Boolean(result?.exists);
   }
 
   /**

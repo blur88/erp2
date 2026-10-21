@@ -19,6 +19,13 @@ export class RegionalSettingsResponseDto {
   @Expose()
   costingMethod: string;
 
+  @ApiProperty({
+    description:
+      "Whether a stock movement prevents direct costing method changes",
+  })
+  @Expose()
+  costingMethodLocked: boolean;
+
   @ApiProperty({ description: "Date display format", example: "DD/MM/YYYY" })
   @Expose()
   dateFormat: string;

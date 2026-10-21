@@ -1,4 +1,3 @@
-import { jest } from "@jest/globals";
 import { CostingStrategyFactory } from "./costing-strategy-factory.service";
 import { AverageCostingStrategy } from "./average-costing-strategy.service";
 import { FifoCostingStrategy } from "./fifo-costing-strategy.service";
@@ -8,9 +7,7 @@ describe("CostingStrategyFactory", () => {
     const average = {} as AverageCostingStrategy;
     const fifo = {} as FifoCostingStrategy;
     const factory = new CostingStrategyFactory(
-      {
-        findOne: jest.fn().mockResolvedValue({ costingMethod: "LIFO" }),
-      } as any,
+      { findOne: async () => ({ costingMethod: "LIFO" }) } as any,
       average,
       fifo,
     );

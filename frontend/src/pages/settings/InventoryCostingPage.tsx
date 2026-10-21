@@ -79,6 +79,7 @@ const InventoryCostingPage: React.FC = () => {
   }
 
   const error = fetchError ? ((fetchError as any)?.message || 'Failed to load settings') : null
+  const costingMethodLocked = Boolean((settingsData as any)?.costingMethodLocked)
 
   const onSubmit = async (data: InventoryCostingFormData) => {
     try {
@@ -166,8 +167,11 @@ const InventoryCostingPage: React.FC = () => {
                     fullWidth
                     size="small"
                     required
+                    disabled={costingMethodLocked}
                     error={!!errors.costingMethod}
-                    helperText={errors.costingMethod?.message || 'Select the method for inventory valuation'}
+                    helperText={costingMethodLocked
+                      ? 'The costing method cannot be changed directly once stock has moved. Use Inventory → Valuation to propose a method change.'
+                      : errors.costingMethod?.message || 'Select the method for inventory valuation'}
                   >
                     {COSTING_METHODS.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
@@ -195,7 +199,7 @@ const InventoryCostingPage: React.FC = () => {
                   <Button
                     variant="outlined"
                     onClick={handleCancel}
-                    disabled={submitting || recalculating}
+                    disabled={submitting || recalculating || costingMethodLocked}
                     size="large"
                   >
                     Cancel

@@ -40,4 +40,18 @@ describe('InventoryCostingPage', () => {
       'FIFO (First In, First Out)',
     ])
   })
+
+  it('disables method selection and explains the controlled change path after stock moves', () => {
+    mockedSettingsApi.useGetRegionalSettingsQuery.mockReturnValue({
+      data: { costingMethod: 'AVERAGE', costingMethodLocked: true },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    render(<InventoryCostingPage />)
+
+    expect(screen.getByRole('combobox', { name: /inventory costing method/i })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText(/use inventory → valuation/i)).toBeInTheDocument()
+  })
 })
