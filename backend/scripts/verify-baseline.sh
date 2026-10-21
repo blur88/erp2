@@ -256,7 +256,7 @@ fi
 UNEXPECTED=$(grep -E '^[+-]' "$OUT/diff.txt" \
   | grep -vE '^(\+\+\+|---)' \
   | grep -vE \
-'^\+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;|^\+COMMENT ON EXTENSION pg_trgm IS|^\+CREATE UNIQUE INDEX "UQ_price_lists_single_default"|^\+CREATE UNIQUE INDEX "UQ_products_lower_(name|barcode)"|^\+CREATE INDEX idx_(customers|products|sales_orders|purchase_orders|suppliers|vendor_payments)_[a-z]+_trgm|^\+CREATE FUNCTION public\.bsr_(assert_version_sealed|guard_classification|guard_current_version|guard_immutable_ids|guard_version|guard_version_line)\(\)|^\+CREATE TRIGGER trg_bsr_(current_version_sealed|line_classification|line_immutable_ids|mark_classification|mark_immutable_ids|version_guard|version_line_guard) |^\+CREATE CONSTRAINT TRIGGER trg_bsr_version_sealed_at_commit |^\+ALTER TABLE ONLY public\.bank_statement_reconciliations ADD CONSTRAINT "FK_bsr_current_version" FOREIGN KEY \(id, "currentVersionNo"\) REFERENCES public\.bank_statement_reconciliation_versions\("reconciliationId", "versionNo"\) ON DELETE RESTRICT;|^\+CREATE FUNCTION public\.stock_(movement_valuation_gap_immutable|occurrence_valuation_gap_consistency)\(\)|^\+CREATE TRIGGER trg_stock_movement_valuation_gap_immutable |^\+CREATE CONSTRAINT TRIGGER trg_stock_(movement|occurrence)_valuation_gap_consistency |^\+CREATE FUNCTION public\.(inventory_layer_consumption_immutable|stock_movement_valuation_coverage|stock_valuation_entry_immutable)\(\)|^\+CREATE TRIGGER trg_(inventory_layer_consumption_immutable|stock_valuation_entry_immutable) |^\+CREATE CONSTRAINT TRIGGER trg_stock_movement_valuation_coverage ' \
+'^\+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;|^\+COMMENT ON EXTENSION pg_trgm IS|^\+CREATE UNIQUE INDEX "UQ_price_lists_single_default"|^\+CREATE UNIQUE INDEX "UQ_products_lower_(name|barcode)"|^\+CREATE INDEX idx_(customers|products|sales_orders|purchase_orders|suppliers|vendor_payments)_[a-z]+_trgm|^\+CREATE FUNCTION public\.bsr_(assert_version_sealed|guard_classification|guard_current_version|guard_immutable_ids|guard_version|guard_version_line)\(\)|^\+CREATE TRIGGER trg_bsr_(current_version_sealed|line_classification|line_immutable_ids|mark_classification|mark_immutable_ids|version_guard|version_line_guard) |^\+CREATE CONSTRAINT TRIGGER trg_bsr_version_sealed_at_commit |^\+ALTER TABLE ONLY public\.bank_statement_reconciliations ADD CONSTRAINT "FK_bsr_current_version" FOREIGN KEY \(id, "currentVersionNo"\) REFERENCES public\.bank_statement_reconciliation_versions\("reconciliationId", "versionNo"\) ON DELETE RESTRICT;|^\+CREATE FUNCTION public\.stock_(movement_valuation_gap_immutable|occurrence_valuation_gap_consistency)\(\)|^\+CREATE TRIGGER trg_stock_movement_valuation_gap_immutable |^\+CREATE CONSTRAINT TRIGGER trg_stock_(movement|occurrence)_valuation_gap_consistency |^\+CREATE FUNCTION public\.(inventory_layer_consumption_immutable|stock_movement_valuation_coverage|stock_valuation_entry_immutable)\(\)|^\+CREATE TRIGGER trg_(inventory_layer_consumption_immutable|stock_valuation_entry_immutable) |^\+CREATE CONSTRAINT TRIGGER trg_stock_movement_valuation_coverage |^\+CREATE TABLE journal_entry_open_postings |^\+CREATE FUNCTION public\.(inventory_(account_backing_check|account_setting_protect|journal_entry_protect|journal_line_no_append|journal_line_protect|truncate_protect|reconciliation_content_guard|reconciliation_header_guard|cutover_batch_release_immutable)|journal_entry_open_posting_(clear|guard|mark))\(\)|^\+CREATE TRIGGER trg_(inventory_(account_setting_protect|journal_entry_protect|journal_line_no_append|journal_line_protect|truncate_protect|opening_positions_content_guard|opening_position_batches_content_guard|reconciliation_journal_lines_content_guard|reconciliation_header_guard|cutover_batch_release_immutable)|journal_entry_open_posting_(guard|mark)) |^\+CREATE CONSTRAINT TRIGGER trg_(journal_entry_open_posting_clear|journal_line_inventory_backing) |^[+-].*(costing_method_changes|costing_method_change_products|inventory_reconciliations|inventory_opening_positions|inventory_opening_position_batches|inventory_cutover_batch_releases|inventory_reconciliation_journal_lines|journal_entry_open_postings)' \
   || true)
 
 if [ -n "$UNEXPECTED" ]; then
@@ -485,6 +485,46 @@ if [ "$ACTUAL_VALUATION_TRIGGERS" != "$EXPECTED_VALUATION_TRIGGERS" ]; then
   echo "--- actual ---";   echo "$ACTUAL_VALUATION_TRIGGERS"
   exit 1
 fi
+
+EXPECTED_ACCOUNT_GUARD_FUNCS="inventory_account_backing_check
+inventory_account_setting_protect
+inventory_journal_entry_protect
+inventory_journal_line_no_append
+inventory_journal_line_protect
+inventory_truncate_protect
+journal_entry_open_posting_clear
+journal_entry_open_posting_guard
+journal_entry_open_posting_mark"
+ACTUAL_ACCOUNT_GUARD_FUNCS=$(q_cand "SELECT proname FROM pg_proc WHERE proname IN ('inventory_account_backing_check','inventory_account_setting_protect','inventory_journal_entry_protect','inventory_journal_line_no_append','inventory_journal_line_protect','inventory_truncate_protect','journal_entry_open_posting_clear','journal_entry_open_posting_guard','journal_entry_open_posting_mark') ORDER BY proname;")
+if [ "$ACTUAL_ACCOUNT_GUARD_FUNCS" != "$EXPECTED_ACCOUNT_GUARD_FUNCS" ]; then echo "FAIL: inventory account guard functions do not match."; echo "$ACTUAL_ACCOUNT_GUARD_FUNCS"; exit 1; fi
+EXPECTED_ACCOUNT_GUARD_TRIGGERS="accounting_settings|trg_inventory_account_setting_protect|19|O|false|false
+inventory_cutover_batch_releases|trg_inventory_truncate_protect|34|O|false|false
+inventory_layer_consumptions|trg_inventory_truncate_protect|34|O|false|false
+journal_entry|trg_inventory_journal_entry_protect|27|O|false|false
+journal_entry|trg_inventory_truncate_protect|34|O|false|false
+journal_entry|trg_journal_entry_open_posting_mark|5|O|false|false
+journal_entry_line|trg_inventory_journal_line_no_append|7|O|false|false
+journal_entry_line|trg_inventory_journal_line_protect|27|O|false|false
+journal_entry_line|trg_inventory_truncate_protect|34|O|false|false
+journal_entry_line|trg_journal_line_inventory_backing|21|O|true|true
+journal_entry_open_postings|trg_journal_entry_open_posting_clear|5|O|true|true
+journal_entry_open_postings|trg_journal_entry_open_posting_guard|31|O|false|false
+stock_valuation_entries|trg_inventory_truncate_protect|34|O|false|false"
+ACTUAL_ACCOUNT_GUARD_TRIGGERS=$(q_cand "SELECT c.relname || '|' || t.tgname || '|' || t.tgtype::text || '|' || t.tgenabled::text || '|' || t.tgdeferrable::text || '|' || t.tginitdeferred::text FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE t.tgname IN ('trg_inventory_account_setting_protect','trg_inventory_journal_entry_protect','trg_inventory_journal_line_no_append','trg_inventory_journal_line_protect','trg_inventory_truncate_protect','trg_journal_line_inventory_backing','trg_journal_entry_open_posting_clear','trg_journal_entry_open_posting_guard','trg_journal_entry_open_posting_mark') ORDER BY c.relname,t.tgname;")
+if [ "$ACTUAL_ACCOUNT_GUARD_TRIGGERS" != "$EXPECTED_ACCOUNT_GUARD_TRIGGERS" ]; then echo "FAIL: inventory account guard triggers do not match."; echo "--- expected ---"; echo "$EXPECTED_ACCOUNT_GUARD_TRIGGERS"; echo "--- actual ---"; echo "$ACTUAL_ACCOUNT_GUARD_TRIGGERS"; exit 1; fi
+
+EXPECTED_RECONCILIATION_FUNCS="inventory_cutover_batch_release_immutable
+inventory_reconciliation_content_guard
+inventory_reconciliation_header_guard"
+ACTUAL_RECONCILIATION_FUNCS=$(q_cand "SELECT proname FROM pg_proc WHERE proname IN ('inventory_cutover_batch_release_immutable','inventory_reconciliation_content_guard','inventory_reconciliation_header_guard') ORDER BY proname;")
+if [ "$ACTUAL_RECONCILIATION_FUNCS" != "$EXPECTED_RECONCILIATION_FUNCS" ]; then echo "FAIL: reconciliation guard functions do not match."; echo "$ACTUAL_RECONCILIATION_FUNCS"; exit 1; fi
+EXPECTED_RECONCILIATION_TRIGGERS="inventory_cutover_batch_releases|trg_inventory_cutover_batch_release_immutable|27|O|false|false
+inventory_opening_position_batches|trg_inventory_opening_position_batches_content_guard|31|O|false|false
+inventory_opening_positions|trg_inventory_opening_positions_content_guard|31|O|false|false
+inventory_reconciliation_journal_lines|trg_inventory_reconciliation_journal_lines_content_guard|31|O|false|false
+inventory_reconciliations|trg_inventory_reconciliation_header_guard|19|O|false|false"
+ACTUAL_RECONCILIATION_TRIGGERS=$(q_cand "SELECT c.relname || '|' || t.tgname || '|' || t.tgtype::text || '|' || t.tgenabled::text || '|' || t.tgdeferrable::text || '|' || t.tginitdeferred::text FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE t.tgname IN ('trg_inventory_cutover_batch_release_immutable','trg_inventory_opening_position_batches_content_guard','trg_inventory_opening_positions_content_guard','trg_inventory_reconciliation_journal_lines_content_guard','trg_inventory_reconciliation_header_guard') ORDER BY c.relname,t.tgname;")
+if [ "$ACTUAL_RECONCILIATION_TRIGGERS" != "$EXPECTED_RECONCILIATION_TRIGGERS" ]; then echo "FAIL: reconciliation guard triggers do not match."; echo "--- expected ---"; echo "$EXPECTED_RECONCILIATION_TRIGGERS"; echo "--- actual ---"; echo "$ACTUAL_RECONCILIATION_TRIGGERS"; exit 1; fi
 
 echo "PASS: pg_trgm installed, all 11 migration-index definitions exact, 6 bsr functions, 8 bsr triggers, FK_bsr_current_version exact, 2 stock valuation-gap functions and 3 triggers, 3 stage-1 valuation functions and triggers, no other differences"
 exit 0

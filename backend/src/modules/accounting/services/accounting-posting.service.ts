@@ -69,11 +69,16 @@ export class AccountingPostingService implements AccountingPostingPort {
     params: {
       sourceType: AccountingSourceType; sourceDocumentId: string | null; sourceEventId?: string | null;
       sourceRef: string; postingType: PostingType; description: string; entryDate: string;
-      createdBy?: string; reversalOfEntryId?: string | null; lines: DraftLine[];
+      createdBy?: string; reversalOfEntryId?: string | null; inventoryAuthority?: 'valuation' | 'reconciliation'; lines: DraftLine[];
     },
     manager: EntityManager,
   ): Promise<PostResult> {
     assertBalanced(params.lines);
+    const valuationRows = await manager.query(`SELECT s.status, a.\"inventoryAccountId\" FROM inventory_valuation_state s CROSS JOIN accounting_settings a WHERE s.id=true AND a.id=true`);
+    const valuation = valuationRows?.[0];
+    if (valuation?.status === 'active' && params.lines.some((line) => line.account.id === valuation.inventoryAccountId) && params.inventoryAuthority !== 'valuation' && params.inventoryAuthority !== 'reconciliation') {
+      throw new BadRequestException('The inventory control account can only be posted by stock workflows.');
+    }
     for (const l of params.lines) {
       if (!l.account.isPostable) throw new BadRequestException(`Account ${l.account.code} is not postable`);
     }
@@ -167,7 +172,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       const inventory = await this.lookup.resolveAccount('inventory', manager);
       const cogsRes = await this.build({
         sourceType: AccountingSourceType.SALES_ORDER, sourceDocumentId: cmd.salesOrderId,
-        sourceRef: cmd.sourceRef, postingType: PostingType.SALES_FULFILLMENT_COGS, description: 'Sales fulfillment (COGS)',
+        sourceRef: cmd.sourceRef, postingType: PostingType.SALES_FULFILLMENT_COGS, description: 'Sales fulfillment (COGS)', inventoryAuthority: 'valuation',
         entryDate: cmd.entryDate, createdBy: cmd.createdBy, sourceEventId: cmd.occurrenceId ?? null,
         lines: [this.debitLine(cogs, cmd.cogsAmount), this.creditLine(inventory, cmd.cogsAmount)],
       }, manager);
@@ -204,7 +209,7 @@ export class AccountingPostingService implements AccountingPostingPort {
     return this.build({
       sourceType: AccountingSourceType.PURCHASE_ORDER, sourceDocumentId: cmd.purchaseOrderId,
       sourceEventId: cmd.occurrenceId ?? null,
-      sourceRef: cmd.sourceRef, postingType: PostingType.PURCHASE_RECEIVE, description: 'Goods received',
+      sourceRef: cmd.sourceRef, postingType: PostingType.PURCHASE_RECEIVE, description: 'Goods received', inventoryAuthority: 'valuation',
       entryDate: cmd.entryDate, createdBy: cmd.createdBy,
       lines: [this.debitLine(inventory, cmd.amount), this.creditLine(supplierDeposit, cmd.amount)],
     }, manager);
@@ -232,7 +237,7 @@ export class AccountingPostingService implements AccountingPostingPort {
     }
     return this.build({
       sourceType: AccountingSourceType.STOCK_ADJUSTMENT, sourceDocumentId: cmd.adjustmentId,
-      sourceRef: cmd.sourceRef, postingType: PostingType.STOCK_ADJUSTMENT, description: 'Stock adjustment',
+      sourceRef: cmd.sourceRef, postingType: PostingType.STOCK_ADJUSTMENT, description: 'Stock adjustment', inventoryAuthority: 'valuation',
       entryDate: cmd.entryDate, createdBy: cmd.createdBy, lines,
     }, manager);
   }
@@ -354,7 +359,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,
       // Freshly minted movement id — see PostOwnerStockDrawingCmd for why.
       sourceEventId: cmd.stockMovementId, sourceRef: cmd.sourceRef,
-      postingType: PostingType.OWNER_STOCK_DRAWING, description: 'Owner stock drawing',
+      postingType: PostingType.OWNER_STOCK_DRAWING, description: 'Owner stock drawing', inventoryAuthority: 'valuation',
       entryDate: cmd.entryDate, createdBy: cmd.createdBy,
       lines: [this.debitLine(ownerDrawings, cmd.amount), this.creditLine(inventory, cmd.amount)],
     }, manager);
@@ -365,6 +370,9 @@ export class AccountingPostingService implements AccountingPostingPort {
     const accountRepo = manager.getRepository(ChartOfAccount);
     const account = await accountRepo.findOne({ where: { id: cmd.accountId } as any });
     if (!account) throw new BadRequestException('Opening-balance account not found');
+    const valuationStateRows = await manager.query(`SELECT s.status,a.\"inventoryAccountId\" FROM inventory_valuation_state s CROSS JOIN accounting_settings a WHERE s.id=true AND a.id=true`);
+    const valuationState = valuationStateRows?.[0];
+    if (valuationState?.status === 'active' && valuationState.inventoryAccountId === account.id) throw new BadRequestException('Opening balances on the inventory control account are posted through product opening stock.');
     // Derive normal side from the LOADED account's type — never trust a caller-supplied accountType.
     const debitNormalType = account.type === AccountType.ASSET || account.type === AccountType.EXPENSE;
     // A negative opening balance flips the side (lines must stay non-negative — CHK_jel_nonneg).
@@ -399,6 +407,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       sourceEventId: cmd.stockMovementId,
       sourceRef: cmd.sourceRef,
       postingType: PostingType.INVENTORY_OPENING,
+      inventoryAuthority: 'valuation',
       description: 'Product opening stock',
       entryDate: cmd.entryDate,
       createdBy: cmd.createdBy,
@@ -448,6 +457,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       sourceEventId: original.sourceEventId, sourceRef: original.sourceRef,
       postingType: original.postingType, description: `Reversal of ${original.journalNo}`,
       entryDate: cmd.entryDate, createdBy: cmd.createdBy, reversalOfEntryId: original.id,
+      inventoryAuthority: [PostingType.SALES_FULFILLMENT_COGS, PostingType.PURCHASE_RECEIVE, PostingType.STOCK_ADJUSTMENT, PostingType.OWNER_STOCK_DRAWING, PostingType.INVENTORY_OPENING].includes(original.postingType) ? 'valuation' : undefined,
       lines: swapped,
     }, manager);
   }

@@ -62,6 +62,8 @@ import { StockValuationEntry } from "../database/entities/stock-valuation-entry.
 import { InventoryCostLayer } from "../database/entities/inventory-cost-layer.entity";
 import { InventoryLayerConsumption } from "../database/entities/inventory-layer-consumption.entity";
 import { CostingMethodChange, CostingMethodChangeProduct } from "../database/entities/costing-method-change.entity";
+import { InventoryReconciliation, InventoryOpeningPosition, InventoryOpeningPositionBatch, InventoryCutoverBatchRelease, InventoryReconciliationJournalLine } from "../database/entities/inventory-reconciliation.entity";
+import { JournalEntryOpenPosting } from "../database/entities/journal-entry-open-posting.entity";
 import { Supplier } from "../database/entities/supplier.entity";
 import { User } from "../database/entities/user.entity";
 import { VendorPayment } from "../database/entities/vendor-payment.entity";
@@ -187,6 +189,12 @@ export function createDatabaseConfig(
       InventoryLayerConsumption,
       CostingMethodChange,
       CostingMethodChangeProduct,
+      InventoryReconciliation,
+      InventoryOpeningPosition,
+      InventoryOpeningPositionBatch,
+      InventoryCutoverBatchRelease,
+      InventoryReconciliationJournalLine,
+      JournalEntryOpenPosting,
       Supplier,
       User,
       VendorPayment,

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AccountingSettings } from '../entities/accounting-settings.entity';
@@ -82,6 +82,11 @@ export class AccountingSettingsService {
         throw new BadRequestException('Accounting settings row is missing (migration not applied?)');
       }
 
+      if (dto.inventoryAccountId && dto.inventoryAccountId !== current.inventoryAccountId) {
+        const stateRows = await manager.query(`SELECT status FROM inventory_valuation_state WHERE id=true`);
+        const state = stateRows?.[0];
+        if (state?.status === 'active') throw new ConflictException('The inventory control account cannot be changed while inventory valuation is active.');
+      }
       await this.assertNoMappedAccountCaptured(dto, manager, current);
 
       /*

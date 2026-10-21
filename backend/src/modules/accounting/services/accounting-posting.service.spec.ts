@@ -249,6 +249,21 @@ describe('AccountingPostingService', () => {
   });
 });
 
+describe('inventory account active posting guard', () => {
+  it('blocks non-stock postings to the inventory account while valuation is active', async () => {
+    const saved: any[] = [];
+    const { svc, manager } = makeService(saved, { ChartOfAccount: acc('inventory-id') });
+    manager.query = async (sql: string) => sql.includes('inventory_valuation_state')
+      ? [{ status: 'active', inventoryAccountId: 'inventory-id' }]
+      : undefined;
+    await expect(svc.postProviderSettlement({
+      settlementId: 'settlement-1', bankAccountId: 'bank', clearingAccountId: 'clear',
+      sourceRef: 'SET-1', amount: '10.00', entryDate: '2026-10-22',
+    } as any, manager)).rejects.toThrow('The inventory control account can only be posted by stock workflows.');
+    expect(saved).toHaveLength(0);
+  });
+});
+
 describe('journal balance gate (#1241)', () => {
   it('rejects an unbalanced set of lines before persistence', () => {
     const lines = [
