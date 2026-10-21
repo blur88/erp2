@@ -14,6 +14,8 @@ import { AuditLogService } from '../../audit-logs/services';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItemDto } from '../dto/stock-adjustment.dto';
+import { InventoryValuationService } from '../valuation/inventory-valuation.service';
+import { BaseCostCalculatorService } from './base-cost-calculator.service';
 
 describe('StockAdjustmentService', () => {
   let service: StockAdjustmentService;
@@ -152,6 +154,14 @@ describe('StockAdjustmentService', () => {
           useValue: {
             log: (jest.fn as unknown as any)(),
           },
+        },
+        {
+          provide: InventoryValuationService,
+          useValue: { isActive: async () => false },
+        },
+        {
+          provide: BaseCostCalculatorService,
+          useValue: { planPhysicalConsumption: async () => [], recordConsumptions: async () => {}, restoreConsumptions: async () => new Map() },
         },
         {
           provide: ACCOUNTING_POSTING_PORT,

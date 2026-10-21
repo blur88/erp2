@@ -6,6 +6,8 @@ import {
   IsUUID,
   IsArray,
   MaxLength,
+  Length,
+  IsBoolean,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -39,6 +41,17 @@ export class StockAdjustmentItemDto {
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   unitCost?: number;
+
+  @ApiPropertyOptional({ description: 'Explanation for a found-stock cost override' })
+  @IsOptional()
+  @IsString()
+  @Length(3, 500)
+  costExplanation?: string;
+
+  @ApiPropertyOptional({ description: 'Confirm that found stock has zero cost' })
+  @IsOptional()
+  @IsBoolean()
+  zeroCostConfirmed?: boolean;
 
   @ApiPropertyOptional({ description: 'Notes for this specific item' })
   @IsOptional()
@@ -172,6 +185,15 @@ export class StockAdjustmentItemResponseDto {
 
   @ApiPropertyOptional({ description: 'Total value' })
   totalValue?: number;
+
+  @ApiPropertyOptional({ description: 'Default unit cost from inventory value' })
+  defaultUnitCost?: number;
+
+  @ApiPropertyOptional({ description: 'Explanation for the accepted cost' })
+  costExplanation?: string;
+
+  @ApiPropertyOptional({ description: 'Zero cost confirmation' })
+  zeroCostConfirmed?: boolean;
 
   @ApiPropertyOptional({ description: 'Item notes' })
   notes?: string;

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Logger,
   Inject,
   forwardRef,
@@ -35,6 +36,11 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
 import { formatMoney, formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
+import { InventoryValuationService } from '../valuation/inventory-valuation.service';
+import { StockValuationEntry, StockValuationEntryKind } from '../../../database/entities/stock-valuation-entry.entity';
+import { foundStockDefault, unitValueScale4 } from '../valuation/valuation-math';
+import { lockProductForStockUpdate } from '../../../common/db/tx-helpers';
+import { BaseCostCalculatorService } from './base-cost-calculator.service';
 
 @Injectable()
 export class StockAdjustmentService extends BaseCrudService<
@@ -63,6 +69,8 @@ export class StockAdjustmentService extends BaseCrudService<
     auditLogService: AuditLogService,
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly accounting: AccountingPostingPort,
+    private readonly inventoryValuation: InventoryValuationService,
+    private readonly baseCostCalculator: BaseCostCalculatorService,
   ) {
     super(stockAdjustmentRepository, auditLogService);
   }
@@ -96,14 +104,14 @@ export class StockAdjustmentService extends BaseCrudService<
   private assertNoDuplicateProducts(items: { productId: string }[]): void {
     const seen = new Set<string>();
     for (const item of items) {
-      if (seen.has(item.productId)) {
+      if (seen.has(item.productId))
         throw new BadRequestException(
           'Duplicate product in stock adjustment items — each product may appear only once',
         );
-      }
       seen.add(item.productId);
     }
   }
+
 
   /**
    * Generate SA reference number for stock adjustments
@@ -211,12 +219,13 @@ export class StockAdjustmentService extends BaseCrudService<
     if (!createDto.items || createDto.items.length === 0) {
       throw new BadRequestException('Stock adjustment must have at least one item');
     }
-    this.assertNoDuplicateProducts(createDto.items);
+    if (!(await this.inventoryValuation.isActive(this.dataSource.manager)))
+      this.assertNoDuplicateProducts(createDto.items);
 
     // Verify all products exist
     const productIds = createDto.items.map(item => item.productId);
     const products = await this.productRepository.findBy({ id: In(productIds) });
-    if (products.length !== productIds.length) {
+    if (products.length !== new Set(productIds).size) {
       throw new BadRequestException('One or more products not found');
     }
     this.assertNoServiceProducts(products);
@@ -252,6 +261,9 @@ export class StockAdjustmentService extends BaseCrudService<
         difference: itemDto.difference,
         unitCost,
         totalValue: itemTotalValue,
+        costExplanation: itemDto.costExplanation,
+        zeroCostConfirmed: itemDto.zeroCostConfirmed ?? false,
+        unitCostProvided: itemDto.unitCost != null,
         notes: itemDto.notes,
       });
 
@@ -454,12 +466,13 @@ export class StockAdjustmentService extends BaseCrudService<
 
     // Update items if provided
     if (updateDto.items) {
-      this.assertNoDuplicateProducts(updateDto.items);
+      if (!(await this.inventoryValuation.isActive(this.dataSource.manager)))
+        this.assertNoDuplicateProducts(updateDto.items);
 
       // Verify all products exist and are not services BEFORE mutating anything
       const productIds = updateDto.items.map(item => item.productId);
       const products = await this.productRepository.findBy({ id: In(productIds) });
-      if (products.length !== productIds.length) {
+      if (products.length !== new Set(productIds).size) {
         throw new BadRequestException('One or more products not found');
       }
       this.assertNoServiceProducts(products);
@@ -495,6 +508,9 @@ export class StockAdjustmentService extends BaseCrudService<
           difference: itemDto.difference,
           unitCost,
           totalValue: itemTotalValue,
+          costExplanation: itemDto.costExplanation,
+          zeroCostConfirmed: itemDto.zeroCostConfirmed ?? false,
+          unitCostProvided: itemDto.unitCost != null,
           notes: itemDto.notes,
         });
 
@@ -596,12 +612,36 @@ export class StockAdjustmentService extends BaseCrudService<
         throw new BadRequestException('Cannot complete adjustment with no items');
       }
 
+      const valuationActive = await this.inventoryValuation.isActive(manager);
+      const productIds = [...new Set(items.map((item) => item.productId))].sort();
+      if (valuationActive)
+        for (const productId of productIds)
+          await lockProductForStockUpdate(manager, Product, productId);
+      const physicalPlans = valuationActive
+        ? await this.baseCostCalculator.planPhysicalConsumption(
+            manager,
+            items
+              .filter((item) => Number(item.difference) < 0)
+              .map((item) => ({
+                productId: item.productId,
+                quantity: Math.abs(Number(item.difference)),
+              })),
+          )
+        : [];
+      const plansByItem = new Map<number, (typeof physicalPlans)[number]>();
+      let planIndex = 0;
+      for (let i = 0; i < items.length; i += 1)
+        if (Number(items[i].difference) < 0)
+          plansByItem.set(i, physicalPlans[planIndex++]);
+      const pendingValuations = [];
+      const movementIds: string[] = [];
+
       let increaseMinor = 0n;
       let decreaseMinor = 0n;
       const reconciledItems: StockAdjustmentItem[] = [];
 
       // Create stock movements for each item using the manager.
-      for (const item of items) {
+      for (const [itemIndex, item] of items.entries()) {
         // Single bigint parse drives the zero-check, movement direction, and value.
         const diffMinor = toMinorUnits(String(item.difference));
         if (diffMinor === 0n) continue;
@@ -610,12 +650,65 @@ export class StockAdjustmentService extends BaseCrudService<
           ? StockMovementType.ADJUSTMENT_INCREASE
           : StockMovementType.ADJUSTMENT_DECREASE;
 
+        let pending: Awaited<ReturnType<InventoryValuationService['valueDecrease']>> | undefined;
+        let postedValueCents = 0n;
+        let unitCostScale4 = toMinorUnits(String(item.unitCost ?? '0'));
+        if (valuationActive) {
+          await this.inventoryValuation.ensureBalance(manager, item.productId);
+          if (diffMinor < 0n) {
+            pending = await this.inventoryValuation.valueDecrease(
+              manager,
+              item.productId,
+              -diffMinor,
+              StockValuationEntryKind.ISSUE,
+            );
+            postedValueCents = -pending.valueCents;
+            unitCostScale4 = unitValueScale4(-pending.quantityMinor, postedValueCents) ?? 0n;
+          } else {
+            const [balance] = await manager.query(
+              `SELECT "quantityOnHand", "valueOnHand" FROM product_valuation_balances WHERE "productId" = $1 FOR UPDATE`,
+              [item.productId],
+            );
+            const pool = {
+              qty: toMinorUnits(String(balance.quantityOnHand)),
+              value: toMinorUnits(String(balance.valueOnHand)) / 100n,
+            };
+            const defaultValueCents = foundStockDefault(pool, diffMinor);
+            const defaultUnit = unitValueScale4(pool.qty, pool.value);
+            item.defaultUnitCost = defaultUnit == null ? null : Number(formatScale4(defaultUnit));
+            if (defaultValueCents == null && !item.unitCostProvided)
+              throw new BadRequestException(
+                `Line ${itemIndex + 1}: ${item.product?.name ?? item.productId} has no reliable inventory cost; enter a unit cost and an explanation.`,
+              );
+            const effectiveUnit = item.unitCostProvided ? toMinorUnits(String(item.unitCost)) : (defaultUnit ?? 0n);
+            if (effectiveUnit === 0n && (!item.zeroCostConfirmed || !item.costExplanation))
+              throw new BadRequestException(`Line ${itemIndex + 1}: a zero cost must be confirmed and explained.`);
+            if (item.unitCostProvided && defaultUnit != null && effectiveUnit !== defaultUnit && !item.costExplanation)
+              throw new BadRequestException(`Line ${itemIndex + 1}: a cost different from the inventory cost (${formatScale4(defaultUnit)}) needs an explanation.`);
+            if (defaultValueCents == null && !item.costExplanation)
+              throw new BadRequestException(`Line ${itemIndex + 1}: ${item.product?.name ?? item.productId} has no reliable inventory cost; enter a unit cost and an explanation.`);
+            unitCostScale4 = effectiveUnit;
+            postedValueCents = (diffMinor * effectiveUnit + 500_000n) / 1_000_000n;
+            pending = await this.inventoryValuation.valueIncrease(
+              manager,
+              item.productId,
+              diffMinor,
+              postedValueCents,
+              StockValuationEntryKind.FOUND,
+              {
+                defaultUnitValueScale4: defaultUnit,
+                explanation: item.costExplanation,
+              },
+            );
+          }
+        }
+
         const movement = await this.stockMovementService.create(
           {
             productId: item.productId,
             movementType,
             quantity: Number(item.difference),
-            unitValue: item.unitCost,
+            unitValue: valuationActive ? Number(formatScale4(unitCostScale4)) : item.unitCost,
             referenceType: 'stock_adjustment',
             referenceId: adjustment.id,
             reason: `Stock Adjustment ${adjustment.adjustmentNumber}`,
@@ -624,6 +717,16 @@ export class StockAdjustmentService extends BaseCrudService<
           undefined,
           manager,
         );
+        if (valuationActive && pending) {
+          pendingValuations.push(pending);
+          movementIds.push(movement.id);
+          item.unitCost = Number(formatScale4(unitCostScale4));
+          item.totalValue = Number(formatMoney(postedValueCents * 100n));
+          if (diffMinor < 0n) {
+            const physical = plansByItem.get(itemIndex);
+            if (physical) await this.baseCostCalculator.recordConsumptions(manager, movement.id, physical.consumptions);
+          }
+        }
 
         // #982: the draft's oldQuantity is a form-load snapshot that may be
         // stale. Preserve it, then record what the movement actually did.
@@ -651,8 +754,9 @@ export class StockAdjustmentService extends BaseCrudService<
       }
 
       // Post the stock adjustment JE (both directional pairs in one balanced entry).
+      let journalEntryId: string | null = null;
       if (increaseMinor > 0n || decreaseMinor > 0n) {
-        await this.accounting.postStockAdjustment({
+        const posted = await this.accounting.postStockAdjustment({
           adjustmentId: adjustment.id,
           sourceRef: adjustment.adjustmentNumber,
           increaseAmount: formatMoney(quantizeToCents(increaseMinor)),
@@ -660,7 +764,10 @@ export class StockAdjustmentService extends BaseCrudService<
           entryDate: formatDateInTimezone(actionInstant, timezone),
           createdBy: username,
         }, manager);
+        journalEntryId = posted?.journalEntryId ?? null;
       }
+      if (valuationActive)
+        await this.inventoryValuation.commit(manager, pendingValuations, movementIds, journalEntryId, userId);
 
       // Update adjustment status inside the txn.
       adjustment.status = StockAdjustmentStatus.COMPLETED;
@@ -716,7 +823,56 @@ export class StockAdjustmentService extends BaseCrudService<
         relations: { product: true },
       });
 
+      const valuationActive = await this.inventoryValuation.isActive(manager);
+      const pendingValuations = [];
+      const movementIds: string[] = [];
+      let originalsByProduct = new Map<string, StockValuationEntry>();
+      if (valuationActive) {
+        for (const productId of [...new Set(items.map((item) => item.productId))].sort())
+          await lockProductForStockUpdate(manager, Product, productId);
+        const sourceMovements = await manager.query(
+          `SELECT id, "productId", quantity FROM stock_movements WHERE "referenceType" = 'stock_adjustment' AND "referenceId" = $1 AND "movementType" IN ('adjustment_increase', 'adjustment_decrease') ORDER BY "productSequence", id FOR UPDATE`,
+          [adjustment.id],
+        );
+        const sourceEntries: StockValuationEntry[] = [];
+        for (const movement of sourceMovements) {
+          const entry = await this.inventoryValuation.entryForMovement(manager, movement.id);
+          if (!entry)
+            throw new ConflictException('This adjustment predates inventory valuation; its value is part of the approved opening position. Use a stock correction.');
+          sourceEntries.push(entry);
+          originalsByProduct.set(movement.id, entry);
+        }
+        for (let index = 0; index < sourceMovements.length; index += 1) {
+          const movement = sourceMovements[index];
+          const original = sourceEntries[index];
+          if (Number(movement.quantity) > 0) {
+            await this.inventoryValuation.assertIncreaseReversible(manager, original);
+            const [laterDecrease] = await manager.query(
+              `SELECT id FROM stock_movements WHERE "productId" = $1 AND quantity < 0 AND "productSequence" > (SELECT "productSequence" FROM stock_movements WHERE id = $2) ORDER BY "productSequence" LIMIT 1`,
+              [movement.productId, movement.id],
+            );
+            if (laterDecrease)
+              throw new ConflictException(
+                'Cannot revert adjustment: stock found on this adjustment has been used.',
+              );
+          }
+        }
+      }
+
       // Write reversing stock movements (opposite sign).
+      const reversalSourceMovements = valuationActive
+        ? await manager.query(
+            `SELECT id, "productId", quantity FROM stock_movements WHERE "referenceType" = 'stock_adjustment' AND "referenceId" = $1 AND "movementType" IN ('adjustment_increase', 'adjustment_decrease') ORDER BY "productSequence", id`,
+            [adjustment.id],
+          )
+        : [];
+      const sourceMovementQueues = new Map<string, any[]>();
+      for (const sourceMovement of reversalSourceMovements) {
+        const key = `${sourceMovement.productId}:${Math.sign(Number(sourceMovement.quantity))}`;
+        const queue = sourceMovementQueues.get(key) ?? [];
+        queue.push(sourceMovement);
+        sourceMovementQueues.set(key, queue);
+      }
       for (const item of items) {
         const diff = Number(item.difference);
         if (diff === 0) continue;
@@ -725,7 +881,20 @@ export class StockAdjustmentService extends BaseCrudService<
           ? StockMovementType.ADJUSTMENT_DECREASE
           : StockMovementType.ADJUSTMENT_INCREASE;
 
-        await this.stockMovementService.create(
+        const originalQueueKey = `${item.productId}:${Math.sign(diff)}`;
+        const originalMovement = valuationActive
+          ? sourceMovementQueues.get(originalQueueKey)?.shift()
+          : undefined;
+        const originalEntry = originalMovement ? originalsByProduct.get(originalMovement.id) : undefined;
+        let pending;
+        if (valuationActive && originalEntry) {
+          if (diff > 0) pending = await this.inventoryValuation.valueIncreaseReversal(manager, originalEntry);
+          else {
+            pending = await this.inventoryValuation.valueDecreaseReversal(manager, originalEntry);
+            await this.baseCostCalculator.restoreConsumptions(manager, originalMovement.id);
+          }
+        }
+        const reversalMovement = await this.stockMovementService.create(
           {
             productId: item.productId,
             movementType: reverseType,
@@ -739,10 +908,14 @@ export class StockAdjustmentService extends BaseCrudService<
           undefined,
           manager,
         );
+        if (valuationActive && pending) {
+          pendingValuations.push(pending);
+          movementIds.push(reversalMovement.id);
+        }
       }
 
       // Reverse the accounting JE.
-      await this.accounting.reverseEntriesForDocument(
+      const reversals = await this.accounting.reverseEntriesForDocument(
         AccountingSourceType.STOCK_ADJUSTMENT,
         id,
         [PostingType.STOCK_ADJUSTMENT],
@@ -750,6 +923,14 @@ export class StockAdjustmentService extends BaseCrudService<
         manager,
         username,
       );
+      if (valuationActive)
+        await this.inventoryValuation.commit(
+          manager,
+          pendingValuations,
+          movementIds,
+          reversals[0]?.journalEntryId ?? null,
+          userId,
+        );
 
       // Set status REVERTED.
       adjustment.status = StockAdjustmentStatus.REVERTED;
@@ -829,7 +1010,10 @@ export class StockAdjustmentService extends BaseCrudService<
       newQuantity: Number(item.newQuantity),
       difference: Number(item.difference),
       unitCost: item.unitCost ? Number(item.unitCost) : undefined,
-      totalValue: item.totalValue ? Number(item.totalValue) : undefined,
+      totalValue: item.totalValue != null ? Number(item.totalValue) : undefined,
+      defaultUnitCost: item.defaultUnitCost != null ? Number(item.defaultUnitCost) : undefined,
+      costExplanation: item.costExplanation ?? undefined,
+      zeroCostConfirmed: item.zeroCostConfirmed,
       notes: item.notes,
       isIncrease: item.isIncrease,
       isDecrease: item.isDecrease,

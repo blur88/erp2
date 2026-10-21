@@ -188,6 +188,18 @@ export class StockAdjustmentItem extends BaseEntity {
   @Min(0)
   totalValue?: number;
 
+  @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
+  defaultUnitCost?: number | null;
+
+  @Column({ type: 'text', nullable: true })
+  costExplanation?: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  zeroCostConfirmed: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  unitCostProvided: boolean;
+
   @Column({
     type: 'text',
     nullable: true,

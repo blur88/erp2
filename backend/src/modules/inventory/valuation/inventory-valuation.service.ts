@@ -42,6 +42,13 @@ export class InventoryValuationService {
     return state?.status === InventoryValuationStatus.ACTIVE;
   }
 
+  async entryForMovement(
+    manager: EntityManager,
+    movementId: string,
+  ): Promise<StockValuationEntry | null> {
+    return manager.findOne(StockValuationEntry, { where: { movementId } });
+  }
+
   async currentMethod(
     manager: EntityManager,
     productId?: string,
