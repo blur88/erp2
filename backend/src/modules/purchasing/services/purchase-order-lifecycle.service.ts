@@ -15,7 +15,7 @@ import {
   PurchaseOrderPaymentStatus,
   PurchaseOrderStatus,
 } from '../../../database/entities';
-import { StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
@@ -42,6 +42,9 @@ import {
   assessReceiptReversal,
 } from './receipt-reversal-evidence';
 import { STOCK_EVIDENCE_HORIZON } from '../../../config/stock-evidence-horizon';
+import { InventoryValuationService } from '../../inventory/valuation/inventory-valuation.service';
+import { StockValuationEntry, StockValuationEntryKind } from '../../../database/entities/stock-valuation-entry.entity';
+import { allocateCentsByWeight, unitValueScale4 } from '../../inventory/valuation/valuation-math';
 
 @Injectable()
 export class PurchaseOrderLifecycleService {
@@ -57,6 +60,7 @@ export class PurchaseOrderLifecycleService {
     private readonly settingsService: SettingsService,
     @Inject(STOCK_EVIDENCE_HORIZON)
     private readonly horizon: Date | null,
+    private readonly inventoryValuation: InventoryValuationService,
   ) {}
 
   async assertEditAllowed(purchaseOrderId: string): Promise<void> {
@@ -191,6 +195,7 @@ export class PurchaseOrderLifecycleService {
       for (const productId of productIds) {
         await lockProductForStockUpdate(manager, Product, productId);
       }
+      const valuationActive = await this.inventoryValuation.isActive(manager);
 
       // Allocate shipping across the whole PO at once so the shares sum to the
       // PO shipping total exactly (#1241). Weights are line values on the same
@@ -246,6 +251,26 @@ export class PurchaseOrderLifecycleService {
       const inventoryMinor = (inventoryScale8 + 5000n) / 10000n;
       const postedMinor = quantizeToCents(inventoryMinor);
       const postedAmount = formatMoney(postedMinor);
+      const pendingValuations = [];
+      if (valuationActive) {
+        const allocatedCents = allocateCentsByWeight(
+          postedMinor / 100n,
+          linePlans.map((plan) => plan.scale8),
+        );
+        for (let i = 0; i < linePlans.length; i += 1) {
+          const plan = linePlans[i];
+          await this.inventoryValuation.ensureBalance(manager, plan.item.productId);
+          pendingValuations.push(
+            await this.inventoryValuation.valueIncrease(
+              manager,
+              plan.item.productId,
+              plan.qtyMinor,
+              allocatedCents[i] ?? 0n,
+              StockValuationEntryKind.RECEIPT,
+            ),
+          );
+        }
+      }
 
       // Create the occurrence first.
       const { createOccurrence } = await import('../../inventory/services/stock-occurrence');
@@ -262,9 +287,11 @@ export class PurchaseOrderLifecycleService {
       });
 
       // Allocate the posted amount across lines.
-      const { allocateCents } = await import('../../../common/utils/money');
       const weightsScale8 = linePlans.map((p) => p.scale8);
-      const allocatedMinor = allocateCents(postedMinor, weightsScale8);
+      const allocatedMinor = valuationActive
+        ? pendingValuations.map((pending) => pending.valueCents * 100n)
+        : (await import('../../../common/utils/money')).allocateCents(postedMinor, weightsScale8);
+      const movementIds: string[] = [];
 
       // Pass 2: writes.
       for (let i = 0; i < linePlans.length; i += 1) {
@@ -272,6 +299,10 @@ export class PurchaseOrderLifecycleService {
         const item = plan.item;
         const allocated = allocatedMinor[i] ?? 0n;
         const totalValue = Number(formatScale4(allocated));
+        const pending = valuationActive ? pendingValuations[i] : undefined;
+        const valuationUnit = pending
+          ? unitValueScale4(pending.quantityMinor, pending.valueCents)
+          : null;
 
         const movementDto: CreateStockMovementDto = {
           productId: item.productId,
@@ -280,13 +311,14 @@ export class PurchaseOrderLifecycleService {
           reason: `Purchase order received: ${purchaseOrder.orderNumber}`,
           referenceType: 'purchase_order',
           referenceId: purchaseOrder.id,
-          unitValue: plan.netUnitCost,
+          unitValue: pending ? Number(formatScale4(valuationUnit ?? 0n)) : plan.netUnitCost,
           occurrenceId: occurrence.id,
           purchaseOrderItemId: item.id,
           totalValue,
         };
 
-        await this.stockMovementService.create(movementDto, userId, manager);
+        const movement = await this.stockMovementService.create(movementDto, userId, manager);
+        movementIds.push(movement.id);
         const persisted = await this.baseCostCalculator.addStock(
           item.productId,
           purchaseOrder.id,
@@ -304,7 +336,7 @@ export class PurchaseOrderLifecycleService {
         item.receivedQuantity = plan.quantity;
       }
 
-      await this.accounting.postPurchaseReceive({
+      const posted = await this.accounting.postPurchaseReceive({
         purchaseOrderId: id,
         sourceRef: purchaseOrder.orderNumber,
         amount: postedAmount,
@@ -312,6 +344,15 @@ export class PurchaseOrderLifecycleService {
         createdBy: username,
         occurrenceId: occurrence.id,
       }, manager);
+      if (valuationActive) {
+        await this.inventoryValuation.commit(
+          manager,
+          pendingValuations,
+          movementIds,
+          posted.journalEntryId,
+          userId,
+        );
+      }
 
       await manager.getRepository(PurchaseOrder).update(id, {
         status: PurchaseOrderStatus.RECEIVED,
@@ -379,6 +420,20 @@ export class PurchaseOrderLifecycleService {
         throw new ConflictException(assessment.message);
       }
       const receipt = assessment.receipt;
+      const valuationActive = await this.inventoryValuation.isActive(manager);
+      const originalValuations = new Map<string, StockValuationEntry>();
+      if (valuationActive) {
+        for (const line of receipt.lines) {
+          const original = await this.inventoryValuation.findEntryForMovement(manager, line.movementId);
+          if (!original) {
+            throw new ConflictException(
+              'This receipt predates inventory valuation; its value is part of the approved opening position. Use a stock correction.',
+            );
+          }
+          await this.inventoryValuation.assertIncreaseReversible(manager, original);
+          originalValuations.set(line.movementId, original);
+        }
+      }
 
       const now = new Date();
       const entryDate = formatDateInTimezone(now, timezone);
@@ -400,8 +455,14 @@ export class PurchaseOrderLifecycleService {
 
       // One reversal movement per receipt movement, inserted once with the
       // original's value and its quantity negated.
+      const valuationReversals = [];
+      const reversalMovementIds: string[] = [];
       for (const line of receipt.lines) {
-        await this.stockMovementService.create(
+        const original = valuationActive ? originalValuations.get(line.movementId)! : undefined;
+        const pending = original
+          ? await this.inventoryValuation.valueIncreaseReversal(manager, original)
+          : undefined;
+        const reversedMovement = await this.stockMovementService.create(
           {
             productId: line.productId,
             movementType: StockMovementType.PURCHASE_RECEIPT_REVERSAL,
@@ -417,6 +478,19 @@ export class PurchaseOrderLifecycleService {
           userId,
           manager,
         );
+        reversalMovementIds.push(reversedMovement.id);
+        if (pending) {
+          valuationReversals.push(pending);
+          const unitValue = unitValueScale4(
+            pending.quantityMinor < 0n ? -pending.quantityMinor : pending.quantityMinor,
+            pending.valueCents < 0n ? -pending.valueCents : pending.valueCents,
+          );
+          const value = (pending.valueCents < 0n ? -pending.valueCents : pending.valueCents) * 100n;
+          await manager.getRepository(StockMovement).update(reversedMovement.id, {
+            unitValue: Number(formatScale4(unitValue ?? 0n)),
+            totalValue: Number(formatScale4(value)),
+          } as any);
+        }
       }
 
       // Zero and mark the batch, keeping the row.
@@ -436,6 +510,7 @@ export class PurchaseOrderLifecycleService {
 
       // Reverse the receipt entry: event-keyed for a new receipt, by entry id for
       // a legacy one.
+      let reversalJournalEntryId: string | null = null;
       if (receipt.occurrenceId) {
         const result = await this.accounting.reverseEntryForEvent(
           {
@@ -452,6 +527,7 @@ export class PurchaseOrderLifecycleService {
         if (result.outcome !== 'reversed') {
           throw new ConflictException('The receipt entry is already reversed');
         }
+        reversalJournalEntryId = result.reversalEntryId;
       } else if (receipt.legacyEntryId) {
         const result = await this.accounting.reverseOriginalEntry(
           {
@@ -467,6 +543,16 @@ export class PurchaseOrderLifecycleService {
         if (result.outcome !== 'reversed') {
           throw new ConflictException('The receipt entry is already reversed');
         }
+        reversalJournalEntryId = result.reversalEntryId;
+      }
+      if (valuationActive) {
+        await this.inventoryValuation.commit(
+          manager,
+          valuationReversals,
+          reversalMovementIds,
+          reversalJournalEntryId,
+          userId,
+        );
       }
 
       // Recalculate each product's base cost from its (now empty) batches.

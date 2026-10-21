@@ -21,6 +21,7 @@ import { StockMovementService } from '../../inventory/services/stock-movement.se
 import { STOCK_EVIDENCE_HORIZON } from '../../../config/stock-evidence-horizon';
 import { SettingsService } from '../../settings/settings.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
+import { InventoryValuationService } from '../../inventory/valuation/inventory-valuation.service';
 
 describe('PurchaseOrderLifecycleService', () => {
   let service: PurchaseOrderLifecycleService;
@@ -128,6 +129,18 @@ describe('PurchaseOrderLifecycleService', () => {
         { provide: ACCOUNTING_POSTING_PORT, useValue: accountingPort },
         { provide: SettingsService, useValue: settingsService },
         { provide: STOCK_EVIDENCE_HORIZON, useValue: null },
+        {
+          provide: InventoryValuationService,
+          useValue: {
+            isActive: (jest.fn as unknown as any)().mockResolvedValue(false),
+            ensureBalance: (jest.fn as unknown as any)(),
+            valueIncrease: (jest.fn as unknown as any)(),
+            commit: (jest.fn as unknown as any)(),
+            findEntryForMovement: (jest.fn as unknown as any)(),
+            assertIncreaseReversible: (jest.fn as unknown as any)(),
+            valueIncreaseReversal: (jest.fn as unknown as any)(),
+          },
+        },
       ],
     }).compile();
 
