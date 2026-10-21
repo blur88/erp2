@@ -23,6 +23,7 @@ import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.entity';
 import { OwnerEquityDocument } from '../owner-equity/entities/owner-equity-document.entity';
 import { InventoryValuationService } from './valuation/inventory-valuation.service';
+import { ValuationController } from './valuation/valuation.controller';
 import { InventoryValuationState } from '../../database/entities/inventory-valuation-state.entity';
 import { ProductValuationBalance } from '../../database/entities/product-valuation-balance.entity';
 import { InventoryCostLayer } from '../../database/entities/inventory-cost-layer.entity';
@@ -106,6 +107,7 @@ import { ExportModule } from '../../common/export.module';
     StockAdjustmentController,
     InventoryAnalyticsController,
     CostingController,
+    ValuationController,
   ],
   providers: [
     // Core services

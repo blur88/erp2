@@ -53,7 +53,7 @@ export const inventoryApiSlice = createApi({
       transformResponse: normalizePaginated<Product>,
       providesTags: ['DeletedProduct'],
     }),
-    createProduct: builder.mutation<Product, Partial<Product>>({
+    createProduct: builder.mutation<Product, Partial<Product> & { openingZeroCostConfirmed?: boolean }>({
       query: (body) => ({ url: '/inventory/products', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Product>,
       invalidatesTags: ['Product'],

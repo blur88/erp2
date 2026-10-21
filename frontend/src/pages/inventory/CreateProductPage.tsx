@@ -14,6 +14,8 @@ import {
   DialogContentText,
   DialogTitle,
   MenuItem,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 
@@ -35,6 +37,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import { currentListPath } from '@/utils/listQuery'
 import { formatNum } from '@/components/transactions/numberFormat'
 import { toScaledAmount, formatMoney } from '@/utils/currency'
+import { useGetValuationStatusQuery } from '@/store/api/valuationApi'
 
 /**
  * Bare two-decimal display for an editable price input (no grouping/commas).
@@ -136,6 +139,7 @@ interface ProductFormData {
   stockQuantity?: number
   notes: string
   isActive: boolean
+  openingZeroCostConfirmed?: boolean
 }
 
 interface PriceListPrice {
@@ -157,6 +161,7 @@ const productSchema = yup.object({
   stockQuantity: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).integer('Stock must be a whole number').min(0, 'Stock must be 0 or greater').nullable().optional(),
   notes: yup.string(),
   isActive: yup.boolean(),
+  openingZeroCostConfirmed: yup.boolean().optional(),
 })
 
 const CreateProductPage: React.FC = () => {
@@ -199,6 +204,7 @@ const CreateProductPage: React.FC = () => {
       stockQuantity: undefined,
       notes: '',
       isActive: true,
+      openingZeroCostConfirmed: false,
     },
   })
   const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
@@ -207,6 +213,8 @@ const CreateProductPage: React.FC = () => {
   const watchedName = watch('name')
   const watchedBarcode = watch('barcode')
   const watchedBaseCost = watch('baseCost')
+  const watchedStockQuantity = watch('stockQuantity')
+  const { data: valuationStatus } = useGetValuationStatusQuery()
 
   // Duplicate detection hook
   const {
@@ -289,7 +297,9 @@ const CreateProductPage: React.FC = () => {
         barcode: data.barcode || undefined,
         type: data.type,
         categoryId: data.categoryId,
-        baseCost: data.baseCost !== undefined && data.baseCost !== null ? Number(data.baseCost) : 0,
+        baseCost: data.baseCost !== undefined && data.baseCost !== null
+          ? Number(data.baseCost)
+          : valuationStatus?.active ? undefined : 0,
         notes: data.notes || '',
         isActive: data.isActive,
       }
@@ -303,7 +313,7 @@ const CreateProductPage: React.FC = () => {
         const stockQuantity = data.type === 'Stocked Product'
           ? (data.stockQuantity !== undefined && data.stockQuantity !== null ? Number(data.stockQuantity) : 0)
           : 0
-        const response = await createProduct({ ...productData, stockQuantity }).unwrap()
+        const response = await createProduct({ ...productData, stockQuantity, openingZeroCostConfirmed: data.openingZeroCostConfirmed }).unwrap()
         productId = response?.id
       }
 
@@ -595,6 +605,21 @@ const CreateProductPage: React.FC = () => {
                         }}
                       />
                     </Grid>
+
+                    {valuationStatus?.active && watchedType === 'Stocked Product' && Number(watchedStockQuantity ?? 0) > 0 && Number(watchedBaseCost ?? 0) === 0 && (
+                      <Grid size={12}>
+                        <Controller
+                          name="openingZeroCostConfirmed"
+                          control={control}
+                          render={({ field }) => (
+                            <FormControlLabel
+                              control={<Checkbox checked={!!field.value} onChange={(_, checked) => field.onChange(checked)} />}
+                              label="Confirm zero opening cost"
+                            />
+                          )}
+                        />
+                      </Grid>
+                    )}
 
                     {/* Price List Fields */}
                     {loadingPriceLists ? (

@@ -222,3 +222,7 @@ describe('CreateProductPage', () => {
     })
   })
 })
+
+vi.mock('@/store/api/valuationApi', () => ({
+  useGetValuationStatusQuery: () => ({ data: { active: false, method: 'AVERAGE' } }),
+}))

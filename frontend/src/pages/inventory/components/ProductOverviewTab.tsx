@@ -3,6 +3,7 @@ import { Box, Card, CardContent, Grid, Typography } from '@mui/material'
 import MarginChip from '@/components/common/MarginChip'
 import { StatusChip } from '@/components/common/StatusChip'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
+import { useGetValuationStatusQuery, useGetProductValuationQuery } from '@/store/api/valuationApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatNumber } from '@/utils/formatters'
 import { getStockStatus } from '@/utils/stockUtils'
@@ -25,9 +26,11 @@ export default function ProductOverviewTab({ product }: { product: Product }) {
   const priceListItems = [...(product.priceListItems ?? [])].sort(
     (a, b) => (a.priceList?.priority ?? 0) - (b.priceList?.priority ?? 0),
   )
-  const { data: regionalSettings } = useGetRegionalSettingsQuery()
-  const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
   const isService = product.type === 'Service'
+  const { data: regionalSettings } = useGetRegionalSettingsQuery()
+  const { data: valuationStatus } = useGetValuationStatusQuery()
+  const { data: valuation } = useGetProductValuationQuery(product.id, { skip: !valuationStatus?.active || isService })
+  const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
   const stockStatus = isService ? null : getStockStatus(product.stockQuantity, lowStockThreshold)
 
   return (
@@ -49,7 +52,10 @@ export default function ProductOverviewTab({ product }: { product: Product }) {
           <Card sx={{ flex: 1 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>Pricing</Typography>
-              <Field label="Cost Price" value={formatCurrency(product.baseCost)} />
+              <Field label="Reference cost (pricing)" value={formatCurrency(product.baseCost)} />
+              {valuationStatus?.active && !isService && (
+                <Field label="Inventory unit value" value={valuation?.unitValue == null ? '—' : formatCurrency(Number(valuation.unitValue))} />
+              )}
               {priceListItems.length === 0 ? (
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>—</Typography>
               ) : (

@@ -108,6 +108,10 @@ export interface StockMovement {
   newBalance: number;
   unitValue?: number;
   totalValue?: number;
+  defaultUnitCost?: number;
+  costExplanation?: string;
+  zeroCostConfirmed?: boolean;
+  unitCostProvided?: boolean;
   valuationGap?: {
     quantity: number;
     valueScale8: string;
@@ -136,6 +140,10 @@ export interface StockAdjustmentItem {
   newQuantity: number;
   difference: number;
   unitCost?: number;
+  defaultUnitCost?: number;
+  costExplanation?: string;
+  zeroCostConfirmed?: boolean;
+  unitCostProvided?: boolean;
   totalValue?: number;
   notes?: string;
   isIncrease: boolean;
@@ -156,6 +164,8 @@ export interface StockAdjustmentItemRequest {
   oldQuantity: number;
   difference: number;
   unitCost?: number;
+  costExplanation?: string;
+  zeroCostConfirmed?: boolean;
   notes?: string;
 }
 

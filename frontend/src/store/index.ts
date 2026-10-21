@@ -28,6 +28,7 @@ import { printSettingsApiSlice } from './api/printSettingsApi'
 import { searchApiSlice } from './api/searchApi'
 import { accountingApiSlice } from './api/accountingApi'
 import { redisMonitoringApiSlice } from './api/redisMonitoringApi'
+import { valuationApiSlice } from './api/valuationApi'
 import { PERSIST_KEY } from './persistKey'
 import { getSessionRuntime, startedSessionRuntime } from '@/session/registry'
 import { RESET_FOR_SESSION_END } from './sessionReset'
@@ -51,6 +52,7 @@ export const apiSlices = [
   searchApiSlice,
   accountingApiSlice,
   redisMonitoringApiSlice,
+  valuationApiSlice,
 ]
 
 const slicedReducer = combineReducers({
@@ -74,6 +76,7 @@ const slicedReducer = combineReducers({
   [searchApiSlice.reducerPath]: searchApiSlice.reducer,
   [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
   [redisMonitoringApiSlice.reducerPath]: redisMonitoringApiSlice.reducer,
+  [valuationApiSlice.reducerPath]: valuationApiSlice.reducer,
 })
 
 const initialState = slicedReducer(undefined, { type: '@@INIT' } as never)

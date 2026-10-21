@@ -976,3 +976,8 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 })
+
+vi.mock('@/store/api/valuationApi', () => ({
+  useGetValuationStatusQuery: () => ({ data: { active: false, method: 'AVERAGE' } }),
+  useLazyGetProductValuationQuery: () => [vi.fn(), { isFetching: false }],
+}))

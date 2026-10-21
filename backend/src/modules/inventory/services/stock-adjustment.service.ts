@@ -656,6 +656,7 @@ export class StockAdjustmentService extends BaseCrudService<
         if (valuationActive) {
           await this.inventoryValuation.ensureBalance(manager, item.productId);
           if (diffMinor < 0n) {
+            item.defaultUnitCost = Number(item.unitCost ?? 0);
             pending = await this.inventoryValuation.valueDecrease(
               manager,
               item.productId,
@@ -1014,6 +1015,7 @@ export class StockAdjustmentService extends BaseCrudService<
       defaultUnitCost: item.defaultUnitCost != null ? Number(item.defaultUnitCost) : undefined,
       costExplanation: item.costExplanation ?? undefined,
       zeroCostConfirmed: item.zeroCostConfirmed,
+      unitCostProvided: item.unitCostProvided,
       notes: item.notes,
       isIncrease: item.isIncrease,
       isDecrease: item.isDecrease,

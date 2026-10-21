@@ -29,6 +29,7 @@ import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import { formatDate, formatNumber } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { rtkErrorMessage } from '@/utils/errorMessage'
+import { useGetValuationStatusQuery } from '@/store/api/valuationApi'
 
 function Field({ label, value }: { label: string; value?: ReactNode }) {
   const hasValue = value !== null && value !== undefined && value !== ''
@@ -50,6 +51,7 @@ export default function StockAdjustmentViewPage() {
   const location = useLocation()
   // The ticket carried from the list. Edit forwards it alongside ?from=view.
   const { data: adj, isLoading, isError } = useGetStockAdjustmentQuery(id ?? skipToken)
+  const { data: valuationStatus } = useGetValuationStatusQuery()
   const [updateNotes] = useUpdateStockAdjustmentNotesMutation()
   const [revertAdjustment] = useRevertStockAdjustmentMutation()
   const { showSuccess, showError } = useNotification()
@@ -104,8 +106,15 @@ export default function StockAdjustmentViewPage() {
       render: (item) =>
         isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—',
     },
-    { header: 'Unit Cost', align: 'right', render: (item) => formatCurrency(item.unitCost ?? 0) },
-    { header: 'Total', align: 'right', render: (item) => formatCurrency(item.totalValue ?? 0) },
+    { header: valuationStatus?.active && isCompleted ? 'Posted unit value' : valuationStatus?.active ? 'Estimated unit cost' : 'Unit Cost', align: 'right', render: (item) => (
+      <Box>
+        {valuationStatus?.active && isCompleted && item.defaultUnitCost != null && (
+          <Typography variant="caption" color="text.secondary">Estimate: {formatCurrency(item.defaultUnitCost)}</Typography>
+        )}
+        <Typography variant="body2">{formatCurrency(item.unitCost ?? 0)}</Typography>
+      </Box>
+    ) },
+    { header: valuationStatus?.active && isCompleted ? 'Posted value' : valuationStatus?.active ? 'Estimated value' : 'Total', align: 'right', render: (item) => formatCurrency(item.totalValue ?? 0) },
   ]
 
   const handleEdit = () => {

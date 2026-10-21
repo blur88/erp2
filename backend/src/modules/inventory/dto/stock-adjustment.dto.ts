@@ -195,6 +195,9 @@ export class StockAdjustmentItemResponseDto {
   @ApiPropertyOptional({ description: 'Zero cost confirmation' })
   zeroCostConfirmed?: boolean;
 
+  @ApiPropertyOptional({ description: 'Whether the unit cost was explicitly supplied' })
+  unitCostProvided?: boolean;
+
   @ApiPropertyOptional({ description: 'Item notes' })
   notes?: string;
 

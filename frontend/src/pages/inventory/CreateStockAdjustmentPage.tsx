@@ -16,6 +16,8 @@ import {
   TextField,
   Typography,
   useTheme,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material'
 import { TableCard } from '@/components/common/TableCard'
 import AddIcon from '@mui/icons-material/Add'
@@ -33,6 +35,7 @@ import {
   useCreateStockAdjustmentMutation,
   useUpdateStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
+import { useGetValuationStatusQuery, useLazyGetProductValuationQuery } from '@/store/api/valuationApi'
 import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
@@ -48,6 +51,9 @@ interface ItemRow {
   liveStock: number
   difference: number | '' | '-'
   unitCost: number
+  unitCostProvided?: boolean
+  costExplanation?: string
+  zeroCostConfirmed?: boolean
 }
 
 interface FormData {
@@ -71,6 +77,9 @@ const schema = yup.object({
         .required('Quantity change is required')
         .notOneOf([0], 'Quantity change cannot be zero'),
       unitCost: yup.number().required(),
+      unitCostProvided: yup.boolean().optional(),
+      costExplanation: yup.string().optional(),
+      zeroCostConfirmed: yup.boolean().optional(),
     }),
   ).min(1, 'At least one item is required'),
 })
@@ -101,6 +110,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const { data: productsData, isLoading: productsLoading } = useGetProductsQuery({ isActive: true, type: 'Stocked Product' })
   const { data: adjustment, isLoading: adjustmentLoading } = useGetStockAdjustmentQuery(id!, { skip: !id })
   const { data: sourceAdjustment, isLoading: sourceLoading } = useGetStockAdjustmentQuery(revertFrom!, { skip: !revertFrom })
+  const { data: valuationStatus } = useGetValuationStatusQuery()
+  const [fetchProductValuation] = useLazyGetProductValuationQuery()
 
   const { data: docNumberSettings, isLoading: loadingDocNumbers } =
     useGetDocumentNumberSettingsQuery()
@@ -157,7 +168,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
     defaultValues: {
       adjustmentDate: getCurrentDate(),
       notes: '',
-      items: [{ productId: '', liveStock: 0, difference: 0, unitCost: 0 }],
+      items: [{ productId: '', liveStock: 0, difference: 0, unitCost: 0, unitCostProvided: false, costExplanation: '', zeroCostConfirmed: false }],
     },
   })
   const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
@@ -191,6 +202,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
         liveStock: Number(item.liveStock ?? item.oldQuantity ?? 0),
         difference: Number(item.difference ?? 0),
         unitCost: Number(item.unitCost ?? 0),
+        unitCostProvided: !!item.unitCostProvided,
+        costExplanation: item.costExplanation ?? '',
+        zeroCostConfirmed: !!item.zeroCostConfirmed,
       })),
     })
   }, [adjustment, isEditMode, reset])
@@ -252,13 +266,16 @@ const CreateStockAdjustmentPage: React.FC = () => {
           liveStock: Number(product?.stockQuantity ?? 0),
           difference: -g.diffSum,
           unitCost: g.unitCost,
+          unitCostProvided: false,
+          costExplanation: '',
+          zeroCostConfirmed: false,
         }
       })
       .filter((item) => item.difference !== 0)
     reset({
       adjustmentDate: getCurrentDate(),
       notes: '',
-      items: prefillItems.length > 0 ? prefillItems : [{ productId: '', liveStock: 0, difference: 0, unitCost: 0 }],
+      items: prefillItems.length > 0 ? prefillItems : [{ productId: '', liveStock: 0, difference: 0, unitCost: 0, unitCostProvided: false, costExplanation: '', zeroCostConfirmed: false }],
     })
   }, [revertFrom, sourceAdjustment, products, fallbackProductsById, reset, navigate, showError])
 
@@ -281,9 +298,12 @@ const CreateStockAdjustmentPage: React.FC = () => {
       setValue(`items.${index}.productId`, '', { shouldDirty: true, shouldValidate: true })
       setValue(`items.${index}.liveStock`, 0, { shouldDirty: true })
       setValue(`items.${index}.unitCost`, 0, { shouldDirty: true })
+      setValue(`items.${index}.unitCostProvided`, false, { shouldDirty: true })
+      setValue(`items.${index}.costExplanation`, '', { shouldDirty: true })
+      setValue(`items.${index}.zeroCostConfirmed`, false, { shouldDirty: true })
       return
     }
-    const existing = (watchedItems ?? []).find(
+    const existing = valuationStatus?.active ? undefined : (watchedItems ?? []).find(
       (item, i) => i !== index && item.productId === product.id,
     )
     if (existing) {
@@ -294,6 +314,14 @@ const CreateStockAdjustmentPage: React.FC = () => {
     setValue(`items.${index}.productId`, product.id, { shouldDirty: true, shouldValidate: true })
     setValue(`items.${index}.liveStock`, Number(product.stockQuantity) || 0, { shouldDirty: true })
     setValue(`items.${index}.unitCost`, Number(product.baseCost) || 0, { shouldDirty: true })
+    setValue(`items.${index}.unitCostProvided`, false, { shouldDirty: true })
+    setValue(`items.${index}.costExplanation`, '', { shouldDirty: true })
+    setValue(`items.${index}.zeroCostConfirmed`, false, { shouldDirty: true })
+    if (valuationStatus?.active) {
+      void fetchProductValuation(product.id).unwrap().then((value) => {
+        if (value?.unitValue != null) setValue(`items.${index}.unitCost`, Number(value.unitValue), { shouldDirty: true })
+      }).catch(() => undefined)
+    }
   }
 
   const onSubmit = async (data: FormData) => {
@@ -305,7 +333,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
           productId: item.productId,
           oldQuantity: Number(item.liveStock),
           difference: Number(item.difference),
-          unitCost: Number(item.unitCost),
+          ...(valuationStatus?.active && !item.unitCostProvided ? {} : { unitCost: Number(item.unitCost) }),
+          costExplanation: item.costExplanation || undefined,
+          zeroCostConfirmed: item.zeroCostConfirmed || undefined,
         }))
       const payload = {
         adjustmentDate: data.adjustmentDate,
@@ -431,7 +461,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                         Qty After
                       </TableCell>
                       <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
-                        Unit Cost
+                        {valuationStatus?.active ? 'Estimated value / cost' : 'Unit Cost'}
                       </TableCell>
                       <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
                         Total
@@ -455,7 +485,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                                   const base = products.filter(
                                     (p: any) =>
                                       p.id === pdField.value ||
-                                      !selectedProductIds.has(p.id),
+                                      valuationStatus?.active || !selectedProductIds.has(p.id),
                                   )
                                   const fb = fallbackProductsById.get(pdField.value)
                                   return fb && !base.some((p: any) => p.id === fb.id)
@@ -562,9 +592,26 @@ const CreateStockAdjustmentPage: React.FC = () => {
                           </Typography>
                         </TableCell>
                         <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
-                          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                            {formatCurrency(watchedItems?.[index]?.unitCost ?? 0)}
-                          </Typography>
+                          {valuationStatus?.active && Number(watchedItems?.[index]?.difference ?? 0) > 0 ? (
+                            <Box sx={{ display: 'grid', gap: 0.5 }}>
+                              <TextField size="small" label="Unit cost" type="number" value={watchedItems?.[index]?.unitCost ?? 0}
+                                onChange={(event) => {
+                                  setValue(`items.${index}.unitCost`, Number(event.target.value), { shouldDirty: true })
+                                  setValue(`items.${index}.unitCostProvided`, true, { shouldDirty: true })
+                                }} />
+                              <TextField size="small" label="Explanation" value={watchedItems?.[index]?.costExplanation ?? ''}
+                                onChange={(event) => setValue(`items.${index}.costExplanation`, event.target.value, { shouldDirty: true })} />
+                              {Number(watchedItems?.[index]?.unitCost ?? 0) === 0 && (
+                                <FormControlLabel control={<Checkbox checked={!!watchedItems?.[index]?.zeroCostConfirmed}
+                                  onChange={(_, checked) => setValue(`items.${index}.zeroCostConfirmed`, checked, { shouldDirty: true })} />}
+                                  label="Confirm zero cost" />
+                              )}
+                            </Box>
+                          ) : valuationStatus?.active ? (
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Estimated value</Typography>
+                          ) : (
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>{formatCurrency(watchedItems?.[index]?.unitCost ?? 0)}</Typography>
+                          )}
                         </TableCell>
                         <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -602,7 +649,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                 <AppButton
                   variant="secondary"
                   startIcon={<AddIcon />}
-                  onClick={() => append({ productId: '', liveStock: 0, difference: 0, unitCost: 0 })}
+                  onClick={() => append({ productId: '', liveStock: 0, difference: 0, unitCost: 0, unitCostProvided: false, costExplanation: '', zeroCostConfirmed: false })}
                 >
                   Add Item
                 </AppButton>

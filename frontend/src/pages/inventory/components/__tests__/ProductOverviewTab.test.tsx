@@ -7,6 +7,11 @@ vi.mock('@/store/api/settingsApi', () => ({
   useGetRegionalSettingsQuery: () => ({ data: { lowStockThreshold: 10 } }),
 }))
 
+vi.mock('@/store/api/valuationApi', () => ({
+  useGetValuationStatusQuery: () => ({ data: { active: false, method: 'AVERAGE' } }),
+  useGetProductValuationQuery: () => ({ data: null }),
+}))
+
 import ProductOverviewTab from '../ProductOverviewTab'
 
 const product = {
