@@ -461,3 +461,17 @@ On BullMQ 6.1.0 the public API returns a **boolean**: `removed: true` on success
 **Error details ride inside `message`.** Reconciliation conflicts that carry data are thrown as `ConflictException({ message: { text, ...details } })`, the provider-settlement stale-conflict shape. The global exception filter forwards only `message`; do not widen it to copy other keys. The frontend reads `text` through `reconciliationErrorMessage`, because `rtkErrorMessage` only understands string messages.
 
 **Unsaved form drafts are in `sessionStorage`** (statement balances and selected amounts, keyed by user and reconciliation). `applyPreview` must return the *same* state object when nothing changed — the form compares `matched` by reference to decide whether to preview again, and a fresh-but-equal object re-requests forever. `useClearReconciliationDraftsOnSignOut` in `RootLayout` removes them from a tab whenever that tab is not signed in (sign-out, or a restored tab whose session is gone). It cannot reach other tabs: `sessionStorage` is per tab and sign-out is not synchronised between tabs, so a second open tab keeps its drafts until it signs out or closes — and browser QA showed that tab can stay signed in after the other tab's sign-out. `docs/modules/accounting/BANK_RECONCILIATION_DRAFT_STORAGE_ASSESSMENT.md` records this and the open CodeQL alert.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `blur88/erp2`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses the five default triage labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `GLOSSARY.md` plus `docs/adr/`, both created lazily. See `docs/agents/domain.md`.
