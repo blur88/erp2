@@ -44,7 +44,8 @@ describe("jest-e2e-leakcheck.json", () => {
   });
 
   it("never sets passWithNoTests", () => {
-    // Zero-discovery must fail, not pass. See CLAUDE.md.
+    // Zero-discovery must fail, not pass. See docs/backend/testing.md,
+    // "Jest runs in ESM mode".
     const leak = read("jest-e2e-leakcheck.json");
     expect(leak).not.toHaveProperty("passWithNoTests");
   });

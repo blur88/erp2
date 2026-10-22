@@ -12,7 +12,9 @@ const SEED_LOCK_KEY = 891892;
 
 export const DEFAULT_ADMIN_USERNAME = 'admin';
 export const DEFAULT_ADMIN_EMAIL = 'admin@example.com';
-// Documented in CLAUDE.md and .env.example:126. Override with ADMIN_PASSWORD.
+// Documented in AGENTS.md, "Agent Brief", "Default admin" bullet, and
+// .env.example, "7. Default credentials" setup note. Override with
+// ADMIN_PASSWORD.
 export const DEFAULT_ADMIN_PASSWORD = 'Admin@123!';
 
 // Data-access surface. Production adapter wraps a TypeORM EntityManager; the
