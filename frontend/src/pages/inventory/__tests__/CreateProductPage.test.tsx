@@ -1,228 +1,285 @@
-import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
-import CreateProductPage from '../CreateProductPage'
+import React from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { BrowserRouter } from "react-router-dom";
+import CreateProductPage from "../CreateProductPage";
 
-const mockNavigate = vi.fn()
-const mockShowSuccess = vi.fn()
-const mockShowError = vi.fn()
-const mockUpdateProduct = vi.fn()
-const mockCreateProduct = vi.fn()
-const mockFetchProduct = vi.fn()
-const mockDispatch = vi.fn()
+const mockNavigate = vi.fn();
+const mockShowSuccess = vi.fn();
+const mockShowError = vi.fn();
+const mockUpdateProduct = vi.fn();
+const mockCreateProduct = vi.fn();
+const mockFetchProduct = vi.fn();
+const mockDispatch = vi.fn();
 
-const mockBulkUpdatePrices = vi.fn()
-let mockRouteParams: Record<string, string> = {}
+const mockBulkUpdatePrices = vi.fn();
+const { mockValuationStatus } = vi.hoisted(() => ({
+  mockValuationStatus: { active: false, method: "AVERAGE" },
+}));
+let mockRouteParams: Record<string, string> = {};
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
   return {
     ...actual,
     useNavigate: () => mockNavigate,
     useParams: () => mockRouteParams,
-    useBlocker: () => ({ state: 'idle', proceed: vi.fn(), reset: vi.fn() }),
-  }
-})
+    useBlocker: () => ({ state: "idle", proceed: vi.fn(), reset: vi.fn() }),
+  };
+});
 
-vi.mock('react-redux', async (importOriginal) => {
-  const actual = await importOriginal() as Record<string, unknown>
+vi.mock("react-redux", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
     useDispatch: () => mockDispatch,
-  }
-})
+  };
+});
 
-vi.mock('@/hooks/useNotification', () => ({
+vi.mock("@/hooks/useNotification", () => ({
   useNotification: () => ({
     showSuccess: mockShowSuccess,
     showError: mockShowError,
   }),
-}))
+}));
 
-vi.mock('@/hooks/useCurrency', () => ({
-  useCurrency: () => ({ currency: '$' }),
-}))
+vi.mock("@/hooks/useCurrency", () => ({
+  useCurrency: () => ({ currency: "$" }),
+}));
 
-vi.mock('@/hooks/useDuplicateCheck', () => ({
+vi.mock("@/hooks/useDuplicateCheck", () => ({
   useDuplicateCheck: () => ({
     checkDuplicate: vi.fn(),
-    nameError: '',
-    barcodeError: '',
+    nameError: "",
+    barcodeError: "",
     hasNameDuplicate: false,
     hasBarcodeDuplicate: false,
     hasCheckedName: false,
     hasCheckedBarcode: false,
   }),
-}))
+}));
 
-vi.mock('@/components/inventory/CategorySelector', () => ({
-  default: ({ onChange }: { onChange: (category: { id: string; name: string }) => void }) => (
-    <button type="button" onClick={() => onChange({ id: 'cat-1', name: 'Category 1' })}>
+vi.mock("@/components/inventory/CategorySelector", () => ({
+  default: ({
+    onChange,
+  }: {
+    onChange: (category: { id: string; name: string }) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onChange({ id: "cat-1", name: "Category 1" })}
+    >
       Select Category
     </button>
   ),
-}))
+}));
 
-vi.mock('@/store/api/priceListApi', () => ({
+vi.mock("@/store/api/priceListApi", () => ({
   useGetPriceListsQuery: () => ({
-    data: { data: [{ id: 'pl-1', name: 'Retail', isActive: true }] },
+    data: { data: [{ id: "pl-1", name: "Retail", isActive: true }] },
     isLoading: false,
   }),
-  useBulkUpdatePricesMutation: () => [mockBulkUpdatePrices, { isLoading: false }],
+  useBulkUpdatePricesMutation: () => [
+    mockBulkUpdatePrices,
+    { isLoading: false },
+  ],
   priceListApiSlice: {
     util: {
-      invalidateTags: (tags: unknown) => ({ type: '__INVALIDATE__', tags }),
+      invalidateTags: (tags: unknown) => ({ type: "__INVALIDATE__", tags }),
     },
   },
-}))
+}));
 
-vi.mock('@/store/api/inventoryApi', () => ({
+vi.mock("@/store/api/inventoryApi", () => ({
   useUpdateProductMutation: () => [mockUpdateProduct],
   useCreateProductMutation: () => [mockCreateProduct],
   useLazyGetProductBySlugQuery: () => [mockFetchProduct, { isFetching: false }],
-}))
+}));
 
-describe('CreateProductPage', () => {
+describe("CreateProductPage", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    mockRouteParams = {}
+    vi.clearAllMocks();
+    mockRouteParams = {};
+    mockValuationStatus.active = false;
 
     mockCreateProduct.mockReturnValue({
-      unwrap: vi.fn().mockResolvedValue({ id: 'prod-1' }),
-    })
+      unwrap: vi.fn().mockResolvedValue({ id: "prod-1" }),
+    });
     mockFetchProduct.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({
-        id: 'prod-1',
-        name: 'Original Product',
-        description: '',
-        barcode: '',
-        type: 'Stocked Product',
-        categoryId: 'cat-1',
+        id: "prod-1",
+        name: "Original Product",
+        description: "",
+        barcode: "",
+        type: "Stocked Product",
+        categoryId: "cat-1",
         baseCost: 0,
         stockQuantity: 5,
-        notes: '',
+        notes: "",
         isActive: true,
-        category: { id: 'cat-1', name: 'Category 1' },
+        category: { id: "cat-1", name: "Category 1" },
         priceListItems: [],
       }),
-    })
+    });
     mockUpdateProduct.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({}),
-    })
-    mockBulkUpdatePrices.mockResolvedValue({})
-  })
+    });
+    mockBulkUpdatePrices.mockResolvedValue({});
+  });
 
-  it('saves a price list item when price is explicitly set to 0', async () => {
+  it("saves a price list item when price is explicitly set to 0", async () => {
     render(
       <BrowserRouter>
         <CreateProductPage />
-      </BrowserRouter>
-    )
+      </BrowserRouter>,
+    );
 
-    fireEvent.change(screen.getByRole('textbox', { name: /Product Name/i }), { target: { value: 'Test Product' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Select Category' }))
+    fireEvent.change(screen.getByRole("textbox", { name: /Product Name/i }), {
+      target: { value: "Test Product" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Select Category" }));
 
-    const retailPriceInput = await screen.findByLabelText('Retail Price')
-    fireEvent.change(retailPriceInput, { target: { value: '0' } })
+    const retailPriceInput = await screen.findByLabelText("Retail Price");
+    fireEvent.change(retailPriceInput, { target: { value: "0" } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+    fireEvent.click(screen.getByRole("button", { name: "Create Product" }));
 
     await waitFor(() => {
       expect(mockCreateProduct).toHaveBeenCalledWith(
-        expect.objectContaining({ categoryId: 'cat-1' })
-      )
-    })
+        expect.objectContaining({ categoryId: "cat-1" }),
+      );
+    });
 
     await waitFor(() => {
       expect(mockBulkUpdatePrices).toHaveBeenCalledWith({
-        priceListId: 'pl-1',
+        priceListId: "pl-1",
         items: [
           {
-            productId: 'prod-1',
+            productId: "prod-1",
             price: 0,
             costBasis: 0,
           },
         ],
-      })
-    })
-  })
+      });
+    });
+  });
 
-  it('uses the RTK Query update mutation when editing a product', async () => {
-    mockRouteParams = { slug: 'original-product' }
+  it("asks for zero-cost confirmation when opening stocked inventory under valuation", () => {
+    mockValuationStatus.active = true;
+    render(
+      <BrowserRouter>
+        <CreateProductPage />
+      </BrowserRouter>,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Current Stock" }), {
+      target: { value: "4" },
+    });
+
+    expect(
+      screen.getByRole("checkbox", { name: "Confirm zero opening cost" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the legacy opening-stock form while valuation is inactive", () => {
+    render(
+      <BrowserRouter>
+        <CreateProductPage />
+      </BrowserRouter>,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Current Stock" }), {
+      target: { value: "4" },
+    });
+
+    expect(
+      screen.queryByRole("checkbox", { name: "Confirm zero opening cost" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses the RTK Query update mutation when editing a product", async () => {
+    mockRouteParams = { slug: "original-product" };
 
     render(
       <BrowserRouter>
         <CreateProductPage />
-      </BrowserRouter>
-    )
+      </BrowserRouter>,
+    );
 
-    const productNameInput = await screen.findByRole('textbox', { name: /Product Name/i })
+    const productNameInput = await screen.findByRole("textbox", {
+      name: /Product Name/i,
+    });
     await waitFor(() => {
-      expect(productNameInput).toHaveValue('Original Product')
-    })
+      expect(productNameInput).toHaveValue("Original Product");
+    });
 
-    fireEvent.change(productNameInput, { target: { value: 'Updated Product' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Update Product' }))
+    fireEvent.change(productNameInput, {
+      target: { value: "Updated Product" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Update Product" }));
 
     await waitFor(() => {
       expect(mockUpdateProduct).toHaveBeenCalledWith({
-        id: 'prod-1',
+        id: "prod-1",
         data: expect.objectContaining({
-          name: 'Updated Product',
-          categoryId: 'cat-1',
+          name: "Updated Product",
+          categoryId: "cat-1",
         }),
-      })
-    })
-    expect(mockUpdateProduct.mock.calls[0][0].data).not.toHaveProperty('stockQuantity')
-  })
+      });
+    });
+    expect(mockUpdateProduct.mock.calls[0][0].data).not.toHaveProperty(
+      "stockQuantity",
+    );
+  });
 
-  it('invalidates PriceListItem cache for the product after updating prices in edit mode', async () => {
-    mockRouteParams = { slug: 'original-product' }
+  it("invalidates PriceListItem cache for the product after updating prices in edit mode", async () => {
+    mockRouteParams = { slug: "original-product" };
     mockFetchProduct.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({
-        id: 'prod-1',
-        name: 'Original Product',
-        description: '',
-        barcode: '',
-        type: 'Stocked Product',
-        categoryId: 'cat-1',
+        id: "prod-1",
+        name: "Original Product",
+        description: "",
+        barcode: "",
+        type: "Stocked Product",
+        categoryId: "cat-1",
         baseCost: 10,
         stockQuantity: 0,
-        notes: '',
+        notes: "",
         isActive: true,
-        category: { id: 'cat-1', name: 'Category 1' },
-        priceListItems: [{ priceListId: 'pl-1', price: 50 }],
+        category: { id: "cat-1", name: "Category 1" },
+        priceListItems: [{ priceListId: "pl-1", price: 50 }],
       }),
-    })
+    });
 
     render(
       <BrowserRouter>
         <CreateProductPage />
-      </BrowserRouter>
-    )
+      </BrowserRouter>,
+    );
 
     await waitFor(() => {
-      expect(screen.getByRole('textbox', { name: /Product Name/i })).toHaveValue('Original Product')
-    })
+      expect(
+        screen.getByRole("textbox", { name: /Product Name/i }),
+      ).toHaveValue("Original Product");
+    });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Update Product' }))
+    fireEvent.click(screen.getByRole("button", { name: "Update Product" }));
 
     await waitFor(() => {
-      expect(mockBulkUpdatePrices).toHaveBeenCalled()
-    })
+      expect(mockBulkUpdatePrices).toHaveBeenCalled();
+    });
 
     await waitFor(() => {
       expect(mockDispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: '__INVALIDATE__',
-          tags: [{ type: 'PriceListItem', id: 'product-prod-1' }],
-        })
-      )
-    })
-  })
-})
+          type: "__INVALIDATE__",
+          tags: [{ type: "PriceListItem", id: "product-prod-1" }],
+        }),
+      );
+    });
+  });
+});
 
-vi.mock('@/store/api/valuationApi', () => ({
-  useGetValuationStatusQuery: () => ({ data: { active: false, method: 'AVERAGE' } }),
-}))
+vi.mock("@/store/api/valuationApi", () => ({
+  useGetValuationStatusQuery: () => ({ data: mockValuationStatus }),
+}));
