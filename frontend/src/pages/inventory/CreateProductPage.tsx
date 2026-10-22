@@ -299,7 +299,9 @@ const CreateProductPage: React.FC = () => {
         categoryId: data.categoryId,
         baseCost: data.baseCost !== undefined && data.baseCost !== null
           ? Number(data.baseCost)
-          : valuationStatus?.active ? undefined : 0,
+          : valuationStatus?.active
+            ? (!isEditMode && Number(data.stockQuantity) > 0 && data.openingZeroCostConfirmed ? 0 : undefined)
+            : 0,
         notes: data.notes || '',
         isActive: data.isActive,
       }

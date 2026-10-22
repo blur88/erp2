@@ -40,6 +40,10 @@ import { InventoryValuationService } from '../../inventory/valuation/inventory-v
 import { StockValuationEntry, StockValuationEntryKind } from '../../../database/entities/stock-valuation-entry.entity';
 import { unitValueScale4 } from '../../inventory/valuation/valuation-math';
 
+export function negateRecordedValue(value: string | number | null | undefined): string {
+  return formatMoney(-toMinorUnits(String(value ?? '0')));
+}
+
 @Injectable()
 export class SalesOrderFulfillmentService {
   constructor(
@@ -481,7 +485,7 @@ export class SalesOrderFulfillmentService {
             productId: movement.productId,
             method: await this.inventoryValuation.currentMethod(manager, movement.productId),
             quantity: String(movement.quantity),
-            value: `-${String(movement.totalValue ?? '0')}`,
+            value: negateRecordedValue(movement.totalValue),
             createdAt: movement.movementDate,
           } as StockValuationEntry;
           const pending = await this.inventoryValuation.valueDecreaseReversal(manager, original);

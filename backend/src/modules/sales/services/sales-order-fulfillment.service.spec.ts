@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
+import { negateRecordedValue, SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import {
   UNFULFILL_EVIDENCE_INCOMPLETE,
   UNFULFILL_PRE_RECORDING,
@@ -49,6 +49,11 @@ const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
   }) as SalesOrder;
 
 describe('SalesOrderFulfillmentService', () => {
+  it('negates recorded currency values numerically, including negative inputs', () => {
+    expect(negateRecordedValue('500.00')).toBe('-500.00');
+    expect(negateRecordedValue('-500.00')).toBe('500.00');
+  });
+
   let service: SalesOrderFulfillmentService;
   let orderRepo: any;
   let inventoryService: any;

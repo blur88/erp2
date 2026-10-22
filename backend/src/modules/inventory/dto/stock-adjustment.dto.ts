@@ -42,6 +42,11 @@ export class StockAdjustmentItemDto {
   @Min(0)
   unitCost?: number;
 
+  @ApiPropertyOptional({ description: 'Whether unitCost was explicitly provided by the user' })
+  @IsOptional()
+  @IsBoolean()
+  unitCostProvided?: boolean;
+
   @ApiPropertyOptional({ description: 'Explanation for a found-stock cost override' })
   @IsOptional()
   @IsString()

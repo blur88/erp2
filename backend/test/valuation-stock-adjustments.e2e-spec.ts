@@ -159,6 +159,42 @@ describe("Stock adjustment valuation", () => {
       );
   });
 
+  it("uses valuation cost when the request marks a sent unit cost as not provided", async () => {
+    const product = await seedProduct(ds, categoryId, {
+      stockQuantity: 10,
+      baseCost: 10,
+      name: `Valuation Explicit Default ${RUN}`,
+    });
+    products.push(product.id);
+    await ds.query(
+      `INSERT INTO purchase_cost_history ("productId","unitCost","shippingPerUnit","landedCost","receivedQuantity","remainingQuantity","receivedDate") VALUES ($1,100,0,100,10,10,'2025-01-01')`,
+      [product.id],
+    );
+    await activateValuationForTest(ds, {
+      method: "AVERAGE",
+      products: [{ productId: product.id, quantity: "10", value: "1000.00" }],
+    });
+    const created = await request(app.getHttpServer())
+      .post("/inventory/stock-adjustments")
+      .set(auth())
+      .send({
+        adjustmentDate: "2026-10-21",
+        items: [{ productId: product.id, oldQuantity: 10, difference: 1, unitCost: 0, unitCostProvided: false }],
+      })
+      .expect(201);
+    const adjustment = created.body.data ?? created.body;
+    adjustments.push(adjustment.id);
+    await request(app.getHttpServer())
+      .post(`/inventory/stock-adjustments/${adjustment.id}/complete`)
+      .set(auth())
+      .expect(201);
+    const [line] = await ds.query(
+      `SELECT "unitCost"::text AS unit, "totalValue"::text AS value FROM stock_adjustment_items WHERE "stockAdjustmentId" = $1`,
+      [adjustment.id],
+    );
+    expect(line).toEqual({ unit: "100.0000", value: "100.0000" });
+  });
+
   it("requires evidence for found stock when inventory has no reliable cost", async () => {
     const product = await seedProduct(ds, categoryId, {
       stockQuantity: 10,

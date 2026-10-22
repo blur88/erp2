@@ -181,6 +181,37 @@ describe("CreateProductPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("submits a confirmed blank opening cost as zero while valuation is active", async () => {
+    mockValuationStatus.active = true;
+    render(
+      <BrowserRouter>
+        <CreateProductPage />
+      </BrowserRouter>,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: /Product Name/i }), {
+      target: { value: "Zero Cost Product" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Select Category" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Current Stock" }), {
+      target: { value: "4" },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Confirm zero opening cost" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Create Product" }));
+
+    await waitFor(() => {
+      expect(mockCreateProduct).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseCost: 0,
+          stockQuantity: 4,
+          openingZeroCostConfirmed: true,
+        }),
+      );
+    });
+  });
+
   it("keeps the legacy opening-stock form while valuation is inactive", () => {
     render(
       <BrowserRouter>

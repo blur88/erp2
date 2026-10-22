@@ -263,7 +263,7 @@ export class StockAdjustmentService extends BaseCrudService<
         totalValue: itemTotalValue,
         costExplanation: itemDto.costExplanation,
         zeroCostConfirmed: itemDto.zeroCostConfirmed ?? false,
-        unitCostProvided: itemDto.unitCost != null,
+        unitCostProvided: itemDto.unitCostProvided ?? itemDto.unitCost != null,
         notes: itemDto.notes,
       });
 
@@ -510,7 +510,7 @@ export class StockAdjustmentService extends BaseCrudService<
           totalValue: itemTotalValue,
           costExplanation: itemDto.costExplanation,
           zeroCostConfirmed: itemDto.zeroCostConfirmed ?? false,
-          unitCostProvided: itemDto.unitCost != null,
+          unitCostProvided: itemDto.unitCostProvided ?? itemDto.unitCost != null,
           notes: itemDto.notes,
         });
 
