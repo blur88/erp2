@@ -213,8 +213,8 @@ row would scroll away and leave the labels floating over the data.
 **Why it matters:** a larger bottom-line figure places its decimal separator at
 a different x position from every other row — the exact misalignment the old
 two-cell integer/fraction split existed to prevent. The bottom-line *label* may
-be larger (`1rem`); the *figure* may not. CLAUDE.md records this as an
-invariant the suite cannot protect.
+be larger (`1rem`); the *figure* may not. `docs/frontend/testing-and-print.md`
+records this as an invariant the suite cannot protect.
 
 ## ST-13 — Paren alignment across the sign boundary (#1228)
 

@@ -23,7 +23,7 @@ curl -s -H "Authorization: Bearer <admin-token>" \
   http://<host>/api/health/redis-memory | jq '.pressure, .history, .counters'
 ```
 
-The `redis_cli` helper from CLAUDE.md is used throughout this runbook:
+The `redis_cli` helper is used throughout this runbook and the other Redis docs:
 
 ```bash
 redis_password="$(docker compose exec -T backend printenv REDIS_PASSWORD)"
@@ -32,7 +32,39 @@ redis_cli() { docker compose exec -T -e REDISCLI_AUTH="$redis_password" redis re
 
 Extract the password from the container as shown — `$REDIS_PASSWORD` is
 generally *not* exported in the host shell, and an unset var makes
-`REDISCLI_AUTH=""` fail with `NOAUTH`.
+`REDISCLI_AUTH=""` fail with `NOAUTH`. `REDISCLI_AUTH` also keeps the
+password out of the process argument list, unlike `-a`.
+
+Configuration and protocol constraints (why `noeviction`, why RESP2, what
+may and may not be stored here) are in [Redis](../backend/redis.md). This
+runbook covers diagnosis and recovery.
+
+## Policy rollout: baseline capture and verification
+
+Run per environment from that environment's deployment directory
+**before** switching `--maxmemory-policy`. A non-zero `evicted_keys` means
+eviction has already damaged queue state and must be investigated before
+any change:
+
+```bash
+redis_cli CONFIG GET maxmemory-policy
+redis_cli INFO memory | grep -E "^used_memory_peak_human:|^maxmemory_human:"
+redis_cli INFO stats | grep -E "^evicted_keys:"   # MUST be 0
+redis_cli INFO keyspace
+```
+
+Verification after rollout needs a restart-bounded window plus a positive
+marker. `docker compose logs` retains pre-change history, so a naive grep
+still finds the old warning, and a backend that fails to start produces an
+empty window that reads as success:
+
+```bash
+docker compose up -d redis && docker compose restart backend
+docker compose logs backend --since 90s 2>&1 | grep -E "Initialized [0-9]+ backup schedules|Eviction policy"
+```
+
+Pass requires **both**: `Initialized N backup schedules` present (it cannot
+print unless BullMQ initialized against Redis) and `Eviction policy` absent.
 
 ## Interpreting the pressure state
 
@@ -153,7 +185,7 @@ redis_cli INFO memory | grep -E "^used_memory_human:|^used_memory_peak_human:|^m
 # What is in the instance — queue keys only
 redis_cli INFO keyspace
 
-# Queue depth (the established inspection from CLAUDE.md)
+# Queue depth (see docs/backend/bullmq-backup-schedulers.md)
 redis_cli ZCARD bull:backup-queue:delayed
 redis_cli ZRANGE bull:backup-queue:delayed 0 -1
 redis_cli ZRANGE bull:backup-queue:repeat 0 -1 WITHSCORES
@@ -258,8 +290,9 @@ eviction can silently drop job hashes or queue state.
 
 **Decision: retain 256 MiB.** Local history demonstrates persistence across
 Redis restarts; **production sizing and survival across a confirmed deploy
-remain unverified.** The mandatory production measurement in `CLAUDE.md` is
-**not** discharged by this section and remains required unconditionally.
+remain unverified.** No production deployment exists yet. Re-evaluating the
+cap against values captured from a production host is **required when a
+production host is created**, and is **not** discharged by this section.
 
 Evidence is one frozen window from the **local development stack only**, upper
 bound `sampledAt < 2026-09-05 00:00:00-07`:

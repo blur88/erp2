@@ -287,8 +287,8 @@ Recording "seven failures" in prose is not enough. A future reader comparing by
 eye has no prompt to notice an **eighth**, and the count is fragile in a silent
 direction: three of the 13 checks (`payment methods`, `payment method
 mappings`, `COA tuples`) are exact-string comparisons, so any later migration
-that adds a seed row changes an expected string and moves the count. CLAUDE.md
-records this exact trap for a different gate — *stale counts train readers to
+that adds a seed row changes an expected string and moves the count.
+`docs/backend/testing.md` records this exact trap for a different gate — *stale counts train readers to
 wave through a mismatch, the exact reflex that would miss the real failure*
 (#1164).
 

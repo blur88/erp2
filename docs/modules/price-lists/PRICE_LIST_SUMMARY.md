@@ -66,7 +66,7 @@ The Price List System migration is **COMPLETE** and **READY FOR PRODUCTION DEPLO
 ### For Developers
 
 - **API Reference**: [`docs/PRICE_LIST_API.md`](./PRICE_LIST_API.md)
-- **System Documentation**: [`CLAUDE.md`](../CLAUDE.md) (Price List System section)
+- **System Documentation**: [`AGENTS.md`](../../../AGENTS.md)
 - **Migration Plan**: [`PRICE_LIST_MIGRATION_PLAN.md`](../PRICE_LIST_MIGRATION_PLAN.md)
 
 ### For Operations
