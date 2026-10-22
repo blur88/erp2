@@ -432,7 +432,6 @@ Example: If price is $100 and cost is $80, margin = (($100 - $80) / $100) × 100
 ## Additional Resources
 
 - **API Documentation**: [PRICE_LIST_API.md](./PRICE_LIST_API.md) - For developers integrating with the API
-- **Migration Guide**: [PRICE_LIST_MIGRATION_PLAN.md](../PRICE_LIST_MIGRATION_PLAN.md) - Technical migration details
 - **System Documentation**: [AGENTS.md](../../../AGENTS.md) - Project overview and agent brief
 - **Support**: Contact your system administrator or development team for assistance
 

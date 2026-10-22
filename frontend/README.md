@@ -365,7 +365,7 @@ This project is licensed under the MIT License - see the [LICENSE](../LICENSE) f
 ## Support
 
 For support, please:
-1. Check the [documentation](docs/)
+1. Check the [documentation](../docs/README.md)
 2. Search [existing issues](https://github.com/yourorg/erp-system/issues)
 3. Create a [new issue](https://github.com/yourorg/erp-system/issues/new) if needed
 

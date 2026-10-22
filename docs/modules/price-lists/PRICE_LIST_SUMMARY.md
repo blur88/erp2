@@ -67,12 +67,11 @@ The Price List System migration is **COMPLETE** and **READY FOR PRODUCTION DEPLO
 
 - **API Reference**: [`docs/PRICE_LIST_API.md`](./PRICE_LIST_API.md)
 - **System Documentation**: [`AGENTS.md`](../../../AGENTS.md)
-- **Migration Plan**: [`PRICE_LIST_MIGRATION_PLAN.md`](../PRICE_LIST_MIGRATION_PLAN.md)
 
 ### For Operations
 
 - **Deployment Guide**: [`docs/PRICE_LIST_DEPLOYMENT_GUIDE.md`](./PRICE_LIST_DEPLOYMENT_GUIDE.md)
-- **Deployment Checklist**: [`docs/DEPLOYMENT_CHECKLIST.md`](./DEPLOYMENT_CHECKLIST.md)
+- **Deployment Checklist**: [`docs/deployment/DEPLOYMENT_CHECKLIST.md`](../../deployment/DEPLOYMENT_CHECKLIST.md)
 
 ### For End Users
 

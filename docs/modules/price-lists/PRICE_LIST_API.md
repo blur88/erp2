@@ -756,10 +756,7 @@ curl -X POST http://localhost:3000/api/price-lists/NEW_UUID/adjust \
 
 ## Related Documentation
 
-- [Price List Migration Plan](../PRICE_LIST_MIGRATION_PLAN.md) - Complete migration documentation
 - [AGENTS.md](../../../AGENTS.md) - Project overview and agent brief
-- [API Authentication](./AUTH_API.md) - JWT authentication documentation
-- [Customer API](./CUSTOMER_API.md) - Customer management and price list assignment
 
 ---
 
