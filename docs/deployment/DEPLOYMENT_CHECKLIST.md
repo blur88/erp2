@@ -788,4 +788,3 @@ docker compose exec -T postgres psql -X -U erp_user -d erp_db < backend/scripts/
 ```
 
 Proceed only when the final row says `PASS: all costing methods are AVERAGE or FIFO`. **Any unsupported row is a HOLD**: resolve it with the business owner and rerun the preflight before deployment. Stage 1 creates valuation and protection records but has no activation or pause route; leave the singleton valuation state `inactive`.
-
