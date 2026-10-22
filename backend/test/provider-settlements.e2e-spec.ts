@@ -1,36 +1,46 @@
-import { SESSION_PROTOCOL } from './utils/session-protocol';
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import { DataSource } from 'typeorm';
-import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { seedCategory, seedProduct } from './e2e/helpers/seed';
-import { configureTestAppValidation } from './utils/configure-test-app-validation';
+import { SESSION_PROTOCOL } from "./utils/session-protocol";
+import { Test, TestingModule } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import { randomUUID } from "crypto";
+import { DataSource } from "typeorm";
+import request from "supertest";
+import { AppModule } from "../src/app.module";
+import { seedCategory, seedProduct } from "./e2e/helpers/seed";
+import { configureTestAppValidation } from "./utils/configure-test-app-validation";
 import {
   E2E_ADMIN_PASSWORD,
   removeSuiteAdmin,
   seedSuiteAdmin,
-} from './utils/shared-e2e-fixture';
-import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
-import { restoreMapping, snapshotMapping } from './utils/payment-method-mapping-restore-fixture';
+} from "./utils/shared-e2e-fixture";
+import { removeSuiteTraces } from "./utils/shared-e2e-traces-fixture";
+import {
+  restoreMapping,
+  snapshotMapping,
+} from "./utils/payment-method-mapping-restore-fixture";
 import {
   cents,
   journalLinesFor,
   methodIdByCode,
   accountIdByCode,
-} from './utils/payment-method-matrix-fixture';
-import { ProviderSettlementService } from '../src/modules/provider-settlements/services/provider-settlement.service';
-import { SETTLEMENT_TEST_HOOK } from '../src/modules/provider-settlements/services/provider-settlement.test-hooks';
+} from "./utils/payment-method-matrix-fixture";
+import { ProviderSettlementService } from "../src/modules/provider-settlements/services/provider-settlement.service";
+import { SETTLEMENT_TEST_HOOK } from "../src/modules/provider-settlements/services/provider-settlement.test-hooks";
 
 /** Race a promise against a timer, and ALWAYS clear the timer. */
-async function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+async function withTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  what: string,
+): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   try {
     return await Promise.race([
       p,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`timeout after ${ms}ms: ${what}`)), ms);
+        timer = setTimeout(
+          () => reject(new Error(`timeout after ${ms}ms: ${what}`)),
+          ms,
+        );
       }),
     ]);
   } finally {
@@ -42,25 +52,25 @@ const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 const runId = randomUUID().slice(0, 8);
 
-describe('Provider settlements (e2e)', () => {
+describe("Provider settlements (e2e)", () => {
   let app: INestApplication;
   let ds: DataSource;
-  let token = '';
+  let token = "";
   let post: (path: string, body?: any) => request.Test;
   let get: (path: string) => request.Test;
   let put: (path: string, body?: any) => request.Test;
   let patch: (path: string, body?: any) => request.Test;
 
-  let adminUserId = '';
-  let adminUsername = '';
-  let customerId = '';
-  let productId = '';
-  let categoryId = '';
-  let atomeMethodId = '';
-  let tiktokMethodId = '';
-  let cimbMethodId = '';
-  let clearingAccountId = '';
-  let bankAccountId = '';
+  let adminUserId = "";
+  let adminUsername = "";
+  let customerId = "";
+  let productId = "";
+  let categoryId = "";
+  let atomeMethodId = "";
+  let tiktokMethodId = "";
+  let cimbMethodId = "";
+  let clearingAccountId = "";
+  let bankAccountId = "";
 
   const ownedEntityIds: string[] = [];
   const ownedRefs: string[] = [];
@@ -95,13 +105,14 @@ describe('Provider settlements (e2e)', () => {
     adminUserId = admin.id;
 
     const loginRes = await request(app.getHttpServer())
-      .post('/auth/login').set(...SESSION_PROTOCOL)
+      .post("/auth/login")
+      .set(...SESSION_PROTOCOL)
       .send({ usernameOrEmail: adminUsername, password: E2E_ADMIN_PASSWORD });
     token = loginRes.body?.data?.accessToken ?? loginRes.body?.accessToken;
     expect(token).toBeTruthy();
 
     const server = app.getHttpServer();
-    const auth = (r: request.Test) => r.set('Authorization', `Bearer ${token}`);
+    const auth = (r: request.Test) => r.set("Authorization", `Bearer ${token}`);
     post = (path: string, body: any = {}) =>
       auth(request(server).post(path).send(body));
     get = (path: string) => auth(request(server).get(path));
@@ -112,16 +123,16 @@ describe('Provider settlements (e2e)', () => {
 
     // BASELINE rows, shared with every other suite in a size-ordered run
     // against one database. Read them; never mutate or delete them.
-    atomeMethodId = await methodIdByCode(ds, 'ATOME');
-    tiktokMethodId = await methodIdByCode(ds, 'TIKTOK');
+    atomeMethodId = await methodIdByCode(ds, "ATOME");
+    tiktokMethodId = await methodIdByCode(ds, "TIKTOK");
     // CIMB is mapped straight to the 1200 bank account (1789658118888), so its
     // payments already debit the account this suite settles into.
-    cimbMethodId = await methodIdByCode(ds, 'CIMB');
-    clearingAccountId = await accountIdByCode(ds, '1240');
-    bankAccountId = await accountIdByCode(ds, '1200');
+    cimbMethodId = await methodIdByCode(ds, "CIMB");
+    clearingAccountId = await accountIdByCode(ds, "1240");
+    bankAccountId = await accountIdByCode(ds, "1200");
 
-    const customerRes = await post('/customers', {
-      type: 'business',
+    const customerRes = await post("/customers", {
+      type: "business",
       name: `PS Customer ${runId}`,
     }).expect(201);
     customerId = (customerRes.body.data ?? customerRes.body).id;
@@ -148,9 +159,10 @@ describe('Provider settlements (e2e)', () => {
             `DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceRef" = ANY($1))`,
             [ownedRefs],
           );
-          await ds.query(`DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`, [
-            ownedRefs,
-          ]);
+          await ds.query(
+            `DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`,
+            [ownedRefs],
+          );
         }
         if (ownedSalesOrderIds.length) {
           await ds.query(
@@ -169,10 +181,14 @@ describe('Provider settlements (e2e)', () => {
         await ds.query(`DELETE FROM categories WHERE id = $1`, [categoryId]);
         await ds.query(`DELETE FROM customers WHERE id = $1`, [customerId]);
         if (ownedMethodIds.length) {
-          await ds.query(`DELETE FROM payment_methods WHERE id = ANY($1)`, [ownedMethodIds]);
+          await ds.query(`DELETE FROM payment_methods WHERE id = ANY($1)`, [
+            ownedMethodIds,
+          ]);
         }
         if (ownedAccountIds.length) {
-          await ds.query(`DELETE FROM chart_of_account WHERE id = ANY($1)`, [ownedAccountIds]);
+          await ds.query(`DELETE FROM chart_of_account WHERE id = ANY($1)`, [
+            ownedAccountIds,
+          ]);
         }
 
         // Request exhaust: every HTTP call writes audit_logs rows. Scoped to
@@ -206,11 +222,16 @@ describe('Provider settlements (e2e)', () => {
    *   silently fails eligibility later, with no obvious cause.
    */
   async function payExisting(
-    orderId: string, amount: string, methodId = atomeMethodId, paymentDate = '2026-09-01',
+    orderId: string,
+    amount: string,
+    methodId = atomeMethodId,
+    paymentDate = "2026-09-01",
     referenceNumber?: string,
   ): Promise<string> {
     await post(`/sales-orders/${orderId}/payments`, {
-      amount, paymentMethodId: methodId, paymentDate,
+      amount,
+      paymentMethodId: methodId,
+      paymentDate,
       ...(referenceNumber ? { referenceNumber } : {}),
     }).expect(200);
     const [row] = await ds.query(
@@ -223,8 +244,10 @@ describe('Provider settlements (e2e)', () => {
     return row.id;
   }
 
-  async function newOrder(amount: string): Promise<{ orderId: string; orderNumber: string }> {
-    const res = await post('/sales-orders', {
+  async function newOrder(
+    amount: string,
+  ): Promise<{ orderId: string; orderNumber: string }> {
+    const res = await post("/sales-orders", {
       customerId,
       items: [{ productId, quantity: 1, unitPrice: amount }],
     }).expect(201);
@@ -247,11 +270,21 @@ describe('Provider settlements (e2e)', () => {
    * an **array** — it is a batch endpoint.
    */
   async function refundOrder(
-    orderId: string, amount: string, methodId = atomeMethodId, paymentDate = '2026-09-02',
+    orderId: string,
+    amount: string,
+    methodId = atomeMethodId,
+    paymentDate = "2026-09-02",
     referenceNumber?: string,
   ): Promise<string> {
     await post(`/sales-orders/${orderId}/refunds`, {
-      refunds: [{ amount, paymentMethodId: methodId, paymentDate, ...(referenceNumber ? { referenceNumber } : {}) }],
+      refunds: [
+        {
+          amount,
+          paymentMethodId: methodId,
+          paymentDate,
+          ...(referenceNumber ? { referenceNumber } : {}),
+        },
+      ],
     }).expect(201);
 
     const [row] = await ds.query(
@@ -264,33 +297,52 @@ describe('Provider settlements (e2e)', () => {
     return row.id;
   }
 
-  async function rowsFor(orderIds: string[], extra = '', settlementDate = '2026-09-20') {
+  async function rowsFor(
+    orderIds: string[],
+    extra = "",
+    settlementDate = "2026-09-20",
+  ) {
     const res = await get(
-      `/accounting/provider-settlements/eligible-rows?settlementDate=${settlementDate}&salesOrderIds=${orderIds.join(',')}${extra}`,
+      `/accounting/provider-settlements/eligible-rows?settlementDate=${settlementDate}&salesOrderIds=${orderIds.join(",")}${extra}`,
     ).expect(200);
     return res.body.data as any[];
   }
 
   function draftBody(
-    rows: Array<{ salesOrderId: string; paymentMethodId?: string; expectedNetAmount: string }>,
+    rows: Array<{
+      salesOrderId: string;
+      paymentMethodId?: string;
+      expectedNetAmount: string;
+    }>,
     settlementAmount: string,
-    settlementDate = '2026-09-20',
+    settlementDate = "2026-09-20",
   ) {
     return {
-      bankAccountId, settlementDate, providerReference: `ATM-${runId}`, settlementAmount,
+      bankAccountId,
+      settlementDate,
+      providerReference: `ATM-${runId}`,
+      settlementAmount,
       rows: rows.map((r) => ({ paymentMethodId: atomeMethodId, ...r })),
     };
   }
 
-  async function createDraft(rows: Parameters<typeof draftBody>[0], amount: string, settlementDate?: string) {
-    const res = await post('/accounting/provider-settlements', draftBody(rows, amount, settlementDate));
-    if (res.status === 201) ownedSettlementIds.push((res.body.data ?? res.body).id);
+  async function createDraft(
+    rows: Parameters<typeof draftBody>[0],
+    amount: string,
+    settlementDate?: string,
+  ) {
+    const res = await post(
+      "/accounting/provider-settlements",
+      draftBody(rows, amount, settlementDate),
+    );
+    if (res.status === 201)
+      ownedSettlementIds.push((res.body.data ?? res.body).id);
     return res;
   }
 
   async function countJournalEntries(): Promise<number> {
     const [row] = await ds.query(
-      'SELECT count(*)::int AS count FROM journal_entry',
+      "SELECT count(*)::int AS count FROM journal_entry",
     );
     return row.count;
   }
@@ -303,7 +355,10 @@ describe('Provider settlements (e2e)', () => {
    * A request that commits while a failing test is draining would otherwise
    * leave a settlement no cleanup knows about.
    */
-  function start(req: request.Test, opts: { createsSettlement?: boolean } = {}) {
+  function start(
+    req: request.Test,
+    opts: { createsSettlement?: boolean } = {},
+  ) {
     const done = req.then((r) => {
       if (opts.createsSettlement && r.status === 201) {
         ownedSettlementIds.push((r.body.data ?? r.body).id);
@@ -327,16 +382,24 @@ describe('Provider settlements (e2e)', () => {
     pids: Array<number | undefined>,
   ): Promise<void> {
     try {
-      await withTimeout(Promise.allSettled(started.map((s) => s.done)), 15_000, 'draining started requests');
+      await withTimeout(
+        Promise.allSettled(started.map((s) => s.done)),
+        15_000,
+        "draining started requests",
+      );
       return;
     } catch (err) {
       for (const s of started) s.req.abort();
       const live = pids.filter((p): p is number => p !== undefined);
-      for (const pid of live) await ds.query('SELECT pg_cancel_backend($1)', [pid]);
+      for (const pid of live)
+        await ds.query("SELECT pg_cancel_backend($1)", [pid]);
       if (!(await sessionsLeftTransactions(live, 5_000))) {
-        for (const pid of live) await ds.query('SELECT pg_terminate_backend($1)', [pid]);
+        for (const pid of live)
+          await ds.query("SELECT pg_terminate_backend($1)", [pid]);
         if (!(await sessionsLeftTransactions(live, 5_000))) {
-          throw new Error(`sessions ${live.join(', ')} still in a transaction after cancel + terminate`);
+          throw new Error(
+            `sessions ${live.join(", ")} still in a transaction after cancel + terminate`,
+          );
         }
       }
       // Late responses that arrived during cancellation have registered
@@ -347,7 +410,10 @@ describe('Provider settlements (e2e)', () => {
   }
 
   /** True once none of `pids` is inside a transaction (gone, or idle outside one). */
-  async function sessionsLeftTransactions(pids: number[], ms: number): Promise<boolean> {
+  async function sessionsLeftTransactions(
+    pids: number[],
+    ms: number,
+  ): Promise<boolean> {
     const deadline = Date.now() + ms;
     while (Date.now() < deadline) {
       const [{ n }] = await ds.query(
@@ -361,9 +427,12 @@ describe('Provider settlements (e2e)', () => {
     return false;
   }
 
-  it('posts exactly Dr bank / Cr clearing with no fee line', async () => {
-    const { orderId } = await payOrder('98.00');
-    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '98.00' }], '98.00');
+  it("posts exactly Dr bank / Cr clearing with no fee line", async () => {
+    const { orderId } = await payOrder("98.00");
+    const draft = await createDraft(
+      [{ salesOrderId: orderId, expectedNetAmount: "98.00" }],
+      "98.00",
+    );
     expect(draft.status).toBe(201);
     const id = (draft.body.data ?? draft.body).id;
 
@@ -371,7 +440,7 @@ describe('Provider settlements (e2e)', () => {
       `/accounting/provider-settlements/${id}/post`,
     ).expect(201);
     const settlement = posted.body.data ?? posted.body;
-    expect(settlement.status).toBe('POSTED');
+    expect(settlement.status).toBe("POSTED");
     ownedRefs.push(settlement.referenceNumber);
 
     const lines = await journalLinesFor(ds, settlement.referenceNumber);
@@ -382,9 +451,9 @@ describe('Provider settlements (e2e)', () => {
     expect(debit).toHaveLength(1);
     expect(credit).toHaveLength(1);
     expect(debit[0].accountId).toBe(bankAccountId);
-    expect(cents(debit[0].debit)).toBe(cents('98.00'));
+    expect(cents(debit[0].debit)).toBe(cents("98.00"));
     expect(credit[0].accountId).toBe(clearingAccountId);
-    expect(cents(credit[0].credit)).toBe(cents('98.00'));
+    expect(cents(credit[0].credit)).toBe(cents("98.00"));
 
     // Balanced in integer cents. cents() THROWS on a sub-cent residue rather
     // than rounding it into a pass.
@@ -393,12 +462,70 @@ describe('Provider settlements (e2e)', () => {
     expect(debits).toBe(credits);
   });
 
-  it('rejects a duplicate claim without creating journal data', async () => {
-    const { orderId } = await payOrder('50.00');
-    expect((await createDraft([{ salesOrderId: orderId, expectedNetAmount: '50.00' }], '50.00')).status).toBe(201);
+  it("refuses a provider settlement whose bank account resolves to inventory while valuation is active", async () => {
+    const [settings] = await ds.query(
+      `SELECT "inventoryAccountId" FROM accounting_settings WHERE id=true`,
+    );
+    const [inventoryAccount] = await ds.query(
+      `SELECT "isBankAccount" FROM chart_of_account WHERE id=$1`,
+      [settings.inventoryAccountId],
+    );
+    const originalBankAccountId = bankAccountId;
+    await ds.query(
+      `UPDATE chart_of_account SET "isBankAccount"=true WHERE id=$1`,
+      [settings.inventoryAccountId],
+    );
+    bankAccountId = settings.inventoryAccountId;
+    await ds.query(
+      `UPDATE inventory_valuation_state SET status='active',"activatedAt"=now() WHERE id=true`,
+    );
+    try {
+      const { orderId } = await payOrder("25.00");
+      const draft = await createDraft(
+        [{ salesOrderId: orderId, expectedNetAmount: "25.00" }],
+        "25.00",
+      );
+      expect(draft.status).toBe(201);
+      const settlement = draft.body.data ?? draft.body;
+      const response = await post(
+        `/accounting/provider-settlements/${settlement.id}/post`,
+      ).expect(400);
+      expect(response.body.message).toContain(
+        "The inventory control account can only be posted by stock workflows.",
+      );
+      const [entryCount] = await ds.query(
+        `SELECT count(*)::int AS count FROM journal_entry WHERE "sourceDocumentId"=$1`,
+        [settlement.id],
+      );
+      expect(entryCount.count).toBe(0);
+    } finally {
+      await ds.query(
+        `UPDATE inventory_valuation_state SET status='inactive',"activatedAt"=NULL,"pausedAt"=NULL WHERE id=true`,
+      );
+      bankAccountId = originalBankAccountId;
+      await ds.query(
+        `UPDATE chart_of_account SET "isBankAccount"=$2 WHERE id=$1`,
+        [settings.inventoryAccountId, inventoryAccount.isBankAccount],
+      );
+    }
+  });
+
+  it("rejects a duplicate claim without creating journal data", async () => {
+    const { orderId } = await payOrder("50.00");
+    expect(
+      (
+        await createDraft(
+          [{ salesOrderId: orderId, expectedNetAmount: "50.00" }],
+          "50.00",
+        )
+      ).status,
+    ).toBe(201);
 
     const before = await countJournalEntries();
-    const second = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '50.00' }], '50.00');
+    const second = await createDraft(
+      [{ salesOrderId: orderId, expectedNetAmount: "50.00" }],
+      "50.00",
+    );
     expect(second.status).toBe(409);
     // The filter preserves `message` verbatim when it is an object, so the
     // machine-readable rows ride INSIDE it (see Task 5). A claimed group is
@@ -411,9 +538,12 @@ describe('Provider settlements (e2e)', () => {
     expect(await countJournalEntries()).toBe(before);
   });
 
-  it('reverses without mutating the original entry, and releases the claims', async () => {
-    const { orderId } = await payOrder('70.00');
-    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '70.00' }], '70.00');
+  it("reverses without mutating the original entry, and releases the claims", async () => {
+    const { orderId } = await payOrder("70.00");
+    const draft = await createDraft(
+      [{ salesOrderId: orderId, expectedNetAmount: "70.00" }],
+      "70.00",
+    );
     const id = (draft.body.data ?? draft.body).id;
     const posted = await post(
       `/accounting/provider-settlements/${id}/post`,
@@ -430,13 +560,18 @@ describe('Provider settlements (e2e)', () => {
     // detail endpoint must supply each linked journal's real journalNo. Expected
     // values come from the journal_entry rows, not from the response.
     const journalNoOf = async (entryId: string): Promise<string> => {
-      const [row] = await ds.query('SELECT "journalNo" FROM journal_entry WHERE id = $1', [entryId]);
-      expect(typeof row.journalNo).toBe('string');
+      const [row] = await ds.query(
+        'SELECT "journalNo" FROM journal_entry WHERE id = $1',
+        [entryId],
+      );
+      expect(typeof row.journalNo).toBe("string");
       expect(row.journalNo.length).toBeGreaterThan(0);
       return row.journalNo;
     };
     const originalNo = await journalNoOf(settlement.journalEntryId);
-    const postedDetail = (await get(`/accounting/provider-settlements/${id}`).expect(200)).body.data;
+    const postedDetail = (
+      await get(`/accounting/provider-settlements/${id}`).expect(200)
+    ).body.data;
     expect(postedDetail.journalEntry?.id).toBe(settlement.journalEntryId);
     expect(postedDetail.journalEntry?.journalNo).toBe(originalNo);
     expect(postedDetail.reversalJournalEntry).toBeNull();
@@ -445,7 +580,7 @@ describe('Provider settlements (e2e)', () => {
       `/accounting/provider-settlements/${id}/reverse`,
     ).expect(201);
     const after = reversed.body.data ?? reversed.body;
-    expect(after.status).toBe('REVERSED');
+    expect(after.status).toBe("REVERSED");
 
     // Original preserved byte-for-byte.
     const afterLines = await ds.query(
@@ -462,10 +597,14 @@ describe('Provider settlements (e2e)', () => {
 
     const reversalNo = await journalNoOf(after.reversalJournalEntryId);
     expect(reversalNo).not.toBe(originalNo);
-    const reversedDetail = (await get(`/accounting/provider-settlements/${id}`).expect(200)).body.data;
+    const reversedDetail = (
+      await get(`/accounting/provider-settlements/${id}`).expect(200)
+    ).body.data;
     expect(reversedDetail.journalEntry?.id).toBe(settlement.journalEntryId);
     expect(reversedDetail.journalEntry?.journalNo).toBe(originalNo);
-    expect(reversedDetail.reversalJournalEntry?.id).toBe(after.reversalJournalEntryId);
+    expect(reversedDetail.reversalJournalEntry?.id).toBe(
+      after.reversalJournalEntryId,
+    );
     expect(reversedDetail.reversalJournalEntry?.journalNo).toBe(reversalNo);
 
     const released = await ds.query(
@@ -476,9 +615,12 @@ describe('Provider settlements (e2e)', () => {
     expect(released.every((l: any) => l.releasedAt !== null)).toBe(true);
   });
 
-  it('re-settles a payment released by a reversal', async () => {
-    const { orderId } = await payOrder('60.00');
-    const first = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '60.00' }], '60.00');
+  it("re-settles a payment released by a reversal", async () => {
+    const { orderId } = await payOrder("60.00");
+    const first = await createDraft(
+      [{ salesOrderId: orderId, expectedNetAmount: "60.00" }],
+      "60.00",
+    );
     const firstId = (first.body.data ?? first.body).id;
     const posted = await post(
       `/accounting/provider-settlements/${firstId}/post`,
@@ -490,7 +632,10 @@ describe('Provider settlements (e2e)', () => {
 
     // The released claim must no longer block a corrective settlement. This is
     // the proof that releasedAt (not a soft delete) actually frees the row.
-    const second = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '60.00' }], '60.00');
+    const second = await createDraft(
+      [{ salesOrderId: orderId, expectedNetAmount: "60.00" }],
+      "60.00",
+    );
     expect(second.status).toBe(201);
     const secondPosted = await post(
       `/accounting/provider-settlements/${(second.body.data ?? second.body).id}/post`,
@@ -500,50 +645,63 @@ describe('Provider settlements (e2e)', () => {
     );
   });
 
-  it('rejects a non-postable bank account', async () => {
-    const { orderId } = await payOrder('30.00');
+  it("rejects a non-postable bank account", async () => {
+    const { orderId } = await payOrder("30.00");
     const [parent] = await ds.query(
       `SELECT id FROM chart_of_account WHERE "isPostable" = false AND "isActive" = true LIMIT 1`,
     );
     expect(parent).toBeDefined();
 
-    const res = await post('/accounting/provider-settlements', {
-      ...draftBody([{ salesOrderId: orderId, expectedNetAmount: '30.00' }], '30.00'),
+    const res = await post("/accounting/provider-settlements", {
+      ...draftBody(
+        [{ salesOrderId: orderId, expectedNetAmount: "30.00" }],
+        "30.00",
+      ),
       bankAccountId: parent.id,
     });
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body.message)).toMatch(/not postable/);
   });
 
-  it('rejects an unbalanced settlement before any state change', async () => {
-    const { orderId } = await payOrder('40.00');
+  it("rejects an unbalanced settlement before any state change", async () => {
+    const { orderId } = await payOrder("40.00");
     const countSettlements = async () => {
       const [row] = await ds.query(
-        'SELECT count(*)::int AS count FROM provider_settlements',
+        "SELECT count(*)::int AS count FROM provider_settlements",
       );
       return row.count;
     };
     const before = await countJournalEntries();
     const settlementsBefore = await countSettlements();
 
-    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '40.00' }], '40.01');
+    const draft = await createDraft(
+      [{ salesOrderId: orderId, expectedNetAmount: "40.00" }],
+      "40.01",
+    );
     expect(draft.status).toBe(400);
-    expect(JSON.stringify(draft.body.message)).toMatch(/does not equal the selected total/);
+    expect(JSON.stringify(draft.body.message)).toMatch(
+      /does not equal the selected total/,
+    );
     expect(await countJournalEntries()).toBe(before);
     expect(await countSettlements()).toBe(settlementsBefore);
   });
 
-  it('reconciles a batch mixing a payment and a refund', async () => {
-    const { orderId } = await payOrder('98.00');
-    await refundOrder(orderId, '50.00');
+  it("reconciles a batch mixing a payment and a refund", async () => {
+    const { orderId } = await payOrder("98.00");
+    await refundOrder(orderId, "50.00");
 
     // 98.00 + (-50.00) = 48.00
-    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '48.00' }], '48.00');
+    const draft = await createDraft(
+      [{ salesOrderId: orderId, expectedNetAmount: "48.00" }],
+      "48.00",
+    );
     expect(draft.status).toBe(201);
     const id = (draft.body.data ?? draft.body).id;
 
     // Saving the group writes BOTH underlying payments as lines.
-    const detail = await get(`/accounting/provider-settlements/${id}`).expect(200);
+    const detail = await get(`/accounting/provider-settlements/${id}`).expect(
+      200,
+    );
     expect(detail.body.data.lines).toHaveLength(2);
 
     const posted = await post(
@@ -555,13 +713,16 @@ describe('Provider settlements (e2e)', () => {
     const lines = await journalLinesFor(ds, settlement.referenceNumber);
     expect(lines).toHaveLength(2);
     expect(cents(lines.find((l) => cents(l.debit) > 0)!.debit)).toBe(
-      cents('48.00'),
+      cents("48.00"),
     );
   });
 
-  it('serves the read surface: filtered list, joined detail, branched eligibility', async () => {
-    const { orderId: claimedOrderId } = await payOrder('21.00');
-    const draft = await createDraft([{ salesOrderId: claimedOrderId, expectedNetAmount: '21.00' }], '21.00');
+  it("serves the read surface: filtered list, joined detail, branched eligibility", async () => {
+    const { orderId: claimedOrderId } = await payOrder("21.00");
+    const draft = await createDraft(
+      [{ salesOrderId: claimedOrderId, expectedNetAmount: "21.00" }],
+      "21.00",
+    );
     expect(draft.status).toBe(201);
     const id = (draft.body.data ?? draft.body).id;
 
@@ -580,8 +741,12 @@ describe('Provider settlements (e2e)', () => {
     // unpaginated getMany() branch above passes while the real list page 500s
     // (#1265). A second settlement on a LATER date makes the descending order
     // assertion below falsifiable rather than vacuous.
-    const { orderId: secondOrderId } = await payOrder('23.00');
-    const secondDraft = await createDraft([{ salesOrderId: secondOrderId, expectedNetAmount: '23.00' }], '23.00', '2026-09-21');
+    const { orderId: secondOrderId } = await payOrder("23.00");
+    const secondDraft = await createDraft(
+      [{ salesOrderId: secondOrderId, expectedNetAmount: "23.00" }],
+      "23.00",
+      "2026-09-21",
+    );
     expect(secondDraft.status).toBe(201);
     const secondId = (secondDraft.body.data ?? secondDraft.body).id;
 
@@ -603,15 +768,17 @@ describe('Provider settlements (e2e)', () => {
     // Joined relations survive the distinct-id pagination strategy.
     const pagedSecond = paged.body.data.find((s: any) => s.id === secondId);
     expect(pagedSecond.providerPaymentMethod?.id).toBe(atomeMethodId);
-    expect(pagedSecond.bankAccount?.code).toBe('1200');
+    expect(pagedSecond.bankAccount?.code).toBe("1200");
 
     // Detail: the joined relations are hydrated, not left as bare ids. The
     // clearing account is DERIVED from the payment's journal history (1240),
     // distinct from the manually chosen bank account (1200).
-    const detail = await get(`/accounting/provider-settlements/${id}`).expect(200);
+    const detail = await get(`/accounting/provider-settlements/${id}`).expect(
+      200,
+    );
     expect(detail.body.data.lines).toHaveLength(1);
-    expect(detail.body.data.clearingAccount.code).toBe('1240');
-    expect(detail.body.data.bankAccount.code).toBe('1200');
+    expect(detail.body.data.clearingAccount.code).toBe("1240");
+    expect(detail.body.data.bankAccount.code).toBe("1200");
     expect(detail.body.data.providerPaymentMethod.name).toBeTruthy();
 
     // Each line carries its payment's order + method labels for the grouped
@@ -619,11 +786,11 @@ describe('Provider settlements (e2e)', () => {
     const line0 = detail.body.data.lines[0];
     expect(line0.salesOrderPayment.salesOrder.orderNumber).toBeTruthy();
     expect(line0.salesOrderPayment.paymentMethod.name).toBeTruthy();
-    expect(line0.amount).toBe('21.0000'); // snapshot, not the live row
+    expect(line0.amount).toBe("21.0000"); // snapshot, not the live row
 
     // Eligibility: a second unclaimed payment appears while the claimed one is
     // excluded — the no-settlementId branch of the claim predicate over real rows.
-    const { orderId: unclaimedOrderId } = await payOrder('22.00');
+    const { orderId: unclaimedOrderId } = await payOrder("22.00");
     const rows = await rowsFor([unclaimedOrderId, claimedOrderId]);
     expect(rows.map((r: any) => r.salesOrderId)).toEqual([unclaimedOrderId]);
   });
@@ -646,8 +813,8 @@ describe('Provider settlements (e2e)', () => {
    * test disturbs. A hard interrupt between mutation and restore still leaves
    * the row drifted.
    */
-  it('derives referenceNumber from the configured Provider Settlements row', async () => {
-    const DOC = 'Provider Settlements';
+  it("derives referenceNumber from the configured Provider Settlements row", async () => {
+    const DOC = "Provider Settlements";
 
     const [original] = await ds.query(
       `SELECT prefix, "nextNumber", "paddingDigits", "lastResetYear"
@@ -664,7 +831,7 @@ describe('Provider settlements (e2e)', () => {
     // branch, which overwrites nextNumber with 1 and would fail the sequence
     // assertion for a reason unrelated to what this test covers.
     const currentYY = new Date().getFullYear() % 100;
-    const yy = String(currentYY).padStart(2, '0');
+    const yy = String(currentYY).padStart(2, "0");
     const firstPrefix = `ZPSA${runId.slice(0, 4)}`.toUpperCase();
     const secondPrefix = `ZPSB${runId.slice(0, 4)}`.toUpperCase();
 
@@ -682,8 +849,11 @@ describe('Provider settlements (e2e)', () => {
     try {
       await configure(firstPrefix, 700);
 
-      const { orderId: firstOrderId } = await payOrder('31.00');
-      const first = await createDraft([{ salesOrderId: firstOrderId, expectedNetAmount: '31.00' }], '31.00');
+      const { orderId: firstOrderId } = await payOrder("31.00");
+      const first = await createDraft(
+        [{ salesOrderId: firstOrderId, expectedNetAmount: "31.00" }],
+        "31.00",
+      );
       expect(first.status).toBe(201);
       const firstRef = (first.body.data ?? first.body).referenceNumber;
       ownedRefs.push(firstRef);
@@ -704,8 +874,11 @@ describe('Provider settlements (e2e)', () => {
         [secondPrefix, DOC],
       );
 
-      const { orderId: secondOrderId } = await payOrder('32.00');
-      const second = await createDraft([{ salesOrderId: secondOrderId, expectedNetAmount: '32.00' }], '32.00');
+      const { orderId: secondOrderId } = await payOrder("32.00");
+      const second = await createDraft(
+        [{ salesOrderId: secondOrderId, expectedNetAmount: "32.00" }],
+        "32.00",
+      );
       expect(second.status).toBe(201);
       const secondRef = (second.body.data ?? second.body).referenceNumber;
       ownedRefs.push(secondRef);
@@ -736,8 +909,10 @@ describe('Provider settlements (e2e)', () => {
     }
   });
 
-  describe('eligible-rows (#1284)', () => {
-    afterEach(() => { delete (app.get(ProviderSettlementService) as any)[SETTLEMENT_TEST_HOOK]; });
+  describe("eligible-rows (#1284)", () => {
+    afterEach(() => {
+      delete (app.get(ProviderSettlementService) as any)[SETTLEMENT_TEST_HOOK];
+    });
 
     async function insertDraft(
       methodId: string,
@@ -776,7 +951,7 @@ describe('Provider settlements (e2e)', () => {
     }
 
     async function putMapping(methodId: string, accountId: string | null) {
-      await put('/accounting/settings/payment-method-mappings', {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: methodId, accountId }],
       }).expect(200);
     }
@@ -801,63 +976,85 @@ describe('Provider settlements (e2e)', () => {
       await withMethodMappedTo(cimbMethodId, code, fn);
     }
 
-    it('SO-26-008: Atome paid and refunded, TikTok paid ⇒ only the TikTok row', async () => {
-      const { orderId, orderNumber } = await newOrder('130.00');
-      await payExisting(orderId, '130.00', atomeMethodId);
-      await refundOrder(orderId, '130.00', atomeMethodId);
-      const tiktokPaymentId = await payExisting(orderId, '130.00', tiktokMethodId, '2026-09-03');
+    it("SO-26-008: Atome paid and refunded, TikTok paid ⇒ only the TikTok row", async () => {
+      const { orderId, orderNumber } = await newOrder("130.00");
+      await payExisting(orderId, "130.00", atomeMethodId);
+      await refundOrder(orderId, "130.00", atomeMethodId);
+      const tiktokPaymentId = await payExisting(
+        orderId,
+        "130.00",
+        tiktokMethodId,
+        "2026-09-03",
+      );
 
       const rows = await rowsFor([orderId]);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
-        salesOrderId: orderId, orderNumber, paymentMethodId: tiktokMethodId, netAmount: '130.0000',
+        salesOrderId: orderId,
+        orderNumber,
+        paymentMethodId: tiktokMethodId,
+        netAmount: "130.0000",
       });
       expect(rows[0].payments.map((p: any) => p.id)).toEqual([tiktokPaymentId]);
     });
 
-    it('partial refund leaves the remaining net, with both payments traceable', async () => {
-      const { orderId } = await newOrder('100.00');
-      const pay = await payExisting(orderId, '100.00', tiktokMethodId);
-      const refund = await refundOrder(orderId, '30.00', tiktokMethodId);
+    it("partial refund leaves the remaining net, with both payments traceable", async () => {
+      const { orderId } = await newOrder("100.00");
+      const pay = await payExisting(orderId, "100.00", tiktokMethodId);
+      const refund = await refundOrder(orderId, "30.00", tiktokMethodId);
       const [row] = await rowsFor([orderId]);
-      expect(row.netAmount).toBe('70.0000');
-      expect(row.payments.map((p: any) => p.id).sort()).toEqual([pay, refund].sort());
+      expect(row.netAmount).toBe("70.0000");
+      expect(row.payments.map((p: any) => p.id).sort()).toEqual(
+        [pay, refund].sort(),
+      );
     });
 
-    it('date cutoff splits a group', async () => {
-      const { orderId } = await newOrder('100.00');
-      await payExisting(orderId, '100.00', tiktokMethodId, '2026-09-01');
-      await refundOrder(orderId, '30.00', tiktokMethodId, '2026-09-25');
-      expect((await rowsFor([orderId], '', '2026-09-20'))[0].netAmount).toBe('100.0000');
-      expect((await rowsFor([orderId], '', '2026-09-30'))[0].netAmount).toBe('70.0000');
+    it("date cutoff splits a group", async () => {
+      const { orderId } = await newOrder("100.00");
+      await payExisting(orderId, "100.00", tiktokMethodId, "2026-09-01");
+      await refundOrder(orderId, "30.00", tiktokMethodId, "2026-09-25");
+      expect((await rowsFor([orderId], "", "2026-09-20"))[0].netAmount).toBe(
+        "100.0000",
+      );
+      expect((await rowsFor([orderId], "", "2026-09-30"))[0].netAmount).toBe(
+        "70.0000",
+      );
     });
 
-    it('search matches whole groups: matching +100 with non-matching −30 stays 70', async () => {
+    it("search matches whole groups: matching +100 with non-matching −30 stays 70", async () => {
       const tag = `SRCH-${runId}`;
-      const { orderId } = await newOrder('100.00');
-      await payExisting(orderId, '100.00', tiktokMethodId, '2026-09-01', tag);
-      await refundOrder(orderId, '30.00', tiktokMethodId, '2026-09-02', `OTHER-${runId}`);
+      const { orderId } = await newOrder("100.00");
+      await payExisting(orderId, "100.00", tiktokMethodId, "2026-09-01", tag);
+      await refundOrder(
+        orderId,
+        "30.00",
+        tiktokMethodId,
+        "2026-09-02",
+        `OTHER-${runId}`,
+      );
 
       const res = await get(
         `/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20&search=${tag}`,
       ).expect(200);
       const row = res.body.data.find((r: any) => r.salesOrderId === orderId);
-      expect(row.netAmount).toBe('70.0000');
+      expect(row.netAmount).toBe("70.0000");
       expect(row.payments).toHaveLength(2);
 
       const none = await get(
         `/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20&search=NOPE-${runId}`,
       ).expect(200);
-      expect(none.body.data.find((r: any) => r.salesOrderId === orderId)).toBeUndefined();
+      expect(
+        none.body.data.find((r: any) => r.salesOrderId === orderId),
+      ).toBeUndefined();
     });
 
-    it('paginates by group, each page row carrying all of its payments', async () => {
+    it("paginates by group, each page row carrying all of its payments", async () => {
       const tag = `PAGE-${runId}`;
-      const a = await newOrder('10.00');
-      await payExisting(a.orderId, '10.00', tiktokMethodId, '2026-09-01', tag);
-      await refundOrder(a.orderId, '4.00', tiktokMethodId, '2026-09-02', tag);
-      const b = await newOrder('20.00');
-      await payExisting(b.orderId, '20.00', tiktokMethodId, '2026-09-01', tag);
+      const a = await newOrder("10.00");
+      await payExisting(a.orderId, "10.00", tiktokMethodId, "2026-09-01", tag);
+      await refundOrder(a.orderId, "4.00", tiktokMethodId, "2026-09-02", tag);
+      const b = await newOrder("20.00");
+      await payExisting(b.orderId, "20.00", tiktokMethodId, "2026-09-01", tag);
 
       const res = await get(
         `/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20&search=${tag}&page=1&limit=1`,
@@ -869,208 +1066,327 @@ describe('Provider settlements (e2e)', () => {
       expect(first.payments).toHaveLength(expectedCount);
     });
 
-    it('hides a fully refunded group', async () => {
-      const { orderId } = await newOrder('50.00');
-      await payExisting(orderId, '50.00', tiktokMethodId);
-      await refundOrder(orderId, '50.00', tiktokMethodId);
+    it("hides a fully refunded group", async () => {
+      const { orderId } = await newOrder("50.00");
+      await payExisting(orderId, "50.00", tiktokMethodId);
+      await refundOrder(orderId, "50.00", tiktokMethodId);
       expect(await rowsFor([orderId])).toEqual([]);
     });
 
-    it('claimed: an untouched group is current', async () => {
-      const { orderId, paymentId } = await payOrder('40.00', atomeMethodId);
+    it("claimed: an untouched group is current", async () => {
+      const { orderId, paymentId } = await payOrder("40.00", atomeMethodId);
       const id = await insertDraft(
         atomeMethodId,
-        [{ paymentId, amount: '40.0000' }],
-        '40.0000',
+        [{ paymentId, amount: "40.0000" }],
+        "40.0000",
       );
       const [row] = await claimed(id);
       expect(row).toMatchObject({
         salesOrderId: orderId,
-        state: 'current',
-        savedNetAmount: '40.0000',
-        currentNetAmount: '40.0000',
+        state: "current",
+        savedNetAmount: "40.0000",
+        currentNetAmount: "40.0000",
       });
     });
 
-    it('legacy partial-group draft: only the payment line is claimed ⇒ changed, current includes the refund', async () => {
-      const { orderId, paymentId } = await payOrder('100.00', atomeMethodId);
-      const refundId = await refundOrder(orderId, '30.00', atomeMethodId);
+    it("legacy partial-group draft: only the payment line is claimed ⇒ changed, current includes the refund", async () => {
+      const { orderId, paymentId } = await payOrder("100.00", atomeMethodId);
+      const refundId = await refundOrder(orderId, "30.00", atomeMethodId);
       const id = await insertDraft(
         atomeMethodId,
-        [{ paymentId, amount: '100.0000' }],
-        '100.0000',
+        [{ paymentId, amount: "100.0000" }],
+        "100.0000",
       );
       const [row] = await claimed(id);
-      expect(row.state).toBe('changed');
-      expect(row.savedNetAmount).toBe('100.0000');
-      expect(row.currentNetAmount).toBe('70.0000');
+      expect(row.state).toBe("changed");
+      expect(row.savedNetAmount).toBe("100.0000");
+      expect(row.currentNetAmount).toBe("70.0000");
       expect(row.currentPayments.map((p: any) => p.id).sort()).toEqual(
         [paymentId, refundId].sort(),
       );
       expect(row.savedPayments.map((p: any) => p.id)).toEqual([paymentId]);
     });
 
-    it('claimed: a group refunded to zero is still surfaced, as zero', async () => {
-      const { orderId, paymentId } = await payOrder('25.00', atomeMethodId);
+    it("claimed: a group refunded to zero is still surfaced, as zero", async () => {
+      const { orderId, paymentId } = await payOrder("25.00", atomeMethodId);
       const id = await insertDraft(
         atomeMethodId,
-        [{ paymentId, amount: '25.0000' }],
-        '25.0000',
+        [{ paymentId, amount: "25.0000" }],
+        "25.0000",
       );
-      await refundOrder(orderId, '25.00', atomeMethodId);
+      await refundOrder(orderId, "25.00", atomeMethodId);
       const [row] = await claimed(id);
       expect(row).toMatchObject({
         salesOrderId: orderId,
-        state: 'zero',
-        currentNetAmount: '0.0000',
+        state: "zero",
+        currentNetAmount: "0.0000",
       });
     });
 
-    it('claimed: payments no longer eligible (after the date) ⇒ ineligible', async () => {
-      const { orderId } = await newOrder('15.00');
+    it("claimed: payments no longer eligible (after the date) ⇒ ineligible", async () => {
+      const { orderId } = await newOrder("15.00");
       const late = await payExisting(
         orderId,
-        '15.00',
+        "15.00",
         atomeMethodId,
-        '2026-09-25',
+        "2026-09-25",
       );
       const id = await insertDraft(
         atomeMethodId,
-        [{ paymentId: late, amount: '15.0000' }],
-        '15.0000',
+        [{ paymentId: late, amount: "15.0000" }],
+        "15.0000",
       );
       const [row] = await claimed(id);
       expect(row).toMatchObject({
-        state: 'ineligible',
+        state: "ineligible",
         currentNetAmount: null,
         currentPayments: [],
       });
     });
 
     it("salesOrderIds + settlementId: own claims eligible, other drafts' claims excluded", async () => {
-      const { orderId, paymentId } = await payOrder('33.00', atomeMethodId);
+      const { orderId, paymentId } = await payOrder("33.00", atomeMethodId);
       const mine = await insertDraft(
         atomeMethodId,
-        [{ paymentId, amount: '33.0000' }],
-        '33.0000',
+        [{ paymentId, amount: "33.0000" }],
+        "33.0000",
       );
       expect(await rowsFor([orderId], `&settlementId=${mine}`)).toHaveLength(1);
       expect(await rowsFor([orderId])).toEqual([]); // claimed by a draft, no settlementId
-      const { orderId: o2, paymentId: p2 } = await payOrder('44.00', atomeMethodId);
+      const { orderId: o2, paymentId: p2 } = await payOrder(
+        "44.00",
+        atomeMethodId,
+      );
       await insertDraft(
         atomeMethodId,
-        [{ paymentId: p2, amount: '44.0000' }],
-        '44.0000',
+        [{ paymentId: p2, amount: "44.0000" }],
+        "44.0000",
       );
       expect(await rowsFor([o2], `&settlementId=${mine}`)).toEqual([]);
     });
 
-    it('scope=claimed without settlementId is a 400', async () => {
+    it("scope=claimed without settlementId is a 400", async () => {
       await get(
-        '/accounting/provider-settlements/eligible-rows?scope=claimed&settlementDate=2026-09-20',
+        "/accounting/provider-settlements/eligible-rows?scope=claimed&settlementDate=2026-09-20",
       ).expect(400);
     });
 
-    it('create by rows: SO-26-008 writes exactly the TikTok payment line', async () => {
-      const { orderId } = await newOrder('130.00');
-      await payExisting(orderId, '130.00', atomeMethodId);
-      await refundOrder(orderId, '130.00', atomeMethodId);
-      const tiktok = await payExisting(orderId, '130.00', tiktokMethodId, '2026-09-03');
-      const res = await createDraft([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '130.00' }], '130.00');
+    it("create by rows: SO-26-008 writes exactly the TikTok payment line", async () => {
+      const { orderId } = await newOrder("130.00");
+      await payExisting(orderId, "130.00", atomeMethodId);
+      await refundOrder(orderId, "130.00", atomeMethodId);
+      const tiktok = await payExisting(
+        orderId,
+        "130.00",
+        tiktokMethodId,
+        "2026-09-03",
+      );
+      const res = await createDraft(
+        [
+          {
+            salesOrderId: orderId,
+            paymentMethodId: tiktokMethodId,
+            expectedNetAmount: "130.00",
+          },
+        ],
+        "130.00",
+      );
       expect(res.status).toBe(201);
       const s = res.body.data ?? res.body;
       expect(s.providerPaymentMethodId).toBe(tiktokMethodId);
-      const lines = await ds.query('SELECT "salesOrderPaymentId" FROM provider_settlement_lines WHERE "settlementId" = $1', [s.id]);
+      const lines = await ds.query(
+        'SELECT "salesOrderPaymentId" FROM provider_settlement_lines WHERE "settlementId" = $1',
+        [s.id],
+      );
       expect(lines.map((l: any) => l.salesOrderPaymentId)).toEqual([tiktok]);
     });
 
-    it('negative residue: −30 combines with a +100 row into a 70 settlement; alone it is rejected', async () => {
-      const a = await payOrder('100.00', tiktokMethodId);
-      const settled = await createDraft([{ salesOrderId: a.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' }], '100.00');
+    it("negative residue: −30 combines with a +100 row into a 70 settlement; alone it is rejected", async () => {
+      const a = await payOrder("100.00", tiktokMethodId);
+      const settled = await createDraft(
+        [
+          {
+            salesOrderId: a.orderId,
+            paymentMethodId: tiktokMethodId,
+            expectedNetAmount: "100.00",
+          },
+        ],
+        "100.00",
+      );
       const sid = (settled.body.data ?? settled.body).id;
-      const posted = await post(`/accounting/provider-settlements/${sid}/post`).expect(201);
+      const posted = await post(
+        `/accounting/provider-settlements/${sid}/post`,
+      ).expect(201);
       ownedRefs.push((posted.body.data ?? posted.body).referenceNumber);
-      await refundOrder(a.orderId, '30.00', tiktokMethodId, '2026-09-05');
-      const b = await payOrder('100.00', tiktokMethodId);
+      await refundOrder(a.orderId, "30.00", tiktokMethodId, "2026-09-05");
+      const b = await payOrder("100.00", tiktokMethodId);
 
       const [residue] = await rowsFor([a.orderId]);
-      expect(residue.netAmount).toBe('-30.0000');
+      expect(residue.netAmount).toBe("-30.0000");
 
-      const alone = await createDraft([{ salesOrderId: a.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '-30.00' }], '0.01');
+      const alone = await createDraft(
+        [
+          {
+            salesOrderId: a.orderId,
+            paymentMethodId: tiktokMethodId,
+            expectedNetAmount: "-30.00",
+          },
+        ],
+        "0.01",
+      );
       expect(alone.status).toBe(400);
 
-      const both = await createDraft([
-        { salesOrderId: a.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '-30.00' },
-        { salesOrderId: b.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' },
-      ], '70.00');
+      const both = await createDraft(
+        [
+          {
+            salesOrderId: a.orderId,
+            paymentMethodId: tiktokMethodId,
+            expectedNetAmount: "-30.00",
+          },
+          {
+            salesOrderId: b.orderId,
+            paymentMethodId: tiktokMethodId,
+            expectedNetAmount: "100.00",
+          },
+        ],
+        "70.00",
+      );
       expect(both.status).toBe(201);
     });
 
-    it('mixed payment methods ⇒ 400 naming the split', async () => {
-      const a = await payOrder('10.00', atomeMethodId);
-      const b = await payOrder('10.00', tiktokMethodId);
-      const res = await createDraft([
-        { salesOrderId: a.orderId, paymentMethodId: atomeMethodId, expectedNetAmount: '10.00' },
-        { salesOrderId: b.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '10.00' },
-      ], '20.00');
+    it("mixed payment methods ⇒ 400 naming the split", async () => {
+      const a = await payOrder("10.00", atomeMethodId);
+      const b = await payOrder("10.00", tiktokMethodId);
+      const res = await createDraft(
+        [
+          {
+            salesOrderId: a.orderId,
+            paymentMethodId: atomeMethodId,
+            expectedNetAmount: "10.00",
+          },
+          {
+            salesOrderId: b.orderId,
+            paymentMethodId: tiktokMethodId,
+            expectedNetAmount: "10.00",
+          },
+        ],
+        "20.00",
+      );
       expect(res.status).toBe(400);
       expect(JSON.stringify(res.body.message)).toMatch(/one provider payout/);
     });
 
-    it('stale net ⇒ 409 whose message.staleRows survives the global exception filter', async () => {
-      const { orderId } = await payOrder('60.00', tiktokMethodId);
-      await refundOrder(orderId, '10.00', tiktokMethodId);
-      const res = await createDraft([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '60.00' }], '60.00');
+    it("stale net ⇒ 409 whose message.staleRows survives the global exception filter", async () => {
+      const { orderId } = await payOrder("60.00", tiktokMethodId);
+      await refundOrder(orderId, "10.00", tiktokMethodId);
+      const res = await createDraft(
+        [
+          {
+            salesOrderId: orderId,
+            paymentMethodId: tiktokMethodId,
+            expectedNetAmount: "60.00",
+          },
+        ],
+        "60.00",
+      );
       expect(res.status).toBe(409);
       expect(res.body.message).toEqual({
-        text: 'Some rows changed since they were loaded. Review them and save again.',
-        staleRows: [{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, currentNetAmount: '50.0000' }],
+        text: "Some rows changed since they were loaded. Review them and save again.",
+        staleRows: [
+          {
+            salesOrderId: orderId,
+            paymentMethodId: tiktokMethodId,
+            currentNetAmount: "50.0000",
+          },
+        ],
       });
     });
 
-    it('update adopts the complete current group of a legacy partial draft', async () => {
-      const { orderId, paymentId } = await payOrder('100.00', atomeMethodId);
-      const refundId = await refundOrder(orderId, '30.00', atomeMethodId);
-      const created = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '70.00' }], '70.00');
+    it("update adopts the complete current group of a legacy partial draft", async () => {
+      const { orderId, paymentId } = await payOrder("100.00", atomeMethodId);
+      const refundId = await refundOrder(orderId, "30.00", atomeMethodId);
+      const created = await createDraft(
+        [{ salesOrderId: orderId, expectedNetAmount: "70.00" }],
+        "70.00",
+      );
       const id = (created.body.data ?? created.body).id;
       // Simulate a pre-#1284 draft holding only the payment line.
-      await ds.query('DELETE FROM provider_settlement_lines WHERE "settlementId" = $1 AND "salesOrderPaymentId" = $2', [id, refundId]);
-      await request(app.getHttpServer()).patch(`/accounting/provider-settlements/${id}`)
-        .set('Authorization', `Bearer ${token}`)
-        .send({ rows: [{ salesOrderId: orderId, paymentMethodId: atomeMethodId, expectedNetAmount: '70.00' }], settlementAmount: '70.00' })
+      await ds.query(
+        'DELETE FROM provider_settlement_lines WHERE "settlementId" = $1 AND "salesOrderPaymentId" = $2',
+        [id, refundId],
+      );
+      await request(app.getHttpServer())
+        .patch(`/accounting/provider-settlements/${id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          rows: [
+            {
+              salesOrderId: orderId,
+              paymentMethodId: atomeMethodId,
+              expectedNetAmount: "70.00",
+            },
+          ],
+          settlementAmount: "70.00",
+        })
         .expect(200);
-      const lines = await ds.query('SELECT "salesOrderPaymentId" FROM provider_settlement_lines WHERE "settlementId" = $1', [id]);
-      expect(lines.map((l: any) => l.salesOrderPaymentId).sort()).toEqual([paymentId, refundId].sort());
+      const lines = await ds.query(
+        'SELECT "salesOrderPaymentId" FROM provider_settlement_lines WHERE "settlementId" = $1',
+        [id],
+      );
+      expect(lines.map((l: any) => l.salesOrderPaymentId).sort()).toEqual(
+        [paymentId, refundId].sort(),
+      );
     });
 
-    it('post rejects a draft whose group gained a refund after saving', async () => {
-      const { orderId } = await payOrder('80.00', tiktokMethodId);
-      const created = await createDraft([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '80.00' }], '80.00');
+    it("post rejects a draft whose group gained a refund after saving", async () => {
+      const { orderId } = await payOrder("80.00", tiktokMethodId);
+      const created = await createDraft(
+        [
+          {
+            salesOrderId: orderId,
+            paymentMethodId: tiktokMethodId,
+            expectedNetAmount: "80.00",
+          },
+        ],
+        "80.00",
+      );
       const id = (created.body.data ?? created.body).id;
-      await refundOrder(orderId, '80.00', tiktokMethodId, '2026-09-04'); // group now nets to zero
+      await refundOrder(orderId, "80.00", tiktokMethodId, "2026-09-04"); // group now nets to zero
       const res = await post(`/accounting/provider-settlements/${id}/post`);
       expect(res.status).toBe(400);
       expect(JSON.stringify(res.body.message)).toMatch(/edit and re-save/);
-      const [s] = await ds.query('SELECT status FROM provider_settlements WHERE id = $1', [id]);
-      expect(s.status).toBe('DRAFT');
+      const [s] = await ds.query(
+        "SELECT status FROM provider_settlements WHERE id = $1",
+        [id],
+      );
+      expect(s.status).toBe("DRAFT");
     });
 
-    describe('same-account guard', () => {
+    describe("same-account guard", () => {
       const SAME_ACCOUNT =
-        'The selected payments already debit the destination bank account and cannot be settled into that same account.';
+        "The selected payments already debit the destination bank account and cannot be settled into that same account.";
 
       async function settlementCount(): Promise<number> {
-        const [row] = await ds.query('SELECT count(*)::int AS n FROM provider_settlements');
+        const [row] = await ds.query(
+          "SELECT count(*)::int AS n FROM provider_settlements",
+        );
         return row.n;
       }
 
-      it('create: rejects settling CIMB payments into the 1200 bank they already debit, persisting nothing', async () => {
-        const { orderId, paymentId } = await payOrder('45.00', cimbMethodId);
+      it("create: rejects settling CIMB payments into the 1200 bank they already debit, persisting nothing", async () => {
+        const { orderId, paymentId } = await payOrder("45.00", cimbMethodId);
         const settlementsBefore = await settlementCount();
         const journalsBefore = await countJournalEntries();
 
         const res = await createDraft(
-          [{ salesOrderId: orderId, paymentMethodId: cimbMethodId, expectedNetAmount: '45.00' }], '45.00',
+          [
+            {
+              salesOrderId: orderId,
+              paymentMethodId: cimbMethodId,
+              expectedNetAmount: "45.00",
+            },
+          ],
+          "45.00",
         );
 
         expect(res.status).toBe(400);
@@ -1078,21 +1394,28 @@ describe('Provider settlements (e2e)', () => {
         expect(await settlementCount()).toBe(settlementsBefore);
         expect(await countJournalEntries()).toBe(journalsBefore);
         const claims = await ds.query(
-          'SELECT 1 FROM provider_settlement_lines WHERE "salesOrderPaymentId" = $1', [paymentId],
+          'SELECT 1 FROM provider_settlement_lines WHERE "salesOrderPaymentId" = $1',
+          [paymentId],
         );
         expect(claims).toHaveLength(0);
       });
 
-      it('update: rejects moving a draft into its derived clearing account, leaving the draft untouched', async () => {
-        const { orderId } = await payOrder('46.00'); // Atome → clearing 1240
-        const created = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '46.00' }], '46.00');
+      it("update: rejects moving a draft into its derived clearing account, leaving the draft untouched", async () => {
+        const { orderId } = await payOrder("46.00"); // Atome → clearing 1240
+        const created = await createDraft(
+          [{ salesOrderId: orderId, expectedNetAmount: "46.00" }],
+          "46.00",
+        );
         expect(created.status).toBe(201);
         const id = (created.body.data ?? created.body).id;
         const snapshot = async () => ({
-          settlement: (await ds.query(
-            `SELECT "bankAccountId", "clearingAccountId", "settlementAmount", "updatedAt"
-               FROM provider_settlements WHERE id = $1`, [id],
-          ))[0],
+          settlement: (
+            await ds.query(
+              `SELECT "bankAccountId", "clearingAccountId", "settlementAmount", "updatedAt"
+               FROM provider_settlements WHERE id = $1`,
+              [id],
+            )
+          )[0],
           lines: await ds.query(
             'SELECT id, "salesOrderPaymentId", amount FROM provider_settlement_lines WHERE "settlementId" = $1 ORDER BY id',
             [id],
@@ -1103,21 +1426,29 @@ describe('Provider settlements (e2e)', () => {
 
         const res = await request(app.getHttpServer())
           .patch(`/accounting/provider-settlements/${id}`)
-          .set('Authorization', `Bearer ${token}`)
+          .set("Authorization", `Bearer ${token}`)
           .send({
-            rows: [{ salesOrderId: orderId, paymentMethodId: atomeMethodId, expectedNetAmount: '46.00' }],
+            rows: [
+              {
+                salesOrderId: orderId,
+                paymentMethodId: atomeMethodId,
+                expectedNetAmount: "46.00",
+              },
+            ],
             bankAccountId: clearingAccountId,
           });
 
         expect(res.status).toBe(400);
-        expect(res.body.message).toBe('The destination account cannot be a provider clearing account');
+        expect(res.body.message).toBe(
+          "The destination account cannot be a provider clearing account",
+        );
         expect(await snapshot()).toEqual(before);
       });
 
-      it('post: an existing draft that settles into its own clearing account cannot post', async () => {
+      it("post: an existing draft that settles into its own clearing account cannot post", async () => {
         // A draft saved before the guard existed: written directly, as the API
         // now refuses to create it.
-        const { paymentId } = await payOrder('47.00', cimbMethodId);
+        const { paymentId } = await payOrder("47.00", cimbMethodId);
         const [s] = await ds.query(
           `INSERT INTO provider_settlements
              ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
@@ -1138,40 +1469,69 @@ describe('Provider settlements (e2e)', () => {
         expect(res.status).toBe(400);
         expect(res.body.message).toBe(SAME_ACCOUNT);
         const [after] = await ds.query(
-          'SELECT status, "journalEntryId", "postedAt" FROM provider_settlements WHERE id = $1', [s.id],
+          'SELECT status, "journalEntryId", "postedAt" FROM provider_settlements WHERE id = $1',
+          [s.id],
         );
-        expect(after).toEqual({ status: 'DRAFT', journalEntryId: null, postedAt: null });
+        expect(after).toEqual({
+          status: "DRAFT",
+          journalEntryId: null,
+          postedAt: null,
+        });
         expect(await countJournalEntries()).toBe(journalsBefore);
       });
     });
 
-    it('two settlements that both pass recomputation collide on the claim index: one 201, one 409, no partial claims', async () => {
+    it("two settlements that both pass recomputation collide on the claim index: one 201, one 409, no partial claims", async () => {
       const service = app.get(ProviderSettlementService) as any;
-      const { orderId } = await newOrder('90.00');
-      await payExisting(orderId, '60.00', tiktokMethodId);
-      await payExisting(orderId, '30.00', tiktokMethodId, '2026-09-02');
-      const body = draftBody([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '90.00' }], '90.00');
+      const { orderId } = await newOrder("90.00");
+      await payExisting(orderId, "60.00", tiktokMethodId);
+      await payExisting(orderId, "30.00", tiktokMethodId, "2026-09-02");
+      const body = draftBody(
+        [
+          {
+            salesOrderId: orderId,
+            paymentMethodId: tiktokMethodId,
+            expectedNetAmount: "90.00",
+          },
+        ],
+        "90.00",
+      );
 
       const pids: number[] = [];
       let arrived = 0;
       let openGate!: () => void;
       const gate = new Promise<void>((r) => (openGate = r));
       service[SETTLEMENT_TEST_HOOK] = async (phase: string, ctx: any) => {
-        if (phase !== 'afterRecompute' || !ctx.salesOrderIds.includes(orderId)) return;
-        const [{ pid }] = await ctx.manager.query('SELECT pg_backend_pid() AS pid');
+        if (phase !== "afterRecompute" || !ctx.salesOrderIds.includes(orderId))
+          return;
+        const [{ pid }] = await ctx.manager.query(
+          "SELECT pg_backend_pid() AS pid",
+        );
         pids.push(pid);
         arrived += 1;
         if (arrived === 2) openGate();
-        await withTimeout(gate, 10_000, 'both settlements reaching claim insertion');
+        await withTimeout(
+          gate,
+          10_000,
+          "both settlements reaching claim insertion",
+        );
       };
 
       const started = [
-        start(post('/accounting/provider-settlements', body), { createsSettlement: true }),
-        start(post('/accounting/provider-settlements', body), { createsSettlement: true }),
+        start(post("/accounting/provider-settlements", body), {
+          createsSettlement: true,
+        }),
+        start(post("/accounting/provider-settlements", body), {
+          createsSettlement: true,
+        }),
       ];
       let results: request.Response[] = [];
       try {
-        results = await withTimeout(Promise.all(started.map((s) => s.done)), 30_000, 'claim race') as request.Response[];
+        results = (await withTimeout(
+          Promise.all(started.map((s) => s.done)),
+          30_000,
+          "claim race",
+        )) as request.Response[];
       } finally {
         delete service[SETTLEMENT_TEST_HOOK];
         openGate();
@@ -1183,7 +1543,11 @@ describe('Provider settlements (e2e)', () => {
       expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
       const loser = results.find((r) => r.status === 409)!;
       expect(loser.body.message.staleRows).toEqual([
-        { salesOrderId: orderId, paymentMethodId: tiktokMethodId, currentNetAmount: null },
+        {
+          salesOrderId: orderId,
+          paymentMethodId: tiktokMethodId,
+          currentNetAmount: null,
+        },
       ]);
 
       const claims = await ds.query(
@@ -1193,14 +1557,14 @@ describe('Provider settlements (e2e)', () => {
         [orderId],
       );
       expect(claims).toHaveLength(1); // only the winner holds claims
-      expect(claims[0].n).toBe(2);    // and it holds the whole group
-      const winnerId = (results.find((r) => r.status === 201)!.body.data).id;
+      expect(claims[0].n).toBe(2); // and it holds the whole group
+      const winnerId = results.find((r) => r.status === 201)!.body.data.id;
       expect(claims[0].settlementId).toBe(winnerId);
     });
 
-    it('a refund recorded while a settlement holds its order lock waits on THAT settlement, then becomes unclaimed residue', async () => {
+    it("a refund recorded while a settlement holds its order lock waits on THAT settlement, then becomes unclaimed residue", async () => {
       const service = app.get(ProviderSettlementService) as any;
-      const { orderId } = await payOrder('100.00', tiktokMethodId);
+      const { orderId } = await payOrder("100.00", tiktokMethodId);
 
       let settlementPid: number | undefined;
       let refundPid: number | undefined;
@@ -1209,27 +1573,66 @@ describe('Provider settlements (e2e)', () => {
       let release!: () => void;
       const released = new Promise<void>((r) => (release = r));
       service[SETTLEMENT_TEST_HOOK] = async (phase: string, ctx: any) => {
-        if (phase !== 'afterSalesOrderLock' || !ctx.salesOrderIds.includes(orderId)) return;
-        [{ pid: settlementPid }] = await ctx.manager.query('SELECT pg_backend_pid() AS pid');
+        if (
+          phase !== "afterSalesOrderLock" ||
+          !ctx.salesOrderIds.includes(orderId)
+        )
+          return;
+        [{ pid: settlementPid }] = await ctx.manager.query(
+          "SELECT pg_backend_pid() AS pid",
+        );
         reached();
         await released;
       };
 
-      const started: Array<{ req: request.Test; done: Promise<request.Response> }> = [];
+      const started: Array<{
+        req: request.Test;
+        done: Promise<request.Response>;
+      }> = [];
       let refundDone = false;
       let settled: request.Response | undefined;
       let refund: request.Response | undefined;
       try {
-        started.push(start(post('/accounting/provider-settlements', draftBody(
-          [{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' }], '100.00',
-        )), { createsSettlement: true }));
-        await withTimeout(lockHeld, 10_000, 'settlement reaching its SO lock');
+        started.push(
+          start(
+            post(
+              "/accounting/provider-settlements",
+              draftBody(
+                [
+                  {
+                    salesOrderId: orderId,
+                    paymentMethodId: tiktokMethodId,
+                    expectedNetAmount: "100.00",
+                  },
+                ],
+                "100.00",
+              ),
+            ),
+            { createsSettlement: true },
+          ),
+        );
+        await withTimeout(lockHeld, 10_000, "settlement reaching its SO lock");
         expect(settlementPid).toBeDefined();
 
-        const refundReq = start(post(`/sales-orders/${orderId}/refunds`, {
-          refunds: [{ amount: '30.00', paymentMethodId: tiktokMethodId, paymentDate: '2026-09-02' }],
-        }));
-        refundReq.done.then(() => { refundDone = true; }, () => { refundDone = true; });
+        const refundReq = start(
+          post(`/sales-orders/${orderId}/refunds`, {
+            refunds: [
+              {
+                amount: "30.00",
+                paymentMethodId: tiktokMethodId,
+                paymentDate: "2026-09-02",
+              },
+            ],
+          }),
+        );
+        refundReq.done.then(
+          () => {
+            refundDone = true;
+          },
+          () => {
+            refundDone = true;
+          },
+        );
         started.push(refundReq);
 
         // Identify the ONE session waiting on a lock held by THIS settlement's
@@ -1251,7 +1654,11 @@ describe('Provider settlements (e2e)', () => {
         // nothing but its FOR SHARE on this order, so exactly one row can match.
         // The `rows.length > 1` check below fails loudly if that ever changes.
         const deadline = Date.now() + 10_000;
-        while (Date.now() < deadline && refundPid === undefined && !refundDone) {
+        while (
+          Date.now() < deadline &&
+          refundPid === undefined &&
+          !refundDone
+        ) {
           const rows: Array<{ pid: number }> = await ds.query(
             `SELECT pid FROM pg_stat_activity
               WHERE wait_event_type = 'Lock'
@@ -1259,7 +1666,10 @@ describe('Provider settlements (e2e)', () => {
                 AND query ILIKE '%FROM "sales_orders"%'`,
             [settlementPid],
           );
-          if (rows.length > 1) throw new Error(`expected one blocked refund session, found ${rows.length}`);
+          if (rows.length > 1)
+            throw new Error(
+              `expected one blocked refund session, found ${rows.length}`,
+            );
           if (rows.length === 1) refundPid = rows[0].pid;
           else await pause(50);
         }
@@ -1267,7 +1677,11 @@ describe('Provider settlements (e2e)', () => {
         expect(refundPid).toBeDefined();
 
         release();
-        [settled, refund] = await withTimeout(Promise.all(started.map((s) => s.done)), 15_000, 'commit then refund');
+        [settled, refund] = await withTimeout(
+          Promise.all(started.map((s) => s.done)),
+          15_000,
+          "commit then refund",
+        );
       } finally {
         delete service[SETTLEMENT_TEST_HOOK];
         release?.();
@@ -1279,24 +1693,32 @@ describe('Provider settlements (e2e)', () => {
 
       // The refund arrived after the claim: it is unclaimed residue, not part of the draft.
       const [residue] = await rowsFor([orderId]);
-      expect(residue.netAmount).toBe('-30.0000');
+      expect(residue.netAmount).toBe("-30.0000");
     });
 
-    describe('provider clearing eligibility (#1285)', () => {
-      it('lists Shopee but not Cash, CIMB or Maybank groups, and meta.total agrees', async () => {
-        const { orderId } = await newOrder('100.00');
-        await payExisting(orderId, '25.00', await methodIdByCode(ds, 'SHOPEE'));
-        await payExisting(orderId, '25.00', await methodIdByCode(ds, 'CASH'));
-        await payExisting(orderId, '25.00', cimbMethodId);
-        await payExisting(orderId, '25.00', await methodIdByCode(ds, 'MAYBANK'));
-        const res = await get(`/accounting/provider-settlements/eligible-rows?salesOrderIds=${orderId}&settlementDate=2026-09-20`).expect(200);
-        expect(res.body.data.map((r: any) => r.paymentMethodName)).toEqual(['Shopee']);
+    describe("provider clearing eligibility (#1285)", () => {
+      it("lists Shopee but not Cash, CIMB or Maybank groups, and meta.total agrees", async () => {
+        const { orderId } = await newOrder("100.00");
+        await payExisting(orderId, "25.00", await methodIdByCode(ds, "SHOPEE"));
+        await payExisting(orderId, "25.00", await methodIdByCode(ds, "CASH"));
+        await payExisting(orderId, "25.00", cimbMethodId);
+        await payExisting(
+          orderId,
+          "25.00",
+          await methodIdByCode(ds, "MAYBANK"),
+        );
+        const res = await get(
+          `/accounting/provider-settlements/eligible-rows?salesOrderIds=${orderId}&settlementDate=2026-09-20`,
+        ).expect(200);
+        expect(res.body.data.map((r: any) => r.paymentMethodName)).toEqual([
+          "Shopee",
+        ]);
         expect(res.body.meta.total).toBe(1);
       });
 
-      it('remapping CIMB to 1220 does not list an old CIMB payment', async () => {
-        const { orderId } = await payOrder('31.00', cimbMethodId); // journal debits 1200
-        await withCimbMappedTo('1220', async () => {
+      it("remapping CIMB to 1220 does not list an old CIMB payment", async () => {
+        const { orderId } = await payOrder("31.00", cimbMethodId); // journal debits 1200
+        await withCimbMappedTo("1220", async () => {
           const rows = await rowsFor([orderId]);
           expect(rows).toHaveLength(0);
         });
@@ -1304,53 +1726,79 @@ describe('Provider settlements (e2e)', () => {
 
       it("a draft's own method is still subject to the journal gate", async () => {
         // A CIMB draft (inserted directly: the API now refuses it) with an old CIMB payment.
-        const { orderId, paymentId } = await payOrder('32.00', cimbMethodId);
-        const draftId = await insertDraft(cimbMethodId, [{ paymentId, amount: '32.0000' }], '32.0000');
-        const res = await get(`/accounting/provider-settlements/eligible-rows?settlementId=${draftId}&salesOrderIds=${orderId}&settlementDate=2026-09-20`).expect(200);
+        const { orderId, paymentId } = await payOrder("32.00", cimbMethodId);
+        const draftId = await insertDraft(
+          cimbMethodId,
+          [{ paymentId, amount: "32.0000" }],
+          "32.0000",
+        );
+        const res = await get(
+          `/accounting/provider-settlements/eligible-rows?settlementId=${draftId}&salesOrderIds=${orderId}&settlementDate=2026-09-20`,
+        ).expect(200);
         expect(res.body.data).toHaveLength(0);
       });
 
-      it('does not list a group whose payments derive to two different flagged accounts', async () => {
-        const shopee = await methodIdByCode(ds, 'SHOPEE');
-        const { orderId } = await newOrder('60.00');
-        await payExisting(orderId, '30.00', shopee);          // → 1220
-        await withMethodMappedTo(shopee, '1230', async () => {
-          await payExisting(orderId, '30.00', shopee);        // → 1230
+      it("does not list a group whose payments derive to two different flagged accounts", async () => {
+        const shopee = await methodIdByCode(ds, "SHOPEE");
+        const { orderId } = await newOrder("60.00");
+        await payExisting(orderId, "30.00", shopee); // → 1220
+        await withMethodMappedTo(shopee, "1230", async () => {
+          await payExisting(orderId, "30.00", shopee); // → 1230
           expect(await rowsFor([orderId])).toHaveLength(0);
         });
       });
 
       const NOT_PROVIDER_1200 =
-        'Account 1200 CIMB is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.';
+        "Account 1200 CIMB is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.";
 
-      it('create: an old CIMB payment is not saveable after CIMB is remapped to 1220', async () => {
-        const { orderId, paymentId } = await payOrder('33.00', cimbMethodId);
-        await withCimbMappedTo('1220', async () => {
+      it("create: an old CIMB payment is not saveable after CIMB is remapped to 1220", async () => {
+        const { orderId, paymentId } = await payOrder("33.00", cimbMethodId);
+        await withCimbMappedTo("1220", async () => {
           // Destination 1210, NOT the suite default 1200: CIMB payments debit 1200, so a
           // 1200 destination would stop at the same-account guard and never reach this check.
-          const res = await post('/accounting/provider-settlements', {
-            ...draftBody([{ salesOrderId: orderId, paymentMethodId: cimbMethodId, expectedNetAmount: '33.00' }], '33.00'),
-            bankAccountId: await accountIdByCode(ds, '1210'),
+          const res = await post("/accounting/provider-settlements", {
+            ...draftBody(
+              [
+                {
+                  salesOrderId: orderId,
+                  paymentMethodId: cimbMethodId,
+                  expectedNetAmount: "33.00",
+                },
+              ],
+              "33.00",
+            ),
+            bankAccountId: await accountIdByCode(ds, "1210"),
           });
-          if (res.status === 201) ownedSettlementIds.push((res.body.data ?? res.body).id);
+          if (res.status === 201)
+            ownedSettlementIds.push((res.body.data ?? res.body).id);
           // Save re-computes eligibility, which shares NO mapping filter — so it reaches derivation.
           expect(res.status).toBe(400);
           expect(res.body.message).toBe(NOT_PROVIDER_1200);
         });
-        expect(await ds.query('SELECT 1 FROM provider_settlement_lines WHERE "salesOrderPaymentId" = $1', [paymentId])).toHaveLength(0);
+        expect(
+          await ds.query(
+            'SELECT 1 FROM provider_settlement_lines WHERE "salesOrderPaymentId" = $1',
+            [paymentId],
+          ),
+        ).toHaveLength(0);
       });
 
-      it('post: a draft holding an old CIMB payment cannot post, and nothing is written', async () => {
+      it("post: a draft holding an old CIMB payment cannot post, and nothing is written", async () => {
         // Inserted directly: the API now refuses to create it. Destination 1210, so the
         // same-account guard (1200 vs 1210) passes and the provider-clearing check decides.
-        const { paymentId } = await payOrder('35.00', cimbMethodId);
-        const maybankAccountId = await accountIdByCode(ds, '1210');
+        const { paymentId } = await payOrder("35.00", cimbMethodId);
+        const maybankAccountId = await accountIdByCode(ds, "1210");
         const [s] = await ds.query(
           `INSERT INTO provider_settlements
              ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
               "settlementDate", "settlementAmount", status)
            VALUES ($1, $2, $3, $4, '2026-09-20', '35.0000', 'DRAFT') RETURNING id`,
-          [`PS-T-${randomUUID().slice(0, 8)}`, cimbMethodId, bankAccountId, maybankAccountId],
+          [
+            `PS-T-${randomUUID().slice(0, 8)}`,
+            cimbMethodId,
+            bankAccountId,
+            maybankAccountId,
+          ],
         );
         ownedSettlementIds.push(s.id);
         await ds.query(
@@ -1365,60 +1813,91 @@ describe('Provider settlements (e2e)', () => {
         expect(res.status).toBe(400);
         expect(res.body.message).toBe(NOT_PROVIDER_1200);
         const [after] = await ds.query(
-          'SELECT status, "journalEntryId", "postedAt", "postedBy" FROM provider_settlements WHERE id = $1', [s.id],
+          'SELECT status, "journalEntryId", "postedAt", "postedBy" FROM provider_settlements WHERE id = $1',
+          [s.id],
         );
-        expect(after).toEqual({ status: 'DRAFT', journalEntryId: null, postedAt: null, postedBy: null });
+        expect(after).toEqual({
+          status: "DRAFT",
+          journalEntryId: null,
+          postedAt: null,
+          postedBy: null,
+        });
         expect(await countJournalEntries()).toBe(journalsBefore);
         const lines = await ds.query(
-          'SELECT "releasedAt" FROM provider_settlement_lines WHERE "settlementId" = $1', [s.id],
+          'SELECT "releasedAt" FROM provider_settlement_lines WHERE "settlementId" = $1',
+          [s.id],
         );
         expect(lines).toEqual([{ releasedAt: null }]);
         // Cleanup: afterAll deletes ownedSettlementIds' lines and rows; the payment's
         // order is in ownedSalesOrderIds via payOrder.
       });
 
-      it('reverse still succeeds for a posted 1240 settlement after 1240 is unflagged', async () => {
-        const { orderId } = await payOrder('36.00'); // Atome → 1240
-        const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '36.00' }], '36.00');
+      it("reverse still succeeds for a posted 1240 settlement after 1240 is unflagged", async () => {
+        const { orderId } = await payOrder("36.00"); // Atome → 1240
+        const draft = await createDraft(
+          [{ salesOrderId: orderId, expectedNetAmount: "36.00" }],
+          "36.00",
+        );
         expect(draft.status).toBe(201);
         const id = (draft.body.data ?? draft.body).id;
-        const posted = await post(`/accounting/provider-settlements/${id}/post`).expect(201);
+        const posted = await post(
+          `/accounting/provider-settlements/${id}/post`,
+        ).expect(201);
         const settlement = posted.body.data ?? posted.body;
         ownedRefs.push(settlement.referenceNumber);
 
-        await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = false WHERE code = '1240'`);
+        await ds.query(
+          `UPDATE chart_of_account SET "isProviderClearing" = false WHERE code = '1240'`,
+        );
         try {
-          const reversed = await post(`/accounting/provider-settlements/${id}/reverse`).expect(201);
+          const reversed = await post(
+            `/accounting/provider-settlements/${id}/reverse`,
+          ).expect(201);
           const after = reversed.body.data ?? reversed.body;
-          expect(after.status).toBe('REVERSED');
+          expect(after.status).toBe("REVERSED");
           const [rev] = await ds.query(
-            'SELECT "reversalOfEntryId" FROM journal_entry WHERE id = $1', [after.reversalJournalEntryId],
+            'SELECT "reversalOfEntryId" FROM journal_entry WHERE id = $1',
+            [after.reversalJournalEntryId],
           );
           expect(rev.reversalOfEntryId).toBe(settlement.journalEntryId);
           const released = await ds.query(
-            'SELECT "releasedAt" FROM provider_settlement_lines WHERE "settlementId" = $1', [id],
+            'SELECT "releasedAt" FROM provider_settlement_lines WHERE "settlementId" = $1',
+            [id],
           );
           expect(released.length).toBeGreaterThan(0);
           expect(released.every((l: any) => l.releasedAt !== null)).toBe(true);
         } finally {
           // Baseline row shared with every suite: always restore.
-          await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`);
+          await ds.query(
+            `UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`,
+          );
         }
       });
 
-      it('unflagging 1240 after a draft is saved ⇒ claimed rows are not_provider_clearing and post is 400', async () => {
-        const { orderId } = await payOrder('34.00'); // Atome → 1240
-        const created = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '34.00' }], '34.00');
+      it("unflagging 1240 after a draft is saved ⇒ claimed rows are not_provider_clearing and post is 400", async () => {
+        const { orderId } = await payOrder("34.00"); // Atome → 1240
+        const created = await createDraft(
+          [{ salesOrderId: orderId, expectedNetAmount: "34.00" }],
+          "34.00",
+        );
         expect(created.status).toBe(201);
         const id = (created.body.data ?? created.body).id;
-        await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = false WHERE code = '1240'`);
+        await ds.query(
+          `UPDATE chart_of_account SET "isProviderClearing" = false WHERE code = '1240'`,
+        );
         try {
-          expect((await claimed(id)).map((c) => c.state)).toEqual(['not_provider_clearing']);
+          expect((await claimed(id)).map((c) => c.state)).toEqual([
+            "not_provider_clearing",
+          ]);
           const res = await post(`/accounting/provider-settlements/${id}/post`);
           expect(res.status).toBe(400);
-          expect(res.body.message).toMatch(/^Account 1240 .* is not a provider clearing account\./);
+          expect(res.body.message).toMatch(
+            /^Account 1240 .* is not a provider clearing account\./,
+          );
         } finally {
-          await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`);
+          await ds.query(
+            `UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`,
+          );
         }
       });
     });
@@ -1428,26 +1907,32 @@ describe('Provider settlements (e2e)', () => {
      * method's live mapping. Shopee payments recorded while Shopee maps to 1220
      * stay settleable after Shopee is remapped, unmapped or made invalid.
      */
-    describe('journal-derived eligibility after the mapping changes (#1288)', () => {
-      let shopeeMethodId = '';
-      let shopeeClearingId = '';
-      let destinationId = '';
-      let invalidTargetId = '';
+    describe("journal-derived eligibility after the mapping changes (#1288)", () => {
+      let shopeeMethodId = "";
+      let shopeeClearingId = "";
+      let destinationId = "";
+      let invalidTargetId = "";
       const NOT_PROVIDER_1200 =
-        'Account 1200 CIMB is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.';
+        "Account 1200 CIMB is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.";
 
       beforeAll(async () => {
-        shopeeMethodId = await methodIdByCode(ds, 'SHOPEE');
-        shopeeClearingId = await accountIdByCode(ds, '1220');
+        shopeeMethodId = await methodIdByCode(ds, "SHOPEE");
+        shopeeClearingId = await accountIdByCode(ds, "1220");
         // 1210, not the suite default 1200: Shopee remapped to 1200 must not
         // collide with the same-account guard for its NEW payments' check.
-        destinationId = await accountIdByCode(ds, '1210');
+        destinationId = await accountIdByCode(ds, "1210");
         // Suite-owned, so deactivating it never touches a shared baseline row.
-        const [parent] = await ds.query(`SELECT id FROM chart_of_account WHERE code = '1000'`);
+        const [parent] = await ds.query(
+          `SELECT id FROM chart_of_account WHERE code = '1000'`,
+        );
         const [acct] = await ds.query(
           `INSERT INTO chart_of_account (code, name, type, "parentId", "isSystem", "isPostable", "isActive")
            VALUES ($1, $2, 'Asset', $3, false, true, true) RETURNING id`,
-          [`PS-INV-${runId}`.slice(0, 20), `PS Invalid Target ${runId}`, parent.id],
+          [
+            `PS-INV-${runId}`.slice(0, 20),
+            `PS Invalid Target ${runId}`,
+            parent.id,
+          ],
         );
         invalidTargetId = acct.id;
         ownedEntityIds.push(invalidTargetId);
@@ -1455,45 +1940,73 @@ describe('Provider settlements (e2e)', () => {
       });
 
       /** Point Shopee at `accountId` (null ⇒ unmapped) for the duration of `fn`, then restore. */
-      async function withShopeeMapping(accountId: string | null, fn: () => Promise<void>, deactivate = false) {
+      async function withShopeeMapping(
+        accountId: string | null,
+        fn: () => Promise<void>,
+        deactivate = false,
+      ) {
         const original = await snapshotMapping(ds, shopeeMethodId);
         await putMapping(shopeeMethodId, accountId);
         try {
           // A mapping cannot be SAVED invalid; it becomes invalid when its account is deactivated.
-          if (deactivate) await ds.query('UPDATE chart_of_account SET "isActive" = false WHERE id = $1', [accountId]);
+          if (deactivate)
+            await ds.query(
+              'UPDATE chart_of_account SET "isActive" = false WHERE id = $1',
+              [accountId],
+            );
           await fn();
         } finally {
-          if (deactivate) await ds.query('UPDATE chart_of_account SET "isActive" = true WHERE id = $1', [accountId]);
+          if (deactivate)
+            await ds.query(
+              'UPDATE chart_of_account SET "isActive" = true WHERE id = $1',
+              [accountId],
+            );
           await restoreMapping(ds, shopeeMethodId, original);
         }
       }
 
       async function shopeeStatus(): Promise<string> {
-        const res = await get('/accounting/settings/payment-method-mappings').expect(200);
+        const res = await get(
+          "/accounting/settings/payment-method-mappings",
+        ).expect(200);
         const rows = (res.body.data ?? res.body) as any[];
         return rows.find((r) => r.paymentMethodId === shopeeMethodId).status;
       }
 
       function shopeeBody(orderId: string, amount: string) {
         return {
-          bankAccountId: destinationId, settlementDate: '2026-09-20',
-          providerReference: `SHP-${runId}`, settlementAmount: amount,
-          rows: [{ salesOrderId: orderId, paymentMethodId: shopeeMethodId, expectedNetAmount: amount }],
+          bankAccountId: destinationId,
+          settlementDate: "2026-09-20",
+          providerReference: `SHP-${runId}`,
+          settlementAmount: amount,
+          rows: [
+            {
+              salesOrderId: orderId,
+              paymentMethodId: shopeeMethodId,
+              expectedNetAmount: amount,
+            },
+          ],
         };
       }
 
       async function createShopee(orderId: string, amount: string) {
-        const res = await post('/accounting/provider-settlements', shopeeBody(orderId, amount));
-        if (res.status === 201) ownedSettlementIds.push((res.body.data ?? res.body).id);
+        const res = await post(
+          "/accounting/provider-settlements",
+          shopeeBody(orderId, amount),
+        );
+        if (res.status === 201)
+          ownedSettlementIds.push((res.body.data ?? res.body).id);
         return res;
       }
 
       /** Post and assert exactly Dr destination / Cr 1220 for `amount`. */
       async function expectPostsFrom1220(id: string, amount: string) {
-        const posted = await post(`/accounting/provider-settlements/${id}/post`).expect(201);
+        const posted = await post(
+          `/accounting/provider-settlements/${id}/post`,
+        ).expect(201);
         const settlement = posted.body.data ?? posted.body;
         ownedRefs.push(settlement.referenceNumber);
-        expect(settlement.status).toBe('POSTED');
+        expect(settlement.status).toBe("POSTED");
         const lines = await journalLinesFor(ds, settlement.referenceNumber);
         expect(lines).toHaveLength(2);
         const debit = lines.find((l) => cents(l.debit) > 0)!;
@@ -1505,83 +2018,126 @@ describe('Provider settlements (e2e)', () => {
       }
 
       /** Old Shopee payment (→ 1220) is listed, saveable and postable under the changed mapping. */
-      async function expectOldShopeeSettleable(orderId: string, amount: string) {
+      async function expectOldShopeeSettleable(
+        orderId: string,
+        amount: string,
+      ) {
         const rows = await rowsFor([orderId]);
-        expect(rows.map((r) => [r.paymentMethodId, r.netAmount])).toEqual([[shopeeMethodId, `${amount}00`]]);
+        expect(rows.map((r) => [r.paymentMethodId, r.netAmount])).toEqual([
+          [shopeeMethodId, `${amount}00`],
+        ]);
         const created = await createShopee(orderId, amount);
         expect(created.status).toBe(201);
-        await expectPostsFrom1220((created.body.data ?? created.body).id, amount);
+        await expectPostsFrom1220(
+          (created.body.data ?? created.body).id,
+          amount,
+        );
       }
 
-      it('remapped to 1200: old payments are listed, saved and posted; new ones are neither', async () => {
-        const { orderId: oldOrder } = await payOrder('41.00', shopeeMethodId); // journal debits 1220
+      it("remapped to 1200: old payments are listed, saved and posted; new ones are neither", async () => {
+        const { orderId: oldOrder } = await payOrder("41.00", shopeeMethodId); // journal debits 1220
         await withShopeeMapping(bankAccountId, async () => {
-          expect(await shopeeStatus()).toBe('mapped');
-          const { orderId: newOrderId } = await payOrder('42.00', shopeeMethodId); // journal debits 1200
+          expect(await shopeeStatus()).toBe("mapped");
+          const { orderId: newOrderId } = await payOrder(
+            "42.00",
+            shopeeMethodId,
+          ); // journal debits 1200
           expect(await rowsFor([newOrderId])).toHaveLength(0);
-          const rejected = await createShopee(newOrderId, '42.00');
+          const rejected = await createShopee(newOrderId, "42.00");
           expect(rejected.status).toBe(400);
           expect(rejected.body.message).toBe(NOT_PROVIDER_1200);
 
-          await expectOldShopeeSettleable(oldOrder, '41.00');
+          await expectOldShopeeSettleable(oldOrder, "41.00");
         });
       });
 
-      it('unmapped: old payments are listed, saved and posted', async () => {
-        const { orderId } = await payOrder('43.00', shopeeMethodId);
+      it("unmapped: old payments are listed, saved and posted", async () => {
+        const { orderId } = await payOrder("43.00", shopeeMethodId);
         await withShopeeMapping(null, async () => {
-          expect(await shopeeStatus()).toBe('unmapped');
-          await expectOldShopeeSettleable(orderId, '43.00');
+          expect(await shopeeStatus()).toBe("unmapped");
+          await expectOldShopeeSettleable(orderId, "43.00");
         });
       });
 
-      it('invalid: old payments are listed, saved and posted', async () => {
-        const { orderId } = await payOrder('44.00', shopeeMethodId);
-        await withShopeeMapping(invalidTargetId, async () => {
-          expect(await shopeeStatus()).toBe('invalid');
-          await expectOldShopeeSettleable(orderId, '44.00');
-        }, true);
+      it("invalid: old payments are listed, saved and posted", async () => {
+        const { orderId } = await payOrder("44.00", shopeeMethodId);
+        await withShopeeMapping(
+          invalidTargetId,
+          async () => {
+            expect(await shopeeStatus()).toBe("invalid");
+            await expectOldShopeeSettleable(orderId, "44.00");
+          },
+          true,
+        );
       });
 
       async function patchDraft(id: string, body: any) {
-        return request(app.getHttpServer()).patch(`/accounting/provider-settlements/${id}`)
-          .set('Authorization', `Bearer ${token}`).send(body);
+        return request(app.getHttpServer())
+          .patch(`/accounting/provider-settlements/${id}`)
+          .set("Authorization", `Bearer ${token}`)
+          .send(body);
       }
 
       for (const [label, target, deactivate] of [
-        ['unmapped', () => null, false],
-        ['invalid', () => invalidTargetId, true],
+        ["unmapped", () => null, false],
+        ["invalid", () => invalidTargetId, true],
       ] as const) {
         it(`update: an existing Shopee draft still saves and lists after Shopee becomes ${label}`, async () => {
-          const { orderId } = await payOrder('45.00', shopeeMethodId);
-          const created = await createShopee(orderId, '45.00');
+          const { orderId } = await payOrder("45.00", shopeeMethodId);
+          const created = await createShopee(orderId, "45.00");
           expect(created.status).toBe(201);
           const id = (created.body.data ?? created.body).id;
-          await withShopeeMapping(target(), async () => {
-            expect(await shopeeStatus()).toBe(label);
-            const listed = await rowsFor([orderId], `&settlementId=${id}`);
-            expect(listed.map((r) => r.paymentMethodId)).toEqual([shopeeMethodId]);
-            const res = await patchDraft(id, { ...shopeeBody(orderId, '45.00'), providerReference: `SHP-EDIT-${runId}` });
-            expect(res.status).toBe(200);
-            await expectPostsFrom1220(id, '45.00');
-          }, deactivate);
+          await withShopeeMapping(
+            target(),
+            async () => {
+              expect(await shopeeStatus()).toBe(label);
+              const listed = await rowsFor([orderId], `&settlementId=${id}`);
+              expect(listed.map((r) => r.paymentMethodId)).toEqual([
+                shopeeMethodId,
+              ]);
+              const res = await patchDraft(id, {
+                ...shopeeBody(orderId, "45.00"),
+                providerReference: `SHP-EDIT-${runId}`,
+              });
+              expect(res.status).toBe(200);
+              await expectPostsFrom1220(id, "45.00");
+            },
+            deactivate,
+          );
         });
 
         it(`update: a draft can switch its provider to Shopee after Shopee becomes ${label}`, async () => {
-          const { orderId: atomeOrder } = await payOrder('46.00'); // Atome → 1240
-          const created = await createDraft([{ salesOrderId: atomeOrder, expectedNetAmount: '46.00' }], '46.00');
+          const { orderId: atomeOrder } = await payOrder("46.00"); // Atome → 1240
+          const created = await createDraft(
+            [{ salesOrderId: atomeOrder, expectedNetAmount: "46.00" }],
+            "46.00",
+          );
           expect(created.status).toBe(201);
           const id = (created.body.data ?? created.body).id;
-          const { orderId: shopeeOrder } = await payOrder('46.00', shopeeMethodId); // → 1220
-          await withShopeeMapping(target(), async () => {
-            expect(await shopeeStatus()).toBe(label);
-            const res = await patchDraft(id, shopeeBody(shopeeOrder, '46.00'));
-            expect(res.status).toBe(200);
-            const [row] = await ds.query(
-              'SELECT "providerPaymentMethodId", "clearingAccountId" FROM provider_settlements WHERE id = $1', [id],
-            );
-            expect(row).toEqual({ providerPaymentMethodId: shopeeMethodId, clearingAccountId: shopeeClearingId });
-          }, deactivate);
+          const { orderId: shopeeOrder } = await payOrder(
+            "46.00",
+            shopeeMethodId,
+          ); // → 1220
+          await withShopeeMapping(
+            target(),
+            async () => {
+              expect(await shopeeStatus()).toBe(label);
+              const res = await patchDraft(
+                id,
+                shopeeBody(shopeeOrder, "46.00"),
+              );
+              expect(res.status).toBe(200);
+              const [row] = await ds.query(
+                'SELECT "providerPaymentMethodId", "clearingAccountId" FROM provider_settlements WHERE id = $1',
+                [id],
+              );
+              expect(row).toEqual({
+                providerPaymentMethodId: shopeeMethodId,
+                clearingAccountId: shopeeClearingId,
+              });
+            },
+            deactivate,
+          );
         });
       }
 
@@ -1594,95 +2150,126 @@ describe('Provider settlements (e2e)', () => {
        * exactly that mistake. Every test that turns a listed group bad first
        * proves the group IS listed, so an exclusion cannot be vacuous.
        */
-      describe('every payment in a group must qualify', () => {
-        it('rejects a group mixing a 1220 payment with one recorded to unflagged 1200', async () => {
-          const { orderId } = await newOrder('60.00');
-          await payExisting(orderId, '20.00', shopeeMethodId); // → 1220
-          expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual(['20.0000']);
+      describe("every payment in a group must qualify", () => {
+        it("rejects a group mixing a 1220 payment with one recorded to unflagged 1200", async () => {
+          const { orderId } = await newOrder("60.00");
+          await payExisting(orderId, "20.00", shopeeMethodId); // → 1220
+          expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual([
+            "20.0000",
+          ]);
           await withShopeeMapping(bankAccountId, async () => {
-            await payExisting(orderId, '25.00', shopeeMethodId); // → 1200
+            await payExisting(orderId, "25.00", shopeeMethodId); // → 1200
             expect(await rowsFor([orderId])).toHaveLength(0);
           });
         });
 
-        it('rejects a group where one payment has no derivable journal', async () => {
-          const { orderId } = await newOrder('60.00');
-          await payExisting(orderId, '20.00', shopeeMethodId);
-          const bad = await payExisting(orderId, '25.00', shopeeMethodId);
-          expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual(['45.0000']);
+        it("rejects a group where one payment has no derivable journal", async () => {
+          const { orderId } = await newOrder("60.00");
+          await payExisting(orderId, "20.00", shopeeMethodId);
+          const bad = await payExisting(orderId, "25.00", shopeeMethodId);
+          expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual([
+            "45.0000",
+          ]);
           // A soft-deleted entry still satisfies the eligibility EXISTS (which does not
           // read deletedAt) but the derivation hides it, so the payment derives to nothing.
-          await ds.query('UPDATE journal_entry SET "deletedAt" = now() WHERE "sourceEventId" = $1', [bad]);
+          await ds.query(
+            'UPDATE journal_entry SET "deletedAt" = now() WHERE "sourceEventId" = $1',
+            [bad],
+          );
           try {
             expect(await rowsFor([orderId])).toHaveLength(0);
           } finally {
-            await ds.query('UPDATE journal_entry SET "deletedAt" = NULL WHERE "sourceEventId" = $1', [bad]);
+            await ds.query(
+              'UPDATE journal_entry SET "deletedAt" = NULL WHERE "sourceEventId" = $1',
+              [bad],
+            );
           }
         });
 
         /** Suite-owned flagged account, so soft-deleting it touches no shared baseline row. */
         async function seedFlaggedAccount(tag: string): Promise<string> {
-          const [parent] = await ds.query(`SELECT id FROM chart_of_account WHERE code = '1000'`);
+          const [parent] = await ds.query(
+            `SELECT id FROM chart_of_account WHERE code = '1000'`,
+          );
           const [x] = await ds.query(
             `INSERT INTO chart_of_account (code, name, type, "parentId", "isSystem", "isPostable", "isActive", "isProviderClearing")
              VALUES ($1, $2, 'Asset', $3, false, true, true, true) RETURNING id`,
-            [`PS-${tag}-${runId}`.slice(0, 20), `PS ${tag} Clearing ${runId}`, parent.id],
+            [
+              `PS-${tag}-${runId}`.slice(0, 20),
+              `PS ${tag} Clearing ${runId}`,
+              parent.id,
+            ],
           );
           ownedAccountIds.push(x.id);
           ownedEntityIds.push(x.id);
           return x.id;
         }
 
-        async function withSoftDeleted(accountId: string, fn: () => Promise<void>) {
-          await ds.query('UPDATE chart_of_account SET "deletedAt" = now() WHERE id = $1', [accountId]);
+        async function withSoftDeleted(
+          accountId: string,
+          fn: () => Promise<void>,
+        ) {
+          await ds.query(
+            'UPDATE chart_of_account SET "deletedAt" = now() WHERE id = $1',
+            [accountId],
+          );
           try {
             await fn();
           } finally {
-            await ds.query('UPDATE chart_of_account SET "deletedAt" = NULL WHERE id = $1', [accountId]);
+            await ds.query(
+              'UPDATE chart_of_account SET "deletedAt" = NULL WHERE id = $1',
+              [accountId],
+            );
           }
         }
 
-        it('rejects a group whose only derived account is soft-deleted', async () => {
+        it("rejects a group whose only derived account is soft-deleted", async () => {
           // The soft-delete guard itself: with ONE account in play, neither the
           // two-account count nor an inner join can exclude this group — only the
           // account join's deletedAt condition can.
-          const x = await seedFlaggedAccount('DEL1');
-          const { orderId } = await newOrder('60.00');
+          const x = await seedFlaggedAccount("DEL1");
+          const { orderId } = await newOrder("60.00");
           await withShopeeMapping(x, async () => {
-            await payExisting(orderId, '25.00', shopeeMethodId); // → X
+            await payExisting(orderId, "25.00", shopeeMethodId); // → X
           });
-          expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual(['25.0000']);
+          expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual([
+            "25.0000",
+          ]);
           await withSoftDeleted(x, async () => {
             expect(await rowsFor([orderId])).toHaveLength(0);
           });
         });
 
-        it('rejects a 1220 payment grouped with one deriving to a soft-deleted account (inner-join guard)', async () => {
+        it("rejects a 1220 payment grouped with one deriving to a soft-deleted account (inner-join guard)", async () => {
           // NOT a soft-delete guard: with X live this group already derives to two
           // accounts and is excluded. It fails if the bad X row is DROPPED (an
           // inner join), which would leave a lone, valid 1220 payment.
-          const x = await seedFlaggedAccount('DEL2');
-          const { orderId } = await newOrder('60.00');
+          const x = await seedFlaggedAccount("DEL2");
+          const { orderId } = await newOrder("60.00");
           await withShopeeMapping(x, async () => {
-            await payExisting(orderId, '25.00', shopeeMethodId); // → X
+            await payExisting(orderId, "25.00", shopeeMethodId); // → X
           });
-          await payExisting(orderId, '20.00', shopeeMethodId); // → 1220
+          await payExisting(orderId, "20.00", shopeeMethodId); // → 1220
           await withSoftDeleted(x, async () => {
             expect(await rowsFor([orderId])).toHaveLength(0);
           });
         });
       });
 
-      it('lists a qualifying group on the unfiltered first load (no search, no salesOrderIds)', async () => {
+      it("lists a qualifying group on the unfiltered first load (no search, no salesOrderIds)", async () => {
         // The page's first load sends neither filter, so the group query runs with
         // no WHERE clause at all. Unpaginated (no page/limit) so the shared
         // database's other rows cannot push this group off the page.
-        const { orderId } = await payOrder('47.00', shopeeMethodId); // → 1220
-        const res = await get('/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20').expect(200);
+        const { orderId } = await payOrder("47.00", shopeeMethodId); // → 1220
+        const res = await get(
+          "/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20",
+        ).expect(200);
         const rows = res.body.data as any[];
         expect(res.body.meta.total).toBe(rows.length);
         const mine = rows.filter((r) => r.salesOrderId === orderId);
-        expect(mine.map((r) => [r.paymentMethodId, r.netAmount])).toEqual([[shopeeMethodId, '47.0000']]);
+        expect(mine.map((r) => [r.paymentMethodId, r.netAmount])).toEqual([
+          [shopeeMethodId, "47.0000"],
+        ]);
       });
     });
     /**
@@ -1692,29 +2279,34 @@ describe('Provider settlements (e2e)', () => {
      * rows, by method id for the options — because the database is shared with
      * the rest of the suite and both endpoints are otherwise global.
      */
-    describe('payment method filter and options (#1335)', () => {
+    describe("payment method filter and options (#1335)", () => {
       const tag = `PMF-${runId}`;
-      const rowsUrl = '/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20';
-      const methodsUrl = '/accounting/provider-settlements/eligible-methods';
+      const rowsUrl =
+        "/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20";
+      const methodsUrl = "/accounting/provider-settlements/eligible-methods";
 
-      let positiveOrderId = '';
-      let deductionOrderId = '';
-      let zeroOrderId = '';
-      let atomeOrderId = '';
-      let inactiveOrderId = '';
-      let deletedOrderId = '';
-      let inactiveMethodId = '';
-      let deletedMethodId = '';
-      let zeroOnlyMethodId = '';
-      let draftOnlyMethodId = '';
-      let lateMethodId = '';
-      let unflaggedMethodId = '';
-      let ownDraftId = '';
+      let positiveOrderId = "";
+      let deductionOrderId = "";
+      let zeroOrderId = "";
+      let atomeOrderId = "";
+      let inactiveOrderId = "";
+      let deletedOrderId = "";
+      let inactiveMethodId = "";
+      let deletedMethodId = "";
+      let zeroOnlyMethodId = "";
+      let draftOnlyMethodId = "";
+      let lateMethodId = "";
+      let unflaggedMethodId = "";
+      let ownDraftId = "";
       const inactiveName = `PMF Inactive ${runId}`;
       const deletedName = `PMF Deleted ${runId}`;
 
       /** A suite-owned method recorded to `accountId`, so its payments journal there. */
-      async function insertMappedMethod(code: string, name: string, accountId: string): Promise<string> {
+      async function insertMappedMethod(
+        code: string,
+        name: string,
+        accountId: string,
+      ): Promise<string> {
         const [row] = await ds.query(
           `INSERT INTO payment_methods (code, name, "sortOrder") VALUES ($1, $2, 0) RETURNING id`,
           [`${code}${runId}`.slice(0, 20), name],
@@ -1725,99 +2317,228 @@ describe('Provider settlements (e2e)', () => {
         return row.id;
       }
 
-      async function methods(extra = '', settlementDate = '2026-09-20') {
-        const res = await get(`${methodsUrl}?settlementDate=${settlementDate}${extra}`).expect(200);
+      async function methods(extra = "", settlementDate = "2026-09-20") {
+        const res = await get(
+          `${methodsUrl}?settlementDate=${settlementDate}${extra}`,
+        ).expect(200);
         const list = (res.body.data ?? res.body) as any[];
         return { list, byId: new Map(list.map((m) => [m.id, m])) };
       }
 
       const keys = (rows: any[]) =>
-        rows.map((r) => `${r.salesOrderId}:${r.paymentMethodId}:${r.netAmount}`).sort();
+        rows
+          .map((r) => `${r.salesOrderId}:${r.paymentMethodId}:${r.netAmount}`)
+          .sort();
 
       beforeAll(async () => {
-        inactiveMethodId = await insertMappedMethod('PMFI', inactiveName, clearingAccountId);
-        deletedMethodId = await insertMappedMethod('PMFD', deletedName, clearingAccountId);
-        zeroOnlyMethodId = await insertMappedMethod('PMFZ', `PMF Zero ${runId}`, clearingAccountId);
-        draftOnlyMethodId = await insertMappedMethod('PMFO', `PMF Draft ${runId}`, clearingAccountId);
-        lateMethodId = await insertMappedMethod('PMFL', `PMF Late ${runId}`, clearingAccountId);
+        inactiveMethodId = await insertMappedMethod(
+          "PMFI",
+          inactiveName,
+          clearingAccountId,
+        );
+        deletedMethodId = await insertMappedMethod(
+          "PMFD",
+          deletedName,
+          clearingAccountId,
+        );
+        zeroOnlyMethodId = await insertMappedMethod(
+          "PMFZ",
+          `PMF Zero ${runId}`,
+          clearingAccountId,
+        );
+        draftOnlyMethodId = await insertMappedMethod(
+          "PMFO",
+          `PMF Draft ${runId}`,
+          clearingAccountId,
+        );
+        lateMethodId = await insertMappedMethod(
+          "PMFL",
+          `PMF Late ${runId}`,
+          clearingAccountId,
+        );
         // Recorded to the 1200 bank, which is not a provider clearing account.
-        unflaggedMethodId = await insertMappedMethod('PMFU', `PMF Unflagged ${runId}`, bankAccountId);
+        unflaggedMethodId = await insertMappedMethod(
+          "PMFU",
+          `PMF Unflagged ${runId}`,
+          bankAccountId,
+        );
 
         // TikTok, positive.
-        positiveOrderId = (await newOrder('100.00')).orderId;
-        await payExisting(positiveOrderId, '100.00', tiktokMethodId, '2026-09-01', tag);
+        positiveOrderId = (await newOrder("100.00")).orderId;
+        await payExisting(
+          positiveOrderId,
+          "100.00",
+          tiktokMethodId,
+          "2026-09-01",
+          tag,
+        );
 
         // TikTok, Deduction: the payment is settled and posted, then partly
         // refunded, leaving an unclaimed −30 residue.
-        deductionOrderId = (await newOrder('100.00')).orderId;
-        await payExisting(deductionOrderId, '100.00', tiktokMethodId, '2026-09-01', tag);
+        deductionOrderId = (await newOrder("100.00")).orderId;
+        await payExisting(
+          deductionOrderId,
+          "100.00",
+          tiktokMethodId,
+          "2026-09-01",
+          tag,
+        );
         const settled = await createDraft(
-          [{ salesOrderId: deductionOrderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' }], '100.00',
+          [
+            {
+              salesOrderId: deductionOrderId,
+              paymentMethodId: tiktokMethodId,
+              expectedNetAmount: "100.00",
+            },
+          ],
+          "100.00",
         );
         expect(settled.status).toBe(201);
         const posted = await post(
           `/accounting/provider-settlements/${(settled.body.data ?? settled.body).id}/post`,
         ).expect(201);
         ownedRefs.push((posted.body.data ?? posted.body).referenceNumber);
-        await refundOrder(deductionOrderId, '30.00', tiktokMethodId, '2026-09-05', tag);
-
-        // TikTok, net zero.
-        zeroOrderId = (await newOrder('50.00')).orderId;
-        await payExisting(zeroOrderId, '50.00', tiktokMethodId, '2026-09-01', tag);
-        await refundOrder(zeroOrderId, '50.00', tiktokMethodId, '2026-09-02', tag);
-
-        // Another method, so the unfiltered view is genuinely cross-method.
-        atomeOrderId = (await newOrder('20.00')).orderId;
-        await payExisting(atomeOrderId, '20.00', atomeMethodId, '2026-09-01', tag);
-
-        inactiveOrderId = (await newOrder('11.00')).orderId;
-        await payExisting(inactiveOrderId, '11.00', inactiveMethodId, '2026-09-01', tag);
-        deletedOrderId = (await newOrder('12.00')).orderId;
-        await payExisting(deletedOrderId, '12.00', deletedMethodId, '2026-09-01', tag);
-
-        const zeroOnly = await newOrder('13.00');
-        await payExisting(zeroOnly.orderId, '13.00', zeroOnlyMethodId, '2026-09-01', tag);
-        await refundOrder(zeroOnly.orderId, '13.00', zeroOnlyMethodId, '2026-09-02', tag);
-
-        const draftOnly = await newOrder('14.00');
-        const draftOnlyPaymentId = await payExisting(draftOnly.orderId, '14.00', draftOnlyMethodId, '2026-09-01', tag);
-        ownDraftId = await insertDraft(
-          draftOnlyMethodId, [{ paymentId: draftOnlyPaymentId, amount: '14.0000' }], '14.0000',
+        await refundOrder(
+          deductionOrderId,
+          "30.00",
+          tiktokMethodId,
+          "2026-09-05",
+          tag,
         );
 
-        const late = await newOrder('15.00');
-        await payExisting(late.orderId, '15.00', lateMethodId, '2026-09-25', tag);
+        // TikTok, net zero.
+        zeroOrderId = (await newOrder("50.00")).orderId;
+        await payExisting(
+          zeroOrderId,
+          "50.00",
+          tiktokMethodId,
+          "2026-09-01",
+          tag,
+        );
+        await refundOrder(
+          zeroOrderId,
+          "50.00",
+          tiktokMethodId,
+          "2026-09-02",
+          tag,
+        );
 
-        const unflagged = await newOrder('16.00');
-        await payExisting(unflagged.orderId, '16.00', unflaggedMethodId, '2026-09-01', tag);
+        // Another method, so the unfiltered view is genuinely cross-method.
+        atomeOrderId = (await newOrder("20.00")).orderId;
+        await payExisting(
+          atomeOrderId,
+          "20.00",
+          atomeMethodId,
+          "2026-09-01",
+          tag,
+        );
+
+        inactiveOrderId = (await newOrder("11.00")).orderId;
+        await payExisting(
+          inactiveOrderId,
+          "11.00",
+          inactiveMethodId,
+          "2026-09-01",
+          tag,
+        );
+        deletedOrderId = (await newOrder("12.00")).orderId;
+        await payExisting(
+          deletedOrderId,
+          "12.00",
+          deletedMethodId,
+          "2026-09-01",
+          tag,
+        );
+
+        const zeroOnly = await newOrder("13.00");
+        await payExisting(
+          zeroOnly.orderId,
+          "13.00",
+          zeroOnlyMethodId,
+          "2026-09-01",
+          tag,
+        );
+        await refundOrder(
+          zeroOnly.orderId,
+          "13.00",
+          zeroOnlyMethodId,
+          "2026-09-02",
+          tag,
+        );
+
+        const draftOnly = await newOrder("14.00");
+        const draftOnlyPaymentId = await payExisting(
+          draftOnly.orderId,
+          "14.00",
+          draftOnlyMethodId,
+          "2026-09-01",
+          tag,
+        );
+        ownDraftId = await insertDraft(
+          draftOnlyMethodId,
+          [{ paymentId: draftOnlyPaymentId, amount: "14.0000" }],
+          "14.0000",
+        );
+
+        const late = await newOrder("15.00");
+        await payExisting(
+          late.orderId,
+          "15.00",
+          lateMethodId,
+          "2026-09-25",
+          tag,
+        );
+
+        const unflagged = await newOrder("16.00");
+        await payExisting(
+          unflagged.orderId,
+          "16.00",
+          unflaggedMethodId,
+          "2026-09-01",
+          tag,
+        );
 
         // Only now, with their payments recorded: historical methods.
-        await ds.query(`UPDATE payment_methods SET "isActive" = false WHERE id = $1`, [inactiveMethodId]);
-        await ds.query(`UPDATE payment_methods SET "deletedAt" = now() WHERE id = $1`, [deletedMethodId]);
+        await ds.query(
+          `UPDATE payment_methods SET "isActive" = false WHERE id = $1`,
+          [inactiveMethodId],
+        );
+        await ds.query(
+          `UPDATE payment_methods SET "deletedAt" = now() WHERE id = $1`,
+          [deletedMethodId],
+        );
       });
 
-      it('filters to one method: its positive and Deduction rows, never its net-zero group', async () => {
-        const res = await get(`${rowsUrl}&search=${tag}&paymentMethodId=${tiktokMethodId}`).expect(200);
-        expect(keys(res.body.data)).toEqual([
-          `${positiveOrderId}:${tiktokMethodId}:100.0000`,
-          `${deductionOrderId}:${tiktokMethodId}:-30.0000`,
-        ].sort());
-        expect(res.body.data.some((r: any) => r.salesOrderId === zeroOrderId)).toBe(false);
+      it("filters to one method: its positive and Deduction rows, never its net-zero group", async () => {
+        const res = await get(
+          `${rowsUrl}&search=${tag}&paymentMethodId=${tiktokMethodId}`,
+        ).expect(200);
+        expect(keys(res.body.data)).toEqual(
+          [
+            `${positiveOrderId}:${tiktokMethodId}:100.0000`,
+            `${deductionOrderId}:${tiktokMethodId}:-30.0000`,
+          ].sort(),
+        );
+        expect(
+          res.body.data.some((r: any) => r.salesOrderId === zeroOrderId),
+        ).toBe(false);
         expect(res.body.meta.total).toBe(2);
       });
 
-      it('without the filter the same search stays cross-method', async () => {
+      it("without the filter the same search stays cross-method", async () => {
         const res = await get(`${rowsUrl}&search=${tag}`).expect(200);
-        expect(keys(res.body.data)).toEqual([
-          `${positiveOrderId}:${tiktokMethodId}:100.0000`,
-          `${deductionOrderId}:${tiktokMethodId}:-30.0000`,
-          `${atomeOrderId}:${atomeMethodId}:20.0000`,
-          `${inactiveOrderId}:${inactiveMethodId}:11.0000`,
-          `${deletedOrderId}:${deletedMethodId}:12.0000`,
-        ].sort());
+        expect(keys(res.body.data)).toEqual(
+          [
+            `${positiveOrderId}:${tiktokMethodId}:100.0000`,
+            `${deductionOrderId}:${tiktokMethodId}:-30.0000`,
+            `${atomeOrderId}:${atomeMethodId}:20.0000`,
+            `${inactiveOrderId}:${inactiveMethodId}:11.0000`,
+            `${deletedOrderId}:${deletedMethodId}:12.0000`,
+          ].sort(),
+        );
       });
 
-      it('paginates the FILTERED set: meta.total counts only that method, across pages', async () => {
+      it("paginates the FILTERED set: meta.total counts only that method, across pages", async () => {
         const base = `${rowsUrl}&search=${tag}&paymentMethodId=${tiktokMethodId}&limit=1`;
         const first = await get(`${base}&page=1`).expect(200);
         const second = await get(`${base}&page=2`).expect(200);
@@ -1825,76 +2546,113 @@ describe('Provider settlements (e2e)', () => {
         expect(second.body.meta).toMatchObject({ total: 2, page: 2, limit: 1 });
         expect(first.body.data).toHaveLength(1);
         expect(second.body.data).toHaveLength(1);
-        expect(keys([...first.body.data, ...second.body.data])).toEqual([
-          `${positiveOrderId}:${tiktokMethodId}:100.0000`,
-          `${deductionOrderId}:${tiktokMethodId}:-30.0000`,
-        ].sort());
+        expect(keys([...first.body.data, ...second.body.data])).toEqual(
+          [
+            `${positiveOrderId}:${tiktokMethodId}:100.0000`,
+            `${deductionOrderId}:${tiktokMethodId}:-30.0000`,
+          ].sort(),
+        );
       });
 
-      it('lists the rows of an inactive and of a soft-deleted method when filtered to them', async () => {
-        const inactive = await get(`${rowsUrl}&paymentMethodId=${inactiveMethodId}`).expect(200);
-        expect(keys(inactive.body.data)).toEqual([`${inactiveOrderId}:${inactiveMethodId}:11.0000`]);
+      it("lists the rows of an inactive and of a soft-deleted method when filtered to them", async () => {
+        const inactive = await get(
+          `${rowsUrl}&paymentMethodId=${inactiveMethodId}`,
+        ).expect(200);
+        expect(keys(inactive.body.data)).toEqual([
+          `${inactiveOrderId}:${inactiveMethodId}:11.0000`,
+        ]);
         expect(inactive.body.data[0].paymentMethodName).toBe(inactiveName);
-        const deleted = await get(`${rowsUrl}&paymentMethodId=${deletedMethodId}`).expect(200);
-        expect(keys(deleted.body.data)).toEqual([`${deletedOrderId}:${deletedMethodId}:12.0000`]);
+        const deleted = await get(
+          `${rowsUrl}&paymentMethodId=${deletedMethodId}`,
+        ).expect(200);
+        expect(keys(deleted.body.data)).toEqual([
+          `${deletedOrderId}:${deletedMethodId}:12.0000`,
+        ]);
         expect(deleted.body.data[0].paymentMethodName).toBe(deletedName);
       });
 
-      it('returns an empty page, total 0, for a method with no listable group', async () => {
-        const res = await get(`${rowsUrl}&paymentMethodId=${zeroOnlyMethodId}&page=1&limit=25`).expect(200);
+      it("returns an empty page, total 0, for a method with no listable group", async () => {
+        const res = await get(
+          `${rowsUrl}&paymentMethodId=${zeroOnlyMethodId}&page=1&limit=25`,
+        ).expect(200);
         expect(res.body.data).toEqual([]);
         expect(res.body.meta.total).toBe(0);
       });
 
-      it('rejects a paymentMethodId that is not a uuid', async () => {
+      it("rejects a paymentMethodId that is not a uuid", async () => {
         await get(`${rowsUrl}&paymentMethodId=tiktok`).expect(400);
       });
 
-      it('options: active methods with eligible rows, once each, unflagged as historical', async () => {
+      it("options: active methods with eligible rows, once each, unflagged as historical", async () => {
         const { list, byId } = await methods();
-        expect(byId.get(tiktokMethodId)).toMatchObject({ id: tiktokMethodId, isActive: true, deleted: false });
-        expect(byId.get(atomeMethodId)).toMatchObject({ id: atomeMethodId, isActive: true, deleted: false });
+        expect(byId.get(tiktokMethodId)).toMatchObject({
+          id: tiktokMethodId,
+          isActive: true,
+          deleted: false,
+        });
+        expect(byId.get(atomeMethodId)).toMatchObject({
+          id: atomeMethodId,
+          isActive: true,
+          deleted: false,
+        });
         // Two listable TikTok groups, one option.
         expect(list.filter((m) => m.id === tiktokMethodId)).toHaveLength(1);
       });
 
-      it('options: an inactive method with eligible payments is offered, flagged inactive', async () => {
+      it("options: an inactive method with eligible payments is offered, flagged inactive", async () => {
         const { byId } = await methods();
         expect(byId.get(inactiveMethodId)).toEqual({
-          id: inactiveMethodId, name: inactiveName, isActive: false, deleted: false,
+          id: inactiveMethodId,
+          name: inactiveName,
+          isActive: false,
+          deleted: false,
         });
       });
 
-      it('options: a soft-deleted method with eligible payments is offered, flagged deleted', async () => {
+      it("options: a soft-deleted method with eligible payments is offered, flagged deleted", async () => {
         const { byId } = await methods();
         expect(byId.get(deletedMethodId)).toEqual({
-          id: deletedMethodId, name: deletedName, isActive: true, deleted: true,
+          id: deletedMethodId,
+          name: deletedName,
+          isActive: true,
+          deleted: true,
         });
       });
 
-      it('options: omit a method whose only group nets to zero or is not provider clearing', async () => {
+      it("options: omit a method whose only group nets to zero or is not provider clearing", async () => {
         const { byId } = await methods();
         expect(byId.has(zeroOnlyMethodId)).toBe(false);
         expect(byId.has(unflaggedMethodId)).toBe(false);
       });
 
-      it('options follow the settlement date', async () => {
+      it("options follow the settlement date", async () => {
         expect((await methods()).byId.has(lateMethodId)).toBe(false);
-        expect((await methods('', '2026-09-30')).byId.has(lateMethodId)).toBe(true);
+        expect((await methods("", "2026-09-30")).byId.has(lateMethodId)).toBe(
+          true,
+        );
       });
 
       it("options on Edit include the draft's own claims; a new settlement does not see them", async () => {
         expect((await methods()).byId.has(draftOnlyMethodId)).toBe(false);
         const mine = await methods(`&settlementId=${ownDraftId}`);
-        expect(mine.byId.get(draftOnlyMethodId)).toMatchObject({ isActive: true, deleted: false });
+        expect(mine.byId.get(draftOnlyMethodId)).toMatchObject({
+          isActive: true,
+          deleted: false,
+        });
         // Another draft's claims stay hidden from this one.
-        const otherDraftId = await insertDraft(atomeMethodId, [], '1.0000');
-        expect((await methods(`&settlementId=${otherDraftId}`)).byId.has(draftOnlyMethodId)).toBe(false);
+        const otherDraftId = await insertDraft(atomeMethodId, [], "1.0000");
+        expect(
+          (await methods(`&settlementId=${otherDraftId}`)).byId.has(
+            draftOnlyMethodId,
+          ),
+        ).toBe(false);
       });
 
-      it('options require a settlement date and a real draft', async () => {
+      it("options require a settlement date and a real draft", async () => {
         await get(methodsUrl).expect(400);
-        await get(`${methodsUrl}?settlementDate=2026-09-20&settlementId=${randomUUID()}`).expect(404);
+        await get(
+          `${methodsUrl}?settlementDate=2026-09-20&settlementId=${randomUUID()}`,
+        ).expect(404);
       });
     });
   });
@@ -1912,14 +2670,14 @@ describe('Provider settlements (e2e)', () => {
    * soft-deleted bank account still does not hydrate. TypeORM's withDeleted()
    * is builder-wide, so these assertions are what a careless fix would break.
    */
-  describe('provider options and soft-deleted providers (#1289)', () => {
-    let inactiveMethodId = '';
-    let deletedMethodId = '';
-    let unusedMethodId = '';
-    let onlyDeletedSettlementMethodId = '';
-    let deletedBankId = '';
-    let deletedProviderSettlementId = '';
-    let deletedBankSettlementId = '';
+  describe("provider options and soft-deleted providers (#1289)", () => {
+    let inactiveMethodId = "";
+    let deletedMethodId = "";
+    let unusedMethodId = "";
+    let onlyDeletedSettlementMethodId = "";
+    let deletedBankId = "";
+    let deletedProviderSettlementId = "";
+    let deletedBankSettlementId = "";
     const inactiveName = `PS Inactive ${runId}`;
     const deletedName = `PS Deleted ${runId}`;
 
@@ -1932,7 +2690,11 @@ describe('Provider settlements (e2e)', () => {
       return row.id;
     }
 
-    async function insertSettlement(methodId: string, bankId: string, tag: string): Promise<string> {
+    async function insertSettlement(
+      methodId: string,
+      bankId: string,
+      tag: string,
+    ): Promise<string> {
       const [row] = await ds.query(
         `INSERT INTO provider_settlements
            ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
@@ -1945,12 +2707,17 @@ describe('Provider settlements (e2e)', () => {
     }
 
     beforeAll(async () => {
-      inactiveMethodId = await insertMethod('PSI', inactiveName);
-      deletedMethodId = await insertMethod('PSD', deletedName);
-      unusedMethodId = await insertMethod('PSU', `PS Unused ${runId}`);
-      onlyDeletedSettlementMethodId = await insertMethod('PSX', `PS Only Deleted ${runId}`);
+      inactiveMethodId = await insertMethod("PSI", inactiveName);
+      deletedMethodId = await insertMethod("PSD", deletedName);
+      unusedMethodId = await insertMethod("PSU", `PS Unused ${runId}`);
+      onlyDeletedSettlementMethodId = await insertMethod(
+        "PSX",
+        `PS Only Deleted ${runId}`,
+      );
 
-      const [parent] = await ds.query(`SELECT id FROM chart_of_account WHERE code = '1000'`);
+      const [parent] = await ds.query(
+        `SELECT id FROM chart_of_account WHERE code = '1000'`,
+      );
       const [acct] = await ds.query(
         `INSERT INTO chart_of_account (code, name, type, "parentId", "isSystem", "isPostable", "isActive")
          VALUES ($1, $2, 'Asset', $3, false, true, true) RETURNING id`,
@@ -1960,38 +2727,70 @@ describe('Provider settlements (e2e)', () => {
       ownedEntityIds.push(deletedBankId);
       ownedAccountIds.push(deletedBankId);
 
-      await insertSettlement(inactiveMethodId, bankAccountId, 'I');
-      deletedProviderSettlementId = await insertSettlement(deletedMethodId, bankAccountId, 'D');
-      deletedBankSettlementId = await insertSettlement(deletedMethodId, deletedBankId, 'DB');
-      const hiddenId = await insertSettlement(onlyDeletedSettlementMethodId, bankAccountId, 'X');
+      await insertSettlement(inactiveMethodId, bankAccountId, "I");
+      deletedProviderSettlementId = await insertSettlement(
+        deletedMethodId,
+        bankAccountId,
+        "D",
+      );
+      deletedBankSettlementId = await insertSettlement(
+        deletedMethodId,
+        deletedBankId,
+        "DB",
+      );
+      const hiddenId = await insertSettlement(
+        onlyDeletedSettlementMethodId,
+        bankAccountId,
+        "X",
+      );
 
       // #1292: a claimed line whose payment's method is soft-deleted below. Paid
       // while the method is still live; the line is inserted directly, as the
       // settlements above are.
-      const { orderId } = await newOrder('10.00');
-      const paymentId = await payExisting(orderId, '10.00', deletedMethodId);
+      const { orderId } = await newOrder("10.00");
+      const paymentId = await payExisting(orderId, "10.00", deletedMethodId);
       await ds.query(
         `INSERT INTO provider_settlement_lines ("settlementId", "salesOrderPaymentId", amount)
          VALUES ($1, $2, 10)`,
         [deletedBankSettlementId, paymentId],
       );
 
-      await ds.query(`UPDATE payment_methods SET "isActive" = false WHERE id = $1`, [inactiveMethodId]);
-      await ds.query(`UPDATE payment_methods SET "deletedAt" = now() WHERE id = $1`, [deletedMethodId]);
-      await ds.query(`UPDATE chart_of_account SET "deletedAt" = now() WHERE id = $1`, [deletedBankId]);
-      await ds.query(`UPDATE provider_settlements SET "deletedAt" = now() WHERE id = $1`, [hiddenId]);
+      await ds.query(
+        `UPDATE payment_methods SET "isActive" = false WHERE id = $1`,
+        [inactiveMethodId],
+      );
+      await ds.query(
+        `UPDATE payment_methods SET "deletedAt" = now() WHERE id = $1`,
+        [deletedMethodId],
+      );
+      await ds.query(
+        `UPDATE chart_of_account SET "deletedAt" = now() WHERE id = $1`,
+        [deletedBankId],
+      );
+      await ds.query(
+        `UPDATE provider_settlements SET "deletedAt" = now() WHERE id = $1`,
+        [hiddenId],
+      );
     });
 
-    it('offers every method that owns a live settlement, flagged, and no other', async () => {
-      const res = await get('/accounting/provider-settlements/providers').expect(200);
+    it("offers every method that owns a live settlement, flagged, and no other", async () => {
+      const res = await get(
+        "/accounting/provider-settlements/providers",
+      ).expect(200);
       const providers = (res.body.data ?? res.body) as any[];
       const byId = new Map(providers.map((p) => [p.id, p]));
 
       expect(byId.get(inactiveMethodId)).toEqual({
-        id: inactiveMethodId, name: inactiveName, isActive: false, deleted: false,
+        id: inactiveMethodId,
+        name: inactiveName,
+        isActive: false,
+        deleted: false,
       });
       expect(byId.get(deletedMethodId)).toEqual({
-        id: deletedMethodId, name: deletedName, isActive: true, deleted: true,
+        id: deletedMethodId,
+        name: deletedName,
+        isActive: true,
+        deleted: true,
       });
       // Owns nothing.
       expect(byId.has(unusedMethodId)).toBe(false);
@@ -2002,46 +2801,55 @@ describe('Provider settlements (e2e)', () => {
     });
 
     for (const paged of [false, true]) {
-      it(`${paged ? 'paginated' : 'unpaginated'} list names a soft-deleted provider without reviving other soft-deleted rows`, async () => {
+      it(`${paged ? "paginated" : "unpaginated"} list names a soft-deleted provider without reviving other soft-deleted rows`, async () => {
         const res = await get(
-          `/accounting/provider-settlements?providerPaymentMethodId=${deletedMethodId}${paged ? '&page=1&limit=25' : ''}`,
+          `/accounting/provider-settlements?providerPaymentMethodId=${deletedMethodId}${paged ? "&page=1&limit=25" : ""}`,
         ).expect(200);
         const rows = res.body.data as any[];
         expect(res.body.meta.total).toBe(2);
         expect(rows.map((s) => s.id).sort()).toEqual(
           [deletedProviderSettlementId, deletedBankSettlementId].sort(),
         );
-        for (const s of rows) expect(s.providerPaymentMethod?.name).toBe(deletedName);
+        for (const s of rows)
+          expect(s.providerPaymentMethod?.name).toBe(deletedName);
 
         const plain = rows.find((s) => s.id === deletedProviderSettlementId);
-        expect(plain.bankAccount?.code).toBe('1200');
-        expect(plain.clearingAccount?.code).toBe('1240');
+        expect(plain.bankAccount?.code).toBe("1200");
+        expect(plain.clearingAccount?.code).toBe("1240");
         // The soft-deleted bank account is still excluded from the join.
-        const withDeletedBank = rows.find((s) => s.id === deletedBankSettlementId);
+        const withDeletedBank = rows.find(
+          (s) => s.id === deletedBankSettlementId,
+        );
         expect(withDeletedBank.bankAccountId).toBe(deletedBankId);
         expect(withDeletedBank.bankAccount).toBeNull();
 
         // A soft-deleted settlement is still excluded from the list.
         const hidden = await get(
-          `/accounting/provider-settlements?providerPaymentMethodId=${onlyDeletedSettlementMethodId}${paged ? '&page=1&limit=25' : ''}`,
+          `/accounting/provider-settlements?providerPaymentMethodId=${onlyDeletedSettlementMethodId}${paged ? "&page=1&limit=25" : ""}`,
         ).expect(200);
         expect(hidden.body.meta.total).toBe(0);
         expect(hidden.body.data).toEqual([]);
       });
     }
 
-    it('detail names a soft-deleted provider without reviving a soft-deleted bank account', async () => {
-      const res = await get(`/accounting/provider-settlements/${deletedBankSettlementId}`).expect(200);
+    it("detail names a soft-deleted provider without reviving a soft-deleted bank account", async () => {
+      const res = await get(
+        `/accounting/provider-settlements/${deletedBankSettlementId}`,
+      ).expect(200);
       expect(res.body.data.providerPaymentMethod?.name).toBe(deletedName);
       expect(res.body.data.bankAccount).toBeNull();
-      expect(res.body.data.clearingAccount?.code).toBe('1240');
+      expect(res.body.data.clearingAccount?.code).toBe("1240");
     });
 
-    it('detail names a line\'s soft-deleted payment method without reviving a soft-deleted bank account (#1292)', async () => {
-      const res = await get(`/accounting/provider-settlements/${deletedBankSettlementId}`).expect(200);
+    it("detail names a line's soft-deleted payment method without reviving a soft-deleted bank account (#1292)", async () => {
+      const res = await get(
+        `/accounting/provider-settlements/${deletedBankSettlementId}`,
+      ).expect(200);
       const lines = res.body.data.lines as any[];
       expect(lines).toHaveLength(1);
-      expect(lines[0].salesOrderPayment?.paymentMethod?.id).toBe(deletedMethodId);
+      expect(lines[0].salesOrderPayment?.paymentMethod?.id).toBe(
+        deletedMethodId,
+      );
       expect(lines[0].salesOrderPayment?.paymentMethod?.name).toBe(deletedName);
       // Same settlement, same request: the soft-deleted bank account stays out.
       expect(res.body.data.bankAccountId).toBe(deletedBankId);
@@ -2049,52 +2857,81 @@ describe('Provider settlements (e2e)', () => {
     });
   });
 
-  describe('destination bank flag (#1298)', () => {
-    async function ownedBank(tag: string, isBankAccount: boolean): Promise<{ id: string; code: string; name: string }> {
-      const [parent] = await ds.query(`SELECT id FROM chart_of_account WHERE code = '1000'`);
+  describe("destination bank flag (#1298)", () => {
+    async function ownedBank(
+      tag: string,
+      isBankAccount: boolean,
+    ): Promise<{ id: string; code: string; name: string }> {
+      const [parent] = await ds.query(
+        `SELECT id FROM chart_of_account WHERE code = '1000'`,
+      );
       const [acct] = await ds.query(
         `INSERT INTO chart_of_account (code, name, type, "parentId", "isSystem", "isPostable", "isActive", "isBankAccount")
          VALUES ($1, $2, 'Asset', $3, false, true, true, $4) RETURNING id, code, name`,
-        [`PS-BK${tag}-${runId}`.slice(0, 20), `PS Bank ${tag} ${runId}`, parent.id, isBankAccount],
+        [
+          `PS-BK${tag}-${runId}`.slice(0, 20),
+          `PS Bank ${tag} ${runId}`,
+          parent.id,
+          isBankAccount,
+        ],
       );
       ownedAccountIds.push(acct.id);
       ownedEntityIds.push(acct.id);
       return acct;
     }
 
-    it('rejects an active, postable Asset that is not flagged as a bank account', async () => {
-      const { orderId } = await payOrder('31.00');
-      const acct = await ownedBank('U', false);
-      const res = await post('/accounting/provider-settlements', {
-        ...draftBody([{ salesOrderId: orderId, expectedNetAmount: '31.00' }], '31.00'),
+    it("rejects an active, postable Asset that is not flagged as a bank account", async () => {
+      const { orderId } = await payOrder("31.00");
+      const acct = await ownedBank("U", false);
+      const res = await post("/accounting/provider-settlements", {
+        ...draftBody(
+          [{ salesOrderId: orderId, expectedNetAmount: "31.00" }],
+          "31.00",
+        ),
         bankAccountId: acct.id,
       });
       expect(res.status).toBe(400);
-      expect(JSON.stringify(res.body.message)).toContain(`Account ${acct.code} ${acct.name} is not a bank account`);
+      expect(JSON.stringify(res.body.message)).toContain(
+        `Account ${acct.code} ${acct.name} is not a bank account`,
+      );
     });
 
-    it('a POSTED settlement is unchanged and readable after its bank account is unflagged', async () => {
-      const { orderId } = await payOrder('32.00');
-      const bank = await ownedBank('P', true);
-      const created = await post('/accounting/provider-settlements', {
-        ...draftBody([{ salesOrderId: orderId, expectedNetAmount: '32.00' }], '32.00'),
+    it("a POSTED settlement is unchanged and readable after its bank account is unflagged", async () => {
+      const { orderId } = await payOrder("32.00");
+      const bank = await ownedBank("P", true);
+      const created = await post("/accounting/provider-settlements", {
+        ...draftBody(
+          [{ salesOrderId: orderId, expectedNetAmount: "32.00" }],
+          "32.00",
+        ),
         bankAccountId: bank.id,
       }).expect(201);
       const id = (created.body.data ?? created.body).id;
       ownedSettlementIds.push(id);
-      const posted = (await post(`/accounting/provider-settlements/${id}/post`).expect(201)).body;
+      const posted = (
+        await post(`/accounting/provider-settlements/${id}/post`).expect(201)
+      ).body;
       const ref = (posted.data ?? posted).referenceNumber;
       ownedRefs.push(ref);
 
-      const before = (await get(`/accounting/provider-settlements/${id}`).expect(200)).body.data;
+      const before = (
+        await get(`/accounting/provider-settlements/${id}`).expect(200)
+      ).body.data;
       const linesBefore = await journalLinesFor(ds, ref);
 
-      await patch(`/accounting/accounts/${bank.id}`, { isBankAccount: false }).expect(200);
-      const [row] = await ds.query(`SELECT "isBankAccount" FROM chart_of_account WHERE id = $1`, [bank.id]);
+      await patch(`/accounting/accounts/${bank.id}`, {
+        isBankAccount: false,
+      }).expect(200);
+      const [row] = await ds.query(
+        `SELECT "isBankAccount" FROM chart_of_account WHERE id = $1`,
+        [bank.id],
+      );
       expect(row.isBankAccount).toBe(false);
 
-      const after = (await get(`/accounting/provider-settlements/${id}`).expect(200)).body.data;
-      expect(after.status).toBe('POSTED');
+      const after = (
+        await get(`/accounting/provider-settlements/${id}`).expect(200)
+      ).body.data;
+      expect(after.status).toBe("POSTED");
       expect(after.bankAccountId).toBe(bank.id);
       expect(after.settlementAmount).toBe(before.settlementAmount);
       expect(after.journalEntryId).toBe(before.journalEntryId);

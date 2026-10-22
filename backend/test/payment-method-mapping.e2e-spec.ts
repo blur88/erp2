@@ -1,21 +1,21 @@
-import { SESSION_PROTOCOL } from './utils/session-protocol';
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import { DataSource } from 'typeorm';
-import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { PaymentMethodEntity } from '../src/database/entities/payment-method.entity';
-import { ChartOfAccount } from '../src/modules/accounting/entities/chart-of-account.entity';
-import { AccountingSettings } from '../src/modules/accounting/entities/accounting-settings.entity';
-import { seedCategory, seedProduct } from './e2e/helpers/seed';
-import { configureTestAppValidation } from './utils/configure-test-app-validation';
+import { SESSION_PROTOCOL } from "./utils/session-protocol";
+import { Test, TestingModule } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import { randomUUID } from "crypto";
+import { DataSource } from "typeorm";
+import request from "supertest";
+import { AppModule } from "../src/app.module";
+import { PaymentMethodEntity } from "../src/database/entities/payment-method.entity";
+import { ChartOfAccount } from "../src/modules/accounting/entities/chart-of-account.entity";
+import { AccountingSettings } from "../src/modules/accounting/entities/accounting-settings.entity";
+import { seedCategory, seedProduct } from "./e2e/helpers/seed";
+import { configureTestAppValidation } from "./utils/configure-test-app-validation";
 import {
   E2E_ADMIN_PASSWORD,
   removeSuiteAdmin,
   seedSuiteAdmin,
-} from './utils/shared-e2e-fixture';
-import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
+} from "./utils/shared-e2e-fixture";
+import { removeSuiteTraces } from "./utils/shared-e2e-traces-fixture";
 
 // Issue #1237: payment-method -> GL-account mappings decide WHAT every payment
 // path posts to, and a mapping that is invalid at posting time must roll the
@@ -73,32 +73,38 @@ async function expectNoResidue(
 async function seedAccounting(ds: DataSource): Promise<void> {
   const coa = ds.getRepository(ChartOfAccount);
   const groups = [
-    ['1000', 'Assets', 'Asset'],
-    ['2000', 'Liabilities', 'Liability'],
-    ['3000', 'Equity', 'Equity'],
-    ['4000', 'Income', 'Income'],
-    ['5000', 'Cost of Sales', 'Expense'],
-    ['6000', 'Expenses', 'Expense'],
+    ["1000", "Assets", "Asset"],
+    ["2000", "Liabilities", "Liability"],
+    ["3000", "Equity", "Equity"],
+    ["4000", "Income", "Income"],
+    ["5000", "Cost of Sales", "Expense"],
+    ["6000", "Expenses", "Expense"],
   ] as const;
   for (const [code, name, type] of groups) {
     if (!(await coa.findOneBy({ code }))) {
       await coa.save(
-        coa.create({ code, name, type, isSystem: true, isPostable: false } as any),
+        coa.create({
+          code,
+          name,
+          type,
+          isSystem: true,
+          isPostable: false,
+        } as any),
       );
     }
   }
   const children = [
-    ['1100', 'Cash', 'Asset', '1000'],
-    ['1200', 'Bank', 'Asset', '1000'],
-    ['1300', 'Inventory', 'Asset', '1000'],
-    ['1400', 'Supplier Deposit', 'Asset', '1000'],
-    ['2100', 'Customer Deposit', 'Liability', '2000'],
-    ['3100', 'Owner Capital', 'Equity', '3000'],
-    ['3200', 'Opening Balance Equity', 'Equity', '3000'],
-    ['3300', 'Owner Drawings', 'Equity', '3000'],
-    ['4100', 'Sales Revenue', 'Income', '4000'],
-    ['5100', 'Cost of Goods Sold', 'Expense', '5000'],
-    ['6990', 'Other Expenses', 'Expense', '6000'],
+    ["1100", "Cash", "Asset", "1000"],
+    ["1200", "Bank", "Asset", "1000"],
+    ["1300", "Inventory", "Asset", "1000"],
+    ["1400", "Supplier Deposit", "Asset", "1000"],
+    ["2100", "Customer Deposit", "Liability", "2000"],
+    ["3100", "Owner Capital", "Equity", "3000"],
+    ["3200", "Opening Balance Equity", "Equity", "3000"],
+    ["3300", "Owner Drawings", "Equity", "3000"],
+    ["4100", "Sales Revenue", "Income", "4000"],
+    ["5100", "Cost of Goods Sold", "Expense", "5000"],
+    ["6990", "Other Expenses", "Expense", "6000"],
   ] as const;
   for (const [code, name, type, parentCode] of children) {
     if (!(await coa.findOneBy({ code }))) {
@@ -121,33 +127,33 @@ async function seedAccounting(ds: DataSource): Promise<void> {
     await settingsRepo.save(
       settingsRepo.create({
         id: true,
-        cashAccountId: await id('1100'),
-        bankAccountId: await id('1200'),
-        inventoryAccountId: await id('1300'),
-        supplierDepositAccountId: await id('1400'),
-        customerDepositAccountId: await id('2100'),
-        openingBalanceEquityAccountId: await id('3200'),
-        ownerCapitalAccountId: await id('3100'),
-        ownerDrawingsAccountId: await id('3300'),
-        salesRevenueAccountId: await id('4100'),
-        cogsAccountId: await id('5100'),
-        defaultExpenseAccountId: await id('6990'),
+        cashAccountId: await id("1100"),
+        bankAccountId: await id("1200"),
+        inventoryAccountId: await id("1300"),
+        supplierDepositAccountId: await id("1400"),
+        customerDepositAccountId: await id("2100"),
+        openingBalanceEquityAccountId: await id("3200"),
+        ownerCapitalAccountId: await id("3100"),
+        ownerDrawingsAccountId: await id("3300"),
+        salesRevenueAccountId: await id("4100"),
+        cogsAccountId: await id("5100"),
+        defaultExpenseAccountId: await id("6990"),
       } as any),
     );
   }
 }
 
-describe('Payment method account mappings (e2e)', () => {
+describe("Payment method account mappings (e2e)", () => {
   let app: INestApplication;
   let ds: DataSource;
 
   // Unique per run so a crashed previous run cannot collide on codes/names.
   const runId = Date.now().toString(36);
 
-  let adminUserId = '';
-  let adminUsername = '';
+  let adminUserId = "";
+  let adminUsername = "";
 
-  let token = '';
+  let token = "";
   let post: (path: string, body?: any) => request.Test;
   let put: (path: string, body?: any) => request.Test;
   let get: (path: string) => request.Test;
@@ -158,27 +164,27 @@ describe('Payment method account mappings (e2e)', () => {
   let bankMethod: PaymentMethodEntity;
 
   // Suite-owned methods (deleted in afterAll).
-  let mappedMethodId = '';
-  let mappedMethodName = '';
-  let rollbackMethodId = '';
-  let rollbackMethodName = '';
-  let bulkMethodAId = '';
-  let bulkMethodBId = '';
+  let mappedMethodId = "";
+  let mappedMethodName = "";
+  let rollbackMethodId = "";
+  let rollbackMethodName = "";
+  let bulkMethodAId = "";
+  let bulkMethodBId = "";
 
-  let bankAccountId = '';
-  let cashAccountId = '';
-  let expenseAccountId = '';
+  let bankAccountId = "";
+  let cashAccountId = "";
+  let expenseAccountId = "";
 
-  let maybankAccountId = '';
+  let maybankAccountId = "";
   let rollbackAccount: ChartOfAccount;
-  let accountAId = '';
-  let accountBId = '';
-  let accountCId = '';
+  let accountAId = "";
+  let accountBId = "";
+  let accountCId = "";
 
-  let customerId = '';
-  let supplierId = '';
-  let productId = '';
-  let categoryId = '';
+  let customerId = "";
+  let supplierId = "";
+  let productId = "";
+  let categoryId = "";
 
   const ownedEntityIds: string[] = [];
   const ownedSalesOrderIds: string[] = [];
@@ -208,22 +214,22 @@ describe('Payment method account mappings (e2e)', () => {
 
     cashMethod = await ds
       .getRepository(PaymentMethodEntity)
-      .findOneByOrFail({ code: 'CASH' });
+      .findOneByOrFail({ code: "CASH" });
     bankMethod = await ds
       .getRepository(PaymentMethodEntity)
-      .findOneByOrFail({ code: 'BANK' });
+      .findOneByOrFail({ code: "BANK" });
 
     // Suite-owned accounts. Unique codes: the leak check counts rows, and the
     // unique index on code means a crash-then-rerun would otherwise collide.
     const parent = await ds
       .getRepository(ChartOfAccount)
-      .findOneByOrFail({ code: '1000' });
+      .findOneByOrFail({ code: "1000" });
     const seedAccount = async (code: string, name: string) => {
       const account = (await ds.getRepository(ChartOfAccount).save(
         ds.getRepository(ChartOfAccount).create({
           code: `PMM-${code}-${runId}`.slice(0, 20),
           name,
-          type: 'Asset',
+          type: "Asset",
           parentId: parent.id,
           isSystem: false,
           isPostable: true,
@@ -234,11 +240,11 @@ describe('Payment method account mappings (e2e)', () => {
       ownedEntityIds.push(account.id);
       return account;
     };
-    maybankAccountId = (await seedAccount('MAY', `Maybank ${runId}`)).id;
-    rollbackAccount = await seedAccount('RBK', `Rollback Account ${runId}`);
-    accountAId = (await seedAccount('A', `Bulk Account A ${runId}`)).id;
-    accountBId = (await seedAccount('B', `Bulk Account B ${runId}`)).id;
-    accountCId = (await seedAccount('C', `Bulk Account C ${runId}`)).id;
+    maybankAccountId = (await seedAccount("MAY", `Maybank ${runId}`)).id;
+    rollbackAccount = await seedAccount("RBK", `Rollback Account ${runId}`);
+    accountAId = (await seedAccount("A", `Bulk Account A ${runId}`)).id;
+    accountBId = (await seedAccount("B", `Bulk Account B ${runId}`)).id;
+    accountCId = (await seedAccount("C", `Bulk Account C ${runId}`)).id;
 
     const seedMethod = async (code: string, name: string) => {
       const method = (await ds.getRepository(PaymentMethodEntity).save(
@@ -247,7 +253,7 @@ describe('Payment method account mappings (e2e)', () => {
           name,
           sortOrder: 100,
           useForPurchases: true,
-          accountingChannel: 'BANK',
+          accountingChannel: "BANK",
           isActive: true,
         }),
       )) as unknown as PaymentMethodEntity;
@@ -255,14 +261,14 @@ describe('Payment method account mappings (e2e)', () => {
       ownedEntityIds.push(method.id);
       return method;
     };
-    const mappedMethod = await seedMethod('MAP', `Maybank Mapping ${runId}`);
+    const mappedMethod = await seedMethod("MAP", `Maybank Mapping ${runId}`);
     mappedMethodId = mappedMethod.id;
     mappedMethodName = mappedMethod.name;
-    const rollbackMethod = await seedMethod('RBK', `Rollback Method ${runId}`);
+    const rollbackMethod = await seedMethod("RBK", `Rollback Method ${runId}`);
     rollbackMethodId = rollbackMethod.id;
     rollbackMethodName = rollbackMethod.name;
-    bulkMethodAId = (await seedMethod('BULKA', `Bulk Method A ${runId}`)).id;
-    bulkMethodBId = (await seedMethod('BULKB', `Bulk Method B ${runId}`)).id;
+    bulkMethodAId = (await seedMethod("BULKA", `Bulk Method A ${runId}`)).id;
+    bulkMethodBId = (await seedMethod("BULKB", `Bulk Method B ${runId}`)).id;
 
     const category = await seedCategory(ds, `pmam-e2e-${runId}`);
     categoryId = category.id;
@@ -278,29 +284,30 @@ describe('Payment method account mappings (e2e)', () => {
     adminUserId = admin.id;
 
     const loginRes = await request(app.getHttpServer())
-      .post('/auth/login').set(...SESSION_PROTOCOL)
+      .post("/auth/login")
+      .set(...SESSION_PROTOCOL)
       .send({ usernameOrEmail: adminUsername, password: E2E_ADMIN_PASSWORD });
     token = loginRes.body?.data?.accessToken ?? loginRes.body?.accessToken;
     expect(token).toBeTruthy();
 
     const server = app.getHttpServer();
-    const auth = (r: request.Test) => r.set('Authorization', `Bearer ${token}`);
+    const auth = (r: request.Test) => r.set("Authorization", `Bearer ${token}`);
     post = (path: string, body: any = {}) =>
       auth(request(server).post(path).send(body));
     put = (path: string, body: any = {}) =>
       auth(request(server).put(path).send(body));
     get = (path: string) => auth(request(server).get(path));
 
-    const customerRes = await post('/customers', {
-      type: 'business',
+    const customerRes = await post("/customers", {
+      type: "business",
       name: `PMM Customer ${runId}`,
     }).expect(201);
     const customer = customerRes.body.data ?? customerRes.body;
     customerId = customer.id;
     ownedEntityIds.push(customerId);
 
-    const supplierRes = await post('/purchasing/suppliers', {
-      type: 'local',
+    const supplierRes = await post("/purchasing/suppliers", {
+      type: "local",
       companyName: `PMM Supplier ${runId}`,
     }).expect(201);
     const supplier = supplierRes.body.data ?? supplierRes.body;
@@ -316,9 +323,9 @@ describe('Payment method account mappings (e2e)', () => {
         // it. It is NOT crash recovery — afterAll is in-process and is skipped
         // by a killed worker exactly as finally is.
         await ds.query(
-          'DROP TRIGGER IF EXISTS pmam_fail ON payment_method_account_mappings',
+          "DROP TRIGGER IF EXISTS pmam_fail ON payment_method_account_mappings",
         );
-        await ds.query('DROP FUNCTION IF EXISTS pmam_fail_on_c()');
+        await ds.query("DROP FUNCTION IF EXISTS pmam_fail_on_c()");
 
         if (ownedRefs.length) {
           await ds.query(
@@ -392,7 +399,8 @@ describe('Payment method account mappings (e2e)', () => {
             ownedMethodIds,
           ]);
         }
-        if (productId) await ds.query(`DELETE FROM products WHERE id = $1`, [productId]);
+        if (productId)
+          await ds.query(`DELETE FROM products WHERE id = $1`, [productId]);
         if (categoryId) {
           await ds.query(`DELETE FROM categories WHERE id = $1`, [categoryId]);
         }
@@ -425,7 +433,7 @@ describe('Payment method account mappings (e2e)', () => {
     id: string;
     orderNumber: string;
   }> {
-    const res = await post('/sales-orders', {
+    const res = await post("/sales-orders", {
       customerId,
       items: [{ productId, quantity: 1, unitPrice: 10 }],
     }).expect(201);
@@ -440,9 +448,9 @@ describe('Payment method account mappings (e2e)', () => {
     id: string;
     orderNumber: string;
   }> {
-    const res = await post('/purchasing/orders', {
+    const res = await post("/purchasing/orders", {
       supplierId,
-      orderDate: new Date().toISOString().split('T')[0],
+      orderDate: new Date().toISOString().split("T")[0],
       items: [{ productId, quantity: 1, unitPrice: 10 }],
     }).expect(201);
     const order = res.body.data ?? res.body;
@@ -456,12 +464,12 @@ describe('Payment method account mappings (e2e)', () => {
     id: string;
     expenseNumber: string;
   }> {
-    const res = await post('/accounting/expenses', {
-      expenseDate: '2026-08-15',
+    const res = await post("/accounting/expenses", {
+      expenseDate: "2026-08-15",
       payee: `PMM Vendor ${runId}`,
-      description: 'Mapping rollback fixture',
+      description: "Mapping rollback fixture",
       expenseAccountId,
-      totalAmount: '100.00',
+      totalAmount: "100.00",
     }).expect(201);
     const expense = res.body.data ?? res.body;
     ownedExpenseIds.push(expense.id);
@@ -471,13 +479,13 @@ describe('Payment method account mappings (e2e)', () => {
   }
 
   async function createOwnerEquityDoc(
-    type: 'CAPITAL_INJECTION' | 'CASH_DRAWING',
+    type: "CAPITAL_INJECTION" | "CASH_DRAWING",
   ): Promise<{ id: string; referenceNumber: string }> {
-    const res = await post('/accounting/owner-equity', {
+    const res = await post("/accounting/owner-equity", {
       type,
-      equityDate: '2026-08-15',
+      equityDate: "2026-08-15",
       description: `PMM ${type} ${runId}`,
-      totalAmount: '100.00',
+      totalAmount: "100.00",
     }).expect(201);
     const doc = res.body.data;
     ownedEquityDocIds.push(doc.id);
@@ -492,30 +500,30 @@ describe('Payment method account mappings (e2e)', () => {
     account: ChartOfAccount,
   ): void {
     expect(res.status).toBe(400);
-    const message = String(res.body.message ?? '');
+    const message = String(res.body.message ?? "");
     expect(message).toContain(methodName);
     expect(message).toContain(account.code);
     expect(message).toContain(account.name);
   }
 
-  describe('resolution', () => {
-    it('posts a sales payment to the MAPPED account when the method is mapped', async () => {
+  describe("resolution", () => {
+    it("posts a sales payment to the MAPPED account when the method is mapped", async () => {
       const listed = (
-        await put('/accounting/settings/payment-method-mappings', {
+        await put("/accounting/settings/payment-method-mappings", {
           mappings: [
             { paymentMethodId: mappedMethodId, accountId: maybankAccountId },
           ],
         }).expect(200)
       ).body as any[];
       const row = listed.find((r) => r.paymentMethodId === mappedMethodId);
-      expect(row.status).toBe('mapped');
+      expect(row.status).toBe("mapped");
       expect(row.accountId).toBe(maybankAccountId);
 
       const order = await createSalesOrder();
       await post(`/sales-orders/${order.id}/payments`, {
-        amount: '10.00',
+        amount: "10.00",
         paymentMethodId: mappedMethodId,
-        paymentDate: '2026-08-20',
+        paymentDate: "2026-08-20",
       }).expect(200);
 
       const debitIds = await debitAccountIdsFor(ds, order.orderNumber);
@@ -523,12 +531,12 @@ describe('Payment method account mappings (e2e)', () => {
       expect(debitIds).not.toContain(bankAccountId);
     });
 
-    it('posts a sales payment to the BANK default when the method is unmapped', async () => {
+    it("posts a sales payment to the BANK default when the method is unmapped", async () => {
       const order = await createSalesOrder();
       await post(`/sales-orders/${order.id}/payments`, {
-        amount: '10.00',
+        amount: "10.00",
         paymentMethodId: bankMethod.id,
-        paymentDate: '2026-08-20',
+        paymentDate: "2026-08-20",
       }).expect(200);
 
       expect(await debitAccountIdsFor(ds, order.orderNumber)).toEqual([
@@ -536,27 +544,65 @@ describe('Payment method account mappings (e2e)', () => {
       ]);
     });
 
-    it('posts a cash payment to the CASH default when the method is unmapped', async () => {
+    it("posts a cash payment to the CASH default when the method is unmapped", async () => {
       const order = await createSalesOrder();
       await post(`/sales-orders/${order.id}/payments`, {
-        amount: '10.00',
+        amount: "10.00",
         paymentMethodId: cashMethod.id,
-        paymentDate: '2026-08-20',
+        paymentDate: "2026-08-20",
       }).expect(200);
 
       expect(await debitAccountIdsFor(ds, order.orderNumber)).toEqual([
         cashAccountId,
       ]);
     });
+
+    it("refuses a sales payment mapped to inventory while valuation is active", async () => {
+      const [settings] = await ds.query(
+        `SELECT "inventoryAccountId" FROM accounting_settings WHERE id=true`,
+      );
+      await ds.query(
+        `UPDATE inventory_valuation_state SET status='active',"activatedAt"=now() WHERE id=true`,
+      );
+      try {
+        await put("/accounting/settings/payment-method-mappings", {
+          mappings: [
+            {
+              paymentMethodId: mappedMethodId,
+              accountId: settings.inventoryAccountId,
+            },
+          ],
+        }).expect(200);
+        const order = await createSalesOrder();
+        const response = await post(`/sales-orders/${order.id}/payments`, {
+          amount: "10.00",
+          paymentMethodId: mappedMethodId,
+          paymentDate: "2026-08-20",
+        }).expect(400);
+        expect(response.body.message).toContain(
+          "The inventory control account can only be posted by stock workflows.",
+        );
+        await expectNoResidue(ds, {
+          table: "sales_order_payments",
+          column: "salesOrderId",
+          id: order.id,
+          sourceRef: order.orderNumber,
+        });
+      } finally {
+        await ds.query(
+          `UPDATE inventory_valuation_state SET status='inactive',"activatedAt"=NULL,"pausedAt"=NULL WHERE id=true`,
+        );
+      }
+    });
   });
 
-  describe('rollback on an invalid mapping', () => {
+  describe("rollback on an invalid mapping", () => {
     // The mapping is saved while the account is VALID, then the account is
     // deactivated. Save-time validation therefore cannot reject it; only the
     // posting-time revalidation in resolvePaymentAccount() can — and when it
     // does, the path's own transaction must roll the business row back.
     beforeAll(async () => {
-      await put('/accounting/settings/payment-method-mappings', {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [
           { paymentMethodId: rollbackMethodId, accountId: rollbackAccount.id },
         ],
@@ -567,23 +613,23 @@ describe('Payment method account mappings (e2e)', () => {
       );
     });
 
-    it('sales payment rolls back', async () => {
+    it("sales payment rolls back", async () => {
       const order = await createSalesOrder();
       const res = await post(`/sales-orders/${order.id}/payments`, {
-        amount: '10.00',
+        amount: "10.00",
         paymentMethodId: rollbackMethodId,
-        paymentDate: '2026-08-20',
+        paymentDate: "2026-08-20",
       });
       expectInvalidMappingError(res, rollbackMethodName, rollbackAccount);
       await expectNoResidue(ds, {
-        table: 'sales_order_payments',
-        column: 'salesOrderId',
+        table: "sales_order_payments",
+        column: "salesOrderId",
         id: order.id,
         sourceRef: order.orderNumber,
       });
     });
 
-    it('sales refund rolls back', async () => {
+    it("sales refund rolls back", async () => {
       const order = await createSalesOrder();
       // A refund is capped by net paid, so seed a prior payment directly (raw
       // SQL: an HTTP payment would post its own entry under this sourceRef and
@@ -597,9 +643,9 @@ describe('Payment method account mappings (e2e)', () => {
       const res = await post(`/sales-orders/${order.id}/refunds`, {
         refunds: [
           {
-            amount: '10.00',
+            amount: "10.00",
             paymentMethodId: rollbackMethodId,
-            paymentDate: '2026-08-21',
+            paymentDate: "2026-08-21",
             referenceNumber: `rollback-${runId}`,
           },
         ],
@@ -609,34 +655,34 @@ describe('Payment method account mappings (e2e)', () => {
       // scope the residue check to the refund's method — the only row the
       // failing request could have written.
       await expectNoResidue(ds, {
-        table: 'sales_order_payments',
-        column: 'paymentMethodId',
+        table: "sales_order_payments",
+        column: "paymentMethodId",
         id: rollbackMethodId,
         sourceRef: order.orderNumber,
       });
     });
 
-    it('purchase payment rolls back', async () => {
+    it("purchase payment rolls back", async () => {
       const order = await createPurchaseOrder();
       const res = await post(`/purchasing/orders/${order.id}/payments`, {
         payments: [
           {
             paymentMethodId: rollbackMethodId,
-            amount: '10.00',
-            paymentDate: new Date().toISOString().split('T')[0],
+            amount: "10.00",
+            paymentDate: new Date().toISOString().split("T")[0],
           },
         ],
       });
       expectInvalidMappingError(res, rollbackMethodName, rollbackAccount);
       await expectNoResidue(ds, {
-        table: 'vendor_payments',
-        column: 'purchaseOrderId',
+        table: "vendor_payments",
+        column: "purchaseOrderId",
         id: order.id,
         sourceRef: order.orderNumber,
       });
     });
 
-    it('purchase refund rolls back', async () => {
+    it("purchase refund rolls back", async () => {
       const order = await createPurchaseOrder();
       await ds.query(
         `INSERT INTO vendor_payments
@@ -648,41 +694,41 @@ describe('Payment method account mappings (e2e)', () => {
         refunds: [
           {
             paymentMethodId: rollbackMethodId,
-            amount: '10.00',
+            amount: "10.00",
             reference: `rollback-${runId}`,
           },
         ],
       });
       expectInvalidMappingError(res, rollbackMethodName, rollbackAccount);
       await expectNoResidue(ds, {
-        table: 'vendor_payments',
-        column: 'paymentMethodId',
+        table: "vendor_payments",
+        column: "paymentMethodId",
         id: rollbackMethodId,
         sourceRef: order.orderNumber,
       });
     });
 
-    it('expense payment rolls back', async () => {
+    it("expense payment rolls back", async () => {
       const expense = await createExpense();
       const res = await post(`/accounting/expenses/${expense.id}/pay`, {
         payments: [
           {
             paymentMethodId: rollbackMethodId,
-            amount: '10.00',
-            paymentDate: '2026-08-20',
+            amount: "10.00",
+            paymentDate: "2026-08-20",
           },
         ],
       });
       expectInvalidMappingError(res, rollbackMethodName, rollbackAccount);
       await expectNoResidue(ds, {
-        table: 'expense_payments',
-        column: 'expenseId',
+        table: "expense_payments",
+        column: "expenseId",
         id: expense.id,
         sourceRef: expense.expenseNumber,
       });
     });
 
-    it('expense refund rolls back', async () => {
+    it("expense refund rolls back", async () => {
       const expense = await createExpense();
       await ds.query(
         `INSERT INTO expense_payments
@@ -694,46 +740,46 @@ describe('Payment method account mappings (e2e)', () => {
         refunds: [
           {
             paymentMethodId: rollbackMethodId,
-            amount: '10.00',
-            refundDate: '2026-08-21',
+            amount: "10.00",
+            refundDate: "2026-08-21",
             reference: `rollback-${runId}`,
           },
         ],
       });
       expectInvalidMappingError(res, rollbackMethodName, rollbackAccount);
       await expectNoResidue(ds, {
-        table: 'expense_payments',
-        column: 'paymentMethodId',
+        table: "expense_payments",
+        column: "paymentMethodId",
         id: rollbackMethodId,
         sourceRef: expense.expenseNumber,
       });
     });
 
-    it('owner equity capital injection settlement rolls back', async () => {
-      const doc = await createOwnerEquityDoc('CAPITAL_INJECTION');
+    it("owner equity capital injection settlement rolls back", async () => {
+      const doc = await createOwnerEquityDoc("CAPITAL_INJECTION");
       const res = await post(
         `/accounting/owner-equity/${doc.referenceNumber}/settle`,
         {
           settlements: [
             {
               paymentMethodId: rollbackMethodId,
-              settlementDate: '2026-08-20',
-              amount: '10.00',
+              settlementDate: "2026-08-20",
+              amount: "10.00",
             },
           ],
         },
       );
       expectInvalidMappingError(res, rollbackMethodName, rollbackAccount);
       await expectNoResidue(ds, {
-        table: 'owner_equity_settlements',
-        column: 'equityDocumentId',
+        table: "owner_equity_settlements",
+        column: "equityDocumentId",
         id: doc.id,
         sourceRef: doc.referenceNumber,
       });
     });
 
-    it('owner equity capital injection refund rolls back', async () => {
-      const doc = await createOwnerEquityDoc('CAPITAL_INJECTION');
+    it("owner equity capital injection refund rolls back", async () => {
+      const doc = await createOwnerEquityDoc("CAPITAL_INJECTION");
       await ds.query(
         `INSERT INTO owner_equity_settlements
            ("equityDocumentId", "paymentMethodId", "settlementDate", amount, reference, "sourceSettlementId", "isActive")
@@ -746,8 +792,8 @@ describe('Payment method account mappings (e2e)', () => {
           refunds: [
             {
               paymentMethodId: rollbackMethodId,
-              amount: '10.00',
-              refundDate: '2026-08-21',
+              amount: "10.00",
+              refundDate: "2026-08-21",
               reference: `rollback-${runId}`,
             },
           ],
@@ -755,38 +801,38 @@ describe('Payment method account mappings (e2e)', () => {
       );
       expectInvalidMappingError(res, rollbackMethodName, rollbackAccount);
       await expectNoResidue(ds, {
-        table: 'owner_equity_settlements',
-        column: 'paymentMethodId',
+        table: "owner_equity_settlements",
+        column: "paymentMethodId",
         id: rollbackMethodId,
         sourceRef: doc.referenceNumber,
       });
     });
 
-    it('owner equity cash drawing settlement rolls back', async () => {
-      const doc = await createOwnerEquityDoc('CASH_DRAWING');
+    it("owner equity cash drawing settlement rolls back", async () => {
+      const doc = await createOwnerEquityDoc("CASH_DRAWING");
       const res = await post(
         `/accounting/owner-equity/${doc.referenceNumber}/settle`,
         {
           settlements: [
             {
               paymentMethodId: rollbackMethodId,
-              settlementDate: '2026-08-20',
-              amount: '10.00',
+              settlementDate: "2026-08-20",
+              amount: "10.00",
             },
           ],
         },
       );
       expectInvalidMappingError(res, rollbackMethodName, rollbackAccount);
       await expectNoResidue(ds, {
-        table: 'owner_equity_settlements',
-        column: 'equityDocumentId',
+        table: "owner_equity_settlements",
+        column: "equityDocumentId",
         id: doc.id,
         sourceRef: doc.referenceNumber,
       });
     });
 
-    it('owner equity cash drawing refund rolls back', async () => {
-      const doc = await createOwnerEquityDoc('CASH_DRAWING');
+    it("owner equity cash drawing refund rolls back", async () => {
+      const doc = await createOwnerEquityDoc("CASH_DRAWING");
       await ds.query(
         `INSERT INTO owner_equity_settlements
            ("equityDocumentId", "paymentMethodId", "settlementDate", amount, reference, "sourceSettlementId", "isActive")
@@ -799,8 +845,8 @@ describe('Payment method account mappings (e2e)', () => {
           refunds: [
             {
               paymentMethodId: rollbackMethodId,
-              amount: '10.00',
-              refundDate: '2026-08-21',
+              amount: "10.00",
+              refundDate: "2026-08-21",
               reference: `rollback-${runId}`,
             },
           ],
@@ -808,15 +854,15 @@ describe('Payment method account mappings (e2e)', () => {
       );
       expectInvalidMappingError(res, rollbackMethodName, rollbackAccount);
       await expectNoResidue(ds, {
-        table: 'owner_equity_settlements',
-        column: 'paymentMethodId',
+        table: "owner_equity_settlements",
+        column: "paymentMethodId",
         id: rollbackMethodId,
         sourceRef: doc.referenceNumber,
       });
     });
   });
 
-  describe('bulk mapping update', () => {
+  describe("bulk mapping update", () => {
     beforeAll(async () => {
       // The bulk tests own bulkMethodA/B exclusively; clear residue from a
       // crashed previous run so "absent" means absent.
@@ -834,14 +880,14 @@ describe('Payment method account mappings (e2e)', () => {
      * transaction rolls back, because nothing was ever written. The next test
      * is the one that proves rollback.
      */
-    it('writes nothing when a later item fails validation', async () => {
-      const res = await put('/accounting/settings/payment-method-mappings', {
+    it("writes nothing when a later item fails validation", async () => {
+      const res = await put("/accounting/settings/payment-method-mappings", {
         mappings: [
           { paymentMethodId: bulkMethodAId, accountId: accountAId },
           { paymentMethodId: bulkMethodBId, accountId: randomUUID() },
         ],
       }).expect(400);
-      expect(String(res.body.message)).toContain('not found or deleted');
+      expect(String(res.body.message)).toContain("not found or deleted");
 
       const rows = await ds.query(
         `SELECT * FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
@@ -870,9 +916,9 @@ describe('Payment method account mappings (e2e)', () => {
      * killed worker skips it, and afterAll carries a backstop for the
      * in-process cases it cannot.
      */
-    it('rolls back an earlier write when a later write fails', async () => {
+    it("rolls back an earlier write when a later write fails", async () => {
       await ds.query(
-        'DROP TRIGGER IF EXISTS pmam_fail ON payment_method_account_mappings',
+        "DROP TRIGGER IF EXISTS pmam_fail ON payment_method_account_mappings",
       );
       /*
        * accountCId is INTERPOLATED, not bound, and must stay that way. A
@@ -900,15 +946,12 @@ describe('Payment method account mappings (e2e)', () => {
           FOR EACH ROW EXECUTE FUNCTION pmam_fail_on_c();
       `);
       try {
-        const res = await put(
-          '/accounting/settings/payment-method-mappings',
-          {
-            mappings: [
-              { paymentMethodId: bulkMethodAId, accountId: accountAId },
-              { paymentMethodId: bulkMethodBId, accountId: accountCId },
-            ],
-          },
-        );
+        const res = await put("/accounting/settings/payment-method-mappings", {
+          mappings: [
+            { paymentMethodId: bulkMethodAId, accountId: accountAId },
+            { paymentMethodId: bulkMethodBId, accountId: accountCId },
+          ],
+        });
         // The brief said "expect 500", but this codebase's global
         // HttpExceptionFilter maps EVERY QueryFailedError to 400 with
         // error: 'Database Error' (http-exception.filter.ts:122-128), so a
@@ -919,8 +962,8 @@ describe('Payment method account mappings (e2e)', () => {
         // which proves the request failed in the write phase, after the first
         // insert.
         expect(res.status).toBe(400);
-        expect(res.body.error).toBe('Database Error');
-        expect(res.body.code).toBe('DB_999');
+        expect(res.body.error).toBe("Database Error");
+        expect(res.body.code).toBe("DB_999");
 
         // BOTH absent: bulkMethodA's insert succeeded on its own and must still
         // have rolled back. Without the transaction, it survives and this goes
@@ -934,9 +977,9 @@ describe('Payment method account mappings (e2e)', () => {
       } finally {
         // Runs even if the request throws or an assertion fails.
         await ds.query(
-          'DROP TRIGGER IF EXISTS pmam_fail ON payment_method_account_mappings',
+          "DROP TRIGGER IF EXISTS pmam_fail ON payment_method_account_mappings",
         );
-        await ds.query('DROP FUNCTION IF EXISTS pmam_fail_on_c()');
+        await ds.query("DROP FUNCTION IF EXISTS pmam_fail_on_c()");
       }
     });
 
@@ -953,21 +996,21 @@ describe('Payment method account mappings (e2e)', () => {
      * restored method whose mapping was cleared falls back to the channel
      * default rather than resurrecting its old account.
      */
-    it('clears the mapping of a soft-deleted payment method, removing the row', async () => {
+    it("clears the mapping of a soft-deleted payment method, removing the row", async () => {
       const doomed = (await ds.getRepository(PaymentMethodEntity).save(
         ds.getRepository(PaymentMethodEntity).create({
           code: `PMM-DOOM-${runId}`.slice(0, 20),
           name: `Doomed Method ${runId}`,
           sortOrder: 100,
           useForPurchases: true,
-          accountingChannel: 'BANK',
+          accountingChannel: "BANK",
           isActive: true,
         }),
       )) as unknown as PaymentMethodEntity;
       ownedMethodIds.push(doomed.id);
       ownedEntityIds.push(doomed.id);
 
-      await put('/accounting/settings/payment-method-mappings', {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: doomed.id, accountId: accountAId }],
       }).expect(200);
 
@@ -983,13 +1026,15 @@ describe('Payment method account mappings (e2e)', () => {
       expect(stranded).toHaveLength(1);
 
       // And it is invisible in the GET, which lists active methods only.
-      const listed = (await get(
-        '/accounting/settings/payment-method-mappings',
-      ).expect(200)).body as any[];
-      expect(listed.find((r) => r.paymentMethodId === doomed.id)).toBeUndefined();
+      const listed = (
+        await get("/accounting/settings/payment-method-mappings").expect(200)
+      ).body as any[];
+      expect(
+        listed.find((r) => r.paymentMethodId === doomed.id),
+      ).toBeUndefined();
 
       // The clear is permitted despite the method being gone...
-      await put('/accounting/settings/payment-method-mappings', {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: doomed.id, accountId: null }],
       }).expect(200);
 
@@ -1003,31 +1048,33 @@ describe('Payment method account mappings (e2e)', () => {
 
       // Assigning to a soft-deleted method stays rejected: only the clear is
       // widened, because only the clear cannot create an invisible row.
-      await put('/accounting/settings/payment-method-mappings', {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: doomed.id, accountId: accountBId }],
       }).expect(400);
     });
 
-    it('falls back to the channel default when a restored method had its mapping cleared', async () => {
+    it("falls back to the channel default when a restored method had its mapping cleared", async () => {
       const revived = (await ds.getRepository(PaymentMethodEntity).save(
         ds.getRepository(PaymentMethodEntity).create({
           code: `PMM-RVV-${runId}`.slice(0, 20),
           name: `Revived Method ${runId}`,
           sortOrder: 100,
           useForPurchases: true,
-          accountingChannel: 'BANK',
+          accountingChannel: "BANK",
           isActive: true,
         }),
       )) as unknown as PaymentMethodEntity;
       ownedMethodIds.push(revived.id);
       ownedEntityIds.push(revived.id);
 
-      await put('/accounting/settings/payment-method-mappings', {
-        mappings: [{ paymentMethodId: revived.id, accountId: maybankAccountId }],
+      await put("/accounting/settings/payment-method-mappings", {
+        mappings: [
+          { paymentMethodId: revived.id, accountId: maybankAccountId },
+        ],
       }).expect(200);
 
       await ds.getRepository(PaymentMethodEntity).softDelete(revived.id);
-      await put('/accounting/settings/payment-method-mappings', {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: revived.id, accountId: null }],
       }).expect(200);
 
@@ -1036,12 +1083,12 @@ describe('Payment method account mappings (e2e)', () => {
       // Restored and visible again, but UNMAPPED — the cleared row did not
       // come back with the method. Had the clear been a soft delete, the row
       // would still be present and this would read 'mapped'.
-      const afterRestore = (await get(
-        '/accounting/settings/payment-method-mappings',
-      ).expect(200)).body as any[];
+      const afterRestore = (
+        await get("/accounting/settings/payment-method-mappings").expect(200)
+      ).body as any[];
       const row = afterRestore.find((r) => r.paymentMethodId === revived.id);
       expect(row).toBeDefined();
-      expect(row.status).toBe('unmapped');
+      expect(row.status).toBe("unmapped");
       expect(row.accountId).toBeNull();
 
       const rows = await ds.query(
@@ -1064,12 +1111,12 @@ describe('Payment method account mappings (e2e)', () => {
      * soft-deleted row back into use — either way the final state looks
      * correct while the row was silently resurrected.
      */
-    it('leaves no row behind when a mapping is cleared, and allows remapping', async () => {
-      await put('/accounting/settings/payment-method-mappings', {
+    it("leaves no row behind when a mapping is cleared, and allows remapping", async () => {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: bulkMethodAId, accountId: accountAId }],
       }).expect(200);
 
-      await put('/accounting/settings/payment-method-mappings', {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: bulkMethodAId, accountId: null }],
       }).expect(200);
 
@@ -1079,26 +1126,26 @@ describe('Payment method account mappings (e2e)', () => {
       );
       expect(afterClear).toHaveLength(0);
 
-      const clearedList = (await get(
-        '/accounting/settings/payment-method-mappings',
-      ).expect(200)).body as any[];
+      const clearedList = (
+        await get("/accounting/settings/payment-method-mappings").expect(200)
+      ).body as any[];
       const cleared = clearedList.find(
         (r) => r.paymentMethodId === bulkMethodAId,
       );
-      expect(cleared.status).toBe('unmapped');
+      expect(cleared.status).toBe("unmapped");
       expect(cleared.accountId).toBeNull();
 
-      await put('/accounting/settings/payment-method-mappings', {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: bulkMethodAId, accountId: accountBId }],
       }).expect(200);
 
-      const remappedList = (await get(
-        '/accounting/settings/payment-method-mappings',
-      ).expect(200)).body as any[];
+      const remappedList = (
+        await get("/accounting/settings/payment-method-mappings").expect(200)
+      ).body as any[];
       const remapped = remappedList.find(
         (r) => r.paymentMethodId === bulkMethodAId,
       );
-      expect(remapped.status).toBe('mapped');
+      expect(remapped.status).toBe("mapped");
       expect(remapped.accountId).toBe(accountBId);
 
       const afterRemap = await ds.query(
@@ -1110,25 +1157,25 @@ describe('Payment method account mappings (e2e)', () => {
       expect(afterRemap[0].accountId).toBe(accountBId);
     });
 
-    it('rejects a duplicate paymentMethodId in one payload', async () => {
-      const res = await put('/accounting/settings/payment-method-mappings', {
+    it("rejects a duplicate paymentMethodId in one payload", async () => {
+      const res = await put("/accounting/settings/payment-method-mappings", {
         mappings: [
           { paymentMethodId: bulkMethodAId, accountId: accountAId },
           { paymentMethodId: bulkMethodAId, accountId: accountBId },
         ],
       }).expect(400);
-      expect(String(res.body.message)).toContain('duplicate');
+      expect(String(res.body.message)).toContain("duplicate");
     });
 
-    it('rejects an empty-string accountId rather than treating it as a clear', async () => {
-      await put('/accounting/settings/payment-method-mappings', {
+    it("rejects an empty-string accountId rather than treating it as a clear", async () => {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: bulkMethodAId, accountId: accountAId }],
       }).expect(200);
 
-      const res = await put('/accounting/settings/payment-method-mappings', {
-        mappings: [{ paymentMethodId: bulkMethodAId, accountId: '' }],
+      const res = await put("/accounting/settings/payment-method-mappings", {
+        mappings: [{ paymentMethodId: bulkMethodAId, accountId: "" }],
       }).expect(400);
-      expect(String(res.body.message)).toContain('accountId');
+      expect(String(res.body.message)).toContain("accountId");
 
       const rows = await ds.query(
         `SELECT "accountId" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
@@ -1138,22 +1185,22 @@ describe('Payment method account mappings (e2e)', () => {
       expect(rows[0].accountId).toBe(accountAId);
     });
 
-    it('rejects an unknown paymentMethodId', async () => {
-      const res = await put('/accounting/settings/payment-method-mappings', {
+    it("rejects an unknown paymentMethodId", async () => {
+      const res = await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: randomUUID(), accountId: accountAId }],
       }).expect(400);
-      expect(String(res.body.message)).toContain('not found or inactive');
+      expect(String(res.body.message)).toContain("not found or inactive");
     });
 
-    it('leaves omitted methods unchanged', async () => {
-      await put('/accounting/settings/payment-method-mappings', {
+    it("leaves omitted methods unchanged", async () => {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [
           { paymentMethodId: bulkMethodAId, accountId: accountAId },
           { paymentMethodId: bulkMethodBId, accountId: accountBId },
         ],
       }).expect(200);
 
-      await put('/accounting/settings/payment-method-mappings', {
+      await put("/accounting/settings/payment-method-mappings", {
         mappings: [{ paymentMethodId: bulkMethodAId, accountId: accountBId }],
       }).expect(200);
 

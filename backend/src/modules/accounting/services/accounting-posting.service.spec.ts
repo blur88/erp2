@@ -1,14 +1,22 @@
-import { jest } from '@jest/globals';
-import { ConflictException } from '@nestjs/common';
-import { AccountingPostingService, assertBalanced } from './accounting-posting.service';
-import { ChartOfAccount } from '../entities/chart-of-account.entity';
-import { JournalEntry } from '../entities/journal-entry.entity';
-import { AccountType } from '../entities/account-type.enum';
-import { PostingType } from '../entities/posting-type.enum';
-import { AccountingSourceType } from '../entities/source-type.enum';
+import { jest } from "@jest/globals";
+import { ConflictException } from "@nestjs/common";
+import {
+  AccountingPostingService,
+  assertBalanced,
+} from "./accounting-posting.service";
+import { ChartOfAccount } from "../entities/chart-of-account.entity";
+import { JournalEntry } from "../entities/journal-entry.entity";
+import { AccountType } from "../entities/account-type.enum";
+import { PostingType } from "../entities/posting-type.enum";
+import { AccountingSourceType } from "../entities/source-type.enum";
 
 function acc(id: string, type = AccountType.ASSET): ChartOfAccount {
-  return Object.assign(new ChartOfAccount(), { id, type, isActive: true, isPostable: true });
+  return Object.assign(new ChartOfAccount(), {
+    id,
+    type,
+    isActive: true,
+    isPostable: true,
+  });
 }
 
 function makeService(saved: any[], findOneMap?: Record<string, any>) {
@@ -17,7 +25,7 @@ function makeService(saved: any[], findOneMap?: Record<string, any>) {
     resolveAccount: async (key: string) => acc(`${key}-id`),
     resolvePaymentAccount: async (ch: string) => acc(`${ch}-id`),
   } as any;
-  const docNumbers = { generateDocumentNumber: async () => 'JE-26-001' } as any;
+  const docNumbers = { generateDocumentNumber: async () => "JE-26-001" } as any;
   const svc = new AccountingPostingService(lookup, docNumbers);
   const manager = {
     // Event-keyed posts wrap their insert in a SAVEPOINT so a unique-violation
@@ -28,7 +36,10 @@ function makeService(saved: any[], findOneMap?: Record<string, any>) {
       const name = entity.name;
       return {
         create: (x: any) => x,
-        save: async (x: any) => { saved.push({ entity: name, value: x }); return { ...x, id: 'je-1' }; },
+        save: async (x: any) => {
+          saved.push({ entity: name, value: x });
+          return { ...x, id: "je-1" };
+        },
         findOne: async (opts: any) => {
           // An id-keyed entry wins, so a test that needs two DIFFERENT
           // ChartOfAccount rows (bank vs clearing) can supply both.
@@ -42,8 +53,8 @@ function makeService(saved: any[], findOneMap?: Record<string, any>) {
   return { svc, manager, lookup };
 }
 
-describe('AccountingPostingService', () => {
-  it('rejects journal companion posting types outside the expected-type allowlist', async () => {
+describe("AccountingPostingService", () => {
+  it("rejects journal companion posting types outside the expected-type allowlist", async () => {
     const { svc } = makeService([]);
     const manager = {
       getRepository: () => ({ find: async () => [] }),
@@ -53,241 +64,384 @@ describe('AccountingPostingService', () => {
       svc.reverseEntryForEvent(
         {
           sourceType: AccountingSourceType.PURCHASE_ORDER,
-          sourceDocumentId: 'po-1',
-          sourceEventId: 'receipt-1',
+          sourceDocumentId: "po-1",
+          sourceEventId: "receipt-1",
           expectedPostingType: PostingType.PURCHASE_RECEIVE,
           otherPostingTypes: [],
           companionPostingTypes: [PostingType.SALES_FULFILLMENT_REVENUE],
-          entryDate: '2026-10-19',
+          entryDate: "2026-10-19",
         },
         manager,
       ),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('posts a balanced sales payment JE (Cash debit, Customer Deposit credit)', async () => {
+  it("posts a balanced sales payment JE (Cash debit, Customer Deposit credit)", async () => {
     const saved: any[] = [];
     const { svc, manager } = makeService(saved);
     const res = await svc.postSalesPayment(
-      { salesOrderId: 'so1', sourceRef: 'SO-26-001', paymentRowId: 'p1', channel: 'CASH', amount: '500.0000', entryDate: '2026-07-10' },
+      {
+        salesOrderId: "so1",
+        sourceRef: "SO-26-001",
+        paymentRowId: "p1",
+        channel: "CASH",
+        amount: "500.0000",
+        entryDate: "2026-07-10",
+      },
       manager,
     );
-    expect(res.journalEntryId).toBe('je-1');
-    const entry = saved.find((s) => s.entity === 'JournalEntry')!.value as JournalEntry;
+    expect(res.journalEntryId).toBe("je-1");
+    const entry = saved.find((s) => s.entity === "JournalEntry")!
+      .value as JournalEntry;
     expect(entry.postingType).toBe(PostingType.SALES_PAYMENT);
     expect(entry.lines).toHaveLength(2);
-    const debit = entry.lines.find((l) => l.debit !== '0.0000');
-    const credit = entry.lines.find((l) => l.credit !== '0.0000');
-    expect(debit!.debit).toBe('500.0000');
-    expect(credit!.credit).toBe('500.0000');
+    const debit = entry.lines.find((l) => l.debit !== "0.0000");
+    const credit = entry.lines.find((l) => l.credit !== "0.0000");
+    expect(debit!.debit).toBe("500.0000");
+    expect(credit!.credit).toBe("500.0000");
   });
 
-  it('posts an expense payment JE (Dr expense account, Cr channel account)', async () => {
+  it("posts an expense payment JE (Dr expense account, Cr channel account)", async () => {
     const saved: any[] = [];
     const { svc, manager } = makeService(saved, {
-      ChartOfAccount: { id: 'exp-acc-1', isPostable: true, type: AccountType.EXPENSE },
+      ChartOfAccount: {
+        id: "exp-acc-1",
+        isPostable: true,
+        type: AccountType.EXPENSE,
+      },
     });
-    const res = await svc.postExpensePayment({
-      expenseId: 'exp1', sourceRef: 'EXP-26-001', paymentRowId: 'pr1',
-      expenseAccountId: 'exp-acc-1', channel: 'BANK', amount: '1250.0000',
-      entryDate: '2026-07-15',
-    }, manager);
-    expect(res.journalEntryId).toBe('je-1');
-    const entry = saved.find((s) => s.entity === 'JournalEntry')!.value as any;
+    const res = await svc.postExpensePayment(
+      {
+        expenseId: "exp1",
+        sourceRef: "EXP-26-001",
+        paymentRowId: "pr1",
+        expenseAccountId: "exp-acc-1",
+        channel: "BANK",
+        amount: "1250.0000",
+        entryDate: "2026-07-15",
+      },
+      manager,
+    );
+    expect(res.journalEntryId).toBe("je-1");
+    const entry = saved.find((s) => s.entity === "JournalEntry")!.value as any;
     expect(entry.postingType).toBe(PostingType.EXPENSE_PAYMENT);
     expect(entry.sourceType).toBe(AccountingSourceType.EXPENSE);
-    expect(entry.sourceEventId).toBe('pr1');
-    expect(entry.sourceDocumentId).toBe('exp1');
-    expect(entry.sourceRef).toBe('EXP-26-001');
+    expect(entry.sourceEventId).toBe("pr1");
+    expect(entry.sourceDocumentId).toBe("exp1");
+    expect(entry.sourceRef).toBe("EXP-26-001");
     expect(entry.lines).toHaveLength(2);
-    const debit = entry.lines.find((l) => l.debit !== '0.0000');
-    const credit = entry.lines.find((l) => l.credit !== '0.0000');
-    expect(debit!.debit).toBe('1250.0000');
-    expect(credit!.credit).toBe('1250.0000');
-    expect(debit!.accountId).toBe('exp-acc-1');
-    expect(credit!.accountId).toBe('BANK-id');
+    const debit = entry.lines.find((l) => l.debit !== "0.0000");
+    const credit = entry.lines.find((l) => l.credit !== "0.0000");
+    expect(debit!.debit).toBe("1250.0000");
+    expect(credit!.credit).toBe("1250.0000");
+    expect(debit!.accountId).toBe("exp-acc-1");
+    expect(credit!.accountId).toBe("BANK-id");
   });
 
-  it('posts an expense refund JE (Dr channel account, Cr expense account)', async () => {
+  it("posts an expense refund JE (Dr channel account, Cr expense account)", async () => {
     const saved: any[] = [];
     const { svc, manager } = makeService(saved, {
-      ChartOfAccount: { id: 'exp-acc-2', isPostable: true, type: AccountType.EXPENSE },
+      ChartOfAccount: {
+        id: "exp-acc-2",
+        isPostable: true,
+        type: AccountType.EXPENSE,
+      },
     });
-    const res = await svc.postExpenseRefund({
-      expenseId: 'exp1', sourceRef: 'EXP-26-001', refundRowId: 'rr1',
-      expenseAccountId: 'exp-acc-2', channel: 'BANK', amount: '300.0000',
-      entryDate: '2026-07-16',
-    }, manager);
-    expect(res.journalEntryId).toBe('je-1');
-    const entry = saved.find((s) => s.entity === 'JournalEntry')!.value as any;
+    const res = await svc.postExpenseRefund(
+      {
+        expenseId: "exp1",
+        sourceRef: "EXP-26-001",
+        refundRowId: "rr1",
+        expenseAccountId: "exp-acc-2",
+        channel: "BANK",
+        amount: "300.0000",
+        entryDate: "2026-07-16",
+      },
+      manager,
+    );
+    expect(res.journalEntryId).toBe("je-1");
+    const entry = saved.find((s) => s.entity === "JournalEntry")!.value as any;
     expect(entry.postingType).toBe(PostingType.EXPENSE_REFUND);
     expect(entry.sourceType).toBe(AccountingSourceType.EXPENSE);
-    expect(entry.sourceEventId).toBe('rr1');
-    expect(entry.sourceDocumentId).toBe('exp1');
-    expect(entry.sourceRef).toBe('EXP-26-001');
+    expect(entry.sourceEventId).toBe("rr1");
+    expect(entry.sourceDocumentId).toBe("exp1");
+    expect(entry.sourceRef).toBe("EXP-26-001");
     expect(entry.lines).toHaveLength(2);
-    const debit = entry.lines.find((l) => l.debit !== '0.0000');
-    const credit = entry.lines.find((l) => l.credit !== '0.0000');
-    expect(debit!.debit).toBe('300.0000');
-    expect(credit!.credit).toBe('300.0000');
+    const debit = entry.lines.find((l) => l.debit !== "0.0000");
+    const credit = entry.lines.find((l) => l.credit !== "0.0000");
+    expect(debit!.debit).toBe("300.0000");
+    expect(credit!.credit).toBe("300.0000");
     // Refund: Dr channel, Cr expense
-    expect(debit!.accountId).toBe('BANK-id');
-    expect(credit!.accountId).toBe('exp-acc-2');
+    expect(debit!.accountId).toBe("BANK-id");
+    expect(credit!.accountId).toBe("exp-acc-2");
   });
 
-  it('returns existing JE when expense payment already posted (find-or-return)', async () => {
+  it("returns existing JE when expense payment already posted (find-or-return)", async () => {
     const saved: any[] = [];
     const { svc, manager } = makeService(saved, {
-      ChartOfAccount: { id: 'exp-acc-1', isPostable: true, type: AccountType.EXPENSE },
-      JournalEntry: { id: 'existing-je-42' },
+      ChartOfAccount: {
+        id: "exp-acc-1",
+        isPostable: true,
+        type: AccountType.EXPENSE,
+      },
+      JournalEntry: { id: "existing-je-42" },
     });
-    const res = await svc.postExpensePayment({
-      expenseId: 'exp1', sourceRef: 'EXP-26-001', paymentRowId: 'pr1',
-      expenseAccountId: 'exp-acc-1', channel: 'BANK', amount: '1250.0000',
-      entryDate: '2026-07-15',
-    }, manager);
-    expect(res.journalEntryId).toBe('existing-je-42');
+    const res = await svc.postExpensePayment(
+      {
+        expenseId: "exp1",
+        sourceRef: "EXP-26-001",
+        paymentRowId: "pr1",
+        expenseAccountId: "exp-acc-1",
+        channel: "BANK",
+        amount: "1250.0000",
+        entryDate: "2026-07-15",
+      },
+      manager,
+    );
+    expect(res.journalEntryId).toBe("existing-je-42");
     // No new JournalEntry should be saved
-    expect(saved.find((s) => s.entity === 'JournalEntry')).toBeUndefined();
+    expect(saved.find((s) => s.entity === "JournalEntry")).toBeUndefined();
   });
 
-  it('forwards the payment method id to account resolution', async () => {
+  it("forwards the payment method id to account resolution", async () => {
     const saved: any[] = [];
     const { svc, manager, lookup } = makeService(saved);
-    lookup.resolvePaymentAccount = jest.fn(async () => acc('mapped-acct'));
-    await svc.postSalesPayment({
-      salesOrderId: 'so-1', paymentRowId: 'row-1', sourceRef: 'SO-001',
-      channel: 'BANK', paymentMethodId: 'pm-maybank', amount: '10.0000',
-      entryDate: '2026-09-14', createdBy: 'tester',
-    } as any, manager);
-    expect(lookup.resolvePaymentAccount).toHaveBeenCalledWith('BANK', 'pm-maybank', expect.anything());
+    lookup.resolvePaymentAccount = jest.fn(async () => acc("mapped-acct"));
+    await svc.postSalesPayment(
+      {
+        salesOrderId: "so-1",
+        paymentRowId: "row-1",
+        sourceRef: "SO-001",
+        channel: "BANK",
+        paymentMethodId: "pm-maybank",
+        amount: "10.0000",
+        entryDate: "2026-09-14",
+        createdBy: "tester",
+      } as any,
+      manager,
+    );
+    expect(lookup.resolvePaymentAccount).toHaveBeenCalledWith(
+      "BANK",
+      "pm-maybank",
+      expect.anything(),
+    );
   });
 
-  it('posts a provider settlement as exactly Dr bank / Cr clearing', async () => {
+  it("posts a provider settlement as exactly Dr bank / Cr clearing", async () => {
     const saved: any[] = [];
     const { svc, manager } = makeService(saved, {
-      'bank-acc': acc('bank-acc'),
-      'clearing-acc': acc('clearing-acc'),
+      "bank-acc": acc("bank-acc"),
+      "clearing-acc": acc("clearing-acc"),
     });
     const result = await svc.postProviderSettlement(
       {
-        settlementId: 'ps-1', sourceRef: 'PS-26-001',
-        bankAccountId: 'bank-acc', clearingAccountId: 'clearing-acc',
-        amount: '98.00', entryDate: '2026-09-20', createdBy: 'tester',
+        settlementId: "ps-1",
+        sourceRef: "PS-26-001",
+        bankAccountId: "bank-acc",
+        clearingAccountId: "clearing-acc",
+        amount: "98.00",
+        entryDate: "2026-09-20",
+        createdBy: "tester",
       },
       manager,
     );
     expect(result.journalEntryId).toBeDefined();
-    const savedEntry = saved.find((s) => s.entity === 'JournalEntry')!.value as any;
+    const savedEntry = saved.find((s) => s.entity === "JournalEntry")!
+      .value as any;
     const lines = savedEntry.lines;
     expect(lines).toHaveLength(2); // never a provider-fee line
-    expect(lines.find((l: any) => l.accountId === 'bank-acc')).toMatchObject({
-      debit: '98.0000', credit: '0.0000',
+    expect(lines.find((l: any) => l.accountId === "bank-acc")).toMatchObject({
+      debit: "98.0000",
+      credit: "0.0000",
     });
-    expect(lines.find((l: any) => l.accountId === 'clearing-acc')).toMatchObject({
-      debit: '0.0000', credit: '98.0000',
+    expect(
+      lines.find((l: any) => l.accountId === "clearing-acc"),
+    ).toMatchObject({
+      debit: "0.0000",
+      credit: "98.0000",
     });
   });
 
   // #1340: General Ledger links a settlement source by its id, so the journal
   // must carry the settlement id (not the Settlement No) as sourceDocumentId.
-  it('stamps a provider settlement JE with the settlement id and Settlement No', async () => {
+  it("stamps a provider settlement JE with the settlement id and Settlement No", async () => {
     const saved: any[] = [];
     const { svc, manager } = makeService(saved, {
-      'bank-acc': acc('bank-acc'),
-      'clearing-acc': acc('clearing-acc'),
+      "bank-acc": acc("bank-acc"),
+      "clearing-acc": acc("clearing-acc"),
     });
     await svc.postProviderSettlement(
       {
-        settlementId: 'ps-uuid-10', sourceRef: 'PS-26-010',
-        bankAccountId: 'bank-acc', clearingAccountId: 'clearing-acc',
-        amount: '200.00', entryDate: '2026-10-02', createdBy: 'tester',
+        settlementId: "ps-uuid-10",
+        sourceRef: "PS-26-010",
+        bankAccountId: "bank-acc",
+        clearingAccountId: "clearing-acc",
+        amount: "200.00",
+        entryDate: "2026-10-02",
+        createdBy: "tester",
       },
       manager,
     );
-    const entry = saved.find((s) => s.entity === 'JournalEntry')!.value as JournalEntry;
-    expect(entry.sourceType).toBe('PROVIDER_SETTLEMENT');
-    expect(entry.sourceDocumentId).toBe('ps-uuid-10');
-    expect(entry.sourceRef).toBe('PS-26-010');
+    const entry = saved.find((s) => s.entity === "JournalEntry")!
+      .value as JournalEntry;
+    expect(entry.sourceType).toBe("PROVIDER_SETTLEMENT");
+    expect(entry.sourceDocumentId).toBe("ps-uuid-10");
+    expect(entry.sourceRef).toBe("PS-26-010");
   });
 
-  it('carries the settlement source metadata onto the reversal entry', async () => {
+  it("carries the settlement source metadata onto the reversal entry", async () => {
     const saved: any[] = [];
     const original = Object.assign(new JournalEntry(), {
-      id: 'je-154', journalNo: 'JE-26-154',
+      id: "je-154",
+      journalNo: "JE-26-154",
       sourceType: AccountingSourceType.PROVIDER_SETTLEMENT,
-      sourceDocumentId: 'ps-uuid-10', sourceEventId: 'ps-uuid-10', sourceRef: 'PS-26-010',
+      sourceDocumentId: "ps-uuid-10",
+      sourceEventId: "ps-uuid-10",
+      sourceRef: "PS-26-010",
       postingType: PostingType.PROVIDER_SETTLEMENT,
       lines: [
-        { accountId: 'bank-acc', debit: '200.0000', credit: '0.0000' },
-        { accountId: 'clearing-acc', debit: '0.0000', credit: '200.0000' },
+        { accountId: "bank-acc", debit: "200.0000", credit: "0.0000" },
+        { accountId: "clearing-acc", debit: "0.0000", credit: "200.0000" },
       ],
     });
     const { svc, manager } = makeService(saved, {
-      'je-154': original,
-      'bank-acc': acc('bank-acc'),
-      'clearing-acc': acc('clearing-acc'),
+      "je-154": original,
+      "bank-acc": acc("bank-acc"),
+      "clearing-acc": acc("clearing-acc"),
     });
     await svc.reverseEntry(
-      { originalEntryId: 'je-154', entryDate: '2026-10-02', createdBy: 'tester' } as any,
+      {
+        originalEntryId: "je-154",
+        entryDate: "2026-10-02",
+        createdBy: "tester",
+      } as any,
       manager,
     );
-    const reversal = saved.find((s) => s.entity === 'JournalEntry')!.value as JournalEntry;
-    expect(reversal.reversalOfEntryId).toBe('je-154');
-    expect(reversal.sourceType).toBe('PROVIDER_SETTLEMENT');
-    expect(reversal.sourceDocumentId).toBe('ps-uuid-10');
-    expect(reversal.sourceRef).toBe('PS-26-010');
+    const reversal = saved.find((s) => s.entity === "JournalEntry")!
+      .value as JournalEntry;
+    expect(reversal.reversalOfEntryId).toBe("je-154");
+    expect(reversal.sourceType).toBe("PROVIDER_SETTLEMENT");
+    expect(reversal.sourceDocumentId).toBe("ps-uuid-10");
+    expect(reversal.sourceRef).toBe("PS-26-010");
   });
 
-  it('rejects an unbalanced entry', () => {
+  it("rejects an unbalanced entry", () => {
     expect(() =>
       assertBalanced([
-        { debit: '500.0000', credit: '0.0000' },
-        { debit: '0.0000', credit: '400.0000' },
+        { debit: "500.0000", credit: "0.0000" },
+        { debit: "0.0000", credit: "400.0000" },
       ]),
     ).toThrow(/balanced|debit.*credit/i);
   });
 });
 
-describe('inventory account active posting guard', () => {
-  it('blocks non-stock postings to the inventory account while valuation is active', async () => {
+describe("inventory account active posting guard", () => {
+  it("blocks non-stock postings to the inventory account while valuation is active", async () => {
     const saved: any[] = [];
-    const { svc, manager } = makeService(saved, { ChartOfAccount: acc('inventory-id') });
-    manager.query = async (sql: string) => sql.includes('inventory_valuation_state')
-      ? [{ status: 'active', inventoryAccountId: 'inventory-id' }]
-      : undefined;
-    await expect(svc.postProviderSettlement({
-      settlementId: 'settlement-1', bankAccountId: 'bank', clearingAccountId: 'clear',
-      sourceRef: 'SET-1', amount: '10.00', entryDate: '2026-10-22',
-    } as any, manager)).rejects.toThrow('The inventory control account can only be posted by stock workflows.');
+    const { svc, manager } = makeService(saved, {
+      ChartOfAccount: acc("inventory-id"),
+    });
+    manager.query = async (sql: string) =>
+      sql.includes("inventory_valuation_state")
+        ? [{ status: "active", inventoryAccountId: "inventory-id" }]
+        : undefined;
+    await expect(
+      svc.postProviderSettlement(
+        {
+          settlementId: "settlement-1",
+          bankAccountId: "bank",
+          clearingAccountId: "clear",
+          sourceRef: "SET-1",
+          amount: "10.00",
+          entryDate: "2026-10-22",
+        } as any,
+        manager,
+      ),
+    ).rejects.toThrow(
+      "The inventory control account can only be posted by stock workflows.",
+    );
+    expect(saved).toHaveLength(0);
+  });
+
+  it("blocks an expense payment whose resolved expense account is the inventory account", async () => {
+    const saved: any[] = [];
+    const { svc, manager } = makeService(saved, {
+      ChartOfAccount: acc("inventory-id", AccountType.ASSET),
+    });
+    manager.query = async (sql: string) =>
+      sql.includes("inventory_valuation_state")
+        ? [{ status: "active", inventoryAccountId: "inventory-id" }]
+        : undefined;
+    await expect(
+      svc.postExpensePayment(
+        {
+          expenseId: "expense-1",
+          sourceRef: "EXP-26-001",
+          paymentRowId: "payment-1",
+          expenseAccountId: "inventory-id",
+          channel: "BANK",
+          amount: "10.00",
+          entryDate: "2026-10-22",
+        } as any,
+        manager,
+      ),
+    ).rejects.toThrow(
+      "The inventory control account can only be posted by stock workflows.",
+    );
+    expect(saved).toHaveLength(0);
+  });
+
+  it("blocks a payment-method mapping that resolves to the inventory account", async () => {
+    const saved: any[] = [];
+    const { svc, manager, lookup } = makeService(saved);
+    lookup.resolvePaymentAccount = async () => acc("inventory-id");
+    manager.query = async (sql: string) =>
+      sql.includes("inventory_valuation_state")
+        ? [{ status: "active", inventoryAccountId: "inventory-id" }]
+        : undefined;
+    await expect(
+      svc.postSalesPayment(
+        {
+          salesOrderId: "order-1",
+          sourceRef: "SO-26-001",
+          paymentRowId: "payment-1",
+          channel: "BANK",
+          amount: "10.00",
+          entryDate: "2026-10-22",
+        } as any,
+        manager,
+      ),
+    ).rejects.toThrow(
+      "The inventory control account can only be posted by stock workflows.",
+    );
     expect(saved).toHaveLength(0);
   });
 });
 
-describe('journal balance gate (#1241)', () => {
-  it('rejects an unbalanced set of lines before persistence', () => {
+describe("journal balance gate (#1241)", () => {
+  it("rejects an unbalanced set of lines before persistence", () => {
     const lines = [
-      { debit: '10.00', credit: '0.00' },
-      { debit: '0.00', credit: '9.99' },
+      { debit: "10.00", credit: "0.00" },
+      { debit: "0.00", credit: "9.99" },
     ];
     expect(() => assertBalanced(lines)).toThrow(/does not balance/i);
   });
 
-  it('accepts lines that balance exactly at two decimals', () => {
+  it("accepts lines that balance exactly at two decimals", () => {
     const lines = [
-      { debit: '10.00', credit: '0.00' },
-      { debit: '0.00', credit: '10.00' },
+      { debit: "10.00", credit: "0.00" },
+      { debit: "0.00", credit: "10.00" },
     ];
     expect(() => assertBalanced(lines)).not.toThrow();
   });
 
-  it('rejects lines that balance only before quantization', () => {
+  it("rejects lines that balance only before quantization", () => {
     // 3.3333 + 3.3333 + 3.3334 balances at scale 4 but each line posts at cents
     const lines = [
-      { debit: '10.00', credit: '0.00' },
-      { debit: '0.00', credit: '3.3333' },
-      { debit: '0.00', credit: '3.3333' },
-      { debit: '0.00', credit: '3.3334' },
+      { debit: "10.00", credit: "0.00" },
+      { debit: "0.00", credit: "3.3333" },
+      { debit: "0.00", credit: "3.3333" },
+      { debit: "0.00", credit: "3.3334" },
     ];
     expect(() => assertBalanced(lines)).toThrow(/does not balance/i);
   });

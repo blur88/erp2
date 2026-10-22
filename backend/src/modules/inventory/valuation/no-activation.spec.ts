@@ -40,4 +40,20 @@ describe("inventory valuation stays inactive in stage 1", () => {
 
     expect(violations).toEqual([]);
   });
+
+  it("keeps reconciliation application fields out of stage 1 services and routes", () => {
+    const root = resolve(process.cwd(), "src/modules/inventory/valuation");
+    const implementation = sourceFiles(root)
+      .filter((path) => !path.endsWith(".spec.ts"))
+      .filter((path) =>
+        /inventory-reconciliation\.(service|controller)\.ts$/.test(path),
+      );
+    const applicationWrite =
+      /cutoffAt\s*:|correctingEntryId\s*:|status\s*:\s*['"]applied['"]|SET\s+status\s*=\s*'applied'/i;
+    const violations = implementation
+      .filter((path) => applicationWrite.test(readFileSync(path, "utf8")))
+      .map((path) => relative(root, path));
+
+    expect(violations).toEqual([]);
+  });
 });
