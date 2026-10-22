@@ -306,8 +306,10 @@ describe('FormBMappingSection — staged drafts', () => {
    * "Changed" chip, no `Pending: …` caption. The staged edit is visible on the
    * Select itself, and the page's Save/Cancel buttons carry the draft state.
    *
-   * The row background was an Emotion style and unobservable in jsdom
-   * (CLAUDE.md), so what this pins is the markup that carried the treatment.
+   * This pins markup; it does not assert that the row background was removed.
+   * Themed sx values are observable in jsdom, but layout such as clipping,
+   * scrolling, sticky positioning and alignment is not (see
+   * docs/frontend/testing-and-print.md, "What jsdom can observe").
    */
   it('stages a change with no row-level decoration', async () => {
     const user = userEvent.setup()

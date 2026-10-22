@@ -643,9 +643,13 @@ describe('AccountingSettingsPage — page-level save', () => {
    * #1184: the action row is the ONLY dirty-state signal. No footer notice, no
    * row highlight, no `Pending: …` caption, no "Changed" chip.
    *
-   * The removed row background is an Emotion style and unobservable in jsdom
-   * (CLAUDE.md), so this pins the text and testids that carried the treatment;
-   * the browser gate covers the styling itself.
+   * This pins the text and test IDs; it does not assert that the row background
+   * was removed. Themed sx values are observable in jsdom, but layout checks
+   * such as clipping, scrolling, sticky positioning and alignment need a
+   * browser (see docs/frontend/testing-and-print.md, "What jsdom can observe").
+   * Check layout manually; the repo has no browser-test infrastructure (see
+   * AGENTS.md, "Critical rules and traps", "jsdom cannot test layout or print"
+   * bullet).
    */
   it('reports a staged edit through the action controls alone', async () => {
     const user = userEvent.setup()

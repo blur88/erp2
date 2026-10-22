@@ -154,7 +154,7 @@ dump.rdb
 
 # Claude Code artifacts (temporary files only)
 .claude/
-# NOTE: CLAUDE.md is NOT ignored - it's the authoritative project documentation
+# NOTE: CLAUDE.md is NOT ignored - it imports AGENTS.md, the authoritative project instructions
 
 # Binaries and executables
 code

@@ -277,9 +277,11 @@ describe('StatementFigure presentation props', () => {
 
   describe('emphasized', () => {
     it('adds weight WITHOUT changing the figure font size', () => {
-      // The invariant CLAUDE.md calls load-bearing: a larger bottom-line figure
-      // puts its decimal separator at a different x position from every other
-      // row. Weight may change; size may not.
+      // See docs/frontend/testing-and-print.md,
+      // "Statement (P&L / Balance Sheet / Form B)" section: a larger
+      // bottom-line figure puts its decimal separator at a different x
+      // position from every other row.
+      // Weight may change; size may not.
       renderThemedFigure({ emphasized: true })
       expect(screen.getByTestId('fig')).toHaveStyle({
         fontWeight: '700',

@@ -276,8 +276,10 @@ function toCount(value: string): number {
 }
 
 /**
- * pg returns bigint as a string. Routed through the entity transformer so an
- * out-of-range value throws instead of silently truncating (see CLAUDE.md).
+ * pg returns bigint as a string. The entity transformer rejects out-of-range
+ * values instead of silently truncating (see docs/backend/redis.md,
+ * "Memory monitoring persists to Postgres, never to Redis",
+ * "`bigint` columns use `SafeIntegerTransformer`" bullet).
  */
 function toBigIntOrNull(value: string | null): number | null {
   return value === null ? null : (safeIntegerTransformer.from(value) as number | null);

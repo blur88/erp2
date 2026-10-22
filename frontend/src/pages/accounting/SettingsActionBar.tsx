@@ -22,12 +22,14 @@ import { AppButton } from '@/components/common/AppButton'
  * background: content ends at the bounded pane above and never passes behind
  * this row.
  *
- * jsdom has no layout engine, and Emotion styles never reach getComputedStyle
- * there (CLAUDE.md), so no automated test can catch either regression — the
- * browser gate is what does. The contract to re-check there: this row is
- * right-aligned with a transparent background and no border, and its two
- * buttons match Create SO's (/sales/orders/create) at both desktop and narrow
- * widths. Compare the two pages side by side rather than asserting colours.
+ * jsdom cannot verify layout such as clipping, scrolling, sticky positioning
+ * and alignment. Layout changes need a manual browser pass; the repo has no
+ * browser-test infrastructure (see AGENTS.md, "Critical rules and traps",
+ * "jsdom cannot test layout or print" bullet).
+ * Before closing a layout change, manually check that this row is right-aligned
+ * with a transparent background and no border, and that its buttons match
+ * Create SO's (/sales/orders/create) at desktop and narrow widths. Compare the
+ * pages side by side.
  */
 export default function SettingsActionBar({
   isDirty, isSaving, onCancel, onSave,
