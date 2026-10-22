@@ -143,3 +143,36 @@ describe.each(["AVERAGE", "FIFO"] as CostingMethod[])(
     });
   },
 );
+
+it("reverses an unconsumed AVERAGE increase by its exact original quantity and value", async () => {
+  await seed("AVERAGE");
+  await service.valueIncrease(
+    ds.manager,
+    productId,
+    20000n,
+    20000n,
+    StockValuationEntryKind.FOUND,
+  );
+  const original = Object.assign(new StockValuationEntry(), {
+    id: randomUUID(),
+    productId,
+    kind: StockValuationEntryKind.FOUND,
+    method: "AVERAGE" as const,
+    quantity: "2.0000",
+    value: "200.00",
+    createdAt: new Date(),
+  });
+
+  const reversal = await service.valueIncreaseReversal(ds.manager, original);
+
+  expect(reversal.kind).toBe(StockValuationEntryKind.INCREASE_REVERSAL);
+  expect(reversal.quantityMinor).toBe(-20000n);
+  expect(reversal.valueCents).toBe(-20000n);
+  expect(reversal.runningQuantityMinor).toBe(100000n);
+  expect(reversal.runningValueCents).toBe(100000n);
+  const [balance] = await ds.query(
+    `SELECT "quantityOnHand", "valueOnHand" FROM product_valuation_balances WHERE "productId"=$1`,
+    [productId],
+  );
+  expect(balance).toEqual({ quantityOnHand: "10.0000", valueOnHand: "1000.00" });
+});
