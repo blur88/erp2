@@ -395,4 +395,4 @@ For support, please:
 
 ---
 
-**For complete system documentation, see**: `/CLAUDE.md` in the repository root.
+**For project documentation, see**: `/AGENTS.md` in the repository root, which links to the detailed docs.
