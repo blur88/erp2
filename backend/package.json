@@ -14,6 +14,7 @@
     "verify:dist": "./scripts/verify-dist-runtime.sh",
     "verify:baseline": "./scripts/verify-baseline.sh",
     "verify:seeds": "./scripts/verify-seeds.sh",
+    "verify:doc-links": "node ./scripts/verify-doc-links.mjs",
     "type-check": "tsc -p tsconfig.build.json --noEmit",
     "type-check:spec": "tsc -p tsconfig.spec.json --noEmit",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

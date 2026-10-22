@@ -2,8 +2,8 @@
 
 The frontend has two approved color sources:
 
-1. [`frontend/src/styles/theme.ts`](/home/blur/erp2/frontend/src/styles/theme.ts) for live UI
-2. [`frontend/src/styles/printTokens.ts`](/home/blur/erp2/frontend/src/styles/printTokens.ts) for print and PDF output
+1. [`frontend/src/styles/theme.ts`](../../frontend/src/styles/theme.ts) for live UI
+2. [`frontend/src/styles/printTokens.ts`](../../frontend/src/styles/printTokens.ts) for print and PDF output
 
 Do not add hardcoded hex colors in component code unless the exception is explicitly documented.
 

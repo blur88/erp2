@@ -1,0 +1,23 @@
+# Captured from PRD.md at 40005e787b3f4adbbaf1d0576bbaefd18f277277.
+# Command: gh api 'repos/blur88/erp2/contents/PRD.md?ref=40005e787b3f4adbbaf1d0576bbaefd18f277277' --header 'Accept: application/vnd.github.html' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log([...s.matchAll(/id="user-content-([^"]+)"/g)].map(x=>x[1]).join("\n")))'
+-product-requirements-document-prd
+-implementation-status-summary
+1-overview-original-planning
+11-purpose
+12-objectives
+13-target-users
+2-scope
+21-in-scope-mvp-release----all-delivered
+22-future-scope-original---status-update
+23-features-implemented-beyond-original-scope-
+3-functional-requirements
+31-inventory-management
+32-sales-module
+33-purchasing-module
+34-reporting--dashboard
+4-non-functional-requirements
+5-system-architecture
+6-user-interface-initial-concepts
+7-timeline-original-estimate-vs-actual
+major-milestones-actual-timeline
+-notes-for-future-reference
