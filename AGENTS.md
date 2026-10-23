@@ -102,7 +102,7 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 **Bank reconciliation** — details: [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md)
 
 - **Only the working set reserves journal lines; Versions do not.** One unique index on working lines is the whole reservation mechanism.
-- **Versions are immutable with no bypass.** Nothing under `src/` may disable the `trg_bsr_*` triggers; only the test fixture `removeSuiteBankReconciliations` does.
+- **Versions are immutable with no bypass.** Nothing under `src/` may disable database triggers or drop them outside migrations. Enforced by `cd backend && npm run test:scripts`; only the test fixture `removeSuiteBankReconciliations` may disable the `trg_bsr_*` triggers.
 - **Lock order:** bank account row (`FOR NO KEY UPDATE`), then header, then working lines by ascending `journalEntryLineId`. Never lock `accounting_settings` after the account lock.
 
 ## Git and pull requests
