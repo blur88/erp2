@@ -72,6 +72,12 @@ function closesFence(line, fence) {
   return new RegExp(`^ {0,3}${fence.char}{${fence.length},}\\s*$`, 'u').test(line);
 }
 
+function advanceFence(line, fence) {
+  if (fence) return { inFence: true, fence: closesFence(line, fence) ? null : fence, opened: false };
+  const opening = fenceOpening(line);
+  return { inFence: Boolean(opening), fence: opening, opened: Boolean(opening) };
+}
+
 function slugHeadings(lines) {
   const headings = new Set();
   let fence = null;
@@ -90,12 +96,12 @@ function slugHeadings(lines) {
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    if (fence) {
-      if (closesFence(line, fence)) fence = null;
+    const fenceStep = advanceFence(line, fence);
+    if (fenceStep.inFence) {
+      if (fenceStep.opened) flushParagraph();
+      fence = fenceStep.fence;
       continue;
     }
-    const marker = fenceOpening(line);
-    if (marker) { flushParagraph(); fence = marker; continue; }
     if (!line.trim()) { flushParagraph(); continue; }
     const atx = atxHeading(line);
     if (atx) { flushParagraph(); add(atx[1].replace(/\s+#+\s*$/u, '')); continue; }
@@ -214,12 +220,12 @@ function collectLinks(content, document) {
   };
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    if (fence) {
-      if (closesFence(line, fence)) fence = null;
+    const fenceStep = advanceFence(line, fence);
+    if (fenceStep.inFence) {
+      if (fenceStep.opened) flush();
+      fence = fenceStep.fence;
       continue;
     }
-    const fenceOpen = fenceOpening(line);
-    if (fenceOpen) { flush(); fence = fenceOpen; continue; }
     if (!line.trim()) { flush(); continue; }
     const footnote = line.match(/^ {0,3}\[\^[^\]]+\]:\s*(.*)$/u);
     if (footnote) {
@@ -286,10 +292,13 @@ function failLink(document, link, reason) {
   });
 }
 
+function isExternalTarget(target) {
+  return /^[a-z][a-z\d+.-]*:/iu.test(target) || target.startsWith('//');
+}
+
 function checkLink(context, document, link) {
   const { root, tracked, trackedSet, documents } = context;
   const target = link.destination;
-  if (/^[a-z][a-z\d+.-]*:/iu.test(target) || target.startsWith('//')) return true;
   const hash = target.indexOf('#');
   let targetPath;
   let fragment;
@@ -298,11 +307,11 @@ function checkLink(context, document, link) {
     fragment = hash < 0 ? null : decodeURIComponent(target.slice(hash + 1));
   } catch {
     failLink(document, link, 'invalid percent-encoding');
-    return false;
+    return;
   }
   if (targetPath.startsWith('/')) {
     failLink(document, link, 'absolute paths are not allowed; use a relative path');
-    return false;
+    return;
   }
   const sourceDirectory = path.posix.dirname(document.source);
   const sameFile = document.source.slice(sourceDirectory === '.' ? 0 : sourceDirectory.length + 1);
@@ -311,7 +320,7 @@ function checkLink(context, document, link) {
   const fromRoot = path.relative(root, absolute);
   if (fromRoot === '..' || fromRoot.startsWith(`..${path.sep}`) || path.isAbsolute(fromRoot)) {
     failLink(document, link, 'escapes repository');
-    return false;
+    return;
   }
   const normalized = relative.replace(/^\.\//u, '');
   const existsFile = trackedSet.has(normalized);
@@ -320,17 +329,16 @@ function checkLink(context, document, link) {
     : tracked.some((entry) => entry.startsWith(`${normalized.replace(/\/$/u, '')}/`));
   if (!existsFile && !existsDirectory) {
     failLink(document, link, 'target does not exist');
-    return false;
+    return;
   }
-  if (fragment === null || !normalized.toLowerCase().endsWith('.md')) return false;
+  if (fragment === null || !normalized.toLowerCase().endsWith('.md')) return;
   const targetMarkdown = existsFile ? normalized : `${normalized.replace(/\/$/u, '')}/README.md`;
   const targetDocument = documents.get(targetMarkdown);
-  if (!targetDocument || targetDocument.anchors.has(fragment)) return false;
+  if (!targetDocument || targetDocument.anchors.has(fragment)) return;
   const lowercaseMatch = [...targetDocument.anchors].find((slug) => slug.toLowerCase() === fragment.toLowerCase());
   failLink(document, link, lowercaseMatch
     ? `anchor "#${fragment}" not found; use "#${lowercaseMatch}"`
     : `anchor "#${fragment}" not found`);
-  return false;
 }
 
 function validateDocuments(root, tracked, documents) {
@@ -338,7 +346,8 @@ function validateDocuments(root, tracked, documents) {
   let externalSkipped = 0;
   for (const document of documents.values()) {
     for (const link of document.links) {
-      if (checkLink(context, document, link)) externalSkipped += 1;
+      if (isExternalTarget(link.destination)) externalSkipped += 1;
+      else checkLink(context, document, link);
     }
   }
   return externalSkipped;
