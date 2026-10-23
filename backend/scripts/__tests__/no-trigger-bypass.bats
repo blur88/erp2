@@ -8,7 +8,7 @@ setup() {
 }
 
 @test "rejects DISABLE TRIGGER in application source regardless of case and spacing" {
-  printf 'ALTER TABLE records DISABLE\t\n TRIGGER USER;\n' > "$REPO/backend/src/example.ts"
+  printf 'ALTER TABLE records dIsAbLe\t\n tRiGgEr USER;\n' > "$REPO/backend/src/example.ts"
 
   run "$CHECK" "$REPO"
 
