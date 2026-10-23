@@ -38,6 +38,16 @@ Two measurement traps, both of which produced false negatives on the first pass:
 
 An older note (#1098, MUI 9.3.1 / vitest 4.1.10) recorded that a pure-`sx` control failed. That does not reproduce on the versions above; treat it as superseded.
 
+## A failing run with every test passing
+
+Vitest exits 1 on an error raised outside any test (a timer that fires after jsdom teardown, #1372) even when the summary reads `Tests N passed (N)`; the only sign at the end of the log is an `Errors N error(s)` line. Read the check-run annotations before the log: in CI, Vitest's GitHub Actions reporter writes each such error as an `Unhandled error` annotation with its stack and the file it originated in.
+
+```bash
+gh api repos/blur88/erp2/check-runs/<job-id>/annotations --jq '.[] | "\(.title): \(.message)"'
+```
+
+The job id is the last number in the job's URL from `gh pr checks`. A rerun that passes does not resolve the error; the timer is still there.
+
 ## Statement (P&L / Balance Sheet / Form B)
 
 `components/accounting/Statement/` was aligned to the app theme in #1224: MUI `Paper` frame, theme palette, sticky header, and one right-aligned figure cell per column. The suite covers structure, not rendering; the sticky, `text-align` and `tabular-nums` rules in `statement.css` are invisible to it. Its themed Emotion colours *are* assertable (table above), though the current suite does not assert them.
