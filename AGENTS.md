@@ -53,6 +53,7 @@ Run the checks for every area your change touches. When scopes overlap, run each
 
 | Files touched | Required |
 |---|---|
+| Every PR | `cd backend && npm run verify:doc-links` |
 | `backend/src/**` | `cd backend && npm run lint && npm run type-check && npm run test && npm run test:e2e` |
 | `backend/test/**` | `cd backend && npm run type-check:spec && npm run test:e2e` |
 | Entities or migrations | additionally `cd backend && npm run migration:run`, before `test:e2e` |
@@ -60,6 +61,7 @@ Run the checks for every area your change touches. When scopes overlap, run each
 | API DTOs/interfaces used by both apps | both the `backend/src/**` and `frontend/src/**` rows |
 
 - `test:coverage` runs the full frontend suite, so it replaces `npm run test`; do not run both.
+- Run the documentation link check on every PR: heading changes and moved or deleted files can break links.
 - `type-check` covers `src/**` (including specs there) under the build config; only `type-check:spec` sees `backend/test/**`. `npm run test` alone misses cross-file type errors.
 - `test:e2e` is required for every backend change because unit tests mock the database; e2e is the only gate that exercises SQL, triggers and the full module graph.
 

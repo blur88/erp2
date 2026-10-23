@@ -204,6 +204,12 @@ jobs:
           PG_TRANSPORT: tcp
         run: npm run verify:seeds
 
+      # Runs last and despite earlier failures so documentation regressions
+      # remain visible without changing the required backend job name (#1429).
+      - name: Documentation link check
+        if: ${{ !cancelled() }}
+        run: npm run verify:doc-links
+
   # Proves the PRODUCTION IMAGE applies migrations against an empty database.
   #
   # Nothing else covers this. Unit/e2e/redis all run from src/ with ts-node

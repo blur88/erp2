@@ -1,0 +1,17 @@
+# Captured from GitHub contents API at 19c22deda7b0b092c1fddb2ab1c91bbfafd24dfe.
+# Command: gh api 'repos/blur88/erp2/contents/backend/scripts/__tests__/fixtures/slugs.md?ref=19c22deda7b0b092c1fddb2ab1c91bbfafd24dfe' -H 'Accept: application/vnd.github.html' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log([...s.matchAll(/id=\"user-content-([^\"]+)\"/g)].map(x=>x[1]).join("\n")))'
+foo
+foo-1
+foo-1-1
+café
+formatted-heading
+linked-heading
+punctuation--stuff
+emoji--heading
+trailing-hashes
+-leading-emoji-heading
+emphasized-words
+my_var-heading
+underlined-heading
+line-oneline-two
+equals-heading
