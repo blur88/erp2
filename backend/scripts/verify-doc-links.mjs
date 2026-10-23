@@ -2,8 +2,9 @@
 // #1429: validate links and anchors in tracked Markdown without network access.
 // Limits: raw HTML links/anchors, four-space code, undefined shortcut refs,
 // and fragments on non-Markdown targets are intentionally not checked.
-// Fenced code and inline code are ignored; fences allow up to three leading
-// spaces, and inline code spans can cross lines. Setext headings are supported.
+// Fenced and matched inline code are ignored; unmatched backticks are literal.
+// Fences allow up to three leading spaces and inline spans can cross lines.
+// Thematic breaks and setext underlines are distinguished by block context.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -43,7 +44,11 @@ function headingText(value) {
 }
 
 function isHeading(line) {
-  return /^ {0,3}#{1,6}(?:\s+|$)/u.test(line);
+  return Boolean(atxHeading(line));
+}
+
+function atxHeading(line) {
+  return line.match(/^ {0,3}#{1,6}(?:\s+|$)(.*)$/u);
 }
 
 function isSetextUnderline(line) {
@@ -52,6 +57,10 @@ function isSetextUnderline(line) {
 
 function isThematicBreak(line) {
   return /^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/u.test(line);
+}
+
+function isListItem(line) {
+  return /^ {0,3}(?:[*+-](?:\s+|$)|\d{1,9}[.)](?:\s+|$))/u.test(line);
 }
 
 function fenceOpening(line) {
@@ -64,9 +73,10 @@ function closesFence(line, fence) {
 }
 
 function slugHeadings(lines) {
-  const slugs = new Set();
   const headings = new Set();
   let fence = null;
+  let paragraph = [];
+  const flushParagraph = () => { paragraph = []; };
   const add = (raw) => {
     const text = headingText(raw).toLowerCase();
     let slug = text
@@ -74,8 +84,7 @@ function slugHeadings(lines) {
       .replace(/\s/gu, '-');
     const base = slug;
     let suffix = 0;
-    while (slugs.has(slug)) slug = `${base}-${++suffix}`;
-    slugs.add(slug);
+    while (headings.has(slug)) slug = `${base}-${++suffix}`;
     headings.add(slug);
   };
 
@@ -86,14 +95,17 @@ function slugHeadings(lines) {
       continue;
     }
     const marker = fenceOpening(line);
-    if (marker) { fence = marker; continue; }
-    const atx = line.match(/^ {0,3}#{1,6}(?:\s+|$)(.*)$/u);
-    if (atx) { add(atx[1].replace(/\s+#+\s*$/u, '')); continue; }
-    if (i > 0 && isSetextUnderline(line)) {
-      const prior = lines[i - 1];
-      const thematic = isThematicBreak(line) && !prior.trim();
-      if (!thematic && prior.trim() && !isHeading(prior) && !isThematicBreak(prior)) add(prior.trim());
+    if (marker) { flushParagraph(); fence = marker; continue; }
+    if (!line.trim()) { flushParagraph(); continue; }
+    const atx = atxHeading(line);
+    if (atx) { flushParagraph(); add(atx[1].replace(/\s+#+\s*$/u, '')); continue; }
+    if (isSetextUnderline(line)) {
+      if (paragraph.length) add(paragraph.join(' '));
+      flushParagraph();
+      continue;
     }
+    if (isThematicBreak(line) || isListItem(line) || /^ {0,3}>/u.test(line)) { flushParagraph(); continue; }
+    paragraph.push(line.trim());
   }
   return headings;
 }
@@ -274,9 +286,10 @@ function failLink(document, link, reason) {
   });
 }
 
-function checkLink(root, tracked, trackedSet, documents, document, link) {
+function checkLink(context, document, link) {
+  const { root, tracked, trackedSet, documents } = context;
   const target = link.destination;
-  if (/^[a-z][a-z\d+.-]*:/iu.test(target) || target.startsWith('//')) return 'external';
+  if (/^[a-z][a-z\d+.-]*:/iu.test(target) || target.startsWith('//')) return true;
   const hash = target.indexOf('#');
   let targetPath;
   let fragment;
@@ -285,11 +298,11 @@ function checkLink(root, tracked, trackedSet, documents, document, link) {
     fragment = hash < 0 ? null : decodeURIComponent(target.slice(hash + 1));
   } catch {
     failLink(document, link, 'invalid percent-encoding');
-    return 'local';
+    return false;
   }
   if (targetPath.startsWith('/')) {
     failLink(document, link, 'absolute paths are not allowed; use a relative path');
-    return 'local';
+    return false;
   }
   const sourceDirectory = path.posix.dirname(document.source);
   const sameFile = document.source.slice(sourceDirectory === '.' ? 0 : sourceDirectory.length + 1);
@@ -298,7 +311,7 @@ function checkLink(root, tracked, trackedSet, documents, document, link) {
   const fromRoot = path.relative(root, absolute);
   if (fromRoot === '..' || fromRoot.startsWith(`..${path.sep}`) || path.isAbsolute(fromRoot)) {
     failLink(document, link, 'escapes repository');
-    return 'local';
+    return false;
   }
   const normalized = relative.replace(/^\.\//u, '');
   const existsFile = trackedSet.has(normalized);
@@ -307,25 +320,25 @@ function checkLink(root, tracked, trackedSet, documents, document, link) {
     : tracked.some((entry) => entry.startsWith(`${normalized.replace(/\/$/u, '')}/`));
   if (!existsFile && !existsDirectory) {
     failLink(document, link, 'target does not exist');
-    return 'local';
+    return false;
   }
-  if (fragment === null || !normalized.toLowerCase().endsWith('.md')) return 'local';
+  if (fragment === null || !normalized.toLowerCase().endsWith('.md')) return false;
   const targetMarkdown = existsFile ? normalized : `${normalized.replace(/\/$/u, '')}/README.md`;
   const targetDocument = documents.get(targetMarkdown);
-  if (!targetDocument || targetDocument.anchors.has(fragment)) return 'local';
+  if (!targetDocument || targetDocument.anchors.has(fragment)) return false;
   const lowercaseMatch = [...targetDocument.anchors].find((slug) => slug.toLowerCase() === fragment.toLowerCase());
   failLink(document, link, lowercaseMatch
     ? `anchor "#${fragment}" not found; use "#${lowercaseMatch}"`
     : `anchor "#${fragment}" not found`);
-  return 'local';
+  return false;
 }
 
 function validateDocuments(root, tracked, documents) {
-  const trackedSet = new Set(tracked.map((file) => path.posix.normalize(file)));
+  const context = { root, tracked, trackedSet: new Set(tracked.map((file) => path.posix.normalize(file))), documents };
   let externalSkipped = 0;
   for (const document of documents.values()) {
     for (const link of document.links) {
-      if (checkLink(root, tracked, trackedSet, documents, document, link) === 'external') externalSkipped += 1;
+      if (checkLink(context, document, link)) externalSkipped += 1;
     }
   }
   return externalSkipped;

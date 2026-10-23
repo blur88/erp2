@@ -106,6 +106,23 @@ EOF
   [[ "$output" == *"2 local links checked in 1 files"* ]]
 }
 
+@test "Markdown source filenames with spaces and Unicode are scanned" {
+  write_file 'my doc.md' <<'EOF'
+# My doc
+
+[notes](café%20notes.md#notes)
+EOF
+  write_file 'café notes.md' <<'EOF'
+# Notes
+EOF
+  write_file README.md <<'EOF'
+[document](my%20doc.md#my-doc)
+EOF
+  run_check
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"2 local links checked in 3 files (0 external skipped)"* ]]
+}
+
 @test "undefined full and collapsed references are reported; shortcuts stay literal" {
   write_file README.md <<'EOF'
 [bad][missing] [missing][] [!NOTE] [ ] [x] [...] [sic]
@@ -218,6 +235,32 @@ EOF
   [[ "$output" == *"1 broken link, 3 local links checked in 1 files (0 external skipped)"* ]]
 }
 
+@test "multi-line setext headings use all paragraph lines" {
+  write_file README.md <<'EOF'
+Line one
+line two
+---
+
+[heading](#line-one-line-two)
+EOF
+  run_check
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1 local links checked in 1 files (0 external skipped)"* ]]
+}
+
+@test "a thematic break after a list item is not a setext heading" {
+  write_file README.md <<'EOF'
+- item
+---
+
+[phantom](#--item)
+EOF
+  run_check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'README.md:4: [phantom](#--item) — anchor "#--item" not found'* ]]
+  [[ "$output" == *"1 broken link, 1 local links checked in 1 files (0 external skipped)"* ]]
+}
+
 @test "inline HTML markup is removed when deriving heading slugs" {
   write_file README.md <<'EOF'
 # <em>HTML</em> heading
@@ -288,33 +331,9 @@ EOF
   [[ "$output" == *"1 broken link, 4 local links checked in 1 files (0 external skipped)"* ]]
 }
 
-@test "captured GitHub heading ids resolve through the CLI seam" {
-  cp "$BATS_TEST_DIRNAME/fixtures/renderer-prd.md" "$TEST_REPO/corpus.md"
-  while IFS= read -r slug || [ -n "$slug" ]; do
-    [[ "$slug" == \#* ]] && continue
-    printf '[anchor](corpus.md#%s)\n' "$slug" >> "$TEST_REPO/README.md"
-  done < "$BATS_TEST_DIRNAME/fixtures/renderer-prd.expected"
-  run_check
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"21 local links checked in 2 files (0 external skipped)"* ]]
-}
-
-@test "captured heading near-miss fails with a canonical lowercase suggestion" {
-  cp "$BATS_TEST_DIRNAME/fixtures/renderer-prd.md" "$TEST_REPO/corpus.md"
-  slug="$(sed -n '/^[^#]/ { p; q; }' "$BATS_TEST_DIRNAME/fixtures/renderer-prd.expected")"
-  upper_slug="$(printf '%s' "$slug" | tr '[:lower:]' '[:upper:]')"
-  printf '[near miss](corpus.md#%s)\n' "$upper_slug" > "$TEST_REPO/README.md"
-  run_check
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"README.md:1: [near miss](corpus.md#$upper_slug) — anchor \"#$upper_slug\" not found; use \"#$slug\""* ]]
-  [[ "$output" == *"1 broken link, 1 local links checked in 2 files"* ]]
-}
-
-@test "slug cases cover duplicates, formatting, links, punctuation, emoji and setext" {
+@test "captured GitHub slug corpus resolves through the CLI seam" {
   cp "$BATS_TEST_DIRNAME/fixtures/slugs.md" "$TEST_REPO/corpus.md"
-  write_file target.md <<'EOF'
-link target
-EOF
+  cp "$BATS_TEST_DIRNAME/fixtures/target.md" "$TEST_REPO/target.md"
   while IFS= read -r slug || [ -n "$slug" ]; do
     [[ "$slug" == \#* ]] && continue
     printf '[anchor](corpus.md#%s)\n' "$slug" >> "$TEST_REPO/README.md"
@@ -326,9 +345,7 @@ EOF
 
 @test "slug near-misses include wrong case and an over-numbered duplicate" {
   cp "$BATS_TEST_DIRNAME/fixtures/slugs.md" "$TEST_REPO/corpus.md"
-  write_file target.md <<'EOF'
-link target
-EOF
+  cp "$BATS_TEST_DIRNAME/fixtures/target.md" "$TEST_REPO/target.md"
   write_file README.md <<'EOF'
 [case](corpus.md#FOO) [suffix](corpus.md#foo-1-2)
 EOF

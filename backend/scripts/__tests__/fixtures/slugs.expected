@@ -1,5 +1,5 @@
-# Captured from GitHub contents API at 59c2d6b483d2fa2c85f803e58dc57866dc424835.
-# Command: gh api 'repos/blur88/erp2/contents/backend/scripts/__tests__/fixtures/slugs.md?ref=59c2d6b483d2fa2c85f803e58dc57866dc424835' -H 'Accept: application/vnd.github.html' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log([...s.matchAll(/id=\"user-content-([^\"]+)\"/g)].map(x=>x[1]).join("\n")))'
+# Captured from GitHub contents API at 348165a691966942abb582ce20027d6a55be6d7f.
+# Command: gh api 'repos/blur88/erp2/contents/backend/scripts/__tests__/fixtures/slugs.md?ref=348165a691966942abb582ce20027d6a55be6d7f' -H 'Accept: application/vnd.github.html' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log([...s.matchAll(/id=\"user-content-([^\"]+)\"/g)].map(x=>x[1]).join("\n")))'
 foo
 foo-1
 foo-1-1
