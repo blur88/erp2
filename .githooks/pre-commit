@@ -1,0 +1,17 @@
+#!/bin/sh
+# Refuses commits on main: work lands through a branch and a PR.
+# Activate once per clone: git config core.hooksPath .githooks
+#
+# core.hooksPath replaces .git/hooks, so a clone-local pre-commit hook is
+# chained below to keep its behaviour.
+
+branch=$(git symbolic-ref --short -q HEAD)
+if [ "$branch" = "main" ]; then
+  echo "pre-commit: commits on main are refused. Create a branch first: git switch -c <type>/<issue>-<slug>" >&2
+  exit 1
+fi
+
+local_hook="$(git rev-parse --git-common-dir)/hooks/pre-commit"
+if [ -x "$local_hook" ]; then
+  exec "$local_hook" "$@"
+fi

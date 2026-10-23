@@ -35,6 +35,10 @@ and role-based access control.
 git clone <repository-url>
 cd erp2
 
+# One-time: enable the tracked git hooks (the pre-commit hook refuses
+# commits on main; an existing .git/hooks/pre-commit still runs)
+git config core.hooksPath .githooks
+
 # Start all services
 docker compose up -d
 
