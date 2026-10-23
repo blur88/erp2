@@ -5,6 +5,8 @@
 // Fenced and matched inline code are ignored; unmatched backticks are literal.
 // Fences allow up to three leading spaces and inline spans can cross lines.
 // Thematic breaks and setext underlines are distinguished by block context.
+// Multi-line setext titles drop line breaks when deriving GitHub-style slugs.
+// Fragments on directory paths are not checked as Markdown anchors.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -336,10 +338,8 @@ function checkLink(context, document, link) {
     failLink(document, link, 'target does not exist');
     return;
   }
-  if (fragment === null) return;
-  const targetMarkdown = existsFile ? normalized : `${normalized.replace(/\/$/u, '')}/README.md`;
-  if (!targetMarkdown.toLowerCase().endsWith('.md')) return;
-  const targetDocument = documents.get(targetMarkdown);
+  if (fragment === null || !normalized.toLowerCase().endsWith('.md')) return;
+  const targetDocument = documents.get(normalized);
   if (!targetDocument || targetDocument.anchors.has(fragment)) return;
   const lowercaseMatch = [...targetDocument.anchors].find((slug) => slug.toLowerCase() === fragment.toLowerCase());
   failLink(document, link, lowercaseMatch

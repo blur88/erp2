@@ -202,17 +202,19 @@ EOF
   [[ "$output" == *"1 broken link, 3 local links checked in 2 files (0 external skipped)"* ]]
 }
 
-@test "directory fragments resolve against its README.md" {
+@test "directory fragments are not checked as Markdown anchors" {
   write_file README.md <<'EOF'
-[valid](docs/#overview) [missing](docs/#missing)
+[present](docs/#overview) [missing](docs/#missing) [directory without README](other/#any)
 EOF
   write_file docs/README.md <<'EOF'
 # Overview
 EOF
+  write_file other/guide.md <<'EOF'
+# Guide
+EOF
   run_check
-  [ "$status" -eq 1 ]
-  [[ "$output" == *'README.md:1: [missing](docs/#missing) — anchor "#missing" not found'* ]]
-  [[ "$output" == *"1 broken link, 2 local links checked in 2 files (0 external skipped)"* ]]
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"3 local links checked in 3 files (0 external skipped)"* ]]
 }
 
 @test "non-Markdown fragments are not checked and an escaping path is rejected" {
@@ -361,12 +363,15 @@ EOF
   cp "$BATS_TEST_DIRNAME/fixtures/target.md" "$TEST_REPO/target.md"
   write_file README.md <<'EOF'
 [case](corpus.md#FOO) [suffix](corpus.md#foo-1-2)
+[setext](corpus.md#line-one-line-two) [emoji](corpus.md#leading-emoji-heading)
 EOF
   run_check
   [ "$status" -eq 1 ]
   [[ "$output" == *'README.md:1: [case](corpus.md#FOO) — anchor "#FOO" not found; use "#foo"'* ]]
   [[ "$output" == *'README.md:1: [suffix](corpus.md#foo-1-2) — anchor "#foo-1-2" not found'* ]]
-  [[ "$output" == *"2 broken links, 3 local links checked in 3 files (0 external skipped)"* ]]
+  [[ "$output" == *'README.md:2: [setext](corpus.md#line-one-line-two) — anchor "#line-one-line-two" not found'* ]]
+  [[ "$output" == *'README.md:2: [emoji](corpus.md#leading-emoji-heading) — anchor "#leading-emoji-heading" not found'* ]]
+  [[ "$output" == *"4 broken links, 5 local links checked in 3 files (0 external skipped)"* ]]
 }
 
 @test "running outside the repository still finds root and rejects untracked targets" {
