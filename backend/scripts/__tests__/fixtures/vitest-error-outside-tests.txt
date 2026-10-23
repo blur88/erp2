@@ -1,0 +1,35 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.3 [39m[90m/repo/frontend[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Unhandled Errors [49m[22m[31m⎯⎯⎯⎯⎯⎯[39m
+[31m[1m
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.[22m[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mReferenceError[22m: window is not defined[39m
+[36m [2m❯[22m src/__planted__/outside.test.ts:[2m5:18[22m[39m
+    [90m  3|[39m
+    [90m  4|[39m it('passes while leaving a rejection nothing handles', () => {
+    [90m  5|[39m   Promise.reject(new ReferenceError('window is not defined'))
+    [90m   |[39m                  [31m^[39m
+    [90m  6|[39m   expect(true).toBe(true)
+    [90m  7|[39m })
+[90m [2m❯[22m node_modules/vitest/dist/chunks/run.BTlFXlnv.js:[2m1628:35[22m[39m
+[90m [2m❯[22m node_modules/vitest/dist/chunks/run.BTlFXlnv.js:[2m2783:26[22m[39m
+[90m [2m❯[22m node_modules/vitest/dist/chunks/run.BTlFXlnv.js:[2m3321:20[22m[39m
+[90m [2m❯[22m runWithCancel node_modules/vitest/dist/chunks/run.BTlFXlnv.js:[2m3316:10[22m[39m
+[90m [2m❯[22m node_modules/vitest/dist/chunks/run.BTlFXlnv.js:[2m3301:20[22m[39m
+[90m [2m❯[22m runWithTimeout node_modules/vitest/dist/chunks/run.BTlFXlnv.js:[2m3259:10[22m[39m
+[90m [2m❯[22m node_modules/vitest/dist/chunks/run.BTlFXlnv.js:[2m3882:64[22m[39m
+
+[31mThis error originated in "[1msrc/__planted__/outside.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39m
+
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m     Errors [22m [1m[31m1 error[39m[22m
+[2m   Start at [22m 22:50:37
+[2m   Duration [22m 5.76s[2m (transform 45%, environment 34%, setup 17%, tests 2%, worker 1%, import 1%)[22m
+
