@@ -202,6 +202,19 @@ EOF
   [[ "$output" == *"1 broken link, 3 local links checked in 2 files (0 external skipped)"* ]]
 }
 
+@test "directory fragments resolve against its README.md" {
+  write_file README.md <<'EOF'
+[valid](docs/#overview) [missing](docs/#missing)
+EOF
+  write_file docs/README.md <<'EOF'
+# Overview
+EOF
+  run_check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'README.md:1: [missing](docs/#missing) — anchor "#missing" not found'* ]]
+  [[ "$output" == *"1 broken link, 2 local links checked in 2 files (0 external skipped)"* ]]
+}
+
 @test "non-Markdown fragments are not checked and an escaping path is rejected" {
   write_file docs/README.md <<'EOF'
 [source](../src/a.ts#L12) [escape](../../outside.md)
@@ -241,7 +254,7 @@ Line one
 line two
 ---
 
-[heading](#line-one-line-two)
+[heading](#line-oneline-two)
 EOF
   run_check
   [ "$status" -eq 0 ]
@@ -340,7 +353,7 @@ EOF
   done < "$BATS_TEST_DIRNAME/fixtures/slugs.expected"
   run_check
   [ "$status" -eq 0 ]
-  [[ "$output" == *"14 local links checked in 3 files (0 external skipped)"* ]]
+  [[ "$output" == *"16 local links checked in 3 files (0 external skipped)"* ]]
 }
 
 @test "slug near-misses include wrong case and an over-numbered duplicate" {

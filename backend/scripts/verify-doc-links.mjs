@@ -63,6 +63,10 @@ function isListItem(line) {
   return /^ {0,3}(?:[*+-](?:\s+|$)|\d{1,9}[.)](?:\s+|$))/u.test(line);
 }
 
+function isBlockQuote(line) {
+  return /^ {0,3}>/u.test(line);
+}
+
 function fenceOpening(line) {
   const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
   return match ? { char: match[1][0], length: match[1].length } : null;
@@ -78,11 +82,22 @@ function advanceFence(line, fence) {
   return { inFence: Boolean(opening), fence: opening, opened: Boolean(opening) };
 }
 
+function createFenceLineSkipper() {
+  let fence = null;
+  return (line, beforeOpening) => {
+    const step = advanceFence(line, fence);
+    fence = step.fence;
+    if (!step.inFence) return false;
+    if (step.opened) beforeOpening();
+    return true;
+  };
+}
+
 function slugHeadings(lines) {
   const headings = new Set();
-  let fence = null;
   let paragraph = [];
-  const flushParagraph = () => { paragraph = []; };
+  const skipFenceLine = createFenceLineSkipper();
+  const clearHeadingParagraph = () => { paragraph = []; };
   const add = (raw) => {
     const text = headingText(raw).toLowerCase();
     let slug = text
@@ -96,21 +111,16 @@ function slugHeadings(lines) {
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    const fenceStep = advanceFence(line, fence);
-    if (fenceStep.inFence) {
-      if (fenceStep.opened) flushParagraph();
-      fence = fenceStep.fence;
-      continue;
-    }
-    if (!line.trim()) { flushParagraph(); continue; }
+    if (skipFenceLine(line, clearHeadingParagraph)) continue;
+    if (!line.trim()) { clearHeadingParagraph(); continue; }
     const atx = atxHeading(line);
-    if (atx) { flushParagraph(); add(atx[1].replace(/\s+#+\s*$/u, '')); continue; }
+    if (atx) { clearHeadingParagraph(); add(atx[1].replace(/\s+#+\s*$/u, '')); continue; }
     if (isSetextUnderline(line)) {
-      if (paragraph.length) add(paragraph.join(' '));
-      flushParagraph();
+      if (paragraph.length) add(paragraph.join(''));
+      clearHeadingParagraph();
       continue;
     }
-    if (isThematicBreak(line) || isListItem(line) || /^ {0,3}>/u.test(line)) { flushParagraph(); continue; }
+    if (isThematicBreak(line) || isListItem(line) || isBlockQuote(line)) { clearHeadingParagraph(); continue; }
     paragraph.push(line.trim());
   }
   return headings;
@@ -206,9 +216,9 @@ function scanInline(text, lineAt, document) {
 function collectLinks(content, document) {
   const lines = content.split(/\r?\n/u);
   const paragraphs = [];
-  let fence = null;
   let paragraph = [];
-  const flush = () => {
+  const skipFenceLine = createFenceLineSkipper();
+  const finishLinkParagraph = () => {
     if (!paragraph.length) return;
     const joined = paragraph.map((entry) => entry.text).join('\n');
     const starts = [];
@@ -220,38 +230,33 @@ function collectLinks(content, document) {
   };
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    const fenceStep = advanceFence(line, fence);
-    if (fenceStep.inFence) {
-      if (fenceStep.opened) flush();
-      fence = fenceStep.fence;
-      continue;
-    }
-    if (!line.trim()) { flush(); continue; }
+    if (skipFenceLine(line, finishLinkParagraph)) continue;
+    if (!line.trim()) { finishLinkParagraph(); continue; }
     const footnote = line.match(/^ {0,3}\[\^[^\]]+\]:\s*(.*)$/u);
     if (footnote) {
-      flush();
+      finishLinkParagraph();
       if (footnote[1]) paragraph.push({ text: footnote[1], line: i + 1 });
-      flush();
+      finishLinkParagraph();
       continue;
     }
     const definition = line.match(/^ {0,3}\[([^\]]+)\]:\s*(?:<([^>]+)>|(\S+))/u);
     if (definition) {
-      flush();
+      finishLinkParagraph();
       const destination = definition[2] ?? definition[3];
       document.references.set(normalizeLabel(definition[1]), { destination });
       document.links.push({ source: document.source, line: i + 1, link: line.trim(), destination });
       continue;
     }
     if (isHeading(line)) {
-      flush();
+      finishLinkParagraph();
       paragraph.push({ text: line, line: i + 1 });
-      flush();
+      finishLinkParagraph();
       continue;
     }
-    if (isThematicBreak(line) || isSetextUnderline(line)) { flush(); continue; }
+    if (isThematicBreak(line) || isSetextUnderline(line)) { finishLinkParagraph(); continue; }
     paragraph.push({ text: line, line: i + 1 });
   }
-  flush();
+  finishLinkParagraph();
   // References are resolved after collecting definitions, so forward uses work.
   for (const item of paragraphs) scanInline(item.joined, item.lineAt, document);
 }
@@ -331,8 +336,9 @@ function checkLink(context, document, link) {
     failLink(document, link, 'target does not exist');
     return;
   }
-  if (fragment === null || !normalized.toLowerCase().endsWith('.md')) return;
+  if (fragment === null) return;
   const targetMarkdown = existsFile ? normalized : `${normalized.replace(/\/$/u, '')}/README.md`;
+  if (!targetMarkdown.toLowerCase().endsWith('.md')) return;
   const targetDocument = documents.get(targetMarkdown);
   if (!targetDocument || targetDocument.anchors.has(fragment)) return;
   const lowercaseMatch = [...targetDocument.anchors].find((slug) => slug.toLowerCase() === fragment.toLowerCase());
