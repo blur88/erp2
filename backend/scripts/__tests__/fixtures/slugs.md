@@ -7,10 +7,15 @@
 # Punctuation! & stuff
 # Emoji 🚀 heading
 # Trailing hashes ###
+# 🚀 Leading emoji heading
 # _Emphasized Words_
 # my_var heading
 
 Underlined heading
+---
+
+Line one
+line two
 ---
 
 Equals heading
