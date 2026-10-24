@@ -14,6 +14,7 @@ Recorded decisions:
 - [#1284 — net reconciliation](https://github.com/blur88/erp2/issues/1284) records one net row per Sales order and Payment Method so users reconcile the actual provider transfer rather than select individual historical Payment and Refund rows. It also records one Payment Method per Provider settlement and exact equality between the selected net and amount received.
 - [#1285 — Clearing account eligibility](https://github.com/blur88/erp2/issues/1285) introduced the Clearing account eligibility rule. [#1288](https://github.com/blur88/erp2/issues/1288) records that eligibility follows the account in the original journal entry, without a current-mapping gate.
 - [#1298 — bank destinations](https://github.com/blur88/erp2/issues/1298) records the bank destination guard. [#1134 — posting dates](https://github.com/blur88/erp2/issues/1134) records the configured application timezone convention for journal posting dates generally.
+- [PR #1287 — provider clearing account gates](https://github.com/blur88/erp2/pull/1287) records the Remove-only treatment of an unflagged Draft group and the intent that Reverse not be blocked by provider-clearing eligibility.
 
 ## Provider fees and the reconciliation difference
 
@@ -36,11 +37,13 @@ The database requires a positive amount. Its lifecycle checks require a Draft to
 |---|---|
 | **Create** | At least one current eligible Sales order + Payment Method group is selected; all groups use one Payment Method and derive to one flagged Clearing account; each refreshed group net still equals its submitted expected net; and the positive combined total exactly equals the amount received. The destination must pass the checks in [Accounts and journal entries](#accounts-and-journal-entries). |
 | **Edit** | The Provider settlement is a Draft and the request supplies a non-empty complete selection. The same eligibility, amount, and account checks as Create apply. |
-| **Post** | The Provider settlement is a Draft with at least one line and passes the saved-Payment revalidation, account checks, and total check described below. |
+| **Post** | The Provider settlement is a Draft with at least one line. Revalidation requires the saved Payment IDs and amounts to match current rows, the re-derived Clearing account to match the one stored on the Draft and remain flagged, the bank destination to still satisfy the rules below, and the current total to match the saved amount. |
 | **Reverse** | A new Reversal requires a Posted Provider settlement. Repeating a Reverse request for an already Reversed Provider settlement returns the existing result without creating another Reversal. Its original bank and Clearing accounts are loaded again: both must still exist and be postable, so a soft-deleted or non-postable account makes Reverse fail. The current Payment Method mapping and provider-clearing flag are not rechecked. |
 | **Discard** | The Provider settlement is a Draft. Posted and Reversed Provider settlements cannot be discarded. |
 
-The list and detail screens disable Post when a Draft's Clearing account is no longer flagged. The form disables Save while any Needs attention row remains, applying the same Post and save restrictions shown above.
+The list and detail screens disable Post when a Draft's Clearing account is no longer flagged. The form disables Save while any Needs attention row remains.
+
+[PR #1287](https://github.com/blur88/erp2/pull/1287) also records that a Posted Provider settlement can always be reversed. That intent conflicts with the account rechecks in the Reverse row above, which can make Reverse fail. [#1460](https://github.com/blur88/erp2/issues/1460) tracks the unresolved decision without choosing which should change.
 
 An Edit may infer a different Payment Method when the complete selection changes. An empty selection is not a saved Draft; discard the Draft instead.
 
@@ -54,7 +57,7 @@ The Provider settlement eligibility query uses these checks:
 
 A separate derivation step requires exactly one live, unreversed matching journal entry for each Payment and validates its expected two-line shape and amounts. The picker then applies the Clearing account condition per Sales order + Payment Method group: every eligible Payment in the group must derive to the same live account, that account must have the provider-clearing flag, and the group's net must be non-zero. A soft-deleted journal entry can satisfy the initial `EXISTS` check, but it is excluded by the later derivation.
 
-If a Clearing account is unflagged after a Draft is saved, the saved Draft and its lines remain unchanged. When its Edit form loads the claimed rows, a group is classified as `not_provider_clearing` only if it still has eligible Payments and a successful derivation finds the account unflagged; an ineligible group remains ineligible. The form marks those affected rows under **Needs attention** with “not a provider clearing payment — remove”; they can be removed but not accepted. Post rejects the Draft while its Clearing account lacks the flag.
+If a Clearing account is unflagged after a Draft is saved, the saved Draft and its lines remain unchanged. When its Edit form loads the claimed rows, a group is classified as `not_provider_clearing` only if it still has eligible Payments and a successful derivation finds the account unflagged; an ineligible group remains ineligible. The form marks those affected rows under **Needs attention** with “not a provider clearing payment — remove”; they can be removed but not accepted, as recorded in [PR #1287](https://github.com/blur88/erp2/pull/1287). Post rejects the Draft while its Clearing account lacks the flag.
 
 The picker groups eligible Payments by **Sales order + Payment Method** and sums their signed amounts. A zero-net group is omitted. A negative group can appear as a deduction, for example when a Refund is recorded after the original Payment was already included in a Provider settlement. The combined selection still has to be positive.
 
@@ -73,7 +76,7 @@ Posting creates exactly two journal lines:
 | Bank account | Debit the Provider settlement amount |
 | Clearing account | Credit the Provider settlement amount |
 
-The journal entry date is the Provider settlement date. A Reversal uses the action date in the configured application timezone. The code comment explains this choice, but no linked issue or ADR records it. The original journal entry and its financial lines are not changed; the Reversal is a separate entry.
+The journal entry date is the Provider settlement date. A Reversal uses the action date in the configured application timezone, following [#1134's](https://github.com/blur88/erp2/issues/1134) general posting-date convention. A code comment explains choosing the action date instead of the Provider settlement date; no linked issue or ADR records that date choice. The original journal entry and its financial lines are not changed; the Reversal is a separate entry.
 
 ## Payment claims and saved amounts
 
@@ -83,18 +86,16 @@ Each Provider settlement line stores the signed Payment amount as a snapshot. On
 
 ## Concurrency behavior
 
-For an existing Provider settlement, Edit, Discard, Post, and Reverse lock the header before checking its state. Create, Edit, and Post also lock the involved Sales orders in ascending ID order before recomputing eligibility. A code comment explains how the order coordinates Payment and Refund writers; no linked issue or ADR records the lock order. The database claim rule decides races between two Provider settlements for the same Payment.
+For an existing Provider settlement, Edit, Discard, Post, and Reverse lock the header before checking its state. Create, Edit, and Post also lock the involved Sales orders FOR SHARE in ascending ID order before recomputing eligibility. A code comment explains why these locks precede recomputation and use FOR SHARE; neither the comment nor a linked issue or ADR explains the ascending ID order. The database claim rule decides races between two Provider settlements for the same Payment.
 
 Provider settlement lines are inserted in ascending Payment ID order. A code comment says the consistent order keeps claim contention deadlock-free; no linked issue or ADR records that choice. A PostgreSQL deadlock during Create, Edit, or Post is returned as a retryable conflict; no linked issue or ADR records that mapping or a broader retry policy.
 
 ## Current behavior without a linked issue or ADR
 
-The following behavior is enforced by current code but is not recorded in a linked issue or ADR:
+The following current behavior has no linked issue or ADR rationale:
 
 - Payment claims have no automatic expiry.
-- No linked issue or ADR records why Create and Edit allow a group's membership to change when its refreshed net still matches the submitted expected net.
 - The Sales order's current lifecycle state is not checked by the Provider settlement eligibility query. Cancelling a Sales order does not itself remove its Payment from that query.
-- No linked issue or ADR defines the expected handling when Reverse cannot reload an original account or finds it non-postable.
 
 ## Related issues
 

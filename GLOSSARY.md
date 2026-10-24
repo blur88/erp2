@@ -8,8 +8,6 @@ Code identifiers, UI text and error messages may still use the avoided words. Th
 
 ### Ledger
 
-See [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md) for how Clearing accounts are used in Provider settlements.
-
 **Journal entry**:
 One balanced posting to the ledger, made up of two or more journal lines.
 _Avoid_: transaction, posting (as a noun for the record)
@@ -60,7 +58,7 @@ _Avoid_: stock adjustment, write-off
 
 These states and actions apply only to the document types named in each entry; not every document supports every one.
 
-See [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md) for Reconciliation actions and [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md) for Provider settlement actions.
+See [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md) for Reconciliation actions.
 
 **Draft**:
 The document is open for further processing, subject to its document-specific rules.
@@ -116,7 +114,7 @@ A document recording a payment provider's transfer of selected customer Payments
 _Avoid_: settlement (unqualified), payout, remittance
 
 **Posted**:
-The state of a Provider settlement whose journal entry has been written. It can only be undone by a Reversal, which makes it Reversed.
+The state of a Provider settlement whose journal entry has been written. A Reversal is the only action that changes it to Reversed.
 
 **Reverse**:
 The action that changes a Posted Provider settlement to Reversed by writing a Reversal of its journal entry.
