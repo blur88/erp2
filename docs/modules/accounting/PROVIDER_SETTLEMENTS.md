@@ -80,7 +80,7 @@ Removing a line from a Draft hard-deletes that line so its unreleased claim is a
 
 For an existing settlement, Edit, Discard, Post, and Reverse lock the settlement before checking its state, so an action cannot proceed on a status that changed concurrently. Create, Edit, and Post also lock the involved Sales Orders in a stable order before recomputing eligibility. Payment and Refund writers lock those same orders before adding rows, so a concurrent write is either visible to the settlement check or waits until it commits. The database claim rule decides races between two settlements for the same Payment.
 
-Claim rows are inserted in stable Payment ID order so concurrent settlements contend for claims in the same order. A PostgreSQL deadlock during Create, Edit, or Post is currently returned as a retryable conflict. No issue or ADR records why this response is retryable or establishes it as a broader API policy; this is current behavior only.
+Claim rows are inserted in stable Payment ID order so concurrent settlements contend for claims in the same order. A PostgreSQL deadlock during Create, Edit, or Post is returned as a retryable conflict, as recorded in the settlement design. No linked issue or ADR establishes a broader API retry policy.
 
 ## Related behavior
 
