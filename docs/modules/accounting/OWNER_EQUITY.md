@@ -7,6 +7,7 @@ Current mechanics of Owner equity documents (#1435): when each action is allowed
 - [Owner Equity feature issue #1022](https://github.com/blur88/erp2/issues/1022) records the intent to keep owner money and inventory movements in a dedicated workflow instead of recording them as Expenses or hidden Chart of Accounts opening-balance Journal entries. It defines Capital injection, Cash drawing and Stock drawing as separate types, their ledger accounts, cost-based stock treatment, and no Delete action.
 - [Issue #1094](https://github.com/blur88/erp2/issues/1094) removes the intermediate Ready state for monetary documents: exact full payment is completion, and a Refund can return a Completed document to Draft. Stock drawing has no Payment workflow and remains explicitly completed and uncompleted, as described in #1022.
 - [Issue #1096](https://github.com/blur88/erp2/issues/1096) allows Refunds through any active payment method and caps the total against net paid, regardless of the methods used for the original Payments.
+- [Issue #1237](https://github.com/blur88/erp2/issues/1237) makes a Payment method's mapped Chart of Accounts account the posting account, with its Cash or Bank channel's configured account as fallback when no mapping exists. This applies to Owner Equity Payments and Refunds.
 - [Issues #1132](https://github.com/blur88/erp2/issues/1132) and [#1134](https://github.com/blur88/erp2/issues/1134) specify that Stock drawing Journal entries and their reversals use the Complete or Uncomplete action date, resolved in the configured application timezone.
 
 The rules below describe current code. Where a tracked decision does not explain a behavior, that limit is stated instead of supplying a rationale.
@@ -15,11 +16,11 @@ The rules below describe current code. Where a tracked decision does not explain
 
 | Type | What it records | Journal entry |
 |---|---|---|
-| **Capital injection** | Money the owner puts into the business. It has a positive amount and may have Payments. | Each Payment debits the Cash or Bank account selected by its payment method and credits the configured Owner Capital account. Its Refund reverses those lines. |
-| **Cash drawing** | Money the owner takes from the business for personal use. It has a positive amount and may have Payments. | Each Payment debits the configured Owner Drawings account and credits the selected Cash or Bank account. Its Refund reverses those lines. |
+| **Capital injection** | Money the owner puts into the business. It has a positive amount and may have Payments. | Each Payment debits the account mapped to its payment method, or the channel's configured Cash or Bank account if it has no mapping, and credits the configured Owner Capital account. Its Refund reverses those lines through the account selected by the Refund's method. |
+| **Cash drawing** | Money the owner takes from the business for personal use. It has a positive amount and may have Payments. | Each Payment debits the configured Owner Drawings account and credits the account mapped to its payment method, or the channel's configured Cash or Bank account if it has no mapping. Its Refund reverses those lines through the account selected by the Refund's method. |
 | **Stock drawing** | Inventory the owner takes for personal use. It has a stocked Product and a positive quantity, but no amount or Payments. | Complete removes inventory at the Product's `baseCost` and, when total cost is positive, debits Owner Drawings and credits Inventory. Uncomplete writes a compensating Stock movement and reverses the Journal entry. |
 
-The configured Owner Capital and Owner Drawings accounts are read through accounting settings. A payment method selects the Cash or Bank account for a monetary Journal entry. These effects follow the accounts recorded in #1022 and the current posting service.
+The configured Owner Capital and Owner Drawings accounts are read through accounting settings. A payment method's `CASH` or `BANK` channel determines the fallback account only. An explicit mapping can select any active, postable Chart of Accounts account, regardless of channel. An existing invalid mapping causes posting to fail; it does not fall back. These effects follow the accounts recorded in #1022, the mapping behavior in #1237 and the current posting service.
 
 ## When each action is allowed
 
@@ -55,8 +56,9 @@ The transitions are:
 
 ```text
 Monetary:
-Draft + Unpaid ──Payment, net below total──> Draft + Partially paid
-Draft + Unpaid or Partially paid ──Payment to exact total or Edit total to net paid──> Completed + Paid
+Draft + Unpaid ──partial Payment──> Draft + Partially paid
+Draft + Unpaid or Partially paid ──Payment to exact total──> Completed + Paid
+Draft + Partially paid ──Edit total to net paid──> Completed + Paid
 Completed + Paid ──Refund──> Draft + Unpaid or Partially paid
 Draft + Partially paid ──Refund──> Draft + Unpaid or Partially paid
 
