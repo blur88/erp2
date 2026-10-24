@@ -535,8 +535,7 @@ abort and soft-deleted `1200` abort. It needs `backend/.env.local` (or the
 `1790266673470-AddProviderClearingAccountFlag`, `boolean NOT NULL DEFAULT false`)
 marks an account as a **Clearing account**: money a provider (Shopee/TikTok/Atome)
 has collected on the business's behalf and holds in an Asset account until
-transfer to the business. Provider settlement eligibility and the use of this flag are described
-in [Provider Settlements](PROVIDER_SETTLEMENTS.md#eligible-payments-and-groups).
+transfer to the business.
 
 The migration seeds `1220 Shopee`, `1230 TikTok` and `1240 Atome` — the three
 channel accounts created by `1789658118888-AddPaymentMethodChannelAccounts` — as
@@ -549,14 +548,10 @@ none of the Accounting Settings `cashAccountId`, `bankAccountId` or
 flag is editable metadata; on a hand-built chart where `1220`–`1240` are missing
 or reshaped, nothing is seeded and the switch can be set by hand.
 
-### The flag is editable metadata; journals are never rewritten
-
-Toggling the switch (`Provider clearing account` on the account form) does not
-rewrite a posted journal. Provider settlement selection, posting, and Reversal
-conditions are owned by [Provider Settlements](PROVIDER_SETTLEMENTS.md).
-
 ### Provider settlement behavior
 
-The [Provider Settlements](PROVIDER_SETTLEMENTS.md) guide owns the rules for
-original-journal derivation, method remapping, the effect of unflagging a
-Clearing account, and the account checks performed by Reverse.
+Toggling the switch (`Provider clearing account` on the account form) does not
+rewrite posted journal entries or Provider settlement records. The
+[Provider Settlements](PROVIDER_SETTLEMENTS.md) guide owns eligibility and
+explains what unflagging does to a saved Draft and its form, as well as the
+subsequent Post and Reverse checks.
