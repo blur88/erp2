@@ -153,15 +153,16 @@ describe('BackupService - settings backup', () => {
     printSettingsRepo = module.get(getRepositoryToken(PrintSettings));
   });
 
-  it('constructs its backup Redis client with RESP2', () => {
-    expect(redisConstructor).toHaveBeenCalledWith(
-      expect.objectContaining({ protocol: 2 }),
-    );
-  });
-
   afterEach(() => {
     jest.restoreAllMocks();
     mockSpawn.mockReset();
+  });
+
+  it('constructs its backup Redis client with RESP2', () => {
+    expect(redisConstructor).toHaveBeenCalledTimes(1);
+    expect(redisConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({ protocol: 2 }),
+    );
   });
 
   describe('processUploadedBackup', () => {

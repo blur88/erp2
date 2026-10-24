@@ -56,6 +56,7 @@ describe('RedisMemorySamplerService', () => {
   });
 
   it('constructs its sampler Redis client with RESP2', () => {
+    expect(redisConstructor).toHaveBeenCalledTimes(1);
     expect(redisConstructor).toHaveBeenCalledWith(
       expect.objectContaining({ protocol: 2 }),
     );

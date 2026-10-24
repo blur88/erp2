@@ -70,6 +70,7 @@ describe('AppService', () => {
   });
 
   it('constructs its health-check Redis client with RESP2', () => {
+    expect(redisConstructor).toHaveBeenCalledTimes(1);
     expect(redisConstructor).toHaveBeenCalledWith(
       expect.objectContaining({ protocol: 2 }),
     );
