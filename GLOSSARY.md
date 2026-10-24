@@ -8,6 +8,8 @@ Code identifiers, UI text and error messages may still use the avoided words. Th
 
 ### Ledger
 
+See [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md) for how Clearing accounts are used in Provider settlements.
+
 **Journal entry**:
 One balanced posting to the ledger, made up of two or more journal lines.
 _Avoid_: transaction, posting (as a noun for the record)
@@ -25,7 +27,7 @@ A compensating journal entry that negates the accounting effect of an earlier jo
 _Avoid_: void, delete, refund
 
 **Clearing account**:
-The ledger account holding money a payment provider has collected from customers but not yet paid out to the business.
+The ledger account holding money a payment provider has collected from customers but not yet transferred to the business.
 _Avoid_: provider wallet, suspense account
 
 ### Documents
@@ -57,6 +59,8 @@ _Avoid_: stock adjustment, write-off
 
 These states and actions apply only to the document types named in each entry; not every document supports every one.
 
+See [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md) for Reconciliation actions and [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md) for Provider settlement actions.
+
 **Draft**:
 The document is open for further processing, subject to its document-specific rules.
 
@@ -87,7 +91,6 @@ _Avoid_: restore, reopen
 **Discard**:
 The action that permanently removes a Reconciliation or Provider settlement that is still a Draft and has never been Completed or Posted. Nothing of it is kept, unlike Cancel.
 _Avoid_: delete, cancel
-See: [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md), [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
 
 ### Payments
 
@@ -105,23 +108,24 @@ _Avoid_: reversal, void
 
 ### Provider settlement
 
+See [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md) for action and Payment claim rules.
+
 **Provider settlement**:
-A document recording a payment provider's payout of selected customer payments, net of refunds, moving that amount from the provider's Clearing account to a bank account.
+A document recording a payment provider's transfer of selected customer Payments, net of Refunds, from the provider's Clearing account to a bank account.
 _Avoid_: settlement (unqualified), payout, remittance
-See: [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
+
+**Reverse**:
+The action that changes a Posted Provider settlement to Reversed by writing a Reversal of its journal entry.
 
 **Posted**:
 The state of a Provider settlement whose journal entry has been written. It can only be undone by a Reversal, which makes it Reversed.
-See: [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
 
 **Reversed**:
-The state of a Provider settlement whose journal entry has been negated by a Reversal. Its Payment claims are released.
-See: [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
+The state of a Provider settlement whose journal entry has been negated by a Reversal.
 
 **Payment claim**:
-The exclusive hold a Provider settlement places on a customer Payment: a Payment can be included in at most one unreleased settlement. A claim is taken when a Draft is saved and is kept through posting. It is released only when the Payment is removed from the Draft, the Draft is Discarded, or the settlement is Reversed.
+The exclusive hold a Provider settlement places on a customer Payment: a Payment can be included in at most one unreleased Provider settlement.
 _Avoid_: reservation, lock
-See: [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
 
 ### Bank reconciliation
 

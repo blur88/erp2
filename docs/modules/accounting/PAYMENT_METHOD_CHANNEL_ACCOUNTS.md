@@ -533,10 +533,10 @@ abort and soft-deleted `1200` abort. It needs `backend/.env.local` (or the
 
 `chart_of_account."isProviderClearing"` (added by migration
 `1790266673470-AddProviderClearingAccountFlag`, `boolean NOT NULL DEFAULT false`)
-marks an account as a **provider clearing** account: money a provider
-(Shopee/TikTok/Atome) has collected on the business's behalf and holds in an
-Asset account until payout. Only payments recorded to a flagged account can be
-grouped into a Provider Settlement.
+marks an account as a **Clearing account**: money a provider (Shopee/TikTok/Atome)
+has collected on the business's behalf and holds in an Asset account until
+transfer to the business. Provider settlement eligibility and the use of this flag are described
+in [Provider Settlements](PROVIDER_SETTLEMENTS.md#eligible-payments-and-groups).
 
 The migration seeds `1220 Shopee`, `1230 TikTok` and `1240 Atome` — the three
 channel accounts created by `1789658118888-AddPaymentMethodChannelAccounts` — as
@@ -549,45 +549,14 @@ none of the Accounting Settings `cashAccountId`, `bankAccountId` or
 flag is editable metadata; on a hand-built chart where `1220`–`1240` are missing
 or reshaped, nothing is seeded and the switch can be set by hand.
 
-### The flag is editable metadata; journals and settlements are never rewritten
+### The flag is editable metadata; journals are never rewritten
 
-Toggling the switch (`Provider clearing account` on the account form) changes
-eligibility only. It never rewrites a posted journal or a completed settlement,
-and it is never consulted when reversing one — **reverse
-always remains available**, flagged or not. Removing the flag therefore cannot
-strand an already-posted settlement.
+Toggling the switch (`Provider clearing account` on the account form) does not
+rewrite a posted journal. Provider settlement selection, posting, and Reversal
+conditions are owned by [Provider Settlements](PROVIDER_SETTLEMENTS.md).
 
-### Eligibility follows the original journal, not the current mapping
+### Provider settlement behavior
 
-A group's clearing account is derived from the account each payment's **original
-journal entry** posted to, not from the payment method's current mapping
-(`provider-settlement-derivation.service.ts`, #1257). Remapping a method to a
-different account therefore never makes old payments eligible under the new
-account: their journals still point at the old one, so the group is offered only
-if *that* account is flagged. A group whose payments derive to two different
-accounts is not offered at all — saving such a group fails
-(`Settle each account in its own settlement.`), so each account's payments must
-be settled in its own settlement.
-
-The current mapping plays **no** part in eligibility (#1288). Payments recorded to
-a flagged clearing account stay offered and settleable after their method is
-remapped, unmapped, or left with an invalid mapping (for example, its account was
-deactivated), and a draft can still be saved and posted in that state. Every
-payment in a group must qualify: a payment with no derivable journal, or one
-deriving to an unflagged or soft-deleted account, keeps its whole group off the
-list. The Provider filter on the Provider Settlements list therefore offers every
-active payment method, whatever its mapping status.
-
-### Unflagging blocks posting, not reversing
-
-Because eligibility is checked against the derived (original-journal) account, a
-draft saved while its account was flagged becomes *not provider clearing* if the
-account is unflagged before the draft posts. Posting such a draft returns 400:
-
-> Account `<code>` `<name>` is not a provider clearing account. Only payments
-> recorded to a provider clearing account can be settled.
-
-The form shows that text verbatim and marks the offending rows for removal.
-Unflagging never touches the draft; the operator edits it or discards it. A
-flagged account is likewise rejected as a settlement **destination** (400:
-`The destination account cannot be a provider clearing account`).
+The [Provider Settlements](PROVIDER_SETTLEMENTS.md) guide owns the rules for
+original-journal derivation, method remapping, the effect of unflagging a
+Clearing account, and the account checks performed by Reverse.

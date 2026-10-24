@@ -68,4 +68,4 @@ Statement balances and selected amounts are kept in `sessionStorage`, keyed by u
 
 ## Provider settlement lines
 
-For the Provider settlement lifecycle and the amount and account rules behind these journal lines, see [Provider Settlements](PROVIDER_SETTLEMENTS.md).
+For the Provider settlement lifecycle, journal lines, and how withheld provider fees affect the reconciliation difference, see [Provider Settlements](PROVIDER_SETTLEMENTS.md#provider-fees-and-the-reconciliation-difference).
