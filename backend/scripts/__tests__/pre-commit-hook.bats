@@ -26,6 +26,20 @@ commit() {
   run git commit -q -m "$1"
 }
 
+stub_lint() {
+  mkdir -p "$REPO/bin" "$REPO/backend"
+  cat > "$REPO/bin/npm" <<'EOF'
+#!/bin/sh
+# Records where lint ran and what it saw; fails on staged "broken" source.
+printf '%s\n' "$PWD" "$*" "$(readlink node_modules)" > "$REPO/lint-call"
+if grep -q broken src/a.ts 2>/dev/null; then exit 1; fi
+exit "${LINT_STATUS:-0}"
+EOF
+  chmod +x "$REPO/bin/npm"
+  export REPO
+  export PATH="$REPO/bin:$PATH"
+}
+
 @test "refuses a commit on main and names the fix" {
   commit "on main"
 
@@ -69,4 +83,70 @@ commit() {
   [[ "$output" == *"local-hook-ran"* ]]
   run git rev-list --all --count
   [ "$output" -eq 0 ]
+}
+
+@test "staged ESLint config lints a staged snapshot without fixes and chains local hook" {
+  git switch -q -c feat/1-example
+  stub_lint
+  echo 'export default [];' > backend/eslint.config.mjs
+  git add backend/eslint.config.mjs
+  printf '#!/bin/sh\necho local-hook-ran >&2\n' > .git/hooks/pre-commit
+  chmod +x .git/hooks/pre-commit
+
+  commit "lint config"
+
+  [ "$status" -eq 0 ]
+  snap_dir=$(sed -n 1p lint-call)
+  [ "$snap_dir" != "$REPO/backend" ]
+  [ "$(sed -n 2p lint-call)" = 'run lint -- --no-fix' ]
+  [ "$(sed -n 3p lint-call)" = "$REPO/backend/node_modules" ]
+  [ ! -e "$snap_dir" ]
+  [[ "$output" == *"local-hook-ran"* ]]
+}
+
+@test "lint sees the staged file, not a fix left unstaged in the working tree" {
+  git switch -q -c feat/1-example
+  stub_lint
+  mkdir -p backend/src
+  echo broken > backend/src/a.ts
+  git add backend/src/a.ts
+  git commit -q -m seed --no-verify
+  echo 'export default [];' > backend/eslint.config.mjs
+  git add backend/eslint.config.mjs
+  echo fixed > backend/src/a.ts
+
+  commit "config ahead of its fix"
+
+  [ "$status" -ne 0 ]
+  run git rev-list --count HEAD
+  [ "$output" -eq 1 ]
+}
+
+@test "lint failure blocks a config commit before the local hook" {
+  git switch -q -c feat/1-example
+  stub_lint
+  export LINT_STATUS=1
+  echo 'export default [];' > backend/eslint.config.mjs
+  git add backend/eslint.config.mjs
+  printf '#!/bin/sh\necho local-hook-ran >&2\n' > .git/hooks/pre-commit
+  chmod +x .git/hooks/pre-commit
+
+  commit "bad lint config"
+
+  [ "$status" -ne 0 ]
+  [ -f lint-call ]
+  [[ "$output" != *"local-hook-ran"* ]]
+  run git rev-list --all --count
+  [ "$output" -eq 0 ]
+}
+
+@test "unstaged ESLint config does not trigger lint for an unrelated commit" {
+  git switch -q -c feat/1-example
+  stub_lint
+  echo 'export default [];' > backend/eslint.config.mjs
+
+  commit "unrelated change"
+
+  [ "$status" -eq 0 ]
+  [ ! -e lint-call ]
 }

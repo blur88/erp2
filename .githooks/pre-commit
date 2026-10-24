@@ -11,6 +11,23 @@ if [ "$branch" = "main" ]; then
   exit 1
 fi
 
+# Config changes can invalidate files outside the commit. Lint the whole backend
+# as staged, in a snapshot of the index: the working tree may already hold later
+# fixes that would hide errors in this commit. --no-fix stops `npm run lint`'s
+# --fix from repairing fixable errors instead of reporting them.
+if ! git diff --cached --quiet -- backend/eslint.config.mjs; then
+  echo "pre-commit: ESLint config staged; linting the staged backend" >&2
+  top=$(git rev-parse --show-toplevel)
+  snap=$(mktemp -d)
+  # Removed explicitly, not by an EXIT trap: the `exec` below skips traps.
+  (cd "$top" && git ls-files -z -- backend | git checkout-index -z --stdin --prefix="$snap/") &&
+    ln -s "$top/backend/node_modules" "$snap/backend/node_modules" &&
+    (cd "$snap/backend" && npm run lint -- --no-fix)
+  lint_status=$?
+  rm -rf "$snap"
+  [ "$lint_status" -eq 0 ] || exit 1
+fi
+
 local_hook="$(git rev-parse --git-common-dir)/hooks/pre-commit"
 if [ -x "$local_hook" ]; then
   exec "$local_hook" "$@"
