@@ -33,7 +33,7 @@ Tables use the prefix `bank_statement_reconciliation`. `bank_reconciliations` an
 | `bank_statement_reconciliation_versions` | One immutable row per Complete | No |
 | `bank_statement_reconciliation_version_lines` | Immutable line snapshot of a version | No |
 
-**Reservations live in one place.** `UQ_bsr_line_journal_line`, a plain unique index on `bank_statement_reconciliation_lines."journalEntryLineId"`, is the only thing that reserves a journal line. Version lines are a snapshot and reserve nothing — the same journal line is legitimately `OUTSTANDING` in one reconciliation's version and `MATCHED` in a later one. Working lines and setup marks are hard-deleted, never soft-deleted.
+**Reservations live in one place.** `UQ_bsr_line_journal_line`, a plain unique index on `bank_statement_reconciliation_lines."journalEntryLineId"`, is the only thing that reserves a journal line. Version lines are a snapshot and reserve nothing — the same journal line is legitimately `OUTSTANDING` in one reconciliation's version and `MATCHED` in a later one. Rows in `bank_statement_reconciliation_lines` and `bank_statement_reconciliation_setup_marks` are hard-deleted, never soft-deleted.
 
 ## Migration-only objects
 
@@ -49,7 +49,7 @@ Tests remove their rows through `removeSuiteBankReconciliations` (`backend/test/
 
 ## Lock order
 
-Every reconciliation write first takes `FOR NO KEY UPDATE` on the bank account's `chart_of_account` row (`lockBankAccount`, `bank-reconciliation.locks.ts`), then the header row, then working lines in ascending `journalEntryLineId`.
+Every reconciliation write first takes `FOR NO KEY UPDATE` on the bank account's `chart_of_account` row (`lockBankAccount`, `bank-reconciliation.locks.ts`), then the header row, then working set rows in ascending `journalEntryLineId`.
 
 `FOR NO KEY UPDATE` is deliberate: it does not conflict with the key-share lock a `journal_entry_line` insert takes, so postings are not blocked. `FOR UPDATE` would block them.
 
@@ -57,7 +57,7 @@ No reconciliation path, including helpers it calls, may lock `accounting_setting
 
 ## Error details ride inside `message`
 
-Reconciliation conflicts that carry data are thrown as `ConflictException({ message: { text, ...details } })` — the provider-settlement stale-conflict shape. The global exception filter forwards only `message`; do not widen it to copy other keys. The frontend reads `text` through `reconciliationErrorMessage`, because `rtkErrorMessage` only understands string messages.
+Reconciliation conflicts with data use `ConflictException({ message: { text, ...details } })`, as in provider-settlement stale conflicts. This matches the shared [exception-payload rule](../../../CODING_STANDARDS.md#error-details-inside-message). The frontend reads `text` through `reconciliationErrorMessage`, because `rtkErrorMessage` only understands string messages.
 
 ## Unsaved form drafts
 

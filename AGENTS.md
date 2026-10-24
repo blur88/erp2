@@ -71,10 +71,11 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 
 **Backend**
 
-- **Route order.** Declare specific routes (`/products/deleted`) before parameterized ones (`/products/:id`), or NestJS parses `"deleted"` as a UUID and fails.
-- **Soft delete.** For entities that support soft deletion, use TypeORM `softDelete(id)`. Setting `isActive = false` does not set `deletedAt` and breaks `withDeleted` queries and restore. Some rows are hard-deleted by design (reconciliation working lines and setup marks).
-- **API response shape.** `ApiService` returns the backend body. Paginated lists are `{ data: T[], meta }` — read `response.data` / `response.meta`. Tree endpoints (categories, chart of accounts) return a plain array — read `response`. Getting this wrong yields empty lists with no error.
-- **Lockout clock.** Lockout expiry is evaluated against the Node clock (`new Date()`), never SQL `NOW()`, so login and the user list agree (#710). Do not change these comparisons. If a lockout looks wrong, the container clock drifted: `docker compose restart backend`.
+- **Route order.** Fixed routes precede parameterized routes, e.g. `/products/deleted` before `/products/:id`. See [route-order guidance](CODING_STANDARDS.md#route-order).
+- **Soft delete.** Use TypeORM `softDelete(id)`, not `isActive = false`, for soft-deletable entities; hard-delete reconciliation lines/setup marks, and headers only when discarding a never-completed draft. See [soft-delete guidance](CODING_STANDARDS.md#soft-delete).
+- **API response shape.** Read `response.data`/`response.meta` for pages and category trees; chart-of-accounts trees return arrays on `response`. Wrong page access silently empties lists. See [API response-shape guidance](CODING_STANDARDS.md#api-response-shape).
+- **Error details inside `message`.** Keep client-visible structured details in `message`; put machine-readable codes in top-level `code`. See [exception-payload guidance](CODING_STANDARDS.md#error-details-inside-message).
+- **Lockout clock.** Expiry uses Node `new Date()`, not SQL `NOW()` (#710); do not change these comparisons. If a lockout looks wrong, suspect container clock drift; run `docker compose restart backend`. See [lockout-clock guidance](CODING_STANDARDS.md#lockout-clock).
 - **Migrations only.** `DB_SYNCHRONIZE` is off everywhere and there is no `schema:sync` fallback; migration failure is fatal. The chain starts from one `InitialSchema` genesis migration (#950) and runs against an empty database. Verify schema changes with `backend/scripts/verify-baseline.sh` and `verify-seeds.sh`.
 - **Path aliases.** Files reachable from `tsconfig.cli.json`'s `include` must use relative imports. The Docker build's second `tsc` pass writes them into `dist/` with aliases unresolved; this previously made a built image crash-loop. `tsconfig-paths/register` lets `ts-node` CLI scripts run aliased imports from source but does not fix the built image. Gate: `npm run verify:dist`. Details: [Build](docs/backend/build.md).
 - **Docker rebuilds.** There is no live-reload mount: backend or frontend source changes need `docker compose build <service> && docker compose up -d <service>`.
@@ -83,14 +84,14 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 **Redis and queues** — details: [Redis](docs/backend/redis.md), [BullMQ backup schedulers](docs/backend/bullmq-backup-schedulers.md)
 
 - **`noeviction`, queue keys only.** Redis is BullMQ's store and runs `--maxmemory-policy noeviction`; eviction silently destroys queue state. Never add cache or session keys — a cache needs a separate Redis service.
-- **RESP2 is pinned.** Every Redis client passes `protocol: 2` (load-bearing in `createBullOptions()`). RESP3 changes reply shapes silently; adopting it is its own change.
-- **Never write to this Redis from BullMQ v5**, and never remove a scheduler with `ZREM` — use the dry-run-by-default `backup:reconcile-schedulers` CLI.
+- **RESP2 is pinned.** `createBullOptions()` pins BullMQ `protocol: 2`; direct clients do too. RESP3 silently changes reply shapes; adopting it is its own change. Checks: `redis-client-inventory.spec.ts`, `bull-options.factory.spec.ts`, direct-client specs, and ESLint's runtime BullMQ import ban.
+- **Never write to this Redis from BullMQ v5**, and never remove a scheduler with `ZREM` — use the dry-run-by-default `backup:reconcile-schedulers` CLI. `test:redis` checks reconciler and schedule-deletion removal; no check detects a v5 writer or arbitrary `ZREM`.
 
 **Tests**
 
 - **Jest needs `NODE_OPTIONS=--experimental-vm-modules`.** Bare `npx jest` runs everything as CommonJS and fails with `Must use import to load ES Module`. Use the npm scripts.
 - **Zero tests is a failure.** `Tests: 0 total` means a suite failed to load or the run used the wrong module mode. Never add `--passWithNoTests` (a bats test enforces this).
-- **E2E suites clean their own exhaust**, including `audit_logs` and `search_queries` via `removeSuiteTraces`, scoped to ids the suite owns. The nightly `test:e2e:leakcheck` catches leaks that `test:e2e` cannot.
+- **E2E suites clean their own exhaust**: `removeSuiteTraces` removes owned `audit_logs`/`search_queries`; the nightly `test:e2e:leakcheck` catches leaks. See [e2e request-trace cleanup guidance](CODING_STANDARDS.md#e2e-request-trace-cleanup).
 - **Cron is off in test apps** (`NODE_ENV=test`); call handler methods directly. BullMQ repeatable jobs still run.
 - **`test:redis` writes to Redis** and requires `REDIS_TEST_ALLOW_WRITES=1`; point it only at a disposable instance.
 
@@ -101,9 +102,9 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 
 **Bank reconciliation** — details: [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md)
 
-- **Only the working set reserves journal lines; Versions do not.** One unique index on working lines is the whole reservation mechanism.
+- **Only the working set reserves journal lines; Versions do not.** One unique index on working set rows is the whole reservation mechanism.
 - **Versions are immutable with no bypass.** Nothing under `src/` may disable database triggers or drop them outside migrations. Enforced by `cd backend && npm run test:scripts`; only the test fixture `removeSuiteBankReconciliations` may disable the `trg_bsr_*` triggers.
-- **Lock order:** bank account row (`FOR NO KEY UPDATE`), then header, then working lines by ascending `journalEntryLineId`. Never lock `accounting_settings` after the account lock.
+- **Lock order:** Bank account `FOR NO KEY UPDATE` → header → working set rows ascending by `journalEntryLineId`; never lock `accounting_settings` after account. See [reconciliation lock-order guidance](CODING_STANDARDS.md#reconciliation-lock-order).
 
 ## Git and pull requests
 
