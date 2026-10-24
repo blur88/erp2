@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
+import type { Queue } from 'bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import {

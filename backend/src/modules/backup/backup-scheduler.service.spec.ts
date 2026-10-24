@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { Queue } from 'bullmq';
+import type { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import { BackupSchedulerService } from './backup-scheduler.service';

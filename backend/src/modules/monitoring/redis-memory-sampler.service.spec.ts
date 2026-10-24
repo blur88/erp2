@@ -10,12 +10,13 @@ const redisMock = {
   info: (jest.fn as unknown as any)(),
   disconnect: (jest.fn as unknown as any)(),
 };
+const redisConstructor = (jest.fn as unknown as any)(() => redisMock);
 
 let RedisMemorySamplerService: any;
 beforeAll(async () => {
   jest.unstable_mockModule('ioredis', () => ({
     __esModule: true,
-    default: (jest.fn as unknown as any)(() => redisMock),
+    default: redisConstructor,
   }));
   const mod = await import('./redis-memory-sampler.service');
   RedisMemorySamplerService = mod.RedisMemorySamplerService;
@@ -51,6 +52,13 @@ describe('RedisMemorySamplerService', () => {
       evaluator,
       undefined,
       { instanceId: 'erp_backend', source: 'configured' },
+    );
+  });
+
+  it('constructs its sampler Redis client with RESP2', () => {
+    expect(redisConstructor).toHaveBeenCalledTimes(1);
+    expect(redisConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({ protocol: 2 }),
     );
   });
 
