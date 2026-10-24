@@ -40,17 +40,6 @@ export class ReconcileCliDatabaseConfig implements TypeOrmOptionsFactory {
 }
 
 /**
- * Exported so the wiring test can assert the exact values rather than a
- * substring of serialized module metadata.
- */
-export const RECONCILE_QUEUE_OPTIONS = {
-  name: 'backup-queue',
-  // The Queue constructor writes queue metadata unless this is set
-  // (bullmq queue.js:45). Safe here because the CLI never produces jobs.
-  skipMetasUpdate: true,
-} as const;
-
-/**
  * Minimal context for `npm run backup:reconcile-schedulers`.
  *
  * Deliberately NOT AppModule: booting that runs four onModuleInit hooks —
@@ -74,7 +63,12 @@ export const RECONCILE_QUEUE_OPTIONS = {
     TypeOrmModule.forRootAsync({ useClass: ReconcileCliDatabaseConfig }),
     TypeOrmModule.forFeature([BackupSchedule]),
     BullModule.forRootAsync(createBullOptions()),
-    BullModule.registerQueue({ ...RECONCILE_QUEUE_OPTIONS }),
+    BullModule.registerQueue({
+      name: 'backup-queue',
+      // The Queue constructor writes queue metadata unless this is set
+      // (bullmq queue.js:45). Safe here because the CLI never produces jobs.
+      skipMetasUpdate: true,
+    }),
   ],
   providers: [OrphanedSchedulerReconciler],
 })
