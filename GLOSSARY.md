@@ -41,22 +41,22 @@ _Avoid_: bill, cost entry
 
 **Owner equity document**:
 A document recording money or inventory moving between the owner and the business: a Capital injection, a Cash drawing or a Stock drawing.
-See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#owner-equity-types-and-ledger-effects) for its actions and ledger effects.
+See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#owner-equity-types-and-ledger-effects) for type details and ledger effects.
 
 **Capital injection**:
 An owner equity document recording the owner putting personal money into the business.
 _Avoid_: owner deposit, opening balance
-See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#owner-equity-types-and-ledger-effects) for its actions and ledger effects.
+See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#owner-equity-types-and-ledger-effects) for type details and ledger effects.
 
 **Cash drawing**:
 An owner equity document recording the owner taking money out of the business for personal use.
 _Avoid_: owner withdrawal, expense
-See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#owner-equity-types-and-ledger-effects) for its actions and ledger effects.
+See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#owner-equity-types-and-ledger-effects) for type details and ledger effects.
 
 **Stock drawing**:
 An owner equity document recording the owner taking inventory for personal use, valued at cost.
 _Avoid_: stock adjustment, write-off
-See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#owner-equity-types-and-ledger-effects) for its actions and ledger effects.
+See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#owner-equity-types-and-ledger-effects) for type details and ledger effects.
 
 ### Document lifecycle
 
@@ -80,7 +80,7 @@ _Avoid_: finalize, close, seal
 See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#when-each-action-is-allowed) for Stock drawing action rules.
 
 **Uncomplete**:
-The action that returns a Completed Stock drawing to Draft, writing a Reversal of its journal entry and returning the stock. The drawing does not become Reversed.
+The action that returns a Completed Stock drawing to Draft, writing a Reversal of any Journal entry created at Complete and returning the stock. The drawing does not become Reversed.
 _Avoid_: undo, reopen
 See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#when-each-action-is-allowed) for Stock drawing action rules.
 
