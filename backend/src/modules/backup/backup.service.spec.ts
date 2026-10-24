@@ -41,6 +41,7 @@ const redisMock = {
   status: 'wait',
   connect: jest.fn().mockResolvedValue(undefined),
 };
+const redisConstructor = jest.fn(() => redisMock);
 
 jest.unstable_mockModule('child_process', () => ({
   spawn: mockSpawn,
@@ -49,7 +50,7 @@ jest.unstable_mockModule('child_process', () => ({
 
 jest.unstable_mockModule('ioredis', () => ({
   __esModule: true,
-  default: jest.fn(() => redisMock),
+  default: redisConstructor,
 }));
 
 const mockFs = {
@@ -129,6 +130,7 @@ describe('BackupService - settings backup', () => {
   let printSettingsRepo: ReturnType<typeof mockRepository>;
 
   beforeEach(async () => {
+    redisConstructor.mockClear();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BackupService,
@@ -149,6 +151,12 @@ describe('BackupService - settings backup', () => {
     regionalSettingsRepo = module.get(getRepositoryToken(RegionalSettings));
     documentNumberSettingRepo = module.get(getRepositoryToken(DocumentNumberSetting));
     printSettingsRepo = module.get(getRepositoryToken(PrintSettings));
+  });
+
+  it('constructs its backup Redis client with RESP2', () => {
+    expect(redisConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({ protocol: 2 }),
+    );
   });
 
   afterEach(() => {

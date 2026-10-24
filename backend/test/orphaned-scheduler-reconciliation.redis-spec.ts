@@ -202,6 +202,52 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     expect(fired).not.toContain(ORPHAN_SCHEDULE_ID);
   });
 
+  it('schedule deletion removes its repeat member and delayed occurrence', async () => {
+    const schedulerId = 'schedule-schedule-1';
+    const repeatKey = `${prefix}:${QUEUE}:repeat`;
+    const delayedKey = `${prefix}:${QUEUE}:delayed`;
+    const client = await testClient(v6);
+
+    await v6.upsertJobScheduler(
+      schedulerId,
+      { pattern: '00 02 * * *' },
+      {
+        name: 'create-backup',
+        data: { scheduleId: schedule.id, type: 'full' },
+      },
+    );
+
+    const delayedBefore = (await client.zrange(delayedKey, 0, -1)).filter((jobId) =>
+      jobId.startsWith(`repeat:${schedulerId}:`),
+    );
+    expect(await client.zrange(repeatKey, 0, -1)).toContain(schedulerId);
+    expect(await client.hexists(`${repeatKey}:${schedulerId}`, 'ic')).toBe(1);
+    expect(delayedBefore).toHaveLength(1);
+    expect(await client.exists(`${prefix}:${QUEUE}:${delayedBefore[0]}`)).toBe(1);
+
+    const scheduleRepository = {
+      find: async () => [],
+      findOne: async () => schedule,
+      remove: async () => undefined,
+    };
+    const deletionService = new BackupSchedulerService(
+      scheduleRepository as any,
+      v6 as any,
+      {} as BackupService,
+      new OrphanedSchedulerReconciler(scheduleRepository as any, v6 as any),
+    );
+
+    await deletionService.remove(schedule.id);
+
+    const delayedAfter = (await client.zrange(delayedKey, 0, -1)).filter((jobId) =>
+      jobId.startsWith(`repeat:${schedulerId}:`),
+    );
+    expect(await client.zrange(repeatKey, 0, -1)).not.toContain(schedulerId);
+    expect(await client.exists(`${repeatKey}:${schedulerId}`)).toBe(0);
+    expect(delayedAfter).toEqual([]);
+    expect(await client.exists(`${prefix}:${QUEUE}:${delayedBefore[0]}`)).toBe(0);
+  });
+
   describe('OrphanedSchedulerReconciler (issue #1045)', () => {
     const ORPHAN_MEMBER = '60f88ec415a02b45f5c02094f3aca23d';
     const ORPHAN_SCHEDULE_ID = 'a556cb35-6161-4033-8779-880b60cda72a';
