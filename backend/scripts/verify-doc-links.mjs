@@ -7,8 +7,9 @@
 // Thematic breaks and setext underlines are distinguished by block context.
 // Multi-line setext titles drop line breaks when deriving GitHub-style slugs.
 // Fragments on directory paths are not checked as Markdown anchors.
+// Also fails on a repeated `**Term**:` definition in the root GLOSSARY.md (#1459).
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -335,7 +336,9 @@ function checkLink(context, document, link) {
     ? tracked.length > 0
     : tracked.some((entry) => entry.startsWith(`${normalized.replace(/\/$/u, '')}/`));
   if (!existsFile && !existsDirectory) {
-    failLink(document, link, 'target does not exist');
+    failLink(document, link, existsSync(absolute)
+      ? 'target does not exist in Git (found on disk but untracked or ignored; stage it with git add)'
+      : 'target does not exist');
     return;
   }
   if (fragment === null || !normalized.toLowerCase().endsWith('.md')) return;
@@ -359,17 +362,41 @@ function validateDocuments(root, tracked, documents) {
   return externalSkipped;
 }
 
-function report(documents, externalSkipped) {
+function duplicateGlossaryTerms(root, trackedSet) {
+  if (!trackedSet.has('GLOSSARY.md')) return [];
+  const lines = readFileSync(path.join(root, 'GLOSSARY.md'), 'utf8').split(/\r?\n/u);
+  const firstLine = new Map();
+  const duplicates = [];
+  const skipFenceLine = createFenceLineSkipper();
+  for (let i = 0; i < lines.length; i += 1) {
+    if (skipFenceLine(lines[i], () => {})) continue;
+    const term = lines[i].match(/^\*\*([^*]+)\*\*:\s*$/u);
+    if (!term) continue;
+    const key = term[1].trim().toLowerCase();
+    if (firstLine.has(key)) {
+      duplicates.push({ line: i + 1, term: term[1], first: firstLine.get(key) });
+    } else firstLine.set(key, i + 1);
+  }
+  return duplicates;
+}
+
+function report(documents, externalSkipped, glossaryDuplicates) {
   const failures = [...documents.values()].flatMap((document) => document.failures);
   failures.sort((a, b) => a.source < b.source ? -1 : a.source > b.source ? 1 : a.line - b.line);
   for (const failure of failures) process.stdout.write(`${failure.source}:${failure.line}: ${failure.link} — ${failure.reason}\n`);
+  for (const duplicate of glossaryDuplicates) {
+    process.stdout.write(`GLOSSARY.md:${duplicate.line}: **${duplicate.term}** — duplicate glossary term; first defined at line ${duplicate.first}\n`);
+  }
   const links = [...documents.values()].flatMap((document) => document.links);
   const checked = links.length - externalSkipped;
+  const problems = [];
+  if (failures.length) problems.push(`${failures.length} broken ${failures.length === 1 ? 'link' : 'links'}`);
+  if (glossaryDuplicates.length) {
+    problems.push(`${glossaryDuplicates.length} duplicate glossary ${glossaryDuplicates.length === 1 ? 'term' : 'terms'}`);
+  }
   const summary = `${checked} local links checked in ${documents.size} files (${externalSkipped} external skipped)`;
-  if (failures.length) {
-    process.stdout.write(`${failures.length} broken ${failures.length === 1 ? 'link' : 'links'}, ${summary}\n`);
-    process.exitCode = 1;
-  } else process.stdout.write(`${summary}\n`);
+  process.stdout.write(`${[...problems, summary].join(', ')}\n`);
+  if (problems.length) process.exitCode = 1;
 }
 
 function main() {
@@ -377,7 +404,7 @@ function main() {
   const { tracked, markdown } = trackedMarkdown(root);
   const documents = readDocuments(root, markdown);
   const externalSkipped = validateDocuments(root, tracked, documents);
-  report(documents, externalSkipped);
+  report(documents, externalSkipped, duplicateGlossaryTerms(root, new Set(tracked)));
 }
 
 try { main(); }

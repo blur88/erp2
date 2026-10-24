@@ -31,6 +31,7 @@ EOF
   run_check
   [ "$status" -eq 1 ]
   [[ "$output" == *"README.md:1: [broken](missing.md) — target does not exist"* ]]
+  [[ "$output" != *"found on disk"* ]]
   [[ "$output" == *"1 broken link, 1 local links checked in 1 files (0 external skipped)"* ]]
 }
 
@@ -384,7 +385,7 @@ EOF
   git -C "$TEST_REPO" add README.md backend/scripts/verify-doc-links.mjs
   run env -C /tmp node "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"README.md:1: [local](private.md) — target does not exist"* ]]
+  [[ "$output" == *"README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"* ]]
   [[ "$output" == *"1 broken link, 1 local links checked in 1 files (0 external skipped)"* ]]
 }
 
@@ -414,8 +415,49 @@ ignored
 EOF
   run_check
   [ "$status" -eq 1 ]
-  [[ "$output" == *"README.md:1: [local](private.md) — target does not exist"* ]]
+  [[ "$output" == *"README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"* ]]
   [[ "$output" == *"1 broken link, 1 local links checked in 1 files (0 external skipped)"* ]]
+}
+
+@test "duplicate GLOSSARY.md terms fail, ignoring case, with both line numbers" {
+  write_file GLOSSARY.md <<'EOF'
+# Glossary
+
+**Post**:
+To write the journal entry.
+
+**post**:
+A second definition.
+EOF
+  run_check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'GLOSSARY.md:6: **post** — duplicate glossary term; first defined at line 3'* ]]
+  [[ "$output" == *"1 duplicate glossary term, 0 local links checked in 1 files (0 external skipped)"* ]]
+}
+
+@test "distinct GLOSSARY.md terms pass; fenced and other-file repeats are not terms" {
+  write_file GLOSSARY.md <<'EOF'
+# Glossary
+
+**Post**:
+To write the journal entry.
+
+**Posted**:
+A state.
+
+```md
+**Post**:
+An example, not a term.
+```
+EOF
+  write_file README.md <<'EOF'
+**Post**:
+**Post**:
+EOF
+  run_check
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"duplicate glossary term"* ]]
+  [[ "$output" == *"0 local links checked in 2 files (0 external skipped)"* ]]
 }
 
 @test "zero tracked Markdown files exits 2" {
