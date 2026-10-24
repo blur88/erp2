@@ -108,7 +108,7 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 
 **Documentation**
 
-- **Docs that describe code are claims.** Claims match the code they name, and each rule has one owner that you change first. See [documentation rules](CODING_STANDARDS.md#documentation).
+- **Docs that describe code are claims.** Claims match the code they name, each rule has one owner that you change first, and a stated reason cites a recorded source, never an untracked file. See [documentation rules](CODING_STANDARDS.md#documentation).
 
 ## Git and pull requests
 
