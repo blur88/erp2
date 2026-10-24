@@ -1,5 +1,5 @@
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { SharedBullAsyncConfiguration } from '@nestjs/bullmq';
+import type { SharedBullAsyncConfiguration } from '@nestjs/bullmq';
 
 /**
  * Single source of Redis connection options for BullMQ.

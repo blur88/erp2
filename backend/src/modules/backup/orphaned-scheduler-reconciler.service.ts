@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { In, Repository } from 'typeorm';
-import { IRedisClient, Queue } from 'bullmq';
+import type { IRedisClient, Queue } from 'bullmq';
 // Relative, not the `@database/*` alias: this file is reachable from
 // `src/database/cli/reconcile-schedulers.ts`, so `npx tsc -p tsconfig.cli.json`
 // recompiles it into dist/ after `nest build` has already emitted it. Plain tsc
