@@ -106,6 +106,10 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 - **Versions are immutable with no bypass.** Nothing under `src/` may disable database triggers or drop them outside migrations. Enforced by `cd backend && npm run test:scripts`; only the test fixture `removeSuiteBankReconciliations` may disable the `trg_bsr_*` triggers.
 - **Lock order:** Bank account `FOR NO KEY UPDATE` → header → working set rows ascending by `journalEntryLineId`; never lock `accounting_settings` after account. See [reconciliation lock-order guidance](CODING_STANDARDS.md#reconciliation-lock-order).
 
+**Documentation**
+
+- **Docs that describe code are claims.** Claims match the code they name, and each rule has one owner that you change first. See [documentation rules](CODING_STANDARDS.md#documentation).
+
 ## Git and pull requests
 
 - Commit on a branch. Run `git config core.hooksPath .githooks` once per clone; its pre-commit hook refuses commits on `main` and chains any `.git/hooks/pre-commit`.

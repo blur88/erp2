@@ -1,6 +1,8 @@
 # Coding Standards
 
-These are reviewer-facing judgement rules: each gives the rule, reason, and a violating diff shape. `AGENTS.md` keeps short high-consequence reminders and names checks for mechanical rules.
+These are reviewer-facing judgement rules. Each rule states its Rule, Why, Diff failure and Trace; `backend/scripts/verify-coding-standards.sh` (run by `npm run test:scripts`) checks that shape. Mechanical rules belong in checks rather than here.
+
+Each rule has [one owner](#one-owner-per-rule): the module or technical doc when that doc explains the mechanism, otherwise this file. A rule here whose owner is another doc names that owner in its Trace. `AGENTS.md` keeps a one-line reminder that points here, and reaches the owner through that Trace.
 
 ## Backend
 
@@ -37,7 +39,7 @@ These are reviewer-facing judgement rules: each gives the rule, reason, and a vi
 ### Lockout clock
 
 - **Rule:** Compare `lockedUntil` with the Node clock (`new Date()`), not SQL `NOW()`.
-- **Why:** Login and the user list must evaluate expiry against the same clock. PostgreSQL and the backend container can drift, which previously caused an expired lockout to persist (#710).
+- **Why:** Login and the user list must evaluate expiry against the same clock. PostgreSQL and the backend container can drift, which previously caused an expired lockout to persist (#710). When a lockout looks wrong, suspect that drift and run `docker compose restart backend`.
 - **Diff failure:** Moving one comparison to SQL `NOW()` lets login consider an account unlocked while the user list still reports it locked, or vice versa.
 - **Trace:** [AuthService](backend/src/modules/auth/auth.service.ts), [UsersService](backend/src/modules/users/users.service.ts), and [issue #710](https://github.com/blur88/erp2/issues/710).
 
@@ -58,3 +60,19 @@ These are reviewer-facing judgement rules: each gives the rule, reason, and a vi
 - **Why:** `test:e2e` recreates its database for each run, which hides rows leaked by a suite. The persistent leak check detects those rows on a later pass; broad cleanup by the shared `admin` username can delete another suite's data.
 - **Diff failure:** Adding an HTTP write or `/search/global` request while only cleaning business rows/users leaves `audit_logs` or `search_queries` behind and makes the leak check fail.
 - **Trace:** [Backend testing: every suite cleans its own request exhaust](docs/backend/testing.md#every-suite-cleans-its-own-request-exhaust) and [removeSuiteTraces](backend/test/utils/shared-e2e-traces-fixture.ts).
+
+## Documentation
+
+### Claims match the code
+
+- **Rule:** Every factual claim in documentation that describes code matches the code it names: response shapes, lock orders, which exception fields survive, what a test covers, and every "Enforced by" note. Check each claim the diff adds or changes against that code, and cite file and line in the review.
+- **Why:** Documentation passes lint, links and tests while being wrong, and agents act on it as fact. A wrong claim in always-loaded `AGENTS.md` misleads every later session.
+- **Diff failure:** A line saying tree endpoints "(categories, chart of accounts) return a plain array" when `CategoryService.getTree` returns `{ data, meta }`; or "Enforced by the ESLint runtime `bullmq` import ban" on the BullMQ v5 rule, when that ban only rejects imports in `src/**` and cannot stop a separate v5 process.
+- **Trace:** [CategoryService.getTree](backend/src/modules/inventory/services/category.service.ts), [ESLint config](backend/eslint.config.mjs), [PR #1456](https://github.com/blur88/erp2/pull/1456) (both claims) and [issue #1457](https://github.com/blur88/erp2/issues/1457).
+
+### One owner per rule
+
+- **Rule:** Each rule has one owning document. Any other copy points to the owner, directly or through the rule here whose Trace names it. A copy may leave detail to the owner, but every condition it states matches the owner, and it adds none. Change the owner first, then bring each copy into line in the same diff.
+- **Why:** Copies drift. Shortening one copy by hand is how a rule turns wrong in one place while staying right in another, and a reader cannot tell which copy is authoritative.
+- **Diff failure:** The owner says no path may lock `accounting_settings` after the account lock; a shortened `AGENTS.md` copy reading "lock the account first … lock `accounting_settings` before the account" turns that prohibition into an instruction and contradicts itself.
+- **Trace:** [Bank Reconciliation: lock order](docs/modules/accounting/BANK_RECONCILIATION.md#lock-order) (the owner), [PR #1456](https://github.com/blur88/erp2/pull/1456) and [issue #1457](https://github.com/blur88/erp2/issues/1457).
