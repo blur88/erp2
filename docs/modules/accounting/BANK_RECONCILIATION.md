@@ -66,6 +66,6 @@ Statement balances and selected amounts are kept in `sessionStorage`, keyed by u
 - `applyPreview` must return the *same* state object when nothing changed. The form compares `matched` by reference to decide whether to preview again; a fresh-but-equal object re-requests forever.
 - `useClearReconciliationDraftsOnSignOut` (in `RootLayout`) removes them from a tab whenever that tab is not signed in. It cannot reach other tabs; see the [draft storage assessment](BANK_RECONCILIATION_DRAFT_STORAGE_ASSESSMENT.md).
 
-## Provider settlement lines
+## A withheld provider fee needs another ledger entry
 
 For the Provider settlement lifecycle, journal lines, and how withheld provider fees affect the reconciliation difference, see [Provider Settlements](PROVIDER_SETTLEMENTS.md#provider-fees-and-the-reconciliation-difference).

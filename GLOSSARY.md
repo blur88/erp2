@@ -20,6 +20,7 @@ _Avoid_: entry, journal entry line, transaction
 
 **Post**:
 To write the journal entry that records a business document's accounting effect.
+For a Provider settlement, it changes Draft to Posted.
 _Avoid_: book, record (for this act)
 
 **Reversal**:
@@ -114,14 +115,12 @@ See [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md) for 
 A document recording a payment provider's transfer of selected customer Payments, net of Refunds, from the provider's Clearing account to a bank account.
 _Avoid_: settlement (unqualified), payout, remittance
 
-**Post**:
-The action that changes a Draft Provider settlement to Posted by writing its journal entry.
-
 **Posted**:
 The state of a Provider settlement whose journal entry has been written. It can only be undone by a Reversal, which makes it Reversed.
 
 **Reverse**:
 The action that changes a Posted Provider settlement to Reversed by writing a Reversal of its journal entry.
+_Avoid_: undo, unpost
 
 **Reversed**:
 The state of a Provider settlement whose journal entry has been negated by a Reversal.
