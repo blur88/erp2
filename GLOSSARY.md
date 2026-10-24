@@ -87,6 +87,7 @@ _Avoid_: restore, reopen
 **Discard**:
 The action that permanently removes a Reconciliation or Provider settlement that is still a Draft and has never been Completed or Posted. Nothing of it is kept, unlike Cancel.
 _Avoid_: delete, cancel
+See: [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md), [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
 
 ### Payments
 
@@ -107,16 +108,20 @@ _Avoid_: reversal, void
 **Provider settlement**:
 A document recording a payment provider's payout of selected customer payments, net of refunds, moving that amount from the provider's Clearing account to a bank account.
 _Avoid_: settlement (unqualified), payout, remittance
+See: [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
 
 **Posted**:
 The state of a Provider settlement whose journal entry has been written. It can only be undone by a Reversal, which makes it Reversed.
+See: [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
 
 **Reversed**:
 The state of a Provider settlement whose journal entry has been negated by a Reversal. Its Payment claims are released.
+See: [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
 
 **Payment claim**:
 The exclusive hold a Provider settlement places on a customer Payment: a Payment can be included in at most one unreleased settlement. A claim is taken when a Draft is saved and is kept through posting. It is released only when the Payment is removed from the Draft, the Draft is Discarded, or the settlement is Reversed.
 _Avoid_: reservation, lock
+See: [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md)
 
 ### Bank reconciliation
 
