@@ -1,17 +1,17 @@
 # Provider Settlements
 
-Current mechanics of Provider settlements: which payments can be selected, when each action is allowed, how payment claims are kept, and how the payout reaches the ledger. Terms use the [accounting glossary](../../../GLOSSARY.md#provider-settlement).
+Current mechanics of Provider settlements: which payments can be selected, when each action is allowed, how payment claims are kept, and how the transfer reaches the ledger. Terms use the [accounting glossary](../../../GLOSSARY.md#provider-settlement).
 
 The [Payment Method and channel account guide](PAYMENT_METHOD_CHANNEL_ACCOUNTS.md#provider-clearing-flag-1285) explains how a Chart of Accounts account is marked as a provider clearing account.
 
 ## Purpose and recorded decisions
 
-A Provider settlement records one payment provider's payout of selected customer Payments and Refunds. Posting moves their positive net from one provider clearing account to one bank account. Provider fees have no separate field or journal line: the recorded design treats them as already represented by Sales Order discounts.
+A Provider settlement records funds a payment provider sends to the business for selected Sales Order Payments and Refunds. Posting moves their positive net from one provider clearing account to one bank account. Provider fees have no separate field or journal line: the recorded design treats them as already represented by Sales Order discounts.
 
 The relevant design records are:
 
-- [#1257 — Provider Settlements](https://github.com/blur88/erp2/issues/1257) established the payout workflow, journal-derived clearing account, Payment claims, and the no-fee rule.
-- [#1284 — net reconciliation](https://github.com/blur88/erp2/issues/1284) changed selection to one net row per Sales Order and Payment Method, allowed signed Refund rows, required one Payment Method per payout, and required the entered amount to equal the selected total.
+- [#1257 — Provider Settlements](https://github.com/blur88/erp2/issues/1257) established the settlement workflow, journal-derived clearing account, Payment claims, and the no-fee rule.
+- [#1284 — net reconciliation](https://github.com/blur88/erp2/issues/1284) changed selection to one net row per Sales Order and Payment Method, allowed signed Refund rows, required one Payment Method per settlement, and required the entered amount to equal the selected total.
 - [#1285 — provider clearing eligibility](https://github.com/blur88/erp2/issues/1285) introduced the provider clearing account rule. [#1288](https://github.com/blur88/erp2/issues/1288) removed the current-mapping gate: eligibility follows the account in the original journal entry.
 - [#1298 — bank destinations](https://github.com/blur88/erp2/issues/1298) requires a valid bank destination. [#1134 — business timezone for posting dates](https://github.com/blur88/erp2/issues/1134) is the date convention used for Reversals.
 
@@ -70,7 +70,7 @@ The entry date is the settlement date. A Reversal uses the action date in the co
 
 ## Payment claims and saved amounts
 
-A Draft claims each selected Sales Order Payment when its lines are saved. The claim remains through posting. A database uniqueness rule allows each Payment to have only one unreleased claim at a time, including across concurrent users. Draft claims do not expire: silent expiry could release a claim while someone is still editing the Draft. They are released explicitly by removing a Payment from the Draft, discarding the Draft, or reversing the Posted settlement.
+A Draft claims each selected Sales Order Payment when its lines are saved. The claim remains through posting. A database uniqueness rule allows each Payment to have only one unreleased claim at a time, including across concurrent users. Draft claims do not expire. The design chooses explicit release because silent expiry could release a claim while someone is still editing the Draft. Claims are released by removing a Payment from the Draft, discarding the Draft, or reversing the Posted settlement.
 
 Each line stores the signed amount as a snapshot. When creating or editing a Draft, the server refreshes every requested group's current eligible payments and rejects a missing group, a zero net, or a net that differs from the submitted expected amount. It saves the complete eligible payment set for each group at that time; it does not compare that set with what the user last saw if the membership changed without changing the net. At post time, it checks both the exact saved Payment ID set and each saved amount against the current rows. Equal totals alone are insufficient: a new Payment and Refund could leave the same net while changing which accounting events the settlement clears.
 
@@ -80,7 +80,7 @@ Removing a line from a Draft hard-deletes that line so its unreleased claim is a
 
 For an existing settlement, Edit, Discard, Post, and Reverse lock the settlement before checking its state, so an action cannot proceed on a status that changed concurrently. Create, Edit, and Post also lock the involved Sales Orders in a stable order before recomputing eligibility. Payment and Refund writers lock those same orders before adding rows, so a concurrent write is either visible to the settlement check or waits until it commits. The database claim rule decides races between two settlements for the same Payment.
 
-Claim rows are inserted in stable Payment ID order. A PostgreSQL deadlock during Create, Edit, or Post is currently returned as a retryable conflict. No issue or ADR was found that records this response as a broader API policy; this is current behavior only.
+Claim rows are inserted in stable Payment ID order so concurrent settlements contend for claims in the same order. A PostgreSQL deadlock during Create, Edit, or Post is currently returned as a retryable conflict. No issue or ADR records why this response is retryable or establishes it as a broader API policy; this is current behavior only.
 
 ## Related behavior
 

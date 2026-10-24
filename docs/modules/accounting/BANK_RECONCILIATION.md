@@ -66,6 +66,6 @@ Statement balances and selected amounts are kept in `sessionStorage`, keyed by u
 - `applyPreview` must return the *same* state object when nothing changed. The form compares `matched` by reference to decide whether to preview again; a fresh-but-equal object re-requests forever.
 - `useClearReconciliationDraftsOnSignOut` (in `RootLayout`) removes them from a tab whenever that tab is not signed in. It cannot reach other tabs; see the [draft storage assessment](BANK_RECONCILIATION_DRAFT_STORAGE_ASSESSMENT.md).
 
-## Provider payouts are reconciled at their net amount
+## Provider settlement lines
 
-A Provider settlement moves the net of its selected customer payments (refunds included) from the clearing account to the bank account. Provider fees are **not modelled** — there is no fee field or fee journal line (an explicit non-goal of #1284). If a provider withholds a fee, the bank receives less than the settlement's journal line records, and the reconciliation's difference cannot reach zero from settlement lines alone; the fee has to reach the ledger some other way.
+For the Provider settlement lifecycle and the amount and account rules behind these journal lines, see [Provider Settlements](PROVIDER_SETTLEMENTS.md).
