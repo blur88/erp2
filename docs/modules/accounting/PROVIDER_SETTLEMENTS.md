@@ -65,7 +65,7 @@ Eligibility follows the original journal, not the Payment Method's current accou
 
 ## Accounts and journal entries
 
-The Clearing account is derived from the original journal entry for every selected Payment. For a positive Payment, the entry must have exactly two lines: debit the Clearing account and credit the configured Customer Deposit account. For a negative Refund, it must debit Customer Deposit and credit the Clearing account. Each line carries the full absolute Payment amount on the appropriate side. A missing or reversed matching entry, more than one live matching entry, or a different line shape makes that Payment unavailable.
+The Clearing account is derived from the original journal entry for every selected Payment. For a positive Payment, the entry must have exactly two lines: debit the Clearing account and credit the configured Customer Deposit account. For a negative Refund, it must debit Customer Deposit and credit the Clearing account. Each line carries the full absolute Payment amount on the appropriate side. A missing or reversed matching entry, more than one live matching entry, or a different line shape keeps the entire containing Sales order + Payment Method group off the picker and causes save or Post to fail.
 
 The destination must be a live, active, postable account marked as a bank account, and it must not have the provider-clearing flag. It must differ from the derived Clearing account; otherwise the journal would debit and credit the same account and record no transfer, as described in [#1285](https://github.com/blur88/erp2/issues/1285).
 
@@ -92,7 +92,7 @@ Provider settlement lines are inserted in ascending Payment ID order. A code com
 
 ## Current behavior without a linked issue or ADR
 
-The following current behavior has no linked issue or ADR rationale:
+Only behavior attributed above to an issue, PR, or code comment has recorded intent; every other rule in this document describes current code only.
 
 - Payment claims have no automatic expiry.
 - The Sales order's current lifecycle state is not checked by the Provider settlement eligibility query. Cancelling a Sales order does not itself remove its Payment from that query.

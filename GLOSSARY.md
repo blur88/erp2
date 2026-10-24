@@ -114,7 +114,7 @@ A document recording a payment provider's transfer of selected customer Payments
 _Avoid_: settlement (unqualified), payout, remittance
 
 **Posted**:
-The state of a Provider settlement whose journal entry has been written. A Reversal is the only action that changes it to Reversed.
+The state of a Provider settlement whose journal entry has been written.
 
 **Reverse**:
 The action that changes a Posted Provider settlement to Reversed by writing a Reversal of its journal entry.
