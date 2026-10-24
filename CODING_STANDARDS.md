@@ -72,7 +72,14 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 
 ### One owner per rule
 
-- **Rule:** Each rule has one owning document. Any other copy points to the owner, directly or through the rule here whose Trace names it. A copy may leave detail to the owner, but every condition it states matches the owner, and it adds none. Change the owner first, then bring each copy into line in the same diff.
-- **Why:** Copies drift. Shortening one copy by hand is how a rule turns wrong in one place while staying right in another, and a reader cannot tell which copy is authoritative.
+- **Rule:** Each rule has one owning document. Any other copy points to the owner, directly or through the rule here whose Trace names it. A copy may leave detail to the owner, but every condition it states matches the owner, and it adds none. Change the owner first, then bring each copy into line in the same diff. When a diff moves a rule to a new owner, the new owner states every condition the old text did; a pointer that names the new owner for something that owner does not say is a wrong claim.
+- **Why:** Copies drift. Shortening one copy by hand is how a rule turns wrong in one place while staying right in another, and a reader cannot tell which copy is authoritative. Moving a rule is how one disappears: the old text is deleted, the pointer looks complete, and nothing says the condition is gone.
 - **Diff failure:** The owner says no path may lock `accounting_settings` after the account lock; a shortened `AGENTS.md` copy reading "lock the account first … lock `accounting_settings` before the account" turns that prohibition into an instruction and contradicts itself.
-- **Trace:** [Bank Reconciliation: lock order](docs/modules/accounting/BANK_RECONCILIATION.md#lock-order) (the owner), [PR #1456](https://github.com/blur88/erp2/pull/1456) and [issue #1457](https://github.com/blur88/erp2/issues/1457).
+- **Trace:** [Bank Reconciliation: lock order](docs/modules/accounting/BANK_RECONCILIATION.md#lock-order) (the owner), [PR #1456](https://github.com/blur88/erp2/pull/1456) and [issue #1457](https://github.com/blur88/erp2/issues/1457); moved-rule loss in [PR #1459](https://github.com/blur88/erp2/pull/1459), where the unflagged-Draft behaviour left `PAYMENT_METHOD_CHANNEL_ACCOUNTS.md` under a pointer claiming `PROVIDER_SETTLEMENTS.md` owned it.
+
+### Recorded intent is reachable
+
+- **Rule:** A doc that gives a reason for behaviour ("because", "the design chooses", "as recorded in") cites where that reason is recorded: a tracked doc, an issue or PR, an ADR, or a code comment, and the cited source says it. Files Git does not track, such as the ignored `docs/superpowers/specs/`, are not sources. Where nothing records the reason, the doc says the behaviour describes current code only.
+- **Why:** Agents act on a doc's rationale as a decision. A reason that rests on a local file cannot be checked by a fresh clone, a cloud agent or the next reviewer, and a reviewer handed that file as evidence will accept it.
+- **Diff failure:** The first reviewed draft of `PROVIDER_SETTLEMENTS.md` said "The design chooses explicit release because silent expiry…" with only an ignored local spec behind it, and credited #1257 with the journal-derived Clearing account, which the issue text never mentions.
+- **Trace:** [Provider Settlements](docs/modules/accounting/PROVIDER_SETTLEMENTS.md), [issue #1434](https://github.com/blur88/erp2/issues/1434) and [PR #1459](https://github.com/blur88/erp2/pull/1459).
