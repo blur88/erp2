@@ -267,9 +267,9 @@ Production-host validation remains outstanding until that environment exists.
 
 ```bash
 docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT schemaname, tablename, seq_scan, seq_tup_read, idx_scan, idx_tup_fetch
+  SELECT schemaname, relname, seq_scan, seq_tup_read, idx_scan, idx_tup_fetch
   FROM pg_stat_user_tables
-  WHERE tablename IN ('price_lists', 'price_list_items')
+  WHERE relname IN ('price_lists', 'price_list_items')
   ORDER BY seq_scan DESC;
 "
 ```

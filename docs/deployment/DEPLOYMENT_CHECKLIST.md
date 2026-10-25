@@ -176,9 +176,9 @@ curl -s http://localhost:3000/api/price-lists/default \
 **Performance Check**:
 ```bash
 docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT schemaname, tablename, seq_scan, idx_scan
+  SELECT schemaname, relname, seq_scan, idx_scan
   FROM pg_stat_user_tables
-  WHERE tablename IN ('price_lists', 'price_list_items');
+  WHERE relname IN ('price_lists', 'price_list_items');
 "
 ```
 
