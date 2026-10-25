@@ -1,8 +1,8 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import api from '@/services/api'
 import { accountingApiSlice } from '@/store/api/accountingApi'
+import { createTestStore } from '@/test/createTestStore'
 
 vi.mock('@/services/api', () => ({
   default: vi.fn(),
@@ -61,10 +61,7 @@ describe('ProviderSettlement invalidation', () => {
     )],
   ])('re-fetches the settlement list and detail after %s', async (_n, mutate) => {
     routeApiByUrl()
-    const store = configureStore({
-      reducer: { [accountingApiSlice.reducerPath]: accountingApiSlice.reducer },
-      middleware: (g) => g().concat(accountingApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [accountingApiSlice] })
 
     const list = store.dispatch(
       accountingApiSlice.endpoints.getProviderSettlements.initiate({ page: 1, limit: 20 } as any),

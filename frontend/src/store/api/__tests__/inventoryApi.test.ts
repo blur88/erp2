@@ -1,8 +1,8 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it, vi } from 'vitest'
 
 import api from '@/services/api'
 import { inventoryApiSlice } from '@/store/api/inventoryApi'
+import { createTestStore } from '@/test/createTestStore'
 
 vi.mock('@/services/api', () => ({
   default: vi.fn(),
@@ -36,11 +36,7 @@ describe('getProducts params', () => {
   it('sends uppercase sortOrder ASC by default', async () => {
     vi.mocked(api).mockResolvedValue({ data: { data: [], meta: { total: 0 } } })
 
-    const store = configureStore({
-      reducer: { [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer },
-      middleware: (getDefaultMiddleware) =>
-        getDefaultMiddleware().concat(inventoryApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [inventoryApiSlice] })
 
     await store.dispatch(
       inventoryApiSlice.endpoints.getProducts.initiate(undefined),

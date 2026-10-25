@@ -1,9 +1,9 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
 import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
 import { salesApiSlice } from '@/store/api/salesApi'
 import type { SalesOrder } from '@/types'
+import { createTestStore } from '@/test/createTestStore'
 
 function createOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -27,12 +27,7 @@ function createOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
 
 describe('patchSalesOrderCaches', () => {
   it('updates matching sales-order list and detail caches', async () => {
-    const store = configureStore({
-      reducer: {
-        [salesApiSlice.reducerPath]: salesApiSlice.reducer,
-      },
-      middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(salesApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [salesApiSlice] })
 
     const initialOrder = createOrder()
     const updatedOrder = createOrder({ paidAmount: 50, balanceDue: 50 })
