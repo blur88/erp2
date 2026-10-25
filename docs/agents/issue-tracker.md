@@ -5,6 +5,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
+- **Cross-link overlapping issues**: when a new issue edits a file that another open issue targets, link both ways: add `Related: #<n>` with one line on the overlap to the new issue's body, and comment the same on the other issue. Name the conflicting requirement when you know it. A shared file means the two need comparing, not that they conflict.
 - **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Make an issue a sub-issue of a parent**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>` (database id, as in **Blocking** below). Without sub-issues, put `Part of #<parent>` at the top of the child body.
@@ -32,7 +33,20 @@ Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read it as in **Read an issue** above.
+Read it as in **Read an issue** above, adding `createdAt` to the `--json` fields. Then run a **scope checkpoint** before editing:
+
+1. List candidate commits: `git log --oneline --since=<createdAt> -- <files the ticket names>`. This only finds candidates.
+2. Read each candidate's diff (`git show <sha> -- <file>`) against the ticket's targets and criteria. A conflict is a line-level fact: a target already changed, or a merged change a criterion would undo.
+3. Post a comment on the ticket, before the first edit, recording:
+   - the affected criteria and how each is now read;
+   - work later commits already completed;
+   - your proposed scope;
+   - every scope interpretation raised while planning (sections in or out, how a rule's term is read), even when no later commit prompted it.
+
+   Skip the comment only when step 2 found nothing and planning raised no interpretation.
+4. If the work would reverse a merged decision, ask the ticket's owner and wait on that part. Proceed with the rest.
+
+Implementers read only the ticket's body and comments, so a decision settled anywhere else is lost unless it lands here.
 
 ## Wayfinding operations
 
