@@ -61,6 +61,7 @@ Run the checks for every area your change touches. When scopes overlap, run each
 | API DTOs/interfaces used by both apps | both the `backend/src/**` and `frontend/src/**` rows |
 
 - `test:coverage` runs the full frontend suite, so it replaces `npm run test`; do not run both.
+- A green CI **Frontend - Lint, Type Check, Tests** job satisfies `test:coverage` when its run's head commit is the PR's current head commit; cite the run URL and that commit in the PR. Local `lint` and `type-check` stay required. Changes not yet pushed need a local `test:coverage` run.
 - Run the documentation link check on every PR: heading changes and moved or deleted files can break links.
 - `type-check` covers `src/**` (including specs there) under the build config; only `type-check:spec` sees `backend/test/**`. `npm run test` alone misses cross-file type errors.
 - `test:e2e` is required for every backend change because unit tests mock the database; e2e is the only gate that exercises SQL, triggers and the full module graph.
