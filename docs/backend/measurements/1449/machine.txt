@@ -1,3 +1,4 @@
+Capture time: 2026-10-25 06:04:11 UTC (14:04:11 Asia/Kuala_Lumpur, UTC+08:00).
 Linux ubuntu 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
  14:04:11 up 62 days, 12:24,  1 user,  load average: 0.38, 0.61, 0.60
                total        used        free      shared  buff/cache   available
