@@ -43,9 +43,11 @@ Six functions, eight triggers and one foreign key exist only in `1791044381374-A
 
 ## Versions are immutable, with no bypass
 
-`trg_bsr_version_guard` and `trg_bsr_version_line_guard` reject updates and deletes of version rows in every session. A version is writable only until `sealedAt` is set, and `trg_bsr_version_sealed_at_commit` (a deferred constraint trigger) fails any commit that leaves one unsealed. No session variable or role switch turns this off.
+`trg_bsr_version_guard` and `trg_bsr_version_line_guard` reject updates and deletes of version rows in every session. A version is writable only until `sealedAt` is set, and `trg_bsr_version_sealed_at_commit` (a deferred constraint trigger) fails any commit that leaves one unsealed. Application code has no supported bypass.
 
 Tests remove their rows through `removeSuiteBankReconciliations` (`backend/test/utils/bank-reconciliation-fixture.ts`), which disables the eight triggers with `ALTER TABLE … DISABLE TRIGGER` inside one transaction and re-enables them before commit. **Nothing under `src/` may do this.** Call it *before* deleting journal rows: the journal-line FKs are `RESTRICT`.
+
+The source guard (`cd backend && npm run test:scripts`) rejects `DISABLE TRIGGER` and any `session_replication_role` reference throughout `backend/src/`, including migrations. It also rejects `DROP TRIGGER` and `DROP INDEX` outside `backend/src/database/migrations/`; migrations may drop triggers and indexes. The guard leaves `backend/test/` fixtures outside its scope.
 
 ## Lock order
 
