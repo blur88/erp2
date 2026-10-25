@@ -40,7 +40,7 @@ describe('test stores around RTK Query', () => {
           // A second store in any other helper test must still fail the guard.
           return (text.match(/configureStore\(/g)?.length ?? 0) !== 1
         }
-        return text.includes('configureStore(') && /\.middleware\b/.test(text)
+        return text.includes('configureStore(') && text.includes('.middleware')
       })
       .map((file) => path.relative(SRC, file).split(path.sep).join('/'))
 

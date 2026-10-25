@@ -86,46 +86,39 @@ it('disposal waits for an aborted request and its rejection to settle', async ()
   let rejectionSettled = false
   let aborted = false
   let resultSettled = false
-  const unhandled: unknown[] = []
-  const onUnhandled = (reason: unknown) => unhandled.push(reason)
-  process.on('unhandledRejection', onUnhandled)
-  try {
-    const slowApi = createApi({
-      reducerPath: 'slowProbeApi',
-      baseQuery: fakeBaseQuery<string>(),
-      endpoints: (builder) => ({
-        value: builder.query<number, void>({
-          queryFn: (_arg, { signal }) => {
-            requestStarted = true
-            return new Promise<never>((_resolve, reject) => {
-              signal.addEventListener('abort', () => {
-                aborted = true
-                // Model a transport whose abort rejection arrives on the next turn.
-                setTimeout(() => reject(new Error('transport aborted')), 0)
-              }, { once: true })
-            }).catch(() => {
-              rejectionSettled = true
-              return { error: 'transport aborted' }
-            })
-          },
-        }),
+  // Vitest reports unhandled rejections itself; observe abort settlement here.
+  const slowApi = createApi({
+    reducerPath: 'slowProbeApi',
+    baseQuery: fakeBaseQuery<string>(),
+    endpoints: (builder) => ({
+      value: builder.query<number, void>({
+        queryFn: (_arg, { signal }) => {
+          requestStarted = true
+          return new Promise<never>((_resolve, reject) => {
+            signal.addEventListener('abort', () => {
+              aborted = true
+              // Model a transport whose abort rejection arrives on the next turn.
+              setTimeout(() => reject(new Error('transport aborted')), 0)
+            }, { once: true })
+          }).catch(() => {
+            rejectionSettled = true
+            return { error: 'transport aborted' }
+          })
+        },
       }),
-    })
-    const store = createTestStore({ apis: [slowApi] })
-    const request = store.dispatch(slowApi.endpoints.value.initiate())
-    void request.then(() => { resultSettled = true })
-    expect(requestStarted).toBe(true)
-    expect(rejectionSettled).toBe(false)
+    }),
+  })
+  const store = createTestStore({ apis: [slowApi] })
+  const request = store.dispatch(slowApi.endpoints.value.initiate())
+  void request.then(() => { resultSettled = true })
+  expect(requestStarted).toBe(true)
+  expect(rejectionSettled).toBe(false)
 
-    await disposeTestStores()
+  await disposeTestStores()
 
-    expect(aborted).toBe(true)
-    expect(resultSettled).toBe(true)
-    expect(rejectionSettled).toBe(true)
-    expect(unhandled).toEqual([])
-  } finally {
-    process.off('unhandledRejection', onUnhandled)
-  }
+  expect(aborted).toBe(true)
+  expect(resultSettled).toBe(true)
+  expect(rejectionSettled).toBe(true)
 })
 
 

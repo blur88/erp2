@@ -13,7 +13,6 @@ interface TestApiSlice {
 interface TestStoreOptions {
   apis: TestApiSlice[]
   reducer?: Record<string, Reducer<any, any>>
-  preloadedState?: Record<string, unknown>
 }
 
 const disposers = new Set<() => void>()
@@ -27,15 +26,15 @@ const disposers = new Set<() => void>()
  * Disposal unmounts, resets every API slice (aborting requests and clearing
  * polling/unused-data timers), then clears the registry and lets aborts settle.
  *
- * RTK Query's 500 ms subscription-sync timer cannot be cancelled. Its late
- * callback on a tick-batched store only dispatches; it touches no browser global.
+ * Known residual (#1450): RTK Query's 500 ms subscription-sync timer cannot
+ * be cancelled. Its late callback on a tick-batched store only dispatches and
+ * touches no browser global, so it cannot cause the frame-fallback teardown failure.
  */
-export function createTestStore({ apis, reducer = {}, preloadedState }: TestStoreOptions) {
+export function createTestStore({ apis, reducer = {} }: TestStoreOptions) {
   const store = configureStore({
     reducer: { ...reducer, ...Object.fromEntries(apis.map((api) => [api.reducerPath, api.reducer])) },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(apis.map((api) => api.middleware)),
     enhancers: (getDefaultEnhancers) => getDefaultEnhancers({ autoBatch: { type: 'tick' } }),
-    preloadedState,
   })
   disposers.add(() => {
     for (const api of apis) store.dispatch(api.util.resetApiState())
