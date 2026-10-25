@@ -7,6 +7,7 @@ setup() {
   TEST_REPO="$BATS_TEST_TMPDIR/repo"
   mkdir -p "$TEST_REPO"
   git -C "$TEST_REPO" init -q
+  TEST_ROOT="$(git -C "$TEST_REPO" rev-parse --show-toplevel)"
   git -C "$TEST_REPO" config user.email test@example.com
   git -C "$TEST_REPO" config user.name Test
   mkdir -p "$TEST_REPO/backend/scripts"
@@ -43,7 +44,7 @@ EOF
 EOF
   run_check
   [ "$status" -eq 0 ]
-  [[ "$output" == "2 local links checked in 1 files (0 external skipped) in $(git -C "$TEST_REPO" rev-parse --show-toplevel)" ]]
+  [[ "$output" == "2 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
 
 @test "links in headings are checked" {
@@ -399,7 +400,7 @@ EOF
   git -C "$TEST_REPO" add README.md backend/scripts/verify-doc-links.mjs
   run env -C /tmp node "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" == "README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) in $(git -C "$TEST_REPO" rev-parse --show-toplevel)" ]]
+  [[ "$output" == "README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
 
 @test "running from a repository subdirectory still finds the repository root" {
@@ -412,7 +413,7 @@ EOF
   git -C "$TEST_REPO" add README.md backend/scripts/verify-doc-links.mjs
   run env -C "$TEST_REPO/backend" node "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" == "README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) in $(git -C "$TEST_REPO" rev-parse --show-toplevel)" ]]
+  [[ "$output" == "README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
 
 @test "gitignored targets are treated as untracked" {

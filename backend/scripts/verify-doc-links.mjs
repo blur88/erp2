@@ -394,7 +394,7 @@ function report(root, documents, externalSkipped, glossaryDuplicates) {
   if (glossaryDuplicates.length) {
     problems.push(`${glossaryDuplicates.length} duplicate glossary ${glossaryDuplicates.length === 1 ? 'term' : 'terms'}`);
   }
-  const summary = `${checked} local links checked in ${documents.size} files (${externalSkipped} external skipped) in ${root}`;
+  const summary = `${checked} local links checked in ${documents.size} files (${externalSkipped} external skipped) under ${root}`;
   process.stdout.write(`${[...problems, summary].join(', ')}\n`);
   if (problems.length) process.exitCode = 1;
 }
