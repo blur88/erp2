@@ -38,6 +38,7 @@ _Avoid_: invoice, sale
 **Expense**:
 A business cost recorded as a document and paid through Payments.
 _Avoid_: bill, cost entry
+See: [Expenses](docs/modules/accounting/EXPENSES.md).
 
 **Owner equity document**:
 A document recording money or inventory moving between the owner and the business: a Capital injection, a Cash drawing or a Stock drawing.
@@ -67,12 +68,14 @@ See [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md) for Re
 **Draft**:
 The document is open for further processing, subject to its document-specific rules.
 See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#document-status-and-payment-status) for Draft rules for Owner equity documents.
+See: [Expenses](docs/modules/accounting/EXPENSES.md#document-status-and-payment-status).
 
 **Completed**:
 The document has met its completion conditions. It is reached in one of two ways:
 - Derived from Payment status, with no user action: an Expense is Completed when Paid or Overpaid; a Capital injection or Cash drawing is Completed only when Paid, and an Overpaid one stays Draft pending correction. A Refund that lowers the amount paid returns the document to Draft.
 - By the Complete action, for a Stock drawing or a Reconciliation, which leaves Completed only through Uncomplete or Reopen.
 See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#document-status-and-payment-status) for Owner equity status transitions.
+See: [Expenses](docs/modules/accounting/EXPENSES.md#document-status-and-payment-status).
 
 **Complete**:
 The explicit action that makes a document Completed. For a Stock drawing, it posts the drawing and takes the stock out of inventory. For a Reconciliation, it appends a new Version.
@@ -87,15 +90,18 @@ See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#when-each-action-is-a
 **Cancel**:
 The action that sets an Expense or Owner equity document aside so it takes no further processing, keeping it on record. See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#when-each-action-is-allowed) for when Cancel is allowed for Owner equity documents.
 _Avoid_: void, delete, discard
+See: [Expenses](docs/modules/accounting/EXPENSES.md#when-each-action-is-allowed).
 
 **Cancelled**:
 The state of an Expense or Owner equity document after Cancel.
 See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#document-status-and-payment-status) for the Cancelled state of Owner equity documents.
+See: [Expenses](docs/modules/accounting/EXPENSES.md#document-status-and-payment-status).
 
 **Uncancel**:
 The action that returns a Cancelled Expense or Owner equity document to Draft.
 _Avoid_: restore, reopen
 See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#when-each-action-is-allowed) for Uncancel conditions on Owner equity documents.
+See: [Expenses](docs/modules/accounting/EXPENSES.md#when-each-action-is-allowed).
 
 **Discard**:
 The action that permanently removes a Reconciliation or Provider settlement that is still a Draft and has never been Completed or Posted. Nothing of it is kept, unlike Cancel.
@@ -107,16 +113,19 @@ _Avoid_: delete, cancel
 One recorded payment against a Sales order, Expense or Owner equity document.
 _Avoid_: settlement
 See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#stored-invariants-and-posting-details) for Payment rows and posting details on Owner equity documents.
+See: [Expenses](docs/modules/accounting/EXPENSES.md#stored-invariants-and-ledger-effects).
 
 **Payment status**:
 How much of a document's amount has been paid: Unpaid, Partially paid, Paid or Overpaid. It is separate from the document's lifecycle state.
 _Avoid_: settlement status, settled (use Paid or Partially paid), oversettled (use Overpaid)
 See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#document-status-and-payment-status) for Payment status rules for Owner equity documents.
+See: [Expenses](docs/modules/accounting/EXPENSES.md#document-status-and-payment-status).
 
 **Refund**:
 A Payment with a negative amount, recording money returned against a document's earlier payments. It reduces the amount paid and leaves the earlier payments in place.
 _Avoid_: reversal, void
 See [Owner Equity](docs/modules/accounting/OWNER_EQUITY.md#when-each-action-is-allowed) for Refund rules for Owner equity documents.
+See: [Expenses](docs/modules/accounting/EXPENSES.md#when-each-action-is-allowed).
 
 ### Provider settlement
 
