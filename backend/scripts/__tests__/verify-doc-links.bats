@@ -155,6 +155,20 @@ EOF
   [[ "$output" == *"1 local links checked in 2 files"* ]]
 }
 
+@test "headings inside fenced code produce no anchors" {
+  write_file README.md <<'EOF'
+```md
+# Fenced only
+```
+
+[fenced](#fenced-only)
+EOF
+  run_check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'README.md:5: [fenced](#fenced-only) — anchor "#fenced-only" not found'* ]]
+  [[ "$output" == *"1 broken link, 1 local links checked in 1 files (0 external skipped)"* ]]
+}
+
 @test "unmatched backticks remain literal and indented fences follow closing rules" {
   write_file README.md <<'EOF'
 ` unmatched marker [live](target.md)
