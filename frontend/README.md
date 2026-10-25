@@ -5,7 +5,7 @@ A modern, comprehensive React frontend application for the ERP system built with
 ## Features
 
 ### 🚀 Core Features
-- **Modern React Architecture** - React 18.3.1 with TypeScript, hooks, and context API
+- **Modern React Architecture** - React 19.2.4 with TypeScript, hooks, and context API
 - **Responsive Design** - Mobile-first approach with Material-UI v9 components
 - **State Management** - Redux Toolkit for predictable state management
 - **Public Access** - Authentication system completely removed for rapid development
@@ -14,7 +14,7 @@ A modern, comprehensive React frontend application for the ERP system built with
 
 ### 📱 UI/UX Features
 - **Responsive layout** that works on desktop, tablet, and mobile
-- **Dark/light theme** support with theme switching
+- **Dark theme** applied throughout the app
 - **Internationalization** support (i18n) ready
 - **Loading states** and comprehensive error handling
 - **Data tables** with sorting, filtering, and pagination
@@ -32,11 +32,11 @@ A modern, comprehensive React frontend application for the ERP system built with
 
 ## Tech Stack
 
-- **React 18.3.1** - Modern React with concurrent features
+- **React 19.2.4** - Modern React with concurrent features
 - **TypeScript** - Type-safe JavaScript (relaxed mode: `"strict": false`)
 - **Material-UI v9** - Comprehensive UI component library
 - **Redux Toolkit** - State management with Redux best practices
-- **React Router v6** - Client-side routing
+- **React Router v7.18.4** - Client-side routing
 - **Vite** - Fast build tool and dev server
 - **React Hook Form** - Performant forms with easy validation
 - **Yup** - Schema validation
@@ -170,7 +170,7 @@ npm run test:coverage    # Run tests with coverage report
 - **Price & Costing Settings** - AVERAGE, FIFO, LIFO, and STANDARD costing methods
 - **Print Settings** - Print templates and printing configuration
 - **User Management** - Basic user CRUD operations (no authentication)
-- **Theme Customization** - Light/dark mode, color schemes
+- **Theme** - Single dark theme defined in `src/styles/theme.ts`
 
 ## Security Status
 
@@ -199,11 +199,6 @@ npm run test:coverage    # Run tests with coverage report
 ### Redux Store Structure
 ```typescript
 {
-  theme: {
-    mode: 'light' | 'dark',
-    primaryColor: string,
-    secondaryColor: string
-  },
   inventory: {
     products: Product[],
     categories: Category[],
