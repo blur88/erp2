@@ -39,7 +39,12 @@ while IFS= read -r -d '' file; do
     found=1
   fi
 
-  # Migrations may create and drop triggers as part of schema evolution.
+  if perl -0777 -e 'local $/; exit(<> =~ /\bsession_replication_role\b/i ? 0 : 1)' "$file"; then
+    report_matches "$file" "$relative_file" '\bsession_replication_role\b' 'forbidden replication role'
+    found=1
+  fi
+
+  # Migrations may drop triggers and indexes as part of schema evolution.
   case "$file" in
     "$MIGRATIONS_DIR"*) continue ;;
   esac
@@ -47,9 +52,17 @@ while IFS= read -r -d '' file; do
     report_matches "$file" "$relative_file" '\bDROP\s+TRIGGER\b' 'trigger drop outside migrations'
     found=1
   fi
+  if perl -0777 -e 'local $/; exit(<> =~ /\bDROP\s+INDEX\b/i ? 0 : 1)' "$file"; then
+    report_matches "$file" "$relative_file" '\bDROP\s+INDEX\b' 'index drop outside migrations'
+    found=1
+  fi
+  if perl -0777 -e 'local $/; exit(<> =~ /\bdropInd(?:ex|ices)\s*\(/i ? 0 : 1)' "$file"; then
+    report_matches "$file" "$relative_file" '\bdropInd(?:ex|ices)\s*\(' 'index drop outside migrations'
+    found=1
+  fi
 done < <(find "$SRC_DIR" -type f -print0)
 
 if [ "$found" -ne 0 ]; then
-  printf 'Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER in migrations is allowed.\n' >&2
+  printf 'Trigger and index bypasses are forbidden in backend/src/; only trigger and index drops in database/migrations/ are allowed.\n' >&2
   exit 1
 fi
