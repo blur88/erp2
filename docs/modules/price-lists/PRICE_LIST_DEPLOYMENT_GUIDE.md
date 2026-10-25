@@ -53,9 +53,9 @@ For a source checkout with dependencies and database environment configured:
 
 ```bash
 cd backend
-npm run migration:show
+npm run typeorm -- -d ./src/config/database.config.ts migration:show
 npm run migration:run
-npm run migration:show
+npm run typeorm -- -d ./src/config/database.config.ts migration:show
 ```
 
 Expected: pending migrations complete successfully and the final listing has no
@@ -145,7 +145,7 @@ and reconcile it before resuming use.
 ### Migration or baseline failure
 
 Read `docker compose logs backend --tail=100` and inspect migration history.
-For a source checkout, use `cd backend && npm run migration:show` with the target
+For a source checkout, use `cd backend && npm run typeorm -- -d ./src/config/database.config.ts migration:show` with the target
 database configuration. Resolve the reported schema/history problem before retrying;
 do not automatically revert migrations or delete price list data.
 
