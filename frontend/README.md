@@ -5,43 +5,42 @@ A modern, comprehensive React frontend application for the ERP system built with
 ## Features
 
 ### 🚀 Core Features
-- **Modern React Architecture** - React 19 with TypeScript, hooks, and context API
-- **Responsive Design** - Mobile-first approach with Material-UI v9 components
+- **Modern React Architecture** - React with TypeScript, hooks, and context API
+- **Responsive Design** - Material-UI components with responsive breakpoints
 - **State Management** - Redux Toolkit for predictable state management
-- **Public Access** - Authentication system completely removed for rapid development
+- **Authentication** - Login and protected application routes
 - **Real-time Updates** - WebSocket integration for live data updates
 - **Module-based Navigation** - Sidebar navigation for different ERP modules
 
 ### 📱 UI/UX Features
-- **Responsive layout** that works on desktop, tablet, and mobile
+- **Responsive navigation** with a temporary drawer on smaller screens and a permanent sidebar on larger screens
 - **Dark theme** applied throughout the app
-- **Internationalization** support (i18n) ready
-- **Loading states** and comprehensive error handling
+- **Loading states** and error notifications
 - **Data tables** with sorting, filtering, and pagination
-- **Form validation** with real-time feedback
-- **Charts and visualizations** for dashboard and reports
-- **Export functionality** (Excel, PDF, CSV) ready
+- **Form validation** with field-level error messages
+- **Charts and visualizations** for the dashboard
+- **Audit log exports** in Excel, PDF, and CSV formats
 
 ### 🛠 Technical Features
 - **API integration** with the NestJS backend
 - **Error handling** with proper user feedback
-- **Performance optimization** with lazy loading and code splitting
-- **Accessibility** compliance (WCAG guidelines)
-- **Progressive Web App** features ready
+- **Lazy loading** and build-time code splitting
 - **TypeScript** for type safety and better developer experience
 
 ## Tech Stack
 
-- **React 19** - Modern React with concurrent features
+See [`frontend/package.json`](package.json) for dependency versions.
+
+- **React** - Component-based UI
 - **TypeScript** - Type-safe JavaScript (relaxed mode: `"strict": false`)
-- **Material-UI v9** - Comprehensive UI component library
+- **Material-UI** - Comprehensive UI component library
 - **Redux Toolkit** - State management with Redux best practices
-- **React Router v7.18.4** - Client-side routing
+- **React Router** - Client-side routing
 - **Vite** - Fast build tool and dev server
 - **React Hook Form** - Performant forms with easy validation
 - **Yup** - Schema validation
 - **Axios** - HTTP client with interceptors
-- **Chart.js & Recharts** - Data visualization
+- **Chart.js** - Data visualization
 - **Socket.io Client** - Real-time communication
 - **Date-fns** - Date manipulation library
 
@@ -363,33 +362,6 @@ For support, please:
 1. Check the [documentation](../docs/README.md)
 2. Search [existing issues](https://github.com/blur88/erp2/issues)
 3. Create a [new issue](https://github.com/blur88/erp2/issues/new) if needed
-
-## Recent Updates
-
-### April 2026
-- ✅ **Material-UI v9 Upgrade** - Migrated from v7 to v9
-
-### December 2025
-- ✅ **Material-UI v7 Upgrade** - Upgraded from v5 to v7.3.6
-- ✅ **React 18.3.1 Upgrade** - Latest React version
-- ✅ **PostgreSQL 18.1** - Backend database upgrade
-- ✅ **Redis 8.4** - Cache and queue system upgrade
-
-### November 2025
-- ✅ **Module-Embedded Reports** - Reports integrated into business modules
-- ✅ **Flexible Costing Methods** - AVERAGE, FIFO, LIFO, STANDARD support
-- ✅ **Settings Module** - Company settings and print configuration
-
-### October 2025
-- ✅ **Product Fields Modernization** - Simplified product model
-- ✅ **Soft-Delete Management** - View and restore deleted records
-- ✅ **Purchasing Module Re-enabled** - Full purchasing functionality
-- ✅ **Sales Order Enhancements** - Advanced filtering and payment handling
-
-### Pre-September 2025
-- ✅ **Authentication Removal** - Complete auth system removal for rapid development
-- ✅ **NestJS 11 Upgrade** - Backend framework upgrade
-- ✅ **Node.js 24** - Docker base image upgrade
 
 ---
 
