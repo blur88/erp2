@@ -47,7 +47,7 @@ When the application is running, the backup API is another option:
 
 ```bash
 curl -X POST http://localhost:3000/api/backup/create \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"backupType":"manual","databases":["postgresql"]}'
 ```
@@ -59,13 +59,14 @@ and [request DTO](../../../backend/src/modules/backup/dto/create-backup.dto.ts).
 
 For the direct SQL dump above, restore into an unused temporary database. Confirm
 `erp_test` is not an application or test-runner database before creating it; these
-commands must target the intended local Compose instance.
+commands must target the intended local Compose instance. Replace `TIMESTAMP`
+with the directory name printed when the backup was created.
 
 ```bash
 docker compose exec -T postgres psql -U erp_user -d postgres -v ON_ERROR_STOP=1 \
   -c "CREATE DATABASE erp_test;"
 docker compose exec -T postgres psql -U erp_user -d erp_test -v ON_ERROR_STOP=1 \
-  < "$backup_dir/erp_db_backup.sql"
+  < "/backup/erp/TIMESTAMP/erp_db_backup.sql"
 docker compose exec -T postgres psql -U erp_user -d erp_test -v ON_ERROR_STOP=1 \
   -c 'SELECT COUNT(*) FROM price_lists; SELECT COUNT(*) FROM price_list_items;'
 # After inspecting the restored data, remove only this temporary database.
@@ -108,16 +109,13 @@ applied without executing it, as shown by
 It is appropriate only after verifying that every pending migration's schema and
 data changes are already present in the database.
 
-If the existing schema matches only `InitialSchema`, take and verify a backup,
-then record **only** `InitialSchema1785238045705` as applied: use a temporary,
-reviewed TypeORM datasource whose migrations list contains only that baseline,
-with synchronization and automatic migration execution disabled, and run
-`migration:run --fake` against that datasource. Restore the full migration
-configuration, confirm the baseline is applied and later migrations are pending,
-then run those later migrations normally. Verify schema compatibility first;
-if the schema does not match the baseline, reconcile the differences before
-recording it. This is a manual reconciliation procedure, not something the
-entrypoint's suggested command limits automatically.
+For an existing database whose schema matches the baseline but whose migration
+history is empty, reconcile the migration history manually before startup. Do
+not run the entrypoint's suggested command unless every pending migration's
+schema and data changes are already present. Verify the schema against the
+baseline and plan how to record the baseline and apply subsequent migrations
+before making changes; this guide does not provide a tested baseline-recording
+procedure.
 
 Do not pipe TypeScript migration files into `psql`. Use TypeORM for migration execution.
 
@@ -261,7 +259,6 @@ docker compose up -d frontend
 Monitor backend errors, price list API response times and sales order pricing after
 deployment. Record validation results with the environment and commit tested.
 Production-host validation remains outstanding until that environment exists.
-
 
 ### Database performance
 

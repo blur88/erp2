@@ -44,7 +44,7 @@ production-host checks remain unverified until that host exists.
 - [ ] Backup directory created: `/backup/erp/[TIMESTAMP]`
 - [ ] Full PostgreSQL backup completed
 - [ ] Backup file size verified (non-zero)
-- [ ] Backup integrity tested (optional restore to test DB)
+- [ ] Backup integrity tested by restoring into an isolated temporary database (see the [guide](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md#verify-backup-integrity))
 - [ ] Backup copied to off-server location
 - [ ] Backup location documented: `_________________________`
 
@@ -173,14 +173,7 @@ curl -s http://localhost:3000/api/price-lists/default \
 - [ ] No table scans on large tables
 - [ ] Connection pool healthy
 
-**Performance Check**:
-```bash
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT schemaname, relname, seq_scan, idx_scan
-  FROM pg_stat_user_tables
-  WHERE relname IN ('price_lists', 'price_list_items');
-"
-```
+Use the [database performance query in the guide](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md#database-performance).
 
 ---
 
