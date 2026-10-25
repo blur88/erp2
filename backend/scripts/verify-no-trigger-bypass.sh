@@ -56,9 +56,13 @@ while IFS= read -r -d '' file; do
     report_matches "$file" "$relative_file" '\bDROP\s+INDEX\b' 'index drop outside migrations'
     found=1
   fi
+  if perl -0777 -e 'local $/; exit(<> =~ /\bdropIndex\s*\(/i ? 0 : 1)' "$file"; then
+    report_matches "$file" "$relative_file" '\bdropIndex\s*\(' 'index drop outside migrations'
+    found=1
+  fi
 done < <(find "$SRC_DIR" -type f -print0)
 
 if [ "$found" -ne 0 ]; then
-  printf 'Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER and DROP INDEX in migrations are allowed.\n' >&2
+  printf 'Trigger and index bypasses are forbidden in backend/src/; only trigger and index drops in database/migrations/ are allowed.\n' >&2
   exit 1
 fi

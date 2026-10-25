@@ -14,7 +14,7 @@ setup() {
 
   [ "$status" -ne 0 ]
   [ "$output" = "backend/src/example.ts:1: forbidden trigger disable: dIsAbLe tRiGgEr
-Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER and DROP INDEX in migrations are allowed." ]
+Trigger and index bypasses are forbidden in backend/src/; only trigger and index drops in database/migrations/ are allowed." ]
 }
 
 @test "rejects DROP TRIGGER outside migrations" {
@@ -24,7 +24,7 @@ Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER
 
   [ "$status" -ne 0 ]
   [ "$output" = "backend/src/example.ts:2: trigger drop outside migrations: DROP TRIGGER
-Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER and DROP INDEX in migrations are allowed." ]
+Trigger and index bypasses are forbidden in backend/src/; only trigger and index drops in database/migrations/ are allowed." ]
 }
 
 @test "allows trigger operations in migrations and the test fixture" {
@@ -54,7 +54,7 @@ Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER
 
       [ "$status" -eq 1 ]
       [ "$output" = "backend/src/$location:2: forbidden replication role: SeSsIoN_RePlIcAtIoN_RoLe
-Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER and DROP INDEX in migrations are allowed." ]
+Trigger and index bypasses are forbidden in backend/src/; only trigger and index drops in database/migrations/ are allowed." ]
       rm "$REPO/backend/src/$location"
     done
   done
@@ -67,15 +67,25 @@ Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER
 
   [ "$status" -eq 1 ]
   [ "$output" = "backend/src/example.ts:2: index drop outside migrations: dRoP InDeX
-Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER and DROP INDEX in migrations are allowed." ]
+Trigger and index bypasses are forbidden in backend/src/; only trigger and index drops in database/migrations/ are allowed." ]
 }
 
 @test "allows index drops in migrations and bypass SQL in test fixtures" {
-  printf 'DROP\t\n INDEX IF EXISTS historical;\n' > "$REPO/backend/src/database/migrations/001-history.ts"
-  printf "SET session_replication_role = replica;\nDROP INDEX UQ_bsr_one_draft_per_account;\n" > "$REPO/backend/test/utils/bank-reconciliation-fixture.ts"
+  printf 'DROP\t\n INDEX IF EXISTS historical;\nawait queryRunner.dropIndex("records", "historical");\n' > "$REPO/backend/src/database/migrations/001-history.ts"
+  printf "SET session_replication_role = replica;\nDROP INDEX UQ_bsr_one_draft_per_account;\nawait queryRunner.dropIndex(\"records\", \"fixture\");\n" > "$REPO/backend/test/utils/bank-reconciliation-fixture.ts"
 
   run "$CHECK" "$REPO"
 
   [ "$status" -eq 0 ]
   [ -z "$output" ]
+}
+
+@test "rejects dropIndex calls outside migrations" {
+  printf '\nawait queryRunner.dropIndex \t\n ("records", "unsafe");\n' > "$REPO/backend/src/example.ts"
+
+  run "$CHECK" "$REPO"
+
+  [ "$status" -eq 1 ]
+  [ "$output" = "backend/src/example.ts:2: index drop outside migrations: dropIndex (
+Trigger and index bypasses are forbidden in backend/src/; only trigger and index drops in database/migrations/ are allowed." ]
 }
