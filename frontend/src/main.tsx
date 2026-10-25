@@ -12,7 +12,6 @@ import { PersistGate } from 'redux-persist/integration/react'
 import { store, persistor } from './store'
 import { router } from './router'
 import { NotificationProvider } from './hooks/useNotification'
-import { WebSocketProvider } from './hooks/useWebSocket'
 import ThemeWrapper from './components/common/ThemeWrapper'
 
 import './styles/global.css'
@@ -45,9 +44,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <NotificationProvider>
               <PersistGate loading={<LinearProgress />} persistor={persistor}>
-                <WebSocketProvider>
-                  <RouterProvider router={router} />
-                </WebSocketProvider>
+                <RouterProvider router={router} />
               </PersistGate>
             </NotificationProvider>
           </LocalizationProvider>
