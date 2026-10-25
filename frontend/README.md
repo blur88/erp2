@@ -6,7 +6,7 @@ A modern, comprehensive React frontend application for the ERP system built with
 
 ### 🚀 Core Features
 - **Modern React Architecture** - React 18.3.1 with TypeScript, hooks, and context API
-- **Responsive Design** - Mobile-first approach with Material-UI v7 components
+- **Responsive Design** - Mobile-first approach with Material-UI v9 components
 - **State Management** - Redux Toolkit for predictable state management
 - **Public Access** - Authentication system completely removed for rapid development
 - **Real-time Updates** - WebSocket integration for live data updates
@@ -34,7 +34,7 @@ A modern, comprehensive React frontend application for the ERP system built with
 
 - **React 18.3.1** - Modern React with concurrent features
 - **TypeScript** - Type-safe JavaScript (relaxed mode: `"strict": false`)
-- **Material-UI v7** - Comprehensive UI component library (v7.3.6)
+- **Material-UI v9** - Comprehensive UI component library
 - **Redux Toolkit** - State management with Redux best practices
 - **React Router v6** - Client-side routing
 - **Vite** - Fast build tool and dev server
@@ -366,10 +366,13 @@ This project is licensed under the MIT License - see the [LICENSE](../LICENSE) f
 
 For support, please:
 1. Check the [documentation](../docs/README.md)
-2. Search [existing issues](https://github.com/yourorg/erp-system/issues)
-3. Create a [new issue](https://github.com/yourorg/erp-system/issues/new) if needed
+2. Search [existing issues](https://github.com/blur88/erp2/issues)
+3. Create a [new issue](https://github.com/blur88/erp2/issues/new) if needed
 
 ## Recent Updates
+
+### April 2026
+- ✅ **Material-UI v9 Upgrade** - Migrated from v7 to v9
 
 ### December 2025
 - ✅ **Material-UI v7 Upgrade** - Upgraded from v5 to v7.3.6
