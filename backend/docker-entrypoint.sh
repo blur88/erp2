@@ -9,19 +9,25 @@ set -e
 # schema:sync has tables but an empty (or absent) migrations table. Running
 # migration:run against it makes TypeORM believe nothing has been applied, so
 # the InitialSchema genesis migration re-creates a schema that already exists
-# and the existing data is lost. Such databases must record the baseline with
-# `migration:run --fake` first. Detect that state and refuse to proceed.
+# and the existing data is lost. Such databases require manual baseline
+# reconciliation (#1466). Detect that state and refuse to proceed.
 echo "[entrypoint] Checking migration baseline..."
 BASELINE_STATE="$(node dist/database/check-baseline.js)"
 
-if [ "$BASELINE_STATE" = "NEEDS_FAKE" ]; then
-  echo "[entrypoint] FATAL: this database has an existing schema but no migration history." >&2
-  echo "[entrypoint] Running migrations now would re-apply InitialSchema over your data." >&2
-  echo "[entrypoint] Record the baseline first, then restart:" >&2
-  echo "[entrypoint]   npm run typeorm -- -d dist/config/database.config.js migration:run --fake" >&2
-  echo "[entrypoint] Take a backup before doing so. See issue #950." >&2
-  exit 1
-fi
+case "$BASELINE_STATE" in
+  FRESH|BASELINED)
+    ;;
+  UNTRACKED_SCHEMA)
+    echo "[entrypoint] FATAL: this database has an existing schema but no migration history." >&2
+    echo "[entrypoint] Manual reconciliation is required before startup." >&2
+    echo '[entrypoint] See repository documentation: docs/modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md, section "Existing database".' >&2
+    exit 1
+    ;;
+  *)
+    echo "[entrypoint] FATAL: unrecognised baseline state: '$BASELINE_STATE'." >&2
+    exit 1
+    ;;
+esac
 
 echo "[entrypoint] Running database migrations..."
 node node_modules/.bin/typeorm migration:run -d dist/config/database.config.js
