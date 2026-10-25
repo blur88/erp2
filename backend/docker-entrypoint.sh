@@ -14,17 +14,20 @@ set -e
 echo "[entrypoint] Checking migration baseline..."
 BASELINE_STATE="$(node dist/database/check-baseline.js)"
 
-if [ "$BASELINE_STATE" = "NEEDS_FAKE" ]; then
-  echo "[entrypoint] FATAL: this database has an existing schema but no migration history." >&2
-  echo "[entrypoint] Running migrations now would re-apply InitialSchema over your data." >&2
-  echo "[entrypoint] Take a backup and reconcile the schema and migration history manually." >&2
-  echo "[entrypoint] Verify the schema against InitialSchema before recording only that baseline." >&2
-  echo "[entrypoint] Then apply subsequent migrations normally before restarting." >&2
-  echo "[entrypoint] Do not use migration:run --fake with the full migration configuration:" >&2
-  echo "[entrypoint] it marks every pending migration as applied without executing it." >&2
-  echo "[entrypoint] See docs/modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md (Existing database) and issue #1466." >&2
-  exit 1
-fi
+case "$BASELINE_STATE" in
+  FRESH|BASELINED)
+    ;;
+  UNTRACKED_SCHEMA)
+    echo "[entrypoint] FATAL: this database has an existing schema but no migration history." >&2
+    echo "[entrypoint] Manual reconciliation is required before startup." >&2
+    echo '[entrypoint] See repository documentation: docs/modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md, section "Existing database".' >&2
+    exit 1
+    ;;
+  *)
+    echo "[entrypoint] FATAL: unrecognised baseline state: '$BASELINE_STATE'." >&2
+    exit 1
+    ;;
+esac
 
 echo "[entrypoint] Running database migrations..."
 node node_modules/.bin/typeorm migration:run -d dist/config/database.config.js

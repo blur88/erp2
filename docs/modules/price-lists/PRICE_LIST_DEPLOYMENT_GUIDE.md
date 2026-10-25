@@ -100,9 +100,10 @@ pending entries. Do not expect legacy pricing conversion messages or fixed row c
 ### Existing database
 
 Review migration history before upgrading. An existing schema with empty migration
-history needs baseline reconciliation before normal migration execution. The
-[Docker entrypoint](../../../backend/docker-entrypoint.sh) detects this state and
-refuses startup and directs the operator to manual reconciliation. Do not use
+history needs baseline reconciliation before normal migration execution.
+Detection cannot establish which later migrations an existing schema already
+contains. The entrypoint refuses startup for `UNTRACKED_SCHEMA` and points to this section.
+See the [Docker entrypoint](../../../backend/docker-entrypoint.sh). Do not use
 `migration:run --fake` with the full migration configuration: that command records
 **every pending migration** as applied without executing it, as shown by
 [TypeORM 1.1.1's migration executor](https://github.com/typeorm/typeorm/blob/1.1.1/src/migration/MigrationExecutor.ts).

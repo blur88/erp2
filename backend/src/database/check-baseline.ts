@@ -10,7 +10,7 @@
  * Prints exactly one token on stdout for the entrypoint to branch on:
  *   FRESH      — no user tables; migrations may run and build the schema.
  *   BASELINED  — migration history present; migration:run applies only pending.
- *   NEEDS_FAKE — schema exists but history is empty; requires manual reconciliation.
+ *   UNTRACKED_SCHEMA — schema exists but history is empty; requires manual reconciliation.
  *
  * Any failure to determine the state exits non-zero so the entrypoint stops
  * rather than guessing.
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
 
       if (!hasMigrationsTable) {
         // Schema present, TypeORM has never recorded anything here.
-        process.stdout.write('NEEDS_FAKE');
+        process.stdout.write('UNTRACKED_SCHEMA');
         return;
       }
 
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
       );
       const migrationCount: number = migrationRows[0].count;
 
-      process.stdout.write(migrationCount === 0 ? 'NEEDS_FAKE' : 'BASELINED');
+      process.stdout.write(migrationCount === 0 ? 'UNTRACKED_SCHEMA' : 'BASELINED');
     } finally {
       await queryRunner.release();
     }
