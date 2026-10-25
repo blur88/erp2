@@ -1,0 +1,37 @@
+Development measurement execution records, 2026-10-25
+Code revision: 3c8f1ec3f3f7a956f7041d325d690cddae0fae8e
+
+Captured console-summary excerpts from the original redirected logs follow.
+Full console logs are not committed; raw reporter telemetry is preserved separately.
+Exit statuses below are transcribed from the implementing session tool results,
+not inferred from these console excerpts or appended shell $? output.
+
+no-limit:
+Tool capture: exec_command session 24823, completion observed via write_stdin.
+Structured completion field: exit_code: 0.
+Original log excerpt:
+Test Suites: 45 passed, 45 total
+Tests:       612 passed, 612 total
+Snapshots:   0 total
+Time:        537.016 s
+Ran all test suites matching \.e2e-spec\.ts$.
+◇ injected env (0) from .env.test
+HEAP 45 2170.87 MiB test/trigram-predicate.e2e-spec.ts
+
+with-limit:
+Tool capture: exec_command session 51062, completion observed via write_stdin.
+Structured completion field: exit_code: 0.
+Original log excerpt:
+Test Suites: 45 passed, 45 total
+Tests:       612 passed, 612 total
+Snapshots:   0 total
+Time:        491.949 s
+Ran all test suites matching \.e2e-spec\.ts$.
+◇ injected env (0) from .env.test
+
+Machine capture: machine.txt preserves the original uname -a, uptime and free -h output.
+CPU model, RAM bytes, hostname and Node version are recorded in each raw start event.
+KVM status and package-version inventory were observed but not preserved as run artifacts.
+Process checks for competing workloads were observed during the session but their output
+was not preserved in these artifacts. Their absence cannot be independently established
+from the load samples; no claim of fully verified machine idleness is made.

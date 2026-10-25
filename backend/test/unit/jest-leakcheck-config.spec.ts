@@ -6,7 +6,8 @@ import { dirname } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Lockstep gate. The leak-check config must stay identical to the e2e config
+ * Config gates: both configs keep the worker heap limit and one worker.
+ * The leak-check config must stay identical to the e2e config
  * apart from the two lifecycle hooks it removes.
  *
  * Deep equality, not key-set equality: comparing key sets alone passes when a
@@ -16,7 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * gate — and a leak check that runs a different suite set, or with different
  * concurrency, is not measuring what it claims to.
  */
-describe("jest-e2e-leakcheck.json", () => {
+describe("e2e Jest configs", () => {
   const read = (f: string) =>
     JSON.parse(
       fs.readFileSync(path.resolve(__dirname, "..", f), "utf8"),
@@ -42,6 +43,14 @@ describe("jest-e2e-leakcheck.json", () => {
     expect(leak).not.toHaveProperty("globalSetup");
     expect(leak).not.toHaveProperty("globalTeardown");
   });
+
+  it.each(["jest-e2e.json", "jest-e2e-leakcheck.json"])(
+    "%s sets workerIdleMemoryLimit 1GB and maxWorkers 1",
+    (config) => {
+      expect(read(config).workerIdleMemoryLimit).toBe("1GB");
+      expect(read(config).maxWorkers).toBe(1);
+    },
+  );
 
   it("never sets passWithNoTests", () => {
     // Zero-discovery must fail, not pass. See docs/backend/testing.md,
