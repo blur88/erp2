@@ -1,866 +1,294 @@
 # Price List System Deployment Guide
 
-**Version**: 1.0
-**Target**: Production Deployment
-**Last Updated**: January 2026
+**Last Updated**: October 2026
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Pre-Deployment Checklist](#pre-deployment-checklist)
-3. [Backup Procedures](#backup-procedures)
-4. [Migration Steps](#migration-steps)
-5. [Deployment Steps](#deployment-steps)
-6. [Post-Deployment Validation](#post-deployment-validation)
-7. [Rollback Procedures](#rollback-procedures)
-8. [Troubleshooting](#troubleshooting)
-9. [Monitoring](#monitoring)
-
----
+This guide covers the current migration chain and price list deployment checks.
+The local Compose stack is the only running environment. Production-host steps
+remain unverified until a production host exists; local results are not production evidence.
 
 ## Overview
 
-### What's Being Deployed
+Price lists use the `price_lists` and `price_list_items` tables and the
+`customers.priceListId` relationship. Their schema is included in
+[`1785238045705-InitialSchema.ts`](../../../backend/src/database/migrations/1785238045705-InitialSchema.ts).
+The migration squash is recorded in [#950](https://github.com/blur88/erp2/issues/950).
+There is no separate price list schema or legacy JSONB data migration to run.
 
-This deployment introduces a comprehensive price list management system that migrates from JSONB-based pricing to a normalized relational database model.
-
-**Components**:
-- New database tables: `price_lists`, `price_list_items`
-- New backend module: `PriceListsModule` with 13 API endpoints
-- Updated entities: `Product`, `Customer` with new relationships
-- Frontend pages: Price list management UI under Settings
-- Data migration: Automated migration from legacy JSONB to new tables
-
-**Migration Type**: Zero-downtime with backward compatibility
-
-**Estimated Deployment Time**: 30-45 minutes (excluding backup)
-
----
+Use the [deployment checklist](../../deployment/DEPLOYMENT_CHECKLIST.md) to record
+results. General migration rules belong to [AGENTS.md](../../../AGENTS.md#critical-rules-and-traps).
 
 ## Pre-Deployment Checklist
 
-### System Requirements
-
-- [ ] PostgreSQL database version 12 or higher
-- [ ] Backend: NestJS 11, Node.js 24, TypeORM configured
-- [ ] Frontend: React 18.3.1, Material-UI v7
-- [ ] Docker and Docker Compose (if using containerized deployment)
-- [ ] Sufficient disk space for database backup (at least 2x current DB size)
-
-### Access Requirements
-
-- [ ] Database administrator access (for backup and migration)
-- [ ] SSH access to production server
-- [ ] Access to deployment scripts and configuration
-- [ ] Access to monitoring tools (logs, metrics)
-
-### Code Verification
-
-- [ ] All tests passing in CI/CD pipeline (95+ tests)
-- [ ] Code review completed and approved
-- [ ] No merge conflicts in main/production branch
-- [ ] Version tag created (e.g., `v1.0.0-price-lists`)
-
-### Communication
-
-- [ ] Deployment window scheduled and communicated to stakeholders
-- [ ] Users notified of upcoming changes (if maintenance window needed)
-- [ ] Support team briefed on new features
-- [ ] Rollback plan reviewed and understood by team
-
-### Environment Preparation
-
-- [ ] Environment variables configured (if any new ones)
-- [ ] Docker images built and tested locally
-- [ ] Deployment scripts tested in staging environment
-- [ ] Monitoring alerts configured for new endpoints
-
----
+- Confirm the intended commit and review its pending migrations.
+- Build and test the images locally.
+- Prepare a database backup and verify restoration in an isolated database.
+- Record current price list, item and assigned-customer counts for comparison.
+- Review recovery with the matching application image and database backup.
+- Required when a production host is created: verify host access, configuration,
+  backup storage and monitoring before scheduling deployment.
 
 ## Backup Procedures
 
-### Critical: Always Backup Before Migration
+Run from the repository root. These examples use the local Compose database;
+adjust database credentials and backup storage for the target environment.
 
-**⚠️ MANDATORY STEP - DO NOT SKIP**
-
-### Database Backup
-
-#### Option 1: Using Built-in Backup Module
+### PostgreSQL Direct Backup
 
 ```bash
-# Via API (if backup module is active)
+backup_dir="/backup/erp/$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$backup_dir"
+docker compose exec -T postgres pg_dump -U erp_user erp_db > "$backup_dir/erp_db_backup.sql"
+ls -lh "$backup_dir/erp_db_backup.sql"
+```
+
+### Using the Built-in Backup Module
+
+When the application is running, the backup API is another option:
+
+```bash
 curl -X POST http://localhost:3000/api/backup/create \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"backupType":"manual","databases":["postgresql"]}'
 ```
 
-#### Option 2: PostgreSQL Direct Backup
-
-```bash
-# Create backup directory
-mkdir -p /backup/erp/$(date +%Y%m%d_%H%M%S)
-
-# Full database backup
-docker compose exec -T postgres pg_dump -U erp_user erp_db \
-  > /backup/erp/$(date +%Y%m%d_%H%M%S)/erp_db_backup.sql
-
-# Verify backup file
-ls -lh /backup/erp/$(date +%Y%m%d_%H%M%S)/erp_db_backup.sql
-```
-
-#### Option 3: Docker Volume Backup
-
-```bash
-# Stop the database
-docker compose stop postgres
-
-# Backup the volume
-docker run --rm \
-  -v erp2_postgres_data:/source \
-  -v /backup/erp:/backup \
-  alpine tar czf /backup/postgres_volume_$(date +%Y%m%d_%H%M%S).tar.gz -C /source .
-
-# Restart the database
-docker compose start postgres
-```
+See the [backup controller](../../../backend/src/modules/backup/backup.controller.ts)
+and [request DTO](../../../backend/src/modules/backup/dto/create-backup.dto.ts).
 
 ### Verify Backup Integrity
 
+For the direct SQL dump above, restore into an unused temporary database. Confirm
+`erp_test` is not an application or test-runner database before creating it; these
+commands must target the intended local Compose instance. Replace `TIMESTAMP`
+with the directory name printed when the backup was created.
+
 ```bash
-# Test restore to a temporary database (optional but recommended)
-docker compose exec -T postgres psql -U erp_user -c "CREATE DATABASE erp_test;"
-docker compose exec -T postgres psql -U erp_user -d erp_test \
-  < /backup/erp/TIMESTAMP/erp_db_backup.sql
-docker compose exec -T postgres psql -U erp_user -c "DROP DATABASE erp_test;"
+docker compose exec -T postgres psql -U erp_user -d postgres -v ON_ERROR_STOP=1 \
+  -c "CREATE DATABASE erp_test;"
+docker compose exec -T postgres psql -U erp_user -d erp_test -v ON_ERROR_STOP=1 \
+  < "/backup/erp/TIMESTAMP/erp_db_backup.sql"
+docker compose exec -T postgres psql -U erp_user -d erp_test -v ON_ERROR_STOP=1 \
+  -c 'SELECT COUNT(*) FROM price_lists; SELECT COUNT(*) FROM price_list_items;'
+# After inspecting the restored data, remove only this temporary database.
+docker compose exec -T postgres psql -U erp_user -d postgres -v ON_ERROR_STOP=1 \
+  -c "DROP DATABASE erp_test;"
 ```
 
-### Store Backup Safely
-
-- [ ] Backup copied to off-server location
-- [ ] Backup integrity verified (file size, checksum)
-- [ ] Backup location documented
-- [ ] Backup retention policy applied
-
----
+Record the backup path and restore results before proceeding. Copy the backup to
+an off-server location and apply the agreed retention policy.
 
 ## Migration Steps
 
-### Understanding the Migration
+### Fresh database
 
-The migration consists of two TypeORM migrations:
+The migration chain starts with `InitialSchema1785238045705`, which creates the
+price list schema along with the rest of the ERP schema. Apply all pending
+migrations, including those after the baseline.
 
-1. **Schema Migration** (`1768231502083-CreatePriceListTables.ts`):
-   - Creates `price_lists` table
-   - Creates `price_list_items` table
-   - Adds `priceListId` foreign key to `customers` table
-   - Creates necessary indexes
-
-2. **Data Migration** (`1768232000000-MigratePriceListData.ts`):
-   - Migrates pricing schemes from `regional_settings` to `price_lists`
-   - Migrates product pricing tiers from JSONB to `price_list_items`
-   - Links customers to appropriate price lists
-   - Validates data integrity
-
-### Pre-Migration Checks
+For a source checkout with dependencies and database environment configured:
 
 ```bash
-# Check current database state
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) as product_count FROM products WHERE \"pricingTiers\" IS NOT NULL;
-"
-
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) as customer_count FROM customers WHERE \"pricingScheme\" IS NOT NULL;
-"
-
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT * FROM regional_settings LIMIT 1;
-"
-```
-
-### Running Migrations
-
-#### Option 1: Using TypeORM CLI (Recommended)
-
-```bash
-# Navigate to backend directory
 cd backend
-
-# Show pending migrations
-npm run migration:show
-
-# Run all pending migrations
+npm run typeorm -- -d ./src/config/database.config.ts migration:show
 npm run migration:run
-
-# Expected output:
-# Migration CreatePriceListTables1768231502083 has been executed successfully.
-# Migration MigratePriceListData1768232000000 has been executed successfully.
-# Migration completed. Created 2 price lists, 42 price list items, linked 21 customers.
+npm run typeorm -- -d ./src/config/database.config.ts migration:show
 ```
 
-#### Option 2: Direct SQL Execution
+Expected: pending migrations complete successfully and the final listing has no
+pending entries. Do not expect legacy pricing conversion messages or fixed row counts.
 
-```bash
-# Execute schema migration
-docker compose exec -T postgres psql -U erp_user -d erp_db \
-  < backend/src/database/migrations/1768231502083-CreatePriceListTables.ts
+### Existing database
 
-# Execute data migration
-docker compose exec -T postgres psql -U erp_user -d erp_db \
-  < backend/src/database/migrations/1768232000000-MigratePriceListData.ts
-```
+Review migration history before upgrading. An existing schema with empty migration
+history needs baseline reconciliation before normal migration execution. The
+[Docker entrypoint](../../../backend/docker-entrypoint.sh) detects this state and
+refuses startup. Its diagnostic suggests `migration:run --fake` using the full
+migration configuration. That command records **every pending migration** as
+applied without executing it, as shown by
+[TypeORM 1.1.1's migration executor](https://github.com/typeorm/typeorm/blob/1.1.1/src/migration/MigrationExecutor.ts).
+It is appropriate only after verifying that every pending migration's schema and
+data changes are already present in the database.
 
-### Migration Validation
+For an existing database whose schema matches the baseline but whose migration
+history is empty, reconcile the migration history manually before startup. Do
+not run the entrypoint's suggested command unless every pending migration's
+schema and data changes are already present. Verify the schema against the
+baseline and plan how to record the baseline and apply subsequent migrations
+before making changes; this guide does not provide a tested baseline-recording
+procedure.
 
-```bash
-# Verify tables created
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT table_name FROM information_schema.tables
-  WHERE table_schema = 'public'
-  AND table_name IN ('price_lists', 'price_list_items');
-"
+Do not pipe TypeScript migration files into `psql`. Use TypeORM for migration execution.
 
-# Verify data migrated
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) as price_list_count FROM price_lists;
-"
+### Docker image
 
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) as price_list_item_count FROM price_list_items;
-"
-
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) as linked_customer_count FROM customers WHERE \"priceListId\" IS NOT NULL;
-"
-
-# Verify data integrity (compare prices)
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT
-    p.name,
-    p.\"pricingTiers\"->>'Retail' as legacy_retail_price,
-    pli.price as new_retail_price
-  FROM products p
-  LEFT JOIN price_list_items pli ON pli.\"productId\" = p.id
-  LEFT JOIN price_lists pl ON pl.id = pli.\"priceListId\" AND pl.code = 'RETAIL'
-  WHERE p.\"pricingTiers\" IS NOT NULL
-  LIMIT 10;
-"
-```
-
-**Expected Results**:
-- 2 tables created: `price_lists`, `price_list_items`
-- 2+ price lists created (Retail, Wholesale, etc.)
-- 40+ price list items (depends on product count × price lists)
-- 20+ customers linked (depends on customer count)
-- Legacy prices match new prices (100% integrity)
-
----
+The runtime image contains compiled files under `dist/`, rather than the source
+configuration used by `npm run migration:run`. The entrypoint runs the baseline
+check and compiled migrations before starting the app. See the
+[Dockerfile](../../../backend/Dockerfile) and [entrypoint](../../../backend/docker-entrypoint.sh).
 
 ## Deployment Steps
 
-### Step 1: Stop Services (Optional)
-
-**Note**: If you prefer zero-downtime deployment, skip this step. The system supports both legacy and new pricing simultaneously.
+Run from the repository root:
 
 ```bash
-# Optional: Stop services for safer deployment
-docker compose stop backend frontend
-```
-
-### Step 2: Pull Latest Code
-
-```bash
-# Pull latest code from repository
-git fetch origin
-git checkout main  # or your production branch
-git pull origin main
-
-# Verify you're on correct commit
-git log -1 --oneline
-```
-
-### Step 3: Build Docker Images
-
-```bash
-# Build backend and frontend images
+git pull --ff-only origin main
 docker compose build backend frontend
-
-# Verify images built successfully
-docker images | grep erp2
-```
-
-### Step 4: Run Database Migrations
-
-```bash
-# Start only the database if stopped
-docker compose up -d postgres
-
-# Wait for database to be ready
-sleep 5
-
-# Run migrations
-docker compose run --rm backend npm run migration:run
-
-# Or if backend is already running:
-docker compose exec backend npm run migration:run
-```
-
-### Step 5: Start Services
-
-```bash
-# Start all services
 docker compose up -d
-
-# Verify all containers are running
 docker compose ps
-
-# Check logs for errors
-docker compose logs backend --tail=50
-docker compose logs frontend --tail=50
+docker compose logs backend --tail=100
 ```
 
-### Step 6: Verify Backend Started
-
-```bash
-# Check backend health
-curl http://localhost:3001/api/health
-
-# Check price list endpoints are registered
-curl http://localhost:3001/api/price-lists \
-  -H "Authorization: Bearer YOUR_TOKEN"
-
-# Expected: List of price lists or empty array (not 404)
-```
-
-### Step 7: Verify Frontend Deployed
-
-```bash
-# Check frontend is accessible
-curl -I http://localhost:3000
-
-# Expected: 200 OK
-
-# Check price list page is accessible
-curl -I http://localhost:3000/settings/price-lists
-
-# Expected: 200 OK
-```
-
----
+Confirm migrations completed and the backend started. A migration failure stops
+startup; investigate the error before retrying.
 
 ## Post-Deployment Validation
 
-### Automated Validation Script
+### Schema and data
 
 ```bash
-#!/bin/bash
-# save as validate_deployment.sh
-
-echo "=== Price List Deployment Validation ==="
-
-# 1. Check backend health
-echo "1. Checking backend health..."
-curl -s http://localhost:3001/api/health | jq '.'
-
-# 2. Check price list API
-echo "2. Checking price list API..."
-TOKEN="YOUR_ADMIN_TOKEN"
-curl -s http://localhost:3000/api/price-lists \
-  -H "Authorization: Bearer $TOKEN" | jq '.data | length'
-
-# 3. Check database tables
-echo "3. Checking database tables..."
-docker compose exec -T postgres psql -U erp_user -d erp_db -t -c "
-  SELECT
-    (SELECT COUNT(*) FROM price_lists) as price_lists,
-    (SELECT COUNT(*) FROM price_list_items) as items,
-    (SELECT COUNT(*) FROM customers WHERE \"priceListId\" IS NOT NULL) as linked_customers;
+docker compose exec postgres psql -U erp_user -d erp_db -c "
+  SELECT table_name FROM information_schema.tables
+  WHERE table_schema = 'public'
+    AND table_name IN ('price_lists', 'price_list_items');
 "
-
-# 4. Check default price list
-echo "4. Checking default price list..."
-curl -s http://localhost:3000/api/price-lists/default \
-  -H "Authorization: Bearer $TOKEN" | jq '.data.code'
-
-# 5. Test price calculation
-echo "5. Testing price calculation (create test sales order)..."
-# This depends on your specific customer and product IDs
-
-echo "=== Validation Complete ==="
+docker compose exec postgres psql -U erp_user -d erp_db -c '
+  SELECT
+    (SELECT COUNT(*) FROM price_lists) AS price_lists,
+    (SELECT COUNT(*) FROM price_list_items) AS items,
+    (SELECT COUNT(*) FROM customers WHERE "priceListId" IS NOT NULL) AS linked_customers;
+'
 ```
 
-### Manual Validation Steps
+Expect both tables. Compare counts against the pre-deployment state for upgrades;
+a fresh database has no legacy records to convert. After application startup,
+[`PriceListsSeederService`](../../../backend/src/modules/price-lists/services/price-lists-seeder.service.ts)
+ensures an active default price list, creating Retail when no usable list or
+existing RETAIL row is available. It does not populate product prices or customer assignments.
 
-#### 1. Test Price List Management UI
+### Products without a default price
 
-- [ ] Navigate to http://localhost:3000/settings/price-lists
-- [ ] Verify price lists are displayed
-- [ ] Click on a price list to view details
-- [ ] Verify product prices are shown
-- [ ] Try editing a price (inline editing)
-- [ ] Verify changes save successfully
+This query lists undeleted products with no active, undeleted item in the active,
+undeleted default price list. Items in other lists do not satisfy the check.
 
-#### 2. Test Customer Price Assignment
+```sql
+SELECT p.id, p.name
+FROM products p
+WHERE p."deletedAt" IS NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM price_list_items pli
+    JOIN price_lists pl ON pl.id = pli."priceListId"
+    WHERE pli."productId" = p.id
+      AND pli."deletedAt" IS NULL AND pli."isActive" = true
+      AND pl."deletedAt" IS NULL AND pl."isActive" = true
+      AND pl."isDefault" = true
+  );
+```
 
-- [ ] Navigate to Sales > Customers
-- [ ] Edit an existing customer
-- [ ] Verify "Price List" dropdown shows available price lists
-- [ ] Select a price list and save
-- [ ] Verify customer shows assigned price list
+### Application checks
 
-#### 3. Test Sales Order Pricing
+- Check backend health: `curl http://localhost:3001/api/health`.
+- Sign in and open Settings > Price Lists.
+- Verify the default list and any existing product prices and customer assignments.
+- Assign a customer to a price list, then verify that customer's sales order pricing.
+- Check backend logs and the browser console for errors.
 
-- [ ] Create a new sales order for a customer with assigned price list
-- [ ] Add products to the order
-- [ ] Verify prices match the customer's price list
-- [ ] Complete the sales order
-- [ ] Verify order total is correct
+### Copy, adjust and default-list checks
 
-#### 4. Test Backward Compatibility
+Use a disposable price list and record its starting prices:
 
-- [ ] Find a product with legacy JSONB pricing but no price list item
-- [ ] Create a sales order with this product
-- [ ] Verify the legacy price is used (fallback)
-- [ ] Check backend logs for "Using legacy pricing" message
+- Copy the list and verify all intended items and prices were copied.
+- Apply a percentage adjustment to the copy and verify the resulting prices.
+- Set a list as default and verify the default changed; restore the intended
+  default after the check.
 
-#### 5. Test Advanced Features
+These operations are exposed by `POST /api/price-lists/:id/copy`,
+`POST /api/price-lists/:id/adjust` and `POST /api/price-lists/:id/set-default`.
 
-- [ ] Copy a price list
-- [ ] Verify all items copied
-- [ ] Apply percentage adjustment
-- [ ] Verify prices changed correctly
-- [ ] Set a price list as default
-- [ ] Verify default changed
+### Frontend availability
 
-### Validation Checklist
+```bash
+curl -I http://localhost:3000
+curl -I http://localhost:3000/settings/price-lists
+# Expected: 200 OK for both requests.
+```
 
-- [ ] All existing functionality still works (no regressions)
-- [ ] Price list management UI is accessible
-- [ ] API endpoints return expected data
-- [ ] Database tables contain migrated data
-- [ ] Data integrity is 100% (legacy prices match new prices)
-- [ ] No errors in backend logs
-- [ ] No errors in frontend console
-- [ ] Sales orders use correct pricing
-- [ ] Customers can be assigned to price lists
-- [ ] Default price list is working
+Follow these HTTP checks with the browser checks above to validate the page itself.
 
----
+See the [API reference](./PRICE_LIST_API.md) and [user guide](./PRICE_LIST_USER_GUIDE.md)
+for price list operations.
 
 ## Rollback Procedures
 
-### When to Rollback
+There is no pair of price-list-only migrations to revert. Reverting the genesis
+migration drops the ERP schema; never use it as a feature rollback.
 
-Rollback if:
-- Critical bugs preventing normal operation
-- Data integrity issues discovered
-- System performance severely degraded
-- Migration failed partially
-
-**Do NOT rollback if**:
-- Minor UI issues (can be fixed with hotfix)
-- Non-critical bugs
-- After significant usage (data created in new tables)
-
-### Immediate Rollback (Within 1 hour)
-
-**If no transactions have been created using the new system:**
-
-#### Step 1: Stop Services
-
-```bash
-docker compose stop backend frontend
-```
-
-#### Step 2: Revert Database Migration
-
-```bash
-# Revert the data migration first
-cd backend
-npm run migration:revert
-
-# Revert the schema migration
-npm run migration:revert
-
-# Or revert multiple migrations at once
-npm run migration:revert -- -t 2
-```
-
-#### Step 3: Restore from Backup (if migration revert fails)
-
-```bash
-# Drop current database
-docker compose exec postgres psql -U erp_user -c "DROP DATABASE erp_db;"
-
-# Recreate database
-docker compose exec postgres psql -U erp_user -c "CREATE DATABASE erp_db;"
-
-# Restore from backup
-docker compose exec -T postgres psql -U erp_user -d erp_db \
-  < /backup/erp/TIMESTAMP/erp_db_backup.sql
-```
-
-#### Step 4: Revert Code
-
-```bash
-# Revert to previous commit
-git log --oneline -5  # Find the commit before deployment
-git revert HEAD       # Or git reset --hard COMMIT_HASH
-
-# Rebuild images
-docker compose build backend frontend
-```
-
-#### Step 5: Restart Services
-
-```bash
-docker compose up -d
-
-# Verify services are running
-docker compose ps
-```
-
-#### Step 6: Verify Rollback
-
-```bash
-# Check that new tables don't exist
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT table_name FROM information_schema.tables
-  WHERE table_name IN ('price_lists', 'price_list_items');
-"
-
-# Expected: No rows returned
-
-# Verify legacy pricing still works
-# Test creating a sales order
-```
-
-### Delayed Rollback (After 1 hour)
-
-**If transactions have been created using the new system:**
-
-**⚠️ WARNING**: Do NOT rollback database after significant usage. Data created in new tables will be lost.
-
-#### Option 1: Forward Fix (Recommended)
-
-- Deploy a hotfix to address the specific issue
-- Keep both systems running (backward compatibility ensures continuity)
-- Fix data issues with SQL scripts if needed
-
-#### Option 2: Data Preservation Rollback
-
-If rollback is absolutely necessary:
-
-1. **Export new data**:
-   ```bash
-   # Export price lists created after deployment
-   docker compose exec -T postgres psql -U erp_user -d erp_db -c "
-     COPY (SELECT * FROM price_lists WHERE \"createdAt\" > 'DEPLOYMENT_TIMESTAMP')
-     TO STDOUT CSV HEADER
-   " > new_price_lists.csv
-
-   # Export price list items created after deployment
-   docker compose exec -T postgres psql -U erp_user -d erp_db -c "
-     COPY (SELECT * FROM price_list_items WHERE \"createdAt\" > 'DEPLOYMENT_TIMESTAMP')
-     TO STDOUT CSV HEADER
-   " > new_price_list_items.csv
-   ```
-
-2. **Perform rollback** (as in immediate rollback steps)
-
-3. **Manually re-enter new data** after rollback
-
----
+If deployment fails, stop application writes and inspect the error. Prefer a
+forward fix when new data must be preserved. If restoration is necessary, restore
+the verified pre-deployment database backup with its matching application image,
+then repeat health and price list checks. Record any data written after the backup
+and reconcile it before resuming use.
 
 ## Troubleshooting
 
-### Issue: Migration Fails with Foreign Key Error
+### Migration or baseline failure
 
-**Error**: `foreign key violation` or `relation does not exist`
+Read `docker compose logs backend --tail=100` and inspect migration history.
+For a source checkout, use `cd backend && npm run typeorm -- -d ./src/config/database.config.ts migration:show` with the target
+database configuration. Resolve the reported schema/history problem before retrying;
+do not automatically revert migrations or delete price list data.
 
-**Cause**: Tables created out of order or migration ran partially
+### Missing prices or customer assignments
 
-**Solution**:
+Check the intended price list, its items and the customer's assigned list.
+The current migration chain does not convert removed legacy JSONB pricing fields.
+Use supported price list operations to enter prices and assign customers; rerunning
+migrations will not reconstruct that data.
+
+### Frontend unavailable
+
+Check container logs and rebuild the frontend image after source changes:
+
 ```bash
-# Check which migrations have run
-npm run migration:show
-
-# If schema migration didn't run, run it manually
-npm run migration:run
-
-# If partial, revert and re-run
-npm run migration:revert
-npm run migration:run
-```
-
-### Issue: Data Migration Shows Zero Records Migrated
-
-**Error**: `Migration completed. Created 0 price lists, 0 price list items`
-
-**Cause**: Source data doesn't exist or is in unexpected format
-
-**Solution**:
-```bash
-# Check source data
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT * FROM regional_settings;
-"
-
-# Check products have pricingTiers
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*),
-         COUNT(\"pricingTiers\") as with_pricing
-  FROM products;
-"
-
-# If data exists but migration didn't work, check migration logs
-docker compose logs backend | grep -i migration
-```
-
-### Issue: Backend Won't Start After Deployment
-
-**Error**: Application crash or module load error
-
-**Solution**:
-```bash
-# Check backend logs
-docker compose logs backend --tail=100
-
-# Common issues:
-# 1. TypeScript compilation error - check for syntax errors
-# 2. Missing dependencies - run npm install
-# 3. Module import error - verify all files exist
-
-# Restart backend with verbose logging
-docker compose restart backend
-docker compose logs backend -f
-```
-
-### Issue: Price List UI Returns 404
-
-**Cause**: Frontend routing not configured or build failed
-
-**Solution**:
-```bash
-# Check frontend logs
-docker compose logs frontend
-
-# Rebuild frontend
 docker compose build frontend
 docker compose up -d frontend
-
-# Check browser console for errors
-# Navigate to http://localhost:3000/settings/price-lists
 ```
-
-### Issue: Prices Don't Match After Migration
-
-**Cause**: Data transformation issue or JSONB format unexpected
-
-**Solution**:
-```bash
-# Run data integrity check
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT
-    p.name,
-    p.\"pricingTiers\"->>'Retail' as legacy_price,
-    pli.price as new_price,
-    (p.\"pricingTiers\"->>'Retail')::numeric - pli.price as difference
-  FROM products p
-  LEFT JOIN price_list_items pli ON pli.\"productId\" = p.id
-  LEFT JOIN price_lists pl ON pl.id = pli.\"priceListId\" AND pl.code = 'RETAIL'
-  WHERE p.\"pricingTiers\" IS NOT NULL
-  AND (p.\"pricingTiers\"->>'Retail')::numeric != pli.price;
-"
-
-# If differences found, may need to re-run data migration
-# First, clear migrated data
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  DELETE FROM price_list_items;
-  DELETE FROM price_lists;
-"
-
-# Then re-run migration
-cd backend && npm run migration:run
-```
-
----
 
 ## Monitoring
 
-### What to Monitor
+Monitor backend errors, price list API response times and sales order pricing after
+deployment. Record validation results with the environment and commit tested.
+Production-host validation remains outstanding until that environment exists.
 
-#### First 24 Hours
-
-- [ ] Error rates in backend logs
-- [ ] API response times for `/api/price-lists` endpoints
-- [ ] Database query performance
-- [ ] User complaints or support tickets
-- [ ] Sales order creation success rate
-
-#### First Week
-
-- [ ] Legacy pricing fallback usage (should decrease over time)
-- [ ] Price list API usage patterns
-- [ ] Data integrity (periodic checks)
-- [ ] Performance metrics vs baseline
-
-### Monitoring Commands
+### Database performance
 
 ```bash
-# Check for errors in logs
-docker compose logs backend | grep -i error | tail -20
-
-# Check API endpoint access
-docker compose logs backend | grep "GET /api/price-lists" | wc -l
-
-# Check database performance
 docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT schemaname, tablename, seq_scan, seq_tup_read, idx_scan, idx_tup_fetch
+  SELECT schemaname, relname, seq_scan, seq_tup_read, idx_scan, idx_tup_fetch
   FROM pg_stat_user_tables
-  WHERE tablename IN ('price_lists', 'price_list_items')
+  WHERE relname IN ('price_lists', 'price_list_items')
   ORDER BY seq_scan DESC;
 "
-
-# Check for legacy fallback usage
-docker compose logs backend | grep "Using legacy pricing" | wc -l
 ```
 
-### Metrics to Track
-
-- **API Performance**: Response times <200ms for price queries
-- **Error Rate**: <1% for price-related operations
-- **Legacy Fallback**: Should trend toward 0 over transition period
-- **User Adoption**: Number of price lists created, customers assigned
-- **Data Integrity**: Weekly validation queries to ensure prices match
-
----
-
-## Success Criteria
-
-Deployment is successful if:
-
-- [ ] All migrations completed without errors
-- [ ] Zero data loss (100% data integrity)
-- [ ] All tests passing (95+ tests)
-- [ ] Price list UI accessible and functional
-- [ ] API endpoints returning expected data
-- [ ] Sales orders using correct pricing
-- [ ] No critical bugs in first 24 hours
-- [ ] System performance within 10% of baseline
-- [ ] Legacy fallback working for incomplete data
-- [ ] Users can create and manage price lists
-
----
-
-## Post-Deployment Tasks
-
-### Immediate (First Day)
-
-- [ ] Monitor error logs continuously
-- [ ] Respond to user questions and issues
-- [ ] Document any issues encountered
-- [ ] Update knowledge base with solutions
-
-### Short-term (First Week)
-
-- [ ] Train users on new price list features
-- [ ] Migrate remaining products to price lists
-- [ ] Verify all customers have appropriate price list assignments
-- [ ] Review and optimize slow queries if any
-
-### Long-term (First Month)
-
-- [ ] Gather user feedback on new features
-- [ ] Plan additional enhancements if needed
-- [ ] Monitor legacy fallback usage (should be near zero)
-- [ ] Prepare for Phase 8 cleanup (remove deprecated fields)
-
----
+Compare scan counters and API response times with pre-deployment observations;
+investigate unexpected changes in query performance.
 
 ## Support and Escalation
 
 ### Tier 1: User Issues
 
-- Documentation: [PRICE_LIST_USER_GUIDE.md](./PRICE_LIST_USER_GUIDE.md)
-- FAQ section for common questions
-- Support team handles basic inquiries
+- Consult the [user guide](./PRICE_LIST_USER_GUIDE.md) and its FAQ.
+- Route basic inquiries to the support team.
 
 ### Tier 2: Technical Issues
 
-- Check this deployment guide troubleshooting section
-- Review backend logs for errors
-- Escalate to development team if needed
+- Use this guide's troubleshooting checks and inspect backend logs.
+- Escalate unresolved issues to the development team.
 
 ### Tier 3: Critical Issues
 
-- Critical bugs requiring immediate attention
-- Data integrity issues
-- System performance degradation
-- Contact: Development Team Lead
-- Emergency: Consider rollback if within 1 hour
-
----
-
-## Appendix
-
-### Useful SQL Queries
-
-```sql
--- Check migration status
-SELECT * FROM migrations ORDER BY timestamp DESC LIMIT 5;
-
--- Count price lists and items
-SELECT
-  (SELECT COUNT(*) FROM price_lists) as price_lists,
-  (SELECT COUNT(*) FROM price_list_items) as items,
-  (SELECT COUNT(*) FROM customers WHERE "priceListId" IS NOT NULL) as linked_customers;
-
--- Find products without prices in default price list
-SELECT p.id, p.name
-FROM products p
-LEFT JOIN price_list_items pli ON pli."productId" = p.id
-LEFT JOIN price_lists pl ON pl.id = pli."priceListId" AND pl."isDefault" = true
-WHERE pli.id IS NULL AND p."deletedAt" IS NULL;
-
--- Check data integrity
-SELECT
-  p.name,
-  p."pricingTiers"->>'Retail' as legacy_retail,
-  pli.price as new_retail,
-  CASE
-    WHEN (p."pricingTiers"->>'Retail')::numeric = pli.price THEN 'MATCH'
-    ELSE 'MISMATCH'
-  END as integrity_check
-FROM products p
-LEFT JOIN price_list_items pli ON pli."productId" = p.id
-LEFT JOIN price_lists pl ON pl.id = pli."priceListId" AND pl.code = 'RETAIL'
-WHERE p."pricingTiers" IS NOT NULL;
-```
-
-### Quick Reference
-
-**Deployment Command Summary**:
-```bash
-# Full deployment
-git pull origin main
-docker compose build backend frontend
-docker compose run --rm backend npm run migration:run
-docker compose up -d
-./validate_deployment.sh
-
-# Quick rollback
-docker compose stop backend frontend
-cd backend && npm run migration:revert -- -t 2
-git revert HEAD
-docker compose build backend frontend
-docker compose up -d
-```
-
----
-
-**Document Version**: 1.0
-**Last Updated**: January 13, 2026
-**Maintained By**: ERP Development Team
-**Review Schedule**: After each deployment, update with lessons learned
+- Escalate critical bugs, data integrity issues and severe performance degradation
+  to the development team lead immediately.
+- Assess recovery using the [rollback procedures](#rollback-procedures), including
+  preservation of any data written since the backup.
