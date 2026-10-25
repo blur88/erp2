@@ -380,7 +380,7 @@ function duplicateGlossaryTerms(root, trackedSet) {
   return duplicates;
 }
 
-function report(documents, externalSkipped, glossaryDuplicates) {
+function report(root, documents, externalSkipped, glossaryDuplicates) {
   const failures = [...documents.values()].flatMap((document) => document.failures);
   failures.sort((a, b) => a.source < b.source ? -1 : a.source > b.source ? 1 : a.line - b.line);
   for (const failure of failures) process.stdout.write(`${failure.source}:${failure.line}: ${failure.link} — ${failure.reason}\n`);
@@ -394,7 +394,7 @@ function report(documents, externalSkipped, glossaryDuplicates) {
   if (glossaryDuplicates.length) {
     problems.push(`${glossaryDuplicates.length} duplicate glossary ${glossaryDuplicates.length === 1 ? 'term' : 'terms'}`);
   }
-  const summary = `${checked} local links checked in ${documents.size} files (${externalSkipped} external skipped)`;
+  const summary = `${checked} local links checked in ${documents.size} files (${externalSkipped} external skipped) under ${root}`;
   process.stdout.write(`${[...problems, summary].join(', ')}\n`);
   if (problems.length) process.exitCode = 1;
 }
@@ -404,7 +404,7 @@ function main() {
   const { tracked, markdown } = trackedMarkdown(root);
   const documents = readDocuments(root, markdown);
   const externalSkipped = validateDocuments(root, tracked, documents);
-  report(documents, externalSkipped, duplicateGlossaryTerms(root, new Set(tracked)));
+  report(root, documents, externalSkipped, duplicateGlossaryTerms(root, new Set(tracked)));
 }
 
 try { main(); }
