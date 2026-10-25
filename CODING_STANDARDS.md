@@ -90,3 +90,12 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 - **Why:** Agents and owners act on recorded evidence as fact, and an issue's acceptance criteria often ask for it. A result that rests on a local log cannot be checked by a fresh clone, a cloud agent or the next reviewer, and a reviewer handed that log will accept it. A methodology that can be rerun looks like evidence while proving only that the method works today.
 - **Diff failure:** The first recorded #1449 measurements described "one-second samples" when the no-limit run's timer fired 270 times in 537 s, committed JSONL that the documented reporter does not emit, and stated elapsed times, package versions and an idle-machine check that no committed file recorded.
 - **Trace:** [issue #1449](https://github.com/blur88/erp2/issues/1449) and [PR #1473](https://github.com/blur88/erp2/pull/1473): commit `8832326f4` recorded the results, `1290b163a` preserved the raw telemetry and derivation and marked unpreserved observations, and [Backend testing](docs/backend/testing.md) holds the corrected record.
+
+## Guard scripts
+
+### Complete report assertions
+
+- **Rule:** New or changed guard bats tests assert each complete report line the guard emits (for example the trigger guard's `path:line: kind: match`) and reject unexpected output lines.
+- **Why:** A broken report can still contain an expected fragment, as [issue #1452](https://github.com/blur88/erp2/issues/1452) records.
+- **Diff failure:** The first trigger guard for [#1431 / PR #1451](https://github.com/blur88/erp2/pull/1451) printed `Can't open backend/src/planted.ts: No such file or directory` instead of a report, yet path-fragment assertions passed; [issue #1452](https://github.com/blur88/erp2/issues/1452) records that failure.
+- **Trace:** [Trigger guard tests](backend/scripts/__tests__/no-trigger-bypass.bats) and [issue #1452](https://github.com/blur88/erp2/issues/1452).
