@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react'
-import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -8,6 +7,7 @@ import { salesApiSlice } from '@/store/api/salesApi'
 import salesReducer from '@/store/slices/salesSlice'
 
 import CustomersPage from '../CustomersPage'
+import { createTestStore } from '@/test/createTestStore'
 
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
@@ -49,12 +49,9 @@ vi.mock('../components/CustomerList', () => ({
 }))
 
 function makeStore() {
-  return configureStore({
-    reducer: {
-      sales: salesReducer,
-      [salesApiSlice.reducerPath]: salesApiSlice.reducer,
-    },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(salesApiSlice.middleware),
+  return createTestStore({
+    apis: [salesApiSlice],
+    reducer: { sales: salesReducer },
   })
 }
 

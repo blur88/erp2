@@ -1,4 +1,4 @@
-import { configureStore } from '@reduxjs/toolkit'
+import { createTestStore } from '@/test/createTestStore'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
@@ -39,10 +39,7 @@ function serveLikeBackend() {
 
 // A fresh store per render so no cached response can mask a failed request.
 function renderWithStore(ui: ReactElement) {
-  const store = configureStore({
-    reducer: { [priceListApiSlice.reducerPath]: priceListApiSlice.reducer },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(priceListApiSlice.middleware),
-  })
+  const store = createTestStore({ apis: [priceListApiSlice] })
   return render(<Provider store={store}>{ui}</Provider>)
 }
 

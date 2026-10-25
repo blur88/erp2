@@ -1,9 +1,9 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import api from '@/services/api'
 import { accountingApiSlice } from '@/store/api/accountingApi'
 import { salesApiSlice } from '@/store/api/salesApi'
+import { createTestStore } from '@/test/createTestStore'
 
 vi.mock('@/services/api', () => ({
   default: vi.fn(),
@@ -43,16 +43,7 @@ function countEligibleGets(): number {
 }
 
 function makeStore() {
-  return configureStore({
-    reducer: {
-      [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
-      [salesApiSlice.reducerPath]: salesApiSlice.reducer,
-    },
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware()
-        .concat(accountingApiSlice.middleware)
-        .concat(salesApiSlice.middleware),
-  })
+  return createTestStore({ apis: [accountingApiSlice, salesApiSlice] })
 }
 
 const ARGS = { settlementDate: '2026-09-26', page: 1, limit: 25 }
