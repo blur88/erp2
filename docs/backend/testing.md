@@ -43,6 +43,47 @@ Both `test/jest-e2e.json` and `test/jest-e2e-leakcheck.json` set `workerIdleMemo
 
 The development investigation in [#1344](https://github.com/blur88/erp2/issues/1344), summarized in [#1449](https://github.com/blur88/erp2/issues/1449), measured post-GC growth with Jest 30.5.2: about 2.7 MB per trivial suite, 35 MB per suite importing `AppModule`, 44 MB per full boot followed by `app.close()`, and 22 MB for a side-effect-free 20 MB fixture. Loaded modules remain reachable for the lifetime of the process running the suites (now one child worker’s lifetime), pointing to runner per-file module-registry retention rather than missing application teardown. These are historical **development** measurements, not production evidence. The exact retaining path was **not established** (no heap snapshot); whether retention is specific to vm-modules was **not established** (no CommonJS control); the extra 8–9 MB per boot was **not established**.
 
+#### Development comparison, 2026-10-25
+
+Two sequential full e2e measurements on commit `3c8f1ec3f` used the same machine, suites, reporter and Node options; the temporary configs differed only by `workerIdleMemoryLimit`. Both exited 0 with 45 suites and 612 tests passing. These dated counts describe these runs, not an expected count for future gates. All figures here are **development evidence**, not production evidence.
+
+| Development run | Peak sampled post-GC heap | Suite process PIDs | Observed worker restarts | Jest elapsed time |
+| --- | --- | --- | --- | --- |
+| Without limit | 2,170.87 MiB (2,276,320,456 bytes) | Main Jest process `4124191`; no child workers | 0 | 537.016 s |
+| With `"1GB"` | 983.21 MiB (1,030,967,232 bytes) | Child workers `4134910`, `4139214`, `4142865`; main coordinator `4134491` | 2 (3 distinct worker PIDs minus the initial worker) | 491.949 s |
+
+MiB means bytes / 1,048,576. Jest parses `"1GB"` as **1,000,000,000 bytes**, or **953.67 MiB**. The table's peak is the maximum per-suite post-GC sample from `--logHeapUsage`, not a continuously sampled heap maximum, raw idle-memory check, or RSS. A suite can cross the threshold before recycling; the measured 983.21 MiB peak illustrates this. The timing is descriptive, not a performance claim.
+
+Machine: hostname `ubuntu`, Linux x86_64 KVM guest, four exposed AMD Ryzen 3 3200G CPU cores, 10,428,289,024 bytes RAM (9.71 GiB), 2 GiB swap, Node v24.16.0, Jest/@jest/core 30.5.2 and jest-worker 30.5.1. The no-limit reporter interval was 06:04:37–06:13:34 UTC; with-limit was 06:14:05–06:22:17 UTC. The local development Compose stack (PostgreSQL, Redis, backend, frontend, NGINX), editors and interactive agent sessions remained present. Process checks before and throughout both runs found no competing Jest, Vitest, typecheck or build workload; no other heavy gate was launched alongside these measurements. One-second samples of one-minute system load had min/median/max 1.07/2.60/3.65 without the limit and 1.80/2.32/3.31 with it. Background services were not stopped; this is a shared development machine comparison.
+
+The [custom reporter](measurements/1449/heap-reporter.cjs) records `result.memoryUsage` in bytes after Jest invokes exposed GC. Without the limit, these samples come from the main Jest process. With the limit, they come from the child running the suite; the reporter observes Jest's `child_process.fork` calls and result IPC to associate each sample with its worker PID. Worker creation and exit events count distinct PIDs directly, rather than inferring restarts from heap drops. Separately, the reporter samples `/proc/<pid>/status` RSS and system load once per second for the main process and observed workers; RSS is not used as heap. The [no-limit results](measurements/1449/no-limit.jsonl) and [with-limit results](measurements/1449/with-limit.jsonl) retain per-suite heap/PID rows, lifecycle events and summaries of those one-second samples.
+
+Exact setup and measurement commands, from the repository root (the reporter was originally created at the temporary path; this copies the preserved identical source):
+
+```bash
+mkdir -p /tmp/erp2-1449-measurement
+cp docs/backend/measurements/1449/heap-reporter.cjs /tmp/erp2-1449-measurement/heap-reporter.cjs
+python3 - <<'PY'
+import json
+from pathlib import Path
+source = Path('backend/test/jest-e2e.json').resolve()
+config = json.loads(source.read_text())
+config.pop('workerIdleMemoryLimit')
+config['rootDir'] = str(source.parent)
+output = Path('/tmp/erp2-1449-measurement')
+(output / 'no-limit.json').write_text(json.dumps(config, indent=2) + '\n')
+config['workerIdleMemoryLimit'] = '1GB'
+(output / 'with-limit.json').write_text(json.dumps(config, indent=2) + '\n')
+PY
+cd backend
+NODE_ENV=test NODE_OPTIONS='--max-old-space-size=4096 --experimental-vm-modules' HEAP_REPORT=/tmp/erp2-1449-measurement/no-limit.jsonl node --expose-gc node_modules/jest/bin/jest.js --config /tmp/erp2-1449-measurement/no-limit.json --logHeapUsage --testPathPatterns='\.e2e-spec\.ts$' --reporters=default /tmp/erp2-1449-measurement/heap-reporter.cjs > /tmp/erp2-1449-measurement/no-limit.log 2>&1
+NODE_ENV=test NODE_OPTIONS='--max-old-space-size=4096 --experimental-vm-modules' HEAP_REPORT=/tmp/erp2-1449-measurement/with-limit.jsonl node --expose-gc node_modules/jest/bin/jest.js --config /tmp/erp2-1449-measurement/with-limit.json --logHeapUsage --testPathPatterns='\.e2e-spec\.ts$' --reporters=default /tmp/erp2-1449-measurement/heap-reporter.cjs > /tmp/erp2-1449-measurement/with-limit.log 2>&1
+```
+
+The [captured gate summary](measurements/1449/gate-result.txt) records the separate development gate `cd backend && npm run test:e2e` exiting 0: 45 suites and 612 tests passed in 430.703 s. It ran sequentially after both measurements, without `--logHeapUsage`, `--expose-gc` or the custom reporter.
+
+The pattern precedes the variadic `--reporters` option. These invoke the full `test:e2e` Jest configuration and lifecycle with added measurement instrumentation; a separate uninstrumented `npm run test:e2e` is the required gate. Use fresh output files for a repeat: the reporter appends JSONL.
+
 ### Every suite cleans its own request exhaust
 
 `resetSuiteBusinessRows` covers business rows and `removeSuiteAdmin` covers users (refresh tokens cascade). But every HTTP request also leaves `audit_logs` rows, and every global search leaves a `search_queries` row. `test/utils/shared-e2e-traces-fixture.ts` (`removeSuiteTraces`) deletes those, scoped to the suite's own user/entity ids — call it in `afterAll` before removing users. Scope to ids you own; never a bare `username = 'admin'`, which is shared. A suite that makes audited requests and skips this turns the nightly leak check red.
