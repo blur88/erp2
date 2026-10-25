@@ -102,20 +102,20 @@ pending entries. Do not expect legacy pricing conversion messages or fixed row c
 Review migration history before upgrading. An existing schema with empty migration
 history needs baseline reconciliation before normal migration execution. The
 [Docker entrypoint](../../../backend/docker-entrypoint.sh) detects this state and
-refuses startup. Its diagnostic suggests `migration:run --fake` using the full
-migration configuration. That command records **every pending migration** as
-applied without executing it, as shown by
+refuses startup and directs the operator to manual reconciliation. Do not use
+`migration:run --fake` with the full migration configuration: that command records
+**every pending migration** as applied without executing it, as shown by
 [TypeORM 1.1.1's migration executor](https://github.com/typeorm/typeorm/blob/1.1.1/src/migration/MigrationExecutor.ts).
 It is appropriate only after verifying that every pending migration's schema and
 data changes are already present in the database.
 
 For an existing database whose schema matches the baseline but whose migration
 history is empty, reconcile the migration history manually before startup. Do
-not run the entrypoint's suggested command unless every pending migration's
-schema and data changes are already present. Verify the schema against the
-baseline and plan how to record the baseline and apply subsequent migrations
-before making changes; this guide does not provide a tested baseline-recording
-procedure.
+not mark subsequent migrations as applied unless their schema and data changes
+are already present. Take a backup, verify the schema against `InitialSchema`,
+and plan how to record only that baseline and apply subsequent migrations
+normally before restarting. This guide does not provide a tested
+baseline-recording procedure. See [issue #1466](https://github.com/blur88/erp2/issues/1466).
 
 Do not pipe TypeScript migration files into `psql`. Use TypeORM for migration execution.
 

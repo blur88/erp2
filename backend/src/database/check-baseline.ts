@@ -10,7 +10,7 @@
  * Prints exactly one token on stdout for the entrypoint to branch on:
  *   FRESH      — no user tables; migrations may run and build the schema.
  *   BASELINED  — migration history present; migration:run applies only pending.
- *   NEEDS_FAKE — schema exists but history is empty; requires migration:run --fake.
+ *   NEEDS_FAKE — schema exists but history is empty; requires manual reconciliation.
  *
  * Any failure to determine the state exits non-zero so the entrypoint stops
  * rather than guessing.
