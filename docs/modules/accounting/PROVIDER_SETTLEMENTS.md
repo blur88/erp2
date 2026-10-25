@@ -43,7 +43,7 @@ The database requires a positive amount. Its lifecycle checks require a Draft to
 
 The list and detail screens disable Post when a Draft's Clearing account is no longer flagged. The form disables Save while any Needs attention row remains.
 
-[PR #1287](https://github.com/blur88/erp2/pull/1287) records that Reverse is exempt from provider-clearing eligibility checks. This exemption concerns the current Payment Method mapping and provider-clearing flag; the shared reversal path still enforces account existence and postability, as clarified in [#1460](https://github.com/blur88/erp2/issues/1460#issuecomment-6398386329).
+[PR #1287](https://github.com/blur88/erp2/pull/1287) records that Reverse is exempt from provider-clearing eligibility checks, as clarified in [#1460](https://github.com/blur88/erp2/issues/1460#issuecomment-6398386329).
 
 An Edit may infer a different Payment Method when the complete selection changes. An empty selection is not a saved Draft; discard the Draft instead.
 
