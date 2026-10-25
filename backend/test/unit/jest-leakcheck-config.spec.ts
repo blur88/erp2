@@ -43,6 +43,14 @@ describe("jest-e2e-leakcheck.json", () => {
     expect(leak).not.toHaveProperty("globalTeardown");
   });
 
+  it.each(["jest-e2e.json", "jest-e2e-leakcheck.json"])(
+    "%s bounds accumulated worker heap at 1 GB with one worker",
+    (config) => {
+      expect(read(config).workerIdleMemoryLimit).toBe("1GB");
+      expect(read(config).maxWorkers).toBe(1);
+    },
+  );
+
   it("never sets passWithNoTests", () => {
     // Zero-discovery must fail, not pass. See docs/backend/testing.md,
     // "Jest runs in ESM mode".

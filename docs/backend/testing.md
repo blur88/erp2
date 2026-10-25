@@ -37,6 +37,12 @@ Invariants:
 
 `npm run test:e2e` drops and recreates `erp_db_test` on every run.
 
+### Worker heap recycling (#1449)
+
+Both `test/jest-e2e.json` and `test/jest-e2e-leakcheck.json` set `workerIdleMemoryLimit: "1GB"` and retain `maxWorkers: 1`. Jest checks idle worker memory after a suite and recycles a worker above the limit. This is a **bound on accumulated worker heap**, not a fix for per-suite growth or a hard ceiling during a suite. Each fresh worker starts accumulating again; suite order and concurrency stay unchanged. `test/unit/jest-leakcheck-config.spec.ts` asserts the limit independently in each config, in addition to config parity.
+
+The development investigation in [#1344](https://github.com/blur88/erp2/issues/1344), summarized in [#1449](https://github.com/blur88/erp2/issues/1449), measured post-GC growth with Jest 30.5.2: about 2.7 MB per trivial suite, 35 MB per suite importing `AppModule`, 44 MB per full boot followed by `app.close()`, and 22 MB for a side-effect-free 20 MB fixture. Loaded modules remain reachable for the lifetime of the Jest process, pointing to runner per-file module-registry retention rather than missing application teardown. These are historical **development** measurements, not production evidence. The exact retaining path was **not established** (no heap snapshot); whether retention is specific to vm-modules was **not established** (no CommonJS control); the extra 8–9 MB per boot was **not established**.
+
 ### Every suite cleans its own request exhaust
 
 `resetSuiteBusinessRows` covers business rows and `removeSuiteAdmin` covers users (refresh tokens cascade). But every HTTP request also leaves `audit_logs` rows, and every global search leaves a `search_queries` row. `test/utils/shared-e2e-traces-fixture.ts` (`removeSuiteTraces`) deletes those, scoped to the suite's own user/entity ids — call it in `afterAll` before removing users. Scope to ids you own; never a bare `username = 'admin'`, which is shared. A suite that makes audited requests and skips this turns the nightly leak check red.
