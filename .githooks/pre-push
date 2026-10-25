@@ -1,0 +1,42 @@
+#!/bin/sh
+# Refuses pushing a branch that does not contain the remote's current main.
+# A releasing merge adds a chore(release) commit to main, so a branch cut from
+# a stale local main opens its PR already behind; the ruleset then demands a
+# rebase and a second full CI run. Activated by core.hooksPath like pre-commit.
+#
+# core.hooksPath replaces .git/hooks, so a clone-local pre-push hook is
+# chained below, fed the same ref lines on stdin, to keep its behaviour.
+
+remote=$1
+lines=$(cat)
+
+# A failed fetch allows the push: the remote has no main yet, or is
+# unreachable, in which case the push itself fails next.
+if ! git fetch -q "$remote" main 2>/dev/null; then
+  echo "pre-push: could not fetch main from $remote; skipping the up-to-date check" >&2
+else
+  main=$(git rev-parse FETCH_HEAD)
+  zero=0000000000000000000000000000000000000000
+  behind=""
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$local_ref" in refs/heads/*) ;; *) continue ;; esac
+    [ "$local_sha" = "$zero" ] && continue
+    if ! git merge-base --is-ancestor "$main" "$local_sha"; then
+      behind="$behind ${local_ref#refs/heads/}"
+    fi
+  done <<EOF
+$lines
+EOF
+  if [ -n "$behind" ]; then
+    for branch in $behind; do
+      echo "pre-push: $branch does not contain $remote's current main." >&2
+    done
+    echo "Rebase first: git rebase $remote/main, then push again." >&2
+    exit 1
+  fi
+fi
+
+local_hook="$(git rev-parse --git-common-dir)/hooks/pre-push"
+if [ -x "$local_hook" ]; then
+  printf '%s\n' "$lines" | exec "$local_hook" "$@"
+fi
