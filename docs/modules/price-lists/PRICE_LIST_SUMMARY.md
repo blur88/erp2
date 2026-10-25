@@ -354,23 +354,22 @@ Planned features for future releases:
 
 ### Documentation Files
 
-1. **CLAUDE.md** - Updated system documentation with Price List System section
-2. **PRICE_LIST_API.md** - Complete API reference (14 endpoints, examples, best practices)
-3. **PRICE_LIST_USER_GUIDE.md** - End-user documentation (UI walkthrough, FAQs)
-4. **PRICE_LIST_DEPLOYMENT_GUIDE.md** - Deployment procedures (migration, rollback, monitoring)
-5. **DEPLOYMENT_CHECKLIST.md** - Step-by-step checklist for operations team
-6. **PRICE_LIST_MIGRATION_PLAN.md** - Complete migration plan (7 phases, detailed tasks)
+1. [Agent Brief](../../../AGENTS.md) - Repository architecture, commands and migration rules
+2. [Price List API](./PRICE_LIST_API.md) - API reference
+3. [Price List User Guide](./PRICE_LIST_USER_GUIDE.md) - End-user documentation
+4. [Price List Deployment Guide](./PRICE_LIST_DEPLOYMENT_GUIDE.md) - Migration, recovery and validation procedures
+5. [Deployment Checklist](../../deployment/DEPLOYMENT_CHECKLIST.md) - Operations checklist
 
 ### Code Locations
 
-- **Backend Module**: `backend/src/modules/price-lists/`
-- **Entities**: `backend/src/database/entities/price-list*.entity.ts`
-- **Migrations**: `backend/src/database/migrations/1768*-*PriceList*.ts`
-- **Frontend Pages**: `frontend/src/pages/settings/PriceLists*.tsx`
-- **Components**: `frontend/src/components/settings/PriceList*.tsx`, `frontend/src/components/price-lists/`
-- **Redux**: `frontend/src/store/slices/priceListSlice.ts`
-- **API Service**: `frontend/src/services/priceListApi.ts`
-- **Tests**: `backend/test/unit/price-list*.spec.ts`, `backend/test/e2e/price-lists.e2e-spec.ts`, `frontend/src/store/slices/__tests__/priceListSlice.test.ts`
+- **Backend Module**: [price-lists](../../../backend/src/modules/price-lists/)
+- **Entities**: [PriceList](../../../backend/src/database/entities/price-list.entity.ts), [PriceListItem](../../../backend/src/database/entities/price-list-item.entity.ts)
+- **Schema Baseline**: [InitialSchema](../../../backend/src/database/migrations/1785238045705-InitialSchema.ts)
+- **Frontend Pages**: [PriceListsPage](../../../frontend/src/pages/settings/PriceListsPage.tsx), [PriceListDetailsPage](../../../frontend/src/pages/settings/PriceListDetailsPage.tsx)
+- **Components**: [PriceListFormDialog](../../../frontend/src/components/settings/PriceListFormDialog.tsx), [PriceListCopyDialog](../../../frontend/src/components/settings/PriceListCopyDialog.tsx), [PriceListSelector](../../../frontend/src/components/price-lists/PriceListSelector.tsx)
+- **Redux**: [priceListSlice](../../../frontend/src/store/slices/priceListSlice.ts)
+- **API Service**: [priceListApi](../../../frontend/src/store/api/priceListApi.ts)
+- **Tests**: [service unit tests](../../../backend/test/unit/price-list.service.spec.ts), [entity tests](../../../backend/test/unit/price-list-entity.spec.ts), [e2e tests](../../../backend/test/e2e/price-lists.e2e-spec.ts), [slice tests](../../../frontend/src/store/slices/__tests__/priceListSlice.ui.test.ts)
 
 ---
 
