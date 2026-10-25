@@ -5,7 +5,7 @@ A modern, comprehensive React frontend application for the ERP system built with
 ## Features
 
 ### 🚀 Core Features
-- **Modern React Architecture** - React 19.2.4 with TypeScript, hooks, and context API
+- **Modern React Architecture** - React 19 with TypeScript, hooks, and context API
 - **Responsive Design** - Mobile-first approach with Material-UI v9 components
 - **State Management** - Redux Toolkit for predictable state management
 - **Public Access** - Authentication system completely removed for rapid development
@@ -32,7 +32,7 @@ A modern, comprehensive React frontend application for the ERP system built with
 
 ## Tech Stack
 
-- **React 19.2.4** - Modern React with concurrent features
+- **React 19** - Modern React with concurrent features
 - **TypeScript** - Type-safe JavaScript (relaxed mode: `"strict": false`)
 - **Material-UI v9** - Comprehensive UI component library
 - **Redux Toolkit** - State management with Redux best practices
