@@ -51,4 +51,4 @@
 {"time":"2026-10-25T06:22:17.052Z","event":"suite","file":"test/trigram-predicate.e2e-spec.ts","heapBytes":454810632,"executionPid":4142865,"failed":0,"passed":3}
 {"time":"2026-10-25T06:22:17.313Z","event":"worker-exit","pid":4142865,"code":0,"signal":null}
 {"time":"2026-10-25T06:22:17.319Z","event":"complete","peakHeapBytes":1030967232,"workerPids":[4134910,4139214,4142865],"restarts":2,"suites":45,"passedSuites":45,"failedSuites":0,"tests":612,"failedTests":0}
-{"event":"sample-summary","sampleCount":491,"intervalMs":1000,"load1":{"min":1.8,"median":2.32,"max":3.31},"peakRssKiBByPid":{"4142865":795976,"4134491":138956,"4139214":1450312,"4134910":1401508}}
+{"event":"sample-summary","sampleCount":491,"requestedIntervalMs":1000,"load1":{"min":1.8,"median":2.32,"max":3.31},"peakRssKiBByPid":{"4134491":138956,"4134910":1401508,"4139214":1450312,"4142865":795976}}

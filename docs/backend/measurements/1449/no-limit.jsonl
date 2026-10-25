@@ -45,4 +45,4 @@
 {"time":"2026-10-25T06:13:24.068Z","event":"suite","file":"test/trigram-index-drift.e2e-spec.ts","heapBytes":2231087272,"executionPid":4124191,"failed":0,"passed":1}
 {"time":"2026-10-25T06:13:34.271Z","event":"suite","file":"test/trigram-predicate.e2e-spec.ts","heapBytes":2276320456,"executionPid":4124191,"failed":0,"passed":3}
 {"time":"2026-10-25T06:13:34.278Z","event":"complete","peakHeapBytes":2276320456,"workerPids":[],"restarts":0,"suites":45,"passedSuites":45,"failedSuites":0,"tests":612,"failedTests":0}
-{"event":"sample-summary","sampleCount":270,"intervalMs":1000,"load1":{"min":1.07,"median":2.6,"max":3.65},"peakRssKiBByPid":{"4124191":2753340}}
+{"event":"sample-summary","sampleCount":270,"requestedIntervalMs":1000,"load1":{"min":1.07,"median":2.6,"max":3.65},"peakRssKiBByPid":{"4124191":2753340}}
