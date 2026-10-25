@@ -13,8 +13,8 @@ setup() {
   run "$CHECK" "$REPO"
 
   [ "$status" -ne 0 ]
-  [[ "$output" == *"backend/src/example.ts"* ]]
-  [[ "$output" == *"forbidden trigger disable"* ]]
+  [ "$output" = "backend/src/example.ts:1: forbidden trigger disable: dIsAbLe tRiGgEr
+Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER in migrations is allowed." ]
 }
 
 @test "rejects DROP TRIGGER outside migrations" {
@@ -23,8 +23,8 @@ setup() {
   run "$CHECK" "$REPO"
 
   [ "$status" -ne 0 ]
-  [[ "$output" == *"backend/src/example.ts"* ]]
-  [[ "$output" == *"trigger drop outside migrations"* ]]
+  [ "$output" = "backend/src/example.ts:1: trigger drop outside migrations: DROP TRIGGER
+Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER in migrations is allowed." ]
 }
 
 @test "allows trigger operations in migrations and the test fixture" {
