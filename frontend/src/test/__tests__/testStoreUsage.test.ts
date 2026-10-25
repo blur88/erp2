@@ -10,12 +10,9 @@ import { describe, expect, it } from 'vitest'
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
-const ALLOWED = new Set([
-  // Builds a default-batched store on purpose, as the control for the helper's own test.
-  'test/__tests__/createTestStore.test.tsx',
-  // This file: it names both strings.
-  'test/__tests__/testStoreUsage.test.ts',
-])
+const CONTROL_FILE = 'test/__tests__/createTestStore.test.tsx'
+// This guard necessarily names both scanned strings.
+const GUARD_FILE = 'test/__tests__/testStoreUsage.test.ts'
 
 function testFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -35,11 +32,17 @@ describe('test stores around RTK Query', () => {
   it('are created with createTestStore, not with configureStore in the test file', () => {
     const offenders = files
       .filter((file) => {
+        const relative = path.relative(SRC, file).split(path.sep).join('/')
+        if (relative === GUARD_FILE) return false
         const text = readFileSync(file, 'utf8')
+        if (relative === CONTROL_FILE) {
+          // Exactly one raw store is the intentional default-batched control.
+          // A second store in any other helper test must still fail the guard.
+          return (text.match(/configureStore\(/g)?.length ?? 0) !== 1
+        }
         return text.includes('configureStore(') && /\.middleware\b/.test(text)
       })
       .map((file) => path.relative(SRC, file).split(path.sep).join('/'))
-      .filter((file) => !ALLOWED.has(file))
 
     expect(offenders, 'use createTestStore from @/test/createTestStore').toEqual([])
   })
