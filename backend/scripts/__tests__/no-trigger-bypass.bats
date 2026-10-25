@@ -18,12 +18,12 @@ Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER
 }
 
 @test "rejects DROP TRIGGER outside migrations" {
-  printf 'DROP   TRIGGER IF EXISTS unsafe;\n' > "$REPO/backend/src/example.ts"
+  printf '\nDROP   TRIGGER IF EXISTS unsafe;\n' > "$REPO/backend/src/example.ts"
 
   run "$CHECK" "$REPO"
 
   [ "$status" -ne 0 ]
-  [ "$output" = "backend/src/example.ts:1: trigger drop outside migrations: DROP TRIGGER
+  [ "$output" = "backend/src/example.ts:2: trigger drop outside migrations: DROP TRIGGER
 Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER in migrations is allowed." ]
 }
 
@@ -34,6 +34,7 @@ Trigger bypass SQL is forbidden in backend application source; only DROP TRIGGER
   run "$CHECK" "$REPO"
 
   [ "$status" -eq 0 ]
+  [ -z "$output" ]
 }
 
 @test "the checked-out repository obeys the trigger guard" {

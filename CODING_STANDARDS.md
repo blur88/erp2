@@ -95,7 +95,7 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 
 ### Complete report assertions
 
-- **Rule:** A guard script's bats tests assert each complete `path:line: kind: match` report line and reject unexpected output lines.
+- **Rule:** New or changed guard bats tests assert each complete report line the guard emits (for example the trigger guard's `path:line: kind: match`) and reject unexpected output lines.
 - **Why:** A broken report can still contain an expected fragment, as [issue #1452](https://github.com/blur88/erp2/issues/1452) records.
-- **Diff failure:** Checking only the path or kind lets a wrong line number or stray error output pass.
+- **Diff failure:** The first trigger guard for [#1431 / PR #1451](https://github.com/blur88/erp2/pull/1451) printed `Can't open backend/src/planted.ts: No such file or directory` instead of a report, yet path-fragment assertions passed; [issue #1452](https://github.com/blur88/erp2/issues/1452) records that failure.
 - **Trace:** [Trigger guard tests](backend/scripts/__tests__/no-trigger-bypass.bats) and [issue #1452](https://github.com/blur88/erp2/issues/1452).
