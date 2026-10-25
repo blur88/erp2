@@ -5,6 +5,7 @@
 Use the [current deployment guide](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md)
 for migration and recovery procedures. Only the local Compose stack currently runs;
 production-host checks remain unverified until that host exists.
+
 **Deployment Date**: _____________
 **Deployed By**: _____________
 **Start Time**: _____________
@@ -47,13 +48,7 @@ production-host checks remain unverified until that host exists.
 - [ ] Backup copied to off-server location
 - [ ] Backup location documented: `_________________________`
 
-**Backup Commands**:
-```bash
-mkdir -p /backup/erp/$(date +%Y%m%d_%H%M%S)
-docker compose exec -T postgres pg_dump -U erp_user erp_db \
-  > /backup/erp/$(date +%Y%m%d_%H%M%S)/erp_db_backup.sql
-ls -lh /backup/erp/$(date +%Y%m%d_%H%M%S)/erp_db_backup.sql
-```
+Follow the [guide's backup and restore steps](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md#backup-procedures).
 
 **Backup Verification**:
 - [ ] File size: `_______ MB` (should be >10MB)
@@ -243,7 +238,7 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "
 - [ ] Gather initial user feedback
 
 ### First Week
-- [ ] Migrate remaining products to price lists
+- [ ] Review products missing prices in the intended price lists and enter required prices
 - [ ] Verify all customers have price list assignments
 - [ ] Optimize slow queries if found
 
