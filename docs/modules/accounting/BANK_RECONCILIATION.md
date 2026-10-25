@@ -45,9 +45,9 @@ Six functions, eight triggers and one foreign key exist only in `1791044381374-A
 
 `trg_bsr_version_guard` and `trg_bsr_version_line_guard` reject updates and deletes of version rows in every session. A version is writable only until `sealedAt` is set, and `trg_bsr_version_sealed_at_commit` (a deferred constraint trigger) fails any commit that leaves one unsealed. Application code has no supported bypass.
 
-Tests remove their rows through `removeSuiteBankReconciliations` (`backend/test/utils/bank-reconciliation-fixture.ts`), which disables the eight triggers with `ALTER TABLE … DISABLE TRIGGER` inside one transaction and re-enables them before commit. It also drops and recreates `UQ_bsr_one_draft_per_account` within that transaction. **Nothing under `src/` may do this.** Call it *before* deleting journal rows: the journal-line FKs are `RESTRICT`.
+Tests remove their rows through `removeSuiteBankReconciliations` (`backend/test/utils/bank-reconciliation-fixture.ts`), which disables the eight triggers with `ALTER TABLE … DISABLE TRIGGER` inside one transaction and re-enables them before commit. It also drops and recreates `UQ_bsr_one_draft_per_account` within that transaction. **Nothing under `backend/src/` may disable these triggers; outside migrations, nothing under `backend/src/` may drop the index.** Call it *before* deleting journal rows: the journal-line FKs are `RESTRICT`.
 
-The source guard (`cd backend && npm run test:scripts`) rejects `DISABLE TRIGGER` and any `session_replication_role` reference throughout `backend/src/`, including migrations. Within `backend/src/`, it also rejects `DROP TRIGGER`, `DROP INDEX`, and `dropIndex()` calls outside `database/migrations/`; migrations may drop triggers and indexes. The guard leaves `backend/test/` fixtures outside its scope.
+The source guard (`cd backend && npm run test:scripts`) rejects `DISABLE TRIGGER` and any `session_replication_role` reference throughout `backend/src/`, including migrations. Within `backend/src/`, it also rejects `DROP TRIGGER`, `DROP INDEX`, and `dropIndex()` or `dropIndices()` calls outside `database/migrations/`; migrations may drop triggers and indexes. The guard leaves `backend/test/` fixtures outside its scope.
 
 ## Lock order
 

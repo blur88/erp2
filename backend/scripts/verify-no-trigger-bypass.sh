@@ -56,8 +56,8 @@ while IFS= read -r -d '' file; do
     report_matches "$file" "$relative_file" '\bDROP\s+INDEX\b' 'index drop outside migrations'
     found=1
   fi
-  if perl -0777 -e 'local $/; exit(<> =~ /\bdropIndex\s*\(/i ? 0 : 1)' "$file"; then
-    report_matches "$file" "$relative_file" '\bdropIndex\s*\(' 'index drop outside migrations'
+  if perl -0777 -e 'local $/; exit(<> =~ /\bdropInd(?:ex|ices)\s*\(/i ? 0 : 1)' "$file"; then
+    report_matches "$file" "$relative_file" '\bdropInd(?:ex|ices)\s*\(' 'index drop outside migrations'
     found=1
   fi
 done < <(find "$SRC_DIR" -type f -print0)

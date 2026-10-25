@@ -71,8 +71,8 @@ Trigger and index bypasses are forbidden in backend/src/; only trigger and index
 }
 
 @test "allows index drops in migrations and bypass SQL in test fixtures" {
-  printf 'DROP\t\n INDEX IF EXISTS historical;\nawait queryRunner.dropIndex("records", "historical");\n' > "$REPO/backend/src/database/migrations/001-history.ts"
-  printf "SET session_replication_role = replica;\nDROP INDEX UQ_bsr_one_draft_per_account;\nawait queryRunner.dropIndex(\"records\", \"fixture\");\n" > "$REPO/backend/test/utils/bank-reconciliation-fixture.ts"
+  printf 'DROP\t\n INDEX IF EXISTS historical;\nawait queryRunner.dropIndex("records", "historical");\nawait queryRunner.dropIndices("records", indexes);\n' > "$REPO/backend/src/database/migrations/001-history.ts"
+  printf "SET session_replication_role = replica;\nDROP INDEX UQ_bsr_one_draft_per_account;\nawait queryRunner.dropIndex(\"records\", \"fixture\");\nawait queryRunner.dropIndices(\"records\", indexes);\n" > "$REPO/backend/test/utils/bank-reconciliation-fixture.ts"
 
   run "$CHECK" "$REPO"
 
@@ -87,5 +87,15 @@ Trigger and index bypasses are forbidden in backend/src/; only trigger and index
 
   [ "$status" -eq 1 ]
   [ "$output" = "backend/src/example.ts:2: index drop outside migrations: dropIndex (
+Trigger and index bypasses are forbidden in backend/src/; only trigger and index drops in database/migrations/ are allowed." ]
+}
+
+@test "rejects dropIndices calls outside migrations" {
+  printf '\nawait queryRunner.dropIndices\t\n ("records", indexes);\n' > "$REPO/backend/src/example.ts"
+
+  run "$CHECK" "$REPO"
+
+  [ "$status" -eq 1 ]
+  [ "$output" = "backend/src/example.ts:2: index drop outside migrations: dropIndices (
 Trigger and index bypasses are forbidden in backend/src/; only trigger and index drops in database/migrations/ are allowed." ]
 }
