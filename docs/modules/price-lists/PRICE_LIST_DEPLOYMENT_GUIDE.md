@@ -108,7 +108,8 @@ See the [Docker entrypoint](../../../backend/docker-entrypoint.sh). Do not use
 **every pending migration** as applied without executing it, as shown by
 [TypeORM 1.1.1's migration executor](https://github.com/typeorm/typeorm/blob/1.1.1/src/migration/MigrationExecutor.ts).
 It is appropriate only after verifying that every pending migration's schema and
-data changes are already present in the database.
+data changes are already present in the database. `cd backend && npm run test:scripts`
+rejects the flag in every other tracked file.
 
 For an existing database whose schema matches the baseline but whose migration
 history is empty, reconcile the migration history manually before startup. Do

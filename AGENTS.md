@@ -43,6 +43,7 @@ Single test files:
 ```bash
 cd backend && NODE_OPTIONS=--experimental-vm-modules npx jest src/path/to/file.spec.ts --no-coverage
 cd frontend && npx vitest run src/path/to/file.test.tsx
+cd backend && npx bats scripts/__tests__/file.bats
 ```
 
 The full frontend suite takes tens of minutes; it is not hung.
