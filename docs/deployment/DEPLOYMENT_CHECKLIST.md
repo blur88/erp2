@@ -82,7 +82,8 @@ This procedure implements [issue #1475](https://github.com/blur88/erp2/issues/14
 Migration `RecalculateCustomerMetricsFromFulfilledOrders1793020800000` **rewrites
 customer data** using the [customer order metric rule](../backend/customer-metrics.md#metric-rule).
 `down()` does nothing: **the pre-deploy backup is the only way back to the
-previous values**, as required by [issue #1475](https://github.com/blur88/erp2/issues/1475).
+previous values**, as [PR #1369](https://github.com/blur88/erp2/pull/1369) documented,
+which [issue #1475](https://github.com/blur88/erp2/issues/1475) re-applies.
 
 No production host exists yet. Measure the affected rows before deployment:
 

@@ -219,11 +219,9 @@ export class SalesOrderFulfillmentService {
   }
 
   /**
-   * Keeps the customer's stored order metrics in step with the status change
-   * (#1355). It runs last in the transaction, so the customer row lock is held
-   * only until commit, and it is not caught: metrics that cannot be written
-   * roll the transition back rather than commit a customer that disagrees with
-   * their orders.
+   * Applies the metric calculation to this order's customer.
+   * Transaction placement and rollback rules are owned by
+   * docs/backend/customer-metrics.md#runtime-transactions-and-lock-order.
    */
   private async recalculateMetrics(manager: EntityManager, order: SalesOrder): Promise<void> {
     const found = await recalculateCustomerMetrics(manager, order.customerId);

@@ -1,8 +1,9 @@
 # Customer order metrics
 
 This document owns the customer order metric rule and its transaction and migration
-locking requirements. The rule and backfill requirements are recorded in
-[issue #1475](https://github.com/blur88/erp2/issues/1475).
+locking requirements. The work is specified in
+[issue #1475](https://github.com/blur88/erp2/issues/1475), which re-applies
+[PR #1369](https://github.com/blur88/erp2/pull/1369).
 
 ## Metric rule
 
@@ -38,28 +39,38 @@ committed order. Reading the aggregate before the lock could overwrite the
 customer with a total that misses that order. `FOR NO KEY UPDATE` permits the
 key-share lock taken by an order insert's customer foreign key.
 
-The sequence in
+The current sequences in
 [SalesOrderFulfillmentService](../../backend/src/modules/sales/services/sales-order-fulfillment.service.ts)
-is order row → stock work → accounting posting/reversal work → customer row
-for metrics. Stock work updates product and cost-batch rows; the order lock
-precedes those writes, and the customer lock stays last. At those row-lock
-boundaries the order is order → products → customer. The helper does not acquire
-order, product or accounting locks. This sequence describes the current code;
-it does not introduce a sorting guarantee across all product locks. The manual
-route acquires only the customer row lock. Bank reconciliation's separate
+are:
+
+- Fulfil: order row → for each item, product row then selected cost-batch rows
+  (`purchase_cost_history`) → accounting posting work → customer row for metrics.
+- Unfulfil: order row → for each item, restored cost-batch rows then the product
+  base-cost update → product rows during stock-movement reversal → accounting
+  reversal work → customer row for metrics. When no cost batches exist,
+  `restoreStock` returns before the product base-cost update.
+
+These sequences include locks taken by `UPDATE` as well as explicit row locks.
+The stock work is implemented by
+[InventoryIntegrationService.adjustStock](../../backend/src/modules/sales/services/inventory-integration.service.ts),
+[BaseCostCalculatorService.reduceStock/restoreStock](../../backend/src/modules/inventory/services/base-cost-calculator.service.ts)
+and [StockMovementService.deleteByReference](../../backend/src/modules/inventory/services/stock-movement.service.ts).
+They describe current code, with no general sorting guarantee across product
+and cost-batch locks. The customer lock stays last; the helper does not acquire
+order, product or accounting locks. The manual route acquires only the customer
+row lock. Bank reconciliation's separate
 [lock order](../modules/accounting/BANK_RECONCILIATION.md#lock-order) is unchanged.
 
 ## Backfill locking
 
-As required by [issue #1475](https://github.com/blur88/erp2/issues/1475), the
-migration takes `LOCK TABLE sales_orders IN SHARE MODE` before reading orders.
+The migration takes `LOCK TABLE sales_orders IN SHARE MODE` before reading
+orders, as [PR #1369](https://github.com/blur88/erp2/pull/1369) did, which
+[issue #1475](https://github.com/blur88/erp2/issues/1475) re-applies.
 It waits for transactions that have written orders and blocks further order
 writes until commit; reads continue. The later `UPDATE` therefore includes the
 orders committed by transactions it waited for. Without that lock, a fulfilment
 could commit after the aggregate snapshot and have its freshly calculated
 metrics overwritten by the migration's older snapshot.
 
-An unfinished transaction that has written an order can block the migration
-and queue order writes behind it. The table lock protects the backfill only;
-it cannot keep an old backend maintaining a different rule after the migration
-commits. The deployment procedure requires a single backend running the new image.
+For blocked migrations and the single-backend inventory check and its rationale,
+follow the [deployment procedure](../deployment/DEPLOYMENT_CHECKLIST.md#customer-order-metrics-backfill-1475).
