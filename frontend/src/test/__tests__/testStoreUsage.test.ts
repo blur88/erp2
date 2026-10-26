@@ -29,6 +29,59 @@ describe('test stores around RTK Query', () => {
     expect(files.length).toBeGreaterThan(200)
   })
 
+  it('do not load the application store at runtime', () => {
+    // Text guard: static value imports (including mixed type/value imports),
+    // dynamic imports, and vi.mock factories using importOriginal/vi.importActual.
+    // Alias and relative store/index paths are resolved below. Type-only imports
+    // and fully stubbed mock factories are allowed. It does not follow transitive
+    // imports: a component importing persistor can still load the app store.
+    const offenders = files.filter((file) => {
+      if (path.relative(SRC, file).split(path.sep).join('/') === GUARD_FILE) return false
+      const text = readFileSync(file, 'utf8')
+      const isStore = (specifier: string) => {
+        const resolved = specifier.startsWith('@/')
+          ? path.resolve(SRC, specifier.slice(2))
+          : specifier.startsWith('.') ? path.resolve(path.dirname(file), specifier) : ''
+        return [path.join(SRC, 'store'), path.join(SRC, 'store/index'), path.join(SRC, 'store/index.ts')].includes(resolved)
+      }
+      // Capture a complete mock call, balancing parentheses so nested calls and
+      // multiline factories do not truncate the factory at its first return.
+      let stubbed = false
+      for (const match of text.matchAll(/vi\.mock\(\s*(['"])([^'"]+)\1\s*,/g)) {
+        if (!isStore(match[2])) continue
+        const start = match.index + match[0].length
+        let depth = 1
+        let end = start
+        const tokens = /(['"`])(?:\\.|(?!\1)[^\\])*?\1|\/\*[\s\S]*?\*\/|\/\/[^\n]*|[()]/g
+        tokens.lastIndex = start
+        for (let token = tokens.exec(text); token; token = tokens.exec(text)) {
+          if (token[0] === '(') depth++
+          if (token[0] === ')') depth--
+          if (depth === 0) { end = token.index; break }
+        }
+        const factory = text.slice(start, end)
+        // The injected original-loader may have any parameter name.
+        const loader = factory.match(/^\s*(?:async\s*)?\(\s*([\w$]+)\s*\)\s*=>/)
+        if (loader && new RegExp(`\\b${loader[1]}\\s*(?:<[^;]*?>)?\\s*\\(`).test(factory)) return true
+        if (/vi\.importActual\s*(?:<[^;]*?>)?\s*\(/.test(factory)) return true
+        if (end > start) stubbed = true
+      }
+      for (const match of text.matchAll(/\bimport\s+(?!type\b)([^;]*?)\s+from\s*(['"])([^'"]+)\2|\bimport\s*(['"])([^'"]+)\4|\bimport\s*\(\s*(['"])([^'"]+)\6\s*\)/g)) {
+        const specifier = match[3] ?? match[5] ?? match[7]
+        if (!isStore(specifier)) continue
+        if (match[1]?.trim().startsWith('{')) {
+          const bindings = match[1].trim().slice(1, -1).split(',').filter((binding) => binding.trim())
+          if (bindings.every((binding) => /^\s*type\s+/.test(binding))) continue
+        }
+        if (match[7] && /typeof\s*$/.test(text.slice(0, match.index))) continue
+        if (!stubbed) return true
+      }
+      return false
+    }).map((file) => path.relative(SRC, file).split(path.sep).join('/'))
+
+    expect(offenders, 'use createTestStore or a fully stubbed app-store mock').toEqual([])
+  })
+
   it('are created with createTestStore, not with configureStore in the test file', () => {
     const offenders = files
       .filter((file) => {

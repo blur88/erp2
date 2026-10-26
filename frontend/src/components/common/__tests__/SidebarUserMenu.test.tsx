@@ -8,10 +8,9 @@ import SidebarUserMenu from '../SidebarUserMenu'
 import authReducer from '@/store/slices/authSlice'
 import { darkTheme } from '@/styles/theme'
 
-vi.mock('@/store', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/store')>()
-  return { ...actual, persistor: { purge: vi.fn().mockResolvedValue(undefined) } }
-})
+vi.mock('@/store', () => ({
+  persistor: { purge: vi.fn().mockResolvedValue(undefined) },
+}))
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
