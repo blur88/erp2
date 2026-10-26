@@ -100,7 +100,7 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npx eslint "{src,apps,libs,test}/**/*.ts"
+        run: npm run lint:check
 
       # ts-jest transpiles per file, so cross-file declaration errors (TS4053 and
       # friends) pass the unit suite and fail only at `docker compose build`.
