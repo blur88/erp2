@@ -1,4 +1,3 @@
 window.__ENV__ = {
-  VITE_API_BASE_URL: '/api',
-  VITE_SOCKET_URL: '/'
+  VITE_API_BASE_URL: '/api'
 };
