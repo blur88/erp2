@@ -32,6 +32,7 @@ describe('test stores around RTK Query', () => {
   it('do not load the application store at runtime', () => {
     // Text guard: static value imports (including mixed type/value imports),
     // dynamic imports, and vi.mock factories using importOriginal/vi.importActual.
+    // String/Promise mock forms, arrow/function factories and spy options are seen.
     // Alias and relative store/index paths are resolved below. Type-only imports
     // and fully stubbed mock factories are allowed. It does not follow transitive
     // imports: a component importing persistor can still load the app store.
@@ -47,7 +48,7 @@ describe('test stores around RTK Query', () => {
       // Capture a complete mock call, balancing parentheses so nested calls and
       // multiline factories do not truncate the factory at its first return.
       let stubbed = false
-      for (const match of text.matchAll(/vi\.mock\(\s*(['"])([^'"]+)\1\s*,/g)) {
+      for (const match of text.matchAll(/vi\.mock\(\s*(?:import\s*\(\s*)?(['"])([^'"]+)\1\s*\)?\s*,/g)) {
         if (!isStore(match[2])) continue
         const start = match.index + match[0].length
         let depth = 1
@@ -61,10 +62,16 @@ describe('test stores around RTK Query', () => {
         }
         const factory = text.slice(start, end)
         // The injected original-loader may have any parameter name.
-        const loader = factory.match(/^\s*(?:async\s*)?\(\s*([\w$]+)\s*\)\s*=>/)
-        if (loader && new RegExp(`\\b${loader[1]}\\s*(?:<[^;]*?>)?\\s*\\(`).test(factory)) return true
-        if (/vi\.importActual\s*(?:<[^;]*?>)?\s*\(/.test(factory)) return true
+        const loader = factory.match(/^\s*(?:async\s*)?(?:\(\s*([\w$]+)\s*\)|([\w$]+))\s*=>/)
+          ?? factory.match(/^\s*(?:async\s*)?function\s*\w*\s*\(\s*([\w$]+)/)
+        const loaderName = loader?.[1] ?? loader?.[2]
+        if (loaderName && new RegExp(`\\b${loaderName}\\s*(?:<[^;]*?>)?\\s*\\(`).test(factory)) return true
+        const isFactory = /^\s*(?:async\s*)?(?:\([^)]*\)|[\w$]+)\s*=>|^\s*(?:async\s*)?function\b/.test(factory)
+        if (!isFactory) return true // Options such as { spy: true } load the original.
         if (end > start) stubbed = true
+      }
+      for (const match of text.matchAll(/vi\.importActual\s*(?:<[^;]*?>)?\s*\(\s*(['"])([^'"]+)\1/g)) {
+        if (isStore(match[2])) return true
       }
       for (const match of text.matchAll(/\bimport\s+(?!type\b)([^;]*?)\s+from\s*(['"])([^'"]+)\2|\bimport\s*(['"])([^'"]+)\4|\bimport\s*\(\s*(['"])([^'"]+)\6\s*\)/g)) {
         const specifier = match[3] ?? match[5] ?? match[7]
