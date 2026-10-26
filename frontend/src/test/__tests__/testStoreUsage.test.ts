@@ -35,7 +35,8 @@ describe('test stores around RTK Query', () => {
     // and vi.importActual/vi.importMock calls. String/Promise mock forms,
     // arrow/function factories (including typed parameters) and spy options are seen.
     // Alias and relative store/index paths (.ts or .js) are resolved below.
-    // Type-only imports and fully stubbed mock/doMock factories are allowed.
+    // Type-only imports and fully stubbed mock/doMock factories are allowed;
+    // doMock stubs exempt dynamic imports only, never static value imports.
     // Accepted residuals: a commented-out vi.mock stub can suppress a finding;
     // template-literal specifiers and transitive imports are not followed (a
     // component importing persistor can still load the app store).
@@ -50,8 +51,9 @@ describe('test stores around RTK Query', () => {
       // Capture a complete mock call, balancing parentheses so nested calls and
       // multiline factories do not truncate the factory at its first return.
       let stubbed = false
-      for (const match of text.matchAll(/vi\.(?:mock|doMock)\(\s*(?:import\s*\(\s*)?(['"])([^'"]+)\1\s*\)?\s*,/g)) {
-        if (!isStore(match[2])) continue
+      let dynamicStubbed = false
+      for (const match of text.matchAll(/vi\.(mock|doMock)\(\s*(?:import\s*\(\s*)?(['"])([^'"]+)\2\s*\)?\s*,/g)) {
+        if (!isStore(match[3])) continue
         const start = match.index + match[0].length
         let depth = 1
         let end = start
@@ -63,14 +65,17 @@ describe('test stores around RTK Query', () => {
           if (depth === 0) { end = token.index; break }
         }
         const factory = text.slice(start, end)
-        // Capture the first ASCII identifier parameter, including type annotations.
+        // Capture the first identifier parameter; any type annotation after it is ignored.
         const loader = factory.match(/^\s*(?:async\s*)?(?:\(\s*([\w$]+)|([\w$]+)\s*=>)/)
           ?? factory.match(/^\s*(?:async\s*)?function\s*\w*\s*\(\s*([\w$]+)/)
         const loaderName = loader?.[1] ?? loader?.[2]
         if (loaderName && new RegExp(`(?<![\\w$])${loaderName.replace(/\$/g, '\\$')}\\s*(?:<[^;]*?>)?\\s*\\(`).test(factory)) return true
         const isFactory = /^\s*(?:async\s*)?(?:\([^)]*\)|[\w$]+)\s*=>|^\s*(?:async\s*)?function\b/.test(factory)
         if (!isFactory) return true // Options such as { spy: true } load the original.
-        if (end > start) stubbed = true
+        if (end > start) {
+          dynamicStubbed = true
+          if (match[1] === 'mock') stubbed = true
+        }
       }
       for (const match of text.matchAll(/vi\.(?:importActual|importMock)\s*(?:<[^;]*?>)?\s*\(\s*(['"])([^'"]+)\1/g)) {
         if (isStore(match[2])) return true
@@ -83,7 +88,7 @@ describe('test stores around RTK Query', () => {
           if (bindings.every((binding) => /^\s*type\s+/.test(binding))) continue
         }
         if (match[7] && /typeof\s*$/.test(text.slice(0, match.index))) continue
-        if (!stubbed) return true
+        if (!(match[7] ? dynamicStubbed : stubbed)) return true
       }
       return false
     }).map(relativePath)
