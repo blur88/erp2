@@ -191,17 +191,12 @@ describe('SalesOrderFulfillmentService', () => {
         fulfilledAt: new Date('2099-01-01T00:00:00Z'),
       } as Partial<SalesOrder>);
 
-      const findOne = (jest.fn as unknown as any)()
+      const { findOne, update } = wireTransaction(lockReadOrder);
+      findOne
+        .mockReset()
         .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate: bare row lock
         .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate: relations hydrate
         .mockResolvedValueOnce(repricedOrder); // priced re-read before posting
-      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
-      const query = (jest.fn as unknown as any)().mockResolvedValue([{}]);
-      const manager = {
-        getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
-        query,
-      } as unknown as EntityManager;
-      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
 
       await service.fulfillOrder('order-1', 'user-1', 'admin');
 

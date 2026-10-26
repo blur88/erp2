@@ -80,13 +80,9 @@ checks the baseline and applies compiled migrations before application startup.
 This procedure implements [issue #1475](https://github.com/blur88/erp2/issues/1475).
 
 Migration `RecalculateCustomerMetricsFromFulfilledOrders1793020800000` **rewrites
-production data**: `customers.totalOrders`, `totalSales`, `firstPurchaseDate` and
-`lastPurchaseDate`, for every customer whose stored values differ from their
-fulfilled (`status = 'FULFILLED'`, `"deletedAt" IS NULL`) sales orders. A
-customer with no such order is reset to `0`, `0`, `NULL`, `NULL`. Rows that are
-already correct are not written, and `updatedAt` is not changed. `down()` does
-nothing: the replaced values are not recorded anywhere, so **the pre-deploy
-backup is the only way back to them**.
+customer data** using the [customer order metric rule](../backend/customer-metrics.md#metric-rule).
+`down()` does nothing: **the pre-deploy backup is the only way back to the
+previous values**, as required by [issue #1475](https://github.com/blur88/erp2/issues/1475).
 
 No production host exists yet. Measure the affected rows before deployment:
 
@@ -116,12 +112,9 @@ SQL
 - [ ] After deploy, run the same query: `will_be_rewritten` must be `0`. From
       then on fulfil and unfulfil recalculate the affected customer in their transaction.
 
-**Concurrent order writes.** The migration takes `LOCK TABLE sales_orders IN
-SHARE MODE` before it reads. It waits for every open transaction that has
-written an order, and order writes (create, edit, payment, fulfil, cancel) wait
-until it commits; reads continue. That is what keeps a fulfilment from
-committing between the migration's read and its write and then being
-overwritten from the older read. Two operational checks follow from the lock:
+**Concurrent order writes.** Follow the
+[backfill locking requirements](../backend/customer-metrics.md#backfill-locking).
+Complete both operational checks:
 
 - [ ] An open transaction that has written an order and never finishes blocks
       the migration, and every order write queues behind it. If

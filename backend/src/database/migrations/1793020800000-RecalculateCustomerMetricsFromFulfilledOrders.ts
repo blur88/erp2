@@ -1,33 +1,9 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Recalculates the four stored order metrics of every customer from their
- * fulfilled, non-deleted sales orders (#1355).
- *
- * Issue #1475 records that the fulfilment path has no writer for these four
- * columns and the manual route uses a getter as a SQL column. Its shared
- * recalculation now runs inside fulfil and unfulfil transactions; this brings
- * the rows already stored into line with the same rule:
- *
- *   status = 'FULFILLED' AND "deletedAt" IS NULL
- *
- * A customer with no such order is reset to 0, 0, NULL, NULL. The LEFT JOIN
- * from `customers` is what reaches those customers: an inner join to the
- * aggregate would skip them and leave their stale values in place.
- * Soft-deleted customers are included, as they are at runtime. Rows that are
- * already correct are not rewritten, and `updatedAt` is not touched.
- *
- * `LOCK TABLE sales_orders IN SHARE MODE` is what makes the result correct
- * while orders are being written. It waits for every transaction that has
- * already written an order, and blocks new order writes until this migration
- * commits; reads are not blocked. The UPDATE is a later statement, so under
- * READ COMMITTED its snapshot includes everything those transactions
- * committed. Without the lock, a fulfilment that committed after the UPDATE's
- * snapshot was taken would have its recalculated customer row overwritten from
- * that older snapshot.
- *
- * The purchase dates are `timestamptz` and `orderDate` is a `date`: the cast is
- * midnight in the session time zone, as in recalculateCustomerMetrics().
+ * Backfills stored customer order metrics for issue #1475.
+ * The rule, date conversion and SHARE-lock reasoning are owned by
+ * docs/backend/customer-metrics.md; this migration keeps its SQL self-contained.
  */
 export class RecalculateCustomerMetricsFromFulfilledOrders1793020800000 implements MigrationInterface {
   name = "RecalculateCustomerMetricsFromFulfilledOrders1793020800000";

@@ -61,7 +61,7 @@ const CUSTOMER_SORTABLE_FIELDS = [
 ] as const;
 
 /** Derived from fulfilled orders by recalculateCustomerMetrics; never written by an edit. */
-const CUSTOMER_METRIC_COLUMNS: ReadonlySet<string> = new Set([
+const CUSTOMER_METRIC_COLUMNS: ReadonlySet<keyof Customer> = new Set<keyof Customer>([
   'totalOrders',
   'totalSales',
   'firstPurchaseDate',
@@ -395,10 +395,10 @@ export class CustomerService extends BaseCrudService<
     // column that differs, including the four order metrics: a fulfilment that
     // committed in between would have its recalculated metrics replaced by the
     // values this request read (#1355). The metrics are never part of an edit.
-    const changes: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(updateCustomerDto)) {
-      if (value !== undefined && !CUSTOMER_METRIC_COLUMNS.has(key)) {
-        changes[key] = value;
+    const changes: Partial<Customer> = { ...updateCustomerDto };
+    for (const key of Object.keys(changes) as (keyof Customer)[]) {
+      if (changes[key] === undefined || CUSTOMER_METRIC_COLUMNS.has(key)) {
+        delete changes[key];
       }
     }
     if (nameChanged) {
