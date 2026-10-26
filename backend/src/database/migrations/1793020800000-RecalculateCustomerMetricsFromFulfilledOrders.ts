@@ -4,11 +4,10 @@ import { MigrationInterface, QueryRunner } from "typeorm";
  * Recalculates the four stored order metrics of every customer from their
  * fulfilled, non-deleted sales orders (#1355).
  *
- * Nothing has maintained these columns since the calls that did were removed
- * with the status/paymentStatus lifecycle change (596857366), and the query
- * behind the manual route failed in Postgres. #1355 puts the recalculation
- * back inside the fulfil and unfulfil transactions; this brings the rows
- * already stored into line with the same rule:
+ * Issue #1475 records that the fulfilment path has no writer for these four
+ * columns and the manual route uses a getter as a SQL column. Its shared
+ * recalculation now runs inside fulfil and unfulfil transactions; this brings
+ * the rows already stored into line with the same rule:
  *
  *   status = 'FULFILLED' AND "deletedAt" IS NULL
  *
