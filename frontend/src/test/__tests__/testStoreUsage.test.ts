@@ -41,23 +41,24 @@ describe('test stores around RTK Query', () => {
     // Accepted residuals: a commented-out vi.mock stub can suppress a finding;
     // template-literal specifiers and transitive imports are not followed (a
     // component importing persistor can still load the app store).
+    const storePaths = ['store', 'store/index', 'store/index.ts', 'store/index.js'].map((suffix) => path.join(SRC, suffix))
     const offenders = files.filter((file) => {
       const text = readFileSync(file, 'utf8')
       const isStore = (specifier: string) => {
         const resolved = specifier.startsWith('@/')
           ? path.resolve(SRC, specifier.slice(2))
           : specifier.startsWith('.') ? path.resolve(path.dirname(file), specifier) : ''
-        return [path.join(SRC, 'store'), path.join(SRC, 'store/index'), path.join(SRC, 'store/index.ts'), path.join(SRC, 'store/index.js')].includes(resolved)
+        return storePaths.includes(resolved)
       }
       // Capture a complete mock call, balancing parentheses so nested calls and
       // multiline factories do not truncate the factory at its first return.
       let stubbed = false
-      for (const match of text.matchAll(/vi\.(mock|doMock)\(\s*(?:import\s*\(\s*)?(['"])([^'"]+)\2\s*\)?\s*,/g)) {
-        if (!isStore(match[3])) continue
+      for (const match of text.matchAll(/vi\.(?<method>mock|doMock)\(\s*(?:import\s*\(\s*)?(?<quote>['"])(?<specifier>[^'"]+)\k<quote>\s*\)?\s*,/g)) {
+        if (!isStore(match.groups.specifier)) continue
         const start = match.index + match[0].length
         let depth = 1
         let end = start
-        const tokens = /(['"`])(?:\\.|(?!\1)[^\\])*?\1|\/\*[\s\S]*?\*\/|\/\/[^\n]*|[()]/g
+        const tokens = /(?<quote>['"`])(?:\\.|(?!\k<quote>)[^\\])*?\k<quote>|\/\*[\s\S]*?\*\/|\/\/[^\n]*|[()]/g
         tokens.lastIndex = start
         for (let token = tokens.exec(text); token; token = tokens.exec(text)) {
           if (token[0] === '(') depth++
@@ -66,27 +67,28 @@ describe('test stores around RTK Query', () => {
         }
         const factory = text.slice(start, end)
         // Capture the first identifier parameter; any type annotation after it is ignored.
-        const loader = factory.match(/^\s*(?:async\s*)?(?:\(\s*([\w$]+)|([\w$]+)\s*=>)/)
-          ?? factory.match(/^\s*(?:async\s*)?function\s*\w*\s*\(\s*([\w$]+)/)
-        const loaderName = loader?.[1] ?? loader?.[2]
+        const loader = factory.match(/^\s*(?:async\s*)?(?:\(\s*(?<parenthesized>[\w$]+)|(?<bare>[\w$]+)\s*=>)/)
+          ?? factory.match(/^\s*(?:async\s*)?function\s*\w*\s*\(\s*(?<parenthesized>[\w$]+)/)
+        const loaderName = loader?.groups?.parenthesized ?? loader?.groups?.bare
         if (loaderName && new RegExp(`(?<![\\w$])${loaderName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:<[^;]*?>)?\\s*\\(`).test(factory)) return true
         const isFactory = /^\s*(?:async\s*)?(?:\([^)]*\)|[\w$]+)\s*=>|^\s*(?:async\s*)?function\b/.test(factory)
         if (!isFactory) return true // Options such as { spy: true } load the original.
         if (end > start) {
-          if (match[1] === 'mock') stubbed = true
+          if (match.groups.method === 'mock') stubbed = true
         }
       }
-      for (const match of text.matchAll(/vi\.(?:importActual|importMock)\s*(?:<[^;]*?>)?\s*\(\s*(['"])([^'"]+)\1/g)) {
-        if (isStore(match[2])) return true
+      for (const match of text.matchAll(/vi\.(?:importActual|importMock)\s*(?:<[^;]*?>)?\s*\(\s*(?<quote>['"])(?<specifier>[^'"]+)\k<quote>/g)) {
+        if (isStore(match.groups.specifier)) return true
       }
-      for (const match of text.matchAll(/\bimport\s+(?!type\b)([^;]*?)\s+from\s*(['"])([^'"]+)\2|\bimport\s*(['"])([^'"]+)\4|\bimport\s*\(\s*(['"])([^'"]+)\6\s*\)/g)) {
-        const specifier = match[3] ?? match[5] ?? match[7]
+      for (const match of text.matchAll(/\bimport\s+(?!type\b)(?<bindings>[^;]*?)\s+from\s*(?<fromQuote>['"])(?<fromPath>[^'"]+)\k<fromQuote>|\bimport\s*(?<sideEffectQuote>['"])(?<sideEffectPath>[^'"]+)\k<sideEffectQuote>|\bimport\s*\(\s*(?<dynamicQuote>['"])(?<dynamicPath>[^'"]+)\k<dynamicQuote>\s*\)/g)) {
+        const { bindings: importedBindings, fromPath, sideEffectPath, dynamicPath } = match.groups
+        const specifier = fromPath ?? sideEffectPath ?? dynamicPath
         if (!isStore(specifier)) continue
-        if (match[1]?.trim().startsWith('{')) {
-          const bindings = match[1].trim().slice(1, -1).split(',').filter((binding) => binding.trim())
+        if (importedBindings?.trim().startsWith('{')) {
+          const bindings = importedBindings.trim().slice(1, -1).split(',').filter((binding) => binding.trim())
           if (bindings.every((binding) => /^\s*type\s+/.test(binding))) continue
         }
-        if (match[7] && /typeof\s*$/.test(text.slice(0, match.index))) continue
+        if (dynamicPath && /typeof\s*$/.test(text.slice(0, match.index))) continue
         if (!stubbed) return true
       }
       return false
