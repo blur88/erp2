@@ -80,12 +80,12 @@ describe('test stores around RTK Query', () => {
       for (const match of text.matchAll(/vi\.(?:importActual|importMock)\s*(?:<[^;]*?>)?\s*\(\s*(?<quote>['"])(?<specifier>[^'"]+)\k<quote>/g)) {
         if (isStore(match.groups.specifier)) return true
       }
-      for (const match of text.matchAll(/\bimport\s+(?!type\b)(?<bindings>[^;'"]*?)\s+from\s*(?<fromQuote>['"])(?<fromPath>[^'"]+)\k<fromQuote>|\bimport\s*(?<sideEffectQuote>['"])(?<sideEffectPath>[^'"]+)\k<sideEffectQuote>|\bimport\s*\(\s*(?<dynamicQuote>['"])(?<dynamicPath>[^'"]+)\k<dynamicQuote>\s*\)/g)) {
-        const { bindings: importedBindings, fromPath, sideEffectPath, dynamicPath } = match.groups
+      for (const match of text.matchAll(/\bimport\s+(?!type\b)(?<importClause>[^;'"]*?)\s+from\s*(?<fromQuote>['"])(?<fromPath>[^'"]+)\k<fromQuote>|\bimport\s*(?<sideEffectQuote>['"])(?<sideEffectPath>[^'"]+)\k<sideEffectQuote>|\bimport\s*\(\s*(?<dynamicQuote>['"])(?<dynamicPath>[^'"]+)\k<dynamicQuote>\s*\)/g)) {
+        const { importClause, fromPath, sideEffectPath, dynamicPath } = match.groups
         const specifier = fromPath ?? sideEffectPath ?? dynamicPath
         if (!isStore(specifier)) continue
-        if (importedBindings?.trim().startsWith('{')) {
-          const bindings = importedBindings.trim().slice(1, -1).split(',').filter((binding) => binding.trim())
+        if (importClause?.trim().startsWith('{')) {
+          const bindings = importClause.trim().slice(1, -1).split(',').filter((binding) => binding.trim())
           if (bindings.every((binding) => /^\s*type\s+/.test(binding))) continue
         }
         if (dynamicPath && /typeof\s*$/.test(text.slice(0, match.index))) continue
