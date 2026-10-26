@@ -35,8 +35,9 @@ describe('test stores around RTK Query', () => {
     // and vi.importActual/vi.importMock calls. String/Promise mock forms,
     // arrow/function factories (including typed parameters) and spy options are seen.
     // Alias and relative store/index paths (.ts or .js) are resolved below.
-    // Type-only imports and fully stubbed mock/doMock factories are allowed;
-    // doMock stubs exempt dynamic imports only, never static value imports.
+    // Type-only imports are allowed. Only fully stubbed vi.mock factories exempt
+    // value or dynamic imports; a stubbed doMock factory is not itself an offender
+    // but exempts no import.
     // Accepted residuals: a commented-out vi.mock stub can suppress a finding;
     // template-literal specifiers and transitive imports are not followed (a
     // component importing persistor can still load the app store).
@@ -51,7 +52,6 @@ describe('test stores around RTK Query', () => {
       // Capture a complete mock call, balancing parentheses so nested calls and
       // multiline factories do not truncate the factory at its first return.
       let stubbed = false
-      let dynamicStubbed = false
       for (const match of text.matchAll(/vi\.(mock|doMock)\(\s*(?:import\s*\(\s*)?(['"])([^'"]+)\2\s*\)?\s*,/g)) {
         if (!isStore(match[3])) continue
         const start = match.index + match[0].length
@@ -73,7 +73,6 @@ describe('test stores around RTK Query', () => {
         const isFactory = /^\s*(?:async\s*)?(?:\([^)]*\)|[\w$]+)\s*=>|^\s*(?:async\s*)?function\b/.test(factory)
         if (!isFactory) return true // Options such as { spy: true } load the original.
         if (end > start) {
-          dynamicStubbed = true
           if (match[1] === 'mock') stubbed = true
         }
       }
@@ -88,7 +87,7 @@ describe('test stores around RTK Query', () => {
           if (bindings.every((binding) => /^\s*type\s+/.test(binding))) continue
         }
         if (match[7] && /typeof\s*$/.test(text.slice(0, match.index))) continue
-        if (!(match[7] ? dynamicStubbed : stubbed)) return true
+        if (!stubbed) return true
       }
       return false
     }).map(relativePath)
