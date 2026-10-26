@@ -69,7 +69,7 @@ describe('test stores around RTK Query', () => {
         const loader = factory.match(/^\s*(?:async\s*)?(?:\(\s*([\w$]+)|([\w$]+)\s*=>)/)
           ?? factory.match(/^\s*(?:async\s*)?function\s*\w*\s*\(\s*([\w$]+)/)
         const loaderName = loader?.[1] ?? loader?.[2]
-        if (loaderName && new RegExp(`(?<![\\w$])${loaderName.replace(/\$/g, '\\$')}\\s*(?:<[^;]*?>)?\\s*\\(`).test(factory)) return true
+        if (loaderName && new RegExp(`(?<![\\w$])${loaderName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:<[^;]*?>)?\\s*\\(`).test(factory)) return true
         const isFactory = /^\s*(?:async\s*)?(?:\([^)]*\)|[\w$]+)\s*=>|^\s*(?:async\s*)?function\b/.test(factory)
         if (!isFactory) return true // Options such as { spy: true } load the original.
         if (end > start) {
