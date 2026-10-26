@@ -10,6 +10,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
+import { recalculateCustomerMetrics } from './customer-metrics';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType } from '../../../common/accounting-posting/enums';
@@ -132,6 +133,8 @@ export class SalesOrderFulfillmentService {
         createdBy: username,
       }, manager);
 
+      await this.recalculateMetrics(manager, order);
+
       return order;
     });
 
@@ -194,6 +197,8 @@ export class SalesOrderFulfillmentService {
         username,
       );
 
+      await this.recalculateMetrics(manager, order);
+
       return order;
     });
 
@@ -211,5 +216,21 @@ export class SalesOrderFulfillmentService {
     );
 
     return saved;
+  }
+
+  /**
+   * Applies the metric calculation to this order's customer.
+   * Transaction placement and rollback rules are owned by
+   * docs/backend/customer-metrics.md#runtime-transactions-and-lock-order.
+   */
+  private async recalculateMetrics(manager: EntityManager, order: SalesOrder): Promise<void> {
+    const found = await recalculateCustomerMetrics(manager, order.customerId);
+    if (!found) {
+      // sales_orders.customerId is a RESTRICT foreign key, so this is unreachable
+      // unless the schema changed.
+      throw new Error(
+        `Customer ${order.customerId} of sales order ${order.orderNumber} does not exist`,
+      );
+    }
   }
 }

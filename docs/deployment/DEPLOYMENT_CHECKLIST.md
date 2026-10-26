@@ -73,6 +73,73 @@ checks the baseline and applies compiled migrations before application startup.
 
 ---
 
+### Customer order metrics backfill (#1475)
+
+**Required when a production host is created.**
+
+This procedure implements [issue #1475](https://github.com/blur88/erp2/issues/1475).
+
+Migration `RecalculateCustomerMetricsFromFulfilledOrders1793020800000` **rewrites
+customer data** using the [customer order metric rule](../backend/customer-metrics.md#metric-rule).
+`down()` does nothing: **the pre-deploy backup is the only way back to the
+previous values**, as [PR #1369](https://github.com/blur88/erp2/pull/1369) documented,
+which [issue #1475](https://github.com/blur88/erp2/issues/1475) re-applies.
+
+No production host exists yet. Measure the affected rows before deployment:
+
+- [ ] Before deploy, run the read-only preflight and record both numbers in the
+      deployment record:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+SELECT count(*) AS customers,
+       count(*) FILTER (
+         WHERE (c."totalOrders", c."totalSales", c."firstPurchaseDate", c."lastPurchaseDate")
+               IS DISTINCT FROM
+               (COALESCE(s.n, 0), COALESCE(s.total, 0), s.first_date, s.last_date)
+       ) AS will_be_rewritten
+  FROM customers c
+  LEFT JOIN (
+    SELECT "customerId", count(*)::int AS n, sum("totalAmount") AS total,
+           min("orderDate")::timestamptz AS first_date,
+           max("orderDate")::timestamptz AS last_date
+      FROM sales_orders
+     WHERE "deletedAt" IS NULL AND status = 'FULFILLED'
+     GROUP BY "customerId"
+  ) s ON s."customerId" = c.id;
+SQL
+```
+
+- [ ] After deploy, run the same query: `will_be_rewritten` must be `0`. From
+      then on fulfil and unfulfil recalculate the affected customer in their transaction.
+
+**Concurrent order writes.** Follow the
+[backfill locking requirements](../backend/customer-metrics.md#backfill-locking).
+Complete both operational checks:
+
+- [ ] An open transaction that has written an order and never finishes blocks
+      the migration, and every order write queues behind it. If
+      `Running database migrations...` does not complete, look in
+      `pg_stat_activity` for an `idle in transaction` session.
+- [ ] Only **one** backend may run against the database, and it must be the new
+      image. The lock protects the migration itself; it cannot protect against
+      an older backend that keeps fulfilling orders afterwards without
+      recalculating. This is a **deployment inventory check**, not something a
+      command on one host can show: list every place a backend for this
+      database could be running (this host, any other host, a container
+      outside compose, a process outside Docker such as `npm run start:dev`
+      pointed at this database) and confirm each is stopped or on the new
+      image. What the repository itself guarantees is narrower: both compose
+      files define a single `backend` service with the fixed name
+      `erp_backend`, so within one compose project `docker compose up -d
+      backend` stops the old container before the new one runs its migrations,
+      and the only queue worker (backups) lives in that same process.
+
+**Rolling back to the previous image** leaves the recalculated values in place
+and stops maintaining them again. After rolling forward, re-run the preflight;
+if it reports drift, the migration will not run a second time, so the same
+`UPDATE` has to be applied by hand.
+
 ## Application Deployment (15 minutes)
 
 ### Code Deployment
