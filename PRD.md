@@ -83,7 +83,7 @@ The ERP software will serve as a **centralized platform** to manage business ope
 * **Reporting & Dashboard** ✅
 
   * ✅ Sales summary
-  * ❌ Real-time (push) updates — not implemented; the unused Socket.IO transport is removed by #1474 (restoring #1350 for #1348)
+  * ❌ Real-time (push) updates — not implemented
   * ✅ Stock movement report
   * ✅ Supplier purchase summary
   * ✅ Export reports (Excel/PDF)
@@ -106,7 +106,7 @@ The ERP software will serve as a **centralized platform** to manage business ope
 * ✅ **Flexible Costing Methods** - AVERAGE, FIFO, LIFO, STANDARD (November 2025)
 * ✅ **Module-Embedded Reports** - Comprehensive reporting in each module (November 2025)
 * ✅ **Settings Management** - Company settings and print configuration (November 2025)
-* ❌ **Real-time Dashboard** - Not implemented. #1474 restores #1350’s removal of the unused, unauthenticated Socket.IO transport (#1348). A future real-time feature must design its transport and authentication together.
+* ❌ **Real-time Dashboard** - Not implemented.
 * ✅ **Soft-Delete Management** - View and restore deleted records
 * ✅ **Bulk Operations** - Mass operations on products, categories, customers
 * ✅ **Advanced Filtering** - Payment status, fulfillment status filters

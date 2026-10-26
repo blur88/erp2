@@ -214,11 +214,6 @@ npm run test:coverage    # Run tests with coverage report
 
 **Note**: No auth state - authentication system completely removed
 
-### Real-time Updates
-- **Optimistic updates** - Immediate UI feedback
-- **Conflict resolution** - Handling concurrent modifications
-- **Offline support** - Queue operations when offline
-
 ## API Integration
 
 ### Service Architecture
