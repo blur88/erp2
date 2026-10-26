@@ -22,7 +22,6 @@ import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service'
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
 import { SalesOrderQueryService } from './sales-order-query.service';
-import { CustomerService } from './customer.service';
 import { quantizeToCents, formatMoney, toMinorUnits } from '@common/utils/money';
 
 describe('SalesOrderService', () => {
@@ -77,10 +76,6 @@ describe('SalesOrderService', () => {
         {
           provide: getRepositoryToken(PriceListItem),
           useValue: { findOne: (jest.fn as unknown as any)(), find: (jest.fn as unknown as any)() },
-        },
-        {
-          provide: CustomerService,
-          useValue: { updateCustomerMetrics: (jest.fn as unknown as any)() },
         },
         {
           provide: InventoryIntegrationService,

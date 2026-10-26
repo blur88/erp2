@@ -52,11 +52,13 @@ describe('SalesOrderFulfillmentService', () => {
   function wireTransaction(order: SalesOrder | null) {
     const findOne = (jest.fn as unknown as any)().mockResolvedValue(order);
     const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+    const query = (jest.fn as unknown as any)().mockResolvedValue([{}]);
     const manager = {
       getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
+      query,
     } as unknown as EntityManager;
     (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
-    return { findOne, update, manager };
+    return { findOne, update, query, manager };
   }
 
   beforeEach(async () => {
@@ -155,6 +157,28 @@ describe('SalesOrderFulfillmentService', () => {
       );
     });
 
+    it('recalculates the customer metrics in the same transaction, after the status update (#1355)', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.READY, customerId: 'customer-1' });
+      const { update, query } = wireTransaction(order);
+
+      await service.fulfillOrder('order-1');
+
+      expect(query.mock.calls.map((c: any[]) => c[1])).toEqual([
+        ['customer-1'],
+        ['customer-1', SalesOrderStatus.FULFILLED],
+      ]);
+      expect(update.mock.invocationCallOrder[0]).toBeLessThan(query.mock.invocationCallOrder[0]);
+    });
+
+    it('fails the fulfilment when the metrics cannot be written', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.READY, customerId: 'customer-1' });
+      const { query } = wireTransaction(order);
+      query.mockRejectedValue(new Error('metrics write failed'));
+
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow('metrics write failed');
+      expect(auditLogService.log).not.toHaveBeenCalled();
+    });
+
     it('posts accounting against the re-read order (fresh updatedAt + post-reduction costs), not the lock-read snapshot', async () => {
       // lockRowForUpdate issues two reads (bare lock, then relations hydrate); the
       // post-update re-read is a third read returning a row carrying the just-
@@ -172,8 +196,10 @@ describe('SalesOrderFulfillmentService', () => {
         .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate: relations hydrate
         .mockResolvedValueOnce(repricedOrder); // priced re-read before posting
       const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      const query = (jest.fn as unknown as any)().mockResolvedValue([{}]);
       const manager = {
         getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
+        query,
       } as unknown as EntityManager;
       (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
 
@@ -399,6 +425,19 @@ describe('SalesOrderFulfillmentService', () => {
         expect.objectContaining({ fulfilledAt: null }),
       );
       expect(result.fulfilledAt).toBeUndefined();
+    });
+
+    it('recalculates the customer metrics in the same transaction, after the status update (#1355)', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.FULFILLED, customerId: 'customer-1' });
+      const { update, query } = wireTransaction(order);
+
+      await service.unfulfillOrder('order-1');
+
+      expect(query.mock.calls.map((c: any[]) => c[1])).toEqual([
+        ['customer-1'],
+        ['customer-1', SalesOrderStatus.FULFILLED],
+      ]);
+      expect(update.mock.invocationCallOrder[0]).toBeLessThan(query.mock.invocationCallOrder[0]);
     });
 
     describe('business-calendar reversal entryDate (issue #1134)', () => {
