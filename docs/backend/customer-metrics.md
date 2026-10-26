@@ -43,18 +43,21 @@ The current sequences in
 [SalesOrderFulfillmentService](../../backend/src/modules/sales/services/sales-order-fulfillment.service.ts)
 are:
 
-- Fulfil: order row → for each item, product row then selected cost-batch rows
-  (`purchase_cost_history`) → accounting posting work → customer row for metrics.
+- Fulfil: order row → for each item, product row then all cost-batch rows with
+  remaining stock (`purchase_cost_history`) → accounting posting work → customer
+  row for metrics.
 - Unfulfil: order row → for each item, restored cost-batch rows then the product
-  base-cost update → product rows during stock-movement reversal → accounting
-  reversal work → customer row for metrics. When no cost batches exist,
-  `restoreStock` returns before the product base-cost update.
+  base-cost update → product rows during stock-movement reversal →
+  `stock_movements` rows deleted by `deleteByReference` → remaining
+  `stock_movements` rows updated by `recalculateBalances` when balances change →
+  accounting reversal work → customer row for metrics. When no cost batches
+  exist, `restoreStock` returns before the product base-cost update.
 
 These sequences include locks taken by `UPDATE` as well as explicit row locks.
 The stock work is implemented by
 [InventoryIntegrationService.adjustStock](../../backend/src/modules/sales/services/inventory-integration.service.ts),
 [BaseCostCalculatorService.reduceStock/restoreStock](../../backend/src/modules/inventory/services/base-cost-calculator.service.ts)
-and [StockMovementService.deleteByReference](../../backend/src/modules/inventory/services/stock-movement.service.ts).
+and [StockMovementService.deleteByReference/recalculateBalances](../../backend/src/modules/inventory/services/stock-movement.service.ts).
 They describe current code, with no general sorting guarantee across product
 and cost-batch locks. The customer lock stays last; the helper does not acquire
 order, product or accounting locks. The manual route acquires only the customer
