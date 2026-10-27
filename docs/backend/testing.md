@@ -23,6 +23,17 @@ The suite checks all four detector cases (three tokens), an empty migrations tab
 - **`npm run type-check`** compiles `tsconfig.build.json` — the config `nest build` uses — so the gate mirrors the image build. Its `include: ["src"]` covers the spec files under `src/`, so their type errors fail it too. Specs under `test/` are excluded.
 - **`npm run type-check:spec`** (#1262) compiles `tsconfig.spec.json`, ts-jest's transform config. It is the only thing that checks `test/**`, and it re-checks `src/**` under the test TypeScript configuration (esnext module, bundler resolution, `isolatedModules`). Nine errors had accumulated in `test/**` invisibly before it existed. It is a step on the existing `Backend - Lint, Type Check, Unit Tests, E2E Tests` CI job, deliberately not a new job: ruleset 15609777 matches required checks by job-name string, so a new or renamed job blocks every open PR until the ruleset is updated.
 
+## CI substitution for backend suites (#1514)
+
+[AGENTS.md](../../AGENTS.md#pre-pr-verification-authoritative) owns the rule: a green **Backend - Lint, Type Check, Unit Tests, E2E Tests** job at the PR's current head commit replaces local `npm run test` and `npm run test:e2e`. The substitution rests on this parity, checked on 2026-10-28 at `c6c2f5ffa`:
+
+- **Commands.** The job runs `npm run test -- --no-coverage` and `npm run test:e2e`. The backend Jest config sets no `collectCoverage` or `coverageThreshold`, so `--no-coverage` changes reporting, not pass or fail.
+- **Database.** Both use `postgres:18.3-alpine3.23` and database `erp_db_test`, which the e2e global setup drops and recreates.
+- **Environment.** CI sets its variables in `ci.yml` and has no `.env.test`; a local run reads the untracked `backend/.env.test`. The keys a local `.env.test` set beyond `ci.yml` either equalled their code defaults (`DB_SSL`, `DB_SYNCHRONIZE` and `DB_LOGGING` false; `JWT_ACCESS_TOKEN_EXPIRY` `15m`) or were read by no file in `backend/src`.
+- **Known differences.** CI's Redis service is `redis:8.6.1-alpine3.23` against Compose's `8.6.2`, and CI's Node is the latest `24.x` from `node-version: "24"`.
+
+Recheck the parity, and update this section, when the job's commands, service images or environment change, or when a backend test script in `package.json` changes. Lint and both type checks stay local gates, and so do `migration:run` and `test:db` wherever AGENTS.md requires them.
+
 ## Documentation links (#1429)
 
 `npm run verify:doc-links` checks links and anchors in every tracked Markdown file using the tracked file list, so untracked and gitignored files cannot make a local run disagree with CI. It checks inline links and images, reference definitions and uses, and anchors in Markdown targets. External schemes and protocol-relative URLs are skipped without fetching. A target that exists on disk but is untracked or ignored is reported with a hint to stage it. The same run fails when the root `GLOSSARY.md` defines a `**Term**:` more than once, compared case-insensitively and ignoring fenced code. Exit 0 means no broken local links and no duplicate glossary terms, exit 1 reports either, and exit 2 means the checker could not run or found no tracked Markdown files. CI runs this as the final step of the existing backend job, including when an earlier step failed unless the job was cancelled. The repository root comes from the script's own location, not the working directory; to try it on a scratch repository, copy the script into that repository and run the copy.
@@ -112,6 +123,17 @@ The pattern precedes the variadic `--reporters` option. These invoke the full `t
 ### Every suite cleans its own request exhaust
 
 `resetSuiteBusinessRows` covers business rows and `removeSuiteAdmin` covers users (refresh tokens cascade). But every HTTP request also leaves `audit_logs` rows, and every global search leaves a `search_queries` row. `test/utils/shared-e2e-traces-fixture.ts` (`removeSuiteTraces`) deletes those, scoped to the suite's own user/entity ids — call it in `afterAll` before removing users. Scope to ids you own; never a bare `username = 'admin'`, which is shared. A suite that makes audited requests and skips this turns the nightly leak check red.
+
+### Deterministic concurrency tests (#1498)
+
+A test that claims two transactions deadlock, lose an update or serialise must force the interleaving and prove each wait from PostgreSQL. `test/cost-batch-lock-order.concurrency.e2e-spec.ts` is the pattern to copy. Its helpers are still local to that file; extracting them into `test/utils/` is left to [#1512](https://github.com/blur88/erp2/issues/1512), the next suite that needs them.
+
+- **Barriers at the SQL boundary.** `beforeEach` wraps `DataSource.createQueryRunner`. A runner created inside an `AsyncLocalStorage` operation (`start()`) records its backend pid at `START TRANSACTION`, sets `SET LOCAL statement_timeout = '15s'`, and calls the operation's `afterQuery(sql)` hook after each query. A test holds a transaction with `barrier().hold()` immediately after a named statement (for example `UPDATE "purchase_cost_history"`), through the real services.
+- **Prove the wait, not the time.** `blockedBy(waiter, holder)` returns only when `pg_stat_activity` shows the waiter with `wait_event_type = 'Lock'` and `pg_blocking_pids` includes the holder's pid. Elapsed time is never evidence; no `Promise.all` race or sleep stands in for a barrier.
+- **Bound every wait.** `bounded()` races each barrier, wait and completion against a timeout. `afterEach` releases all barriers, settles the tasks, and terminates only backends still owned by an operation, never an idle pooled one.
+- **Barriers that survive the fix.** Place each barrier after the holder's first conflicting write, so the waiter still blocks on the fixed code, on the product rather than the batch in #1498. A barrier that waits for a step the fix removes times out, and a timeout is not a pass.
+- **Red first.** Run the final test against the unfixed base and keep its output (`40P01`, or the wrong final value) as evidence.
+- **Own-rows cleanup.** Track every created root and dependent id, remove them in `afterAll` per [Every suite cleans its own request exhaust](#every-suite-cleans-its-own-request-exhaust). The #1498 suite then asserts that none of its products' cost batches remain.
 
 ### Cron does not run in e2e-booted apps (#1311)
 
