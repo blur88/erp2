@@ -121,6 +121,7 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 - Commits follow Conventional Commits (`feat(accounting): …`, `fix(…): …`, `test(…): …`, `chore: …`).
 - PRs include a summary of impacted modules, the linked issue, verification commands and results, UI screenshots for frontend changes, and notes for migrations or env changes.
 - Issues live in GitHub Issues for `blur88/erp2` (`gh` CLI); see `docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md` and `docs/agents/domain.md`.
+- For local skill edits or restoring links after a skills update, read [Shared agent skills](docs/agents/skills.md).
 
 ## Security and configuration
 
