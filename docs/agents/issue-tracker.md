@@ -52,6 +52,10 @@ Read it as in **Read an issue** above, adding `createdAt` to the `--json` fields
 
 Implementers read only the ticket's body and comments, so a decision settled anywhere else is lost unless it lands here.
 
+## When a ticket asks for red-first evidence
+
+Before planting a fault, name the test case or assertion expected to fail; record that it failed there, then remove the fault and confirm the full suite passes.
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
