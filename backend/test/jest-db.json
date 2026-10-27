@@ -1,0 +1,19 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "roots": ["<rootDir>/test"],
+  "testRegex": ".*\\.db-spec\\.ts$",
+  "testEnvironment": "node",
+  "testTimeout": 60000,
+  "maxWorkers": 1,
+  "transform": {
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "useESM": true,
+        "tsconfig": "tsconfig.spec.json"
+      }
+    ]
+  },
+  "extensionsToTreatAsEsm": [".ts"]
+}
