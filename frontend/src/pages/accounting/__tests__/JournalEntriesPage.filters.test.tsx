@@ -7,7 +7,7 @@ import { Provider } from 'react-redux'
 import { LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 
-import { store } from '@/store'
+import { createTestStore } from '@/test/createTestStore'
 import JournalEntriesPage from '@/pages/accounting/JournalEntriesPage'
 import * as accountingApi from '@/store/api/accountingApi'
 
@@ -32,6 +32,7 @@ vi.mock('@/store/api/accountingApi', async () => {
 })
 
 function makeWrapper(initialEntry: string) {
+  const store = createTestStore({ apis: [accountingApi.accountingApiSlice] })
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(LocalizationProvider, { dateAdapter: AdapterDateFns },
       React.createElement(Provider as any, { store },
