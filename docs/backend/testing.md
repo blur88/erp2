@@ -31,7 +31,7 @@ Anchors follow GitHub heading slugs, including Unicode, formatting and duplicate
 
 ## Jest runs in ESM mode
 
-All four Jest configs (unit in `package.json`, `test/jest-e2e.json`, `test/jest-redis.json`, `test/jest-db.json`) run under `NODE_OPTIONS=--experimental-vm-modules` with `extensionsToTreatAsEsm: [".ts"]` and ts-jest `useESM: true`. The transform config is `tsconfig.spec.json`, isolated from the build configs.
+Every Jest config (unit in `package.json`, plus `test/jest-*.json`) runs under `NODE_OPTIONS=--experimental-vm-modules` with `extensionsToTreatAsEsm: [".ts"]` and ts-jest `useESM: true`. The transform config is `tsconfig.spec.json`, isolated from the build configs.
 
 The old `transformIgnorePatterns` allowlist (thirteen packages led by the `sanitize-html` ESM cluster) was deleted as obsolete in ESM mode. It could not have been extended to NestJS 12 anyway: NestJS 12 uses `import.meta`, which is invalid in CommonJS.
 
