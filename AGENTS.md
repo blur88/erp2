@@ -120,6 +120,7 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 - Pull `main` with `git pull --ff-only`; a merge commit re-triggers the Release workflow.
 - Commits follow Conventional Commits (`feat(accounting): …`, `fix(…): …`, `test(…): …`, `chore: …`).
 - PRs include a summary of impacted modules, the linked issue, verification commands and results, UI screenshots for frontend changes, and notes for migrations or env changes.
+- Merge with `gh pr merge <n> --merge --delete-branch`; the repo allows only merge commits. The ruleset requires an up-to-date branch, so when a merge is refused as behind: `gh pr update-branch <n> --rebase`, wait for `gh pr checks <n> --watch --fail-fast`, then merge. Never `--admin`.
 - Issues live in GitHub Issues for `blur88/erp2` (`gh` CLI); see `docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md` and `docs/agents/domain.md`.
 - For local skill edits or restoring links after a skills update, read [Shared agent skills](docs/agents/skills.md).
 
