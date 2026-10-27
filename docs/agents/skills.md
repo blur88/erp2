@@ -11,3 +11,5 @@ After a skills update or reinstall, restore the protected links with:
 ```
 
 For refusal handling, backups, upstream updates and verification, read the private repository's [README](https://github.com/blur88/agent-skills#readme).
+
+Before editing a skill in `~/agent-skills`, read that repository's `CLAUDE.md`: an agent working from this repository never loads it. It requires re-syncing `docs/<bucket>/<skill>.md` whenever a skill's behaviour changes, and its pre-push hook refuses a push that skips the re-sync.

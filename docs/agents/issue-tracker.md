@@ -33,7 +33,7 @@ Create a GitHub issue.
 
 ## When a planning session hands off a ticket
 
-Before handing off, post the complete handoff to the ticket: every settled decision, each labelled **requirement** or **implementation choice**. Where a decision replaces one recorded earlier on the ticket, name the one it supersedes. Unrecorded decisions cannot be relied on during implementation or review.
+Before handing off, post the complete handoff to the ticket: every settled decision, each labelled **requirement** or **implementation choice**. Each decision carries the chosen option's concrete values (paths, names, commands) as the answer stated them: "back up to `~/.agents/skills-replaced/`", not "a collision-safe backup path". Where a decision replaces one recorded earlier on the ticket, name the one it supersedes. Unrecorded decisions cannot be relied on during implementation or review.
 
 ## When a skill says "fetch the relevant ticket"
 
@@ -51,6 +51,10 @@ Read it as in **Read an issue** above, adding `createdAt` to the `--json` fields
 4. If the work would reverse a merged decision, ask the ticket's owner and wait on that part. Proceed with the rest.
 
 Implementers read only the ticket's body and comments, so a decision settled anywhere else is lost unless it lands here.
+
+## When a ticket asks for red-first evidence
+
+Before planting a fault, name the test case or assertion expected to fail; record that it failed there, then remove the fault and confirm the full suite passes.
 
 ## Wayfinding operations
 
