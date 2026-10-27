@@ -52,6 +52,13 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 - **Diff failure:** A helper that locks the header before the account or settings after the account reverses the documented order and can deadlock; changing to `FOR UPDATE` can block journal-line inserts.
 - **Trace:** [Bank Reconciliation lock-order documentation](docs/modules/accounting/BANK_RECONCILIATION.md#lock-order), [lockBankAccount](backend/src/modules/bank-reconciliations/services/bank-reconciliation.locks.ts), and [ChartOfAccountService](backend/src/modules/accounting/services/chart-of-account.service.ts) (settings-before-account update lock).
 
+### Inventory cost-batch lock order
+
+- **Rule:** Sales fulfil, unfulfil and purchase-order return lock the owning document, then all affected product rows in ascending product-ID order using `lockProductForStockUpdate`, before any cost-batch mutation, within the same transaction. Callers of `reduceStock`, `restoreStock` and `removeStock` must hold the product lock; these writers do not check that the caller holds it. Re-locking an already-held product in that transaction is safe. **Known exception:** purchase-order receive already locks each product before writing that product's batch, but inserts earlier items' batches before locking later items' products; taking all product locks up front in ascending ID order is tracked in [#1512](https://github.com/blur88/erp2/issues/1512). Product creation with opening stock and base-cost-only recalculation are outside this rule's scope.
+- **Why:** Opposite product/batch lock orders deadlock; an unlocked restore can overwrite a concurrent depletion. Acquiring products in item order can also deadlock multi-product fulfilments.
+- **Diff failure:** Calling `restoreStock` or `removeStock` before locking products, or locking the next product only after mutating an earlier product's batches, recreates these cycles or lost updates.
+- **Trace:** [Issue #1498](https://github.com/blur88/erp2/issues/1498#issuecomment-6448449040), [SalesOrderFulfillmentService](backend/src/modules/sales/services/sales-order-fulfillment.service.ts), [PurchaseOrderLifecycleService](backend/src/modules/purchasing/services/purchase-order-lifecycle.service.ts), and [PostgreSQL regression tests](backend/test/cost-batch-lock-order.concurrency.e2e-spec.ts).
+
 ## E2E tests
 
 ### E2E request-trace cleanup

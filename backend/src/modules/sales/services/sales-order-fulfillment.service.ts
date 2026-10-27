@@ -2,7 +2,8 @@ import { ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
-import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { Product } from '../../../database/entities/product.entity';
+import { lockProductForStockUpdate, lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
 import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
@@ -54,13 +55,11 @@ export class SalesOrderFulfillmentService {
 
       // Pre-flight sufficiency check (#1076, #1078). This reads item.product,
       // hydrated as a relation before any product lock was taken, so it is a
-      // snapshot and NOT authoritative — it cannot be, since the lock is taken
-      // per-product inside adjustStock() below.
+      // snapshot and NOT authoritative — it cannot be, since the product locks
+      // are taken below, after this pre-flight check.
       //
-      // It is kept because it is the only place that can aggregate: it names
-      // every short item in one message, which a per-product check under the
-      // lock cannot do. It rejects the ordinary "not enough stock" case with a
-      // good error before any work is done.
+      // It is kept to name every short item in one message and reject the
+      // ordinary "not enough stock" case before stock changes begin.
       //
       // The authoritative gate is in adjustStock(), which re-checks against the
       // lock-held row and throws ConflictException if the depletion would go
@@ -83,6 +82,8 @@ export class SalesOrderFulfillmentService {
           `Cannot fulfill — ${offenders.length} item(s) out of stock: ${offenders.join(', ')}`,
         );
       }
+
+      await this.lockProducts(manager, order);
 
       let cogsScale8 = 0n;
       for (const item of order.items) {
@@ -167,6 +168,8 @@ export class SalesOrderFulfillmentService {
         throw new ConflictException('Order is not fulfilled');
       }
 
+      await this.lockProducts(manager, order);
+
       for (const item of order.items) {
         if (item.product) {
           await this.baseCostCalculator.restoreStock(item.productId, item.quantity, manager);
@@ -216,6 +219,17 @@ export class SalesOrderFulfillmentService {
     );
 
     return saved;
+  }
+
+  private async lockProducts(manager: EntityManager, order: SalesOrder): Promise<void> {
+    // Hold ALL products before touching cost batches (#1498). adjustStock and
+    // deleteByReference may safely re-lock these rows in this transaction.
+    const productIds = [
+      ...new Set(order.items.filter((item) => item.product).map((item) => item.productId)),
+    ].sort();
+    for (const productId of productIds) {
+      await lockProductForStockUpdate(manager, Product, productId);
+    }
   }
 
   /**

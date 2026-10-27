@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import {
+  Product,
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderPaymentStatus,
@@ -21,7 +22,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
 import { formatMoney, formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
-import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { lockProductForStockUpdate, lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
 import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { AuditLogService } from '../../audit-logs/services';
@@ -276,6 +277,14 @@ export class PurchaseOrderLifecycleService {
 
       if (purchaseOrder.status !== PurchaseOrderStatus.RECEIVED) {
         throw new ConflictException('Order is not received');
+      }
+
+      // All product locks precede every cost-batch deletion (#1498).
+      const productIds = [
+        ...new Set((purchaseOrder.items || []).map((item) => item.productId)),
+      ].sort();
+      for (const productId of productIds) {
+        await lockProductForStockUpdate(manager, Product, productId);
       }
 
       for (const item of purchaseOrder.items || []) {

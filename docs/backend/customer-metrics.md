@@ -43,10 +43,12 @@ The current sequences in
 [SalesOrderFulfillmentService](../../backend/src/modules/sales/services/sales-order-fulfillment.service.ts)
 are:
 
-- Fulfil: order row → for each item, product row then all cost-batch rows with
+- Fulfil: order row → all affected product rows in ascending ID order →
+  for each item, all cost-batch rows with
   remaining stock (`purchase_cost_history`) → accounting posting work → customer
   row for metrics.
-- Unfulfil: order row → for each item, restored cost-batch rows then the product
+- Unfulfil: order row → all affected product rows in ascending ID order →
+  for each item, restored cost-batch rows then the product
   base-cost update → product rows during stock-movement reversal →
   `stock_movements` rows deleted by `deleteByReference` → remaining
   `stock_movements` rows updated by `recalculateBalances` when balances change →
@@ -58,8 +60,8 @@ The stock work is implemented by
 [InventoryIntegrationService.adjustStock](../../backend/src/modules/sales/services/inventory-integration.service.ts),
 [BaseCostCalculatorService.reduceStock/restoreStock](../../backend/src/modules/inventory/services/base-cost-calculator.service.ts)
 and [StockMovementService.deleteByReference/recalculateBalances](../../backend/src/modules/inventory/services/stock-movement.service.ts).
-They describe current code, with no general sorting guarantee across product
-and cost-batch locks. The customer lock stays last; the helper does not acquire
+Both paths take all product locks before any cost-batch mutation, following the
+[inventory cost-batch lock order](../../CODING_STANDARDS.md#inventory-cost-batch-lock-order). The customer lock stays last; the helper does not acquire
 order, product or accounting locks. The manual route acquires only the customer
 row lock. Bank reconciliation's separate
 [lock order](../modules/accounting/BANK_RECONCILIATION.md#lock-order) is unchanged.
