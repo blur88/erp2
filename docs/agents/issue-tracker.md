@@ -31,6 +31,10 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 Create a GitHub issue.
 
+## When a planning session hands off a ticket
+
+Before handing off, post the complete handoff to the ticket: every settled decision, each labelled **requirement** or **implementation choice**. Where a decision replaces one recorded earlier on the ticket, name the one it supersedes. Unrecorded decisions cannot be relied on during implementation or review.
+
 ## When a skill says "fetch the relevant ticket"
 
 Read it as in **Read an issue** above, adding `createdAt` to the `--json` fields. Then run a **scope checkpoint** before editing:
