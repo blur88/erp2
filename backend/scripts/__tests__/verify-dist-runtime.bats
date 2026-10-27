@@ -11,6 +11,10 @@ SCRIPT="$BATS_TEST_DIRNAME/../verify-dist-runtime.sh"
 
 setup() {
   TEST_DIST="$BATS_TEST_TMPDIR/dist"
+  write_good_dist_directories
+}
+
+write_good_dist_directories() {
   mkdir -p "$TEST_DIST/modules/backup" "$TEST_DIST/database/entities" \
            "$TEST_DIST/config" "$TEST_DIST/database/migrations"
 }
@@ -44,12 +48,83 @@ EOF
   write_good_migrations_config
 }
 
+assert_good_output() {
+  [ "$status" -eq 0 ]
+  [ "$output" = "==> Checking for unresolved path aliases in $TEST_DIST/ ...
+    OK: no unresolved aliases.
+==> Loading $TEST_DIST/main.js to verify the require graph resolves ...
+    OK: module graph resolves.
+
+==> Checking the compiled datasource resolves migrations from dist/ ...
+    pattern targets dist/database/migrations (1 compiled migrations)
+    OK: migrations resolve from dist/.
+
+PASS: compiled output is runtime-loadable." ]
+}
+
 @test "passes on a dist whose imports are relative and resolvable" {
   write_good_dist
-  run bash "$SCRIPT" "$TEST_DIST"
+  run sh "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"PASS"* ]]
+}
+
+@test "rejects loadable custom dist when nested sibling TypeScript source is newer" {
+  TEST_DIST="$BATS_TEST_TMPDIR/custom project/output"
+  mkdir -p "$TEST_DIST"
+  write_good_dist_directories
+  write_good_dist
+  mkdir -p "$TEST_DIST/../src/nested"
+  touch -t 202601010000 "$TEST_DIST/main.js"
+  touch -t 202601010001 "$TEST_DIST/../src/nested/newer.ts"
+
+  run sh "$SCRIPT" "$TEST_DIST/"
+
+  [ "$status" -eq 1 ]
+  [ "$output" = "FAIL: stale dist/ — run npm run build:all" ]
+}
+
+@test "passes when sibling TypeScript source is older than main.js" {
+  write_good_dist
+  mkdir -p "$TEST_DIST/../src/nested"
+  touch -t 202601010000 "$TEST_DIST/../src/nested/older.ts"
+  touch -t 202601010001 "$TEST_DIST/main.js"
+
+  run sh "$SCRIPT" "$TEST_DIST"
+
+  assert_good_output
+}
+
+@test "passes when sibling TypeScript source has the same timestamp as main.js" {
+  write_good_dist
+  mkdir -p "$TEST_DIST/../src/nested"
+  touch -t 202601010001 "$TEST_DIST/../src/nested/equal.ts" "$TEST_DIST/main.js"
+
+  run sh "$SCRIPT" "$TEST_DIST"
+
+  assert_good_output
+}
+
+@test "passes when sibling src is absent" {
+  write_good_dist
+  [ ! -d "$TEST_DIST/../src" ]
+  touch -t 202601010000 "$TEST_DIST/main.js"
+
+  run sh "$SCRIPT" "$TEST_DIST"
+
+  assert_good_output
+}
+
+@test "ignores newer non-TypeScript files in sibling src" {
+  write_good_dist
+  mkdir -p "$TEST_DIST/../src/nested"
+  touch -t 202601010000 "$TEST_DIST/main.js"
+  touch -t 202601010001 "$TEST_DIST/../src/nested/notes.md"
+
+  run sh "$SCRIPT" "$TEST_DIST"
+
+  assert_good_output
 }
 
 @test "fails when a path alias survives into compiled output" {
@@ -59,7 +134,7 @@ EOF
 const backup_schedule_entity_1 = require("@database/entities/backup-schedule.entity");
 EOF
 
-  run bash "$SCRIPT" "$TEST_DIST"
+  run sh "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"unresolved TypeScript path aliases"* ]]
@@ -76,21 +151,21 @@ EOF
 require("./definitely-not-here");
 EOF
 
-  run bash "$SCRIPT" "$TEST_DIST"
+  run sh "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"could not resolve its module graph"* ]]
 }
 
 @test "fails when dist does not exist" {
-  run bash "$SCRIPT" "$BATS_TEST_TMPDIR/nope"
+  run sh "$SCRIPT" "$BATS_TEST_TMPDIR/nope"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"does not exist"* ]]
 }
 
 @test "fails when main.js is missing from an otherwise present dist" {
-  run bash "$SCRIPT" "$TEST_DIST"
+  run sh "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"main.js"* ]]
@@ -105,7 +180,7 @@ require("./modules/backup/orphaned-scheduler-reconciler.service");
 throw new Error("cannot connect to postgres");
 EOF
 
-  run bash "$SCRIPT" "$TEST_DIST"
+  run sh "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"PASS"* ]]
@@ -134,7 +209,7 @@ EOF
 require("import-only-pkg");
 EOF
 
-  run bash "$SCRIPT" "$TEST_DIST"
+  run sh "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"ERR_PACKAGE_PATH_NOT_EXPORTED"* ]]
@@ -153,7 +228,7 @@ exports.createDatabaseConfig = function () {
 };
 EOF
 
-  run bash "$SCRIPT" "$TEST_DIST"
+  run sh "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"does not target dist/database/migrations"* ]]
@@ -164,7 +239,7 @@ EOF
   write_good_dist
   rm -f "$TEST_DIST/database/migrations/"*.js
 
-  run bash "$SCRIPT" "$TEST_DIST"
+  run sh "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"no compiled .js migrations"* ]]

@@ -21,7 +21,8 @@
 # runtime. When the file is also in app.module's require chain, the whole
 # application fails to boot.
 #
-# Two checks, cheapest first:
+# Before these checks, reject output older than sibling TypeScript source.
+# Two module-loading checks, cheapest first:
 #   1. static  - no unresolved path aliases anywhere in dist/
 #   2. runtime - dist/main.js actually loads (the definitive check)
 #
@@ -38,6 +39,14 @@ fi
 
 if [ ! -f "$DIST_DIR/main.js" ]; then
   echo "FAIL: '$DIST_DIR/main.js' not found — build output is incomplete." >&2
+  exit 1
+fi
+
+# Resolve from the selected output directory, including custom paths and paths
+# ending in a slash. Runtime images can omit src/ entirely.
+SRC_DIR="$(cd "$DIST_DIR" && pwd)/../src"
+if [ -d "$SRC_DIR" ] && [ -n "$(find "$SRC_DIR" -type f -name '*.ts' -newer "$DIST_DIR/main.js" -print -quit)" ]; then
+  echo "FAIL: stale dist/ — run npm run build:all" >&2
   exit 1
 fi
 
