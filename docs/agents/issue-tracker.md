@@ -33,7 +33,7 @@ Create a GitHub issue.
 
 ## When a planning session hands off a ticket
 
-Before handing off, post the complete handoff to the ticket: every settled decision, each labelled **requirement** or **implementation choice**. Where a decision replaces one recorded earlier on the ticket, name the one it supersedes. Unrecorded decisions cannot be relied on during implementation or review.
+Before handing off, post the complete handoff to the ticket: every settled decision, each labelled **requirement** or **implementation choice**. Each decision carries the chosen option's concrete values (paths, names, commands) as the answer stated them: "back up to `~/.agents/skills-replaced/`", not "a collision-safe backup path". Where a decision replaces one recorded earlier on the ticket, name the one it supersedes. Unrecorded decisions cannot be relied on during implementation or review.
 
 ## When a skill says "fetch the relevant ticket"
 
