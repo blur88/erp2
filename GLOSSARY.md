@@ -29,6 +29,12 @@ _Avoid_: void, delete, refund
 The ledger account holding money a payment provider has collected from customers but not yet transferred to the business.
 _Avoid_: provider wallet, suspense account
 
+### Inventory
+
+**Cost batch**:
+One received quantity of a product at one landed cost, recorded in `purchase_cost_history`. Fulfilment depletes it; unfulfilment and returns restore or remove it.
+_Avoid_: cost layer, purchase batch
+
 ### Documents
 
 **Sales order**:

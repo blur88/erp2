@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Product } from '../../../database/entities/product.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
@@ -54,7 +55,8 @@ describe('SalesOrderFulfillmentService', () => {
     const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
     const query = (jest.fn as unknown as any)().mockResolvedValue([{}]);
     const manager = {
-      getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
+      getRepository: (jest.fn as unknown as any)().mockImplementation((entity: any) =>
+        entity === Product ? { findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }) } : { findOne, update }),
       query,
     } as unknown as EntityManager;
     (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
