@@ -64,7 +64,7 @@ PASS: compiled output is runtime-loadable." ]
 
 @test "passes on a dist whose imports are relative and resolvable" {
   write_good_dist
-  run sh "$SCRIPT" "$TEST_DIST"
+  run bash "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"PASS"* ]]
@@ -134,7 +134,7 @@ PASS: compiled output is runtime-loadable." ]
 const backup_schedule_entity_1 = require("@database/entities/backup-schedule.entity");
 EOF
 
-  run sh "$SCRIPT" "$TEST_DIST"
+  run bash "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"unresolved TypeScript path aliases"* ]]
@@ -151,21 +151,21 @@ EOF
 require("./definitely-not-here");
 EOF
 
-  run sh "$SCRIPT" "$TEST_DIST"
+  run bash "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"could not resolve its module graph"* ]]
 }
 
 @test "fails when dist does not exist" {
-  run sh "$SCRIPT" "$BATS_TEST_TMPDIR/nope"
+  run bash "$SCRIPT" "$BATS_TEST_TMPDIR/nope"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"does not exist"* ]]
 }
 
 @test "fails when main.js is missing from an otherwise present dist" {
-  run sh "$SCRIPT" "$TEST_DIST"
+  run bash "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"main.js"* ]]
@@ -180,7 +180,7 @@ require("./modules/backup/orphaned-scheduler-reconciler.service");
 throw new Error("cannot connect to postgres");
 EOF
 
-  run sh "$SCRIPT" "$TEST_DIST"
+  run bash "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"PASS"* ]]
@@ -209,7 +209,7 @@ EOF
 require("import-only-pkg");
 EOF
 
-  run sh "$SCRIPT" "$TEST_DIST"
+  run bash "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"ERR_PACKAGE_PATH_NOT_EXPORTED"* ]]
@@ -228,7 +228,7 @@ exports.createDatabaseConfig = function () {
 };
 EOF
 
-  run sh "$SCRIPT" "$TEST_DIST"
+  run bash "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"does not target dist/database/migrations"* ]]
@@ -239,7 +239,7 @@ EOF
   write_good_dist
   rm -f "$TEST_DIST/database/migrations/"*.js
 
-  run sh "$SCRIPT" "$TEST_DIST"
+  run bash "$SCRIPT" "$TEST_DIST"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"no compiled .js migrations"* ]]
