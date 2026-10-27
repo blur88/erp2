@@ -22,9 +22,10 @@
 # application fails to boot.
 #
 # Before these checks, reject output older than sibling TypeScript source.
-# Two module-loading checks, cheapest first:
-#   1. static  - no unresolved path aliases anywhere in dist/
-#   2. runtime - dist/main.js actually loads (the definitive check)
+# Three checks, in order:
+#   1. static     - no unresolved path aliases anywhere in dist/
+#   2. runtime    - dist/main.js actually loads (the definitive check)
+#   3. migrations - the compiled datasource resolves migrations from dist/
 #
 # Usage: ./scripts/verify-dist-runtime.sh [dist_dir]
 
@@ -44,7 +45,7 @@ fi
 
 # Resolve from the selected output directory, including custom paths and paths
 # ending in a slash. Runtime images can omit src/ entirely.
-SRC_DIR="$(cd "$DIST_DIR" && pwd)/../src"
+SRC_DIR="$(CDPATH= cd -- "$DIST_DIR" && pwd)/../src"
 if [ -d "$SRC_DIR" ] && [ -n "$(find "$SRC_DIR" -type f -name '*.ts' -newer "$DIST_DIR/main.js" -print -quit)" ]; then
   echo "FAIL: stale dist/ — run npm run build:all" >&2
   exit 1

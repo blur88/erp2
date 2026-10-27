@@ -85,6 +85,19 @@ PASS: compiled output is runtime-loadable." ]
   [ "$output" = "FAIL: stale dist/ — run npm run build:all" ]
 }
 
+@test "rejects stale relative dist when CDPATH is exported" {
+  write_good_dist
+  mkdir -p "$TEST_DIST/../src/nested"
+  touch -t 202601010000 "$TEST_DIST/main.js"
+  touch -t 202601010001 "$TEST_DIST/../src/nested/newer.ts"
+  cd "$BATS_TEST_TMPDIR"
+
+  CDPATH="$BATS_TEST_TMPDIR" run sh "$SCRIPT" dist
+
+  [ "$status" -eq 1 ]
+  [ "$output" = "FAIL: stale dist/ — run npm run build:all" ]
+}
+
 @test "passes when sibling TypeScript source is older than main.js" {
   write_good_dist
   mkdir -p "$TEST_DIST/../src/nested"
