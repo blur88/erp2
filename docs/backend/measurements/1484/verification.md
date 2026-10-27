@@ -2,7 +2,9 @@
 
 Captured on 2026-10-27 in the local development workspace. These results concern disposable databases only; no production host exists. No application schema or migration changes are included.
 
-Commands below ran from `backend/` against the implementation captured by commit `369e1f682a9b9852af847283e36ff9d92449240e`. All suite and test counts below describe that one development run, not expected counts for future gates. Database credentials were loaded from the ignored local `.env.test`; their values are intentionally omitted.
+## Original run
+
+Commands in this section ran from `backend/` against the implementation captured by commit `369e1f682a9b9852af847283e36ff9d92449240e`. All suite and test counts in this section describe that one development run, not expected counts for future gates. Database credentials were loaded from the ignored local `.env.test`; their values are intentionally omitted.
 
 | Command | Result |
 | --- | --- |
@@ -38,3 +40,34 @@ Test Suites: 48 passed, 48 total
 Tests:       638 passed, 638 total
 Snapshots:   0 total
 ```
+
+## Follow-up run
+
+Captured on 2026-10-27 against commit `948ce6d9820c52270286d619978a9d31f51f10fe`, after the review fixes and local spec refactors. All commands ran from `backend/`. Counts in these summaries describe only this development run, not expected counts for future gates.
+
+| Command | Result |
+| --- | --- |
+| `npm run lint:check` | Exit 0 |
+| `npm run type-check:spec` | Exit 0 |
+| `npm run verify:doc-links` | Exit 0 |
+| `npm run test:db` using the exact environment-loading wrapper in the original-run section | Exit 0 |
+| `npm run test:e2e` | Exit 0 |
+
+Captured database-suite summary:
+
+```text
+PASS: compiled output is runtime-loadable.
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+```
+
+Captured e2e summary:
+
+```text
+Test Suites: 48 passed, 48 total
+Tests:       638 passed, 638 total
+Snapshots:   0 total
+```
+
+The snapshot remains limited to `public`; mutation detection outside that schema is accepted residual risk for this scope, as recorded in the [follow-up scope checkpoint](https://github.com/blur88/erp2/issues/1484#issuecomment-6436567910). No additional fixture-mutation results are claimed for this run.
