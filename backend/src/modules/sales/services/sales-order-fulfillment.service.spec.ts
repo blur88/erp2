@@ -1,8 +1,8 @@
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Product } from '../../../database/entities/product.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import { Product } from '../../../database/entities/product.entity';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import {

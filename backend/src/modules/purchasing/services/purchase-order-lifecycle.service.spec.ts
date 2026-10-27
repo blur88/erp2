@@ -1,9 +1,9 @@
 import { jest } from '@jest/globals';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Product } from '../../../database/entities/product.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { Product } from '../../../database/entities/product.entity';
 
 import {
   PurchaseOrder,

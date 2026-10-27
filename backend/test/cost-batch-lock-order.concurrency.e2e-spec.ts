@@ -433,9 +433,12 @@ describe("Cost batch lock order (#1498, PostgreSQL)", () => {
   }, 25000);
 
   it("D: opposite item orders cannot deadlock two multi-product fulfils", async () => {
-    const products = [await product(), await product()].sort((a, b) =>
-      a.id.localeCompare(b.id),
+    const productsById = new Map(
+      [await product(), await product()].map((p) => [p.id, p]),
     );
+    const products = [...productsById.keys()]
+      .sort()
+      .map((id) => productsById.get(id)!);
     const a = await readyOrder(products, 3);
     const b = await readyOrder([...products].reverse(), 5);
     // Relation load order is unspecified in production. Force the valid,
