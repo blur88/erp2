@@ -122,6 +122,9 @@ jobs:
       - name: Unit tests
         run: npm run test -- --no-coverage
 
+      - name: Baseline detector PostgreSQL tests
+        run: npm run test:db
+
       - name: E2E tests
         run: npm run test:e2e
 

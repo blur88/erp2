@@ -2,6 +2,20 @@
 
 How the backend test suites are configured, why, and the invariants that keep a broken run from reading as green. The required gates themselves are in `AGENTS.md` § Pre-PR verification.
 
+## Baseline detector against PostgreSQL (#1484)
+
+From `backend/`, run:
+
+```bash
+DB_HOST=127.0.0.1 DB_PORT=5432 DB_USERNAME=baseline_tester DB_PASSWORD='<password>' npm run test:db
+```
+
+Prerequisites: installed backend dependencies, Node matching `package.json`, and a disposable PostgreSQL 18.3 server accepting password connections without TLS. The supplied role needs `LOGIN` and `CREATEDB`, access to the `postgres` maintenance database, and permission to drop databases it creates. All four connection variables must be non-empty; the harness does not load `.env` files. Use a development test server. This is development/disposable-database evidence only; no production host exists.
+
+`test:db` runs `build:all` (including the CLI TypeScript pass and `verify:dist`) and executes `dist/database/check-baseline.js`. Each state starts in a separate UUID-named `baseline_it_…` database created from `template0`; only databases successfully created by the current run are dropped, in `finally` even after assertions fail. `DB_DATABASE` and `DATABASE_URL` cannot select a fixture target. An abruptly killed test process can leave a database behind; inspect ownership before manually removing an abandoned `baseline_it_…` database.
+
+The suite checks all four detector states, an empty migrations table alone, and a never-created database. Successful cases compare public catalog definitions, sequence state and fixture rows before and after the child runs with `DB_SYNCHRONIZE=true`. Each child has a temporary working directory with a planted `.env` containing a nonexistent database and invalid pool size; this catches working-directory `.env` loading, including non-overriding loading, but does not cover explicit-path loading. These cases and the compiled-artifact boundary are recorded in [issue #1484](https://github.com/blur88/erp2/issues/1484#issuecomment-6435135694). The existing backend CI job runs this suite; required local gates are owned by [AGENTS.md](../../AGENTS.md#pre-pr-verification-authoritative).
+
 ## Type-check gates
 
 `npm run test` uses per-file ts-jest transpilation and does not catch cross-file declaration errors (e.g. TS4053, a public method whose inferred return type names a non-exported interface). Before #1039 those surfaced first at `docker compose build backend`, after every other gate had passed.
