@@ -58,10 +58,8 @@ export class SalesOrderFulfillmentService {
       // snapshot and NOT authoritative — it cannot be, since the product locks
       // are taken below, after this pre-flight check.
       //
-      // It is kept because it is the only place that can aggregate: it names
-      // every short item in one message, which a per-product check under the
-      // lock cannot do. It rejects the ordinary "not enough stock" case with a
-      // good error before any work is done.
+      // It is kept to name every short item in one message and reject the
+      // ordinary "not enough stock" case before stock changes begin.
       //
       // The authoritative gate is in adjustStock(), which re-checks against the
       // lock-held row and throws ConflictException if the depletion would go
