@@ -2,7 +2,7 @@
 
 Captured on 2026-10-27 in the local development workspace. These results concern disposable databases only; no production host exists. No application schema or migration changes are included.
 
-Commands below ran from `backend/` against the implementation in this commit. Database credentials were loaded from the ignored local `.env.test`; their values are intentionally omitted.
+Commands below ran from `backend/` against the implementation captured by commit `369e1f682a9b9852af847283e36ff9d92449240e`. All suite and test counts below describe that one development run, not expected counts for future gates. Database credentials were loaded from the ignored local `.env.test`; their values are intentionally omitted.
 
 | Command | Result |
 | --- | --- |

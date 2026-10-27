@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { Client } from "pg";
 
 const detector = resolve("dist/database/check-baseline.js");
-const migrations = `CREATE TABLE migrations (
+const createMigrationsTableSql = `CREATE TABLE migrations (
   id SERIAL PRIMARY KEY, timestamp bigint NOT NULL, name varchar NOT NULL)`;
 
 // Neither DB_DATABASE nor DATABASE_URL selects a test target. Only names
@@ -19,12 +19,36 @@ function assertName(name: string): void {
   }
 }
 
-function connection(database: string): Client {
-  return new Client({
+type DatabaseSettings = {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+};
+
+function resolveSettings(): DatabaseSettings {
+  for (const key of ["DB_HOST", "DB_PORT", "DB_USERNAME", "DB_PASSWORD"]) {
+    if (!process.env[key]) throw new Error(`test:db requires non-empty ${key}`);
+  }
+  const port = Number(process.env.DB_PORT);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("test:db requires a valid DB_PORT");
+  }
+  return {
     host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT),
-    user: process.env.DB_USERNAME,
+    port,
+    username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
+  };
+}
+
+function connection(settings: DatabaseSettings, database: string): Client {
+  if (database !== "postgres") assertName(database);
+  return new Client({
+    host: settings.host,
+    port: settings.port,
+    user: settings.username,
+    password: settings.password,
     database,
     ssl: false,
     connectionTimeoutMillis: 5000,
@@ -61,7 +85,7 @@ async function snapshot(client: Client): Promise<unknown> {
   return { catalogs: catalogs.rows, rows, sequences: sequences.rows };
 }
 
-function runDetector(database: string) {
+function runDetector(settings: DatabaseSettings, database: string) {
   assertName(database);
   const cwd = mkdtempSync(join(tmpdir(), "baseline-it-"));
   try {
@@ -77,10 +101,10 @@ function runDetector(database: string) {
       env: {
         PATH: process.env.PATH,
         NODE_ENV: "development",
-        DB_HOST: process.env.DB_HOST,
-        DB_PORT: process.env.DB_PORT,
-        DB_USERNAME: process.env.DB_USERNAME,
-        DB_PASSWORD: process.env.DB_PASSWORD,
+        DB_HOST: settings.host,
+        DB_PORT: String(settings.port),
+        DB_USERNAME: settings.username,
+        DB_PASSWORD: settings.password,
         DB_DATABASE: database,
         DB_SSL: "false",
         DB_SYNCHRONIZE: "true",
@@ -93,63 +117,72 @@ function runDetector(database: string) {
   }
 }
 
+let settings: DatabaseSettings;
 beforeAll(() => {
-  for (const key of ["DB_HOST", "DB_PORT", "DB_USERNAME", "DB_PASSWORD"]) {
-    if (!process.env[key]) throw new Error(`test:db requires non-empty ${key}`);
-  }
-  const port = Number(process.env.DB_PORT);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error("test:db requires a valid DB_PORT");
-  }
+  settings = resolveSettings();
 });
 
-const cases = [
-  ["empty database", [], "FRESH"],
-  [
-    "user table without migration history",
-    [
+type BaselineToken = "FRESH" | "UNTRACKED_SCHEMA" | "BASELINED";
+type BaselineCase = {
+  name: string;
+  setup: readonly string[];
+  expectedToken: BaselineToken;
+};
+
+const cases: BaselineCase[] = [
+  { name: "empty database", setup: [], expectedToken: "FRESH" },
+  {
+    name: "user table without migration history",
+    setup: [
       "CREATE TABLE probe (id integer PRIMARY KEY)",
       "INSERT INTO probe VALUES (42)",
     ],
-    "UNTRACKED_SCHEMA",
-  ],
-  [
-    "user table with empty migration history",
-    ["CREATE TABLE probe (id integer PRIMARY KEY)", migrations],
-    "UNTRACKED_SCHEMA",
-  ],
-  [
-    "recorded migration",
-    [
+    expectedToken: "UNTRACKED_SCHEMA",
+  },
+  {
+    name: "user table with empty migration history",
+    setup: [
       "CREATE TABLE probe (id integer PRIMARY KEY)",
-      migrations,
+      createMigrationsTableSql,
+    ],
+    expectedToken: "UNTRACKED_SCHEMA",
+  },
+  {
+    name: "recorded migration",
+    setup: [
+      "CREATE TABLE probe (id integer PRIMARY KEY)",
+      createMigrationsTableSql,
       "INSERT INTO migrations (timestamp, name) VALUES (1234567890000, 'Fixture1234567890000')",
     ],
-    "BASELINED",
-  ],
-  ["only empty migration table", [migrations], "FRESH"],
-] as const;
+    expectedToken: "BASELINED",
+  },
+  {
+    name: "only empty migration table",
+    setup: [createMigrationsTableSql],
+    expectedToken: "FRESH",
+  },
+];
 
 test.each(cases)(
-  "%s: emits the expected token without writes",
-  async (_label, setup, expected) => {
+  "$name: emits the expected token without writes",
+  async ({ setup, expectedToken }) => {
     const database = newName();
-    assertName(database);
-    const admin = connection("postgres");
-    const client = connection(database);
+    const admin = connection(settings, "postgres");
+    const client = connection(settings, database);
     try {
       await admin.connect();
+      assertName(database);
       await admin.query(`CREATE DATABASE "${database}" TEMPLATE template0`);
       owned.add(database);
       await client.connect();
       for (const sql of setup) await client.query(sql);
       const before = await snapshot(client);
-      const result = runDetector(database);
+      const result = runDetector(settings, database);
       expect(result.error).toBeUndefined();
       expect(result.signal).toBeNull();
       expect(result.status).toBe(0);
       expect(result.stderr).toBe("");
-      expect(result.stdout).toBe(expected);
+      expect(result.stdout).toBe(expectedToken);
       expect(await snapshot(client)).toEqual(before);
     } finally {
       try {
@@ -170,7 +203,7 @@ test.each(cases)(
 );
 
 test("never-created database fails with empty stdout", () => {
-  const result = runDetector(newName());
+  const result = runDetector(settings, newName());
   expect(result.error).toBeUndefined();
   expect(result.signal).toBeNull();
   expect(result.status).toBe(1);
