@@ -46,9 +46,17 @@ fi
 # Resolve from the selected output directory, including custom paths and paths
 # ending in a slash. Runtime images can omit src/ entirely.
 SRC_DIR="$(CDPATH= cd -- "$DIST_DIR" && pwd)/../src"
-if [ -d "$SRC_DIR" ] && [ -n "$(find "$SRC_DIR" -type f -name '*.ts' -newer "$DIST_DIR/main.js" -print -quit)" ]; then
-  echo "FAIL: stale dist/ — run npm run build:all" >&2
-  exit 1
+if [ -d "$SRC_DIR" ]; then
+  if newer=$(find "$SRC_DIR" -type f -name '*.ts' -newer "$DIST_DIR/main.js" -print -quit); then
+    if [ -n "$newer" ]; then
+      echo "FAIL: stale dist/ — run npm run build:all" >&2
+      exit 1
+    fi
+  else
+    find_status=$?
+    echo "FAIL: could not check dist/ freshness — find exited $find_status" >&2
+    exit 1
+  fi
 fi
 
 # Keep in sync with the "paths" block in tsconfig.json. A new alias added there
