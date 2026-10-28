@@ -4,6 +4,8 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 ## Conventions
 
+- **Guard or analyser issues**: include an acceptance criterion that every exclusion introduced by the implementation is named in a comment and pinned by a test case, following the test-coverage rule in [Tracked guard cases](../../CODING_STANDARDS.md#tracked-guard-cases).
+
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
 - **Cross-link overlapping issues**: when a new issue edits a file that another open issue targets, link both ways: add `Related: #<n>` with one line on the overlap to the new issue's body, and comment the same on the other issue. Name the conflicting requirement when you know it. A shared file means the two need comparing, not that they conflict.
 - **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
