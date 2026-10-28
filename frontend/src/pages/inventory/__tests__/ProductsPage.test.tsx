@@ -177,3 +177,16 @@ describe('ProductsPage', () => {
     )
   })
 })
+
+// This test owns its store; transitive imports must not evaluate the singleton.
+vi.mock('@/store', () => ({
+  store: {
+    getState: () => ({ auth: { isAuthenticated: false, accessToken: null, refreshToken: null } }),
+    dispatch: vi.fn(),
+  },
+  persistor: {
+    getState: () => ({ bootstrapped: true }),
+    subscribe: () => () => {},
+    purge: vi.fn().mockResolvedValue(undefined),
+  },
+}))

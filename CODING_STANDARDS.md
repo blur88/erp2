@@ -107,9 +107,9 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 - **Diff failure:** The first trigger guard for [#1431 / PR #1451](https://github.com/blur88/erp2/pull/1451) printed `Can't open backend/src/planted.ts: No such file or directory` instead of a report, yet path-fragment assertions passed; [issue #1452](https://github.com/blur88/erp2/issues/1452) records that failure.
 - **Trace:** [Trigger guard tests](backend/scripts/__tests__/no-trigger-bypass.bats) and [issue #1452](https://github.com/blur88/erp2/issues/1452).
 
-### Tracked text guard cases
+### Tracked guard cases
 
-- **Rule:** Every shape a text guard comment claims to detect, and every accepted limitation, has a tracked test case pinning its verdict. Do not claim a shape without a case.
-- **Why:** Untracked verdicts let a matcher change drop a shape unnoticed.
+- **Rule:** Every route or shape a guard claims to detect, and every accepted limitation, has a tracked test case pinning its verdict. Do not claim a shape without a case. Runtime rejection cases assert the distinctive diagnostic; acceptance cases assert success.
+- **Why:** Untracked verdicts let a guard change drop a supported case unnoticed.
 - **Diff failure:** The [#1479 / PR #1500 side-effect import gap](https://github.com/blur88/erp2/pull/1500) survived review without a tracked case.
-- **Trace:** [Issue #1502](https://github.com/blur88/erp2/issues/1502) and [application-store cases](frontend/src/test/__tests__/appStoreLoads.test.ts).
+- **Trace:** [Issue #1501](https://github.com/blur88/erp2/issues/1501), [application-store integration cases](frontend/src/test/__tests__/appStoreRuntimeGuard.test.ts), and [enforcement boundary](docs/frontend/testing-and-print.md#tests-never-evaluate-the-application-store).

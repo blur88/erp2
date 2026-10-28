@@ -2,13 +2,12 @@ import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { appStoreLoads } from '../appStoreLoads'
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 const CONTROL_FILE = 'test/__tests__/createTestStore.test.tsx'
 // The configureStore check exempts this file because its own source names both
-// scanned strings. The runtime-store check scans this file as well.
+// scanned strings.
 const GUARD_FILE = 'test/__tests__/testStoreUsage.test.ts'
 
 function relativePath(file: string): string {
@@ -28,12 +27,6 @@ describe('test stores around RTK Query', () => {
 
   it('finds the test files at all', () => {
     expect(files.length).toBeGreaterThan(200)
-  })
-
-  it('do not load the application store at runtime', () => {
-    const offenders = files.filter((file) => appStoreLoads(readFileSync(file, 'utf8'), file)).map(relativePath)
-
-    expect(offenders, 'use createTestStore or a fully stubbed app-store mock').toEqual([])
   })
 
   // #1364. A test file that builds its own store around an RTK Query middleware
