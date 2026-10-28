@@ -20,8 +20,7 @@ if [ ! -d "$SRC_DIR" ]; then
   exit 2
 fi
 
-# Reviewed (file, writer) pairs. Update the lock-order rule's Trace when this
-# list changes.
+# Reviewed (file, writer) pairs.
 REVIEWED='
 backend/src/modules/sales/services/inventory-integration.service.ts reduceStock
 backend/src/modules/sales/services/sales-order-fulfillment.service.ts restoreStock
