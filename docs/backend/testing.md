@@ -34,7 +34,7 @@ The suite checks all four detector cases (three tokens), an empty migrations tab
 
 Recheck the parity, and update this section, when any of these change: the job's commands, service images or environment; a backend test script or the `jest` block in `package.json`; `test/jest-e2e.json`; or the `postgres` or `redis` image in `docker-compose.yml`. Lint, the type checks, `migration:run` and `test:db` stay local gates wherever their AGENTS.md rows apply.
 
-[`verify-ci-parity.sh`](../../backend/scripts/verify-ci-parity.sh) (run by `npm run test:scripts`) fails when the job's PostgreSQL image differs from `docker-compose.yml`'s, or when the job stops running `npm run test` or `npm run test:e2e`. It does not check Redis, Node, the Jest configs or the environment; recheck those by hand on the triggers above.
+[`verify-ci-parity.sh`](../../backend/scripts/verify-ci-parity.sh) (run by `npm run test:scripts`) fails when the job's PostgreSQL image differs from `docker-compose.yml`'s, when the job has no `run:` step for `npm run test` or `npm run test:e2e`, or when the job or either of those steps carries `if:` or `continue-on-error:`. It does not catch a step that still runs but is narrowed or masked (extra Jest arguments, `|| true`), and it does not check Redis, Node, the Jest configs, the database name or the environment; recheck those by hand on the triggers above.
 
 ## Documentation links (#1429)
 

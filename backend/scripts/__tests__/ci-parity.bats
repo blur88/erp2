@@ -8,12 +8,15 @@ setup() {
   mkdir -p "$REPO/.github/workflows"
 }
 
+# write_ci IMAGE UNIT_STEP E2E_STEP [JOB_EXTRA]: each step argument is the
+# step's body lines after "- name:", already indented eight spaces.
 write_ci() {
-  local image="$1" unit="$2" e2e="$3"
+  local image="$1" unit="$2" e2e="$3" job_extra="${4:-}"
   cat > "$REPO/.github/workflows/ci.yml" <<EOF
 jobs:
   test-backend:
     name: Backend
+${job_extra}
     services:
       postgres:
         image: $image
@@ -21,9 +24,9 @@ jobs:
         image: redis:8.6.1-alpine3.23
     steps:
       - name: Unit tests
-        run: $unit
+$unit
       - name: E2E tests
-        run: $e2e
+$e2e
 
   migrations-fresh-db:
     services:
@@ -45,8 +48,11 @@ services:
 EOF
 }
 
+UNIT='        run: npm run test -- --no-coverage'
+E2E='        run: npm run test:e2e'
+
 @test "passes when the job runs both suites on the Compose PostgreSQL image" {
-  write_ci postgres:18.3-alpine3.23 "npm run test -- --no-coverage" "npm run test:e2e"
+  write_ci postgres:18.3-alpine3.23 "$UNIT" "$E2E"
   write_compose postgres:18.3-alpine3.23
 
   run "$CHECK" "$REPO"
@@ -55,8 +61,20 @@ EOF
   [ -z "$output" ]
 }
 
+@test "accepts quoted images, a commented job key and one-line run steps" {
+  write_ci '"postgres:18.3-alpine3.23"' "$UNIT" "$E2E"
+  sed -i 's/^  test-backend:$/  test-backend: # backend gate/' "$REPO/.github/workflows/ci.yml"
+  sed -i 's/^      - name: E2E tests$/      - run: npm run test:e2e/; /^        run: npm run test:e2e$/d' "$REPO/.github/workflows/ci.yml"
+  write_compose "'postgres:18.3-alpine3.23'"
+
+  run "$CHECK" "$REPO"
+
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "rejects a PostgreSQL image that differs from Compose" {
-  write_ci postgres:18.4-alpine3.23 "npm run test -- --no-coverage" "npm run test:e2e"
+  write_ci postgres:18.4-alpine3.23 "$UNIT" "$E2E"
   write_compose postgres:18.3-alpine3.23
 
   run "$CHECK" "$REPO"
@@ -67,7 +85,7 @@ $MESSAGE" ]
 }
 
 @test "rejects a job that no longer runs the unit suite, even when another job does" {
-  write_ci postgres:18.3-alpine3.23 "npm run test:unit-only" "npm run test:e2e"
+  write_ci postgres:18.3-alpine3.23 '        run: npm run test:unit-only' "$E2E"
   write_compose postgres:18.3-alpine3.23
 
   run "$CHECK" "$REPO"
@@ -78,7 +96,7 @@ $MESSAGE" ]
 }
 
 @test "rejects a job that no longer runs the e2e suite" {
-  write_ci postgres:18.3-alpine3.23 "npm run test -- --no-coverage" "npm run test:e2e:leakcheck"
+  write_ci postgres:18.3-alpine3.23 "$UNIT" '        run: npm run test:e2e:leakcheck'
   write_compose postgres:18.3-alpine3.23
 
   run "$CHECK" "$REPO"
@@ -88,10 +106,55 @@ $MESSAGE" ]
 $MESSAGE" ]
 }
 
-@test "the checked-out repository keeps backend CI parity" {
-  repo_dir="$(git -C "${BATS_TEST_DIRNAME}/../../../" rev-parse --show-toplevel)"
+@test "rejects a suite step that is skipped or does not gate" {
+  write_compose postgres:18.3-alpine3.23
+  for key in "if: false" "continue-on-error: true"; do
+    write_ci postgres:18.3-alpine3.23 "$UNIT" "        $key
+$E2E"
 
-  run "$CHECK" "$repo_dir"
+    run "$CHECK" "$REPO"
+
+    [ "$status" -eq 1 ]
+    [ "$output" = "ci.yml test-backend step running npm run test:e2e is conditional or non-gating (if: or continue-on-error:)
+$MESSAGE" ]
+  done
+}
+
+@test "rejects a job that is skipped or does not gate" {
+  write_compose postgres:18.3-alpine3.23
+  for key in "if: false" "continue-on-error: true"; do
+    write_ci postgres:18.3-alpine3.23 "$UNIT" "$E2E" "    $key"
+
+    run "$CHECK" "$REPO"
+
+    [ "$status" -eq 1 ]
+    [ "$output" = "ci.yml test-backend is conditional or non-gating at job level (if: or continue-on-error:)
+$MESSAGE" ]
+  done
+}
+
+@test "rejects a workflow without the backend job" {
+  printf 'jobs:\n  test-frontend:\n    steps: []\n' > "$REPO/.github/workflows/ci.yml"
+  write_compose postgres:18.3-alpine3.23
+
+  run "$CHECK" "$REPO"
+
+  [ "$status" -eq 1 ]
+  [ "$output" = ".github/workflows/ci.yml: job test-backend not found
+$MESSAGE" ]
+}
+
+@test "exits 2 when an input file is missing" {
+  write_compose postgres:18.3-alpine3.23
+
+  run "$CHECK" "$REPO"
+
+  [ "$status" -eq 2 ]
+  [ "$output" = "File not found: $REPO/.github/workflows/ci.yml" ]
+}
+
+@test "the checked-out repository keeps backend CI parity" {
+  run "$CHECK"
 
   [ "$status" -eq 0 ]
   [ -z "$output" ]
