@@ -257,3 +257,15 @@ EOF
   [ "$status" -eq 1 ]
   [[ "$output" == *"no compiled .js migrations"* ]]
 }
+
+@test "fails closed when freshness find exits non-zero" {
+  write_good_dist
+  mkdir -p "$TEST_DIST/../src" "$BATS_TEST_TMPDIR/bin"
+  printf '#!/bin/sh\nexit 2\n' > "$BATS_TEST_TMPDIR/bin/find"
+  chmod +x "$BATS_TEST_TMPDIR/bin/find"
+
+  PATH="$BATS_TEST_TMPDIR/bin:$PATH" run sh "$SCRIPT" "$TEST_DIST"
+
+  [ "$status" -eq 1 ]
+  [ "$output" = "FAIL: could not check dist/ freshness — find exited 2" ]
+}
