@@ -106,3 +106,10 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 - **Why:** A broken report can still contain an expected fragment, as [issue #1452](https://github.com/blur88/erp2/issues/1452) records.
 - **Diff failure:** The first trigger guard for [#1431 / PR #1451](https://github.com/blur88/erp2/pull/1451) printed `Can't open backend/src/planted.ts: No such file or directory` instead of a report, yet path-fragment assertions passed; [issue #1452](https://github.com/blur88/erp2/issues/1452) records that failure.
 - **Trace:** [Trigger guard tests](backend/scripts/__tests__/no-trigger-bypass.bats) and [issue #1452](https://github.com/blur88/erp2/issues/1452).
+
+### Tracked text guard cases
+
+- **Rule:** Every shape a text guard comment claims to detect, and every accepted limitation, has a tracked test case pinning its verdict. Do not claim a shape without a case.
+- **Why:** Tracked verdicts make matcher changes reviewable, as [issue #1502](https://github.com/blur88/erp2/issues/1502) requires.
+- **Diff failure:** The [#1479 side-effect import gap](https://github.com/blur88/erp2/pull/1500) survived review without a tracked case.
+- **Trace:** [Issue #1502](https://github.com/blur88/erp2/issues/1502) and [application-store cases](frontend/src/test/__tests__/appStoreLoads.test.ts).
