@@ -172,7 +172,7 @@ prepare_script_change() {
   run git push -q origin scripts/test
   [ "$status" -ne 0 ]
   assert_hook_report "pre-push: script suite failed; push refused"
-  [ -f "$BATS_TEST_TMPDIR/npm-calls" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/npm-calls")" = "$REPO/backend|run test:scripts" ]
 }
 
 @test "refuses testing a different checkout or dirty tracked files" {
@@ -252,5 +252,47 @@ prepare_script_change() {
   run git push -q origin scripts/test
   [ "$status" -ne 0 ]
   assert_hook_report "pre-push: script suite failed; push refused"
-  [ -f "$BATS_TEST_TMPDIR/npm-calls" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/npm-calls")" = "$REPO/backend|run test:scripts" ]
+}
+
+@test "new docs branch excludes script commits already on fetched main" {
+  prepare_script_change
+  git push -q origin scripts/test:main
+  rm "$BATS_TEST_TMPDIR/npm-calls"
+  git switch -q -c docs/new
+  echo docs > README.md
+  git add README.md
+  git commit -q -m docs
+  export SUITE_STATUS=1
+  run git push -q origin docs/new
+  [ "$status" -eq 0 ]
+  remote_has docs/new
+  [ ! -f "$BATS_TEST_TMPDIR/npm-calls" ]
+}
+
+@test "script push to empty remote checks all reachable commits" {
+  prepare_script_change
+  EMPTY="$BATS_TEST_TMPDIR/empty.git"
+  git init -q --bare -b main "$EMPTY"
+  git remote add empty "$EMPTY"
+  export SUITE_STATUS=1
+  run git push -q empty scripts/test
+  [ "$status" -ne 0 ]
+  [ "$output" = "pre-push: could not fetch main from empty; skipping the up-to-date check
+pre-push: script suite failed; push refused
+error: failed to push some refs to '$EMPTY'" ]
+  ! git -C "$EMPTY" rev-parse -q --verify refs/heads/scripts/test
+  [ "$(cat "$BATS_TEST_TMPDIR/npm-calls")" = "$REPO/backend|run test:scripts" ]
+}
+
+@test "refuses staged tracked change when worktree matches index" {
+  prepare_script_change
+  echo staged >> check.sh
+  git add check.sh
+  git diff --quiet --
+  run git push -q origin scripts/test
+  [ "$status" -ne 0 ]
+  assert_hook_report "pre-push: commit or stash tracked changes before testing pushed scripts"
+  ! remote_has scripts/test
+  [ ! -f "$BATS_TEST_TMPDIR/npm-calls" ]
 }
