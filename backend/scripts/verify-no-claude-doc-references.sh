@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+REPO_DIR="${1:-$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 REPO_DIR="$(git -C "$REPO_DIR" rev-parse --show-toplevel)"
 CLAUDE_DOC_NAME='CLAUDE''.md'
 GITIGNORE_IMPORT_NOTE="# NOTE: ${CLAUDE_DOC_NAME} is NOT ignored - it imports AGENTS.md, the authoritative project instructions"
