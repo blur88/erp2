@@ -109,7 +109,7 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 
 ### Tracked guard cases
 
-- **Rule:** Every route or shape a guard claims to detect, and every accepted limitation, has a tracked test case pinning its verdict. Do not claim a shape without a case. Runtime rejection cases assert the distinctive diagnostic; acceptance cases assert success.
+- **Rule:** Every route or shape a guard claims to detect, and every accepted limitation, has a tracked test case pinning its verdict. Do not claim a shape without a case. Runtime rejection cases assert the distinctive diagnostic; acceptance cases assert success. Each enforcement point a guard relies on (a hook, a check, a registration) has a case that fails when only that point is removed.
 - **Why:** Untracked verdicts let a guard change drop a supported case unnoticed.
-- **Diff failure:** The [#1479 / PR #1500 side-effect import gap](https://github.com/blur88/erp2/pull/1500) survived review without a tracked case.
+- **Diff failure:** The [#1479 / PR #1500 side-effect import gap](https://github.com/blur88/erp2/pull/1500) survived review without a tracked case. In [PR #1521 round 3](https://github.com/blur88/erp2/pull/1521), file-level verdict assertions remained green when either setup hook was removed independently; cases pinning each hook exposed those removals.
 - **Trace:** [Issue #1501](https://github.com/blur88/erp2/issues/1501), [application-store integration cases](frontend/src/test/__tests__/appStoreRuntimeGuard.test.ts), and [enforcement boundary](docs/frontend/testing-and-print.md#tests-never-evaluate-the-application-store).
