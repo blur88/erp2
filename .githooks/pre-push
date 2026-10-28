@@ -9,9 +9,11 @@
 
 remote=$1
 lines=$(cat)
+main=
+zero=0000000000000000000000000000000000000000
 
-# A failed fetch allows the push: the remote has no main yet, or is
-# unreachable, in which case the push itself fails next.
+# A failed fetch skips only ancestry checking: the remote may have no main
+# yet, or be unreachable, in which case the push itself fails next.
 if ! git fetch -q "$remote" main 2>/dev/null; then
   echo "pre-push: could not fetch main from $remote; skipping the up-to-date check" >&2
 else
@@ -32,6 +34,43 @@ EOF
       echo "pre-push: $branch does not contain $remote's current main." >&2
     done
     echo "Rebase first: git rebase $remote/main, then push again." >&2
+    exit 1
+  fi
+fi
+
+# Inspect each pushed commit (even changes later reverted), rather than only
+# the net diff. Deletions have no code to test; non-script paths are excluded.
+needs_scripts=false
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_sha" ] && continue
+  [ "$local_sha" = "$zero" ] && continue
+  base=$remote_sha
+  [ "$base" != "$zero" ] || base=$main
+  if [ -n "$base" ]; then
+    range="$base..$local_sha"
+  else
+    range=$local_sha
+  fi
+  if ! changed=$(git log --full-history --sparse -m --format= --name-only "$range" -- '*.sh' '*.bash' '*.bats' 'backend/scripts/**' '.githooks/pre-push' '.githooks/pre-commit'); then
+    echo "pre-push: could not inspect pushed commits" >&2
+    exit 1
+  fi
+  [ -n "$changed" ] || continue
+  if [ "$local_sha" != "$(git rev-parse HEAD)" ]; then
+    echo "pre-push: check out the pushed script commit before pushing" >&2
+    exit 1
+  fi
+  needs_scripts=true
+done <<EOF
+$lines
+EOF
+if [ "$needs_scripts" = true ]; then
+  if ! git diff --quiet -- || ! git diff --cached --quiet HEAD --; then
+    echo "pre-push: commit or stash tracked changes before testing pushed scripts" >&2
+    exit 1
+  fi
+  if ! (cd "$(git rev-parse --show-toplevel)/backend" && npm run test:scripts); then
+    echo "pre-push: script suite failed; push refused" >&2
     exit 1
   fi
 fi
