@@ -29,10 +29,10 @@ The suite checks all four detector cases (three tokens), an empty migrations tab
 
 - **Commands.** The job runs `npm run test -- --no-coverage` and `npm run test:e2e`. The backend Jest config sets no `collectCoverage` or `coverageThreshold`, so `--no-coverage` changes reporting, not pass or fail.
 - **Database.** Both use `postgres:18.3-alpine3.23` and database `erp_db_test`, which the e2e global setup drops and recreates.
-- **Environment.** CI sets its variables in `ci.yml` and has no `.env.test`; a local run reads the untracked `backend/.env.test`. The keys a local `.env.test` set beyond `ci.yml` either equalled their code defaults (`DB_SSL`, `DB_SYNCHRONIZE` and `DB_LOGGING` false; `JWT_ACCESS_TOKEN_EXPIRY` `15m`) or were read by no file in `backend/src`.
+- **Environment (manual).** CI sets its variables in `ci.yml` and has no `.env.test`; a local run reads the untracked `backend/.env.test`, so this comparison cannot be reproduced from the repository and is rechecked by hand. On the checked machine, `.env.test` set seven keys that `ci.yml` does not. Four equalled their code defaults: `DB_SSL`, `DB_SYNCHRONIZE` and `DB_LOGGING` were `false`, and `JWT_ACCESS_TOKEN_EXPIRY` was `15m`. No file in `backend/src` reads the other three: `JWT_REFRESH_KEYS`, `JWT_REFRESH_ACTIVE_KID` and `REFRESH_GRACE_SECONDS`.
 - **Known differences.** CI's Redis service is `redis:8.6.1-alpine3.23` against Compose's `8.6.2`, and CI's Node is the latest `24.x` from `node-version: "24"`.
 
-Recheck the parity, and update this section, when the job's commands, service images or environment change, or when a backend test script in `package.json` changes. Lint and both type checks stay local gates, and so do `migration:run` and `test:db` wherever AGENTS.md requires them.
+Recheck the parity, and update this section, when any of these change: the job's commands, service images or environment; a backend test script or the `jest` block in `package.json`; `test/jest-e2e.json`; or the `postgres` or `redis` image in `docker-compose.yml`. Lint, the type checks, `migration:run` and `test:db` stay local gates wherever their AGENTS.md rows apply.
 
 ## Documentation links (#1429)
 
