@@ -4,7 +4,9 @@ setup() {
   REPO_DIR="$(CDPATH= cd -- "$BATS_TEST_DIRNAME/../../.." && pwd)"
 }
 
-# Line-based policy intentionally excludes backticks and plain cd statements.
+# Line-based policy intentionally excludes backticks, plain cd statements,
+# extensionless scripts, and every line containing CDPATH= (even in a comment
+# or alongside a separate unsafe substitution).
 scan_substitutions() {
   local root="$1" file
   local found=0
@@ -25,6 +27,7 @@ scan_substitutions() {
 }
 
 @test "scanner reports complete lines and ignores safe and untracked files" {
+  # Split the substitution opener to avoid scanning our own fixture text.
   local open='$('
   local fixture="$BATS_TEST_TMPDIR/repo"
   mkdir -p "$fixture"
@@ -33,8 +36,10 @@ scan_substitutions() {
   printf '%s\n' "x=${open}cd other && pwd)" > "$fixture/check.bash"
   printf '%s\n' "x=${open}cd last && pwd)" > "$fixture/check.bats"
   printf '%s\n' 'x=`cd somewhere && pwd`' "x=${open}" 'cd somewhere' ')' >> "$fixture/check.sh"
+  printf '%s\n' "a=${open}CDPATH= cd -- x && pwd); b=${open}cd y && pwd)" "c=${open}cd z) # CDPATH= note" >> "$fixture/check.sh"
+  printf '%s\n' "x=${open}cd somewhere && pwd)" > "$fixture/extensionless"
   cp "$fixture/check.sh" "$fixture/untracked.sh"
-  git -C "$fixture" add check.sh check.bash check.bats
+  git -C "$fixture" add check.sh check.bash check.bats extensionless
   run scan_substitutions "$fixture"
   [ "$status" -eq 1 ]
   [ "$output" = "check.bash:1: x=${open}cd other && pwd)
@@ -44,7 +49,7 @@ check.sh:2: x=${open} cd elsewhere && pwd)" ]
 }
 
 @test "trigger guard resolves relative repository through exported CDPATH" {
-  mkdir -p "$BATS_TEST_TMPDIR/search/project/backend/src" "$BATS_TEST_TMPDIR/work"
+  mkdir -p "$BATS_TEST_TMPDIR/search/project/backend/src"
   cd "$BATS_TEST_TMPDIR/search"
   export CDPATH=.
   run bash "$REPO_DIR/backend/scripts/verify-no-trigger-bypass.sh" project
