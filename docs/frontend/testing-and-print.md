@@ -67,7 +67,7 @@ Two invariants the suite cannot protect; change them only deliberately:
 
 The registry lives on `globalThis` under a `Symbol.for` key and survives module resets. Setup checks unreported entries after each test and after the suite, marking entries reported rather than clearing them. Catching the replacement's throw does not bypass enforcement. The replacement also emits its diagnostic when it executes, so a collection-time attempt in a file with no runnable tests remains visible independently of Vitest's no-tests failure. Complete hoisted stubs and erased type imports do not evaluate the replacement. A `vi.doMock` registered after a static import cannot intercept that import.
 
-**Limitations:** Runs that bypass these configured projects (another config or a non-Vitest runner), and deliberate registry tampering, are outside guard coverage.
+**Limitations:** Runs that bypass these configured projects (another config or a non-Vitest runner), and deliberate registry tampering, are outside guard coverage. The [unconfigured-run fixture](../../frontend/src/test/store-guard-fixtures/unconfigured.bypass.fixture.ts) and [registry-tampering fixture](../../frontend/src/test/store-guard-fixtures/registry-tampering.accept.fixture.ts) pin these accepted verdicts in the integration harness.
 
 **Diagnostics:** Recorded stacks provide context, not a guaranteed importer chain; transformed execution can obscure that chain.
 

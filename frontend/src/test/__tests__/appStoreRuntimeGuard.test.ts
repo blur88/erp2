@@ -7,14 +7,14 @@ it('blocks application store evaluation in both configured projects', () => {
   const root = process.cwd()
   const scratch = mkdtempSync(path.join(root, '.store-guard-'))
   try {
-    for (const verdict of ['reject', 'accept', 'no-tests']) {
+    for (const verdict of ['reject', 'accept', 'no-tests', 'bypass']) {
       const config = path.join(scratch, 'vitest.config.ts')
       writeFileSync(
         config,
         `import original from '../vite.config.ts';
 export default async (env) => {
  const config = await original(env);
- return { ...config, test: { ...config.test, projects: config.test.projects.map(project => ({ ...project, test: { ...project.test, include: ['src/test/store-guard-fixtures/${verdict === 'no-tests' ? 'no-tests.reject' : '*.' + verdict}.fixture.ts'] } })) } };
+ return { ...config, test: { ...config.test, projects: config.test.projects.map(project => ({ ...project, plugins: ${verdict === 'bypass' ? '[]' : 'project.plugins'}, test: { ...project.test, include: ['src/test/store-guard-fixtures/${verdict === 'no-tests' ? 'no-tests.reject' : '*.' + verdict}.fixture.ts'] } })) } };
 };`,
       )
       for (const project of ['node', 'jsdom']) {
@@ -38,10 +38,10 @@ export default async (env) => {
         expect(result.error).toBeUndefined()
         const results = JSON.parse(readFileSync(report, 'utf8'))
         expect(results.testResults.length).toBe(
-          verdict === 'reject' ? 13 : verdict === 'accept' ? 7 : 1,
+          verdict === 'reject' ? 14 : verdict === 'accept' ? 8 : 1,
         )
         for (const file of results.testResults) {
-          if (verdict !== 'accept') {
+          if (verdict === 'reject' || verdict === 'no-tests') {
             if (file.name.includes('no-tests.')) {
               expect(result.stdout + result.stderr).toContain(
                 'ERP_APP_STORE_EVALUATION_BLOCKED',
@@ -52,11 +52,20 @@ export default async (env) => {
               )
             }
             expect(file.status, file.name).toBe('failed')
+            if (file.name.endsWith('/caught-test.reject.fixture.ts')) {
+              expect(file.assertionResults).toHaveLength(1)
+              expect(file.assertionResults[0].status, file.name).toBe('failed')
+              expect(
+                file.assertionResults[0].failureMessages.join('\n'),
+              ).toContain('ERP_APP_STORE_EVALUATION_BLOCKED')
+            }
           } else {
             expect(file.status, JSON.stringify(file)).toBe('passed')
           }
         }
-        expect(result.status).toBe(verdict === 'accept' ? 0 : 1)
+        expect(result.status).toBe(
+          verdict === 'reject' || verdict === 'no-tests' ? 1 : 0,
+        )
       }
     }
   } finally {

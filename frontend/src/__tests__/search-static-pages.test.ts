@@ -264,7 +264,7 @@ describe('search STATIC_PAGES vs mounted router', () => {
   })
 })
 
-// This test owns its store; transitive imports must not evaluate the singleton.
+// Router imports reach the application store; stub it completely so the singleton never evaluates.
 vi.mock('@/store', () => ({
   store: {
     getState: () => ({ auth: { isAuthenticated: false, accessToken: null, refreshToken: null } }),
