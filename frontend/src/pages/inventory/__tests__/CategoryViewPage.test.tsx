@@ -23,6 +23,7 @@ vi.mock('@/store/api/inventoryApi', async () => {
   const actual = await vi.importActual<typeof import('@/store/api/inventoryApi')>('@/store/api/inventoryApi')
   return {
     ...actual,
+    useGetCategoryProductsQuery: () => ({ data: { data: [] }, isLoading: false, isError: false }),
     useGetCategoryBySlugQuery: () => ({ data: CATEGORY, isLoading: false, isError: false }),
   }
 })
@@ -111,3 +112,16 @@ describe('CategoryViewPage', () => {
     expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
 })
+
+// This test owns its store; transitive imports must not evaluate the singleton.
+vi.mock('@/store', () => ({
+  store: {
+    getState: () => ({ auth: { isAuthenticated: false, accessToken: null, refreshToken: null } }),
+    dispatch: vi.fn(),
+  },
+  persistor: {
+    getState: () => ({ bootstrapped: true }),
+    subscribe: () => () => {},
+    purge: vi.fn().mockResolvedValue(undefined),
+  },
+}))

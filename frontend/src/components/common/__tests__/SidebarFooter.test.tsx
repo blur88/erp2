@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '@mui/material/styles'
 import { configureStore } from '@reduxjs/toolkit'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import SidebarFooter from '../SidebarFooter'
 import authReducer from '@/store/slices/authSlice'
 import { darkTheme } from '@/styles/theme'
@@ -84,3 +84,16 @@ describe('SidebarFooter (layout shell)', () => {
     expect(window.getComputedStyle(footer).backgroundColor).toBe(`rgb(${r}, ${g}, ${b})`)
   })
 })
+
+// This test owns its store; transitive imports must not evaluate the singleton.
+vi.mock('@/store', () => ({
+  store: {
+    getState: () => ({ auth: { isAuthenticated: false, accessToken: null, refreshToken: null } }),
+    dispatch: vi.fn(),
+  },
+  persistor: {
+    getState: () => ({ bootstrapped: true }),
+    subscribe: () => () => {},
+    purge: vi.fn().mockResolvedValue(undefined),
+  },
+}))
