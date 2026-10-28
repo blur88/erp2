@@ -58,3 +58,17 @@ Two invariants the suite cannot protect; change them only deliberately:
 
 - **The paren spacer stays CSS generated content** (`.stmt-paren-spacer::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would look identical in a browser. `toHaveTextContent('56,800.00')` is a substring assertion and would accept `56,800.00)`; the explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
 - **Every figure renders at the same font size.** The bottom line is distinguished by weight and its double rule. A larger bottom-line figure puts its decimal separator at a different x position from every other row — the misalignment the old two-cell split existed to prevent.
+
+## Tests never evaluate the application store
+
+**Invariant:** No test evaluates `frontend/src/store/index.ts`, directly or transitively. There is no opt-out. Use `createTestStore` (`@/test/createTestStore`) or a complete hoisted `vi.mock('@/store', () => ({ … }))` stub. A future store-wiring test must use an isolated store factory with explicit cleanup; any exception needs its own issue against a concrete need.
+
+**Coverage:** A Vitest-only Vite plugin replaces the entire resolved store module, including its imports, in both configured projects (`node` and `jsdom`). The original code never runs and the singleton is never constructed. A transform alone is not a violation: the replacement records a violation only when it executes, then throws. This observes actual evaluation attempts during configured Vitest runs, whatever the specifier form (including template and interpolated paths) or import depth. Unexecuted paths are not violations; the guard makes no claim about hypothetical paths.
+
+The registry lives on `globalThis` under a `Symbol.for` key and survives module resets. Setup checks unreported entries after each test and after the suite, marking entries reported rather than clearing them. Catching the replacement's throw does not bypass enforcement. The replacement also emits its diagnostic when it executes, so a collection-time attempt in a file with no runnable tests remains visible independently of Vitest's no-tests failure. Complete hoisted stubs and erased type imports do not evaluate the replacement. A `vi.doMock` registered after a static import cannot intercept that import.
+
+**Limitations:** Runs that bypass these configured projects (another config or a non-Vitest runner), and deliberate registry tampering, are outside guard coverage.
+
+**Diagnostics:** Recorded stacks provide context, not a guaranteed importer chain; transformed execution can obscure that chain.
+
+The [integration cases](../../frontend/src/test/__tests__/appStoreRuntimeGuard.test.ts) run the real config and plugin in isolated child processes. Runtime detection replaces the retired source-text matcher: type-erased value-form imports, a stub method sharing the loader parameter's name, and hoist-safe named factories have passing controls. The separate `configureStore(` plus `.middleware` text check remains unchanged. Design decisions are recorded in [issue #1501](https://github.com/blur88/erp2/issues/1501#issuecomment-6463202867).

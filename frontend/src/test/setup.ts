@@ -1,6 +1,23 @@
 import { expect, afterAll, afterEach, beforeAll, vi } from 'vitest'
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
 
+const storeViolationKey = Symbol.for('erp.test.application-store-violations')
+const storeViolations: { stack: string; reported: boolean }[] =
+  ((globalThis as any)[storeViolationKey] ??= [])
+function reportStoreViolations() {
+  const pending = storeViolations.filter(entry => !entry.reported)
+  pending.forEach(entry => { entry.reported = true })
+  if (pending.length) {
+    throw new Error(
+      'ERP_APP_STORE_EVALUATION_BLOCKED: use createTestStore (@/test/createTestStore) ' +
+      "or a complete hoisted vi.mock('@/store', () => ({ … })) stub.\n" +
+      pending.map(entry => entry.stack).join('\n'),
+    )
+  }
+}
+afterEach(reportStoreViolations)
+afterAll(reportStoreViolations)
+
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | undefined
 let consoleWarnSpy: ReturnType<typeof vi.spyOn> | undefined
 const isJsdomEnvironment =
