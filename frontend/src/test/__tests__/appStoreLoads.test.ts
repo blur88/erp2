@@ -1,338 +1,316 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { appStoreLoads } from "../appStoreLoads";
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+import { appStoreLoads } from '../appStoreLoads'
 
-const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const cases: {
-  name: string;
-  source: string;
-  file: string;
-  flagged: boolean;
+  name: string
+  source: string
+  file?: string
+  flagged: boolean
 }[] = [
   {
-    name: "baseline",
-    source: "",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'baseline',
+    source: '',
     flagged: false,
   },
   {
-    name: "value import",
+    name: 'value import',
     source: "import { store } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "relative import",
+    name: 'relative import',
     source: "import { store } from '..\u002f..\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "dynamic import",
+    name: 'dynamic import',
     source: "await import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "mixed import",
+    name: 'mixed import',
     source: "import { type RootState, store } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "importActual",
-    source: "vi.mock('@\u002fstore', async () => vi.importActual('@\u002fstore'))",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'importActual',
+    source:
+      "vi.mock('@\u002fstore', async () => vi.importActual('@\u002fstore'))",
     flagged: true,
   },
   {
-    name: "standalone actual",
+    name: 'standalone actual',
     source: "vi.importActual('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "importMock",
+    name: 'importMock',
     source: "vi.importMock('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "typed importMock",
+    name: 'typed importMock',
     source: "vi.importMock<typeof import('@\u002fstore')>('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "index.js alias",
+    name: 'index.js alias',
     source: "import { store } from '@\u002fstore/index.js'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "index.js relative",
+    name: 'index.js relative',
     source: "import { store } from '..\u002f..\u002fstore/index.js'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "side-effect import at top",
+    name: 'side-effect import at top',
     source: "import '@\u002fstore'\nimport { x } from './other'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "multiline value import",
+    name: 'multiline value import',
     source: "import {\n store\n} from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "type import",
+    name: 'type import',
     source: "import type { RootState } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: false,
   },
   {
-    name: "inline type import",
+    name: 'inline type import',
     source: "import { type RootState } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: false,
   },
   {
-    name: "typeof import",
+    name: 'typeof import',
     source: "type Store = typeof import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: false,
   },
   {
-    name: "side-effect import then import type",
+    name: 'side-effect import then import type',
     source: "import './nothing'\nimport type { RootState } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: false,
   },
   {
-    name: "importOriginal",
-    source: "vi.mock('@\u002fstore', async (original) => ({ ...await original() }))",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'importOriginal',
+    source:
+      "vi.mock('@\u002fstore', async (original) => ({ ...await original() }))",
     flagged: true,
   },
   {
-    name: "unparenthesized loader",
+    name: 'unparenthesized loader',
     source: "vi.mock('@\u002fstore', async original => original())",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "function loader",
+    name: 'function loader',
     source:
       "vi.mock('@\u002fstore', async function (original) { return original() })",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "typed loader",
+    name: 'typed loader',
     source: "vi.mock('@\u002fstore', async (original: any) => original())",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "typed function loader",
+    name: 'typed function loader',
     source:
       "vi.mock('@\u002fstore', async function (original: any) { return original() })",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "dollar loader",
+    name: 'dollar loader',
     source: "vi.mock('@\u002fstore', async ($original) => $original())",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "typed loader $orig",
+    name: 'typed loader $orig',
     source: "vi.mock('@\u002fstore', async ($orig: any) => $orig())",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "typed loader orig$",
+    name: 'typed loader orig$',
     source: "vi.mock('@\u002fstore', async (orig$: any) => orig$())",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "loader",
-    source:
-      "vi.mock('@\u002fstore', async (original) => original())\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'mock original loader',
+    source: "vi.mock('@\u002fstore', async (original) => original())",
     flagged: true,
   },
   {
-    name: "importActual",
+    name: 'importActual factory with dynamic import',
     source:
       "vi.mock('@\u002fstore', async () => vi.importActual('@\u002fstore'))\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "promise loader",
-    source:
-      "vi.mock(import('@\u002fstore'), async (original) => original())\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'promise loader',
+    source: "vi.mock(import('@\u002fstore'), async (original) => original())",
     flagged: true,
   },
   {
-    name: "promise stub",
+    name: 'promise stub',
     source:
       "vi.mock(import('@\u002fstore'), () => ({ store: {} }))\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: false,
   },
   {
-    name: "stub",
+    name: 'stub',
     source:
       "vi.mock('@\u002fstore', () => ({ store: {} }))\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: false,
   },
   {
-    name: "doMock loader",
-    source:
-      "vi.doMock('@\u002fstore', async (original) => original())\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'doMock loader',
+    source: "vi.doMock('@\u002fstore', async (original) => original())",
     flagged: true,
   },
   {
-    name: "doMock importActual",
+    name: 'doMock importActual',
     source:
       "vi.doMock('@\u002fstore', async () => vi.importActual('@\u002fstore'))\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "doMock promise loader",
-    source:
-      "vi.doMock(import('@\u002fstore'), async (original) => original())\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'doMock promise loader',
+    source: "vi.doMock(import('@\u002fstore'), async (original) => original())",
     flagged: true,
   },
   {
-    name: "doMock promise stub",
+    name: 'doMock promise stub',
     source:
       "vi.doMock(import('@\u002fstore'), () => ({ store: {} }))\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "doMock stub",
+    name: 'doMock stub',
     source:
       "vi.doMock('@\u002fstore', () => ({ store: {} }))\nawait import('@\u002fstore')",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "spy options",
+    name: 'spy options',
     source: "vi.mock('@\u002fstore', { spy: true })",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "promise spy options",
+    name: 'promise spy options',
     source: "vi.mock(import('@\u002fstore'), { spy: true })",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "unrelated actual",
+    name: 'unrelated actual',
     source:
       "vi.mock('@\u002fstore', async () => { await vi.importActual('./other'); return {} })\nimport { store } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: false,
   },
   {
-    name: "stub static import",
-    source: "vi.mock('@\u002fstore', () => ({}))\nimport { store } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'stub static import',
+    source:
+      "vi.mock('@\u002fstore', () => ({}))\nimport { store } from '@\u002fstore'",
     flagged: false,
   },
   {
-    name: "doMock stub + static import",
-    source: "vi.doMock('@\u002fstore', () => ({}))\nimport { store } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'doMock stub + static import',
+    source:
+      "vi.doMock('@\u002fstore', () => ({}))\nimport { store } from '@\u002fstore'",
     flagged: true,
   },
   {
-    name: "dynamic import before doMock",
-    source: "await import('@\u002fstore')\nvi.doMock('@\u002fstore', () => ({}))",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'dynamic import before doMock',
+    source:
+      "await import('@\u002fstore')\nvi.doMock('@\u002fstore', () => ({}))",
     flagged: true,
   },
   {
-    name: "beforeAll dynamic import + later doMock stub",
+    name: 'beforeAll dynamic import + later doMock stub',
     source:
       "beforeAll(async () => { await import('@\u002fstore') })\nvi.doMock('@\u002fstore', () => ({}))",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "Accepted false positive (#1479): untyped RootState",
+    name: 'Accepted false positive (#1479): untyped RootState',
     source: "import { RootState } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "Accepted false positive (#1479): loader-named stub method",
+    name: 'Accepted false positive (#1479): loader-named stub method',
     source: "vi.mock('@\u002fstore', (original) => ({ original() {} }))",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "Accepted false positive (#1479): named factory",
+    name: 'Accepted false positive (#1479): named factory',
     source: "vi.mock('@\u002fstore', factory)",
-    file: "test/__tests__/fixture.test.ts",
     flagged: true,
   },
   {
-    name: "Accepted residual (#1479), target of #1501: line comment",
+    name: 'Accepted residual (#1479), target of #1501: line comment',
     source:
       "// vi.mock('@\u002fstore', () => ({}))\nimport { store } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: false,
   },
   {
-    name: "Accepted residual (#1479), target of #1501: block comment",
+    name: 'Accepted residual (#1479), target of #1501: block comment',
     source:
       "/* vi.mock('@\u002fstore', () => ({})) */\nimport { store } from '@\u002fstore'",
-    file: "test/__tests__/fixture.test.ts",
     flagged: false,
   },
   {
-    name: "Accepted residual (#1479), target of #1501: template literal",
-    source: "await import(`@\u002fstore`)",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'Accepted residual (#1479), target of #1501: template literal',
+    source: 'await import(`@\u002fstore`)',
     flagged: false,
   },
   {
-    name: "Accepted residual (#1479), target of #1501: transitive component",
-    source: "import Sidebar from '@/components/Sidebar'",
-    file: "test/__tests__/fixture.test.ts",
+    name: 'Accepted residual (#1479), target of #1501: transitive component',
+    source: "import SidebarUserMenu from '@/components/common/SidebarUserMenu'",
     flagged: false,
   },
-];
+  {
+    name: 'index alias',
+    source: "import { store } from '@\u002fstore/index'",
+    flagged: true,
+  },
+  {
+    name: 'index relative',
+    source: "import { store } from '..\u002f..\u002fstore/index'",
+    flagged: true,
+  },
+  {
+    name: 'index.ts alias',
+    source: "import { store } from '@\u002fstore/index.ts'",
+    flagged: true,
+  },
+  {
+    name: 'index.ts relative',
+    source: "import { store } from '..\u002f..\u002fstore/index.ts'",
+    flagged: true,
+  },
+  {
+    name: 'standalone doMock stub',
+    source: "vi.doMock('@\u002fstore', () => ({ store: {} }))",
+    flagged: false,
+  },
+  {
+    name: 'unchanged router.test.tsx shape',
+    file: '__tests__/router.test.tsx',
+    source:
+      "import { store as appStore } from '@\u002fstore'\nvi.mock('@\u002fstore', () => ({ store: { getState: vi.fn() } }))",
+    flagged: false,
+  },
+]
 
-describe("application store loads", () => {
-  it('standalone doMock original loader', () => {
-    const source = "vi.doMock('@" + "/store', async (original) => original())"
-    expect(appStoreLoads(source, path.join(SRC, 'test/fixture.test.ts'))).toBe(true)
-  })
-  it.each(cases)("$name", ({ source, file, flagged }) => {
-    expect(appStoreLoads(source, path.join(SRC, file))).toBe(flagged);
-  });
-  it("unchanged router.test.tsx shape", () => {
-    const file = path.join(SRC, "__tests__/router.test.tsx");
-    expect(appStoreLoads(readFileSync(file, "utf8"), file)).toBe(false);
-  });
-});
+describe('application store loads', () => {
+  it.each(cases)(
+    '$name',
+    ({ source, file = 'test/__tests__/fixture.test.ts', flagged }) => {
+      expect(appStoreLoads(source, path.join(SRC, file))).toBe(flagged)
+    },
+  )
+})

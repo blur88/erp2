@@ -110,6 +110,6 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 ### Tracked text guard cases
 
 - **Rule:** Every shape a text guard comment claims to detect, and every accepted limitation, has a tracked test case pinning its verdict. Do not claim a shape without a case.
-- **Why:** Tracked verdicts make matcher changes reviewable, as [issue #1502](https://github.com/blur88/erp2/issues/1502) requires.
-- **Diff failure:** The [#1479 side-effect import gap](https://github.com/blur88/erp2/pull/1500) survived review without a tracked case.
+- **Why:** A shape without a tracked case survived five review rounds, as [issue #1502](https://github.com/blur88/erp2/issues/1502) records.
+- **Diff failure:** The [#1479 / PR #1500 side-effect import gap](https://github.com/blur88/erp2/pull/1500) survived review without a tracked case.
 - **Trace:** [Issue #1502](https://github.com/blur88/erp2/issues/1502) and [application-store cases](frontend/src/test/__tests__/appStoreLoads.test.ts).
