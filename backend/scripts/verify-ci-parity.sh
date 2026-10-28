@@ -6,9 +6,9 @@
 # drifts, or when the job or either suite's step is made conditional
 # (`if:`) or non-gating (`continue-on-error:`).
 #
-# It checks the image and the two commands' steps only. It does not catch a
-# command that still runs but is narrowed or masked (extra Jest arguments,
-# `|| true`). The environment comparison reads the untracked backend/.env.test
+# It checks the image, the job, and the two commands' steps only. It does not
+# catch a command that still runs but is narrowed or masked (extra Jest
+# arguments, `|| true`, a changed `working-directory`). The environment comparison reads the untracked backend/.env.test
 # and stays a manual recheck.
 
 set -euo pipefail
@@ -67,7 +67,8 @@ if grep -Eq '^    (if|continue-on-error):' <<<"$job"; then
   failed=1
 fi
 
-# Each step of the job, numbered: "<step> <line>".
+# Each step of the job, numbered: "<step> <line>". Lines after the last step
+# keep its number.
 steps="$(awk '/^      - / { n++ } n { print n " " $0 }' <<<"$job")"
 
 for script in test test:e2e; do
