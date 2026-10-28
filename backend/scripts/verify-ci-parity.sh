@@ -8,8 +8,8 @@
 #
 # It checks the image, the job, and the two commands' steps only. It does not
 # catch a command that still runs but is narrowed or masked (extra Jest
-# arguments, `|| true`, a changed `working-directory`). The environment comparison reads the untracked backend/.env.test
-# and stays a manual recheck.
+# arguments, `|| true`, a changed `working-directory`). The environment
+# comparison reads the untracked backend/.env.test and stays a manual recheck.
 
 set -euo pipefail
 
