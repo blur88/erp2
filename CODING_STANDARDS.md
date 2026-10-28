@@ -105,7 +105,7 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 - **Rule:** A guard skips only on a condition it has verified. When computing that condition fails (a command exits non-zero, a path does not resolve), the guard fails.
 - **Why:** An error in the skip computation is indistinguishable from "nothing to check", so the guard passes code it never checked.
 - **Diff failure:** The #1496 freshness guard as first written (`SRC_DIR="$(cd "$DIST_DIR" && pwd)/../src"` gating `[ -d "$SRC_DIR" ]`) skipped silently when `CDPATH` was exported; found in PR #1509 review round 4.
-- **Trace:** `backend/scripts/verify-dist-runtime.sh`, `backend/scripts/__tests__/verify-dist-runtime.bats`, [#1496](https://github.com/blur88/erp2/issues/1496), [#1511](https://github.com/blur88/erp2/issues/1511), [PR #1509](https://github.com/blur88/erp2/pull/1509).
+- **Trace:** [backend/scripts/verify-dist-runtime.sh](backend/scripts/verify-dist-runtime.sh), [backend/scripts/__tests__/verify-dist-runtime.bats](backend/scripts/__tests__/verify-dist-runtime.bats), [#1496](https://github.com/blur88/erp2/issues/1496), [#1511](https://github.com/blur88/erp2/issues/1511), [PR #1509](https://github.com/blur88/erp2/pull/1509).
 
 ### Complete report assertions
 
