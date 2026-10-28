@@ -128,3 +128,129 @@ remote_has() {
   [[ "$output" == *"could not fetch main from empty"* ]]
   git -C "$EMPTY" rev-parse -q --verify refs/heads/docs/1-example
 }
+
+# Compare the hook report separately from Git's own failure summary.
+assert_hook_report() {
+  [ "$output" = "$1
+error: failed to push some refs to '$REMOTE'" ]
+}
+
+# npm is the external suite boundary: no recursive test:scripts invocation.
+prepare_script_change() {
+  git switch -q -c scripts/test
+  mkdir -p backend "$BATS_TEST_TMPDIR/bin"
+  printf '#!/bin/sh\nexit 0\n' > check.sh
+  git add check.sh
+  git commit -q -m script
+  printf '#!/bin/sh\nprintf "%%s|%%s\\n" "$PWD" "$*" >> "%s/npm-calls"\nexit "${SUITE_STATUS:-0}"\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/bin/npm"
+  chmod +x "$BATS_TEST_TMPDIR/bin/npm"
+  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+}
+
+@test "refuses script push when the script suite fails" {
+  prepare_script_change
+  export SUITE_STATUS=1
+  run git push -q origin scripts/test
+  [ "$status" -ne 0 ]
+  ! remote_has scripts/test
+  assert_hook_report "pre-push: script suite failed; push refused"
+  [ "$(cat "$BATS_TEST_TMPDIR/npm-calls")" = "$REPO/backend|run test:scripts" ]
+}
+
+@test "allows script push after successful suite" {
+  prepare_script_change
+  run git push -q origin scripts/test
+  [ "$status" -eq 0 ]
+  remote_has scripts/test
+  [ "$(cat "$BATS_TEST_TMPDIR/npm-calls")" = "$REPO/backend|run test:scripts" ]
+}
+
+@test "checks script commits even when reverted in the pushed range" {
+  prepare_script_change
+  git revert --no-edit HEAD
+  export SUITE_STATUS=1
+  run git push -q origin scripts/test
+  [ "$status" -ne 0 ]
+  assert_hook_report "pre-push: script suite failed; push refused"
+  [ -f "$BATS_TEST_TMPDIR/npm-calls" ]
+}
+
+@test "refuses testing a different checkout or dirty tracked files" {
+  prepare_script_change
+  git switch -q main
+  run git push -q origin scripts/test
+  [ "$status" -ne 0 ]
+  assert_hook_report "pre-push: check out the pushed script commit before pushing"
+  git switch -q scripts/test
+  echo dirty >> check.sh
+  run git push -q origin scripts/test
+  [ "$status" -ne 0 ]
+  assert_hook_report "pre-push: commit or stash tracked changes before testing pushed scripts"
+  [ ! -f "$BATS_TEST_TMPDIR/npm-calls" ]
+}
+
+@test "skips suite for non-script changes and deleted refs" {
+  prepare_script_change
+  git push -q origin scripts/test
+  rm "$BATS_TEST_TMPDIR/npm-calls"
+  echo docs > README.md
+  git add README.md
+  git commit -q -m docs
+  export SUITE_STATUS=1
+  run git push -q origin scripts/test
+  [ "$status" -eq 0 ]
+  run git push -q origin --delete scripts/test
+  [ "$status" -eq 0 ]
+  [ ! -f "$BATS_TEST_TMPDIR/npm-calls" ]
+}
+
+@test "checks bash bats backend script paths and extensionless hooks" {
+  prepare_script_change
+  git push -q origin scripts/test
+  for path in check.bash check.bats backend/scripts/config.json .githooks/pre-commit .githooks/pre-push; do
+    mkdir -p "$(dirname "$path")"
+    echo "# changed" >> "$path"
+    git add "$path"
+    git commit -q -m change
+    export SUITE_STATUS=1
+    run git push -q origin scripts/test
+    [ "$status" -ne 0 ]
+    assert_hook_report "pre-push: script suite failed; push refused"
+    export SUITE_STATUS=0
+    git push -q origin scripts/test
+  done
+}
+
+@test "refuses a staged change even when working file matches HEAD" {
+  prepare_script_change
+  echo staged >> check.sh
+  git add check.sh
+  git show HEAD:check.sh > check.sh
+  run git push -q origin scripts/test
+  [ "$status" -ne 0 ]
+  assert_hook_report "pre-push: commit or stash tracked changes before testing pushed scripts"
+  [ ! -f "$BATS_TEST_TMPDIR/npm-calls" ]
+}
+
+@test "checks script edits introduced by a merge commit" {
+  prepare_script_change
+  git push -q origin scripts/test
+  rm "$BATS_TEST_TMPDIR/npm-calls"
+  git switch -q -c docs/side
+  echo side > side.md
+  git add side.md
+  git commit -q -m side
+  git switch -q scripts/test
+  echo topic > topic.md
+  git add topic.md
+  git commit -q -m topic
+  git merge --no-commit --no-ff docs/side
+  echo '# merge edit' >> check.sh
+  git add check.sh
+  git commit -q -m merge
+  export SUITE_STATUS=1
+  run git push -q origin scripts/test
+  [ "$status" -ne 0 ]
+  assert_hook_report "pre-push: script suite failed; push refused"
+  [ -f "$BATS_TEST_TMPDIR/npm-calls" ]
+}
