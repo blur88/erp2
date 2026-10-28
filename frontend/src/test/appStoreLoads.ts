@@ -29,8 +29,8 @@ export function appStoreLoads(text: string, file: string): boolean {
         : ''
     return storePaths.includes(resolved)
   }
-  // Capture a complete mock call, balancing parentheses so nested calls and
-  // multiline factories do not truncate the factory at its first return.
+  // Capture a complete mock call, balancing parentheses so nested calls
+  // do not truncate the factory at its first return.
   let stubbed = false
   for (const match of text.matchAll(
     /vi\.(?<method>mock|doMock)\(\s*(?:import\s*\(\s*)?(?<quote>['"])(?<specifier>[^'"]+)\k<quote>\s*\)?\s*,/g,

@@ -175,7 +175,7 @@ const cases: {
   {
     name: 'doMock importActual',
     source:
-      "vi.doMock('@\u002fstore', async () => vi.importActual('@\u002fstore'))\nawait import('@\u002fstore')",
+      "vi.doMock('@\u002fstore', async () => vi.importActual('@\u002fstore'))",
     flagged: true,
   },
   {
