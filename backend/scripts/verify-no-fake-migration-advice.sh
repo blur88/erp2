@@ -7,8 +7,8 @@
 
 set -euo pipefail
 
-REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-REPO_DIR="$(cd "$REPO_DIR" && pwd)"
+REPO_DIR="${1:-$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+REPO_DIR="$(CDPATH= cd -- "$REPO_DIR" && pwd)"
 
 PATTERN='--fake'
 

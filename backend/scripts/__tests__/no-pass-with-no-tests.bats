@@ -19,8 +19,8 @@
 # are deliberately omitted because stale counts train readers to wave
 # mismatches through; the property that matters is asserted here.
 
-BACKEND_DIR="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
-REPO_DIR="$(cd "${BACKEND_DIR}/.." && pwd)"
+BACKEND_DIR="$(CDPATH= cd -- "${BATS_TEST_DIRNAME}/../.." && pwd)"
+REPO_DIR="$(CDPATH= cd -- "${BACKEND_DIR}/.." && pwd)"
 
 # Every file that configures or invokes a Jest run. A new Jest config or a new
 # workflow that runs Jest must be added here, or it is unguarded.

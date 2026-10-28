@@ -9,7 +9,7 @@
 SENTINEL_PASSWORD='s3ntinel-do-not-print'
 
 # Absolute path to backend/scripts (the directory under test).
-SCRIPTS_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+SCRIPTS_DIR="$(CDPATH= cd -- "${BATS_TEST_DIRNAME}/.." && pwd)"
 
 setup_harness() {
   TEST_TMP="$(mktemp -d)"
