@@ -24,7 +24,8 @@ try {
     if (typeof body !== "string") {
       throw new Error("PR_BODY_JSON must contain a PR body string");
     }
-    // GitHub closing keywords ignore negation; do not filter "does NOT close".
+    // Supports closing keywords followed by #N or a full issue URL (any repository).
+    // Ignores negation; do not filter "does NOT close".
     const closing =
       /\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?)\s+(?:#([1-9]\d*)\b|https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/([1-9]\d*)\b)/gi;
     const issues = [

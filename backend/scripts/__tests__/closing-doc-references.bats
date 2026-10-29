@@ -52,6 +52,33 @@ setup() {
   [ "$output" = 'docs/testing.md:1: #42: Work is deferred to #42.' ]
 }
 
+@test "limitation: repository-qualified shorthand is not detected" {
+  printf 'Work is tracked in #42.\n' > "$REPO/docs/testing.md"
+  git -C "$REPO" add .
+  export PR_BODY_JSON='"Closes OWNER/REPO#42"'
+  run node "$CHECK" "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$output" = '' ]
+}
+
+@test "limitation: a colon after the closing keyword is not detected" {
+  printf 'Work is tracked in #42.\n' > "$REPO/docs/testing.md"
+  git -C "$REPO" add .
+  export PR_BODY_JSON='"Closes: #42"'
+  run node "$CHECK" "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$output" = '' ]
+}
+
+@test "limitation: another repository's full URL also matches the local issue number" {
+  printf 'Work is tracked in #42.\n' > "$REPO/docs/testing.md"
+  git -C "$REPO" add .
+  export PR_BODY_JSON='"Closes https://github.com/other/repo/issues/42"'
+  run node "$CHECK" "$REPO"
+  [ "$status" -eq 1 ]
+  [ "$output" = 'docs/testing.md:1: #42: Work is tracked in #42.' ]
+}
+
 @test "reports all lines and issues once including URL-only doc references" {
   printf 'Work left to #42 and #7.\nKnown exception: [ticket](https://github.com/blur88/erp2/issues/42).\n' > "$REPO/docs/testing.md"
   printf 'Work tracked in #7.\n' > "$REPO/README.md"
