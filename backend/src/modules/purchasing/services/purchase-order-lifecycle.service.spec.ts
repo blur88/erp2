@@ -328,6 +328,11 @@ describe('PurchaseOrderLifecycleService', () => {
           getRepository: (entity: any) => {
             if (entity === PurchaseOrder) return poRepo;
             if (entity === PurchaseOrderItem) return itemRepo;
+            if (entity === Product) {
+              return {
+                findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }),
+              };
+            }
             return {};
           },
         }),
@@ -406,6 +411,11 @@ describe('PurchaseOrderLifecycleService', () => {
           getRepository: (entity: any) => {
             if (entity === PurchaseOrder) return poRepo;
             if (entity === PurchaseOrderItem) return itemRepo;
+            if (entity === Product) {
+              return {
+                findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }),
+              };
+            }
             return {};
           },
         }),
@@ -464,6 +474,11 @@ describe('PurchaseOrderLifecycleService', () => {
             }
             if (entity === PurchaseOrder) return poRepo;
             if (entity === PurchaseOrderItem) return itemRepo;
+            if (entity === Product) {
+              return {
+                findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }),
+              };
+            }
             return {};
           },
         }),

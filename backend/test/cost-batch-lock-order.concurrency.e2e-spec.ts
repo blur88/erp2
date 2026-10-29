@@ -488,4 +488,122 @@ describe("Cost batch lock order (#1498, PostgreSQL)", () => {
       ).toBe(SalesOrderStatus.FULFILLED);
     }
   }, 25000);
+
+  // #1512 regression: receive with forced opposite item orders.
+  async function readyPurchase(products: Product[], quantity: number) {
+    const suppliers = ds.getRepository(Supplier);
+    const supplier = await suppliers.save(
+      suppliers.create({ companyName: unique() }),
+    );
+    supplierIds.push(supplier.id);
+    const total = products.length * quantity * 10;
+    const orders = ds.getRepository(PurchaseOrder);
+    const po = await orders.save(
+      orders.create({
+        orderNumber: unique(),
+        orderDate: new Date(),
+        supplierId: supplier.id,
+        status: PurchaseOrderStatus.READY,
+        subtotal: total,
+        totalAmount: String(total),
+      }),
+    );
+    documentIds.push(po.id);
+    const items = ds.getRepository(PurchaseOrderItem);
+    for (const [index, p] of products.entries()) {
+      await items.save(
+        items.create({
+          purchaseOrderId: po.id,
+          productId: p.id,
+          lineNumber: index + 1,
+          quantity,
+          unitCost: 10,
+          totalAmount: quantity * 10,
+        }),
+      );
+    }
+    return po;
+  }
+
+  function forceLineOrder() {
+    const findOne = EntityManager.prototype.findOne;
+    jest
+      .spyOn(EntityManager.prototype, "findOne")
+      .mockImplementation(async function (this: EntityManager, ...args: any[]) {
+        const row = await (findOne as any).apply(this, args);
+        if (
+          context.getStore() &&
+          (args[0] === PurchaseOrder || args[0] === SalesOrder) &&
+          row?.items
+        ) {
+          row.items.sort((x: any, y: any) => x.lineNumber - y.lineNumber);
+        }
+        return row;
+      });
+  }
+
+  async function ascendingProducts() {
+    const byId = new Map(
+      [await product(), await product()].map((p) => [p.id, p]),
+    );
+    return [...byId.keys()].sort().map((id) => byId.get(id)!);
+  }
+
+  it("E: opposite item orders cannot deadlock two multi-product receives", async () => {
+    const [p, q] = await ascendingProducts();
+    const a = await readyPurchase([p, q], 4);
+    const b = await readyPurchase([q, p], 6);
+    forceLineOrder();
+    const gate = barrier();
+    let held = false;
+    const firstOp: Operation = {
+      afterQuery: async (sql) => {
+        // After A's first batch insert: base holds P only; fixed holds P and Q.
+        if (!held && sql.startsWith('INSERT INTO "purchase_cost_history"')) {
+          held = true;
+          await gate.hold();
+        }
+      },
+    };
+    const secondOp: Operation = {};
+    const first = start(firstOp, () => purchasing.receive(a.id));
+    await gate.reached();
+    const second = start(secondOp, () => purchasing.receive(b.id));
+    await blockedBy(secondOp, firstOp); // Base: B holds Q, waits P. Fixed: B waits P.
+    gate.release();
+    expect(await bounded(Promise.all([first, second]), "E completion")).toEqual(
+      [{ status: "committed" }, { status: "committed" }],
+    );
+    for (const x of [p, q])
+      expect(await balances(x)).toEqual({ stock: 110, batches: 110 });
+  }, 25000);
+
+  it("F: a reverse-order receive cannot deadlock an ascending fulfil", async () => {
+    const [p, q] = await ascendingProducts();
+    const po = await readyPurchase([q, p], 4);
+    const so = await readyOrder([p, q], 3);
+    forceLineOrder();
+    const gate = barrier();
+    let held = false;
+    const receiving: Operation = {
+      afterQuery: async (sql) => {
+        // After the receive's first batch insert: base holds Q only.
+        if (!held && sql.startsWith('INSERT INTO "purchase_cost_history"')) {
+          held = true;
+          await gate.hold();
+        }
+      },
+    };
+    const fulfill: Operation = {};
+    const first = start(receiving, () => purchasing.receive(po.id));
+    await gate.reached();
+    const second = start(fulfill, () => sales.fulfillOrder(so.id));
+    await blockedBy(fulfill, receiving); // Base: fulfil holds P, waits Q. Fixed: waits P.
+    gate.release();
+    expect(await bounded(Promise.all([first, second]), "F completion")).toEqual(
+      [{ status: "committed" }, { status: "committed" }],
+    );
+    for (const x of [p, q])
+      expect(await balances(x)).toEqual({ stock: 101, batches: 101 });
+  }, 25000);
 });

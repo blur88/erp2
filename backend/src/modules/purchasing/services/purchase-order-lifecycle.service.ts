@@ -169,6 +169,11 @@ export class PurchaseOrderLifecycleService {
       const receiveDate = new Date();
 
       const items = purchaseOrder.items || [];
+      // Acquire every product before any cost-batch write (#1512).
+      const productIds = [...new Set(items.map((item) => item.productId))].sort();
+      for (const productId of productIds) {
+        await lockProductForStockUpdate(manager, Product, productId);
+      }
 
       // Allocate shipping across the whole PO at once so the shares sum to the
       // PO shipping total exactly (#1241). Weights are line values on the same
