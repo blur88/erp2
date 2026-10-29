@@ -128,7 +128,7 @@ The pattern precedes the variadic `--reporters` option. These invoke the full `t
 
 ### Deterministic concurrency tests (#1498)
 
-A test that claims two transactions deadlock, lose an update or serialise must force the interleaving and prove each wait from PostgreSQL. `test/cost-batch-lock-order.concurrency.e2e-spec.ts` is the pattern to copy. Its helpers are still local to that file; extracting them into `test/utils/` is left to [#1512](https://github.com/blur88/erp2/issues/1512), the next suite that needs them.
+A test that claims two transactions deadlock, lose an update or serialise must force the interleaving and prove each wait from PostgreSQL. `test/cost-batch-lock-order.concurrency.e2e-spec.ts` is the pattern to copy. Its helpers are still local to that file.
 
 - **Barriers at the SQL boundary.** `beforeEach` wraps `DataSource.createQueryRunner`. A runner created inside an `AsyncLocalStorage` operation (`start()`) records its backend pid at `START TRANSACTION`, sets `SET LOCAL statement_timeout = '15s'`, and calls the operation's `afterQuery(sql)` hook after each query. A test holds a transaction with `barrier().hold()` immediately after a named statement (for example `UPDATE "purchase_cost_history"`), through the real services.
 - **Prove the wait, not the time.** `blockedBy(waiter, holder)` returns only when `pg_stat_activity` shows the waiter with `wait_event_type = 'Lock'` and `pg_blocking_pids` includes the holder's pid. Elapsed time is never evidence; no `Promise.all` race or sleep stands in for a barrier.
