@@ -44,6 +44,22 @@ vi.mock('@/hooks/useNotification', async (importOriginal) => {
   }
 })
 
+vi.mock('@/hooks/useCurrency', () => ({
+  useCurrency: () => ({ currency: '$' }),
+}))
+
+vi.mock('@/hooks/useDuplicateCheck', () => ({
+  useDuplicateCheck: () => ({
+    checkDuplicate: vi.fn(),
+    nameError: '',
+    barcodeError: '',
+    hasNameDuplicate: false,
+    hasBarcodeDuplicate: false,
+    hasCheckedName: false,
+    hasCheckedBarcode: false,
+  }),
+}))
+
 vi.mock('@/hooks/useUnsavedChangesGuard', () => ({
   useUnsavedChangesGuard: () => ({ UnsavedChangesDialog: null }),
 }))

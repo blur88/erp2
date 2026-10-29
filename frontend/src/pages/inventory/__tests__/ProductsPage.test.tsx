@@ -16,6 +16,7 @@ vi.mock('@/store/api/inventoryApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/store/api/inventoryApi')>()
   return {
     ...actual,
+    useGetCategoriesQuery: () => ({ data: [] }),
     useGetProductsQuery: (params: unknown) => {
       getProductsSpy(params)
       return {

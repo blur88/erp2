@@ -1,0 +1,13 @@
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET http://127.0.0.1:38031/1522-probe
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET http://localhost:3001/1522-probe
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+PASS: unhandled fetches rejected by MSW; real HTTP listener received 0 requests

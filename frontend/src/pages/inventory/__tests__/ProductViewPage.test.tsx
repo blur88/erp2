@@ -8,6 +8,7 @@ vi.mock('@/store/api/inventoryApi', async () => {
   const actual = await vi.importActual<typeof import('@/store/api/inventoryApi')>('@/store/api/inventoryApi')
   return {
     ...actual,
+    useGetStockMovementsQuery: () => ({ data: { data: [], meta: { total: 0 } }, isLoading: false, isError: false }),
     useGetProductBySlugQuery: () => ({
       data: {
         id: 'p1', slug: 'widget', name: 'Widget', barcode: 'B1', type: 'Stocked Product',
@@ -17,6 +18,11 @@ vi.mock('@/store/api/inventoryApi', async () => {
       isError: false,
     }),
   }
+})
+
+vi.mock('@/store/api/settingsApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/store/api/settingsApi')>()
+  return { ...actual, useGetRegionalSettingsQuery: () => ({ data: undefined }) }
 })
 
 import { inventoryApiSlice } from '@/store/api/inventoryApi'
