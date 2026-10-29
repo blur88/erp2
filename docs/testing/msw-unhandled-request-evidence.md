@@ -77,4 +77,8 @@ The optional lint guard is omitted.
 
 ## Inventory
 
-Full inventory run is pending; the positive control remains present for that run.
+The full run completed: 2,980 tests, 2,977 passed and 3 failed. The complete failure list is in `msw-unhandled-request-inventory.json`. The positive control appears with its expected diagnostic. No other test failed with an unhandled-request diagnostic, so no missing mocks were found to repair.
+
+Two UI assertion failures also appeared (preview call count and post-create navigation); neither included an unhandled-request diagnostic. Targeted rerun: `cd frontend && npx vitest run src/pages/accounting/bank-reconciliations/__tests__/BankReconciliationFormPage.test.tsx src/pages/accounting/provider-settlements/__tests__/ProviderSettlementFormPage.test.tsx --reporter=json --outputFile=/tmp/1538-rerun.json` exited 0: 101 passed, 0 failed. These failures did not reproduce; no assertions or mocks were changed. The same committed implementation passed the full frontend CI coverage job in run 40938719516 at `03dc105ccb68d9d52fcf09ef2751887cfb83c730`.
+
+The temporary positive control was removed after inventory; its source and mutation output remain above. Permanent fixture coverage remains in the child-process regression harness.
