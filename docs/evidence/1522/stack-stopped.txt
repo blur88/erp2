@@ -1,13 +1,19 @@
-[MSW] Error: intercepted a request without a matching request handler:
+NAME      IMAGE     COMMAND   SERVICE   CREATED   STATUS    PORTS
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 
-  • GET http://127.0.0.1:38031/1522-probe
+ RUN  v5.0.3 /home/blur/erp2/frontend
 
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-[MSW] Error: intercepted a request without a matching request handler:
 
-  • GET http://localhost:3001/1522-probe
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  23:58:49
+   Duration  1.20s (setup 32%, import 23%, tests 22%, transform 20%, worker 3%)
 
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-PASS: unhandled fetches rejected by MSW; real HTTP listener received 0 requests
