@@ -4,6 +4,8 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 ## Conventions
 
+- Use `Closes #N` only when the PR finishes every open item in #N. Otherwise use `Refs #N` and keep #N open, or move the remaining items to a new linked issue first.
+
 - **Guard or analyser issues**: include an acceptance criterion that every exclusion introduced by the implementation is named in a comment and pinned by a test case, following the test-coverage rule in [Tracked guard cases](../../CODING_STANDARDS.md#tracked-guard-cases).
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
