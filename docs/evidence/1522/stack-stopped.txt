@@ -1,0 +1,19 @@
+NAME      IMAGE     COMMAND   SERVICE   CREATED   STATUS    PORTS
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.3 /home/blur/erp2/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  23:58:49
+   Duration  1.20s (setup 32%, import 23%, tests 22%, transform 20%, worker 3%)
+

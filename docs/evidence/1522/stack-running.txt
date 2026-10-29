@@ -1,0 +1,24 @@
+NAME           IMAGE                      COMMAND                  SERVICE    CREATED      STATUS                    PORTS
+erp_backend    erp-backend:latest         "/usr/bin/dumb-init …"   backend    3 days ago   Up 23 minutes (healthy)   0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp
+erp_frontend   erp-frontend:latest        "/docker-entrypoint.…"   frontend   3 days ago   Up 22 minutes (healthy)   0.0.0.0:3000->80/tcp, [::]:3000->80/tcp
+erp_nginx      erp-nginx:latest           "/docker-entrypoint.…"   nginx      3 days ago   Up 22 minutes (healthy)   0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp
+erp_postgres   postgres:18.3-alpine3.23   "docker-entrypoint.s…"   postgres   7 days ago   Up 23 minutes (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+erp_redis      redis:8.6.2-alpine3.23     "docker-entrypoint.s…"   redis      7 days ago   Up 23 minutes (healthy)   0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.3 /home/blur/erp2/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  23:57:37
+   Duration  1.12s (setup 32%, import 24%, tests 21%, transform 20%, worker 3%)
+

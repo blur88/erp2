@@ -28,6 +28,11 @@ vi.mock('@/store/api/inventoryApi', async () => {
   }
 })
 
+vi.mock('@/store/api/settingsApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/store/api/settingsApi')>()
+  return { ...actual, useGetRegionalSettingsQuery: () => ({ data: undefined }) }
+})
+
 import { inventoryApiSlice } from '@/store/api/inventoryApi'
 import { settingsApiSlice } from '@/store/api/settingsApi'
 import { formatDate } from '@/utils/formatters'
