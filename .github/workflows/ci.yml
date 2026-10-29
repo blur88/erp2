@@ -99,6 +99,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check closing issue references in documentation
+        run: node scripts/verify-closing-doc-references.mjs
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          # JSON preserves the distinction between a missing body and an empty
+          # string, and keeps untrusted PR text out of shell interpolation.
+          PR_BODY_JSON: ${{ toJSON(github.event.pull_request.body) }}
+
       - name: Lint
         run: npm run lint:check
 

@@ -19,6 +19,16 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
+## Writing an agent brief
+
+Before posting a brief for issue #N, substitute its number and run:
+
+```bash
+git grep -nE '#N\b|issues/N\b' -- ':!docs/archive'
+```
+
+Every hit that hands unfinished work to the issue becomes an acceptance criterion that applies whichever way the work goes: either do the work, or reword the line to describe the resulting decision. Do not make pointer cleanup optional when the implementation is optional.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
