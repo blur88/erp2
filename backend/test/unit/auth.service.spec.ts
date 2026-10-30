@@ -327,6 +327,7 @@ describe("AuthService", () => {
       expect(result).toBeDefined();
       expect(result.user.username).toBe("testuser");
       expect(result.user).not.toHaveProperty("password"); // Password should be removed
+      expect(result.user).not.toHaveProperty("tokenVersion");
     });
 
     it("should throw UnauthorizedException for invalid username", async () => {

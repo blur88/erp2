@@ -288,14 +288,16 @@ export class AuthService {
   }
 
   /**
-   * Logout - invalidate all refresh tokens for user
+   * Sign out: increment the token version and delete every refresh token
    */
   async logout(userId: string): Promise<void> {
     await this.userRepository.manager.transaction(async (manager) => {
       await this.lockUser(manager, userId, 'signOut');
       await this.revokeSessions(manager, userId);
     });
-    this.logger.log(`User ${userId} logged out - all tokens invalidated`);
+    this.logger.log(
+      `Sign out: increment the token version and delete every refresh token for user ${userId}`,
+    );
   }
 
   /**
@@ -554,7 +556,8 @@ export class AuthService {
    * Remove sensitive data from user object
    */
   private sanitizeUser(user: User): Partial<User> {
-    const { password, failedLoginAttempts, lockedUntil, ...sanitized } = user;
+    const { password, failedLoginAttempts, lockedUntil, tokenVersion, ...sanitized } =
+      user;
     return sanitized;
   }
 
