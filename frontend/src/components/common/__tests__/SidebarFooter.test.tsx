@@ -6,13 +6,14 @@ import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it, vi } from 'vitest'
 import SidebarFooter from '../SidebarFooter'
 import authReducer from '@/store/slices/authSlice'
+type AuthState = ReturnType<typeof authReducer>
 import { darkTheme } from '@/styles/theme'
 
 const makeStore = (authOverrides = {}) =>
   configureStore({
     reducer: { auth: authReducer },
     preloadedState: {
-      auth: {
+      auth: ((state: AuthState) => state)({
         user: {
           id: '1',
           username: 'jdoe',
@@ -35,7 +36,7 @@ const makeStore = (authOverrides = {}) =>
         inactivityTimeoutMinutes: 30,
         rememberMe: false,
         ...authOverrides,
-      },
+      }),
     },
   })
 

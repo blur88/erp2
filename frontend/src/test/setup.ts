@@ -1,4 +1,4 @@
-import { expect, afterAll, afterEach, beforeAll, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, vi } from 'vitest'
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
 
 const storeViolationKey = Symbol.for('erp.test.application-store-violations')
@@ -26,13 +26,11 @@ const isJsdomEnvironment =
   typeof navigator !== 'undefined'
 
 if (isJsdomEnvironment) {
-  const [{ cleanup }, matchersModule, { default: ButtonBase }] = await Promise.all([
+  const [{ cleanup }, , { default: ButtonBase }] = await Promise.all([
     import('@testing-library/react'),
-    import('@testing-library/jest-dom/matchers'),
+    import('@testing-library/jest-dom/vitest'),
     import('@mui/material/ButtonBase'),
   ])
-
-  expect.extend(matchersModule)
 
   const buttonBase = ButtonBase as any
   buttonBase.defaultProps = {

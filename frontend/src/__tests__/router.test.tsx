@@ -47,7 +47,7 @@ vi.mock('@/store', () => ({
   },
 }))
 
-const mockGetState = appStore.getState as ReturnType<typeof vi.fn>
+const mockGetState = appStore.getState as unknown as ReturnType<typeof vi.fn<() => { auth: { isAuthenticated: boolean; user: { id: string; requiresPasswordChange: boolean } | null } }>>
 
 function buildRouter(initialPath: string) {
   const { redirect } = require('react-router-dom')

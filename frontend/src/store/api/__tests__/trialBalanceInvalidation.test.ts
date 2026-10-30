@@ -58,7 +58,7 @@ describe('Trial Balance cross-slice invalidation', () => {
     await store.dispatch(
       salesApiSlice.endpoints.recordOrderPayments.initiate({
         id: 'so-1',
-        payments: [{ paymentMethodId: 'pm-1', amount: 10, paymentDate: '2026-07-17' }],
+        payments: [{ paymentMethodId: 'pm-1', amount: '10', paymentDate: '2026-07-17' }],
       }),
     )
 

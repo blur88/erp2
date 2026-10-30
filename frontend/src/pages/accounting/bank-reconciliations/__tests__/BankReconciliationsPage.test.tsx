@@ -19,7 +19,7 @@ vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
 }))
 
-const trigger = (fn: ReturnType<typeof vi.fn>) => (arg: unknown) => ({ unwrap: () => fn(arg) })
+const trigger = (fn: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>>) => (arg: unknown) => ({ unwrap: () => fn(arg) })
 
 vi.mock('@/store/api/accountingApi', () => ({
   useGetBankReconciliationsQuery: (...args: unknown[]) => mockList(...args),

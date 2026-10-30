@@ -49,7 +49,7 @@ function makeMovement(overrides: Partial<StockMovement>): Partial<StockMovement>
     id: 'm1',
     productId: 'p1',
     movementType: StockMovementType.PURCHASE_RECEIPT,
-    movementDate: '2026-06-01',
+    movementDate: new Date('2026-06-01'),
     quantity: 10,
     previousBalance: 0,
     newBalance: 10,

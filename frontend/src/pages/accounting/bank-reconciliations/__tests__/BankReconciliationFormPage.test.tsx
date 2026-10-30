@@ -59,7 +59,7 @@ const mockPreview = vi.fn()
 const mockCreate = vi.fn()
 const mockUpdate = vi.fn()
 
-const trigger = (fn: ReturnType<typeof vi.fn>) => (arg: unknown) => ({ unwrap: () => fn(arg) })
+const trigger = (fn: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>>) => (arg: unknown) => ({ unwrap: () => fn(arg) })
 
 vi.mock('@/store/api/accountingApi', () => ({
   useGetAccountsQuery: () => mockAccounts(),

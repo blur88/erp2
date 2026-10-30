@@ -10,6 +10,8 @@ import type { Category } from '@/types'
 const makeCategory = (id: string, name: string): Category => ({
   id,
   name,
+  slug: id,
+  isEnabled: true,
   level: 0,
   fullPath: name,
   isRoot: true,
@@ -30,7 +32,7 @@ describe('inventorySlice', () => {
 
     store.dispatch(setSelectedCategory(category))
 
-    expect(selectSelectedCategory(store.getState())).toEqual(category)
+    expect(selectSelectedCategory({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toEqual(category)
   })
 
   it('clears the selected category', () => {
@@ -44,6 +46,6 @@ describe('inventorySlice', () => {
     store.dispatch(setSelectedCategory(category))
     store.dispatch(setSelectedCategory(null))
 
-    expect(selectSelectedCategory(store.getState())).toBeNull()
+    expect(selectSelectedCategory({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBeNull()
   })
 })

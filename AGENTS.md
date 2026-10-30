@@ -59,7 +59,7 @@ Run the checks for every area your change touches. When scopes overlap, run each
 | `backend/test/**` | `cd backend && npm run type-check:spec && npm run test:e2e` |
 | `backend/src/database/check-baseline.ts`, `backend/src/config/**`, `backend/test/*db*`, `backend/package.json`, build tsconfigs/`nest-cli.json`, or `backend/scripts/verify-dist-runtime.sh` | additionally `cd backend && npm run test:db` |
 | Entities or migrations | additionally `cd backend && npm run migration:run`, before `test:e2e` |
-| `frontend/src/**` | `cd frontend && npm run lint && npm run type-check && npm run test:coverage` |
+| `frontend/src/**` | `cd frontend && npm run lint && npm run type-check && npm run type-check:test && npm run test:coverage` |
 | API DTOs/interfaces used by both apps | both the `backend/src/**` and `frontend/src/**` rows |
 
 - `test:coverage` runs the full frontend suite, so it replaces `npm run test`; do not run both.

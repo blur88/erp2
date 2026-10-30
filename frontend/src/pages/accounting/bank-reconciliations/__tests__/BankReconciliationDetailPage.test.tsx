@@ -31,7 +31,7 @@ vi.mock('@/hooks/useNotification', () => ({
   }),
 }))
 
-const trigger = (fn: ReturnType<typeof vi.fn>) => (args: any) => ({
+const trigger = (fn: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>>) => (args: any) => ({
   unwrap: () => fn(args),
 })
 
@@ -47,13 +47,12 @@ vi.mock('@/store/api/accountingApi', () => ({
 }))
 
 function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconciliationDetailDto {
-  return {
+  const detail = {
     id: 'r-1',
     reconciliationNo: 'BR-26-001',
     sequenceNo: 1,
     bankAccountId: 'ba-1',
     bankAccount: {
-      id: 'ba-1',
       code: '1200',
       name: 'CIMB Bank',
       isBankAccount: true,
@@ -63,7 +62,7 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
     periodTo: '2026-01-31',
     openingBalance: '1000.00',
     closingBalance: '1100.00',
-    status: 'DRAFT',
+    status: 'DRAFT' as const,
     reopened: false,
     currentVersionNo: null,
     lockVersion: 1,
@@ -74,10 +73,11 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
     summary: {
       openingBalance: '1000.00',
       closingBalance: '1100.00',
-      matchedMoneyIn: '100.00',
-      matchedMoneyOut: '0.00',
+      moneyIn: '100.00',
+      moneyOut: '0.00',
       calculatedClosingBalance: '1100.00',
       difference: '0.00',
+      openingClearedNet: null,
       openingBalanceDifference: '0.00',
       unclassifiedCount: 0,
     },
@@ -86,6 +86,7 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
     classified: [],
     ...over,
   }
+  return detail
 }
 
 function renderPage(id = 'r-1') {

@@ -6,7 +6,7 @@ import { darkTheme } from '@/styles/theme'
 import RouteErrorBoundary from './RouteErrorBoundary'
 
 function renderWithError(error: unknown) {
-  function ThrowingComponent() {
+  function ThrowingComponent(): never {
     throw error
   }
 

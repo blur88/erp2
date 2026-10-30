@@ -30,7 +30,7 @@ const {
   const mockShowError = vi.fn()
   const mockDispatch = vi.fn()
   const mockUpdateQueryData = vi.fn()
-  const mockUpdateSettings = vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) }))
+  const mockUpdateSettings = vi.fn((_args: Record<string, unknown>) => ({ unwrap: () => Promise.resolve(undefined) }))
   const mockBulkUpdate = vi.fn(() => ({ unwrap: () => Promise.resolve([] as any[]) }))
   const mockBulkUpdatePaymentMappings = vi.fn(() => ({ unwrap: () => Promise.resolve([] as any[]) }))
   const mockGetAccountingSettingsQuery = vi.fn()

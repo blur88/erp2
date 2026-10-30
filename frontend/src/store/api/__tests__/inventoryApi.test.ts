@@ -43,7 +43,7 @@ describe('getProducts params', () => {
     )
 
     expect(api).toHaveBeenCalledTimes(1)
-    const sentConfig = vi.mocked(api).mock.calls[0][0] as { params: Record<string, unknown> }
+    const sentConfig = vi.mocked(api).mock.calls[0][0] as unknown as import('axios').AxiosRequestConfig
     expect(sentConfig.params.sortOrder).toBe('ASC')
     expect(sentConfig.params.isActive).toBe(true)
     expect(sentConfig.params.sortBy).toBe('name')

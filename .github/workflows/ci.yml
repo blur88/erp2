@@ -593,6 +593,9 @@ jobs:
       - name: Type check
         run: npm run type-check
 
+      - name: Type check tests, setup and mocks
+        run: npm run type-check:test
+
       # Runs the suite once with coverage instrumentation rather than running
       # `npm run test` and `npm run test:coverage` back to back — vitest computes
       # coverage in the same pass, so a second run would just double a ~30 minute

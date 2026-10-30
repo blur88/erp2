@@ -5,7 +5,7 @@ import NotificationPanel from './NotificationPanel'
 import * as clipboardUtils from '@/utils/clipboard'
 
 const dispatchMock = vi.fn()
-let writeTextMock: ReturnType<typeof vi.fn>
+let writeTextMock: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>>
 
 vi.mock('@/hooks/useRedux', () => ({
   useAppDispatch: () => dispatchMock,
@@ -71,7 +71,7 @@ describe('NotificationPanel copy button', () => {
     document.body.appendChild(anchorEl)
 
     render(
-      <NotificationPanel anchorEl={anchorEl} open={true} onClose={vi.fn()} />,
+      <NotificationPanel anchorEl={anchorEl} onClose={vi.fn()} />,
     )
 
     const copyButton = screen.getByTestId('ContentCopyIcon').closest('button')
@@ -94,7 +94,7 @@ describe('NotificationPanel copy button', () => {
     } as DOMRect))
     document.body.appendChild(anchorEl)
 
-    render(<NotificationPanel anchorEl={anchorEl} open={true} onClose={vi.fn()} />)
+    render(<NotificationPanel anchorEl={anchorEl} onClose={vi.fn()} />)
 
     const copyButton = screen.getByTestId('ContentCopyIcon').closest('button')
     fireEvent.click(copyButton as HTMLButtonElement)

@@ -8,6 +8,8 @@ import { FilterCategoryLevel } from '../FilterCategoryLevel'
 
 const makeCategory = (id: string, level: number): Category => ({
   id,
+  slug: id,
+  isEnabled: true,
   name: `Cat ${id}`,
   level,
   isRoot: level === 0,
