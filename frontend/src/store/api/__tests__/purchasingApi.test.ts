@@ -24,9 +24,9 @@ describe('purchasingApiSlice', () => {
   })
 
   it('does not expose removed GRN / standalone vendor-payment endpoints', () => {
-    expect(purchasingApiSlice.endpoints.getGoodsReceivedNotes).toBeUndefined()
-    expect(purchasingApiSlice.endpoints.getDeletedGRNs).toBeUndefined()
-    expect(purchasingApiSlice.endpoints.getVendorPayments).toBeUndefined()
-    expect(purchasingApiSlice.endpoints.getDeletedVendorPayments).toBeUndefined()
+    expect(Reflect.get(purchasingApiSlice.endpoints, 'getGoodsReceivedNotes')).toBeUndefined()
+    expect(Reflect.get(purchasingApiSlice.endpoints, 'getDeletedGRNs')).toBeUndefined()
+    expect(Reflect.get(purchasingApiSlice.endpoints, 'getVendorPayments')).toBeUndefined()
+    expect(Reflect.get(purchasingApiSlice.endpoints, 'getDeletedVendorPayments')).toBeUndefined()
   })
 })

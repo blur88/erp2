@@ -56,7 +56,7 @@ describe('useDashboardAnalytics', () => {
 
     const { result, rerender } = renderHook(
       (params) => useDashboardAnalytics(params),
-      { initialProps: { dateRange: 'this_month' as const, groupBy: 'day' as const } },
+      { initialProps: { dateRange: 'this_month' as string, groupBy: 'day' as const } },
     )
     await waitFor(() => expect(result.current.data).not.toBeNull())
 
@@ -74,7 +74,7 @@ describe('useDashboardAnalytics', () => {
 
     const { result, rerender } = renderHook(
       (params) => useDashboardAnalytics(params),
-      { initialProps: { dateRange: 'this_month' as const, groupBy: 'day' as const } },
+      { initialProps: { dateRange: 'this_month' as string, groupBy: 'day' as const } },
     )
     await waitFor(() => expect(result.current.data).not.toBeNull())
 

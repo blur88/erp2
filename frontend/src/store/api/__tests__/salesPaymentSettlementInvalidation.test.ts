@@ -78,7 +78,9 @@ describe('Provider settlement eligible rows cross-slice invalidation', () => {
       expect(selectRows(store)).toEqual([])
 
       rows = [ATOME_ROW]
-      await store.dispatch(MUTATIONS[name]())
+      if (name === 'recordOrderPayments') await store.dispatch(MUTATIONS.recordOrderPayments())
+      else if (name === 'recordOrderRefunds') await store.dispatch(MUTATIONS.recordOrderRefunds())
+      else await store.dispatch(MUTATIONS.unpaySalesOrder())
 
       await vi.waitFor(() => expect(countEligibleGets()).toBe(2))
       await vi.waitFor(() => expect(selectRows(store)).toEqual([ATOME_ROW]))

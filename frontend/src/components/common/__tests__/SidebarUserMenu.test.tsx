@@ -6,6 +6,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SidebarUserMenu from '../SidebarUserMenu'
 import authReducer from '@/store/slices/authSlice'
+type AuthState = ReturnType<typeof authReducer>
 import { darkTheme } from '@/styles/theme'
 
 vi.mock('@/store', () => ({
@@ -18,7 +19,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-const baseUser = {
+const baseUser: NonNullable<ReturnType<typeof authReducer>['user']> = {
   id: '1',
   username: 'jdoe',
   firstName: 'Jane',
@@ -36,7 +37,7 @@ const makeStore = (authOverrides = {}) =>
   configureStore({
     reducer: { auth: authReducer },
     preloadedState: {
-      auth: {
+      auth: ((state: AuthState) => state)({
         user: baseUser,
         refreshToken: 'test-refresh-token',
         accessToken: 'test-access-token',
@@ -47,7 +48,7 @@ const makeStore = (authOverrides = {}) =>
         inactivityTimeoutMinutes: 30,
         rememberMe: false,
         ...authOverrides,
-      },
+      }),
     },
   })
 

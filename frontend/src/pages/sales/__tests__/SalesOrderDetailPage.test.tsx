@@ -224,7 +224,7 @@ describe('SalesOrderDetailPage', () => {
       data: makeOrder({
         status: 'READY',
         paymentStatus: 'PAID',
-        items: [{ product: { name: 'Widget', stockQuantity: 0 }, quantity: 1 }],
+        items: [{ id: 'item-1', product: { id: 'product-1', slug: 'widget', name: 'Widget', barcode: 'W1', type: 'Stocked Product', baseCost: 0, stockQuantity: 0, isActive: true, isOutOfStock: true, createdAt: new Date(), updatedAt: new Date() }, quantity: 1, unitPrice: 0, discount: 0, total: 0, totalAmount: 0 }],
       }),
       isLoading: false,
     })

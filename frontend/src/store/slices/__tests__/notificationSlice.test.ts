@@ -50,7 +50,7 @@ describe('notificationSlice', () => {
 
   it('should add a notification', () => {
     store.dispatch(addNotification({ type: 'success', title: 'Test', message: 'Hello' }))
-    const notifications = selectNotifications(store.getState())
+    const notifications = selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })
     expect(notifications).toHaveLength(1)
     expect(notifications[0].title).toBe('Test')
     expect(notifications[0].read).toBe(false)
@@ -61,14 +61,14 @@ describe('notificationSlice', () => {
     // Add some notifications
     store.dispatch(addNotification({ type: 'success', title: 'A', message: 'msg' }))
     store.dispatch(addNotification({ type: 'error', title: 'B', message: 'msg' }))
-    expect(selectNotifications(store.getState())).toHaveLength(2)
-    expect(selectUnreadCount(store.getState())).toBe(2)
+    expect(selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toHaveLength(2)
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(2)
 
     // Simulate logout.fulfilled
     store.dispatch({ type: logout.fulfilled.type })
 
-    expect(selectNotifications(store.getState())).toHaveLength(0)
-    expect(selectUnreadCount(store.getState())).toBe(0)
+    expect(selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toHaveLength(0)
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(0)
   })
 
   // -- Cap at 50 -----------------------------------------------------------
@@ -77,7 +77,7 @@ describe('notificationSlice', () => {
     for (let i = 0; i < 51; i++) {
       store.dispatch(addNotification({ type: 'info', title: `N${i}`, message: 'm' }))
     }
-    const notifications = selectNotifications(store.getState())
+    const notifications = selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })
     expect(notifications).toHaveLength(50)
   })
 
@@ -88,7 +88,7 @@ describe('notificationSlice', () => {
     }
     // Add a 51st -- "newest" should be at index 0, "first" should be gone
     store.dispatch(addNotification({ type: 'success', title: 'newest', message: 'm' }))
-    const notifications = selectNotifications(store.getState())
+    const notifications = selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })
     expect(notifications[0].title).toBe('newest')
     expect(notifications.find((n) => n.title === 'N0')).toBeUndefined()
   })
@@ -97,7 +97,7 @@ describe('notificationSlice', () => {
     for (let i = 0; i < 51; i++) {
       store.dispatch(addNotification({ type: 'info', title: `N${i}`, message: 'm' }))
     }
-    expect(selectUnreadCount(store.getState())).toBe(50)
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(50)
   })
 
   it('keeps unreadCount stable when capping evicts an unread item from a mixed list', () => {
@@ -111,11 +111,11 @@ describe('notificationSlice', () => {
 
     store.dispatch(addNotification({ type: 'info', title: 'newest', message: 'm' }))
 
-    const nextNotifications = selectNotifications(store.getState())
+    const nextNotifications = selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })
     expect(nextNotifications).toHaveLength(50)
     expect(nextNotifications[0].title).toBe('newest')
     expect(nextNotifications.find((notification) => notification.id === 'id-49')).toBeUndefined()
-    expect(selectUnreadCount(store.getState())).toBe(20)
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(20)
   })
 
   // -- removeNotification floor guard --------------------------------------
@@ -137,13 +137,13 @@ describe('notificationSlice', () => {
       },
     })
 
-    expect(selectNotifications(store.getState())).toEqual([unreadNotification])
-    expect(selectUnreadCount(store.getState())).toBe(0)
+    expect(selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toEqual([unreadNotification])
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(0)
 
     store.dispatch(removeNotification(unreadNotification.id))
 
-    expect(selectNotifications(store.getState())).toEqual([])
-    expect(selectUnreadCount(store.getState())).toBe(0)
+    expect(selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toEqual([])
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(0)
   })
 
   // -- REHYDRATE ------------------------------------------------------------
@@ -166,8 +166,8 @@ describe('notificationSlice', () => {
       key: PERSIST_KEY,
       payload: { notifications: { notifications, unreadCount: 60 } },
     })
-    expect(selectNotifications(store.getState())).toHaveLength(50)
-    expect(selectUnreadCount(store.getState())).toBe(50)
+    expect(selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toHaveLength(50)
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(50)
   })
 
   it('preserves existing state on REHYDRATE when payload is undefined', () => {
@@ -181,8 +181,8 @@ describe('notificationSlice', () => {
 
     store.dispatch({ type: REHYDRATE, key: PERSIST_KEY, payload: undefined })
 
-    expect(selectNotifications(store.getState())).toEqual(existingNotifications)
-    expect(selectUnreadCount(store.getState())).toBe(1)
+    expect(selectNotifications({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toEqual(existingNotifications)
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(1)
   })
 
   it('recalculates unreadCount correctly on REHYDRATE with mixed read/unread', () => {
@@ -196,7 +196,7 @@ describe('notificationSlice', () => {
       key: PERSIST_KEY,
       payload: { notifications: { notifications, unreadCount: 99 } },
     })
-    expect(selectUnreadCount(store.getState())).toBe(2)
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(2)
   })
 
   it('markAsRead decrements unreadCount correctly after REHYDRATE', () => {
@@ -207,7 +207,7 @@ describe('notificationSlice', () => {
       payload: { notifications: { notifications, unreadCount: 2 } },
     })
     store.dispatch(markAsRead('id-0'))
-    expect(selectUnreadCount(store.getState())).toBe(1)
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(1)
   })
 
   it('markAllAsRead sets unreadCount to 0 after REHYDRATE', () => {
@@ -218,6 +218,6 @@ describe('notificationSlice', () => {
       payload: { notifications: { notifications, unreadCount: 2 } },
     })
     store.dispatch(markAllAsRead())
-    expect(selectUnreadCount(store.getState())).toBe(0)
+    expect(selectUnreadCount({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBe(0)
   })
 })

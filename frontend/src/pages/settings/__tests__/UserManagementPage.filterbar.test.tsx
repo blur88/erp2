@@ -8,7 +8,7 @@ import UserManagementPage from '../UserManagementPage'
 import authReducer from '@/store/slices/authSlice'
 
 const { useGetUsersQuery } = vi.hoisted(() => ({
-  useGetUsersQuery: vi.fn(() => ({
+  useGetUsersQuery: vi.fn((_args: Record<string, unknown>) => ({
     data: { data: [], meta: { total: 40 } },
     isLoading: false,
     isFetching: false,
@@ -36,7 +36,7 @@ function renderPage(initialUrl = '/') {
   const store = configureStore({
     reducer: { auth: authReducer },
     preloadedState: {
-      auth: {
+      auth: ((state: ReturnType<typeof authReducer>) => state)({
         user: {
           id: 'u1',
           username: 'admin',
@@ -58,7 +58,7 @@ function renderPage(initialUrl = '/') {
         lastActivityTime: null,
         inactivityTimeoutMinutes: 30,
         rememberMe: false,
-      },
+      }),
     },
   })
 

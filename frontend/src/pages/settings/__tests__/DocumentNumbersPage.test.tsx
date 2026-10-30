@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import DocumentNumbersPage from '../DocumentNumbersPage'
 
 const { mockUpdateSettings } = vi.hoisted(() => ({
-  mockUpdateSettings: vi.fn(() => ({ unwrap: () => Promise.resolve({}) })),
+  mockUpdateSettings: vi.fn((_args: unknown) => ({ unwrap: () => Promise.resolve({}) })),
 }))
 
 // Frozen to mirror RTK Query, which freezes cached data in development. Any

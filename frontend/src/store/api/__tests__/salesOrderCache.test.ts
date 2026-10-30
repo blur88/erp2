@@ -30,13 +30,13 @@ describe('patchSalesOrderCaches', () => {
     const store = createTestStore({ apis: [salesApiSlice] })
 
     const initialOrder = createOrder()
-    const updatedOrder = createOrder({ paidAmount: 50, balanceDue: 50 })
+    const updatedOrder = createOrder({ paidAmount: '50', balanceDue: '50' })
     const listArgs = { search: 'SO-000001', sortBy: 'orderNumber', sortOrder: 'asc' }
 
     await store.dispatch(
       salesApiSlice.util.upsertQueryData('getSalesOrders', listArgs, {
         data: [initialOrder],
-        meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+        meta: { page: 1, limit: 20, total: 1 },
       }),
     )
     await store.dispatch(salesApiSlice.util.upsertQueryData('getSalesOrder', initialOrder.id, initialOrder))
@@ -46,7 +46,7 @@ describe('patchSalesOrderCaches', () => {
     const listState = salesApiSlice.endpoints.getSalesOrders.select(listArgs)(store.getState())
     const detailState = salesApiSlice.endpoints.getSalesOrder.select(initialOrder.id)(store.getState())
 
-    expect(listState.data?.data[0]).toMatchObject({ paidAmount: 50, balanceDue: 50 })
-    expect(detailState.data).toMatchObject({ paidAmount: 50, balanceDue: 50 })
+    expect(listState.data?.data[0]).toMatchObject({ paidAmount: '50', balanceDue: '50' })
+    expect(detailState.data).toMatchObject({ paidAmount: '50', balanceDue: '50' })
   })
 })
