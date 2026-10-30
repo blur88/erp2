@@ -29,7 +29,7 @@ describe('ProtectedRoute', () => {
     vi.clearAllMocks();
   });
 
-  it('verification timeout clears local auth and redirects without backend logout', async () => {
+  it('verification timeout clears local auth without backend logout while verification remains pending', async () => {
     vi.useFakeTimers();
     try {
       const initial = authReducer(undefined, { type: 'init' });
@@ -42,7 +42,9 @@ describe('ProtectedRoute', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
       expect(store.getState().auth).toMatchObject({ accessToken: null, refreshToken: null, isAuthenticated: false });
       expect(authApi.logout).not.toHaveBeenCalled();
-      expect(screen.getByText('Redirected to /login')).toBeInTheDocument();
+      // clearAuth does not reset loading; preserve the pending-verification spinner.
+      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+      expect(screen.queryByText('Redirected to /login')).not.toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
