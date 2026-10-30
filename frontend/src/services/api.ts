@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
+import { getCredentials } from './auth/credentials'
 
 // Get API base URL dynamically with VPN compatibility
 const getApiBaseUrl = () => {
@@ -33,8 +34,7 @@ api.interceptors.request.use(
 
     // Inject Authorization header if access token exists
     const store = await getStore()
-    const state = store.getState()
-    const accessToken = state.auth?.accessToken
+    const { accessToken } = getCredentials(store.getState())
 
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`
@@ -69,7 +69,6 @@ const getAuthActions = async () => {
     const authSliceModule = await import('@/store/slices/authSlice')
     cachedAuthActions = {
       setAccessToken: authSliceModule.setAccessToken,
-      clearAuth: authSliceModule.clearAuth,
       setCredentials: authSliceModule.setCredentials,
     }
   }
@@ -133,14 +132,12 @@ api.interceptors.response.use(
       isRefreshing = true
 
       const store = await getStore()
-      const state = store.getState()
-      const refreshToken = state.auth?.refreshToken
+      const { refreshToken } = getCredentials(store.getState())
 
       if (!refreshToken) {
         // No refresh token available, logout
-        const { clearAuth } = await getAuthActions()
-        store.dispatch(clearAuth())
-        window.location.href = '/login'
+        const { signOutForMissingRefreshToken } = await import('./auth/signOut')
+        signOutForMissingRefreshToken(store.dispatch)
         return Promise.reject(error)
       }
 
@@ -175,13 +172,8 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Token refresh failed, logout user
         processQueue(refreshError, null)
-        const { clearAuth } = await getAuthActions()
-        store.dispatch(clearAuth())
-
-        // Force redirect to login page for invalid/expired tokens
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
-        }
+        const { signOutForFailedRefresh } = await import('./auth/signOut')
+        signOutForFailedRefresh(store.dispatch)
 
         return Promise.reject(refreshError)
       } finally {

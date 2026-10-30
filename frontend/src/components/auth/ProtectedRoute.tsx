@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
-import { getCurrentUser, clearAuth } from '@/store/slices/authSlice';
+import { getCurrentUser } from '@/store/slices/authSlice';
+
+import { signOutForRouteCheck } from '@/services/auth/signOut';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -29,7 +31,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       // Set a hard timeout to force redirect to login if verification takes too long
       const timeoutId = setTimeout(() => {
         console.warn('Token verification timeout - forcing logout');
-        dispatch(clearAuth());
+        signOutForRouteCheck(dispatch);
         setShouldVerify(false);
       }, 3000); // 3 second timeout
 
@@ -42,12 +44,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           // If verification fails, clear auth state
           console.error('Token verification failed:', error);
           clearTimeout(timeoutId);
-          dispatch(clearAuth());
+          signOutForRouteCheck(dispatch);
           setShouldVerify(false);
         });
     } else if (accessToken && !isAuthenticated && !user && verificationAttempted.current) {
       // Already attempted verification but still not authenticated - clear auth
-      dispatch(clearAuth());
+      signOutForRouteCheck(dispatch);
     } else if (!accessToken && !isAuthenticated) {
       // No token and not authenticated - ready to redirect
       setShouldVerify(false);

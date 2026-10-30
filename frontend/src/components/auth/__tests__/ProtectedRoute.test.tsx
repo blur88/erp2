@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter, MemoryRouter, Routes, Route } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import '@testing-library/jest-dom/vitest';
 import ProtectedRoute from '../ProtectedRoute';
 import authReducer from '../../../store/slices/authSlice';
+import { authApi } from '@/services/authApi';
+vi.mock('@/services/authApi', () => ({ authApi: { getCurrentUser: vi.fn(() => new Promise(() => {})), logout: vi.fn() } }));
 
 // Mock navigate
 const mockNavigate = vi.fn();
@@ -25,6 +27,25 @@ describe('ProtectedRoute', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('verification timeout clears local auth and redirects without backend logout', async () => {
+    vi.useFakeTimers();
+    try {
+      const initial = authReducer(undefined, { type: 'init' });
+      const store = configureStore({ reducer: { auth: authReducer }, preloadedState: {
+        auth: { ...initial, accessToken: 'unverified', refreshToken: 'refresh' },
+      } });
+      render(<Provider store={store}><MemoryRouter initialEntries={['/dashboard']}>
+        <ProtectedRoute><TestComponent /></ProtectedRoute>
+      </MemoryRouter></Provider>);
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+      expect(store.getState().auth).toMatchObject({ accessToken: null, refreshToken: null, isAuthenticated: false });
+      expect(authApi.logout).not.toHaveBeenCalled();
+      expect(screen.getByText('Redirected to /login')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('should render children when user is authenticated', () => {
