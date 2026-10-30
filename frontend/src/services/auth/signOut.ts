@@ -70,7 +70,6 @@ export async function clearLocalSessionForFailedRefresh(dispatch: AppDispatch, i
   if (!sessionCoordinator.getSnapshot() && window.location.pathname !== '/login') window.location.href = '/login'
 }
 
-// ProtectedRoute retains its declarative redirect, including the return location.
 export async function clearLocalSessionForRouteCheck(dispatch: AppDispatch, id?: string) {
   await endSession(dispatch, id)
 }

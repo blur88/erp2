@@ -81,9 +81,12 @@ const initialState: AuthState = {
 };
 
 // Async thunks
-export const login = createAsyncThunk(
+export const login = createAsyncThunk<AuthResponse & { id: string; rememberMe: boolean }, LoginCredentials, {
+  rejectValue: string; rejectedMeta: { sessionId: string | undefined };
+}>(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
+    const sessionId = sessionCoordinator.getSnapshot()?.id;
     try {
       const context = await sessionCoordinator.beginSignIn();
       const response = await authApi.login(credentials);
@@ -91,7 +94,7 @@ export const login = createAsyncThunk(
       if (!session) throw new Error('Session ended during sign-in');
       return { ...response.data, ...session };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message || 'Login failed');
+      return rejectWithValue(error.response?.data?.message || error.message || 'Login failed', { sessionId });
     }
   }
 );
@@ -197,6 +200,7 @@ const authSlice = createSlice({
         }
       })
       .addCase(login.rejected, (state, action) => {
+        if (action.meta.sessionId !== sessionCoordinator.getSnapshot()?.id) return;
         state.loading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
