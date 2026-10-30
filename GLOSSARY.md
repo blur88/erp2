@@ -201,3 +201,13 @@ _Avoid_: unlock, uncomplete
 **Cancel reopen**:
 The action that abandons a Reopen and restores the Reconciliation exactly as its current Version recorded it: its working set, classifications, period, balances and Completed state. If any of those journal lines has since been reserved by another Reconciliation, nothing changes.
 _Avoid_: undo, revert
+
+### Authentication
+
+**Session**:
+A user's signed-in state in one browser or on one device. All tabs of that browser share one Session.
+_Avoid_: tab, login (as a noun)
+
+**Sign out**:
+Ending every Session of a user, in every browser and on every device, at once. Changing the password has the same effect.
+_Avoid_: log out, logout
