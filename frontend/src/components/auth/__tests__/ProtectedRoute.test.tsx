@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter, MemoryRouter, Routes, Route } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, type Middleware } from '@reduxjs/toolkit';
 import '@testing-library/jest-dom/vitest';
 import ProtectedRoute from '../ProtectedRoute';
-import authReducer from '../../../store/slices/authSlice';
+import authReducer, { setAccessToken } from '../../../store/slices/authSlice';
 import { authApi } from '@/services/authApi';
 vi.mock('@/services/authApi', () => ({ authApi: { getCurrentUser: vi.fn(() => new Promise(() => {})), logout: vi.fn() } }));
 
@@ -15,8 +15,8 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    Navigate: ({ to }: { to: string }) => {
-      mockNavigate(to);
+    Navigate: ({ to, state, replace }: { to: string; state?: unknown; replace?: boolean }) => {
+      mockNavigate(to, { state, replace });
       return <div>Redirected to {to}</div>;
     },
   };
@@ -27,6 +27,53 @@ describe('ProtectedRoute', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  function renderPendingVerification() {
+    let rejectVerification!: (error: Error) => void;
+    const verification = new Promise((_, reject) => { rejectVerification = reject; });
+    // A dispatch-level rejection reaches the component's catch; RTK rejected actions
+    // normally resolve dispatch promises and do not exercise that branch.
+    const pendingVerification: Middleware = () => next => action =>
+      typeof action === 'function' ? verification : next(action);
+    const initial = authReducer(undefined, { type: 'init' });
+    const store = configureStore({
+      reducer: { auth: authReducer },
+      middleware: getDefault => getDefault().prepend(pendingVerification),
+      preloadedState: { auth: { ...initial, accessToken: 'unverified', refreshToken: 'refresh' } },
+    });
+    render(<Provider store={store}><MemoryRouter initialEntries={['/dashboard?tab=1']}>
+      <ProtectedRoute><TestComponent /></ProtectedRoute>
+    </MemoryRouter></Provider>);
+    return { store, rejectVerification };
+  }
+
+  function expectLocalClearAndReturnLocation(store: ReturnType<typeof renderPendingVerification>['store']) {
+    expect(store.getState().auth).toMatchObject({
+      accessToken: null, refreshToken: null, user: null, isAuthenticated: false,
+    });
+    expect(authApi.logout).not.toHaveBeenCalled();
+    expect(screen.getByText('Redirected to /login')).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/login', {
+      replace: true,
+      state: { from: expect.objectContaining({ pathname: '/dashboard', search: '?tab=1' }) },
+    });
+  }
+
+  it('verification dispatch rejection clears local auth and redirects with state.from', async () => {
+    const { store, rejectVerification } = renderPendingVerification();
+    mockNavigate.mockClear();
+    await act(async () => { rejectVerification(new Error('verification dispatch failed')); });
+    expectLocalClearAndReturnLocation(store);
+  });
+
+  it('already-attempted verification clears local auth and redirects with state.from', async () => {
+    const { store, rejectVerification } = renderPendingVerification();
+    mockNavigate.mockClear();
+    act(() => { store.dispatch(setAccessToken('replacement-unverified')); });
+    expectLocalClearAndReturnLocation(store);
+    // Settle the original verification to release its timeout after observing this branch.
+    await act(async () => { rejectVerification(new Error('verification finished')); });
   });
 
   it('verification timeout clears local auth without backend logout while verification remains pending', async () => {

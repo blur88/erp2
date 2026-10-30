@@ -8,7 +8,7 @@ import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
 import { useClearReconciliationDraftsOnSignOut } from './pages/accounting/bank-reconciliations/useClearReconciliationDraftsOnSignOut'
 
-import { signOutForIdle } from '@/services/auth/signOut'
+import { clearLocalSessionForIdle } from '@/services/auth/signOut'
 
 const IDLE_TIMEOUT = 12 * 60 * 60 * 1000
 const WARNING_TIME = 5 * 60 * 1000
@@ -36,7 +36,7 @@ export default function RootLayout() {
     const state = (window as any).store?.getState()
     const refreshToken = state?.auth?.refreshToken
 
-    await signOutForIdle(dispatch, refreshToken, navigate)
+    await clearLocalSessionForIdle(dispatch, refreshToken, navigate)
   }, [dispatch, navigate])
 
   const activityEvents = useMemo(() => ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'], [])

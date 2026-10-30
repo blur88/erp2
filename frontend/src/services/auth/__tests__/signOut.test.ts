@@ -4,9 +4,9 @@ import authReducer, { setAccessToken } from '@/store/slices/authSlice'
 import { authApi } from '@/services/authApi'
 import { getCredentials } from '../credentials'
 import {
-  signOutManually, signOutForIdle, signOutAfterPasswordChange,
-  signOutFromPasswordChange, signOutForMissingRefreshToken,
-  signOutForFailedRefresh, signOutForRouteCheck,
+  signOutManually, clearLocalSessionForIdle, signOutAfterPasswordChange,
+  signOutFromPasswordChange, clearLocalSessionForMissingRefreshToken,
+  clearLocalSessionForFailedRefresh, clearLocalSessionForRouteCheck,
 } from '../signOut'
 
 vi.mock('@/services/authApi', () => ({ authApi: { logout: vi.fn() } }))
@@ -34,7 +34,7 @@ function expectCleared(store: ReturnType<typeof makeStore>) {
   })
 }
 
-describe('sign-out behavior preserved by T0', () => {
+describe('session-ending behavior', () => {
   it.each([false, true])('manual waits for backend then clears, purges, and navigates (backend fails: %s)', async (fails) => {
     const store = makeStore()
     let finish!: () => void
@@ -67,7 +67,7 @@ describe('sign-out behavior preserved by T0', () => {
   it.each(['refresh', null])('idle always clears and replaces login, token: %s', async (token) => {
     const store = makeStore()
     const navigate = vi.fn(() => expectCleared(store))
-    await signOutForIdle(store.dispatch, token, navigate)
+    await clearLocalSessionForIdle(store.dispatch, token, navigate)
     expect(authApi.logout).toHaveBeenCalledTimes(token ? 1 : 0)
     expectCleared(store)
     expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
@@ -111,7 +111,7 @@ describe('sign-out behavior preserved by T0', () => {
     expect(store.getState().auth.isAuthenticated).toBe(true)
   })
 
-  it.each([signOutForMissingRefreshToken, signOutForFailedRefresh])('refresh exit clears locally and navigates without backend logout: %s', (signOut) => {
+  it.each([clearLocalSessionForMissingRefreshToken, clearLocalSessionForFailedRefresh])('refresh exit clears locally and navigates without backend logout: %s', (signOut) => {
     const store = makeStore()
     signOut(store.dispatch)
     expectCleared(store)
@@ -122,16 +122,16 @@ describe('sign-out behavior preserved by T0', () => {
   it('failed refresh on login clears without reloading; missing token still navigates', () => {
     const store = makeStore()
     location.pathname = '/login'
-    signOutForFailedRefresh(store.dispatch)
+    clearLocalSessionForFailedRefresh(store.dispatch)
     expectCleared(store)
     expect(location.href).toBe('/dashboard')
-    signOutForMissingRefreshToken(store.dispatch)
+    clearLocalSessionForMissingRefreshToken(store.dispatch)
     expect(location.href).toBe('/login')
   })
 
   it('route check only clears, leaving navigation to ProtectedRoute', () => {
     const store = makeStore()
-    signOutForRouteCheck(store.dispatch)
+    clearLocalSessionForRouteCheck(store.dispatch)
     expectCleared(store)
     expect(authApi.logout).not.toHaveBeenCalled()
     expect(location.href).toBe('/dashboard')

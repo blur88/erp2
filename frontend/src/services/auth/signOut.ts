@@ -2,7 +2,7 @@ import { clearAuth, logout } from '@/store/slices/authSlice'
 import type { AppDispatch } from '@/store'
 import type { NavigateFunction } from 'react-router-dom'
 
-// T0 preserves each caller's existing ordering and missing-token behavior (#1547).
+// Preserve each caller's existing ordering and missing-token behavior (#1547).
 export async function signOutManually(
   dispatch: AppDispatch, refreshToken: string | null, purge: () => Promise<unknown>, navigate: NavigateFunction,
 ) {
@@ -11,7 +11,7 @@ export async function signOutManually(
   navigate('/login')
 }
 
-export async function signOutForIdle(
+export async function clearLocalSessionForIdle(
   dispatch: AppDispatch, refreshToken: string | null | undefined, navigate: NavigateFunction,
 ) {
   try {
@@ -39,17 +39,17 @@ export async function signOutFromPasswordChange(
   }
 }
 
-export function signOutForMissingRefreshToken(dispatch: AppDispatch) {
+export function clearLocalSessionForMissingRefreshToken(dispatch: AppDispatch) {
   dispatch(clearAuth())
   window.location.href = '/login'
 }
 
-export function signOutForFailedRefresh(dispatch: AppDispatch) {
+export function clearLocalSessionForFailedRefresh(dispatch: AppDispatch) {
   dispatch(clearAuth())
   if (window.location.pathname !== '/login') window.location.href = '/login'
 }
 
 // ProtectedRoute retains its declarative redirect, including the return location.
-export function signOutForRouteCheck(dispatch: AppDispatch) {
+export function clearLocalSessionForRouteCheck(dispatch: AppDispatch) {
   dispatch(clearAuth())
 }

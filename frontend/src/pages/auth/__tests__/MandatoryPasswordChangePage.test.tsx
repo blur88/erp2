@@ -36,7 +36,7 @@ describe('MandatoryPasswordChangePage', () => {
     vi.mocked(authApi.changePassword).mockResolvedValue({ data: undefined } as any)
   })
 
-  it('explicit logout clears via backend and replaces login', async () => {
+  it('explicit sign-out clears via backend logout call and replaces login', async () => {
     const store = renderPage()
     fireEvent.click(screen.getByRole('button', { name: /logout/i }))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/login', { replace: true }))
@@ -44,7 +44,7 @@ describe('MandatoryPasswordChangePage', () => {
     expect(store.getState().auth.isAuthenticated).toBe(false)
   })
 
-  it('successful password change delays logout for two seconds without explicit navigation', async () => {
+  it('successful password change delays the backend logout call for two seconds without explicit navigation', async () => {
     const store = renderPage()
     fireEvent.change(screen.getByLabelText(/^current password/i), { target: { value: 'OldPassword@1' } })
     fireEvent.change(screen.getByLabelText(/^new password/i), { target: { value: 'NewPassword@1' } })

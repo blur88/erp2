@@ -136,8 +136,8 @@ api.interceptors.response.use(
 
       if (!refreshToken) {
         // No refresh token available, logout
-        const { signOutForMissingRefreshToken } = await import('./auth/signOut')
-        signOutForMissingRefreshToken(store.dispatch)
+        const { clearLocalSessionForMissingRefreshToken } = await import('./auth/signOut')
+        clearLocalSessionForMissingRefreshToken(store.dispatch)
         return Promise.reject(error)
       }
 
@@ -172,8 +172,8 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Token refresh failed, logout user
         processQueue(refreshError, null)
-        const { signOutForFailedRefresh } = await import('./auth/signOut')
-        signOutForFailedRefresh(store.dispatch)
+        const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
+        clearLocalSessionForFailedRefresh(store.dispatch)
 
         return Promise.reject(refreshError)
       } finally {
