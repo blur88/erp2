@@ -127,6 +127,18 @@ describe("JwtStrategy", () => {
       );
     });
 
+    it("rejects a matching-version access token while the user is locked", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        isLocked: true,
+        lockedUntil: new Date("2030-01-01T00:00:00Z"),
+      });
+      await expect(strategy.validate(payload)).rejects.toMatchObject({
+        status: 401,
+        message: "Account is locked until 2030-01-01T00:00:00.000Z",
+      });
+    });
+
     it("should return correct payload structure", async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
 

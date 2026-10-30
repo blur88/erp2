@@ -1,7 +1,8 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { jest } from "@jest/globals";
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
-import { DataSource } from "typeorm";
+import { DataSource, QueryRunner } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import request from "supertest";
 import * as bcrypt from "bcrypt";
@@ -53,6 +54,62 @@ describe("Session revocation (database and HTTP)", () => {
   const count = () =>
     ds.getRepository(RefreshToken).countBy({ userId: user.id });
 
+  type Operation = { pid?: number };
+  const context = new AsyncLocalStorage<Operation>();
+  const activeRunners = new Map<QueryRunner, Operation>();
+  const releases: (() => void)[] = [];
+  const tasks: Promise<any>[] = [];
+  async function bounded<T>(
+    promise: Promise<T>,
+    description: string,
+    ms = 10000,
+  ): Promise<T> {
+    let timer: ReturnType<typeof setTimeout>;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`Timed out: ${description}`)),
+            ms,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer!);
+    }
+  }
+  function start(
+    operation: Operation,
+    action: () => Promise<any>,
+  ): Promise<any> {
+    const task = context.run(operation, action).then(
+      (value) => ({ value }),
+      (error) => ({ error }),
+    );
+    tasks.push(task);
+    return task;
+  }
+  async function settleTasks() {
+    releases.splice(0).forEach((release) => release());
+    try {
+      await bounded(Promise.allSettled(tasks), "operations finish", 18000);
+    } finally {
+      for (const operation of activeRunners.values()) {
+        if (operation.pid)
+          await bounded(
+            ds.query("SELECT pg_terminate_backend($1)", [operation.pid]),
+            "terminate owned backend",
+          );
+      }
+      await bounded(
+        Promise.allSettled(tasks.splice(0)),
+        "terminated operations finish",
+      );
+      activeRunners.clear();
+    }
+  }
+
   beforeAll(async () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(AuthUserLockHook)
@@ -69,6 +126,29 @@ describe("Session revocation (database and HTTP)", () => {
     jwt = module.get(JwtService);
   });
   beforeEach(async () => {
+    const createRunner = ds.createQueryRunner.bind(ds);
+    jest.spyOn(ds, "createQueryRunner").mockImplementation((mode) => {
+      const runner = createRunner(mode);
+      const operation = context.getStore();
+      if (!operation) return runner;
+      const query = runner.query.bind(runner);
+      const release = runner.release.bind(runner);
+      activeRunners.set(runner, operation);
+      runner.release = async () => {
+        activeRunners.delete(runner);
+        return release();
+      };
+      runner.query = async (...args: Parameters<QueryRunner["query"]>) => {
+        const result = await query(...args);
+        if (args[0] === "START TRANSACTION") {
+          const [row] = await query("SELECT pg_backend_pid() AS pid");
+          operation.pid = row.pid;
+          await query("SET LOCAL statement_timeout = '15s'");
+        }
+        return result;
+      };
+      return runner;
+    });
     onLock = async () => {};
     user = await ds.getRepository(User).save(
       ds.getRepository(User).create({
@@ -82,13 +162,17 @@ describe("Session revocation (database and HTTP)", () => {
     );
   });
   afterEach(async () => {
-    jest.restoreAllMocks();
-    onLock = async () => {};
-    await removeSuiteTraces(ds, {
-      userIds: [user.id],
-      usernames: [user.username],
-    });
-    await ds.getRepository(User).delete(user.id);
+    try {
+      await settleTasks();
+    } finally {
+      jest.restoreAllMocks();
+      onLock = async () => {};
+      await removeSuiteTraces(ds, {
+        userIds: [user.id],
+        usernames: [user.username],
+      });
+      await ds.getRepository(User).delete(user.id);
+    }
   });
   afterAll(async () => {
     await app?.close();
@@ -179,14 +263,29 @@ describe("Session revocation (database and HTTP)", () => {
   });
 
   // Observe the actual user SELECT lock, not login bookkeeping's UPDATE wait.
-  async function waitForUserLock(): Promise<void> {
+  async function waitForUserLock(
+    waiter: Operation,
+    holder: Operation,
+  ): Promise<void> {
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline) {
-      const rows = await ds.query(`SELECT a.pid FROM pg_stat_activity a
-        WHERE a.datname = current_database() AND a.wait_event_type = 'Lock'
-        AND a.query ILIKE '%FOR NO KEY UPDATE%' AND a.query LIKE '%users%'
-        AND cardinality(pg_blocking_pids(a.pid)) > 0`);
-      if (rows.length) return;
+      if (waiter.pid && holder.pid) {
+        const [row] = await bounded(
+          ds.query(
+            `SELECT wait_event_type, query, pg_blocking_pids(pid) AS blockers
+          FROM pg_stat_activity WHERE pid = $1`,
+            [waiter.pid],
+          ),
+          "observe lock wait",
+        );
+        if (
+          row?.wait_event_type === "Lock" &&
+          row.blockers.includes(holder.pid) &&
+          /FOR NO KEY UPDATE/i.test(row.query) &&
+          row.query.includes("users")
+        )
+          return;
+      }
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
     throw new Error(
@@ -198,62 +297,86 @@ describe("Session revocation (database and HTTP)", () => {
     firstOperation: AuthUserLockOperation,
     first: () => Promise<any>,
     second: () => Promise<any>,
+    secondOperation: Operation = {},
   ) {
     const entered = deferred();
     const release = deferred();
+    const firstOperationContext: Operation = {};
+    releases.push(release.resolve);
     let firstSeen = false;
     onLock = async (operation, id) => {
       if (id === user.id && operation === firstOperation && !firstSeen) {
         firstSeen = true;
         entered.resolve();
-        await release.promise;
+        await bounded(release.promise, "release first operation");
       }
     };
-    const firstResult = first().then(
-      (value) => ({ value }),
-      (error) => ({ error }),
-    );
+    const firstResult = start(firstOperationContext, first);
     let secondResult: Promise<any> | undefined;
     try {
-      await Promise.race([
-        entered.promise,
-        firstResult.then(() => {
-          throw new Error("First operation did not reach barrier");
-        }),
-      ]);
-      secondResult = second().then(
-        (value) => ({ value }),
-        (error) => ({ error }),
+      await bounded(
+        Promise.race([
+          entered.promise,
+          firstResult.then(() => {
+            throw new Error("First operation did not reach barrier");
+          }),
+        ]),
+        "first operation reaches barrier",
       );
-      await waitForUserLock();
+      secondResult = start(secondOperation, second);
+      await bounded(
+        waitForUserLock(secondOperation, firstOperationContext),
+        "second waits for first",
+      );
     } finally {
       release.resolve();
-      await Promise.all([firstResult, secondResult]);
+      await bounded(
+        Promise.all([firstResult, secondResult]),
+        "ordered operations complete",
+        18000,
+      );
     }
-    return [await firstResult, await secondResult!];
+    return [
+      await bounded(firstResult, "first result"),
+      await bounded(secondResult!, "second result"),
+    ];
   }
 
   // Pause login after bcrypt/bookkeeping, before it opens its issuance transaction.
   // This avoids mistaking the bookkeeping UPDATE for the intended lock wait.
   async function prepareLogin() {
+    const operation: Operation = {};
     const ready = deferred();
     const release = deferred();
+    releases.push(release.resolve);
     const manager = ds.getRepository(User).manager;
     const original = manager.transaction.bind(manager);
     const spy = jest
       .spyOn(manager, "transaction")
       .mockImplementationOnce((async (...args: any[]) => {
         ready.resolve();
-        await release.promise;
+        await bounded(release.promise, "release prepared login");
         return (original as any)(...args);
       }) as any);
-    const pending: Promise<any> = login().then(
-      (value) => ({ value }),
-      (error) => ({ error }),
-    );
-    await ready.promise;
-    spy.mockRestore();
-    return { release, pending };
+    const pending = start(operation, login);
+    try {
+      await bounded(
+        Promise.race([
+          ready.promise,
+          pending.then(() => {
+            throw new Error("Login did not reach preparation barrier");
+          }),
+        ]),
+        "login prepared",
+      );
+      return { release, pending, operation };
+    } catch (error) {
+      release.resolve();
+      await bounded(pending, "failed preparation finishes", 18000);
+      throw error;
+    } finally {
+      spy.mockRestore();
+    }
   }
 
   it("orders refresh then Sign out", async () => {
@@ -302,12 +425,13 @@ describe("Session revocation (database and HTTP)", () => {
           if (result.error) throw result.error;
           return result.value;
         },
+        prepared.operation,
       );
       expect(signedIn.error).toBeUndefined();
       await me(signedIn.value.accessToken).expect(200);
     } finally {
       prepared.release.resolve();
-      await prepared.pending;
+      await bounded(prepared.pending, "prepared login finishes", 18000);
     }
   });
   it("rejects login verified against the password replaced while it waited", async () => {
@@ -322,6 +446,7 @@ describe("Session revocation (database and HTTP)", () => {
           if (result.error) throw result.error;
           return result.value;
         },
+        prepared.operation,
       );
       expect(change.error).toBeUndefined();
       expect(signedIn.error.message).toBe("Invalid credentials");
@@ -332,7 +457,7 @@ describe("Session revocation (database and HTTP)", () => {
       ).toBe(0);
     } finally {
       prepared.release.resolve();
-      await prepared.pending;
+      await bounded(prepared.pending, "prepared login finishes", 18000);
     }
   });
   it("allows only one concurrent password change verified against the same hash", async () => {

@@ -178,6 +178,24 @@ describe("AuthService", () => {
         .mockResolvedValueOnce(true)
         .mockResolvedValueOnce(false);
       mockedBcrypt.hash.mockResolvedValue("new-hash");
+      const txUsers = {
+        findOne: (jest.fn as any)().mockResolvedValue(mockUser),
+      };
+      const txTokens = {
+        findOne: (jest.fn as any)().mockResolvedValue({
+          userId: mockUser.id,
+          isExpired: false,
+        }),
+        create: (jest.fn as any)((record: any) => record),
+        save: (jest.fn as any)().mockResolvedValue({}),
+        remove: (jest.fn as any)().mockResolvedValue({}),
+      };
+      const txManager = {
+        getRepository: (entity: any) => (entity === User ? txUsers : txTokens),
+        query: (jest.fn as any)().mockResolvedValue([]),
+        delete: (jest.fn as any)().mockResolvedValue({ affected: 1 }),
+        update: (jest.fn as any)().mockResolvedValue({ affected: 1 }),
+      };
       let release!: () => void;
       let entered!: () => void;
       const barrier = new Promise<void>((resolve) => {
@@ -185,6 +203,21 @@ describe("AuthService", () => {
       });
       const reached = new Promise<void>((resolve) => {
         entered = resolve;
+      });
+      let finishCommit!: () => void;
+      let committing!: () => void;
+      const commitGate = new Promise<void>((resolve) => {
+        finishCommit = resolve;
+      });
+      const commitReached = new Promise<void>((resolve) => {
+        committing = resolve;
+      });
+      const rootManager = mockUserRepository.manager;
+      rootManager.transaction = (jest.fn as any)(async (work: any) => {
+        const value = await work(txManager);
+        committing();
+        await commitGate;
+        return value;
       });
       const hook = jest
         .spyOn(service.authUserLockHook, "afterUserLock")
@@ -204,9 +237,19 @@ describe("AuthService", () => {
                   newPassword: "new",
                   newPasswordConfirmation: "new",
                 });
+      let settled = false;
+      pending.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
       try {
         await reached;
-        expect(mockUserRepository.findOne).toHaveBeenLastCalledWith({
+        expect(rootManager.transaction).toHaveBeenCalledTimes(1);
+        expect(txUsers.findOne).toHaveBeenLastCalledWith({
           where: { id: mockUser.id },
           lock: { mode: "for_no_key_update" },
         });
@@ -214,18 +257,39 @@ describe("AuthService", () => {
         expect(mockUserRepository.manager.query).not.toHaveBeenCalled();
         expect(mockRefreshTokenRepository.save).not.toHaveBeenCalled();
         expect(mockRefreshTokenRepository.remove).not.toHaveBeenCalled();
+        expect(txManager.query).not.toHaveBeenCalled();
+        expect(txManager.update).not.toHaveBeenCalled();
+        expect(txTokens.findOne).not.toHaveBeenCalled();
+        release();
+        await commitReached;
+        expect(settled).toBe(false);
       } finally {
         release();
+        finishCommit();
         await pending;
         hook.mockRestore();
       }
+      expect(rootManager.query).not.toHaveBeenCalled();
+      expect(mockRefreshTokenRepository.delete).not.toHaveBeenCalled();
+      expect(mockRefreshTokenRepository.save).not.toHaveBeenCalled();
       if (operation === "signOut" || operation === "changePassword") {
-        expect(mockUserRepository.manager.query).toHaveBeenCalledWith(
+        expect(txManager.query).toHaveBeenCalledWith(
           'UPDATE users SET "tokenVersion" = "tokenVersion" + 1 WHERE id = $1',
           [mockUser.id],
         );
-        expect(mockRefreshTokenRepository.delete).toHaveBeenCalledWith({
+        expect(txManager.delete).toHaveBeenCalledWith(RefreshToken, {
           userId: mockUser.id,
+        });
+      } else {
+        expect(txTokens.save).toHaveBeenCalledTimes(1);
+        expect(txTokens.create).toHaveBeenCalledWith(
+          expect.objectContaining({ userId: mockUser.id }),
+        );
+      }
+      if (operation === "changePassword") {
+        expect(txManager.update).toHaveBeenCalledWith(User, mockUser.id, {
+          password: "new-hash",
+          requiresPasswordChange: false,
         });
       }
     },
