@@ -80,9 +80,9 @@ export const {
 } = notificationSlice.actions
 
 // Selectors
-export const selectNotifications = (state: RootState) =>
+export const selectNotifications = (state: Pick<RootState, 'notifications'>) =>
   state.notifications.notifications
-export const selectUnreadCount = (state: RootState) =>
+export const selectUnreadCount = (state: Pick<RootState, 'notifications'>) =>
   state.notifications.unreadCount
 
 export default notificationSlice.reducer

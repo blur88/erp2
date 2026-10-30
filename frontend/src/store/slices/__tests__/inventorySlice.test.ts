@@ -32,7 +32,7 @@ describe('inventorySlice', () => {
 
     store.dispatch(setSelectedCategory(category))
 
-    expect(selectSelectedCategory({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toEqual(category)
+    expect(selectSelectedCategory({ ...store.getState() })).toEqual(category)
   })
 
   it('clears the selected category', () => {
@@ -46,6 +46,6 @@ describe('inventorySlice', () => {
     store.dispatch(setSelectedCategory(category))
     store.dispatch(setSelectedCategory(null))
 
-    expect(selectSelectedCategory({ ...store.getState(), _persist: { version: 1, rehydrated: true } })).toBeNull()
+    expect(selectSelectedCategory({ ...store.getState() })).toBeNull()
   })
 })

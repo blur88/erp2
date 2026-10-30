@@ -250,10 +250,10 @@ const authSlice = createSlice({
 
 export const { setCredentials, setAccessToken, clearAuth, clearError } = authSlice.actions;
 
-export const selectCurrentUser = (state: RootState) => state.auth.user;
-export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenticated;
-export const selectAccessToken = (state: RootState) => state.auth.accessToken;
-export const selectRefreshToken = (state: RootState) => state.auth.refreshToken;
-export const selectRememberMe = (state: RootState) => state.auth.rememberMe;
+export const selectCurrentUser = (state: Pick<RootState, 'auth'>) => state.auth.user;
+export const selectIsAuthenticated = (state: Pick<RootState, 'auth'>) => state.auth.isAuthenticated;
+export const selectAccessToken = (state: Pick<RootState, 'auth'>) => state.auth.accessToken;
+export const selectRefreshToken = (state: Pick<RootState, 'auth'>) => state.auth.refreshToken;
+export const selectRememberMe = (state: Pick<RootState, 'auth'>) => state.auth.rememberMe;
 
 export default authSlice.reducer;
