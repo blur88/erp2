@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from '@/database/entities/user.entity';
 import { RefreshToken } from '@/database/entities/refresh-token.entity';
+import { AuthUserLockHook } from './auth-user-lock.hook';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -30,7 +31,7 @@ import { AuthScheduler } from './auth.scheduler';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, AuthScheduler],
+  providers: [AuthUserLockHook, AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, AuthScheduler],
   exports: [AuthService, JwtModule, JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}

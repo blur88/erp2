@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, LessThan, EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { User, UserStatus } from '@/database/entities/user.entity';
@@ -21,6 +21,8 @@ import {
   RefreshTokenDto,
   ChangePasswordDto,
 } from './dto';
+
+import { AuthUserLockHook, AuthUserLockOperation } from './auth-user-lock.hook';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 30;
@@ -36,6 +38,7 @@ export class AuthService {
     private refreshTokenRepository: Repository<RefreshToken>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private authUserLockHook: AuthUserLockHook,
   ) {}
 
   /**
@@ -70,7 +73,10 @@ export class AuthService {
       user.failedLoginAttempts = 0;
       user.lockedUntil = null;
       try {
-        await this.userRepository.save(user);
+        await this.userRepository.update(user.id, {
+          failedLoginAttempts: user.failedLoginAttempts,
+          lockedUntil: user.lockedUntil,
+        });
       } catch (err) {
         // A failed cleanup must not block login; the in-memory isLocked check
         // below still governs the decision. Retry happens on the next attempt.
@@ -100,26 +106,42 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Reset failed login attempts on successful login
+    const verifiedPasswordHash = user.password;
+    const bookkeeping: Partial<User> = {
+      lastLoginAt: new Date(),
+      lastLoginIp: ipAddress || null,
+    };
+    await this.userRepository.update(user.id, bookkeeping);
+
+    const { accessToken, refreshToken } =
+      await this.userRepository.manager.transaction(async (manager) => {
+        const lockedUser = await this.lockUser(manager, user.id, 'login');
+        this.assertEligible(lockedUser);
+        if (lockedUser.password !== verifiedPasswordHash) {
+          throw new UnauthorizedException('Invalid credentials');
+        }
+        return this.generateTokens(
+          lockedUser,
+          rememberMe,
+          ipAddress,
+          userAgent,
+          manager,
+        );
+      });
+
     if (user.failedLoginAttempts > 0) {
-      user.failedLoginAttempts = 0;
-      user.lockedUntil = null;
+      await this.userRepository.update(
+        { id: user.id, password: verifiedPasswordHash },
+        {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
+      );
     }
 
-    // Update last login info
-    user.lastLoginAt = new Date();
-    user.lastLoginIp = ipAddress || null;
-    await this.userRepository.save(user);
-
-    // Generate tokens
-    const { accessToken, refreshToken } = await this.generateTokens(
-      user,
-      rememberMe,
-      ipAddress,
-      userAgent,
+    this.logger.log(
+      `User ${user.username} logged in successfully from ${ipAddress}`,
     );
-
-    this.logger.log(`User ${user.username} logged in successfully from ${ipAddress}`);
 
     return {
       accessToken,
@@ -134,8 +156,15 @@ export class AuthService {
    * User registration
    */
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const { username, email, password, passwordConfirmation, firstName, lastName, role } =
-      registerDto;
+    const {
+      username,
+      email,
+      password,
+      passwordConfirmation,
+      firstName,
+      lastName,
+      role,
+    } = registerDto;
 
     // Validate password confirmation
     if (password !== passwordConfirmation) {
@@ -181,7 +210,18 @@ export class AuthService {
     this.logger.log(`New user registered: ${username} (${email})`);
 
     // Auto-login after registration
-    const { accessToken, refreshToken } = await this.generateTokens(user);
+    const { accessToken, refreshToken } =
+      await this.userRepository.manager.transaction(async (manager) => {
+        const lockedUser = await this.lockUser(manager, user.id, 'login');
+        this.assertEligible(lockedUser);
+        return this.generateTokens(
+          lockedUser,
+          false,
+          undefined,
+          undefined,
+          manager,
+        );
+      });
 
     return {
       accessToken,
@@ -215,58 +255,63 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    // Check if token is expired
-    if (refreshTokenRecord.isExpired) {
-      await this.refreshTokenRepository.remove(refreshTokenRecord);
-      throw new UnauthorizedException('Refresh token expired');
-    }
-
-    const user = refreshTokenRecord.user;
-
-    // Check if user is still active
-    if (!user.isActive || user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('User account is not active');
-    }
-
-    // Invalidate old refresh token (token rotation)
-    await this.refreshTokenRepository.remove(refreshTokenRecord);
-
-    // Generate new tokens
-    const { accessToken, refreshToken: newRefreshToken } = await this.generateTokens(
-      user,
-      false,
-      ipAddress,
-      userAgent,
-    );
-
-    this.logger.log(`Access token refreshed for user ${user.username}`);
-
-    return {
-      accessToken,
-      refreshToken: newRefreshToken,
-      expiresIn: this.getAccessTokenExpiry(),
-      user: this.sanitizeUser(user),
-      requiresPasswordChange: user.requiresPasswordChange || false,
-    };
+    return this.userRepository.manager.transaction(async (manager) => {
+      const user = await this.lockUser(
+        manager,
+        refreshTokenRecord.userId,
+        'refresh',
+      );
+      const tokens = manager.getRepository(RefreshToken);
+      const current = await tokens.findOne({
+        where: { tokenHash, userId: user.id, isActive: true },
+      });
+      if (!current) throw new UnauthorizedException('Invalid refresh token');
+      if (current.isExpired)
+        throw new UnauthorizedException('Refresh token expired');
+      this.assertEligible(user);
+      await tokens.remove(current);
+      const issued = await this.generateTokens(
+        user,
+        false,
+        ipAddress,
+        userAgent,
+        manager,
+      );
+      return {
+        ...issued,
+        expiresIn: this.getAccessTokenExpiry(),
+        user: this.sanitizeUser(user),
+        requiresPasswordChange: user.requiresPasswordChange || false,
+      };
+    });
   }
 
   /**
    * Logout - invalidate all refresh tokens for user
    */
   async logout(userId: string): Promise<void> {
-    await this.refreshTokenRepository.delete({ userId, isActive: true });
+    await this.userRepository.manager.transaction(async (manager) => {
+      await this.lockUser(manager, userId, 'signOut');
+      await this.revokeSessions(manager, userId);
+    });
     this.logger.log(`User ${userId} logged out - all tokens invalidated`);
   }
 
   /**
    * Change user password
    */
-  async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<void> {
-    const { currentPassword, newPassword, newPasswordConfirmation } = changePasswordDto;
+  async changePassword(
+    userId: string,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<void> {
+    const { currentPassword, newPassword, newPasswordConfirmation } =
+      changePasswordDto;
 
     // Validate new password confirmation
     if (newPassword !== newPasswordConfirmation) {
-      throw new BadRequestException('New password and confirmation do not match');
+      throw new BadRequestException(
+        'New password and confirmation do not match',
+      );
     }
 
     // Find user
@@ -277,7 +322,10 @@ export class AuthService {
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
 
     if (!isCurrentPasswordValid) {
       throw new UnauthorizedException('Current password is incorrect');
@@ -287,21 +335,29 @@ export class AuthService {
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
 
     if (isSamePassword) {
-      throw new BadRequestException('New password must be different from current password');
+      throw new BadRequestException(
+        'New password must be different from current password',
+      );
     }
 
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, bcryptRounds());
 
-    // Update password and clear password change requirement
-    user.password = hashedPassword;
-    user.requiresPasswordChange = false;
-    await this.userRepository.save(user);
+    await this.userRepository.manager.transaction(async (manager) => {
+      const lockedUser = await this.lockUser(manager, userId, 'changePassword');
+      if (lockedUser.password !== user.password) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+      await manager.update(User, userId, {
+        password: hashedPassword,
+        requiresPasswordChange: false,
+      });
+      await this.revokeSessions(manager, userId);
+    });
 
-    // Invalidate all refresh tokens (force re-login everywhere)
-    await this.logout(userId);
-
-    this.logger.log(`Password changed for user ${user.username} - all sessions invalidated`);
+    this.logger.log(
+      `Password changed for user ${user.username} - all sessions invalidated`,
+    );
   }
 
   /**
@@ -337,13 +393,18 @@ export class AuthService {
     user.failedLoginAttempts += 1;
 
     if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
-      user.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
+      user.lockedUntil = new Date(
+        Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000,
+      );
       this.logger.warn(
         `Account ${user.username} locked due to ${MAX_FAILED_ATTEMPTS} failed login attempts`,
       );
     }
 
-    await this.userRepository.save(user);
+    await this.userRepository.update(user.id, {
+      failedLoginAttempts: user.failedLoginAttempts,
+      lockedUntil: user.lockedUntil,
+    });
   }
 
   /**
@@ -354,6 +415,7 @@ export class AuthService {
     rememberMe = false,
     ipAddress?: string,
     userAgent?: string,
+    manager: EntityManager = this.userRepository.manager,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     // JWT payload
     const payload = {
@@ -364,9 +426,12 @@ export class AuthService {
     };
 
     // Generate access token (short-lived)
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_ACCESS_TOKEN_EXPIRY', '15m'),
-    });
+    const accessToken = this.jwtService.sign(
+      { ...payload, tokenVersion: user.tokenVersion },
+      {
+        expiresIn: this.configService.get('JWT_ACCESS_TOKEN_EXPIRY', '15m'),
+      },
+    );
 
     // Generate refresh token (long-lived)
     // If "Remember me" is checked: 7 days, otherwise: 2 days (covers 12h idle + buffer)
@@ -385,7 +450,10 @@ export class AuthService {
     const refreshToken = this.jwtService.sign(
       { ...payload, jti: crypto.randomUUID() },
       {
-        expiresIn: this.configService.get('JWT_REFRESH_TOKEN_EXPIRY', refreshTokenExpiry),
+        expiresIn: this.configService.get(
+          'JWT_REFRESH_TOKEN_EXPIRY',
+          refreshTokenExpiry,
+        ),
       },
     );
 
@@ -395,7 +463,7 @@ export class AuthService {
       Date.now() + this.parseExpiry(refreshTokenExpiry) * 1000,
     );
 
-    const refreshTokenRecord = this.refreshTokenRepository.create({
+    const refreshTokenRecord = manager.getRepository(RefreshToken).create({
       tokenHash,
       userId: user.id,
       expiresAt,
@@ -404,9 +472,42 @@ export class AuthService {
       isActive: true,
     });
 
-    await this.refreshTokenRepository.save(refreshTokenRecord);
+    await manager.getRepository(RefreshToken).save(refreshTokenRecord);
 
     return { accessToken, refreshToken };
+  }
+
+  private async lockUser(
+    manager: EntityManager,
+    userId: string,
+    operation: AuthUserLockOperation,
+  ): Promise<User> {
+    const user = await manager.getRepository(User).findOne({
+      where: { id: userId },
+      lock: { mode: 'for_no_key_update' },
+    });
+    await this.authUserLockHook.afterUserLock(operation, userId);
+    if (!user) throw new UnauthorizedException('User not found');
+    return user;
+  }
+
+  private assertEligible(user: User): void {
+    if (!user.isActive || user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('User account is not active');
+    }
+    if (user.isLocked)
+      throw new UnauthorizedException('User account is locked');
+  }
+
+  private async revokeSessions(
+    manager: EntityManager,
+    userId: string,
+  ): Promise<void> {
+    await manager.query(
+      'UPDATE users SET "tokenVersion" = "tokenVersion" + 1 WHERE id = $1',
+      [userId],
+    );
+    await manager.delete(RefreshToken, { userId });
   }
 
   /**
@@ -420,7 +521,10 @@ export class AuthService {
    * Get access token expiry in seconds
    */
   private getAccessTokenExpiry(): number {
-    const expiry = this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRY', '15m');
+    const expiry = this.configService.get<string>(
+      'JWT_ACCESS_TOKEN_EXPIRY',
+      '15m',
+    );
     return this.parseExpiry(expiry);
   }
 
