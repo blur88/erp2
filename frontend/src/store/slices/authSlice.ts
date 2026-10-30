@@ -109,19 +109,22 @@ export const logout = createAsyncThunk(
   }
 );
 
-export const getCurrentUser = createAsyncThunk(
+export const getCurrentUser = createAsyncThunk<AuthUser | null, void, {
+  fulfilledMeta: { sessionId: string | undefined };
+  rejectedMeta: { sessionId: string | undefined };
+}>(
   'auth/getCurrentUser',
-  async (_, { dispatch, rejectWithValue }) => {
+  async (_, { dispatch, rejectWithValue, fulfillWithValue }) => {
     const id = sessionCoordinator.getSnapshot()?.id;
     try {
       const response = await authApi.getCurrentUser();
-      if (id !== sessionCoordinator.getSnapshot()?.id) return null;
-      return response.data;
+      if (id !== sessionCoordinator.getSnapshot()?.id) return fulfillWithValue(null, { sessionId: id });
+      return fulfillWithValue(response.data, { sessionId: id });
     } catch (error: any) {
-      if (id !== sessionCoordinator.getSnapshot()?.id) return null;
+      if (id !== sessionCoordinator.getSnapshot()?.id) return fulfillWithValue(null, { sessionId: id });
       const { clearLocalSessionForRouteCheck } = await import('@/services/auth/signOut');
       await clearLocalSessionForRouteCheck(dispatch as any, id);
-      return rejectWithValue(error.response?.data?.message || 'Failed to get current user');
+      return rejectWithValue(error.response?.data?.message || 'Failed to get current user', { sessionId: id });
     }
   }
 );
@@ -148,6 +151,7 @@ const authSlice = createSlice({
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
+      state.loading = false;
       state.error = null;
       state.lastActivityTime = Date.now();
       if (action.payload.rememberMe !== undefined) {
@@ -162,6 +166,7 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.refreshToken = null;
       state.isAuthenticated = false;
+      state.loading = false;
       state.error = null;
       state.lastActivityTime = null;
       state.rememberMe = false;
@@ -213,13 +218,16 @@ const authSlice = createSlice({
         state.loading = true;
       })
       .addCase(getCurrentUser.fulfilled, (state, action) => {
+        if (action.meta.sessionId !== sessionCoordinator.getSnapshot()?.id) return;
+        state.loading = false;
         if (action.payload) {
           state.user = action.payload;
           state.isAuthenticated = true;
           state.loading = false;
         }
       })
-      .addCase(getCurrentUser.rejected, (state) => {
+      .addCase(getCurrentUser.rejected, (state, action) => {
+        if (action.meta.sessionId !== sessionCoordinator.getSnapshot()?.id) return;
         state.loading = false;
         state.user = null;
         state.accessToken = null;

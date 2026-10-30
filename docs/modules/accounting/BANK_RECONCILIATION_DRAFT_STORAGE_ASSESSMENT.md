@@ -4,9 +4,11 @@ Status: **CodeQL alert 46 dismissed as a false positive on 2026-10-05**, on the
 repository owner's decision, for the traced value only (Question 1). The
 approved `sessionStorage` design (spec D9) is retained.
 
-The dismissal does **not** cover the two risks below, which are real and remain
-open: the financial data held in the draft (Question 2, Residual risk) and
-cross-tab sign-out (tracked in #1345).
+The dismissal does **not** cover financial data held in the draft or cross-tab
+sign-out. The financial-data risk remains accepted below. The historical
+cross-tab failure motivated #1345; see the [current coordination behavior and
+accepted limits](../../frontend/session-coordination.md). Its browser verification
+is still pending.
 
 ## The alert
 
@@ -57,9 +59,10 @@ Exposure of `sessionStorage`:
 
 ## Sign-out cleanup: what is and is not covered
 
-`useClearReconciliationDraftsOnSignOut` (mounted in `RootLayout`, which renders
-inside redux-persist's `PersistGate`) removes every draft from **the tab it
-runs in** whenever that tab is not signed in.
+`useClearReconciliationDraftsOnSignOut`, mounted in `RootLayout` after shared
+Session startup, removes every draft from **the tab it runs in** whenever that
+tab is not signed in. The Session coordinator also clears drafts before
+replacing an existing Session or applying an observed sign-out.
 
 Each row below was exercised in Chromium 153 by the scripted browser QA at
 `bc9e8c6cf` (record and screenshots: `BANK_RECONCILIATION_QA.md`, scenarios
@@ -72,12 +75,12 @@ Sign-out A/B and Session restore A/B), in addition to the unit tests.
 | Browser closed after a sign-out in another tab, then relaunched with session restore | Tab restored with its `sessionStorage` marker; the app loaded signed-out and the reconciliation draft was removed on load, while the unrelated marker remained. |
 | **Sign-out in a different tab, the first tab left open** | **Not cleaned up.** The first tab kept its draft. In one run a later reload of that tab found it signed out and removed the draft; in the recorded run the reload found the tab **still signed in** and the draft still stored. |
 
-The last row is wider than this feature. `sessionStorage` is per tab, auth state
-is persisted to shared `localStorage` by redux-persist, and nothing synchronises
-sign-out between tabs (`frontend/src` has no `storage` listener or
-`BroadcastChannel`). An open tab can write its own in-memory session back to
-shared storage after another tab has signed out, so whether it is later found
-signed out depends on timing. While that tab stays signed in, its draft stays. Tracked in #1345.
+At the recorded commit, the last row was wider than this feature.
+`sessionStorage` was per tab, auth state was persisted to shared `localStorage` by redux-persist, and nothing synchronised sign-out between tabs (there was no
+`storage` listener or `BroadcastChannel`). An open tab could write its in-memory
+session back after another tab signed out. This describes the historical
+failure, not the current coordinator; #1345 tracks the rebuild and browser
+verification. See the [current limits](../../frontend/session-coordination.md).
 
 Not exercised: a restored tab whose JavaScript never runs (offline or crashed
 page); browsers other than Chromium.
@@ -87,10 +90,9 @@ page); browsers other than Chromium.
 - While a tab is signed in, unsaved balances and selected amounts are held in
   clear text in that tab's `sessionStorage`. This is inherent to the approved
   design (spec D9) and is retained.
-- After a sign-out in one tab, another open tab keeps its drafts, and can remain
-  signed in. Closing that gap means synchronising sign-out across tabs, which is
-  a change to authentication behaviour for the whole application and has not
-  been made here.
+- Cross-tab cleanup now follows the [Session coordinator and its accepted
+  limits](../../frontend/session-coordination.md). The recorded browser run above
+  predates that implementation; it does not verify the new behavior.
 - A restored tab that cannot run the application keeps its stored values.
 
 ## Disposition
@@ -98,11 +100,12 @@ page); browsers other than Chromium.
 - **Traced value (`bankAccountId`):** false positive, for the reason in
   Question 1.
 - **Financial data in the draft:** not a false positive. It is an accepted,
-  recorded residual risk of the approved `sessionStorage` design, with the
-  multi-tab gap above stated rather than closed.
+  recorded residual risk of the approved `sessionStorage` design, with cross-tab
+  verification tracked separately in #1345.
 
 Alert 46 was dismissed as a false positive on 2026-10-05, citing this document,
 after the owner reviewed the browser evidence. The dismissal applies to the
 traced value. The retention of financial data in the draft and the cross-tab
 sign-out behaviour are not false positives; they stay recorded here, and the
-second is tracked in #1345.
+second motivated the coordination work in #1345, whose browser verification
+is pending.
