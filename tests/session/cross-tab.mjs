@@ -1,0 +1,112 @@
+import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
+
+const require = createRequire('/tmp/session-pw/package.json')
+const { chromium } = require('playwright')
+const base = process.env.SESSION_TEST_BASE_URL
+const users = [
+  [process.env.SESSION_TEST_USER_A, process.env.SESSION_TEST_PASSWORD_A],
+  [process.env.SESSION_TEST_USER_B, process.env.SESSION_TEST_PASSWORD_B],
+]
+const browser = await chromium.launch({ headless: true })
+const context = await browser.newContext()
+const tabA = await context.newPage()
+const tabB = await context.newPage()
+
+async function session(page) {
+  return page.evaluate(async () => new Promise((resolve, reject) => {
+    const request = indexedDB.open('erp-session')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction('session', 'readonly')
+      const read = transaction.objectStore('session').get('current')
+      read.onsuccess = () => resolve(read.result ?? null)
+      read.onerror = () => reject(read.error)
+      transaction.oncomplete = () => database.close()
+    }
+  }))
+}
+
+async function login(page, [username, password]) {
+  await page.goto(`${base}/login`)
+  await page.getByRole('textbox', { name: 'Username or Email' }).fill(username)
+  await page.getByLabel('Password', { exact: true }).fill(password)
+  await page.getByRole('button', { name: /^sign in$/i }).click()
+  await page.waitForURL(url => !url.pathname.startsWith('/login'), { timeout: 15000 })
+  await page.waitForFunction(() => document.body.innerText.includes('Dashboard'), { timeout: 15000 })
+  assert.equal((await session(page))?.user?.username, username)
+}
+
+async function logout(page) {
+  await page.getByRole('button', { name: 'Open user menu' }).click()
+  await page.getByRole('menuitem', { name: 'Logout' }).click()
+  await page.waitForURL('**/login')
+}
+
+try {
+  await tabA.goto(base)
+  assert.equal(await tabA.evaluate(() => isSecureContext), false, 'LAN HTTP must be an insecure context')
+  await login(tabA, users[0])
+  const firstId = (await session(tabA)).id
+  await tabB.goto(base)
+  await tabB.waitForURL(url => !url.pathname.startsWith('/login'))
+  assert.equal((await session(tabB)).id, firstId, 'second tab mirrors the first session')
+  console.log('PASS two tabs share one session')
+
+  await tabB.reload()
+  await tabB.waitForURL(url => !url.pathname.startsWith('/login'))
+  assert.equal((await session(tabB)).id, firstId)
+  console.log('PASS session restore after reload')
+
+  // Hold a real backend response until after sign-out. The adapter must reject
+  // the old response and must never rebuild the deleted shared record.
+  let releaseResponse
+  const held = new Promise(resolve => { releaseResponse = resolve })
+  let responseCaptured
+  const captured = new Promise(resolve => { responseCaptured = resolve })
+  await tabB.route('**/api/**', async route => {
+    if (route.request().url().includes('/api/auth/')) return route.continue()
+    const response = await route.fetch()
+    responseCaptured()
+    await held
+    await route.fulfill({ response })
+  }, { times: 1 })
+  let deliveredAt
+  await tabB.exposeBinding('recordSessionHint', () => { deliveredAt ??= Date.now() })
+  await tabB.addInitScript(() => {
+    const channel = new BroadcastChannel('erp-session')
+    channel.addEventListener('message', () => window.recordSessionHint())
+  })
+  const pending = tabB.reload().catch(() => {})
+  await captured
+  await logout(tabA)
+  await tabB.waitForURL('**/login', { timeout: 1000 })
+  const elapsed = Date.now() - deliveredAt
+  assert.ok(deliveredAt, 'sign-out BroadcastChannel hint was not delivered')
+  assert.ok(elapsed <= 1000, `sign-out propagation took ${elapsed} ms`)
+  releaseResponse()
+  await pending
+  assert.equal(await session(tabB), null)
+  console.log(`PASS sign-out propagation ${elapsed} ms (bound: 1000 ms)`)
+  console.log('PASS in-flight response cannot restore signed-in state')
+
+  await login(tabA, users[0])
+  const oldId = (await session(tabA)).id
+  await tabB.waitForURL(url => !url.pathname.startsWith('/login'))
+  await logout(tabB)
+  await login(tabB, users[1])
+  await tabA.waitForFunction(id => {
+    return new Promise(resolve => {
+      const request = indexedDB.open('erp-session')
+      request.onsuccess = () => {
+        const read = request.result.transaction('session').objectStore('session').get('current')
+        read.onsuccess = () => resolve(read.result?.id !== id)
+      }
+    })
+  }, oldId)
+  assert.equal((await session(tabA)).user.username, users[1][0])
+  console.log('PASS user switch propagates to the other tab')
+} finally {
+  await browser.close()
+}

@@ -1,0 +1,7 @@
+services:
+  backend:
+    environment:
+      JWT_ACCESS_TOKEN_EXPIRY: 8s
+  nginx:
+    volumes:
+      - ./tests/session/nginx.test.conf:/etc/nginx/nginx.conf:ro
