@@ -1,9 +1,10 @@
 import React from 'react'
+import { sessionCoordinator } from './services/session'
 import { Navigate, createBrowserRouter, redirect } from 'react-router-dom'
 import RouteErrorBoundary from './components/errors/RouteErrorBoundary'
 import MainLayout from './components/common/MainLayout'
 import RootLayout from './RootLayout'
-import { store, persistor, sessionReady } from './store'
+import { store, sessionReady } from './store'
 import { authRoutes } from './pages/auth/auth.routes'
 import { dashboardRoutes } from './pages/dashboard/dashboard.routes'
 import { inventoryRoutes } from './pages/inventory/inventory.routes'
@@ -16,21 +17,9 @@ import { accountingRoutes } from './pages/accounting/accounting.routes'
 
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
-function waitForRehydration(): Promise<void> {
-  if (persistor.getState().bootstrapped) return Promise.resolve()
-  return new Promise((resolve) => {
-    const unsubscribe = persistor.subscribe(() => {
-      if (persistor.getState().bootstrapped) {
-        unsubscribe()
-        resolve()
-      }
-    })
-  })
-}
-
 async function authLoader({ request }: { request: Request }) {
   await sessionReady
-  await waitForRehydration()
+  await sessionCoordinator.credentialsForRequest()
 
   const { auth } = store.getState()
   const url = new URL(request.url)

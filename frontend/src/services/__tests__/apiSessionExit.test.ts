@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
 import { AxiosError, AxiosHeaders } from 'axios'
-import authReducer from '@/store/slices/authSlice'
+import authReducer, { login, setCredentials } from '@/store/slices/authSlice'
 import { IDBFactory } from 'fake-indexeddb'
 import { SessionCoordinator } from '@/services/session/coordinator'
 import { IndexedDbSessionStorage } from '@/services/session/storage'
@@ -10,7 +10,7 @@ import type { AuthResponse } from '@/store/slices/authSlice'
 const holder = vi.hoisted(() => ({ store: null as any, coordinator: null as any }))
 vi.mock('@/services/session', () => ({ get sessionCoordinator() { return holder.coordinator } }))
 vi.mock('@/store', () => ({ get store() { return holder.store } }))
-vi.mock('@/services/authApi', () => ({ authApi: { refreshToken: vi.fn(), logout: vi.fn() } }))
+vi.mock('@/services/authApi', () => ({ authApi: { refreshToken: vi.fn(), logout: vi.fn(), login: vi.fn() } }))
 
 beforeEach(async () => {
   vi.resetModules()
@@ -117,4 +117,35 @@ it('concurrent 401 responses in one tab share one refresh even while the shared 
   expect(authApi.refreshToken).toHaveBeenCalledTimes(1)
   finish()
   expect((await requests).map(result => result.data)).toEqual(['ok', 'ok'])
+})
+
+it('discards a successful response from the previous Session before exposing its data', async () => {
+  const { default: api } = await import('../api')
+  let finish!: () => void
+  let sent!: () => void
+  const started = new Promise<void>(resolve => { sent = resolve })
+  const request = api.get('/private', { adapter: config => new Promise(resolve => {
+    finish = () => resolve({ data: { secret: 'alice' }, status: 200, statusText: 'OK', headers: {}, config })
+    sent()
+  }) })
+  await started
+  await holder.coordinator.signIn({ accessToken: 'bob-access', refreshToken: 'bob-refresh', user: { id: 'bob' }, expiresIn: 900 })
+  finish()
+  await expect(request).rejects.toThrow('Session ended before response')
+})
+
+
+it('a failed pending login never clears a newly mirrored Session', async () => {
+  const { authApi } = await import('../authApi')
+  let fail!: (error: Error) => void
+  vi.mocked(authApi.login).mockImplementationOnce(() => new Promise((_, reject) => { fail = reject }))
+  const attempt = holder.store.dispatch(login({ usernameOrEmail: 'alice', password: 'wrong' }))
+  await vi.waitFor(() => expect(authApi.login).toHaveBeenCalledOnce())
+  holder.coordinator.subscribe((session: any) => {
+    if (session) holder.store.dispatch(setCredentials({ ...session, expiresIn: 900 }))
+  })
+  await holder.coordinator.signIn({ accessToken: 'bob-access', refreshToken: 'bob-refresh', user: { id: 'bob' }, expiresIn: 900 })
+  fail(new Error('old login rejected'))
+  await attempt
+  expect(holder.store.getState().auth).toMatchObject({ user: { id: 'bob' }, accessToken: 'bob-access', isAuthenticated: true, loading: false, error: null })
 })

@@ -1,2 +1,2 @@
-import { persistor } from '@/store'
-export const helper = persistor
+import { store } from '@/store'
+export const helper = store

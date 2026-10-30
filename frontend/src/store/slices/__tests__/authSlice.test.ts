@@ -291,7 +291,7 @@ describe('authSlice', () => {
 
     it('should select current user', () => {
       const state = store.getState();
-      const user = selectCurrentUser({ ...state, _persist: { version: 1, rehydrated: true } });
+      const user = selectCurrentUser({ ...state });
 
       expect(user).toBeDefined();
       expect(user?.username).toBe('testuser');
@@ -299,14 +299,14 @@ describe('authSlice', () => {
 
     it('should select authentication status', () => {
       const state = store.getState();
-      const isAuthenticated = selectIsAuthenticated({ ...state, _persist: { version: 1, rehydrated: true } });
+      const isAuthenticated = selectIsAuthenticated({ ...state });
 
       expect(isAuthenticated).toBe(true);
     });
 
     it('should select access token', () => {
       const state = store.getState();
-      const token = selectAccessToken({ ...state, _persist: { version: 1, rehydrated: true } });
+      const token = selectAccessToken({ ...state });
 
       expect(token).toBe('access-token');
     });

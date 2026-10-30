@@ -9,8 +9,7 @@ import Alert from '@mui/material/Alert'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 
-import { PersistGate } from 'redux-persist/integration/react'
-import { store, persistor, sessionReady } from './store'
+import { store, sessionReady } from './store'
 import { router } from './router'
 import { NotificationProvider } from './hooks/useNotification'
 import ThemeWrapper from './components/common/ThemeWrapper'
@@ -46,9 +45,7 @@ void sessionReady.then(() => root.render(
           <CssBaseline />
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <NotificationProvider>
-              <PersistGate loading={<LinearProgress />} persistor={persistor}>
                 <RouterProvider router={router} />
-              </PersistGate>
             </NotificationProvider>
           </LocalizationProvider>
         </ThemeWrapper>

@@ -1,5 +1,5 @@
 import { IDBFactory } from 'fake-indexeddb'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SessionCoordinator } from '../coordinator'
 import { IndexedDbSessionStorage } from '../storage'
 import type { AuthResponse } from '@/store/slices/authSlice'
@@ -64,7 +64,7 @@ it('removes legacy storage without reading it', async () => {
   const legacyStorage = { removeItem: (key: string) => { removed.push(key) }, getItem: () => { throw new Error('must never read legacy auth') } }
   const coordinator = new SessionCoordinator({ storage: new IndexedDbSessionStorage(new IDBFactory()), legacyStorage })
   expect(await coordinator.start()).toBeNull()
-  expect(removed).toEqual(['persist:erp-app'])
+  expect(removed).toEqual(['persist:erp-app', 'persist:erp-notifications'])
   coordinator.dispose()
 })
 
@@ -130,4 +130,69 @@ it('storage denial when accessing indexedDB is reported at start rather than cra
     if (descriptor) Object.defineProperty(globalThis, 'indexedDB', descriptor)
     else delete (globalThis as any).indexedDB
   }
+})
+
+it('delivered hints mirror sign-in and sign-out without a request or observer writes', async () => {
+  const factory = new IDBFactory()
+  const receivers = new Set<() => void>()
+  let broadcasts = 0
+  const channel = () => {
+    let listener: (() => void) | undefined
+    return {
+      postMessage() { broadcasts++; for (const receiver of receivers) if (receiver !== listener) receiver() },
+      subscribe(callback: () => void) { listener = callback; receivers.add(callback); return () => { receivers.delete(callback) } },
+      close() {},
+    }
+  }
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), channel: channel() })
+  const observerStorage = new IndexedDbSessionStorage(factory)
+  const observerWrite = vi.spyOn(observerStorage, 'change')
+  const b = new SessionCoordinator({ storage: observerStorage, channel: channel() })
+  await a.start(); await b.start()
+  const signedIn = new Promise<void>(resolve => b.subscribe(session => { if (session) resolve() }))
+  const session = (await a.signIn(response))!
+  await signedIn
+  expect(b.getSnapshot()?.id).toBe(session.id)
+  const signedOut = new Promise<void>(resolve => b.subscribe(value => { if (!value) resolve() }))
+  await a.signOut(session.id)
+  await signedOut
+  expect(b.getSnapshot()).toBeNull()
+  expect(broadcasts).toBe(2)
+  expect(observerWrite).not.toHaveBeenCalled()
+  a.dispose(); b.dispose()
+}, 1000)
+
+it.each(['focus', 'pageshow', 'visibilitychange'])('a dropped hint is reconciled on %s and cleanup precedes adoption', async event => {
+  const factory = new IDBFactory()
+  const target = new EventTarget()
+  let delivered: (() => void) | undefined
+  const drop = true
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), channel: {
+    postMessage() { if (!drop) delivered?.() }, close() {},
+  } })
+  const cleanup: Array<string | null | undefined> = []
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory),
+    resumeTargets: { window: target, document: target },
+    channel: { postMessage() { throw new Error('observer must never rebroadcast') }, close() {}, subscribe(listener) { delivered = listener; return () => { delivered = undefined } } },
+    cleanup() { cleanup.push(b.getSnapshot()?.id ?? null) },
+  })
+  await a.start()
+  const old = (await a.signIn(response))!
+  await b.start()
+  const newer = (await a.signIn({ ...response, accessToken: 'new' }))!
+  expect(b.getSnapshot()?.id).toBe(old.id)
+  const mirrored = new Promise<void>(resolve => b.subscribe(session => { if (session?.id === newer.id) resolve() }))
+  target.dispatchEvent(new Event(event))
+  await mirrored
+  expect(cleanup).toEqual([null])
+  expect((await a.credentialsForRequest())?.id).toBe(newer.id)
+  const ended = new Promise<void>(resolve => b.subscribe(session => { if (!session) resolve() }))
+  await a.signOut(newer.id)
+  expect(b.getSnapshot()?.id).toBe(newer.id)
+  target.dispatchEvent(new Event(event))
+  await ended
+  expect(b.getSnapshot()).toBeNull()
+  expect(cleanup).toEqual([null, null])
+  b.dispose(); a.dispose()
+  expect(delivered).toBeUndefined()
 })

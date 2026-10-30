@@ -10,7 +10,7 @@ import { BrowserRouter, MemoryRouter, Routes, Route } from 'react-router-dom';
 import { configureStore, type Middleware } from '@reduxjs/toolkit';
 import '@testing-library/jest-dom/vitest';
 import ProtectedRoute from '../ProtectedRoute';
-import authReducer, { setAccessToken } from '../../../store/slices/authSlice';
+import authReducer, { setAccessToken, setCredentials, clearAuth } from '../../../store/slices/authSlice';
 import { authApi } from '@/services/authApi';
 vi.mock('@/services/authApi', () => ({ authApi: { getCurrentUser: vi.fn(() => new Promise(() => {})), logout: vi.fn() } }));
 
@@ -113,13 +113,44 @@ describe('ProtectedRoute', () => {
       });
       expect(store.getState().auth).toMatchObject({ accessToken: null, refreshToken: null, isAuthenticated: false });
       expect(authApi.logout).not.toHaveBeenCalled();
-      // clearAuth does not reset loading; preserve the pending-verification spinner.
-      expect(screen.getByRole('progressbar')).toBeInTheDocument();
-      expect(screen.queryByText('Redirected to /login')).not.toBeInTheDocument();
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      expect(screen.getByText('Redirected to /login')).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
   });
+
+  it.each(['resolve', 'reject'] as const)('a mirrored Session survives old verification %s and its timeout', async outcome => {
+    let resolve!: (value: any) => void
+    let reject!: (error: Error) => void
+    vi.mocked(authApi.getCurrentUser).mockImplementationOnce(() => new Promise((yes, no) => { resolve = yes; reject = no }))
+    const initial = authReducer(undefined, { type: 'init' })
+    const store = configureStore({ reducer: { auth: authReducer }, preloadedState: {
+      auth: { ...initial, accessToken: 'unverified', refreshToken: 'refresh' },
+    } })
+    sessionHolder.coordinator.setCleanup(() => store.dispatch(clearAuth()))
+    sessionHolder.coordinator.subscribe((session: any) => {
+      if (session) store.dispatch(setCredentials({ ...session, expiresIn: 900 }))
+    })
+    render(<Provider store={store}><MemoryRouter initialEntries={['/dashboard']}>
+      <ProtectedRoute><TestComponent /></ProtectedRoute>
+    </MemoryRouter></Provider>)
+    await waitFor(() => expect(authApi.getCurrentUser).toHaveBeenCalledOnce())
+    let newer: any
+    await act(async () => {
+      newer = await sessionHolder.coordinator.signIn({ accessToken: 'bob', refreshToken: 'bob-refresh', user: { id: 'bob' }, expiresIn: 900 })
+    })
+    // Leave A's request pending beyond its old verification timeout.
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 3100)) })
+    expect((await sessionHolder.coordinator.credentialsForRequest())?.id).toBe(newer.id)
+    await act(async () => {
+      if (outcome === 'resolve') resolve({ data: { id: 'alice' } })
+      else reject(new Error('old request failed'))
+    })
+    expect(store.getState().auth).toMatchObject({ user: { id: 'bob' }, accessToken: 'bob', isAuthenticated: true, loading: false })
+    expect(screen.getByText('Protected Content')).toBeInTheDocument()
+    expect(authApi.logout).not.toHaveBeenCalled()
+  })
 
   it('should render children when user is authenticated', () => {
     const store = configureStore({

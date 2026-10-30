@@ -83,7 +83,9 @@ const processQueue = (error: any, token: string | null = null) => {
 
 // Response interceptor with token refresh and error handling
 api.interceptors.response.use(
-  (response: AxiosResponse) => {
+  async (response: AxiosResponse) => {
+    const session = await getCredentials()
+    if ((response.config as any)._sessionId !== session?.id) throw new Error('Session ended before response')
     return response
   },
   async (error) => {

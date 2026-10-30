@@ -1,15 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
-import { persistStore, persistReducer } from 'redux-persist'
-// Guard localStorage access: redux-persist debounces writes, which under
-// vitest can fire after the jsdom environment (and its localStorage) is torn
-// down — an unhandled ReferenceError that fails the whole run.
-const hasLocalStorage = () => typeof localStorage !== 'undefined'
-const storage = {
-  getItem: (key: string) => Promise.resolve(hasLocalStorage() ? localStorage.getItem(key) : null),
-  setItem: (key: string, value: string) => Promise.resolve(hasLocalStorage() ? localStorage.setItem(key, value) : undefined),
-  removeItem: (key: string) => Promise.resolve(hasLocalStorage() ? localStorage.removeItem(key) : undefined),
-}
 import { combineReducers } from '@reduxjs/toolkit'
 
 // Import slices
@@ -33,8 +23,8 @@ import { printSettingsApiSlice } from './api/printSettingsApi'
 import { searchApiSlice } from './api/searchApi'
 import { accountingApiSlice } from './api/accountingApi'
 import { redisMonitoringApiSlice } from './api/redisMonitoringApi'
-import { PERSIST_KEY } from './persistKey'
 import { sessionCoordinator } from '@/services/session'
+import { createSessionCleanup } from '@/services/session/cleanup'
 import { clearAuth, setCredentials } from './slices/authSlice'
 
 const rootReducer = combineReducers({
@@ -60,42 +50,10 @@ const rootReducer = combineReducers({
   [redisMonitoringApiSlice.reducerPath]: redisMonitoringApiSlice.reducer,
 })
 
-// Persist configuration
-const persistConfig = {
-  key: PERSIST_KEY,
-  storage,
-  whitelist: ['notifications'],
-  version: 6,
-  migrate: (state: any) => {
-    // Only notifications are accepted from the new key. Startup removes the
-    // legacy combined auth/notification record before persistence starts.
-    if (state) {
-      const notifications: any[] = state.notifications?.notifications ?? []
-      const capped = notifications.slice(0, 50) // newest-first invariant
-      const unreadCount = capped.filter((n: any) => !n.read).length
-
-      return Promise.resolve({
-        notifications: {
-          notifications: capped,
-          unreadCount,
-        },
-      })
-    }
-    return Promise.resolve(state)
-  },
-}
-
-const persistedReducer = persistReducer(persistConfig, rootReducer)
-
 export const store = configureStore({
-  reducer: persistedReducer,
+  reducer: rootReducer,
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({
-    serializableCheck: {
-      ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
-      ignoredPaths: ['register'],
-    },
-  }).concat(
+    getDefaultMiddleware().concat(
     auditLogApiSlice.middleware as any,
     backupApiSlice.middleware as any,
     priceListApiSlice.middleware as any,
@@ -112,15 +70,16 @@ export const store = configureStore({
   ),
 })
 
+const apiSlices = [auditLogApiSlice, backupApiSlice, priceListApiSlice, userManagementApiSlice,
+  inventoryApiSlice, purchasingApiSlice, salesApiSlice, settingsApiSlice, paymentMethodsApiSlice,
+  printSettingsApiSlice, searchApiSlice, accountingApiSlice, redisMonitoringApiSlice]
+sessionCoordinator.setCleanup(createSessionCleanup(store, apiSlices))
+
 export const sessionReady = sessionCoordinator.start().then(() => undefined)
 sessionCoordinator.subscribe(session => {
   if (session) store.dispatch(setCredentials({ ...session, expiresIn: 0, rememberMe: session.rememberMe }))
   else store.dispatch(clearAuth())
 })
-// T2 removes notification persistence; auth is never persisted again.
-export const persistor = persistStore(store, { manualPersist: true } as any)
-void sessionReady.then(() => persistor.persist(), () => {})
-
 setupListeners(store.dispatch)
 
 export type RootState = ReturnType<typeof store.getState>

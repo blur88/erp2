@@ -1,6 +1,4 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { REHYDRATE } from 'redux-persist'
-import { PERSIST_KEY } from '@/store/persistKey'
 import type { Notification } from '@/types'
 import type { RootState } from '@/store'
 import { logout, clearAuth } from './authSlice'
@@ -70,15 +68,7 @@ const notificationSlice = createSlice({
         state.notifications = []
         state.unreadCount = 0
       })
-      .addCase(REHYDRATE, (state, action: any) => {
-        // payload is undefined on cold start (no persisted state) — no-op
-        if (action.key === PERSIST_KEY && action.payload?.notifications) {
-          const persisted = action.payload.notifications
-          const capped = (persisted.notifications ?? []).slice(0, 50) // newest-first
-          state.notifications = capped
-          state.unreadCount = capped.filter((n: any) => !n.read).length
-        }
-      })
+
   },
 })
 
@@ -90,9 +80,9 @@ export const {
 } = notificationSlice.actions
 
 // Selectors
-export const selectNotifications = (state: RootState) =>
+export const selectNotifications = (state: Pick<RootState, 'notifications'>) =>
   state.notifications.notifications
-export const selectUnreadCount = (state: RootState) =>
+export const selectUnreadCount = (state: Pick<RootState, 'notifications'>) =>
   state.notifications.unreadCount
 
 export default notificationSlice.reducer
