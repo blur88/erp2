@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter, MemoryRouter, Routes, Route } from 'react-router-dom';
 import { configureStore, type Middleware } from '@reduxjs/toolkit';
@@ -59,6 +59,21 @@ describe('ProtectedRoute', () => {
       state: { from: expect.objectContaining({ pathname: '/dashboard', search: '?tab=1' }) },
     });
   }
+
+  it('current-user API rejection clears auth through the reducer and redirects with state.from', async () => {
+    vi.mocked(authApi.getCurrentUser).mockRejectedValueOnce(new Error('session expired'));
+    const initial = authReducer(undefined, { type: 'init' });
+    const store = configureStore({
+      reducer: { auth: authReducer },
+      preloadedState: { auth: { ...initial, accessToken: 'unverified', refreshToken: 'refresh' } },
+    });
+    render(<Provider store={store}><MemoryRouter initialEntries={['/dashboard?tab=1']}>
+      <ProtectedRoute><TestComponent /></ProtectedRoute>
+    </MemoryRouter></Provider>);
+    await waitFor(() => expect(store.getState().auth.loading).toBe(false));
+    expect(authApi.getCurrentUser).toHaveBeenCalledOnce();
+    expectLocalClearAndReturnLocation(store);
+  });
 
   it('verification dispatch rejection clears local auth and redirects with state.from', async () => {
     const { store, rejectVerification } = renderPendingVerification();

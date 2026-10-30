@@ -4,7 +4,7 @@ import authReducer, { setAccessToken } from '@/store/slices/authSlice'
 import { authApi } from '@/services/authApi'
 import { getCredentials } from '../credentials'
 import {
-  signOutManually, clearLocalSessionForIdle, signOutAfterPasswordChange,
+  signOutManually, signOutForIdle, signOutAfterPasswordChange,
   signOutFromPasswordChange, clearLocalSessionForMissingRefreshToken,
   clearLocalSessionForFailedRefresh, clearLocalSessionForRouteCheck,
 } from '../signOut'
@@ -67,7 +67,7 @@ describe('session-ending behavior', () => {
   it.each(['refresh', null])('idle always clears and replaces login, token: %s', async (token) => {
     const store = makeStore()
     const navigate = vi.fn(() => expectCleared(store))
-    await clearLocalSessionForIdle(store.dispatch, token, navigate)
+    await signOutForIdle(store.dispatch, token, navigate)
     expect(authApi.logout).toHaveBeenCalledTimes(token ? 1 : 0)
     expectCleared(store)
     expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
@@ -111,9 +111,9 @@ describe('session-ending behavior', () => {
     expect(store.getState().auth.isAuthenticated).toBe(true)
   })
 
-  it.each([clearLocalSessionForMissingRefreshToken, clearLocalSessionForFailedRefresh])('refresh exit clears locally and navigates without backend logout: %s', (signOut) => {
+  it.each([clearLocalSessionForMissingRefreshToken, clearLocalSessionForFailedRefresh])('refresh exit clears locally and navigates without backend logout: %s', (clearLocal) => {
     const store = makeStore()
-    signOut(store.dispatch)
+    clearLocal(store.dispatch)
     expectCleared(store)
     expect(authApi.logout).not.toHaveBeenCalled()
     expect(location.href).toBe('/login')

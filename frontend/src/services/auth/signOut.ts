@@ -11,7 +11,8 @@ export async function signOutManually(
   navigate('/login')
 }
 
-export async function clearLocalSessionForIdle(
+// Without a refresh token, this only clears local auth.
+export async function signOutForIdle(
   dispatch: AppDispatch, refreshToken: string | null | undefined, navigate: NavigateFunction,
 ) {
   try {

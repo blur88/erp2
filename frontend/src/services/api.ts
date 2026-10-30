@@ -135,7 +135,7 @@ api.interceptors.response.use(
       const { refreshToken } = getCredentials(store.getState())
 
       if (!refreshToken) {
-        // No refresh token available, logout
+        // No refresh token available, clear local auth
         const { clearLocalSessionForMissingRefreshToken } = await import('./auth/signOut')
         clearLocalSessionForMissingRefreshToken(store.dispatch)
         return Promise.reject(error)
@@ -170,7 +170,7 @@ api.interceptors.response.use(
         }
         return api(originalRequest)
       } catch (refreshError) {
-        // Token refresh failed, logout user
+        // Token refresh failed, clear local auth
         processQueue(refreshError, null)
         const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
         clearLocalSessionForFailedRefresh(store.dispatch)

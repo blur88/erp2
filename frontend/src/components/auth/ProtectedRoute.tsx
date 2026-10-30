@@ -30,7 +30,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
       // Set a hard timeout to force redirect to login if verification takes too long
       const timeoutId = setTimeout(() => {
-        console.warn('Token verification timeout - forcing logout');
+        console.warn('Token verification timeout - clear local auth');
         clearLocalSessionForRouteCheck(dispatch);
         setShouldVerify(false);
       }, 3000); // 3 second timeout
