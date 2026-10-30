@@ -139,7 +139,7 @@ it('a failed pending login never clears a newly mirrored Session', async () => {
   const { authApi } = await import('../authApi')
   let fail!: (error: Error) => void
   vi.mocked(authApi.login).mockImplementationOnce(() => new Promise((_, reject) => { fail = reject }))
-  const attempt = holder.store.dispatch(login({ username: 'alice', password: 'wrong' }))
+  const attempt = holder.store.dispatch(login({ usernameOrEmail: 'alice', password: 'wrong' }))
   await vi.waitFor(() => expect(authApi.login).toHaveBeenCalledOnce())
   holder.coordinator.subscribe((session: any) => {
     if (session) holder.store.dispatch(setCredentials({ ...session, expiresIn: 900 }))
