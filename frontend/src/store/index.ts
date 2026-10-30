@@ -24,7 +24,7 @@ import { searchApiSlice } from './api/searchApi'
 import { accountingApiSlice } from './api/accountingApi'
 import { redisMonitoringApiSlice } from './api/redisMonitoringApi'
 import { sessionCoordinator } from '@/services/session'
-import { clearAllDrafts } from '@/pages/accounting/bank-reconciliations/reconciliationDraftStorage'
+import { createSessionCleanup } from '@/services/session/cleanup'
 import { clearAuth, setCredentials } from './slices/authSlice'
 
 const rootReducer = combineReducers({
@@ -73,12 +73,7 @@ export const store = configureStore({
 const apiSlices = [auditLogApiSlice, backupApiSlice, priceListApiSlice, userManagementApiSlice,
   inventoryApiSlice, purchasingApiSlice, salesApiSlice, settingsApiSlice, paymentMethodsApiSlice,
   printSettingsApiSlice, searchApiSlice, accountingApiSlice, redisMonitoringApiSlice]
-sessionCoordinator.setCleanup((next) => {
-  store.dispatch(clearAuth())
-  clearAllDrafts()
-  for (const api of apiSlices) store.dispatch(api.util.resetApiState())
-  if (!next) window.location.assign('/login')
-})
+sessionCoordinator.setCleanup(createSessionCleanup(store, apiSlices))
 
 export const sessionReady = sessionCoordinator.start().then(() => undefined)
 sessionCoordinator.subscribe(session => {

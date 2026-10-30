@@ -166,7 +166,7 @@ it.each(['focus', 'pageshow', 'visibilitychange'])('a dropped hint is reconciled
   const factory = new IDBFactory()
   const target = new EventTarget()
   let delivered: (() => void) | undefined
-  let drop = true
+  const drop = true
   const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), channel: {
     postMessage() { if (!drop) delivered?.() }, close() {},
   } })
@@ -186,10 +186,12 @@ it.each(['focus', 'pageshow', 'visibilitychange'])('a dropped hint is reconciled
   await mirrored
   expect(cleanup).toEqual([null])
   expect((await a.credentialsForRequest())?.id).toBe(newer.id)
-  drop = false
   const ended = new Promise<void>(resolve => b.subscribe(session => { if (!session) resolve() }))
   await a.signOut(newer.id)
+  expect(b.getSnapshot()?.id).toBe(newer.id)
+  target.dispatchEvent(new Event(event))
   await ended
+  expect(b.getSnapshot()).toBeNull()
   expect(cleanup).toEqual([null, null])
   b.dispose(); a.dispose()
   expect(delivered).toBeUndefined()
