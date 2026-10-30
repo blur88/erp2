@@ -108,6 +108,7 @@ api.interceptors.response.use(
     // Handle 401 Unauthorized - attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
+        originalRequest._retry = true
         // Queue the request while token is being refreshed
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -124,50 +125,39 @@ api.interceptors.response.use(
       }
 
       originalRequest._retry = true
-
-      const store = await getStore()
-      const session = await getCredentials()
-      if (originalRequest._sessionId && originalRequest._sessionId !== session?.id) {
-        throw new Error('Session ended before refresh')
-      }
-      const refreshToken = session?.refreshToken
-
-      if (!refreshToken) {
-        // No refresh token available, clear local auth
-        const { clearLocalSessionForMissingRefreshToken } = await import('./auth/signOut')
-        await clearLocalSessionForMissingRefreshToken(store.dispatch)
-        isRefreshing = false
-        processQueue(error)
-        return Promise.reject(error)
-      }
-
       isRefreshing = true
       try {
-        // Import authApi dynamically to avoid circular dependency
+        const store = await getStore()
+        const session = await getCredentials()
+        if (originalRequest._sessionId && originalRequest._sessionId !== session?.id) {
+          throw new Error('Session ended before refresh')
+        }
+        const refreshToken = session?.refreshToken
+        if (!refreshToken) {
+          const { clearLocalSessionForMissingRefreshToken } = await import('./auth/signOut')
+          await clearLocalSessionForMissingRefreshToken(store.dispatch)
+          throw error
+        }
+
         const { authApi } = await import('./authApi')
-        const response = await authApi.refreshToken(refreshToken)
+        let response
+        try {
+          response = await authApi.refreshToken(refreshToken)
+        } catch (refreshError) {
+          const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
+          await clearLocalSessionForFailedRefresh(store.dispatch, session!.id, refreshToken)
+          throw refreshError
+        }
 
-        const { accessToken: newAccessToken } = response.data
-
+        // A failed required save stops here; it must not initiate another write.
         const saved = await sessionCoordinator.saveRefresh(session!.id, refreshToken, response.data)
-        if (!saved || saved.id !== session!.id || saved.accessToken !== newAccessToken) {
+        if (!saved || saved.id !== session!.id || saved.accessToken !== response.data.accessToken) {
           throw new Error('Session ended during refresh')
         }
-
-        // Process queued requests with new token
-        processQueue(null, newAccessToken)
-
-        // Retry original request with new token
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
-        }
+        processQueue(null, saved.accessToken)
         return api(originalRequest)
       } catch (refreshError) {
-        // Token refresh failed, clear local auth
         processQueue(refreshError, null)
-        const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
-        await clearLocalSessionForFailedRefresh(store.dispatch, session!.id, refreshToken)
-
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false

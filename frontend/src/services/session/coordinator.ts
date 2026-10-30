@@ -6,6 +6,7 @@ export interface SessionChannel {
   postMessage(message: unknown): void
   close(): void
 }
+export interface SignInContext { lastEndedSessionId: string | null }
 interface Options {
   storage: SessionStorage
   channel?: SessionChannel
@@ -63,12 +64,26 @@ export class SessionCoordinator {
     })
   }
 
-  signIn(response: AuthResponse, rememberMe = false) {
+  /** Capture before sending login; a matched sign-out invalidates this attempt. */
+  beginSignIn(): Promise<SignInContext> {
+    return this.run(async () => {
+      await this.open()
+      return { lastEndedSessionId: await this.options.storage.readSignOutMarker() }
+    })
+  }
+
+  signIn(response: AuthResponse, rememberMe = false, context?: SignInContext) {
     return this.run(async () => {
       await this.open()
       const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
       const session: Session = { id, accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user, rememberMe, lastActivity: (this.options.clock ?? Date.now)() }
-      await this.options.storage.change(() => session)
+      let saved = false
+      const current = await this.options.storage.change((current, lastEnded) => {
+        if (context && context.lastEndedSessionId !== lastEnded) return current
+        saved = true
+        return session
+      })
+      if (!saved) { this.adopt(current); return null }
       this.options.channel?.postMessage('changed')
       // A concurrent sign-in may already have replaced our save.
       return this.adopt(await this.options.storage.read())

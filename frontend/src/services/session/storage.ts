@@ -12,7 +12,8 @@ export interface Session {
 export interface SessionStorage {
   open(): Promise<void>
   read(): Promise<Session | null>
-  change(update: (current: Session | null) => Session | null): Promise<Session | null>
+  readSignOutMarker(): Promise<string | null>
+  change(update: (current: Session | null, lastEnded: string | null) => Session | null): Promise<Session | null>
   close(): void
 }
 
@@ -36,7 +37,7 @@ export class IndexedDbSessionStorage implements SessionStorage {
     this.database.onversionchange = () => this.close()
   }
 
-  private transaction(mode: IDBTransactionMode, update?: (current: Session | null) => Session | null): Promise<Session | null> {
+  private transaction(mode: IDBTransactionMode, update?: (current: Session | null, lastEnded: string | null) => Session | null): Promise<Session | null> {
     return new Promise((resolve, reject) => {
       if (!this.database) { reject(new Error('Session storage is not open')); return }
       const transaction = this.database.transaction('session', mode)
@@ -45,12 +46,15 @@ export class IndexedDbSessionStorage implements SessionStorage {
       transaction.oncomplete = () => resolve(result)
       transaction.onabort = () => reject(transaction.error ?? new Error('Session storage transaction aborted'))
       transaction.onerror = () => reject(transaction.error)
+      const marker = store.get('last-ended-session')
       const request = store.get('current')
       request.onsuccess = () => {
         result = request.result ?? null
         if (update) {
           try {
-            result = update(result)
+            const previous = result
+            result = update(result, marker.result ?? null)
+            if (previous && !result) store.put(previous.id, 'last-ended-session')
             if (result) store.put(result, 'current')
             else store.delete('current')
           } catch (error) {
@@ -63,6 +67,16 @@ export class IndexedDbSessionStorage implements SessionStorage {
   }
 
   read() { return this.transaction('readonly') }
-  change(update: (current: Session | null) => Session | null) { return this.transaction('readwrite', update) }
+  readSignOutMarker(): Promise<string | null> {
+    return new Promise((resolve, reject) => {
+      if (!this.database) { reject(new Error('Session storage is not open')); return }
+      const transaction = this.database.transaction('session', 'readonly')
+      const request = transaction.objectStore('session').get('last-ended-session')
+      transaction.oncomplete = () => resolve(request.result ?? null)
+      transaction.onabort = () => reject(transaction.error ?? new Error('Session storage transaction aborted'))
+      transaction.onerror = () => reject(transaction.error)
+    })
+  }
+  change(update: (current: Session | null, lastEnded: string | null) => Session | null) { return this.transaction('readwrite', update) }
   close() { this.database?.close(); this.database = undefined }
 }

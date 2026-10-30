@@ -85,8 +85,9 @@ export const login = createAsyncThunk(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
+      const context = await sessionCoordinator.beginSignIn();
       const response = await authApi.login(credentials);
-      const session = await sessionCoordinator.signIn(response.data, credentials.rememberMe ?? false);
+      const session = await sessionCoordinator.signIn(response.data, credentials.rememberMe ?? false, context);
       if (!session) throw new Error('Session ended during sign-in');
       return { ...response.data, ...session };
     } catch (error: any) {

@@ -71,7 +71,11 @@ it('storage read failure stops the request before its adapter can send anything'
   const { default: api } = await import('../api')
   const adapter = vi.fn()
   holder.coordinator.dispose()
-  await expect(api.get('/test', { adapter })).rejects.toThrow('disposed')
+  const storage = new IndexedDbSessionStorage(new IDBFactory())
+  holder.coordinator = new SessionCoordinator({ storage })
+  await holder.coordinator.start()
+  storage.close()
+  await expect(api.get('/test', { adapter })).rejects.toThrow('not open')
   expect(adapter).not.toHaveBeenCalled()
 })
 
@@ -93,4 +97,24 @@ it('a refresh arriving after sign-out cannot recreate the session or retry the r
   await rejected
   expect(await holder.coordinator.credentialsForRequest()).toBeNull()
   expect(adapter).toHaveBeenCalledTimes(1)
+})
+
+it('concurrent 401 responses in one tab share one refresh even while the shared read is pending', async () => {
+  const { default: api } = await import('../api')
+  const { authApi } = await import('../authApi')
+  let finish!: () => void
+  vi.mocked(authApi.refreshToken).mockImplementation(() => new Promise(resolve => {
+    finish = () => resolve({ data: { accessToken: 'rotated', refreshToken: 'rotated-refresh', user: { id: 'alice' } } } as any)
+  }))
+  const adapter = async (config: any) => {
+    if (config.headers.Authorization === 'Bearer rotated') return { data: 'ok', status: 200, statusText: 'OK', headers: {}, config }
+    throw new AxiosError('unauthorized', 'ERR_BAD_REQUEST', config, undefined, { data: {}, status: 401, statusText: 'Unauthorized', headers: new AxiosHeaders(), config })
+  }
+  const requests = Promise.all([api.get('/first', { adapter }), api.get('/second', { adapter })])
+  await vi.waitFor(() => expect(authApi.refreshToken).toHaveBeenCalled())
+  // Allow both handlers' required storage reads to complete before resolving refresh.
+  await new Promise(resolve => setTimeout(resolve, 30))
+  expect(authApi.refreshToken).toHaveBeenCalledTimes(1)
+  finish()
+  expect((await requests).map(result => result.data)).toEqual(['ok', 'ok'])
 })

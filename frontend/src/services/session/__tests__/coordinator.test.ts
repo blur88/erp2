@@ -100,3 +100,21 @@ it('dispose releases subscriptions and the injected channel and forbids further 
   await expect(coordinator.credentialsForRequest()).rejects.toThrow('disposed')
   expect(calls).toBe(1)
 })
+
+it('a pending login is invalidated by another tab signing out, even when it began signed out', async () => {
+  const factory = new IDBFactory()
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await a.start(); await b.start()
+  const attempt = await a.beginSignIn()
+  const ended = (await b.signIn(response))!
+  await b.signOut(ended.id)
+  expect(await a.signIn(response, false, attempt)).toBeNull()
+  expect(await b.credentialsForRequest()).toBeNull()
+  // No sign-in ordering is imposed on two attempts with a valid context.
+  const first = await a.beginSignIn(), second = await b.beginSignIn()
+  await a.signIn({ ...response, accessToken: 'first' }, false, first)
+  await b.signIn({ ...response, accessToken: 'second' }, false, second)
+  expect((await a.credentialsForRequest())?.accessToken).toBe('second')
+  a.dispose(); b.dispose()
+})
