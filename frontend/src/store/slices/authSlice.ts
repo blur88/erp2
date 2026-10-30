@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '@/services/authApi';
 import type { RootState } from '@/store';
+import { sessionCoordinator } from '@/services/session';
 
 // Auth-specific User interface matching backend
 export interface AuthUser {
@@ -85,9 +86,11 @@ export const login = createAsyncThunk(
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
       const response = await authApi.login(credentials);
-      return response.data;
+      const session = await sessionCoordinator.signIn(response.data, credentials.rememberMe ?? false);
+      if (!session) throw new Error('Session ended during sign-in');
+      return { ...response.data, ...session };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
+      return rejectWithValue(error.response?.data?.message || error.message || 'Login failed');
     }
   }
 );
@@ -107,11 +110,14 @@ export const logout = createAsyncThunk(
 
 export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
-  async (_, { rejectWithValue }) => {
+  async (_, { dispatch, rejectWithValue }) => {
+    const id = sessionCoordinator.getSnapshot()?.id;
     try {
       const response = await authApi.getCurrentUser();
       return response.data;
     } catch (error: any) {
+      const { clearLocalSessionForRouteCheck } = await import('@/services/auth/signOut');
+      await clearLocalSessionForRouteCheck(dispatch as any, id);
       return rejectWithValue(error.response?.data?.message || 'Failed to get current user');
     }
   }
@@ -169,7 +175,8 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
-        if (action.payload) {
+        state.loading = false;
+        if (action.payload && sessionCoordinator.getSnapshot()?.id === action.payload.id) {
           state.user = action.payload.user;
           state.accessToken = action.payload.accessToken;
           state.refreshToken = action.payload.refreshToken;

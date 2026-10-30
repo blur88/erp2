@@ -1,56 +1,63 @@
-import { clearAuth, logout } from '@/store/slices/authSlice'
+import { clearAuth } from '@/store/slices/authSlice'
+import { sessionCoordinator } from '@/services/session'
+import { authApi } from '@/services/authApi'
 import type { AppDispatch } from '@/store'
 import type { NavigateFunction } from 'react-router-dom'
 
-// Preserve each caller's existing ordering and missing-token behavior (#1547).
+async function endSession(dispatch: AppDispatch, id = sessionCoordinator.getSnapshot()?.id, triedToken?: string) {
+  const ended = id ? await sessionCoordinator.signOut(id, triedToken) : null
+  if (!sessionCoordinator.getSnapshot()) dispatch(clearAuth())
+  return ended
+}
+
+// Backend logout uses the captured credentials after shared deletion and cleanup.
+async function backendLogout(session: Awaited<ReturnType<typeof endSession>>) {
+  if (!session) return
+  try { await authApi.logout(session.refreshToken, session.accessToken) }
+  catch (error) { console.error('Server logout failed:', error) }
+}
+
 export async function signOutManually(
-  dispatch: AppDispatch, refreshToken: string | null, purge: () => Promise<unknown>, navigate: NavigateFunction,
+  dispatch: AppDispatch, _refreshToken: string | null, purge: () => Promise<unknown>, navigate: NavigateFunction,
 ) {
-  if (refreshToken) await dispatch(logout(refreshToken))
+  const ended = await endSession(dispatch)
   await purge()
   navigate('/login')
+  void backendLogout(ended)
 }
 
-// Without a refresh token, this only clears local auth.
 export async function signOutForIdle(
-  dispatch: AppDispatch, refreshToken: string | null | undefined, navigate: NavigateFunction,
+  dispatch: AppDispatch, _refreshToken: string | null | undefined, navigate: NavigateFunction,
 ) {
-  try {
-    if (refreshToken) await dispatch(logout(refreshToken)).unwrap()
-  } catch (error) {
-    console.error('Server logout failed:', error)
-  } finally {
-    dispatch(clearAuth())
-    navigate('/login', { replace: true })
-  }
+  const ended = await endSession(dispatch)
+  navigate('/login', { replace: true })
+  void backendLogout(ended)
 }
 
-export function signOutAfterPasswordChange(dispatch: AppDispatch, refreshToken: string | null) {
-  if (refreshToken) dispatch(logout(refreshToken))
+export async function signOutAfterPasswordChange(dispatch: AppDispatch, _refreshToken: string | null) {
+  const ended = await endSession(dispatch)
+  void backendLogout(ended)
 }
 
 export async function signOutFromPasswordChange(
-  dispatch: AppDispatch, refreshToken: string | null, navigate: NavigateFunction,
+  dispatch: AppDispatch, _refreshToken: string | null, navigate: NavigateFunction,
 ) {
-  try {
-    if (refreshToken) await dispatch(logout(refreshToken)).unwrap()
-    navigate('/login', { replace: true })
-  } catch {
-    navigate('/login', { replace: true })
-  }
+  const ended = await endSession(dispatch)
+  navigate('/login', { replace: true })
+  void backendLogout(ended)
 }
 
-export function clearLocalSessionForMissingRefreshToken(dispatch: AppDispatch) {
-  dispatch(clearAuth())
+export async function clearLocalSessionForMissingRefreshToken(dispatch: AppDispatch) {
+  await endSession(dispatch)
   window.location.href = '/login'
 }
 
-export function clearLocalSessionForFailedRefresh(dispatch: AppDispatch) {
-  dispatch(clearAuth())
-  if (window.location.pathname !== '/login') window.location.href = '/login'
+export async function clearLocalSessionForFailedRefresh(dispatch: AppDispatch, id?: string, triedToken?: string) {
+  await endSession(dispatch, id, triedToken)
+  if (!sessionCoordinator.getSnapshot() && window.location.pathname !== '/login') window.location.href = '/login'
 }
 
 // ProtectedRoute retains its declarative redirect, including the return location.
-export function clearLocalSessionForRouteCheck(dispatch: AppDispatch) {
-  dispatch(clearAuth())
+export async function clearLocalSessionForRouteCheck(dispatch: AppDispatch, id?: string) {
+  await endSession(dispatch, id)
 }

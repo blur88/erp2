@@ -1,3 +1,8 @@
+import { createTestSession } from '@/test/createTestSession'
+import { afterEach } from 'vitest'
+const sessionHolder = vi.hoisted(() => ({ coordinator: null as any }))
+vi.mock('@/services/session', () => ({ get sessionCoordinator() { return sessionHolder.coordinator } }))
+afterEach(() => sessionHolder.coordinator?.dispose())
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
@@ -17,7 +22,8 @@ vi.mock('@/hooks/useIdleTimer', () => ({ useIdleTimer: () => ({ remainingTime: 1
 vi.mock('@/components/auth/IdleWarningDialog', () => ({ default: ({ onLogout }: { onLogout: () => void }) => <button onClick={onLogout}>Sign out now</button> }))
 vi.mock('@/services/authApi', () => ({ authApi: { logout: vi.fn() } }))
 
-beforeEach(() => {
+beforeEach(async () => {
+    sessionHolder.coordinator = await createTestSession()
   navigate.mockClear()
   vi.mocked(authApi.logout).mockReset().mockResolvedValue({ data: undefined } as any)
 })
@@ -33,7 +39,7 @@ it.each(['refresh', undefined])('root forced/idle sign-out clears auth and repla
     fireEvent.click(screen.getByText('Sign out now'))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/login', { replace: true }))
     expect(store.getState().auth).toMatchObject({ accessToken: null, refreshToken: null, isAuthenticated: false })
-    expect(authApi.logout).toHaveBeenCalledTimes(refreshToken ? 1 : 0)
+    expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access')
   } finally {
     delete (window as any).store
   }

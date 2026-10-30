@@ -11,6 +11,13 @@ import authReducer, {
 } from '../authSlice';
 import { authApi } from '../../../services/authApi';
 
+vi.mock('@/services/session', () => ({
+  sessionCoordinator: {
+    signIn: vi.fn(async (response) => ({ ...response, id: 'session' })),
+    getSnapshot: () => ({ id: 'session' }),
+  },
+}));
+
 // Mock the authApi module
 vi.mock('../../../services/authApi', () => ({
   authApi: {
