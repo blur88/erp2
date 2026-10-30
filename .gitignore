@@ -110,6 +110,7 @@ coverage/
 junit.xml
 test-results/
 .vitest/
+frontend/.msw-guard-*/
 htmlcov/
 .pytest_cache/
 

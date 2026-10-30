@@ -67,7 +67,7 @@ GET http://localhost:3001/__gate_positive_control__
 
 The permanent regression harness uses fixture files excluded from normal discovery, then runs them in a child Vitest process. It asserts test failure and both methods/URLs, plus the afterAll diagnostic following failed beforeAll setup (no afterEach). Intentional axios/fetch tests consume and assert their own exact recorded entries.
 
-`cd frontend && npx vitest run src/test/__tests__/mswUnhandledGate.test.ts` passed (1 test). In a private scratch copy, removing only `afterEach(reportUnhandledRequests)` made that same command exit 1; removing only `afterAll(reportUnhandledRequests)` also made it exit 1. Both mutations were restored. No mutation changed the live worktree.
+`cd frontend && npx vitest run src/test/__tests__/mswUnhandledGate.test.ts` passed (1 test). In a private scratch copy, removing only `afterEach(reportUnhandledRequests)` made that same command exit 1; removing only `afterAll(reportUnhandledRequests)` also made it exit 1. These two mutation results were observed but not preserved. Both mutations were restored. No mutation changed the live worktree.
 
 ## Implementation adjustment
 

@@ -11,7 +11,21 @@ it('reports absorbed requests after tests and after failed suite setup', () => {
     writeFileSync(config, `import original from '../vite.config.ts';
 export default async (env) => {
  const config = await original(env);
- return { ...config, test: { ...config.test, projects: config.test.projects.filter(p => p.test.name === 'node').map(p => ({ ...p, test: { ...p.test, include: ['src/test/msw-guard-fixtures/*.fixture.ts'] } })) } };
+ return {
+   ...config,
+   test: {
+     ...config.test,
+     projects: config.test.projects
+       .filter(p => p.test.name === 'node')
+       .map(p => ({
+         ...p,
+         test: {
+           ...p.test,
+           include: ['src/test/msw-guard-fixtures/*.fixture.ts'],
+         },
+       })),
+   },
+ };
 };`)
     const report = path.join(scratch, 'results.json')
     const result = spawnSync(process.execPath, [
@@ -27,7 +41,6 @@ export default async (env) => {
     for (const request of [
       'GET http://localhost:3001/__gate_get__',
       'POST http://localhost:3001/__gate_post__',
-      'GET http://localhost:3001/__gate_setup__',
     ]) expect(output).toContain(request)
     expect(output).toMatch(/Unhandled MSW requests:\nGET http:\/\/localhost:3001\/__gate_setup__/)
     const requests = results.testResults.find((file: { name: string }) => file.name.endsWith('/requests.fixture.ts'))
