@@ -73,7 +73,7 @@ function makeLine(over: Partial<ReconciliationLineDto> = {}): ReconciliationLine
 }
 
 function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconciliationDetailDto {
-  const detail = {
+  return {
     id: 'r-1',
     reconciliationNo: 'BR-26-001',
     sequenceNo: 1,
@@ -86,8 +86,6 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
     },
     periodFrom: '2026-01-01',
     periodTo: '2026-01-31',
-    openingBalance: '1000.00',
-    closingBalance: '1100.00',
     status: 'DRAFT' as const,
     reopened: false,
     currentVersionNo: null,
@@ -107,19 +105,10 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
       openingBalanceDifference: '0.00',
       unclassifiedCount: 0,
     },
-    setupSummary: {
-      prePeriodTotal: 1,
-      unclassifiedCount: 0,
-      clearedCount: 1,
-      outstandingCount: 0,
-      openingClearedNet: '100.00',
-      openingBalanceDifference: '0.00',
-    },
     matched: [makeLine()],
     classified: [],
     ...over,
   }
-  return detail
 }
 
 function renderView(detail: BankReconciliationDetailDto = makeDetail(), initialSearch = '') {

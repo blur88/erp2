@@ -47,7 +47,7 @@ vi.mock('@/store/api/accountingApi', () => ({
 }))
 
 function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconciliationDetailDto {
-  const detail = {
+  return {
     id: 'r-1',
     reconciliationNo: 'BR-26-001',
     sequenceNo: 1,
@@ -60,8 +60,6 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
     },
     periodFrom: '2026-01-01',
     periodTo: '2026-01-31',
-    openingBalance: '1000.00',
-    closingBalance: '1100.00',
     status: 'DRAFT' as const,
     reopened: false,
     currentVersionNo: null,
@@ -81,12 +79,10 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
       openingBalanceDifference: '0.00',
       unclassifiedCount: 0,
     },
-    setupSummary: null,
     matched: [],
     classified: [],
     ...over,
   }
-  return detail
 }
 
 function renderPage(id = 'r-1') {
