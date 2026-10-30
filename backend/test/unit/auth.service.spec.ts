@@ -322,6 +322,7 @@ describe("AuthService", () => {
         mockRequest.ip,
         mockRequest.headers["user-agent"],
       );
+      expect(result.user.lastLoginAt).toBeInstanceOf(Date);
 
       expect(result).toBeDefined();
       expect(result.user.username).toBe("testuser");

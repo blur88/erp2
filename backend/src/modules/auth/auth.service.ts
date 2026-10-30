@@ -112,6 +112,7 @@ export class AuthService {
       lastLoginIp: ipAddress || null,
     };
     await this.userRepository.update(user.id, bookkeeping);
+    Object.assign(user, bookkeeping);
 
     const { accessToken, refreshToken } =
       await this.userRepository.manager.transaction(async (manager) => {
