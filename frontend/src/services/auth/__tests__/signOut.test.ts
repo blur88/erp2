@@ -1,147 +1,116 @@
+import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
-import authReducer, { setAccessToken } from '@/store/slices/authSlice'
+import authReducer, { clearAuth } from '@/store/slices/authSlice'
 import { authApi } from '@/services/authApi'
-import { getCredentials } from '../credentials'
+import { SessionCoordinator } from '@/services/session/coordinator'
+import { IndexedDbSessionStorage } from '@/services/session/storage'
+import type { AuthResponse } from '@/store/slices/authSlice'
 import {
   signOutManually, signOutForIdle, signOutAfterPasswordChange,
   signOutFromPasswordChange, clearLocalSessionForMissingRefreshToken,
   clearLocalSessionForFailedRefresh, clearLocalSessionForRouteCheck,
 } from '../signOut'
 
+const holder = vi.hoisted(() => ({ coordinator: null as any }))
+vi.mock('@/services/session', () => ({ get sessionCoordinator() { return holder.coordinator } }))
 vi.mock('@/services/authApi', () => ({ authApi: { logout: vi.fn() } }))
-
+const response = { accessToken: 'access', refreshToken: 'refresh', user: { id: 'alice' }, expiresIn: 900 } as AuthResponse
+const location = { href: '/dashboard', pathname: '/dashboard' }
+let store: ReturnType<typeof makeStore>
+let storage: IndexedDbSessionStorage
 function makeStore() {
   const initial = authReducer(undefined, { type: 'init' })
-  return configureStore({
-    reducer: { auth: authReducer },
-    preloadedState: { auth: { ...initial, isAuthenticated: true, accessToken: 'access', refreshToken: 'refresh', rememberMe: true } },
-  })
+  return configureStore({ reducer: { auth: authReducer }, preloadedState: { auth: { ...initial, isAuthenticated: true, accessToken: 'access', refreshToken: 'refresh', rememberMe: true } } })
 }
-
-const location = { href: '/dashboard', pathname: '/dashboard' }
-beforeEach(() => {
+beforeEach(async () => {
   vi.mocked(authApi.logout).mockReset().mockResolvedValue({ data: undefined } as any)
-  location.href = '/dashboard'
-  location.pathname = '/dashboard'
-  vi.stubGlobal('window', { location })
+  storage = new IndexedDbSessionStorage(new IDBFactory())
+  holder.coordinator = new SessionCoordinator({ storage })
+  await holder.coordinator.start()
+  await holder.coordinator.signIn(response)
+  store = makeStore()
+  holder.coordinator.subscribe((session: unknown) => { if (!session) store.dispatch(clearAuth()) })
+  location.href = '/dashboard'; location.pathname = '/dashboard'
+  vi.stubGlobal('window', { location, alert: vi.fn() })
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => { holder.coordinator.dispose(); vi.unstubAllGlobals() })
 
-function expectCleared(store: ReturnType<typeof makeStore>) {
-  expect(store.getState().auth).toMatchObject({
-    user: null, accessToken: null, refreshToken: null, isAuthenticated: false, rememberMe: false,
-  })
+function expectCleared() {
+  expect(store.getState().auth).toMatchObject({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false, rememberMe: false })
 }
 
-describe('session-ending behavior', () => {
-  it.each([false, true])('manual waits for backend then clears, purges, and navigates (backend fails: %s)', async (fails) => {
-    const store = makeStore()
+describe('coordinated sign-out adapters', () => {
+  it('manual deletes shared state and clears locally before the backend finishes', async () => {
     let finish!: () => void
-    vi.mocked(authApi.logout).mockImplementation(() => new Promise((resolve, reject) => {
-      finish = () => fails ? reject(new Error('offline')) : resolve({ data: undefined } as any)
-    }))
-    const purge = vi.fn(async () => { expectCleared(store) })
-    const navigate = vi.fn(() => { expect(purge).toHaveResolved() })
-    const pending = signOutManually(store.dispatch, 'refresh', purge, navigate)
-    expect(authApi.logout).toHaveBeenCalledWith('refresh')
-    expect(store.getState().auth.isAuthenticated).toBe(true)
-    expect(purge).not.toHaveBeenCalled()
-    finish()
-    await pending
-    expectCleared(store)
-    expect(navigate).toHaveBeenCalledWith('/login')
-  })
-
-  it('manual without refresh token only purges and navigates', async () => {
-    const store = makeStore()
-    const purge = vi.fn().mockResolvedValue(undefined)
+    vi.mocked(authApi.logout).mockImplementation(() => new Promise(resolve => { finish = () => resolve({ data: undefined } as any) }))
+    const purge = vi.fn(async () => { expectCleared() })
     const navigate = vi.fn()
-    await signOutManually(store.dispatch, null, purge, navigate)
-    expect(authApi.logout).not.toHaveBeenCalled()
-    expect(store.getState().auth.isAuthenticated).toBe(true)
-    expect(purge).toHaveBeenCalledOnce()
+    await signOutManually(store.dispatch, 'refresh', purge, navigate)
+    expectCleared()
+    expect(await holder.coordinator.credentialsForRequest()).toBeNull()
     expect(navigate).toHaveBeenCalledWith('/login')
-  })
-
-  it.each(['refresh', null])('idle always clears and replaces login, token: %s', async (token) => {
-    const store = makeStore()
-    const navigate = vi.fn(() => expectCleared(store))
-    await signOutForIdle(store.dispatch, token, navigate)
-    expect(authApi.logout).toHaveBeenCalledTimes(token ? 1 : 0)
-    expectCleared(store)
-    expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
-  })
-
-  it.each([false, true])('password-page sign-out waits for logout and replaces login, failure: %s', async (fails) => {
-    const store = makeStore()
-    if (fails) vi.mocked(authApi.logout).mockRejectedValue(new Error('offline'))
-    const navigate = vi.fn(() => expectCleared(store))
-    await signOutFromPasswordChange(store.dispatch, 'refresh', navigate)
-    expect(authApi.logout).toHaveBeenCalledWith('refresh')
-    expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
-  })
-
-  it('password-page sign-out without token navigates without clearing', async () => {
-    const store = makeStore()
-    const navigate = vi.fn()
-    await signOutFromPasswordChange(store.dispatch, null, navigate)
-    expect(authApi.logout).not.toHaveBeenCalled()
-    expect(store.getState().auth.isAuthenticated).toBe(true)
-    expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
-  })
-
-  it('password-change completion starts logout without waiting or navigating', async () => {
-    const store = makeStore()
-    let finish!: () => void
-    vi.mocked(authApi.logout).mockImplementation(() => new Promise(resolve => {
-      finish = () => resolve({ data: undefined } as any)
-    }))
-    expect(signOutAfterPasswordChange(store.dispatch, 'refresh')).toBeUndefined()
-    expect(store.getState().auth.isAuthenticated).toBe(true)
-    expect(location.href).toBe('/dashboard')
+    expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access')
     finish()
-    await vi.waitFor(() => expectCleared(store))
   })
 
-  it('password-change completion without a token leaves state alone', () => {
-    const store = makeStore()
-    signOutAfterPasswordChange(store.dispatch, null)
-    expect(authApi.logout).not.toHaveBeenCalled()
-    expect(store.getState().auth.isAuthenticated).toBe(true)
+  it.each([signOutForIdle, signOutFromPasswordChange])('navigation exits clear before backend logout: %s', async exit => {
+    const navigate = vi.fn(() => expectCleared())
+    await exit(store.dispatch, 'refresh', navigate)
+    expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
+    expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access')
   })
 
-  it.each([clearLocalSessionForMissingRefreshToken, clearLocalSessionForFailedRefresh])('refresh exit clears locally and navigates without backend logout: %s', (clearLocal) => {
-    const store = makeStore()
-    clearLocal(store.dispatch)
-    expectCleared(store)
+  it('password-change completion deletes shared state before its best-effort logout', async () => {
+    await signOutAfterPasswordChange(store.dispatch, 'refresh')
+    expectCleared()
+    expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access')
+  })
+
+  it.each([clearLocalSessionForMissingRefreshToken, clearLocalSessionForFailedRefresh])('refresh exits clear shared state without server logout: %s', async exit => {
+    await exit(store.dispatch)
+    expectCleared()
+    expect(await holder.coordinator.credentialsForRequest()).toBeNull()
     expect(authApi.logout).not.toHaveBeenCalled()
     expect(location.href).toBe('/login')
   })
 
-  it('failed refresh on login clears without reloading; missing token still navigates', () => {
-    const store = makeStore()
-    location.pathname = '/login'
-    clearLocalSessionForFailedRefresh(store.dispatch)
-    expectCleared(store)
-    expect(location.href).toBe('/dashboard')
-    clearLocalSessionForMissingRefreshToken(store.dispatch)
-    expect(location.href).toBe('/login')
-  })
-
-  it('route check only clears, leaving navigation to ProtectedRoute', () => {
-    const store = makeStore()
-    clearLocalSessionForRouteCheck(store.dispatch)
-    expectCleared(store)
+  it('route failure deletes shared state but leaves navigation to ProtectedRoute', async () => {
+    await clearLocalSessionForRouteCheck(store.dispatch)
+    expectCleared()
+    expect(await holder.coordinator.credentialsForRequest()).toBeNull()
     expect(authApi.logout).not.toHaveBeenCalled()
     expect(location.href).toBe('/dashboard')
   })
 
-  it('credentials reflect current state, including missing auth and rotated access tokens', () => {
-    const store = makeStore()
-    expect(getCredentials(store.getState())).toEqual({ accessToken: 'access', refreshToken: 'refresh' })
-    store.dispatch(setAccessToken('rotated'))
-    expect(getCredentials(store.getState())).toEqual({ accessToken: 'rotated', refreshToken: 'refresh' })
-    expect(getCredentials({})).toEqual({ accessToken: undefined, refreshToken: undefined })
+  it.each(['manual', 'idle', 'password-change completion', 'password-page exit'])(
+    '%s shows a storage error without cleanup or navigation when storage is closed', async exit => {
+      const before = store.getState()
+      const session = holder.coordinator.getSnapshot()
+      const purge = vi.fn()
+      const navigate = vi.fn()
+      storage.close()
+
+      if (exit === 'manual') await signOutManually(store.dispatch, 'refresh', purge, navigate)
+      else if (exit === 'idle') await signOutForIdle(store.dispatch, 'refresh', navigate)
+      else if (exit === 'password-change completion') await signOutAfterPasswordChange(store.dispatch, 'refresh')
+      else await signOutFromPasswordChange(store.dispatch, 'refresh', navigate)
+
+      expect(window.alert).toHaveBeenCalledWith("Unable to sign out. This browser's storage is unavailable.")
+      expect(store.getState()).toEqual(before)
+      expect(holder.coordinator.getSnapshot()).toEqual(session)
+      expect(purge).not.toHaveBeenCalled()
+      expect(navigate).not.toHaveBeenCalled()
+      expect(location.href).toBe('/dashboard')
+      expect(authApi.logout).not.toHaveBeenCalled()
+    },
+  )
+
+  it('a failed old refresh cannot end a newer session', async () => {
+    const old = holder.coordinator.getSnapshot()
+    const newer = await holder.coordinator.signIn({ ...response, accessToken: 'new' })
+    await clearLocalSessionForFailedRefresh(store.dispatch, old.id, 'refresh')
+    expect((await holder.coordinator.credentialsForRequest()).id).toBe(newer.id)
+    expect(location.href).toBe('/dashboard')
   })
 })

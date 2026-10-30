@@ -34,6 +34,8 @@ import { searchApiSlice } from './api/searchApi'
 import { accountingApiSlice } from './api/accountingApi'
 import { redisMonitoringApiSlice } from './api/redisMonitoringApi'
 import { PERSIST_KEY } from './persistKey'
+import { sessionCoordinator } from '@/services/session'
+import { clearAuth, setCredentials } from './slices/authSlice'
 
 const rootReducer = combineReducers({
   auth: authSlice,
@@ -62,21 +64,17 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: PERSIST_KEY,
   storage,
-  whitelist: ['auth', 'notifications'],
+  whitelist: ['notifications'],
   version: 6,
   migrate: (state: any) => {
-    // Migration runs when persisted _persist.version !== persistConfig.version.
-    // For all existing v4 users, state.notifications is undefined (was not
-    // whitelisted), so the ?? [] fallback is the normal code path.
-    // On a cold start (no persisted state at all), redux-persist does not call
-    // migrate — REHYDRATE fires with payload === undefined instead.
+    // Only notifications are accepted from the new key. Startup removes the
+    // legacy combined auth/notification record before persistence starts.
     if (state) {
       const notifications: any[] = state.notifications?.notifications ?? []
       const capped = notifications.slice(0, 50) // newest-first invariant
       const unreadCount = capped.filter((n: any) => !n.read).length
 
       return Promise.resolve({
-        ...state,
         notifications: {
           notifications: capped,
           unreadCount,
@@ -114,7 +112,14 @@ export const store = configureStore({
   ),
 })
 
-export const persistor = persistStore(store)
+export const sessionReady = sessionCoordinator.start().then(() => undefined)
+sessionCoordinator.subscribe(session => {
+  if (session) store.dispatch(setCredentials({ ...session, expiresIn: 0, rememberMe: session.rememberMe }))
+  else store.dispatch(clearAuth())
+})
+// T2 removes notification persistence; auth is never persisted again.
+export const persistor = persistStore(store, { manualPersist: true } as any)
+void sessionReady.then(() => persistor.persist(), () => {})
 
 setupListeners(store.dispatch)
 

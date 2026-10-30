@@ -1,3 +1,8 @@
+import { createTestSession } from '@/test/createTestSession'
+import { afterEach } from 'vitest'
+const sessionHolder = vi.hoisted(() => ({ coordinator: null as any }))
+vi.mock('@/services/session', () => ({ get sessionCoordinator() { return sessionHolder.coordinator } }))
+afterEach(() => sessionHolder.coordinator?.dispose())
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import { Provider } from 'react-redux'
@@ -73,7 +78,8 @@ const renderMenu = (props = {}, authOverrides = {}) => {
 }
 
 describe('SidebarUserMenu', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    sessionHolder.coordinator = await createTestSession('test-access-token', 'test-refresh-token')
     mockNavigate.mockClear()
   })
 
@@ -112,16 +118,16 @@ describe('SidebarUserMenu', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/settings')
   })
 
-  it('Logout click closes menu, dispatches logout thunk, and navigates to login', async () => {
+  it('Logout click closes menu, clears shared auth, and navigates to login', async () => {
     const { store } = renderMenu()
     const dispatchSpy = vi.spyOn(store, 'dispatch')
     fireEvent.click(screen.getByRole('button', { name: /open user menu/i }))
     await screen.findByRole('menu')
     fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }))
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Function))
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/login'))
-    expect(authApi.logout).toHaveBeenCalledWith('test-refresh-token')
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth/clearAuth' }))
+    expect(authApi.logout).toHaveBeenCalledWith('test-refresh-token', 'test-access-token')
     expect(store.getState().auth).toMatchObject({ isAuthenticated: false, accessToken: null, refreshToken: null })
     expect(persistor.purge).toHaveBeenCalledOnce()
   })

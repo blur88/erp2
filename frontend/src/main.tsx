@@ -5,11 +5,12 @@ import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import CssBaseline from '@mui/material/CssBaseline'
 import LinearProgress from '@mui/material/LinearProgress'
+import Alert from '@mui/material/Alert'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 
 import { PersistGate } from 'redux-persist/integration/react'
-import { store, persistor } from './store'
+import { store, persistor, sessionReady } from './store'
 import { router } from './router'
 import { NotificationProvider } from './hooks/useNotification'
 import ThemeWrapper from './components/common/ThemeWrapper'
@@ -35,7 +36,9 @@ if ((import.meta as any).env?.DEV) {
   })
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const root = ReactDOM.createRoot(document.getElementById('root')!)
+root.render(<LinearProgress />)
+void sessionReady.then(() => root.render(
   <React.StrictMode>
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
@@ -52,4 +55,4 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       </QueryClientProvider>
     </Provider>
   </React.StrictMode>,
-)
+), (error: Error) => root.render(<Alert severity="error">{error.message}</Alert>))

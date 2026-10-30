@@ -3,7 +3,7 @@ import { Navigate, createBrowserRouter, redirect } from 'react-router-dom'
 import RouteErrorBoundary from './components/errors/RouteErrorBoundary'
 import MainLayout from './components/common/MainLayout'
 import RootLayout from './RootLayout'
-import { store, persistor } from './store'
+import { store, persistor, sessionReady } from './store'
 import { authRoutes } from './pages/auth/auth.routes'
 import { dashboardRoutes } from './pages/dashboard/dashboard.routes'
 import { inventoryRoutes } from './pages/inventory/inventory.routes'
@@ -29,6 +29,7 @@ function waitForRehydration(): Promise<void> {
 }
 
 async function authLoader({ request }: { request: Request }) {
+  await sessionReady
   await waitForRehydration()
 
   const { auth } = store.getState()

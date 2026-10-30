@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
 import { getCredentials } from './auth/credentials'
+import { sessionCoordinator } from './session'
 
 // Get API base URL dynamically with VPN compatibility
 const getApiBaseUrl = () => {
@@ -33,11 +34,16 @@ api.interceptors.request.use(
     }
 
     // Inject Authorization header if access token exists
-    const store = await getStore()
-    const { accessToken } = getCredentials(store.getState())
+    const session = await getCredentials()
+    const accessToken = session?.accessToken
+    const previousSessionId = (config as any)._sessionId
+    if (previousSessionId && previousSessionId !== session?.id) throw new Error('Session ended before request')
+    ;(config as any)._sessionId = session?.id
 
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`
+    } else if (config.headers) {
+      delete config.headers.Authorization
     }
 
     return config
@@ -63,18 +69,6 @@ const getStore = async () => {
   return cachedStore
 }
 
-let cachedAuthActions: any = null
-const getAuthActions = async () => {
-  if (!cachedAuthActions) {
-    const authSliceModule = await import('@/store/slices/authSlice')
-    cachedAuthActions = {
-      setAccessToken: authSliceModule.setAccessToken,
-      setCredentials: authSliceModule.setCredentials,
-    }
-  }
-  return cachedAuthActions
-}
-
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
@@ -94,6 +88,7 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
+    if (!originalRequest) return Promise.reject(error)
 
     // Enhanced error handling for VPN connectivity issues
     if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED') {
@@ -113,6 +108,7 @@ api.interceptors.response.use(
     // Handle 401 Unauthorized - attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
+        originalRequest._retry = true
         // Queue the request while token is being refreshed
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -130,51 +126,38 @@ api.interceptors.response.use(
 
       originalRequest._retry = true
       isRefreshing = true
-
-      const store = await getStore()
-      const { refreshToken } = getCredentials(store.getState())
-
-      if (!refreshToken) {
-        // No refresh token available, clear local auth
-        const { clearLocalSessionForMissingRefreshToken } = await import('./auth/signOut')
-        clearLocalSessionForMissingRefreshToken(store.dispatch)
-        return Promise.reject(error)
-      }
-
       try {
-        // Import authApi dynamically to avoid circular dependency
+        const store = await getStore()
+        const session = await getCredentials()
+        if (originalRequest._sessionId && originalRequest._sessionId !== session?.id) {
+          throw new Error('Session ended before refresh')
+        }
+        const refreshToken = session?.refreshToken
+        if (!refreshToken) {
+          const { clearLocalSessionForMissingRefreshToken } = await import('./auth/signOut')
+          await clearLocalSessionForMissingRefreshToken(store.dispatch)
+          throw error
+        }
+
         const { authApi } = await import('./authApi')
-        const response = await authApi.refreshToken(refreshToken)
-
-        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data
-
-        // Update tokens in Redux store
-        const { setAccessToken, setCredentials } = await getAuthActions()
-        store.dispatch(
-          setAccessToken(newAccessToken)
-        )
-
-        // Also update refresh token if it changed (token rotation)
-        if (newRefreshToken !== refreshToken) {
-          // This would require a new action, but for now we'll update via setCredentials
-          // The refresh endpoint returns full AuthResponse, so we can update everything
-          store.dispatch(setCredentials(response.data))
+        let response
+        try {
+          response = await authApi.refreshToken(refreshToken)
+        } catch (refreshError) {
+          const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
+          await clearLocalSessionForFailedRefresh(store.dispatch, session!.id, refreshToken)
+          throw refreshError
         }
 
-        // Process queued requests with new token
-        processQueue(null, newAccessToken)
-
-        // Retry original request with new token
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+        // A failed required save stops here; it must not initiate another write.
+        const saved = await sessionCoordinator.saveRefresh(session!.id, refreshToken, response.data)
+        if (!saved || saved.id !== session!.id || saved.accessToken !== response.data.accessToken) {
+          throw new Error('Session ended during refresh')
         }
+        processQueue(null, saved.accessToken)
         return api(originalRequest)
       } catch (refreshError) {
-        // Token refresh failed, clear local auth
         processQueue(refreshError, null)
-        const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
-        clearLocalSessionForFailedRefresh(store.dispatch)
-
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false

@@ -1,3 +1,8 @@
+import { createTestSession } from '@/test/createTestSession'
+import { afterEach } from 'vitest'
+const sessionHolder = vi.hoisted(() => ({ coordinator: null as any }))
+vi.mock('@/services/session', () => ({ get sessionCoordinator() { return sessionHolder.coordinator } }))
+afterEach(() => sessionHolder.coordinator?.dispose())
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
@@ -25,7 +30,8 @@ vi.mock('react-router-dom', async () => {
 describe('ProtectedRoute', () => {
   const TestComponent = () => <div>Protected Content</div>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    sessionHolder.coordinator = await createTestSession()
     vi.clearAllMocks();
   });
 
@@ -79,20 +85,20 @@ describe('ProtectedRoute', () => {
     const { store, rejectVerification } = renderPendingVerification();
     mockNavigate.mockClear();
     await act(async () => { rejectVerification(new Error('verification dispatch failed')); });
-    expectLocalClearAndReturnLocation(store);
+    await waitFor(() => expectLocalClearAndReturnLocation(store));
   });
 
   it('already-attempted verification clears local auth and redirects with state.from', async () => {
     const { store, rejectVerification } = renderPendingVerification();
     mockNavigate.mockClear();
-    act(() => { store.dispatch(setAccessToken('replacement-unverified')); });
-    expectLocalClearAndReturnLocation(store);
+    await act(async () => { store.dispatch(setAccessToken('replacement-unverified')); });
+    await waitFor(() => expectLocalClearAndReturnLocation(store));
     // Settle the original verification to release its timeout after observing this branch.
     await act(async () => { rejectVerification(new Error('verification finished')); });
   });
 
   it('verification timeout clears local auth without backend logout while verification remains pending', async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       const initial = authReducer(undefined, { type: 'init' });
       const store = configureStore({ reducer: { auth: authReducer }, preloadedState: {
@@ -101,7 +107,10 @@ describe('ProtectedRoute', () => {
       render(<Provider store={store}><MemoryRouter initialEntries={['/dashboard']}>
         <ProtectedRoute><TestComponent /></ProtectedRoute>
       </MemoryRouter></Provider>);
-      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+        await vi.waitFor(() => expect(store.getState().auth.accessToken).toBeNull());
+      });
       expect(store.getState().auth).toMatchObject({ accessToken: null, refreshToken: null, isAuthenticated: false });
       expect(authApi.logout).not.toHaveBeenCalled();
       // clearAuth does not reset loading; preserve the pending-verification spinner.

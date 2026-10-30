@@ -1,3 +1,8 @@
+import { createTestSession } from '@/test/createTestSession'
+import { afterEach } from 'vitest'
+const sessionHolder = vi.hoisted(() => ({ coordinator: null as any }))
+vi.mock('@/services/session', () => ({ get sessionCoordinator() { return sessionHolder.coordinator } }))
+afterEach(() => sessionHolder.coordinator?.dispose())
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
@@ -30,7 +35,8 @@ const renderPage = () => {
 }
 
 describe('MandatoryPasswordChangePage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    sessionHolder.coordinator = await createTestSession()
     vi.clearAllMocks()
     vi.mocked(authApi.logout).mockResolvedValue({ data: undefined } as any)
     vi.mocked(authApi.changePassword).mockResolvedValue({ data: undefined } as any)
@@ -40,7 +46,7 @@ describe('MandatoryPasswordChangePage', () => {
     const store = renderPage()
     fireEvent.click(screen.getByRole('button', { name: /logout/i }))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/login', { replace: true }))
-    expect(authApi.logout).toHaveBeenCalledWith('refresh')
+    expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access')
     expect(store.getState().auth.isAuthenticated).toBe(false)
   })
 
@@ -52,7 +58,7 @@ describe('MandatoryPasswordChangePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /change password/i }))
     await screen.findByText(/Password changed successfully!/)
     expect(authApi.logout).not.toHaveBeenCalled()
-    await waitFor(() => expect(authApi.logout).toHaveBeenCalledWith('refresh'), { timeout: 3000 })
+    await waitFor(() => expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access'), { timeout: 3000 })
     await waitFor(() => expect(store.getState().auth.isAuthenticated).toBe(false))
     expect(navigate).not.toHaveBeenCalled()
   })
