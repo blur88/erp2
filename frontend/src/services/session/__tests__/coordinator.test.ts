@@ -118,3 +118,16 @@ it('a pending login is invalidated by another tab signing out, even when it bega
   expect((await a.credentialsForRequest())?.accessToken).toBe('second')
   a.dispose(); b.dispose()
 })
+
+it('storage denial when accessing indexedDB is reported at start rather than crashing construction', async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB')
+  Object.defineProperty(globalThis, 'indexedDB', { configurable: true, get() { throw new Error('Storage access denied') } })
+  try {
+    const coordinator = new SessionCoordinator({ storage: new IndexedDbSessionStorage() })
+    await expect(coordinator.start()).rejects.toThrow("This browser's storage is unavailable")
+    coordinator.dispose()
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'indexedDB', descriptor)
+    else delete (globalThis as any).indexedDB
+  }
+})

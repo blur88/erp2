@@ -20,12 +20,12 @@ export interface SessionStorage {
 /** All read/modify/write operations finish in one IndexedDB transaction. */
 export class IndexedDbSessionStorage implements SessionStorage {
   private database?: IDBDatabase
-  constructor(private factory: IDBFactory = globalThis.indexedDB, private name = 'erp-session') {}
+  constructor(private factory?: IDBFactory, private name = 'erp-session') {}
 
   async open(): Promise<void> {
     if (this.database) return
     this.database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = this.factory.open(this.name, 1)
+      const request = (this.factory ?? globalThis.indexedDB).open(this.name, 1)
       request.onupgradeneeded = () => request.result.createObjectStore('session')
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
