@@ -6,7 +6,7 @@ status: accepted
 
 Signing out deleted the user's refresh tokens but left issued access tokens usable until they expired (15 minutes by default), because the JWT strategy checked only the user's active and locked state ([#1545](https://github.com/blur88/erp2/issues/1545)). We decided that each user carries a token version, that every access token states the version it was issued under, and that an access token whose version is missing, malformed or out of date is rejected. [Sign out](../../GLOSSARY.md#authentication) and password change increment the version. This fits Sign out's scope, which ends every Session of the user at once, and needs no store beyond the `users` row the strategy already reads on every request.
 
-Implementation is tracked in #1545; until it merges, this record describes the decision, not the code.
+Implemented in [AuthService](../../backend/src/modules/auth/auth.service.ts) and [JwtStrategy](../../backend/src/modules/auth/strategies/jwt.strategy.ts), with the database column added by migration.
 
 ## Considered options
 

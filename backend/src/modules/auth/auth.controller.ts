@@ -172,7 +172,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'User logout',
-    description: 'Invalidate all refresh tokens for the current user (logout from all devices).',
+    description: 'Sign out on all devices: revoke refresh tokens and reject issued access tokens.',
   })
   @ApiResponse({
     status: 204,
@@ -212,7 +212,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Change password',
     description:
-      'Change user password. Invalidates all refresh tokens (logout from all devices).',
+      'Change user password and sign out on all devices: revoke refresh tokens and reject issued access tokens.',
   })
   @ApiBody({ type: ChangePasswordDto })
   @ApiResponse({

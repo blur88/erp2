@@ -1,9 +1,10 @@
-import { jest } from '@jest/globals';
+import { jest } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
-import { Repository } from "typeorm";
+import { AuthUserLockHook } from "../../src/modules/auth/auth-user-lock.hook";
+import { getMetadataArgsStorage, Repository } from "typeorm";
 import { User } from "../../src/database/entities/user.entity";
 import { RefreshToken } from "../../src/database/entities/refresh-token.entity";
 const mockCompare = jest.fn();
@@ -31,22 +32,20 @@ import {
 } from "@nestjs/common";
 import { UserRole, UserStatus } from "../../src/database/entities/user.entity";
 
-
-
 describe("AuthService", () => {
-  
-// `AuthService` is a VALUE here, not a type: the class is loaded via a
-// dynamic import in beforeAll so that jest.unstable_mockModule("bcrypt")
-// above is registered before the module graph is evaluated. A top-level
-// `import { AuthService }` would defeat that mock, so these handles stay
-// `any` (#1262).
-let service: any;
+  // `AuthService` is a VALUE here, not a type: the class is loaded via a
+  // dynamic import in beforeAll so that jest.unstable_mockModule("bcrypt")
+  // above is registered before the module graph is evaluated. A top-level
+  // `import { AuthService }` would defeat that mock, so these handles stay
+  // `any` (#1262).
+  let service: any;
   let userRepository: Repository<User>;
   let refreshTokenRepository: Repository<RefreshToken>;
   let jwtService: JwtService;
   let configService: ConfigService;
 
   const mockUser: Partial<User> = {
+    tokenVersion: 0,
     id: "123e4567-e89b-12d3-a456-426614174000",
     username: "testuser",
     email: "test@example.com",
@@ -63,6 +62,8 @@ let service: any;
   };
 
   const mockUserRepository = {
+    update: (jest.fn as any)().mockResolvedValue({ affected: 1 }),
+    manager: null as any,
     findOne: (jest.fn as unknown as any)(),
     save: (jest.fn as unknown as any)(),
     create: (jest.fn as unknown as any)(),
@@ -82,7 +83,9 @@ let service: any;
   };
 
   const mockJwtService = {
-    sign: (jest.fn as unknown as any)((payload) => `mock.jwt.token.${payload.sub}`),
+    sign: (jest.fn as unknown as any)(
+      (payload) => `mock.jwt.token.${payload.sub}`,
+    ),
     verify: (jest.fn as unknown as any)(),
   };
 
@@ -98,9 +101,22 @@ let service: any;
   };
 
   beforeEach(async () => {
+    const manager: any = {
+      getRepository: (entity: any) =>
+        entity === User ? mockUserRepository : mockRefreshTokenRepository,
+      query: (jest.fn as any)().mockResolvedValue([]),
+      delete: (_entity: any, where: any) =>
+        mockRefreshTokenRepository.delete(where),
+      update: (_entity: any, id: any, fields: any) =>
+        mockUserRepository.update(id, fields),
+      transaction: async (work: any) => work(manager),
+    };
+    mockUserRepository.manager = manager;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        AuthUserLockHook,
         {
           provide: getRepositoryToken(User),
           useValue: mockUserRepository,
@@ -138,6 +154,147 @@ let service: any;
     expect(service).toBeDefined();
   });
 
+  it("protects tokenVersion from stale ORM updates", () => {
+    const column = getMetadataArgsStorage().columns.find(
+      (entry) => entry.target === User && entry.propertyName === "tokenVersion",
+    );
+    expect(column?.options).toMatchObject({
+      type: "integer",
+      default: 0,
+      update: false,
+    });
+  });
+
+  it.each(["login", "refresh", "signOut", "changePassword"])(
+    "awaits the %s hook immediately after locking and before token writes",
+    async (operation) => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockRefreshTokenRepository.findOne.mockResolvedValue({
+        userId: mockUser.id,
+        isExpired: false,
+      });
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockedBcrypt.compare
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false);
+      mockedBcrypt.hash.mockResolvedValue("new-hash");
+      const txUsers = {
+        findOne: (jest.fn as any)().mockResolvedValue(mockUser),
+      };
+      const txTokens = {
+        findOne: (jest.fn as any)().mockResolvedValue({
+          userId: mockUser.id,
+          isExpired: false,
+        }),
+        create: (jest.fn as any)((record: any) => record),
+        save: (jest.fn as any)().mockResolvedValue({}),
+        remove: (jest.fn as any)().mockResolvedValue({}),
+      };
+      const txManager = {
+        getRepository: (entity: any) => (entity === User ? txUsers : txTokens),
+        query: (jest.fn as any)().mockResolvedValue([]),
+        delete: (jest.fn as any)().mockResolvedValue({ affected: 1 }),
+        update: (jest.fn as any)().mockResolvedValue({ affected: 1 }),
+      };
+      let release!: () => void;
+      let entered!: () => void;
+      const barrier = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const reached = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      let finishCommit!: () => void;
+      let committing!: () => void;
+      const commitGate = new Promise<void>((resolve) => {
+        finishCommit = resolve;
+      });
+      const commitReached = new Promise<void>((resolve) => {
+        committing = resolve;
+      });
+      const rootManager = mockUserRepository.manager;
+      rootManager.transaction = (jest.fn as any)(async (work: any) => {
+        const value = await work(txManager);
+        committing();
+        await commitGate;
+        return value;
+      });
+      const hook = jest
+        .spyOn(service.authUserLockHook, "afterUserLock")
+        .mockImplementation(async () => {
+          entered();
+          await barrier;
+        });
+      const pending =
+        operation === "login"
+          ? service.login({ username: mockUser.username, password: "password" })
+          : operation === "refresh"
+            ? service.refreshAccessToken({ refreshToken: "refresh" })
+            : operation === "signOut"
+              ? service.logout(mockUser.id)
+              : service.changePassword(mockUser.id, {
+                  currentPassword: "old",
+                  newPassword: "new",
+                  newPasswordConfirmation: "new",
+                });
+      let settled = false;
+      pending.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
+      try {
+        await reached;
+        expect(rootManager.transaction).toHaveBeenCalledTimes(1);
+        expect(txUsers.findOne).toHaveBeenLastCalledWith({
+          where: { id: mockUser.id },
+          lock: { mode: "for_no_key_update" },
+        });
+        expect(hook).toHaveBeenCalledWith(operation, mockUser.id);
+        expect(mockUserRepository.manager.query).not.toHaveBeenCalled();
+        expect(mockRefreshTokenRepository.save).not.toHaveBeenCalled();
+        expect(mockRefreshTokenRepository.remove).not.toHaveBeenCalled();
+        expect(txManager.query).not.toHaveBeenCalled();
+        expect(txManager.update).not.toHaveBeenCalled();
+        expect(txTokens.findOne).not.toHaveBeenCalled();
+        release();
+        await commitReached;
+        expect(settled).toBe(false);
+      } finally {
+        release();
+        finishCommit();
+        await pending;
+        hook.mockRestore();
+      }
+      expect(rootManager.query).not.toHaveBeenCalled();
+      expect(mockRefreshTokenRepository.delete).not.toHaveBeenCalled();
+      expect(mockRefreshTokenRepository.save).not.toHaveBeenCalled();
+      if (operation === "signOut" || operation === "changePassword") {
+        expect(txManager.query).toHaveBeenCalledWith(
+          'UPDATE users SET "tokenVersion" = "tokenVersion" + 1 WHERE id = $1',
+          [mockUser.id],
+        );
+        expect(txManager.delete).toHaveBeenCalledWith(RefreshToken, {
+          userId: mockUser.id,
+        });
+      } else {
+        expect(txTokens.save).toHaveBeenCalledTimes(1);
+        expect(txTokens.create).toHaveBeenCalledWith(
+          expect.objectContaining({ userId: mockUser.id }),
+        );
+      }
+      if (operation === "changePassword") {
+        expect(txManager.update).toHaveBeenCalledWith(User, mockUser.id, {
+          password: "new-hash",
+          requiresPasswordChange: false,
+        });
+      }
+    },
+  );
+
   describe("user validation", () => {
     const loginDto = {
       usernameOrEmail: "testuser",
@@ -165,10 +322,12 @@ let service: any;
         mockRequest.ip,
         mockRequest.headers["user-agent"],
       );
+      expect(result.user.lastLoginAt).toBeInstanceOf(Date);
 
       expect(result).toBeDefined();
       expect(result.user.username).toBe("testuser");
       expect(result.user).not.toHaveProperty("password"); // Password should be removed
+      expect(result.user).not.toHaveProperty("tokenVersion");
     });
 
     it("should throw UnauthorizedException for invalid username", async () => {
@@ -288,7 +447,8 @@ let service: any;
       await expect(service.login(loginDto, mockRequest as any)).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        mockUser.id,
         expect.objectContaining({ failedLoginAttempts: 3 }),
       );
     });
@@ -304,7 +464,8 @@ let service: any;
       await expect(service.login(loginDto, mockRequest as any)).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        mockUser.id,
         expect.objectContaining({
           failedLoginAttempts: 5,
           lockedUntil: expect.any(Date),
@@ -326,7 +487,8 @@ let service: any;
       const result = await service.login(loginDto, mockRequest as any);
 
       expect(result).toHaveProperty("accessToken");
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: mockUser.id }),
         expect.objectContaining({ failedLoginAttempts: 0 }),
       );
     });
@@ -515,7 +677,6 @@ let service: any;
 
       expect(mockRefreshTokenRepository.delete).toHaveBeenCalledWith({
         userId,
-        isActive: true,
       });
     });
   });
@@ -541,7 +702,8 @@ let service: any;
 
       await service.changePassword(mockUser.id, changePasswordDto);
 
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        mockUser.id,
         expect.objectContaining({ password: "new-hashed-password" }),
       );
       expect(mockRefreshTokenRepository.delete).toHaveBeenCalled(); // Logout all sessions
@@ -626,9 +788,12 @@ let service: any;
         remove: (jest.fn as unknown as any)(),
       };
 
+      mockUserRepository.manager.getRepository = (entity: any) =>
+        entity === User ? mockUserRepository : realRefreshTokenRepository;
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           AuthService,
+          AuthUserLockHook,
           { provide: getRepositoryToken(User), useValue: mockUserRepository },
           {
             provide: getRepositoryToken(RefreshToken),
@@ -688,7 +853,8 @@ let service: any;
 
       const consumedHash = savedTokens[0].tokenHash;
 
-      const refreshTokenRepository = (realService as any).refreshTokenRepository;
+      const refreshTokenRepository = (realService as any)
+        .refreshTokenRepository;
       refreshTokenRepository.findOne.mockResolvedValue({
         id: "token-id",
         tokenHash: consumedHash,

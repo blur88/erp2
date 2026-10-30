@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { jest } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { getRepositoryToken } from "@nestjs/typeorm";
@@ -16,6 +16,7 @@ describe("JwtStrategy", () => {
   let userRepository: Repository<User>;
 
   const mockUser: Partial<User> = {
+    tokenVersion: 0,
     id: "123e4567-e89b-12d3-a456-426614174000",
     username: "testuser",
     email: "test@example.com",
@@ -67,6 +68,7 @@ describe("JwtStrategy", () => {
 
   describe("validate", () => {
     const payload = {
+      tokenVersion: 0,
       sub: "123e4567-e89b-12d3-a456-426614174000",
       username: "testuser",
       email: "test@example.com",
@@ -123,6 +125,18 @@ describe("JwtStrategy", () => {
       await expect(strategy.validate(payload)).rejects.toThrow(
         "User account is not active",
       );
+    });
+
+    it("rejects a matching-version access token while the user is locked", async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        isLocked: true,
+        lockedUntil: new Date("2030-01-01T00:00:00Z"),
+      });
+      await expect(strategy.validate(payload)).rejects.toMatchObject({
+        status: 401,
+        message: "Account is locked until 2030-01-01T00:00:00.000Z",
+      });
     });
 
     it("should return correct payload structure", async () => {
