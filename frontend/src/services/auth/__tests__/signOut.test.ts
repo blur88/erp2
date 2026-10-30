@@ -44,9 +44,8 @@ describe('coordinated sign-out adapters', () => {
   it('manual deletes shared state and clears locally before the backend finishes', async () => {
     let finish!: () => void
     vi.mocked(authApi.logout).mockImplementation(() => new Promise(resolve => { finish = () => resolve({ data: undefined } as any) }))
-    const purge = vi.fn(async () => { expectCleared() })
     const navigate = vi.fn()
-    await signOutManually(store.dispatch, 'refresh', purge, navigate)
+    await signOutManually(store.dispatch, 'refresh', navigate)
     expectCleared()
     expect(await holder.coordinator.credentialsForRequest()).toBeNull()
     expect(navigate).toHaveBeenCalledWith('/login')
@@ -87,11 +86,10 @@ describe('coordinated sign-out adapters', () => {
     '%s shows a storage error without cleanup or navigation when storage is closed', async exit => {
       const before = store.getState()
       const session = holder.coordinator.getSnapshot()
-      const purge = vi.fn()
       const navigate = vi.fn()
       storage.close()
 
-      if (exit === 'manual') await signOutManually(store.dispatch, 'refresh', purge, navigate)
+      if (exit === 'manual') await signOutManually(store.dispatch, 'refresh', navigate)
       else if (exit === 'idle') await signOutForIdle(store.dispatch, 'refresh', navigate)
       else if (exit === 'password-change completion') await signOutAfterPasswordChange(store.dispatch, 'refresh')
       else await signOutFromPasswordChange(store.dispatch, 'refresh', navigate)
@@ -99,7 +97,6 @@ describe('coordinated sign-out adapters', () => {
       expect(window.alert).toHaveBeenCalledWith("Unable to sign out. This browser's storage is unavailable.")
       expect(store.getState()).toEqual(before)
       expect(holder.coordinator.getSnapshot()).toEqual(session)
-      expect(purge).not.toHaveBeenCalled()
       expect(navigate).not.toHaveBeenCalled()
       expect(location.href).toBe('/dashboard')
       expect(authApi.logout).not.toHaveBeenCalled()

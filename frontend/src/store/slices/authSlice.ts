@@ -115,8 +115,10 @@ export const getCurrentUser = createAsyncThunk(
     const id = sessionCoordinator.getSnapshot()?.id;
     try {
       const response = await authApi.getCurrentUser();
+      if (id !== sessionCoordinator.getSnapshot()?.id) return null;
       return response.data;
     } catch (error: any) {
+      if (id !== sessionCoordinator.getSnapshot()?.id) return null;
       const { clearLocalSessionForRouteCheck } = await import('@/services/auth/signOut');
       await clearLocalSessionForRouteCheck(dispatch as any, id);
       return rejectWithValue(error.response?.data?.message || 'Failed to get current user');

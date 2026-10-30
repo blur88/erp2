@@ -12,7 +12,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SidebarUserMenu from '../SidebarUserMenu'
 import authReducer from '@/store/slices/authSlice'
 import { authApi } from '@/services/authApi'
-import { persistor } from '@/store'
 
 vi.mock('@/services/authApi', () => ({ authApi: { logout: vi.fn().mockResolvedValue({ data: undefined }) } }))
 type AuthState = ReturnType<typeof authReducer>
@@ -129,7 +128,6 @@ describe('SidebarUserMenu', () => {
     expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth/clearAuth' }))
     expect(authApi.logout).toHaveBeenCalledWith('test-refresh-token', 'test-access-token')
     expect(store.getState().auth).toMatchObject({ isAuthenticated: false, accessToken: null, refreshToken: null })
-    expect(persistor.purge).toHaveBeenCalledOnce()
   })
 
   it('menu closes on Escape key', async () => {

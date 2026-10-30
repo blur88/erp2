@@ -5,12 +5,16 @@ export const STORAGE_UNAVAILABLE = "This browser's storage is unavailable"
 export interface SessionChannel {
   postMessage(message: unknown): void
   close(): void
+  subscribe?(listener: () => void): () => void
 }
 export interface SignInContext { lastEndedSessionId: string | null }
 interface Options {
   storage: SessionStorage
   channel?: SessionChannel
   clock?: () => number
+  resumeTargets?: { window: EventTarget; document: EventTarget }
+  cleanup?: (next: Session | null) => void
+  onError?: (error: unknown) => void
   legacyStorage?: Pick<Storage, 'removeItem'>
 }
 
@@ -20,6 +24,24 @@ export class SessionCoordinator {
   private pending: Promise<unknown> = Promise.resolve()
   private disposed = false
   private opened = false
+  private detach: Array<() => void> = []
+  private listening = false
+  private reconcile = () => {
+    void this.credentialsForRequest().catch(error => this.options.onError?.(error))
+  }
+
+  private listen() {
+    if (this.listening) return
+    this.listening = true
+    const unsubscribe = this.options.channel?.subscribe?.(this.reconcile)
+    if (unsubscribe) this.detach.push(unsubscribe)
+    const targets = this.options.resumeTargets
+    if (!targets) return
+    for (const [target, event] of [[targets.window, 'focus'], [targets.window, 'pageshow'], [targets.document, 'visibilitychange']] as const) {
+      target.addEventListener(event, this.reconcile)
+      this.detach.push(() => target.removeEventListener(event, this.reconcile))
+    }
+  }
   constructor(private options: Options) {}
 
   private run<T>(operation: () => Promise<T>): Promise<T> {
@@ -32,6 +54,12 @@ export class SessionCoordinator {
   }
 
   private adopt(session: Session | null) {
+    if (this.disposed) return null
+    if (this.current && this.current.id !== session?.id) {
+      // Block the old Session before clearing any user-owned state.
+      this.current = null
+      this.options.cleanup?.(session)
+    }
     this.current = session
     for (const listener of this.listeners) listener(session)
     return session
@@ -43,6 +71,7 @@ export class SessionCoordinator {
       // Never deserialize legacy auth, even if it contains a valid token.
       const legacy = this.options.legacyStorage ?? globalThis.localStorage
       legacy?.removeItem('persist:erp-app')
+      legacy?.removeItem('persist:erp-notifications')
       await this.options.storage.open()
       this.opened = true
     } catch {
@@ -53,6 +82,7 @@ export class SessionCoordinator {
   start() {
     return this.run(async () => {
       await this.open()
+      this.listen()
       return this.adopt(await this.options.storage.read())
     })
   }
@@ -120,6 +150,8 @@ export class SessionCoordinator {
     })))
   }
 
+  setCleanup(cleanup: (next: Session | null) => void) { this.options.cleanup = cleanup }
+
   getSnapshot() { return this.current }
   subscribe(listener: (session: Session | null) => void) {
     this.listeners.add(listener)
@@ -129,6 +161,8 @@ export class SessionCoordinator {
     if (this.disposed) return
     this.disposed = true
     this.listeners.clear()
+    for (const detach of this.detach) detach()
+    this.detach = []
     this.options.channel?.close()
     // Close after any already-running transaction finishes.
     void this.pending.finally(() => this.options.storage.close())

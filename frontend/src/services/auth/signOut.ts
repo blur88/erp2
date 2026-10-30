@@ -28,11 +28,10 @@ async function backendLogout(session: Awaited<ReturnType<typeof endSession>>) {
 }
 
 export async function signOutManually(
-  dispatch: AppDispatch, _refreshToken: string | null, purge: () => Promise<unknown>, navigate: NavigateFunction,
+  dispatch: AppDispatch, _refreshToken: string | null, navigate: NavigateFunction,
 ) {
   const ended = await endSessionForUser(dispatch)
   if (ended === undefined) return
-  await purge()
   navigate('/login')
   void backendLogout(ended)
 }

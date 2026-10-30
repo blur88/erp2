@@ -118,3 +118,18 @@ it('concurrent 401 responses in one tab share one refresh even while the shared 
   finish()
   expect((await requests).map(result => result.data)).toEqual(['ok', 'ok'])
 })
+
+it('discards a successful response from the previous Session before exposing its data', async () => {
+  const { default: api } = await import('../api')
+  let finish!: () => void
+  let sent!: () => void
+  const started = new Promise<void>(resolve => { sent = resolve })
+  const request = api.get('/private', { adapter: config => new Promise(resolve => {
+    finish = () => resolve({ data: { secret: 'alice' }, status: 200, statusText: 'OK', headers: {}, config })
+    sent()
+  }) })
+  await started
+  await holder.coordinator.signIn({ accessToken: 'bob-access', refreshToken: 'bob-refresh', user: { id: 'bob' }, expiresIn: 900 })
+  finish()
+  await expect(request).rejects.toThrow('Session ended before response')
+})
