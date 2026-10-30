@@ -10,6 +10,16 @@ async function endSession(dispatch: AppDispatch, id = sessionCoordinator.getSnap
   return ended
 }
 
+// User-triggered and idle exits report storage failures without continuing cleanup.
+async function endSessionForUser(dispatch: AppDispatch) {
+  try {
+    return await endSession(dispatch)
+  } catch {
+    window.alert("Unable to sign out. This browser's storage is unavailable.")
+    return undefined
+  }
+}
+
 // Backend logout uses the captured credentials after shared deletion and cleanup.
 async function backendLogout(session: Awaited<ReturnType<typeof endSession>>) {
   if (!session) return
@@ -20,7 +30,8 @@ async function backendLogout(session: Awaited<ReturnType<typeof endSession>>) {
 export async function signOutManually(
   dispatch: AppDispatch, _refreshToken: string | null, purge: () => Promise<unknown>, navigate: NavigateFunction,
 ) {
-  const ended = await endSession(dispatch)
+  const ended = await endSessionForUser(dispatch)
+  if (ended === undefined) return
   await purge()
   navigate('/login')
   void backendLogout(ended)
@@ -29,20 +40,23 @@ export async function signOutManually(
 export async function signOutForIdle(
   dispatch: AppDispatch, _refreshToken: string | null | undefined, navigate: NavigateFunction,
 ) {
-  const ended = await endSession(dispatch)
+  const ended = await endSessionForUser(dispatch)
+  if (ended === undefined) return
   navigate('/login', { replace: true })
   void backendLogout(ended)
 }
 
 export async function signOutAfterPasswordChange(dispatch: AppDispatch, _refreshToken: string | null) {
-  const ended = await endSession(dispatch)
+  const ended = await endSessionForUser(dispatch)
+  if (ended === undefined) return
   void backendLogout(ended)
 }
 
 export async function signOutFromPasswordChange(
   dispatch: AppDispatch, _refreshToken: string | null, navigate: NavigateFunction,
 ) {
-  const ended = await endSession(dispatch)
+  const ended = await endSessionForUser(dispatch)
+  if (ended === undefined) return
   navigate('/login', { replace: true })
   void backendLogout(ended)
 }

@@ -112,7 +112,6 @@ export const store = configureStore({
   ),
 })
 
-// Start coordination before redux-persist reads the legacy root key.
 export const sessionReady = sessionCoordinator.start().then(() => undefined)
 sessionCoordinator.subscribe(session => {
   if (session) store.dispatch(setCredentials({ ...session, expiresIn: 0, rememberMe: session.rememberMe }))

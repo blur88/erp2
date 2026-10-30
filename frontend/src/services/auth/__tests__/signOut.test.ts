@@ -18,19 +18,21 @@ vi.mock('@/services/authApi', () => ({ authApi: { logout: vi.fn() } }))
 const response = { accessToken: 'access', refreshToken: 'refresh', user: { id: 'alice' }, expiresIn: 900 } as AuthResponse
 const location = { href: '/dashboard', pathname: '/dashboard' }
 let store: ReturnType<typeof makeStore>
+let storage: IndexedDbSessionStorage
 function makeStore() {
   const initial = authReducer(undefined, { type: 'init' })
   return configureStore({ reducer: { auth: authReducer }, preloadedState: { auth: { ...initial, isAuthenticated: true, accessToken: 'access', refreshToken: 'refresh', rememberMe: true } } })
 }
 beforeEach(async () => {
   vi.mocked(authApi.logout).mockReset().mockResolvedValue({ data: undefined } as any)
-  holder.coordinator = new SessionCoordinator({ storage: new IndexedDbSessionStorage(new IDBFactory()) })
+  storage = new IndexedDbSessionStorage(new IDBFactory())
+  holder.coordinator = new SessionCoordinator({ storage })
   await holder.coordinator.start()
   await holder.coordinator.signIn(response)
   store = makeStore()
   holder.coordinator.subscribe((session: unknown) => { if (!session) store.dispatch(clearAuth()) })
   location.href = '/dashboard'; location.pathname = '/dashboard'
-  vi.stubGlobal('window', { location })
+  vi.stubGlobal('window', { location, alert: vi.fn() })
 })
 afterEach(() => { holder.coordinator.dispose(); vi.unstubAllGlobals() })
 
@@ -80,6 +82,29 @@ describe('coordinated sign-out adapters', () => {
     expect(authApi.logout).not.toHaveBeenCalled()
     expect(location.href).toBe('/dashboard')
   })
+
+  it.each(['manual', 'idle', 'password-change completion', 'password-page exit'])(
+    '%s shows a storage error without cleanup or navigation when storage is closed', async exit => {
+      const before = store.getState()
+      const session = holder.coordinator.getSnapshot()
+      const purge = vi.fn()
+      const navigate = vi.fn()
+      storage.close()
+
+      if (exit === 'manual') await signOutManually(store.dispatch, 'refresh', purge, navigate)
+      else if (exit === 'idle') await signOutForIdle(store.dispatch, 'refresh', navigate)
+      else if (exit === 'password-change completion') await signOutAfterPasswordChange(store.dispatch, 'refresh')
+      else await signOutFromPasswordChange(store.dispatch, 'refresh', navigate)
+
+      expect(window.alert).toHaveBeenCalledWith("Unable to sign out. This browser's storage is unavailable.")
+      expect(store.getState()).toEqual(before)
+      expect(holder.coordinator.getSnapshot()).toEqual(session)
+      expect(purge).not.toHaveBeenCalled()
+      expect(navigate).not.toHaveBeenCalled()
+      expect(location.href).toBe('/dashboard')
+      expect(authApi.logout).not.toHaveBeenCalled()
+    },
+  )
 
   it('a failed old refresh cannot end a newer session', async () => {
     const old = holder.coordinator.getSnapshot()
