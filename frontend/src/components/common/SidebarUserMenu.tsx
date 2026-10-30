@@ -15,11 +15,11 @@ import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch } from '@/hooks/useRedux'
 import {
-  logout,
   selectCurrentUser,
   selectRefreshToken,
 } from '@/store/slices/authSlice'
 import { persistor } from '@/store'
+import { signOutManually } from '@/services/auth/signOut'
 
 interface SidebarUserMenuProps {
   collapsed: boolean
@@ -57,14 +57,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
 
   const handleLogoutClick = async () => {
     handleMenuClose()
-    if (refreshToken) {
-      await dispatch(logout(refreshToken))
-    }
-    await persistor.purge()
-    // Explicit navigate after purge — ProtectedRoute's redirect is unreliable here
-    // because persistor.purge() clears localStorage async, and the accessToken in Redux
-    // can trigger ProtectedRoute's verification branch before purge completes.
-    navigate('/login')
+    await signOutManually(dispatch, refreshToken, () => persistor.purge(), navigate)
   }
 
   const avatarElement = (

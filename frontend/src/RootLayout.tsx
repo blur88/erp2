@@ -3,10 +3,12 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Box, LinearProgress } from '@mui/material'
 import { useAppDispatch, useAppSelector } from './hooks/useRedux'
 import { useRegionalSettings } from '@/hooks/useRegionalSettings'
-import { clearAuth, logout as logoutAction, selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
+import { selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
 import { useClearReconciliationDraftsOnSignOut } from './pages/accounting/bank-reconciliations/useClearReconciliationDraftsOnSignOut'
+
+import { signOutForIdle } from '@/services/auth/signOut'
 
 const IDLE_TIMEOUT = 12 * 60 * 60 * 1000
 const WARNING_TIME = 5 * 60 * 1000
@@ -34,16 +36,7 @@ export default function RootLayout() {
     const state = (window as any).store?.getState()
     const refreshToken = state?.auth?.refreshToken
 
-    try {
-      if (refreshToken) {
-        await dispatch(logoutAction(refreshToken)).unwrap()
-      }
-    } catch (error) {
-      console.error('Server logout failed:', error)
-    } finally {
-      dispatch(clearAuth())
-      navigate('/login', { replace: true })
-    }
+    await signOutForIdle(dispatch, refreshToken, navigate)
   }, [dispatch, navigate])
 
   const activityEvents = useMemo(() => ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'], [])

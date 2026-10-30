@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
+import { getCredentials } from './auth/credentials'
 
 // Get API base URL dynamically with VPN compatibility
 const getApiBaseUrl = () => {
@@ -33,8 +34,7 @@ api.interceptors.request.use(
 
     // Inject Authorization header if access token exists
     const store = await getStore()
-    const state = store.getState()
-    const accessToken = state.auth?.accessToken
+    const { accessToken } = getCredentials(store.getState())
 
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`
@@ -69,7 +69,6 @@ const getAuthActions = async () => {
     const authSliceModule = await import('@/store/slices/authSlice')
     cachedAuthActions = {
       setAccessToken: authSliceModule.setAccessToken,
-      clearAuth: authSliceModule.clearAuth,
       setCredentials: authSliceModule.setCredentials,
     }
   }
@@ -133,14 +132,12 @@ api.interceptors.response.use(
       isRefreshing = true
 
       const store = await getStore()
-      const state = store.getState()
-      const refreshToken = state.auth?.refreshToken
+      const { refreshToken } = getCredentials(store.getState())
 
       if (!refreshToken) {
-        // No refresh token available, logout
-        const { clearAuth } = await getAuthActions()
-        store.dispatch(clearAuth())
-        window.location.href = '/login'
+        // No refresh token available, clear local auth
+        const { clearLocalSessionForMissingRefreshToken } = await import('./auth/signOut')
+        clearLocalSessionForMissingRefreshToken(store.dispatch)
         return Promise.reject(error)
       }
 
@@ -173,15 +170,10 @@ api.interceptors.response.use(
         }
         return api(originalRequest)
       } catch (refreshError) {
-        // Token refresh failed, logout user
+        // Token refresh failed, clear local auth
         processQueue(refreshError, null)
-        const { clearAuth } = await getAuthActions()
-        store.dispatch(clearAuth())
-
-        // Force redirect to login page for invalid/expired tokens
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
-        }
+        const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
+        clearLocalSessionForFailedRefresh(store.dispatch)
 
         return Promise.reject(refreshError)
       } finally {

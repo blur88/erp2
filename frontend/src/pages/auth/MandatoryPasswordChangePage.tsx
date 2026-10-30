@@ -21,7 +21,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
-import { changePassword, logout, ChangePasswordData } from '@/store/slices/authSlice';
+import { changePassword, ChangePasswordData } from '@/store/slices/authSlice';
+
+import { signOutAfterPasswordChange, signOutFromPasswordChange } from '@/services/auth/signOut';
 
 // Password validation schema
 const passwordSchema = yup.object({
@@ -74,9 +76,7 @@ const MandatoryPasswordChangePage: React.FC = () => {
 
       // Wait a moment to show success message, then logout (backend will force re-login)
       setTimeout(() => {
-        if (refreshToken) {
-          dispatch(logout(refreshToken));
-        }
+        signOutAfterPasswordChange(dispatch, refreshToken);
       }, 2000);
     } catch (err: any) {
       console.error('Password change error:', err);
@@ -84,16 +84,7 @@ const MandatoryPasswordChangePage: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    try {
-      if (refreshToken) {
-        await dispatch(logout(refreshToken)).unwrap();
-      }
-      // Navigate to login after logout
-      navigate('/login', { replace: true });
-    } catch (error) {
-      // Even if logout fails, redirect to login
-      navigate('/login', { replace: true });
-    }
+    await signOutFromPasswordChange(dispatch, refreshToken, navigate);
   };
 
   return (
