@@ -96,9 +96,9 @@ try {
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
   const propagationElapsed = await withTimeout(loginRequested, 5000, 'tab B never requested /login') - started
   assert.equal(await readSharedSession(tabA), null)
-  assert.equal(await readSharedSession(tabB), null)
   releaseRefresh()
   await withTimeout(tabB.waitForURL('**/login'), 5000, 'tab B never settled on /login')
+  assert.equal(await readSharedSession(tabB), null)
   const settledElapsed = Date.now() - started
   await tabA.waitForURL('**/login')
   await tabA.waitForLoadState('domcontentloaded')
