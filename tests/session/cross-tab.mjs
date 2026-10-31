@@ -5,15 +5,15 @@ const require = createRequire('/tmp/session-pw/package.json')
 const { chromium } = require('playwright')
 const base = process.env.SESSION_TEST_BASE_URL
 const users = [
-  [process.env.SESSION_TEST_USER_A, process.env.SESSION_TEST_PASSWORD_A],
-  [process.env.SESSION_TEST_USER_B, process.env.SESSION_TEST_PASSWORD_B],
+  { username: process.env.SESSION_TEST_USER_A, password: process.env.SESSION_TEST_PASSWORD_A },
+  { username: process.env.SESSION_TEST_USER_B, password: process.env.SESSION_TEST_PASSWORD_B },
 ]
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext()
 const tabA = await context.newPage()
 const tabB = await context.newPage()
 
-async function session(page) {
+async function readSharedSession(page) {
   return page.evaluate(async () => new Promise((resolve, reject) => {
     const request = indexedDB.open('erp-session')
     request.onerror = () => reject(request.error)
@@ -28,14 +28,14 @@ async function session(page) {
   }))
 }
 
-async function login(page, [username, password]) {
+async function login(page, { username, password }) {
   await page.goto(`${base}/login`)
   await page.getByRole('textbox', { name: 'Username or Email' }).fill(username)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: /^sign in$/i }).click()
   await page.waitForURL(url => !url.pathname.startsWith('/login'), { timeout: 15000 })
   await page.waitForFunction(() => document.body.innerText.includes('Dashboard'), { timeout: 15000 })
-  assert.equal((await session(page))?.user?.username, username)
+  assert.equal((await readSharedSession(page))?.user?.username, username)
 }
 
 async function assertSignedIn(page, username) {
@@ -56,54 +56,53 @@ try {
   assert.equal(await tabA.evaluate(() => isSecureContext), false, 'LAN HTTP must be an insecure context')
   await login(tabA, users[0])
   await tabB.goto(base)
-  await assertSignedIn(tabB, users[0][0])
+  await assertSignedIn(tabB, users[0].username)
   console.log('PASS two tabs share one session')
 
   await tabB.reload()
-  await assertSignedIn(tabB, users[0][0])
+  await assertSignedIn(tabB, users[0].username)
   console.log('PASS session restore after reload')
 
   // Hold a real backend response until after sign-out. The adapter must reject
   // the old response and must never rebuild the deleted shared record.
-  let releaseResponse
-  const held = new Promise(resolve => { releaseResponse = resolve })
-  let responseCaptured
-  const captured = new Promise(resolve => { responseCaptured = resolve })
-  await tabB.route('**/api/**', async route => {
-    if (route.request().url().includes('/api/auth/')) return route.continue()
+  const { promise: responseGate, resolve: releaseResponse } = Promise.withResolvers()
+  const { promise: businessRequestCaptured, resolve: markBusinessRequestCaptured } = Promise.withResolvers()
+  await tabB.route(url => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/'), async route => {
     const response = await route.fetch()
-    responseCaptured()
-    await held
+    markBusinessRequestCaptured()
+    await responseGate
     await route.fulfill({ response })
   }, { times: 1 })
-  let releaseNavigation
-  const navigationHeld = new Promise(resolve => { releaseNavigation = resolve })
-  let navigationCaptured
-  const navigationStarted = new Promise(resolve => { navigationCaptured = resolve })
+  const { promise: navigationGate, resolve: releaseNavigation } = Promise.withResolvers()
+  const { promise: loginNavigationStarted, resolve: markLoginNavigationStarted } = Promise.withResolvers()
+  let propagationElapsed
   await tabB.route('**/login', async route => {
-    navigationCaptured()
-    await navigationHeld
+    propagationElapsed = Date.now() - started
+    markLoginNavigationStarted()
+    await navigationGate
     await route.continue()
   }, { times: 1 })
-  const pending = tabB.reload().catch(() => {})
-  await captured
+  const reload = tabB.reload().catch(() => {})
+  await businessRequestCaptured
   await tabA.getByRole('button', { name: 'Open user menu' }).click()
-  const signedOut = tabB.waitForURL('**/login', { timeout: 1000 })
+  const { promise: signedOut } = Promise.withResolvers()
+  const waitForSignedOut = tabB.waitForURL('**/login').then(signedOut.resolve)
   const started = Date.now()
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
-  await navigationStarted
-  assert.equal(await session(tabB), null)
-  const delivered = tabB.waitForResponse(response => !response.url().includes('/api/auth/') && response.url().includes('/api/'))
+  await loginNavigationStarted
+  assert.equal(await readSharedSession(tabB), null)
+  const delivered = tabB.waitForResponse(response => response.url().includes('/api/inventory-analytics/'))
   releaseResponse()
   await delivered
   await tabB.getByRole('button', { name: 'Open user menu' }).waitFor({ state: 'hidden' })
-  assert.equal(await session(tabB), null)
+  assert.equal(await readSharedSession(tabB), null)
   releaseNavigation()
   await signedOut
-  const elapsed = Date.now() - started
+  await waitForSignedOut
+  const elapsed = propagationElapsed
   assert.ok(elapsed <= 1000, `sign-out propagation took ${elapsed} ms`)
-  await pending
-  assert.equal(await session(tabB), null)
+  await reload
+  assert.equal(await readSharedSession(tabB), null)
   console.log(`PASS sign-out propagation from Logout click ${elapsed} ms (bound: 1000 ms)`)
   console.log('PASS in-flight response cannot restore signed-in state')
 
@@ -111,7 +110,7 @@ try {
   await tabB.waitForURL(url => !url.pathname.startsWith('/login'))
   await logout(tabB)
   await login(tabB, users[1])
-  await assertSignedIn(tabA, users[1][0])
+  await assertSignedIn(tabA, users[1].username)
   console.log('PASS user switch propagates to the other tab')
 } finally {
   await browser.close()
