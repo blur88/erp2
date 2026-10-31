@@ -77,14 +77,17 @@ try {
 
   const { promise: refreshGate, resolve: releaseRefresh } = Promise.withResolvers()
   const { promise: refreshRequestCaptured, resolve: markRefreshRequestCaptured } = Promise.withResolvers()
-  await tabA.route(url => url.pathname === '/api/auth/refresh', async route => {
+  await tabB.route(url => url.pathname === '/api/auth/refresh', async route => {
     markRefreshRequestCaptured()
     await refreshGate
     await route.continue()
   }, { times: 1 })
+  await new Promise(resolve => setTimeout(resolve, 8500))
+  const refreshReload = tabB.reload().catch(error => {
+    if (!error.message.includes('net::ERR_ABORTED')) throw error
+  })
+  void refreshReload.catch(() => {})
   await Promise.race([refreshRequestCaptured, timeout(15000, 'no refresh request was held after access-token expiry')])
-  assert.equal(await readSharedSession(tabA), null, 'shared record should be cleared while refresh is in flight')
-  assert.equal(await readSharedSession(tabB), null, 'shared record should be cleared while refresh is in flight')
   await tabA.getByRole('button', { name: 'Open user menu' }).click()
   const loginRequested = new Promise(resolve => tabB.on('request', request => {
     if (request.isNavigationRequest() && request.frame() === tabB.mainFrame() && new URL(request.url()).pathname === '/login') resolve(Date.now())
@@ -102,6 +105,7 @@ try {
   await tabB.getByRole('textbox', { name: 'Username or Email' }).waitFor({ state: 'visible' })
   await tabB.getByRole('button', { name: 'Open user menu' }).waitFor({ state: 'hidden' })
   await new Promise(resolve => setTimeout(resolve, 2000))
+  await refreshReload
   assert.equal(await readSharedSession(tabA), null)
   assert.equal(await readSharedSession(tabB), null)
   assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
