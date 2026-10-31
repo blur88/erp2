@@ -68,6 +68,7 @@ try {
   const { promise: responseGate, resolve: releaseResponse } = Promise.withResolvers()
   const { promise: businessRequestCaptured, resolve: markBusinessRequestCaptured } = Promise.withResolvers()
   let heldRequest
+  const reload = tabB.reload().catch(() => {})
   await tabB.route(url => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/'), async route => {
     heldRequest = route.request()
     const response = await route.fetch()
@@ -85,10 +86,10 @@ try {
     await navigationGate
     await route.continue()
   }, { times: 1 })
-  const reload = tabB.reload().catch(() => {})
   await businessRequestCaptured
   await tabA.getByRole('button', { name: 'Open user menu' }).click()
-  const waitForSignedOut = tabB.waitForURL('**/login')
+  const signedOut = tabB.waitForURL('**/login')
+  const waitForSignedOut = signedOut.catch(() => {})
   started = Date.now()
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
   await loginNavigationStarted
@@ -99,6 +100,7 @@ try {
   await tabB.getByRole('button', { name: 'Open user menu' }).waitFor({ state: 'hidden' })
   assert.equal(await readSharedSession(tabB), null)
   releaseNavigation()
+  await signedOut
   await waitForSignedOut
   assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
   await reload
