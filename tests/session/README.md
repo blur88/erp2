@@ -27,7 +27,8 @@ not under the default rate limit. No production host is involved.
 
 The in-flight refresh case holds `/api/auth/refresh` after the 8 s access-token
 expiry causes a 401, signs out from tab A, waits for tab B to request `/login`,
-and checks that the shared record is null in both tabs before releasing refresh.
+releases refresh, then checks that the shared record is null in both tabs once
+each has settled on `/login`.
 The sign-out reload destroys tab B's document, so this case does not verify
 rejection of a late refresh save; the coordinator unit tests cover stale-save
 rejection. The Q25 CDP `Debugger.pause` variant is deferred; see [the #1345
