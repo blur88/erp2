@@ -396,3 +396,139 @@ it('rejects a refresh that returns after another tab signs out', async () => {
   expect(await b.credentialsForRequest()).toBeNull()
   a.dispose(); b.dispose()
 })
+
+it('a waiting tab cleans up locally when the shared session is deleted', async () => {
+  const factory = new IDBFactory()
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  const storage = new IndexedDbSessionStorage(factory)
+  const cleanup = vi.fn()
+  const b = new SessionCoordinator({ storage, cleanup })
+  await a.start()
+  const session = (await a.signIn(response))!
+  await b.start()
+  const lock = await storage.acquireRefreshLock(session.id, 'access', 'other-tab', Date.now)
+  expect(lock.acquired).toBe(true)
+  const acquire = vi.spyOn(storage, 'acquireRefreshLock')
+  const change = vi.spyOn(storage, 'change')
+  const refresh = vi.fn()
+  const waiting = b.refreshAfter401(session.id, 'access', refresh)
+  const rejected = expect(waiting).rejects.toThrow('Session ended before refresh')
+  await vi.waitFor(() => expect(acquire).toHaveBeenCalledOnce())
+  await a.signOut(session.id)
+  await rejected
+  expect(cleanup).toHaveBeenCalledOnce()
+  expect(cleanup).toHaveBeenCalledWith(null)
+  expect(b.getSnapshot()).toBeNull()
+  expect(change).not.toHaveBeenCalled()
+  expect(refresh).not.toHaveBeenCalled()
+  a.dispose(); b.dispose()
+})
+
+it('a waiting tab discards the old operation when another session is signed in', async () => {
+  const factory = new IDBFactory()
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  const storage = new IndexedDbSessionStorage(factory)
+  const b = new SessionCoordinator({ storage })
+  await a.start()
+  const old = (await a.signIn(response))!
+  await b.start()
+  expect((await storage.acquireRefreshLock(old.id, 'access', 'other-tab', Date.now)).acquired).toBe(true)
+  const acquire = vi.spyOn(storage, 'acquireRefreshLock')
+  const refresh = vi.fn()
+  const waiting = b.refreshAfter401(old.id, 'access', refresh)
+  const rejected = expect(waiting).rejects.toThrow('Session ended before refresh')
+  await vi.waitFor(() => expect(acquire).toHaveBeenCalledOnce())
+  const newer = (await a.signIn({ ...response, accessToken: 'new' }))!
+  await rejected
+  expect(b.getSnapshot()?.id).toBe(newer.id)
+  expect(refresh).not.toHaveBeenCalled()
+  a.dispose(); b.dispose()
+})
+
+it('checks a held lock every 250 milliseconds when hints are missed', async () => {
+  const factory = new IDBFactory()
+  const storage = new IndexedDbSessionStorage(factory)
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  const b = new SessionCoordinator({ storage })
+  await a.start()
+  const session = (await a.signIn(response))!
+  await b.start()
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'other-tab', Date.now)).acquired).toBe(true)
+  const acquire = vi.spyOn(storage, 'acquireRefreshLock')
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    const refresh = vi.fn()
+    const waiting = b.refreshAfter401(session.id, 'access', refresh)
+    // IndexedDB schedules work independently of the fake timeout clock.
+    const waitForPoll = async (count: number) => {
+      for (let i = 0; i < 100; i++) {
+        if (acquire.mock.calls.length === count && vi.getTimerCount() > 0) return
+        await new Promise<void>(resolve => setImmediate(resolve))
+      }
+      throw new Error(`waiter did not reach poll ${count}`)
+    }
+    await waitForPoll(1)
+    await vi.advanceTimersByTimeAsync(249)
+    expect(acquire).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await waitForPoll(2)
+    await vi.advanceTimersByTimeAsync(249)
+    expect(acquire).toHaveBeenCalledTimes(2)
+    await a.saveRefresh(session.id, 'refresh', { ...response, accessToken: 'new', refreshToken: 'new-refresh' })
+    await vi.advanceTimersByTimeAsync(1)
+    expect((await waiting).accessToken).toBe('new')
+    expect(refresh).not.toHaveBeenCalled()
+  } finally {
+    vi.useRealTimers()
+    a.dispose(); b.dispose()
+  }
+})
+
+it('releases its lock if the session is deleted before the refresh is sent', async () => {
+  const factory = new IDBFactory()
+  const storage = new IndexedDbSessionStorage(factory)
+  const a = new SessionCoordinator({ storage })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await a.start(); await b.start()
+  const session = (await a.signIn(response))!
+  const read = storage.read.bind(storage)
+  let resume!: () => void
+  let reached!: () => void
+  const gate = new Promise<void>(resolve => { resume = resolve })
+  const entered = new Promise<void>(resolve => { reached = resolve })
+  vi.spyOn(storage, 'read').mockImplementationOnce(read).mockImplementationOnce(async () => {
+    reached()
+    await gate
+    return read()
+  })
+  const refresh = vi.fn()
+  const attempt = a.refreshAfter401(session.id, 'access', refresh)
+  const rejected = expect(attempt).rejects.toThrow('Session ended before refresh')
+  await entered
+  await b.signOut(session.id)
+  resume()
+  await rejected
+  expect(refresh).not.toHaveBeenCalled()
+  const newer = (await b.signIn(response))!
+  expect((await storage.acquireRefreshLock(newer.id, 'access', 'probe', Date.now)).acquired).toBe(true)
+  a.dispose(); b.dispose()
+})
+
+it.each([
+  ['network error', Object.assign(new Error('network error'), { code: 'ERR_NETWORK' })],
+  ['5xx response', Object.assign(new Error('server error'), { response: { status: 500 } })],
+])('a refresh %s preserves the session and leaves the lock to expire', async (_label, failure) => {
+  let now = 1000
+  const storage = new IndexedDbSessionStorage(new IDBFactory())
+  const coordinator = new SessionCoordinator({ storage, clock: () => now })
+  await coordinator.start()
+  const session = (await coordinator.signIn(response))!
+  const refresh = vi.fn().mockRejectedValue(failure)
+  await expect(coordinator.refreshAfter401(session.id, 'access', refresh)).rejects.toBe(failure)
+  expect(refresh).toHaveBeenCalledOnce()
+  expect((await coordinator.credentialsForRequest())?.id).toBe(session.id)
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(false)
+  now += 15000
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(true)
+  coordinator.dispose()
+})

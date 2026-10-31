@@ -177,3 +177,21 @@ it('surfaces a refresh 429 without retrying or ending the session', async () => 
   expect(holder.store.getState().auth.isAuthenticated).toBe(true)
   expect(window.location.href).not.toBe('/login')
 })
+
+it.each([
+  ['network error', Object.assign(new Error('network error'), { code: 'ERR_NETWORK' })],
+  ['5xx response', Object.assign(new Error('server error'), { response: { status: 500 } })],
+])('surfaces a refresh %s without ending the session', async (_label, failure) => {
+  const { default: api } = await import('../api')
+  const { authApi } = await import('../authApi')
+  vi.mocked(authApi.refreshToken).mockRejectedValueOnce(failure)
+  const adapter = vi.fn(async config => {
+    throw new AxiosError('unauthorized', 'ERR_BAD_REQUEST', config, undefined, { data: {}, status: 401, statusText: 'Unauthorized', headers: new AxiosHeaders(), config })
+  })
+  await expect(api.get('/protected', { adapter })).rejects.toBe(failure)
+  expect(adapter).toHaveBeenCalledOnce()
+  expect(authApi.refreshToken).toHaveBeenCalledOnce()
+  expect(await holder.coordinator.credentialsForRequest()).toMatchObject({ accessToken: 'access', refreshToken: 'refresh' })
+  expect(holder.store.getState().auth.isAuthenticated).toBe(true)
+  expect(window.location.href).not.toBe('/login')
+})

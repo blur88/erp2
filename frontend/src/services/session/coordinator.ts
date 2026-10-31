@@ -183,37 +183,43 @@ export class SessionCoordinator {
       const release = async () => {
         if (await this.options.storage.releaseRefreshLock(lock)) this.options.channel?.postMessage('changed')
       }
-      session = verify(await this.credentialsForRequest())
-      if (session.accessToken !== usedAccessToken) { await release(); return session }
-      const triedToken = session.refreshToken
-      let response: AuthResponse
+      let leaveToExpire = false
       try {
-        response = await refresh(triedToken)
-      } catch (error) {
-        const status = (error as { response?: { status?: number } })?.response?.status
-        if (status === 429) await release()
-        if (status === 401) {
-          const latest = verify(await this.credentialsForRequest())
-          if (latest.accessToken !== usedAccessToken || latest.refreshToken !== triedToken) { await release(); continue }
-          if (!attempt.takeover) {
-            const ended = await this.signOut(id, triedToken)
-            await release()
-            if (!ended) {
-              const current = verify(this.getSnapshot())
-              if (current.accessToken !== usedAccessToken || current.refreshToken !== triedToken) continue
+        session = verify(await this.credentialsForRequest())
+        if (session.accessToken !== usedAccessToken) return session
+        const triedToken = session.refreshToken
+        let response: AuthResponse
+        try {
+          response = await refresh(triedToken)
+        } catch (error) {
+          const failure = error as { code?: string; response?: { status?: number } }
+          const status = failure?.response?.status
+          if (status === 401) {
+            const latest = verify(await this.credentialsForRequest())
+            if (latest.accessToken !== usedAccessToken || latest.refreshToken !== triedToken) continue
+            if (attempt.takeover) leaveToExpire = true
+            else {
+              const ended = await this.signOut(id, triedToken)
+              if (!ended) {
+                const current = verify(this.getSnapshot())
+                if (current.accessToken !== usedAccessToken || current.refreshToken !== triedToken) continue
+              }
             }
-          }
+          } else if (status !== 429 && (status === undefined || failure.code === 'ECONNABORTED' || failure.code === 'ETIMEDOUT' || failure.code === 'ERR_NETWORK' || (status >= 500 && status < 600))) leaveToExpire = true
+          throw error
         }
-        throw error
+        // A failed or rejected save has an uncertain server outcome: leave the lock.
+        leaveToExpire = true
+        const saved = await this.saveRefresh(id, triedToken, response)
+        if (!saved || saved.id !== id || saved.accessToken !== response.accessToken || saved.refreshToken !== response.refreshToken) {
+          throw new Error('Session ended during refresh')
+        }
+        leaveToExpire = false
+        this.options.channel?.postMessage('changed')
+        return saved
+      } finally {
+        if (!leaveToExpire) await release()
       }
-      // A failed or rejected save has an uncertain server outcome: leave the lock.
-      const saved = await this.saveRefresh(id, triedToken, response)
-      if (!saved || saved.id !== id || saved.accessToken !== response.accessToken || saved.refreshToken !== response.refreshToken) {
-        throw new Error('Session ended during refresh')
-      }
-      this.options.channel?.postMessage('changed')
-      await release()
-      return saved
     }
   }
 
