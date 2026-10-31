@@ -272,7 +272,7 @@ it('a normal refresh 401 ends only the matching session', async () => {
   a.dispose()
 })
 
-it('timeout and takeover 401 both leave the lock until expiry and preserve the session', async () => {
+it('a timeout leaves the lock until expiry and preserves the session', async () => {
   let now = 1000
   const factory = new IDBFactory()
   const storage = new IndexedDbSessionStorage(factory)
@@ -281,14 +281,25 @@ it('timeout and takeover 401 both leave the lock until expiry and preserve the s
   const session = (await a.signIn(response))!
   const timeout = Object.assign(new Error('timeout'), { code: 'ECONNABORTED' })
   await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(timeout))).rejects.toBe(timeout)
-  let attempt = await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)
-  expect(attempt.acquired).toBe(false)
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(false)
+  expect((await a.credentialsForRequest())?.id).toBe(session.id)
+  now += 15000
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(true)
+  a.dispose()
+})
+
+it('a takeover 401 leaves the lock until expiry and preserves the session', async () => {
+  let now = 1000
+  const storage = new IndexedDbSessionStorage(new IDBFactory())
+  const a = new SessionCoordinator({ storage, clock: () => now })
+  await a.start()
+  const session = (await a.signIn(response))!
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'previous', () => now)).acquired).toBe(true)
   now += 15000
   const unauthorized = Object.assign(new Error('unauthorized'), { response: { status: 401 } })
   await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(unauthorized))).rejects.toBe(unauthorized)
   expect((await a.credentialsForRequest())?.id).toBe(session.id)
-  attempt = await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)
-  expect(attempt.acquired).toBe(false)
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(false)
   now += 15000
   expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(true)
   a.dispose()
@@ -332,4 +343,56 @@ it('reports a refresh save as rejected when the tried token no longer matches ev
   expect(await a.saveRefresh(session.id, 'refresh', rotated)).toBeNull()
   expect(await a.credentialsForRequest()).toMatchObject({ accessToken: 'new', refreshToken: 'new-refresh' })
   a.dispose()
+})
+
+it('does not restore an old session when sign-in overlaps lock acquisition', async () => {
+  const storage = new IndexedDbSessionStorage(new IDBFactory())
+  const a = new SessionCoordinator({ storage })
+  await a.start()
+  const old = (await a.signIn(response))!
+  let release!: () => void
+  let acquired!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const entered = new Promise<void>(resolve => { acquired = resolve })
+  const acquire = storage.acquireRefreshLock.bind(storage)
+  vi.spyOn(storage, 'acquireRefreshLock').mockImplementationOnce(async (...args) => {
+    const result = await acquire(...args)
+    acquired()
+    await gate
+    return result
+  })
+  const observed: Array<string | undefined> = []
+  a.subscribe(session => observed.push(session?.id))
+  const refreshing = a.refreshAfter401(old.id, 'access', vi.fn())
+  const rejected = expect(refreshing).rejects.toThrow('Session ended before refresh')
+  await entered
+  const signingIn = a.signIn({ ...response, accessToken: 'new' })
+  await new Promise(resolve => setTimeout(resolve, 30))
+  release()
+  const newer = (await signingIn)!
+  await rejected
+  const adoptedNewer = observed.indexOf(newer.id)
+  expect(adoptedNewer).toBeGreaterThanOrEqual(0)
+  expect(observed.slice(adoptedNewer + 1)).not.toContain(old.id)
+  expect((await a.credentialsForRequest())?.id).toBe(newer.id)
+  a.dispose()
+})
+
+it('rejects a refresh that returns after another tab signs out', async () => {
+  const factory = new IDBFactory()
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await a.start(); await b.start()
+  const session = (await a.signIn(response))!
+  let finish!: (value: AuthResponse) => void
+  const refresh = vi.fn(() => new Promise<AuthResponse>(resolve => { finish = resolve }))
+  const result = a.refreshAfter401(session.id, 'access', refresh)
+  const rejected = expect(result).rejects.toThrow('Session ended during refresh')
+  await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce())
+  await b.signOut(session.id)
+  finish({ ...response, accessToken: 'late', refreshToken: 'late-refresh' })
+  await rejected
+  expect(await a.credentialsForRequest()).toBeNull()
+  expect(await b.credentialsForRequest()).toBeNull()
+  a.dispose(); b.dispose()
 })

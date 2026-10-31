@@ -168,8 +168,12 @@ export class SessionCoordinator {
     for (;;) {
       let session = verify(await this.credentialsForRequest())
       if (session.accessToken !== usedAccessToken) return session
-      const attempt = await this.options.storage.acquireRefreshLock(id, usedAccessToken, holder, this.options.clock ?? Date.now)
-      session = verify(await this.run(async () => this.adopt(attempt.session)))
+      const attempt = await this.run(async () => {
+        const result = await this.options.storage.acquireRefreshLock(id, usedAccessToken, holder, this.options.clock ?? Date.now)
+        this.adopt(result.session)
+        return result
+      })
+      session = verify(attempt.session)
       if (session.accessToken !== usedAccessToken) return session
       if (!attempt.acquired || !attempt.lock) {
         await this.waitForRefreshChange()

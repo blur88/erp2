@@ -87,16 +87,19 @@ try {
     }
   })
   let refreshCount = 0
+  let markRefresh
+  const refreshCaptured = new Promise(resolve => { markRefresh = resolve })
   let releaseConcurrent
   const concurrentGate = new Promise(resolve => { releaseConcurrent = resolve })
   const refreshUrl = url => url.pathname === '/api/auth/refresh'
   await context.route(refreshUrl, async route => {
     refreshCount++
+    markRefresh()
     await concurrentGate
     await route.continue()
   })
   const reloads = Promise.all([tabA.reload(), tabB.reload()])
-  await withTimeout(bothExpired, 15000, 'both tabs did not receive a 401')
+  await withTimeout(Promise.all([bothExpired, refreshCaptured]), 15000, 'both tabs did not receive a 401 and start refresh')
   releaseConcurrent()
   await withTimeout(reloads, 15000, 'concurrent reloads did not complete')
   await assertSignedIn(tabA, users[0].username)
