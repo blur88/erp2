@@ -67,7 +67,9 @@ try {
   // the old response and must never rebuild the deleted shared record.
   const { promise: responseGate, resolve: releaseResponse } = Promise.withResolvers()
   const { promise: businessRequestCaptured, resolve: markBusinessRequestCaptured } = Promise.withResolvers()
+  let heldRequest
   await tabB.route(url => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/'), async route => {
+    heldRequest = route.request()
     const response = await route.fetch()
     markBusinessRequestCaptured()
     await responseGate
@@ -76,6 +78,7 @@ try {
   const { promise: navigationGate, resolve: releaseNavigation } = Promise.withResolvers()
   const { promise: loginNavigationStarted, resolve: markLoginNavigationStarted } = Promise.withResolvers()
   let propagationElapsed
+  let started
   await tabB.route('**/login', async route => {
     propagationElapsed = Date.now() - started
     markLoginNavigationStarted()
@@ -85,25 +88,22 @@ try {
   const reload = tabB.reload().catch(() => {})
   await businessRequestCaptured
   await tabA.getByRole('button', { name: 'Open user menu' }).click()
-  const { promise: signedOut } = Promise.withResolvers()
-  const waitForSignedOut = tabB.waitForURL('**/login').then(signedOut.resolve)
-  const started = Date.now()
+  const waitForSignedOut = tabB.waitForURL('**/login')
+  started = Date.now()
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
   await loginNavigationStarted
   assert.equal(await readSharedSession(tabB), null)
-  const delivered = tabB.waitForResponse(response => response.url().includes('/api/inventory-analytics/'))
+  const delivered = tabB.waitForResponse(response => response.request() === heldRequest)
   releaseResponse()
   await delivered
   await tabB.getByRole('button', { name: 'Open user menu' }).waitFor({ state: 'hidden' })
   assert.equal(await readSharedSession(tabB), null)
   releaseNavigation()
-  await signedOut
   await waitForSignedOut
-  const elapsed = propagationElapsed
-  assert.ok(elapsed <= 1000, `sign-out propagation took ${elapsed} ms`)
+  assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
   await reload
   assert.equal(await readSharedSession(tabB), null)
-  console.log(`PASS sign-out propagation from Logout click ${elapsed} ms (bound: 1000 ms)`)
+  console.log(`PASS sign-out propagation from Logout click ${propagationElapsed} ms (bound: 1000 ms)`)
   console.log('PASS in-flight response cannot restore signed-in state')
 
   await login(tabA, users[0])
