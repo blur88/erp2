@@ -161,3 +161,19 @@ it('retries a request at most once after a successful refresh', async () => {
   expect(adapter).toHaveBeenCalledTimes(2)
   expect(authApi.refreshToken).toHaveBeenCalledTimes(1)
 })
+
+it('surfaces a refresh 429 without retrying or ending the session', async () => {
+  const { default: api } = await import('../api')
+  const { authApi } = await import('../authApi')
+  const rateLimit = Object.assign(new Error('rate limited'), { response: { status: 429 } })
+  vi.mocked(authApi.refreshToken).mockRejectedValueOnce(rateLimit)
+  const adapter = vi.fn(async config => {
+    throw new AxiosError('unauthorized', 'ERR_BAD_REQUEST', config, undefined, { data: {}, status: 401, statusText: 'Unauthorized', headers: new AxiosHeaders(), config })
+  })
+  await expect(api.get('/protected', { adapter })).rejects.toBe(rateLimit)
+  expect(adapter).toHaveBeenCalledOnce()
+  expect(authApi.refreshToken).toHaveBeenCalledOnce()
+  expect(await holder.coordinator.credentialsForRequest()).toMatchObject({ accessToken: 'access', refreshToken: 'refresh' })
+  expect(holder.store.getState().auth.isAuthenticated).toBe(true)
+  expect(window.location.href).not.toBe('/login')
+})

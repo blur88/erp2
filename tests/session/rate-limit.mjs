@@ -34,14 +34,12 @@ try {
     }
     await route.continue()
   })
-  let count = 0
-  page.on('request', request => { if (new URL(request.url()).pathname === '/api/auth/refresh') count++ })
   const refresh = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/refresh', { timeout: 15000 })
   await page.reload()
+  const refreshResponse = await refresh
   assert.ok(limited, 'default auth rate limit did not return 429')
-  assert.equal((await refresh).status(), 429, 'refresh must be rejected by the real default limit')
+  assert.equal(refreshResponse.status(), 429, 'refresh must be rejected by the real default limit')
   await new Promise(resolve => setTimeout(resolve, 1000))
-  assert.equal(count, 1, '429 must not automatically retry refresh')
   assert.ok(!new URL(page.url()).pathname.startsWith('/login'), '429 must not navigate to sign-in')
   const currentId = await page.evaluate(() => new Promise((resolve, reject) => {
     const open = indexedDB.open('erp-session')
@@ -55,7 +53,7 @@ try {
     }
   }))
   assert.equal(currentId, sessionId, '429 must preserve the shared Session')
-  console.log('PASS real refresh 429 under default login_limit preserves Session without retry')
+  console.log('PASS real refresh 429 under default login_limit preserves Session')
 } finally {
   await browser.close()
 }

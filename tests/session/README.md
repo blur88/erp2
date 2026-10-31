@@ -26,7 +26,8 @@ file on exit. The browser results verify coordination under these overrides,
 not under the default rate limit. The runner then recreates NGINX with the
 unmodified configuration and runs `rate-limit.mjs` separately: it exhausts the
 default `login_limit`, observes a real refresh 429, and checks that the Session
-survives without an automatic retry. No production host is involved.
+survives. The transport test checks that a single request does not automatically
+retry a 429. No production host is involved.
 
 The concurrent refresh case reloads both tabs after access-token expiry and
 holds the first refresh until both tabs have received a 401. It checks that one
