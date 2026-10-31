@@ -106,12 +106,13 @@ try {
   started = Date.now()
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
   await Promise.race([loginNavigationStarted, signedOut, timeout(5000, 'tab B never navigated to /login')])
-  assert.equal(await readSharedSession(tabB), null)
+  // Tab B cannot evaluate JavaScript while its /login navigation is held; IndexedDB is origin-wide.
+  assert.equal(await readSharedSession(tabA), null)
   const delivered = tabB.waitForResponse(response => response.request() === heldRequest)
   releaseResponse()
   await delivered
   await tabB.getByRole('button', { name: 'Open user menu' }).waitFor({ state: 'hidden' })
-  assert.equal(await readSharedSession(tabB), null)
+  assert.equal(await readSharedSession(tabA), null)
   releaseNavigation()
   await signedOut
   assert.ok(propagationElapsed !== undefined, 'tab B /login navigation was not observed')
