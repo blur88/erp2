@@ -46,7 +46,10 @@ async function assertSignedIn(page, username) {
 }
 
 function timeout(ms, message) {
-  return new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+  return new Promise((_, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms)
+    timer.unref?.()
+  })
 }
 
 async function logout(page) {
@@ -76,6 +79,7 @@ try {
   const reload = tabB.reload().catch(error => {
     if (!error.message.includes('net::ERR_ABORTED')) throw error
   })
+  void reload.catch(() => {})
   await newDocument
   await tabB.route(url => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/'), async route => {
     heldRequest = route.request()
@@ -97,6 +101,7 @@ try {
   await Promise.race([businessRequestCaptured, timeout(15000, 'no business API request was held')])
   await tabA.getByRole('button', { name: 'Open user menu' }).click()
   const signedOut = tabB.waitForURL('**/login')
+  void signedOut.catch(() => {})
   started = Date.now()
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
   await Promise.race([loginNavigationStarted, signedOut, timeout(5000, 'tab B never navigated to /login')])
@@ -108,6 +113,7 @@ try {
   assert.equal(await readSharedSession(tabB), null)
   releaseNavigation()
   await signedOut
+  assert.ok(propagationElapsed !== undefined, 'tab B /login navigation was not observed')
   assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
   await reload
   assert.equal(await readSharedSession(tabB), null)
