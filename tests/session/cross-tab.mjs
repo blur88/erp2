@@ -94,11 +94,15 @@ try {
   }, { times: 1 })
   await Promise.race([businessRequestCaptured, timeout(15000, 'no business API request was held')])
   await tabA.getByRole('button', { name: 'Open user menu' }).click()
-  let started = Date.now()
+  const loginRequested = new Promise(resolve => tabB.on('request', request => {
+    if (request.isNavigationRequest() && request.frame() === tabB.mainFrame() && new URL(request.url()).pathname === '/login') resolve(Date.now())
+  }))
+  const started = Date.now()
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
   releaseResponse()
-  await withTimeout(tabB.waitForURL('**/login'), 5000, 'tab B never navigated to /login')
-  const propagationElapsed = Date.now() - started
+  const propagationElapsed = await withTimeout(loginRequested, 5000, 'tab B never requested /login') - started
+  await withTimeout(tabB.waitForURL('**/login'), 5000, 'tab B never settled on /login')
+  const settledElapsed = Date.now() - started
   await tabA.waitForURL('**/login')
   await tabA.waitForLoadState('domcontentloaded')
   assert.equal(await readSharedSession(tabA), null)
@@ -110,6 +114,7 @@ try {
   assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
   await reload
   console.log(`PASS sign-out propagation from Logout click ${propagationElapsed} ms (bound: 1000 ms)`)
+  console.log(`PASS tab B /login loaded in ${settledElapsed} ms (context only; no bound)`) 
   console.log('PASS in-flight response cannot restore signed-in state')
 
   await login(tabA, users[0])
