@@ -45,6 +45,10 @@ async function assertSignedIn(page, username) {
   await page.keyboard.press('Escape')
 }
 
+function timeout(ms, message) {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+}
+
 async function logout(page) {
   await page.getByRole('button', { name: 'Open user menu' }).click()
   await page.getByRole('menuitem', { name: 'Logout' }).click()
@@ -68,7 +72,11 @@ try {
   const { promise: responseGate, resolve: releaseResponse } = Promise.withResolvers()
   const { promise: businessRequestCaptured, resolve: markBusinessRequestCaptured } = Promise.withResolvers()
   let heldRequest
-  const reload = tabB.reload().catch(() => {})
+  const newDocument = tabB.waitForEvent('framenavigated', { predicate: frame => frame === tabB.mainFrame() })
+  const reload = tabB.reload().catch(error => {
+    if (!error.message.includes('net::ERR_ABORTED')) throw error
+  })
+  await newDocument
   await tabB.route(url => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/'), async route => {
     heldRequest = route.request()
     const response = await route.fetch()
@@ -86,13 +94,12 @@ try {
     await navigationGate
     await route.continue()
   }, { times: 1 })
-  await businessRequestCaptured
+  await Promise.race([businessRequestCaptured, timeout(15000, 'no business API request was held')])
   await tabA.getByRole('button', { name: 'Open user menu' }).click()
   const signedOut = tabB.waitForURL('**/login')
-  const waitForSignedOut = signedOut.catch(() => {})
   started = Date.now()
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
-  await loginNavigationStarted
+  await Promise.race([loginNavigationStarted, signedOut, timeout(5000, 'tab B never navigated to /login')])
   assert.equal(await readSharedSession(tabB), null)
   const delivered = tabB.waitForResponse(response => response.request() === heldRequest)
   releaseResponse()
@@ -101,7 +108,6 @@ try {
   assert.equal(await readSharedSession(tabB), null)
   releaseNavigation()
   await signedOut
-  await waitForSignedOut
   assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
   await reload
   assert.equal(await readSharedSession(tabB), null)
