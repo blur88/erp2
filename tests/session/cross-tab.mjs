@@ -14,9 +14,10 @@ const tabA = await context.newPage()
 const tabB = await context.newPage()
 
 async function readSharedSession(page) {
-  return page.evaluate(async () => new Promise((resolve, reject) => {
+  return Promise.race([page.evaluate(async () => new Promise((resolve, reject) => {
     const request = indexedDB.open('erp-session')
     request.onerror = () => reject(request.error)
+    request.onblocked = () => reject(new Error('indexedDB open blocked'))
     request.onsuccess = () => {
       const database = request.result
       const transaction = database.transaction('session', 'readonly')
@@ -25,7 +26,7 @@ async function readSharedSession(page) {
       read.onerror = () => reject(read.error)
       transaction.oncomplete = () => database.close()
     }
-  }))
+  })), timeout(5000, 'readSharedSession timed out')])
 }
 
 async function login(page, { username, password }) {

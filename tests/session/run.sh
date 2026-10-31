@@ -25,4 +25,4 @@ docker run --rm --network host -v "$PWD:/work:ro" -w /work \
   -e SESSION_TEST_BASE_URL -e SESSION_TEST_USER_A -e SESSION_TEST_PASSWORD_A \
   -e SESSION_TEST_USER_B -e SESSION_TEST_PASSWORD_B \
   mcr.microsoft.com/playwright:v1.63.0-noble \
-  sh -c 'npm install --no-save --prefix /tmp/session-pw playwright@1.63.0 >/dev/null && node tests/session/cross-tab.mjs'
+  timeout 600 sh -c 'npm install --no-save --prefix /tmp/session-pw playwright@1.63.0 >/dev/null && node tests/session/cross-tab.mjs'
