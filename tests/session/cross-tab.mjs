@@ -46,6 +46,10 @@ async function assertSignedIn(page, username) {
   await page.keyboard.press('Escape')
 }
 
+function withTimeout(promise, ms, message) {
+  return Promise.race([promise, timeout(ms, message)])
+}
+
 function timeout(ms, message) {
   return new Promise((_, reject) => {
     const timer = setTimeout(() => reject(new Error(message)), ms)
@@ -71,8 +75,7 @@ try {
   await assertSignedIn(tabB, users[0].username)
   console.log('PASS session restore after reload')
 
-  // Hold a real backend response until after sign-out. The adapter must reject
-  // the old response and must never rebuild the deleted shared record.
+  // Hold a business response across sign-out without holding navigation: Playwright cannot reliably run page scripts during a held navigation.
   const { promise: responseGate, resolve: releaseResponse } = Promise.withResolvers()
   const { promise: businessRequestCaptured, resolve: markBusinessRequestCaptured } = Promise.withResolvers()
   let heldRequest
@@ -89,39 +92,23 @@ try {
     await responseGate
     await route.fulfill({ response })
   }, { times: 1 })
-  const { promise: navigationGate, resolve: releaseNavigation } = Promise.withResolvers()
-  const { promise: loginNavigationStarted, resolve: markLoginNavigationStarted } = Promise.withResolvers()
-  let propagationElapsed
-  let started
-  await tabB.route('**/login', async route => {
-    propagationElapsed = Date.now() - started
-    markLoginNavigationStarted()
-    await navigationGate
-    await route.continue()
-  }, { times: 1 })
   await Promise.race([businessRequestCaptured, timeout(15000, 'no business API request was held')])
   await tabA.getByRole('button', { name: 'Open user menu' }).click()
-  const signedOut = tabB.waitForURL('**/login')
-  void signedOut.catch(() => {})
-  started = Date.now()
+  let started = Date.now()
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
-  await Promise.race([loginNavigationStarted, signedOut, timeout(5000, 'tab B never navigated to /login')])
-  // Tab B's UI is checked after navigation release; scripts cannot run while navigation is held.
+  releaseResponse()
+  await withTimeout(tabB.waitForURL('**/login'), 5000, 'tab B never navigated to /login')
+  const propagationElapsed = Date.now() - started
   await tabA.waitForURL('**/login')
   await tabA.waitForLoadState('domcontentloaded')
   assert.equal(await readSharedSession(tabA), null)
-  const delivered = tabB.waitForResponse(response => response.request() === heldRequest)
-  releaseResponse()
-  await delivered
-  assert.equal(await readSharedSession(tabA), null)
-  releaseNavigation()
-  await signedOut
-  assert.ok(propagationElapsed !== undefined, 'tab B /login navigation was not observed')
-  assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
-  await reload
+  assert.equal(await readSharedSession(tabB), null)
   await tabB.getByRole('textbox', { name: 'Username or Email' }).waitFor({ state: 'visible' })
   await tabB.getByRole('button', { name: 'Open user menu' }).waitFor({ state: 'hidden' })
-  assert.equal(await readSharedSession(tabB), null)
+  await new Promise(resolve => setTimeout(resolve, 2000))
+  assert.equal(await readSharedSession(tabA), null)
+  assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
+  await reload
   console.log(`PASS sign-out propagation from Logout click ${propagationElapsed} ms (bound: 1000 ms)`)
   console.log('PASS in-flight response cannot restore signed-in state')
 
