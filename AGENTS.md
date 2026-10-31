@@ -103,7 +103,7 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 
 - Tests never evaluate `frontend/src/store/index.ts`; a Vitest-only plugin blocks it. Use `createTestStore` or a complete hoisted `vi.mock('@/store', …)` stub. See [enforcement boundary](docs/frontend/testing-and-print.md#tests-never-evaluate-the-application-store).
 - **Printing is portal-only.** Document dialogs render through MUI portals outside `#root`, and `@media print { #root { display: none } }` isolates them. Nothing prints from inside `#root`; adding such a page means making that rule conditional and releasing every height/overflow constraint on its ancestor chain.
-- **jsdom cannot test layout or print.** There is no browser-test infrastructure in the repo. Print and layout changes need a manual browser pass.
+- **jsdom cannot test layout or print.** `tests/session/` provides a manual, non-CI LAN HTTP harness for session coordination. Print and layout changes need a manual browser pass.
 
 **Bank reconciliation** — details: [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md)
 

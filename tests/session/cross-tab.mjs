@@ -38,6 +38,13 @@ async function login(page, [username, password]) {
   assert.equal((await session(page))?.user?.username, username)
 }
 
+async function assertSignedIn(page, username) {
+  await page.getByRole('button', { name: 'Open user menu' }).waitFor({ state: 'visible' })
+  await page.getByRole('button', { name: 'Open user menu' }).click()
+  await page.getByRole('menu').getByText(username, { exact: true }).waitFor({ state: 'visible' })
+  await page.keyboard.press('Escape')
+}
+
 async function logout(page) {
   await page.getByRole('button', { name: 'Open user menu' }).click()
   await page.getByRole('menuitem', { name: 'Logout' }).click()
@@ -48,15 +55,12 @@ try {
   await tabA.goto(base)
   assert.equal(await tabA.evaluate(() => isSecureContext), false, 'LAN HTTP must be an insecure context')
   await login(tabA, users[0])
-  const firstId = (await session(tabA)).id
   await tabB.goto(base)
-  await tabB.waitForURL(url => !url.pathname.startsWith('/login'))
-  assert.equal((await session(tabB)).id, firstId, 'second tab mirrors the first session')
+  await assertSignedIn(tabB, users[0][0])
   console.log('PASS two tabs share one session')
 
   await tabB.reload()
-  await tabB.waitForURL(url => !url.pathname.startsWith('/login'))
-  assert.equal((await session(tabB)).id, firstId)
+  await assertSignedIn(tabB, users[0][0])
   console.log('PASS session restore after reload')
 
   // Hold a real backend response until after sign-out. The adapter must reject
@@ -72,40 +76,42 @@ try {
     await held
     await route.fulfill({ response })
   }, { times: 1 })
-  let deliveredAt
-  await tabB.exposeBinding('recordSessionHint', () => { deliveredAt ??= Date.now() })
-  await tabB.addInitScript(() => {
-    const channel = new BroadcastChannel('erp-session')
-    channel.addEventListener('message', () => window.recordSessionHint())
-  })
+  let releaseNavigation
+  const navigationHeld = new Promise(resolve => { releaseNavigation = resolve })
+  let navigationCaptured
+  const navigationStarted = new Promise(resolve => { navigationCaptured = resolve })
+  await tabB.route('**/login', async route => {
+    navigationCaptured()
+    await navigationHeld
+    await route.continue()
+  }, { times: 1 })
   const pending = tabB.reload().catch(() => {})
   await captured
-  await logout(tabA)
-  await tabB.waitForURL('**/login', { timeout: 1000 })
-  const elapsed = Date.now() - deliveredAt
-  assert.ok(deliveredAt, 'sign-out BroadcastChannel hint was not delivered')
-  assert.ok(elapsed <= 1000, `sign-out propagation took ${elapsed} ms`)
+  await tabA.getByRole('button', { name: 'Open user menu' }).click()
+  const signedOut = tabB.waitForURL('**/login', { timeout: 1000 })
+  const started = Date.now()
+  await tabA.getByRole('menuitem', { name: 'Logout' }).click()
+  await navigationStarted
+  assert.equal(await session(tabB), null)
+  const delivered = tabB.waitForResponse(response => !response.url().includes('/api/auth/') && response.url().includes('/api/'))
   releaseResponse()
+  await delivered
+  await tabB.getByRole('button', { name: 'Open user menu' }).waitFor({ state: 'hidden' })
+  assert.equal(await session(tabB), null)
+  releaseNavigation()
+  await signedOut
+  const elapsed = Date.now() - started
+  assert.ok(elapsed <= 1000, `sign-out propagation took ${elapsed} ms`)
   await pending
   assert.equal(await session(tabB), null)
-  console.log(`PASS sign-out propagation ${elapsed} ms (bound: 1000 ms)`)
+  console.log(`PASS sign-out propagation from Logout click ${elapsed} ms (bound: 1000 ms)`)
   console.log('PASS in-flight response cannot restore signed-in state')
 
   await login(tabA, users[0])
-  const oldId = (await session(tabA)).id
   await tabB.waitForURL(url => !url.pathname.startsWith('/login'))
   await logout(tabB)
   await login(tabB, users[1])
-  await tabA.waitForFunction(id => {
-    return new Promise(resolve => {
-      const request = indexedDB.open('erp-session')
-      request.onsuccess = () => {
-        const read = request.result.transaction('session').objectStore('session').get('current')
-        read.onsuccess = () => resolve(read.result?.id !== id)
-      }
-    })
-  }, oldId)
-  assert.equal((await session(tabA)).user.username, users[1][0])
+  await assertSignedIn(tabA, users[1][0])
   console.log('PASS user switch propagates to the other tab')
 } finally {
   await browser.close()
