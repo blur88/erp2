@@ -14,7 +14,7 @@ const tabA = await context.newPage()
 const tabB = await context.newPage()
 
 async function readSharedSession(page) {
-  return Promise.race([page.evaluate(async () => new Promise((resolve, reject) => {
+  return withTimeout(page.evaluate(async () => new Promise((resolve, reject) => {
     const request = indexedDB.open('erp-session')
     request.onerror = () => reject(request.error)
     request.onblocked = () => reject(new Error('indexedDB open blocked'))
@@ -26,7 +26,7 @@ async function readSharedSession(page) {
       read.onerror = () => reject(read.error)
       transaction.oncomplete = () => database.close()
     }
-  })), timeout(5000, 'readSharedSession timed out')])
+  })), 5000, 'readSharedSession timed out')
 }
 
 async function login(page, { username, password }) {
@@ -78,7 +78,6 @@ try {
   // Hold a business response across sign-out without holding navigation: Playwright cannot reliably run page scripts during a held navigation.
   const { promise: responseGate, resolve: releaseResponse } = Promise.withResolvers()
   const { promise: businessRequestCaptured, resolve: markBusinessRequestCaptured } = Promise.withResolvers()
-  let heldRequest
   const newDocument = tabB.waitForEvent('framenavigated', { predicate: frame => frame === tabB.mainFrame() })
   const reload = tabB.reload().catch(error => {
     if (!error.message.includes('net::ERR_ABORTED')) throw error
@@ -86,7 +85,6 @@ try {
   void reload.catch(() => {})
   await newDocument
   await tabB.route(url => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/'), async route => {
-    heldRequest = route.request()
     const response = await route.fetch()
     markBusinessRequestCaptured()
     await responseGate
@@ -111,11 +109,12 @@ try {
   await tabB.getByRole('button', { name: 'Open user menu' }).waitFor({ state: 'hidden' })
   await new Promise(resolve => setTimeout(resolve, 2000))
   assert.equal(await readSharedSession(tabA), null)
+  assert.equal(await readSharedSession(tabB), null)
   assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
   await reload
   console.log(`PASS sign-out propagation from Logout click ${propagationElapsed} ms (bound: 1000 ms)`)
-  console.log(`PASS tab B /login loaded in ${settledElapsed} ms (context only; no bound)`) 
-  console.log('PASS in-flight response cannot restore signed-in state')
+  console.log(`PASS tab B /login loaded in ${settledElapsed} ms (context only; no bound)`)
+  console.log('PASS signed out with a business response in flight (shared record stays cleared)')
 
   await login(tabA, users[0])
   await tabB.waitForURL(url => !url.pathname.startsWith('/login'))
