@@ -12,9 +12,9 @@ The accounting reports (Profit & Loss, Balance Sheet, Form B) printed from insid
 
 `#root` hiding must become conditional again, and the page must release **every** height/overflow constraint on its ancestor chain (`100vh`, `height: 100%`, `overflow: auto`): `#root`, its children, `main`, `.app-shell-root` (`MainLayout`'s outer 100vh flex Box — it sits one level below `#root > *` and above `main`, so no structural selector reaches it), and `EntityTable`'s `.entity-table-card` / `-frame` / `-scroller`, the real overflow owners. Miss one and the report is pinned to a single viewport and silently truncates. This is what the removed `accountingReportPrint.css` did.
 
-## There is no browser test infrastructure
+## Manual browser harness
 
-jsdom has no layout engine and does not evaluate `@media print`, so **the Vitest suite cannot validate any print path** — it can only assert that selectors exist. The Playwright gate that covered the accounting print path (`frontend/e2e/accounting-print.spec.ts`, CI job `Accounting Reports - Print/PDF Gate`, #1214) was removed with that path in #1223 and dropped from ruleset 15609777's required checks. There is no `playwright.config.ts`, no `frontend/e2e/` and no `test:print` script; reintroducing browser coverage means standing all of that back up.
+jsdom has no layout engine and does not evaluate `@media print`, so **the Vitest suite cannot validate any print path** — it can only assert that selectors exist. The Playwright gate that covered the accounting print path (`frontend/e2e/accounting-print.spec.ts`, CI job `Accounting Reports - Print/PDF Gate`, #1214) was removed with that path in #1223 and dropped from ruleset 15609777's required checks. There is no `playwright.config.ts`, no `frontend/e2e/` and no `test:print` script; `tests/session/` provides a manual, non-CI LAN HTTP harness for session coordination; it does not cover printing.
 
 SO/PO print is covered only by the jsdom suite plus a manual browser pass.
 
