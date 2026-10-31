@@ -39,6 +39,7 @@ api.interceptors.request.use(
     const previousSessionId = (config as any)._sessionId
     if (previousSessionId && previousSessionId !== session?.id) throw new Error('Session ended before request')
     ;(config as any)._sessionId = session?.id
+    ;(config as any)._accessToken = accessToken
 
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`
@@ -53,13 +54,6 @@ api.interceptors.request.use(
   }
 )
 
-// Token refresh state management
-let isRefreshing = false
-let failedQueue: Array<{
-  resolve: (value?: any) => void
-  reject: (error?: any) => void
-}> = []
-
 let cachedStore: any = null
 const getStore = async () => {
   if (!cachedStore) {
@@ -67,18 +61,6 @@ const getStore = async () => {
     cachedStore = storeModule.store
   }
   return cachedStore
-}
-
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error)
-    } else {
-      prom.resolve(token)
-    }
-  })
-
-  failedQueue = []
 }
 
 // Response interceptor with token refresh and error handling
@@ -109,25 +91,7 @@ api.interceptors.response.use(
 
     // Handle 401 Unauthorized - attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        originalRequest._retry = true
-        // Queue the request while token is being refreshed
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
-        })
-          .then((token) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`
-            }
-            return api(originalRequest)
-          })
-          .catch((err) => {
-            return Promise.reject(err)
-          })
-      }
-
       originalRequest._retry = true
-      isRefreshing = true
       try {
         const store = await getStore()
         const session = await getCredentials()
@@ -142,27 +106,18 @@ api.interceptors.response.use(
         }
 
         const { authApi } = await import('./authApi')
-        let response
         try {
-          response = await authApi.refreshToken(refreshToken)
+          await sessionCoordinator.refreshAfter401(session!.id, originalRequest._accessToken, async token => (await authApi.refreshToken(token)).data)
         } catch (refreshError) {
-          const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
-          await clearLocalSessionForFailedRefresh(store.dispatch, session!.id, refreshToken)
+          if (!sessionCoordinator.getSnapshot()) {
+            const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
+            await clearLocalSessionForFailedRefresh(store.dispatch, session!.id, refreshToken)
+          }
           throw refreshError
         }
-
-        // A failed required save stops here; it must not initiate another write.
-        const saved = await sessionCoordinator.saveRefresh(session!.id, refreshToken, response.data)
-        if (!saved || saved.id !== session!.id || saved.accessToken !== response.data.accessToken) {
-          throw new Error('Session ended during refresh')
-        }
-        processQueue(null, saved.accessToken)
         return api(originalRequest)
       } catch (refreshError) {
-        processQueue(refreshError, null)
         return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
       }
     }
 

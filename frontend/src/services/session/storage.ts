@@ -9,11 +9,16 @@ export interface Session {
   lastActivity: number
 }
 
+export interface RefreshLock { holder: string; expires: number }
+export type LockAttempt = { session: Session | null; lock: RefreshLock | null; acquired: boolean; takeover: boolean }
+
 export interface SessionStorage {
   open(): Promise<void>
   read(): Promise<Session | null>
   readSignOutMarker(): Promise<string | null>
   change(update: (current: Session | null, lastEnded: string | null) => Session | null): Promise<Session | null>
+  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number): Promise<LockAttempt>
+  releaseRefreshLock(lock: RefreshLock): Promise<boolean>
   close(): void
 }
 
@@ -78,5 +83,45 @@ export class IndexedDbSessionStorage implements SessionStorage {
     })
   }
   change(update: (current: Session | null, lastEnded: string | null) => Session | null) { return this.transaction('readwrite', update) }
+  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number): Promise<LockAttempt> {
+    return new Promise((resolve, reject) => {
+      if (!this.database) { reject(new Error('Session storage is not open')); return }
+      const tx = this.database.transaction('session', 'readwrite')
+      const store = tx.objectStore('session')
+      const sessionRequest = store.get('current')
+      const lockRequest = store.get('refresh-lock')
+      let result: LockAttempt
+      lockRequest.onsuccess = () => {
+        const now = clock()
+        const session: Session | null = sessionRequest.result ?? null
+        const existing: RefreshLock | null = lockRequest.result ?? null
+        const acquired = session?.id === id && session.accessToken === accessToken && (!existing || existing.expires <= now)
+        const lock = acquired ? { holder, expires: now + 15000 } : existing
+        if (acquired) store.put(lock, 'refresh-lock')
+        result = { session, lock, acquired, takeover: !!(acquired && existing) }
+      }
+      tx.oncomplete = () => resolve(result)
+      tx.onabort = () => reject(tx.error ?? new Error('Session storage transaction aborted'))
+      tx.onerror = () => reject(tx.error)
+    })
+  }
+  releaseRefreshLock(lock: RefreshLock): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      if (!this.database) { reject(new Error('Session storage is not open')); return }
+      const tx = this.database.transaction('session', 'readwrite')
+      const store = tx.objectStore('session')
+      const request = store.get('refresh-lock')
+      let released = false
+      request.onsuccess = () => {
+        const current: RefreshLock | undefined = request.result
+        if (current?.holder === lock.holder && current.expires === lock.expires) {
+          store.delete('refresh-lock'); released = true
+        }
+      }
+      tx.oncomplete = () => resolve(released)
+      tx.onabort = () => reject(tx.error ?? new Error('Session storage transaction aborted'))
+      tx.onerror = () => reject(tx.error)
+    })
+  }
   close() { this.database?.close(); this.database = undefined }
 }

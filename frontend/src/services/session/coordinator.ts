@@ -26,7 +26,9 @@ export class SessionCoordinator {
   private opened = false
   private detach: Array<() => void> = []
   private listening = false
+  private waiters = new Set<() => void>()
   private reconcile = () => {
+    for (const wake of this.waiters) wake()
     void this.credentialsForRequest().catch(error => this.options.onError?.(error))
   }
 
@@ -144,10 +146,90 @@ export class SessionCoordinator {
 
   /** Token rotation needs a pair update matched to the token actually tried. */
   saveRefresh(id: string, refreshToken: string, response: AuthResponse) {
-    return this.run(async () => this.adopt(await this.options.storage.change(current => {
-      if (current?.id !== id || current.refreshToken !== refreshToken) return current
-      return { ...current, accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user }
-    })))
+    return this.run(async () => {
+      let saved = false
+      const current = await this.options.storage.change(session => {
+        if (session?.id !== id || session.refreshToken !== refreshToken) return session
+        saved = true
+        return { ...session, accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user }
+      })
+      this.adopt(current)
+      return saved ? current : null
+    })
+  }
+
+  /** Coordinate refresh without holding the local operation queue across the network. */
+  async refreshAfter401(id: string, usedAccessToken: string, refresh: (token: string) => Promise<AuthResponse>): Promise<Session> {
+    const holder = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
+    const verify = (session: Session | null) => {
+      if (!session || session.id !== id) throw new Error('Session ended before refresh')
+      return session
+    }
+    for (;;) {
+      let session = verify(await this.credentialsForRequest())
+      if (session.accessToken !== usedAccessToken) return session
+      const attempt = await this.run(async () => {
+        const result = await this.options.storage.acquireRefreshLock(id, usedAccessToken, holder, this.options.clock ?? Date.now)
+        this.adopt(result.session)
+        return result
+      })
+      session = verify(attempt.session)
+      if (session.accessToken !== usedAccessToken) return session
+      if (!attempt.acquired || !attempt.lock) {
+        await this.waitForRefreshChange()
+        continue
+      }
+      const lock = attempt.lock
+      const release = async () => {
+        if (await this.options.storage.releaseRefreshLock(lock)) this.options.channel?.postMessage('changed')
+      }
+      let leaveToExpire = false
+      try {
+        session = verify(await this.credentialsForRequest())
+        if (session.accessToken !== usedAccessToken) return session
+        const triedToken = session.refreshToken
+        let response: AuthResponse
+        try {
+          response = await refresh(triedToken)
+        } catch (error) {
+          const failure = error as { code?: string; response?: { status?: number } }
+          const status = failure?.response?.status
+          if (status === 401) {
+            const latest = verify(await this.credentialsForRequest())
+            if (latest.accessToken !== usedAccessToken || latest.refreshToken !== triedToken) continue
+            if (attempt.takeover) leaveToExpire = true
+            else {
+              const ended = await this.signOut(id, triedToken)
+              if (!ended) {
+                const current = verify(this.getSnapshot())
+                if (current.accessToken !== usedAccessToken || current.refreshToken !== triedToken) continue
+              }
+            }
+          } else if (status !== 429 && (failure?.code === 'ECONNABORTED' || failure?.code === 'ETIMEDOUT' || failure?.code === 'ERR_NETWORK' || (status !== undefined && status >= 500 && status < 600))) leaveToExpire = true
+          throw error
+        }
+        // A failed or rejected save has an uncertain server outcome: leave the lock.
+        leaveToExpire = true
+        const saved = await this.saveRefresh(id, triedToken, response)
+        if (!saved || saved.id !== id || saved.accessToken !== response.accessToken || saved.refreshToken !== response.refreshToken) {
+          throw new Error('Session ended during refresh')
+        }
+        leaveToExpire = false
+        this.options.channel?.postMessage('changed')
+        return saved
+      } finally {
+        if (!leaveToExpire) await release()
+      }
+    }
+  }
+
+  private waitForRefreshChange(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (this.disposed) { reject(new Error('Session coordinator is disposed')); return }
+      const wake = () => { clearTimeout(timer); this.waiters.delete(wake); resolve() }
+      const timer = setTimeout(wake, 250)
+      this.waiters.add(wake)
+    })
   }
 
   setCleanup(cleanup: (next: Session | null) => void) { this.options.cleanup = cleanup }
@@ -160,6 +242,7 @@ export class SessionCoordinator {
   dispose() {
     if (this.disposed) return
     this.disposed = true
+    for (const wake of this.waiters) wake()
     this.listeners.clear()
     for (const detach of this.detach) detach()
     this.detach = []

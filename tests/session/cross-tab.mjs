@@ -75,6 +75,39 @@ try {
   await assertSignedIn(tabB, users[0].username)
   console.log('PASS session restore after reload')
 
+  // Hold the first refresh until both tabs have received an expired-token 401.
+  await new Promise(resolve => setTimeout(resolve, 8500))
+  const expired = new Set()
+  let markExpired
+  const bothExpired = new Promise(resolve => { markExpired = resolve })
+  for (const page of [tabA, tabB]) page.on('response', response => {
+    if (response.status() === 401 && new URL(response.url()).pathname.startsWith('/api/') && !new URL(response.url()).pathname.startsWith('/api/auth/')) {
+      expired.add(page)
+      if (expired.size === 2) markExpired()
+    }
+  })
+  let refreshCount = 0
+  let markRefresh
+  const refreshCaptured = new Promise(resolve => { markRefresh = resolve })
+  let releaseConcurrent
+  const concurrentGate = new Promise(resolve => { releaseConcurrent = resolve })
+  const refreshUrl = url => url.pathname === '/api/auth/refresh'
+  await context.route(refreshUrl, async route => {
+    refreshCount++
+    markRefresh()
+    await concurrentGate
+    await route.continue()
+  })
+  const reloads = Promise.all([tabA.reload(), tabB.reload()])
+  await withTimeout(Promise.all([bothExpired, refreshCaptured]), 15000, 'both tabs did not receive a 401 and start refresh')
+  releaseConcurrent()
+  await withTimeout(reloads, 15000, 'concurrent reloads did not complete')
+  await assertSignedIn(tabA, users[0].username)
+  await assertSignedIn(tabB, users[0].username)
+  assert.equal(refreshCount, 1, 'concurrent tabs must make one refresh request')
+  await context.unroute(refreshUrl)
+  console.log('PASS simultaneous expired-token refresh uses one request and keeps both tabs signed in')
+
   const { promise: refreshGate, resolve: releaseRefresh } = Promise.withResolvers()
   const { promise: refreshRequestCaptured, resolve: markRefreshRequestCaptured } = Promise.withResolvers()
   await tabB.route(url => url.pathname === '/api/auth/refresh', async route => {
