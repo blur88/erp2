@@ -25,6 +25,14 @@ changing only `login_limit` from `5r/m` to `120r/m`; it deletes that generated
 file on exit. The browser results verify coordination under these overrides,
 not under the default rate limit. No production host is involved.
 
+The in-flight refresh case holds `/api/auth/refresh` after the 8 s access-token
+expiry causes a 401, signs out from tab A, waits for tab B to request `/login`,
+and checks that the shared record is null in both tabs before releasing refresh.
+The sign-out reload destroys tab B's document, so this case does not verify
+rejection of a late refresh save; the coordinator unit tests cover stale-save
+rejection. The Q25 CDP `Debugger.pause` variant is deferred; see [the #1345
+decision comment](https://github.com/blur88/erp2/issues/1345#issuecomment-6544506391).
+
 After the run, restore the ordinary local Compose configuration:
 
 ```bash
