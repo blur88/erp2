@@ -532,3 +532,14 @@ it.each([
   expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(true)
   coordinator.dispose()
 })
+
+it('releases the lock for an unrelated refresh failure', async () => {
+  const storage = new IndexedDbSessionStorage(new IDBFactory())
+  const coordinator = new SessionCoordinator({ storage })
+  await coordinator.start()
+  const session = (await coordinator.signIn(response))!
+  const failure = new Error('unexpected failure')
+  await expect(coordinator.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(failure))).rejects.toBe(failure)
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', Date.now)).acquired).toBe(true)
+  coordinator.dispose()
+})

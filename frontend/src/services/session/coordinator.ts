@@ -205,7 +205,7 @@ export class SessionCoordinator {
                 if (current.accessToken !== usedAccessToken || current.refreshToken !== triedToken) continue
               }
             }
-          } else if (status !== 429 && (status === undefined || failure.code === 'ECONNABORTED' || failure.code === 'ETIMEDOUT' || failure.code === 'ERR_NETWORK' || (status >= 500 && status < 600))) leaveToExpire = true
+          } else if (status !== 429 && (failure?.code === 'ECONNABORTED' || failure?.code === 'ETIMEDOUT' || failure?.code === 'ERR_NETWORK' || (status !== undefined && status >= 500 && status < 600))) leaveToExpire = true
           throw error
         }
         // A failed or rejected save has an uncertain server outcome: leave the lock.
