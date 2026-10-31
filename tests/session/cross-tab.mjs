@@ -75,30 +75,24 @@ try {
   await assertSignedIn(tabB, users[0].username)
   console.log('PASS session restore after reload')
 
-  // Hold a business response across sign-out without holding navigation: Playwright cannot reliably run page scripts during a held navigation.
-  const { promise: responseGate, resolve: releaseResponse } = Promise.withResolvers()
-  const { promise: businessRequestCaptured, resolve: markBusinessRequestCaptured } = Promise.withResolvers()
-  const newDocument = tabB.waitForEvent('framenavigated', { predicate: frame => frame === tabB.mainFrame() })
-  const reload = tabB.reload().catch(error => {
-    if (!error.message.includes('net::ERR_ABORTED')) throw error
-  })
-  void reload.catch(() => {})
-  await newDocument
-  await tabB.route(url => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/auth/'), async route => {
-    const response = await route.fetch()
-    markBusinessRequestCaptured()
-    await responseGate
-    await route.fulfill({ response })
+  const { promise: refreshGate, resolve: releaseRefresh } = Promise.withResolvers()
+  const { promise: refreshRequestCaptured, resolve: markRefreshRequestCaptured } = Promise.withResolvers()
+  await tabA.route(url => url.pathname === '/api/auth/refresh', async route => {
+    markRefreshRequestCaptured()
+    await refreshGate
+    await route.continue()
   }, { times: 1 })
-  await Promise.race([businessRequestCaptured, timeout(15000, 'no business API request was held')])
+  await Promise.race([refreshRequestCaptured, timeout(15000, 'no refresh request was held after access-token expiry')])
+  assert.equal(await readSharedSession(tabA), null, 'shared record should be cleared while refresh is in flight')
+  assert.equal(await readSharedSession(tabB), null, 'shared record should be cleared while refresh is in flight')
   await tabA.getByRole('button', { name: 'Open user menu' }).click()
   const loginRequested = new Promise(resolve => tabB.on('request', request => {
     if (request.isNavigationRequest() && request.frame() === tabB.mainFrame() && new URL(request.url()).pathname === '/login') resolve(Date.now())
   }))
   const started = Date.now()
   await tabA.getByRole('menuitem', { name: 'Logout' }).click()
-  releaseResponse()
   const propagationElapsed = await withTimeout(loginRequested, 5000, 'tab B never requested /login') - started
+  releaseRefresh()
   await withTimeout(tabB.waitForURL('**/login'), 5000, 'tab B never settled on /login')
   const settledElapsed = Date.now() - started
   await tabA.waitForURL('**/login')
@@ -111,10 +105,9 @@ try {
   assert.equal(await readSharedSession(tabA), null)
   assert.equal(await readSharedSession(tabB), null)
   assert.ok(propagationElapsed <= 1000, `sign-out propagation took ${propagationElapsed} ms`)
-  await reload
   console.log(`PASS sign-out propagation from Logout click ${propagationElapsed} ms (bound: 1000 ms)`)
   console.log(`PASS tab B /login loaded in ${settledElapsed} ms (context only; no bound)`)
-  console.log('PASS signed out with a business response in flight (shared record stays cleared)')
+  console.log('PASS sign-out during expired-token refresh: shared record stayed null in both tabs after tab B requested /login')
 
   await login(tabA, users[0])
   await tabB.waitForURL(url => !url.pathname.startsWith('/login'))

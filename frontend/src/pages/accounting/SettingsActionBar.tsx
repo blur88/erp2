@@ -23,8 +23,8 @@ import { AppButton } from '@/components/common/AppButton'
  * this row.
  *
  * jsdom cannot verify layout such as clipping, scrolling, sticky positioning
- * and alignment. Layout changes need a manual browser pass; the repo has no
- * browser-test infrastructure (see AGENTS.md, "Critical rules and traps",
+ * and alignment. Layout changes need a manual browser pass; tests/session/ is
+ * a manual, non-CI harness for session coordination only (see AGENTS.md, "Critical rules and traps",
  * "jsdom cannot test layout or print" bullet).
  * Before closing a layout change, manually check that this row is right-aligned
  * with a transparent background and no border, and that its buttons match
