@@ -36,7 +36,7 @@ it('attaches current credentials to requests', async () => {
 
 it.each([null, 'refresh'])('401 with refresh token %s clears locally and navigates without backend logout', async (refreshToken) => {
   const { authApi } = await import('../authApi')
-  const refreshFailure = new Error('refresh refused')
+  const refreshFailure = Object.assign(new Error('refresh refused'), { response: { status: 401 } })
   vi.mocked(authApi.refreshToken).mockRejectedValue(refreshFailure)
   holder.store = configureStore({
     reducer: { auth: authReducer },
@@ -148,4 +148,16 @@ it('a failed pending login never clears a newly mirrored Session', async () => {
   fail(new Error('old login rejected'))
   await attempt
   expect(holder.store.getState().auth).toMatchObject({ user: { id: 'bob' }, accessToken: 'bob-access', isAuthenticated: true, loading: false, error: null })
+})
+
+it('retries a request at most once after a successful refresh', async () => {
+  const { default: api } = await import('../api')
+  const { authApi } = await import('../authApi')
+  vi.mocked(authApi.refreshToken).mockResolvedValueOnce({ data: { accessToken: 'new', refreshToken: 'new-refresh', user: { id: 'alice' } } } as any)
+  const adapter = vi.fn(async config => {
+    throw new AxiosError('unauthorized', 'ERR_BAD_REQUEST', config, undefined, { data: {}, status: 401, statusText: 'Unauthorized', headers: new AxiosHeaders(), config })
+  })
+  await expect(api.get('/protected', { adapter })).rejects.toThrow('unauthorized')
+  expect(adapter).toHaveBeenCalledTimes(2)
+  expect(authApi.refreshToken).toHaveBeenCalledTimes(1)
 })

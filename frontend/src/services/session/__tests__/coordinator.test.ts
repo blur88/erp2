@@ -196,3 +196,129 @@ it.each(['focus', 'pageshow', 'visibilitychange'])('a dropped hint is reconciled
   b.dispose(); a.dispose()
   expect(delivered).toBeUndefined()
 })
+
+it('two tabs share one refresh and both reuse the rotated credentials', async () => {
+  const factory = new IDBFactory()
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await a.start(); await b.start()
+  const session = (await a.signIn(response))!
+  let finish!: (value: AuthResponse) => void
+  const refresh = vi.fn(() => new Promise<AuthResponse>(resolve => { finish = resolve }))
+  const first = a.refreshAfter401(session.id, 'access', refresh)
+  const second = b.refreshAfter401(session.id, 'access', refresh)
+  await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+  finish({ ...response, accessToken: 'new-access', refreshToken: 'new-refresh' })
+  expect((await Promise.all([first, second])).map(value => value.accessToken)).toEqual(['new-access', 'new-access'])
+  expect(refresh).toHaveBeenCalledTimes(1)
+  a.dispose(); b.dispose()
+})
+
+it('reuses a newer token before acquiring the lock', async () => {
+  const factory = new IDBFactory()
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await a.start(); await b.start()
+  const session = (await a.signIn(response))!
+  await b.saveRefresh(session.id, 'refresh', { ...response, accessToken: 'new', refreshToken: 'new-refresh' })
+  const refresh = vi.fn()
+  expect((await a.refreshAfter401(session.id, 'access', refresh)).accessToken).toBe('new')
+  expect(refresh).not.toHaveBeenCalled()
+  a.dispose(); b.dispose()
+})
+
+it('reuses a newer token found inside the acquisition transaction', async () => {
+  const factory = new IDBFactory()
+  const storage = new IndexedDbSessionStorage(factory)
+  const a = new SessionCoordinator({ storage })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await a.start(); await b.start()
+  const session = (await a.signIn(response))!
+  const acquire = storage.acquireRefreshLock.bind(storage)
+  vi.spyOn(storage, 'acquireRefreshLock').mockImplementationOnce(async (...args) => {
+    await b.saveRefresh(session.id, 'refresh', { ...response, accessToken: 'new', refreshToken: 'new-refresh' })
+    return acquire(...args)
+  })
+  const refresh = vi.fn()
+  expect((await a.refreshAfter401(session.id, 'access', refresh)).accessToken).toBe('new')
+  expect(refresh).not.toHaveBeenCalled()
+  a.dispose(); b.dispose()
+})
+
+it('429 preserves the session, releases the lock and never retries automatically', async () => {
+  const factory = new IDBFactory()
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await a.start(); await b.start()
+  const session = (await a.signIn(response))!
+  const error = Object.assign(new Error('rate limited'), { response: { status: 429 } })
+  const rejected = vi.fn().mockRejectedValue(error)
+  await expect(a.refreshAfter401(session.id, 'access', rejected)).rejects.toBe(error)
+  expect(rejected).toHaveBeenCalledTimes(1)
+  expect((await a.credentialsForRequest())?.id).toBe(session.id)
+  const refresh = vi.fn().mockResolvedValue({ ...response, accessToken: 'new', refreshToken: 'new-refresh' })
+  expect((await b.refreshAfter401(session.id, 'access', refresh)).accessToken).toBe('new')
+  expect(refresh).toHaveBeenCalledOnce()
+  a.dispose(); b.dispose()
+})
+
+it('a normal refresh 401 ends only the matching session', async () => {
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(new IDBFactory()) })
+  await a.start()
+  const session = (await a.signIn(response))!
+  const error = Object.assign(new Error('unauthorized'), { response: { status: 401 } })
+  await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(error))).rejects.toBe(error)
+  expect(await a.credentialsForRequest()).toBeNull()
+  a.dispose()
+})
+
+it('timeout and takeover 401 both leave the lock until expiry and preserve the session', async () => {
+  let now = 1000
+  const factory = new IDBFactory()
+  const storage = new IndexedDbSessionStorage(factory)
+  const a = new SessionCoordinator({ storage, clock: () => now })
+  await a.start()
+  const session = (await a.signIn(response))!
+  const timeout = Object.assign(new Error('timeout'), { code: 'ECONNABORTED' })
+  await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(timeout))).rejects.toBe(timeout)
+  let attempt = await storage.acquireRefreshLock(session.id, 'access', 'probe', now)
+  expect(attempt.acquired).toBe(false)
+  now += 15000
+  const unauthorized = Object.assign(new Error('unauthorized'), { response: { status: 401 } })
+  await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(unauthorized))).rejects.toBe(unauthorized)
+  expect((await a.credentialsForRequest())?.id).toBe(session.id)
+  attempt = await storage.acquireRefreshLock(session.id, 'access', 'probe', now)
+  expect(attempt.acquired).toBe(false)
+  now += 15000
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', now)).acquired).toBe(true)
+  a.dispose()
+})
+
+it('a successful refresh that cannot be saved leaves the lock to expire', async () => {
+  const storage = new IndexedDbSessionStorage(new IDBFactory())
+  const a = new SessionCoordinator({ storage })
+  await a.start()
+  const session = (await a.signIn(response))!
+  vi.spyOn(storage, 'change').mockRejectedValueOnce(new Error('write failed'))
+  await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockResolvedValue({ ...response, accessToken: 'new' }))).rejects.toThrow('write failed')
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', Date.now())).acquired).toBe(false)
+  a.dispose()
+})
+
+it('rejects a refresh result when the refresh token changes while it is in flight', async () => {
+  const factory = new IDBFactory()
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await a.start(); await b.start()
+  const session = (await a.signIn(response))!
+  let finish!: (value: AuthResponse) => void
+  const refresh = vi.fn(() => new Promise<AuthResponse>(resolve => { finish = resolve }))
+  const result = a.refreshAfter401(session.id, 'access', refresh)
+  const rejected = expect(result).rejects.toThrow('Session ended during refresh')
+  await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce())
+  await b.saveRefresh(session.id, 'refresh', { ...response, accessToken: 'other', refreshToken: 'other-refresh' })
+  finish({ ...response, accessToken: 'late', refreshToken: 'late-refresh' })
+  await rejected
+  expect(await b.credentialsForRequest()).toMatchObject({ accessToken: 'other', refreshToken: 'other-refresh' })
+  a.dispose(); b.dispose()
+})

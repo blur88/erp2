@@ -26,3 +26,11 @@ docker run --rm --network host -v "$PWD:/work:ro" -w /work \
   -e SESSION_TEST_USER_B -e SESSION_TEST_PASSWORD_B \
   mcr.microsoft.com/playwright:v1.63.0-noble \
   timeout 600 sh -c 'npm install --no-save --prefix /tmp/session-pw playwright@1.63.0 >/dev/null && node tests/session/cross-tab.mjs'
+
+# Restart NGINX with its unmodified default login_limit in a fresh zone.
+cp nginx/nginx.conf "$test_conf"
+docker compose -f docker-compose.yml -f tests/session/compose.yml up -d --force-recreate nginx
+docker run --rm --network host -v "$PWD:/work:ro" -w /work \
+  -e SESSION_TEST_BASE_URL -e SESSION_TEST_USER_A -e SESSION_TEST_PASSWORD_A \
+  mcr.microsoft.com/playwright:v1.63.0-noble \
+  timeout 120 sh -c 'npm install --no-save --prefix /tmp/session-pw playwright@1.63.0 >/dev/null && node tests/session/rate-limit.mjs'

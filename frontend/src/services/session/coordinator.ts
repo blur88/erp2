@@ -26,7 +26,9 @@ export class SessionCoordinator {
   private opened = false
   private detach: Array<() => void> = []
   private listening = false
+  private waiters = new Set<() => void>()
   private reconcile = () => {
+    for (const wake of this.waiters) wake()
     void this.credentialsForRequest().catch(error => this.options.onError?.(error))
   }
 
@@ -150,6 +152,70 @@ export class SessionCoordinator {
     })))
   }
 
+  /** Coordinate refresh without holding the local operation queue across the network. */
+  async refreshAfter401(id: string, usedAccessToken: string, refresh: (token: string) => Promise<AuthResponse>): Promise<Session> {
+    const holder = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
+    const verify = (session: Session | null) => {
+      if (!session || session.id !== id) throw new Error('Session ended before refresh')
+      return session
+    }
+    for (;;) {
+      let session = verify(await this.credentialsForRequest())
+      if (session.accessToken !== usedAccessToken) return session
+      const attempt = await this.options.storage.acquireRefreshLock(id, usedAccessToken, holder, (this.options.clock ?? Date.now)())
+      session = verify(await this.run(async () => this.adopt(attempt.session)))
+      if (session.accessToken !== usedAccessToken) return session
+      if (!attempt.acquired || !attempt.lock) {
+        await this.waitForRefreshChange()
+        continue
+      }
+      const lock = attempt.lock
+      const release = async () => {
+        if (await this.options.storage.releaseRefreshLock(lock)) this.options.channel?.postMessage('changed')
+      }
+      session = verify(await this.credentialsForRequest())
+      if (session.accessToken !== usedAccessToken) { await release(); return session }
+      const triedToken = session.refreshToken
+      let response: AuthResponse
+      try {
+        response = await refresh(triedToken)
+      } catch (error) {
+        const status = (error as { response?: { status?: number } })?.response?.status
+        if (status === 429) await release()
+        if (status === 401) {
+          const latest = verify(await this.credentialsForRequest())
+          if (latest.accessToken !== usedAccessToken || latest.refreshToken !== triedToken) { await release(); continue }
+          if (!attempt.takeover) {
+            const ended = await this.signOut(id, triedToken)
+            await release()
+            if (!ended) {
+              const current = verify(this.getSnapshot())
+              if (current.accessToken !== usedAccessToken || current.refreshToken !== triedToken) continue
+            }
+          }
+        }
+        throw error
+      }
+      // A failed or rejected save has an uncertain server outcome: leave the lock.
+      const saved = await this.saveRefresh(id, triedToken, response)
+      if (!saved || saved.id !== id || saved.accessToken !== response.accessToken || saved.refreshToken !== response.refreshToken) {
+        throw new Error('Session ended during refresh')
+      }
+      this.options.channel?.postMessage('changed')
+      await release()
+      return saved
+    }
+  }
+
+  private waitForRefreshChange(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (this.disposed) { reject(new Error('Session coordinator is disposed')); return }
+      const wake = () => { clearTimeout(timer); this.waiters.delete(wake); resolve() }
+      const timer = setTimeout(wake, 250)
+      this.waiters.add(wake)
+    })
+  }
+
   setCleanup(cleanup: (next: Session | null) => void) { this.options.cleanup = cleanup }
 
   getSnapshot() { return this.current }
@@ -160,6 +226,7 @@ export class SessionCoordinator {
   dispose() {
     if (this.disposed) return
     this.disposed = true
+    for (const wake of this.waiters) wake()
     this.listeners.clear()
     for (const detach of this.detach) detach()
     this.detach = []
