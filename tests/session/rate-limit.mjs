@@ -25,18 +25,20 @@ try {
   }))
   assert.ok(sessionId)
   await new Promise(resolve => setTimeout(resolve, 8500))
-  const limited = await page.evaluate(async () => {
+  let limited = false
+  await page.route(url => url.pathname === '/api/auth/refresh', async route => {
+    // Exhaust the real NGINX zone immediately before this refresh is sent.
     for (let i = 0; i < 20; i++) {
-      const response = await fetch('/api/auth/show-default-credentials')
-      if (response.status === 429) return true
+      const response = await page.request.get(`${base}/api/auth/show-default-credentials`)
+      if (response.status() === 429) { limited = true; break }
     }
-    return false
+    await route.continue()
   })
-  assert.ok(limited, 'default auth rate limit did not return 429')
   let count = 0
   page.on('request', request => { if (new URL(request.url()).pathname === '/api/auth/refresh') count++ })
   const refresh = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/refresh', { timeout: 15000 })
   await page.reload()
+  assert.ok(limited, 'default auth rate limit did not return 429')
   assert.equal((await refresh).status(), 429, 'refresh must be rejected by the real default limit')
   await new Promise(resolve => setTimeout(resolve, 1000))
   assert.equal(count, 1, '429 must not automatically retry refresh')

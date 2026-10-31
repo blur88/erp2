@@ -146,10 +146,16 @@ export class SessionCoordinator {
 
   /** Token rotation needs a pair update matched to the token actually tried. */
   saveRefresh(id: string, refreshToken: string, response: AuthResponse) {
-    return this.run(async () => this.adopt(await this.options.storage.change(current => {
-      if (current?.id !== id || current.refreshToken !== refreshToken) return current
-      return { ...current, accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user }
-    })))
+    return this.run(async () => {
+      let saved = false
+      const current = await this.options.storage.change(session => {
+        if (session?.id !== id || session.refreshToken !== refreshToken) return session
+        saved = true
+        return { ...session, accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user }
+      })
+      this.adopt(current)
+      return saved ? current : null
+    })
   }
 
   /** Coordinate refresh without holding the local operation queue across the network. */
@@ -162,7 +168,7 @@ export class SessionCoordinator {
     for (;;) {
       let session = verify(await this.credentialsForRequest())
       if (session.accessToken !== usedAccessToken) return session
-      const attempt = await this.options.storage.acquireRefreshLock(id, usedAccessToken, holder, (this.options.clock ?? Date.now)())
+      const attempt = await this.options.storage.acquireRefreshLock(id, usedAccessToken, holder, this.options.clock ?? Date.now)
       session = verify(await this.run(async () => this.adopt(attempt.session)))
       if (session.accessToken !== usedAccessToken) return session
       if (!attempt.acquired || !attempt.lock) {

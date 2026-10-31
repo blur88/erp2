@@ -281,16 +281,16 @@ it('timeout and takeover 401 both leave the lock until expiry and preserve the s
   const session = (await a.signIn(response))!
   const timeout = Object.assign(new Error('timeout'), { code: 'ECONNABORTED' })
   await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(timeout))).rejects.toBe(timeout)
-  let attempt = await storage.acquireRefreshLock(session.id, 'access', 'probe', now)
+  let attempt = await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)
   expect(attempt.acquired).toBe(false)
   now += 15000
   const unauthorized = Object.assign(new Error('unauthorized'), { response: { status: 401 } })
   await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(unauthorized))).rejects.toBe(unauthorized)
   expect((await a.credentialsForRequest())?.id).toBe(session.id)
-  attempt = await storage.acquireRefreshLock(session.id, 'access', 'probe', now)
+  attempt = await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)
   expect(attempt.acquired).toBe(false)
   now += 15000
-  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', now)).acquired).toBe(true)
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(true)
   a.dispose()
 })
 
@@ -301,7 +301,7 @@ it('a successful refresh that cannot be saved leaves the lock to expire', async 
   const session = (await a.signIn(response))!
   vi.spyOn(storage, 'change').mockRejectedValueOnce(new Error('write failed'))
   await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockResolvedValue({ ...response, accessToken: 'new' }))).rejects.toThrow('write failed')
-  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', Date.now())).acquired).toBe(false)
+  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', Date.now)).acquired).toBe(false)
   a.dispose()
 })
 
@@ -321,4 +321,15 @@ it('rejects a refresh result when the refresh token changes while it is in fligh
   await rejected
   expect(await b.credentialsForRequest()).toMatchObject({ accessToken: 'other', refreshToken: 'other-refresh' })
   a.dispose(); b.dispose()
+})
+
+it('reports a refresh save as rejected when the tried token no longer matches even if the response matches current values', async () => {
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(new IDBFactory()) })
+  await a.start()
+  const session = (await a.signIn(response))!
+  const rotated = { ...response, accessToken: 'new', refreshToken: 'new-refresh' }
+  await a.saveRefresh(session.id, 'refresh', rotated)
+  expect(await a.saveRefresh(session.id, 'refresh', rotated)).toBeNull()
+  expect(await a.credentialsForRequest()).toMatchObject({ accessToken: 'new', refreshToken: 'new-refresh' })
+  a.dispose()
 })

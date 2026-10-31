@@ -17,7 +17,7 @@ export interface SessionStorage {
   read(): Promise<Session | null>
   readSignOutMarker(): Promise<string | null>
   change(update: (current: Session | null, lastEnded: string | null) => Session | null): Promise<Session | null>
-  acquireRefreshLock(id: string, accessToken: string, holder: string, now: number): Promise<LockAttempt>
+  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number): Promise<LockAttempt>
   releaseRefreshLock(lock: RefreshLock): Promise<boolean>
   close(): void
 }
@@ -83,7 +83,7 @@ export class IndexedDbSessionStorage implements SessionStorage {
     })
   }
   change(update: (current: Session | null, lastEnded: string | null) => Session | null) { return this.transaction('readwrite', update) }
-  acquireRefreshLock(id: string, accessToken: string, holder: string, now: number): Promise<LockAttempt> {
+  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number): Promise<LockAttempt> {
     return new Promise((resolve, reject) => {
       if (!this.database) { reject(new Error('Session storage is not open')); return }
       const tx = this.database.transaction('session', 'readwrite')
@@ -92,6 +92,7 @@ export class IndexedDbSessionStorage implements SessionStorage {
       const lockRequest = store.get('refresh-lock')
       let result: LockAttempt
       lockRequest.onsuccess = () => {
+        const now = clock()
         const session: Session | null = sessionRequest.result ?? null
         const existing: RefreshLock | null = lockRequest.result ?? null
         const acquired = session?.id === id && session.accessToken === accessToken && (!existing || existing.expires <= now)
