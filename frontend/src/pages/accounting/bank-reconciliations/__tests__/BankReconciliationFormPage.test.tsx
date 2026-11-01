@@ -213,26 +213,25 @@ describe('BankReconciliationFormPage', () => {
   })
 
   function renderCreate(initialQuery = '') {
-    return render(
-      <MemoryRouter initialEntries={[`/accounting/bank-reconciliations/create${initialQuery}`]}>
-        <Routes>
-          <Route path="/accounting/bank-reconciliations/create" element={<BankReconciliationFormPage />} />
-          <Route path="/accounting/bank-reconciliations/:id/view" element={<div>DETAIL VIEW</div>} />
-          <Route path="/accounting/bank-reconciliations" element={<div>LIST PAGE</div>} />
-        </Routes>
-      </MemoryRouter>,
-    )
+    return render(formTree(`/accounting/bank-reconciliations/create${initialQuery}`, 'create'))
   }
 
   function renderEdit(id = 'r-1') {
-    return render(
-      <MemoryRouter initialEntries={[`/accounting/bank-reconciliations/${id}/edit`]}>
+    return render(formTree(`/accounting/bank-reconciliations/${id}/edit`, 'edit'))
+  }
+
+  function formTree(initialEntry: string, mode: 'create' | 'edit') {
+    const formPath = mode === 'create'
+      ? '/accounting/bank-reconciliations/create'
+      : '/accounting/bank-reconciliations/:id/edit'
+    return (
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
-          <Route path="/accounting/bank-reconciliations/:id/edit" element={<BankReconciliationFormPage />} />
+          <Route path={formPath} element={<BankReconciliationFormPage />} />
           <Route path="/accounting/bank-reconciliations/:id/view" element={<div>DETAIL VIEW</div>} />
           <Route path="/accounting/bank-reconciliations" element={<div>LIST PAGE</div>} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
   }
 
@@ -375,15 +374,7 @@ describe('BankReconciliationFormPage', () => {
     await waitFor(() => expect(loadDraft(key, 'session-1')?.form.closingBalance).toBe('321.00'))
 
     mockSessionId.value = 'session-2'
-    view.rerender(
-      <MemoryRouter initialEntries={[`/accounting/bank-reconciliations/create?draft=${token}`]}>
-        <Routes>
-          <Route path="/accounting/bank-reconciliations/create" element={<BankReconciliationFormPage />} />
-          <Route path="/accounting/bank-reconciliations/:id/view" element={<div>DETAIL VIEW</div>} />
-          <Route path="/accounting/bank-reconciliations" element={<div>LIST PAGE</div>} />
-        </Routes>
-      </MemoryRouter>,
-    )
+    view.rerender(formTree(`/accounting/bank-reconciliations/create?draft=${token}`, 'create'))
 
     await waitFor(() => expect(screen.getByLabelText('Closing Balance')).not.toHaveValue('321.00'))
     await waitFor(() => {
@@ -406,15 +397,7 @@ describe('BankReconciliationFormPage', () => {
 
     detail = makeDetail({ lockVersion: 2, summary: { ...makeDetail().summary, closingBalance: '250.00' } })
     mockSessionId.value = 'session-2'
-    view.rerender(
-      <MemoryRouter initialEntries={['/accounting/bank-reconciliations/r-1/edit']}>
-        <Routes>
-          <Route path="/accounting/bank-reconciliations/:id/edit" element={<BankReconciliationFormPage />} />
-          <Route path="/accounting/bank-reconciliations/:id/view" element={<div>DETAIL VIEW</div>} />
-          <Route path="/accounting/bank-reconciliations" element={<div>LIST PAGE</div>} />
-        </Routes>
-      </MemoryRouter>,
-    )
+    view.rerender(formTree('/accounting/bank-reconciliations/r-1/edit', 'edit'))
 
     await waitFor(() => expect(screen.getByLabelText('Closing Balance')).toHaveValue('250.00'))
     expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeDisabled()
@@ -484,15 +467,7 @@ describe('BankReconciliationFormPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
 
     mockSessionId.value = 'session-2'
-    view.rerender(
-      <MemoryRouter initialEntries={['/accounting/bank-reconciliations/r-1/edit']}>
-        <Routes>
-          <Route path="/accounting/bank-reconciliations/:id/edit" element={<BankReconciliationFormPage />} />
-          <Route path="/accounting/bank-reconciliations/:id/view" element={<div>DETAIL VIEW</div>} />
-          <Route path="/accounting/bank-reconciliations" element={<div>LIST PAGE</div>} />
-        </Routes>
-      </MemoryRouter>,
-    )
+    view.rerender(formTree('/accounting/bank-reconciliations/r-1/edit', 'edit'))
     await act(async () => {
       rejectSave({ status: 409, data: 'Reconciliation has concurrency conflict.' })
       await new Promise((resolve) => setTimeout(resolve, 0))

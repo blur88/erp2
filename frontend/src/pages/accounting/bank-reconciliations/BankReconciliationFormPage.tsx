@@ -50,12 +50,14 @@ import {
   loadDraft,
   newCreateToken,
   saveDraft,
+  type StoredDraft,
 } from './reconciliationDraftStorage'
 import {
   applyPreview,
   clearClassification,
   effectiveClassification,
   emptyForm,
+  emptyPicker,
   fromDetail,
   isDirty,
   previewTotals,
@@ -72,6 +74,15 @@ import ReconciliationSummary from './ReconciliationSummary'
 import SetupClassificationSection from './SetupClassificationSection'
 
 const LIST_PATH = '/accounting/bank-reconciliations'
+
+function buildDraft(
+  sessionId: string,
+  lockVersion: number | null,
+  form: ReconciliationFormState,
+  picker: PickerContext,
+): StoredDraft {
+  return { v: 1, sessionId, lockVersion, form, picker, savedAt: new Date().toISOString() }
+}
 
 export default function BankReconciliationFormPage(): React.ReactElement {
   const session = useSyncExternalStore(
@@ -117,10 +128,7 @@ function BankReconciliationFormPageContent(): React.ReactElement {
 
   const [form, setForm] = useState<ReconciliationFormState>(emptyForm)
   const [baseline, setBaseline] = useState<ReconciliationFormState>(emptyForm)
-  const [picker, setPicker] = useState<PickerContext>({
-    checklist: { page: 1, search: '' },
-    setup: { page: 1, search: '', filter: 'ALL' },
-  })
+  const [picker, setPicker] = useState<PickerContext>(emptyPicker)
 
   const [staleLockWarning, setStaleLockWarning] = useState(false)
   const [checklistRows, setChecklistRows] = useState<ReconciliationLineDto[]>([])
@@ -229,19 +237,13 @@ function BankReconciliationFormPageContent(): React.ReactElement {
   // Save draft on form or picker changes
   useEffect(() => {
     if (!initializedRef.current) return
+    if (!sessionId) return
     if (finishedRef.current) return
     if (isEdit && !isDirty(form, baseline)) return
     if (isEdit && baseLockVersion === null) return
 
     const lockVersion = isEdit ? baseLockVersion : null
-    saveDraft(storageKey, {
-      v: 1,
-      sessionId: sessionId ?? '',
-      lockVersion,
-      form,
-      picker,
-      savedAt: new Date().toISOString(),
-    })
+    saveDraft(storageKey, buildDraft(sessionId, lockVersion, form, picker))
   }, [storageKey, form, picker, isEdit, baseLockVersion, baseline, sessionId])
 
   // Monotonically increasing counter for preview
@@ -562,16 +564,9 @@ function BankReconciliationFormPageContent(): React.ReactElement {
     } catch (err) {
       setSaveError(reconciliationErrorMessage(err, 'Failed to save bank reconciliation'))
       const currentSessionId = sessionCoordinator.getSnapshot()?.id
-      if (currentSessionId !== sessionId) return
+      if (!sessionId || currentSessionId !== sessionId) return
       const lockVersion = isEdit ? baseLockVersion : null
-      saveDraft(storageKey, {
-        v: 1,
-        sessionId: currentSessionId ?? '',
-        lockVersion,
-        form,
-        picker,
-        savedAt: new Date().toISOString(),
-      })
+      saveDraft(storageKey, buildDraft(currentSessionId, lockVersion, form, picker))
     }
   }, [
     isEdit,

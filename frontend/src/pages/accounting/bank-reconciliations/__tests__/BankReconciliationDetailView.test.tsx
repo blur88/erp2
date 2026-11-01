@@ -6,7 +6,6 @@ import { MemoryRouter, useSearchParams } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BankReconciliationDetailDto, ReconciliationLineDto } from '@/types'
 import { draftKey, loadDraft, saveDraft } from '../reconciliationDraftStorage'
-import { emptyForm } from '../reconciliationForm'
 
 vi.mock('@/services/session', () => ({ sessionCoordinator: { getSnapshot: () => ({ id: 'session-1' }) } }))
 import BankReconciliationDetailView from '../BankReconciliationDetailView'

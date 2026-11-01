@@ -33,8 +33,8 @@ it.each([null, session])('clears all old Session data and navigates only for sig
   expect(firstApi.endpoints.privateData.select()(store.getState()).data).toBe('first private result')
   expect(secondApi.endpoints.privateData.select()(store.getState()).data).toBe('second private result')
   const drafts = new Map([
-    [draftKey('alice', { reconciliationId: 'one' }), JSON.stringify({ sessionId: 'session-1', value: 'private draft' })],
-    [draftKey('bob', { createToken: 'two' }), JSON.stringify({ sessionId: 'session-1', value: 'another draft' })],
+    [draftKey('alice', { reconciliationId: 'one' }), 'private draft'],
+    [draftKey('bob', { createToken: 'two' }), 'another draft'],
     ['unrelated', 'keep'],
   ])
   vi.stubGlobal('sessionStorage', {
