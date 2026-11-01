@@ -19,11 +19,11 @@ Playwright package. The script rebuilds the real frontend and backend, then
 runs Chromium through the real NGINX and backend. It prints each passing case
 and sign-out propagation time, and exits nonzero on failure.
 
-The test-only Compose override sets `JWT_ACCESS_TOKEN_EXPIRY=8s`. The runner
+The test-only Compose override sets `JWT_ACCESS_TOKEN_EXPIRY=8s` and `SESSION_IDLE_TIMEOUT_MS=120000`. The runner
 generates `tests/session/nginx.test.conf` from deployed `nginx/nginx.conf`,
 changing only `login_limit` from `5r/m` to `120r/m`; it deletes that generated
 file on exit. The browser results verify coordination under these overrides,
-not under the default rate limit. The runner then recreates NGINX with the
+not under the default rate limit or production idle timeout. The runner then recreates NGINX with the
 unmodified configuration and runs `rate-limit.mjs` separately: it exhausts the
 default `login_limit`, observes a real refresh 429, and checks that the Session
 survives. The transport test checks that a single request does not automatically
@@ -42,8 +42,10 @@ rejection of a late refresh save; the coordinator unit tests cover stale-save
 rejection. The Q25 CDP `Debugger.pause` variant is deferred; see [the #1345
 decision comment](https://github.com/blur88/erp2/issues/1345#issuecomment-6544506391).
 
+The idle cases keep two tabs open: tab B's warning begins at about 100 seconds; tab A acts at about 105 seconds, after that warning starts. At about 130 seconds, after the 120-second timeout plus a margin, the browser checks that B has not reached `/login` and the shared Session still exists. It then verifies that inactivity in both tabs signs both out. The 120-second override is set by `tests/session/compose.yml`, which also lifts the frontend read-only setting for the test stack so the entrypoint can write `env-config.js`; ordinary runtime configuration defaults to 12 hours.
+
 After the run, restore the ordinary local Compose configuration:
 
 ```bash
-docker compose up -d --force-recreate backend nginx
+docker compose up -d --force-recreate backend frontend nginx
 ```

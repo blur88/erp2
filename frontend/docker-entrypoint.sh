@@ -6,7 +6,8 @@
 # Create environment configuration that gets injected into HTML
 cat > /usr/share/nginx/html/env-config.js << ENVEOF
 window.__ENV__ = {
-  VITE_API_BASE_URL: "${VITE_API_BASE_URL}"
+  VITE_API_BASE_URL: "${VITE_API_BASE_URL}",
+  SESSION_IDLE_TIMEOUT_MS: ${SESSION_IDLE_TIMEOUT_MS:-43200000}
 };
 ENVEOF
 

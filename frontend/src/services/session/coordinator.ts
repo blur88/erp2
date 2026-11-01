@@ -2,6 +2,8 @@ import type { AuthResponse } from '@/store/slices/authSlice'
 import type { Session, SessionStorage } from './storage'
 
 export const STORAGE_UNAVAILABLE = "This browser's storage is unavailable"
+export const SESSION_IDLE_TIMEOUT = 12 * 60 * 60 * 1000
+export const SESSION_ACTIVITY_WRITE_INTERVAL = 60 * 1000
 export interface SessionChannel {
   postMessage(message: unknown): void
   close(): void
@@ -142,6 +144,36 @@ export class SessionCoordinator {
       if (current?.id !== id) return current
       return { ...current, [field]: field === 'lastActivity' ? Math.max(current.lastActivity, value as number) : value }
     })))
+  }
+
+  /** Record activity immediately after an idle spell, then no more than once a minute. */
+  recordActivity(id: string, now = (this.options.clock ?? Date.now)(), force = false) {
+    return this.run(async () => {
+      let wrote = false
+      const session = await this.options.storage.change(current => {
+        if (current?.id !== id) return current
+        if (!force && now - current.lastActivity < SESSION_ACTIVITY_WRITE_INTERVAL) return current
+        wrote = true
+        return { ...current, lastActivity: Math.max(current.lastActivity, now) }
+      })
+      if (wrote) this.options.channel?.postMessage('changed')
+      return this.adopt(session)
+    })
+  }
+
+  /** Atomically verify shared activity and remember-me before ending an idle Session. */
+  signOutIfIdle(id: string, now = (this.options.clock ?? Date.now)(), timeout = SESSION_IDLE_TIMEOUT) {
+    return this.run(async () => {
+      let ended: Session | null = null
+      const session = await this.options.storage.change(current => {
+        if (current?.id !== id || current.rememberMe || now - current.lastActivity < timeout) return current
+        ended = current
+        return null
+      })
+      if (ended) this.options.channel?.postMessage('changed')
+      this.adopt(session)
+      return ended
+    })
   }
 
   /** Token rotation needs a pair update matched to the token actually tried. */

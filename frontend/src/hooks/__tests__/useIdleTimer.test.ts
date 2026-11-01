@@ -37,7 +37,7 @@ describe('useIdleTimer', () => {
     expect(onTimeout).toHaveBeenCalledOnce()
   })
 
-  it('calls onActive and resets timer when activity occurs during warning', () => {
+  it('calls onActive and resets timer when activity occurs during warning', async () => {
     const onIdle = vi.fn()
     const onActive = vi.fn()
     const { result } = renderHook(() =>
@@ -45,13 +45,87 @@ describe('useIdleTimer', () => {
     )
 
     // Trigger idle state
-    act(() => { vi.advanceTimersByTime(IDLE_DELAY) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(IDLE_DELAY) })
     expect(onIdle).toHaveBeenCalledOnce()
 
     // Simulate user activity
     act(() => { result.current.reset() })
     expect(onActive).toHaveBeenCalledOnce()
     expect(result.current.remainingTime).toBe(0)
+  })
+
+  it('persists the first activity and waits for the required stay-signed-in write', async () => {
+    const onActivity = vi.fn().mockResolvedValue(undefined)
+    const { result } = renderHook(() => useIdleTimer({ timeout: TIMEOUT, warningTime: WARNING, onActivity, enabled: true }))
+    await act(async () => { await Promise.resolve() })
+    expect(onActivity).toHaveBeenCalledOnce()
+    let settled = false
+    await act(async () => { await result.current.reset().then(() => { settled = true }) })
+    expect(settled).toBe(true)
+    expect(onActivity).toHaveBeenCalledTimes(2)
+  })
+
+  it('writes activity only once for repeated events inside a minute', async () => {
+    const onActivity = vi.fn().mockResolvedValue(undefined)
+    renderHook(() => useIdleTimer({ timeout: TIMEOUT, warningTime: WARNING, onActivity, enabled: true }))
+    await act(async () => { await Promise.resolve() })
+    expect(onActivity).toHaveBeenCalledOnce()
+
+    await act(async () => {
+      for (let index = 0; index < 20; index++) window.dispatchEvent(new Event('mousemove'))
+      await Promise.resolve()
+    })
+
+    expect(onActivity).toHaveBeenCalledOnce()
+  })
+
+  it('recovers after one failed activity write and still signs out after later inactivity', async () => {
+    const onActivity = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('storage unavailable'))
+      .mockResolvedValue(undefined)
+    const onIdleTimeout = vi.fn().mockResolvedValue(true)
+    vi.spyOn(window, 'alert').mockImplementation(() => {})
+    renderHook(() => useIdleTimer({ timeout: 120_000, warningTime: 20_000, onActivity, onIdleTimeout, enabled: true }))
+    await act(async () => { await Promise.resolve() })
+    expect(onActivity).toHaveBeenCalledOnce()
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    await act(async () => { window.dispatchEvent(new Event('mousemove')); await Promise.resolve() })
+    expect(onActivity).toHaveBeenCalledTimes(2)
+    expect(window.alert).toHaveBeenCalledOnce()
+
+    await act(async () => { window.dispatchEvent(new Event('mousemove')); await Promise.resolve() })
+    expect(onActivity).toHaveBeenCalledTimes(3)
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000) })
+    expect(onIdleTimeout).toHaveBeenCalledOnce()
+  })
+
+  it('does not sign out when another tab has recent shared activity', async () => {
+    const getLastActivity = vi.fn(async () => Date.now())
+    const onIdle = vi.fn()
+    const onIdleTimeout = vi.fn()
+    renderHook(() => useIdleTimer({ timeout: TIMEOUT, warningTime: WARNING, getLastActivity, onIdle, onIdleTimeout, enabled: true }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(IDLE_DELAY) })
+    expect(onIdle).not.toHaveBeenCalled()
+    expect(onIdleTimeout).not.toHaveBeenCalled()
+    expect(getLastActivity).toHaveBeenCalledOnce()
+  })
+
+  it('uses the 12 hour default when no timeout override is supplied', () => {
+    const onIdle = vi.fn()
+    renderHook(() => useIdleTimer({ warningTime: WARNING, onIdle, enabled: true }))
+    act(() => { vi.advanceTimersByTime(12 * 60 * 60 * 1000 - WARNING - 1) })
+    expect(onIdle).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(60 * 60 * 1000 - WARNING) })
+    expect(onIdle).toHaveBeenCalledOnce()
+  })
+
+  it('supports a short test idle timeout with a smaller warning window', async () => {
+    const onIdle = vi.fn()
+    renderHook(() => useIdleTimer({ timeout: 30_000, warningTime: 5_000, onIdle, enabled: true }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(25_000) })
+    expect(onIdle).toHaveBeenCalledOnce()
   })
 
   it('does not fire when disabled', () => {
