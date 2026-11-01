@@ -74,6 +74,11 @@ import SetupClassificationSection from './SetupClassificationSection'
 const LIST_PATH = '/accounting/bank-reconciliations'
 
 export default function BankReconciliationFormPage(): React.ReactElement {
+  const sessionId = sessionCoordinator.getSnapshot()?.id
+  return <BankReconciliationFormPageContent key={sessionId ?? 'no-session'} />
+}
+
+function BankReconciliationFormPageContent(): React.ReactElement {
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
@@ -107,7 +112,6 @@ export default function BankReconciliationFormPage(): React.ReactElement {
 
   const [form, setForm] = useState<ReconciliationFormState>(emptyForm)
   const [baseline, setBaseline] = useState<ReconciliationFormState>(emptyForm)
-  const [formSessionId, setFormSessionId] = useState<string | undefined>()
   const [picker, setPicker] = useState<PickerContext>({
     checklist: { page: 1, search: '' },
     setup: { page: 1, search: '', filter: 'ALL' },
@@ -171,7 +175,6 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     if (isEdit) {
       if (!existingDetail) return
       initializedRef.current = true
-      setFormSessionId(sessionId)
       setBaseLockVersion(existingDetail.lockVersion)
 
       const base = fromDetail(existingDetail)
@@ -193,7 +196,6 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       }
     } else {
       initializedRef.current = true
-      setFormSessionId(sessionId)
       const stored = loadDraft(storageKey, sessionId)
       if (stored) {
         setForm(stored.form)
@@ -201,24 +203,6 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       }
     }
   }, [isEdit, existingDetail, storageKey, sessionId])
-
-  // A Session can change without this route unmounting (for example, a
-  // same-user sign-in in another tab). Discard the old in-memory form before
-  // allowing this mounted page to save under the new Session id.
-  useEffect(() => {
-    if (!initializedRef.current || formSessionId === undefined || formSessionId === sessionId) return
-
-    const resetForm = isEdit && existingDetail ? fromDetail(existingDetail) : emptyForm()
-    setForm(resetForm)
-    setBaseline(resetForm)
-    setPicker({
-      checklist: { page: 1, search: '' },
-      setup: { page: 1, search: '', filter: 'ALL' },
-    })
-    setBaseLockVersion(isEdit && existingDetail ? existingDetail.lockVersion : null)
-    setStaleLockWarning(false)
-    setFormSessionId(sessionId)
-  }, [formSessionId, sessionId, isEdit, existingDetail])
 
   // Apply next period defaults when selecting account in create mode
   useEffect(() => {
@@ -240,7 +224,6 @@ export default function BankReconciliationFormPage(): React.ReactElement {
   // Save draft on form or picker changes
   useEffect(() => {
     if (!initializedRef.current) return
-    if (formSessionId !== sessionId) return
     if (finishedRef.current) return
     if (isEdit && !isDirty(form, baseline)) return
     if (isEdit && baseLockVersion === null) return
@@ -254,7 +237,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       picker,
       savedAt: new Date().toISOString(),
     })
-  }, [storageKey, form, picker, isEdit, baseLockVersion, baseline, sessionId, formSessionId])
+  }, [storageKey, form, picker, isEdit, baseLockVersion, baseline, sessionId])
 
   // Monotonically increasing counter for preview
   const previewSeqRef = useRef(0)
@@ -573,11 +556,12 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       }
     } catch (err) {
       setSaveError(reconciliationErrorMessage(err, 'Failed to save bank reconciliation'))
-      if (sessionCoordinator.getSnapshot()?.id !== formSessionId) return
+      const currentSessionId = sessionCoordinator.getSnapshot()?.id
+      if (currentSessionId !== sessionId) return
       const lockVersion = isEdit ? baseLockVersion : null
       saveDraft(storageKey, {
         v: 1,
-        sessionId: sessionId ?? '',
+        sessionId: currentSessionId ?? '',
         lockVersion,
         form,
         picker,
@@ -595,7 +579,6 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     createReconciliation,
     storageKey,
     sessionId,
-    formSessionId,
     showSuccess,
     navigate,
   ])

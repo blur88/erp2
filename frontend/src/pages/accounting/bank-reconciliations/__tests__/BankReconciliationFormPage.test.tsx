@@ -360,7 +360,7 @@ describe('BankReconciliationFormPage', () => {
     })
   })
 
-  it('resets an initialized form and does not resave its values under a new session id', async () => {
+  it('discards create form content when the Session-keyed form remounts (fails if the key is removed)', async () => {
     const token = 'tok-new-session'
     const key = draftKey('u-1', { createToken: token })
     const view = renderCreate(`?draft=${token}`)
@@ -385,6 +385,34 @@ describe('BankReconciliationFormPage', () => {
       expect(stored?.sessionId).toBe('session-2')
       expect(stored?.form.closingBalance).not.toBe('321.00')
     })
+  })
+
+  it('reloads the refetched edit record after a Session-keyed remount (fails if the key is removed)', async () => {
+    let detail = makeDetail()
+    mockExisting.mockImplementation(() => ({ data: detail, isLoading: false, isError: false }))
+    const key = draftKey('u-1', { reconciliationId: 'r-1' })
+    const view = renderEdit()
+
+    await waitFor(() => expect(screen.getByLabelText('Closing Balance')).toHaveValue('100.00'))
+    await userEvent.clear(screen.getByLabelText('Closing Balance'))
+    await userEvent.type(screen.getByLabelText('Closing Balance'), '777.00')
+    await waitFor(() => expect(loadDraft(key, 'session-1')?.form.closingBalance).toBe('777.00'))
+
+    detail = makeDetail({ lockVersion: 2, summary: { ...makeDetail().summary, closingBalance: '250.00' } })
+    mockSessionId.value = 'session-2'
+    view.rerender(
+      <MemoryRouter initialEntries={['/accounting/bank-reconciliations/r-1/edit']}>
+        <Routes>
+          <Route path="/accounting/bank-reconciliations/:id/edit" element={<BankReconciliationFormPage />} />
+          <Route path="/accounting/bank-reconciliations/:id/view" element={<div>DETAIL VIEW</div>} />
+          <Route path="/accounting/bank-reconciliations" element={<div>LIST PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(screen.getByLabelText('Closing Balance')).toHaveValue('250.00'))
+    expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeDisabled()
+    expect(loadDraft(key, 'session-2')?.form.closingBalance).not.toBe('777.00')
   })
 
   it('stale lockVersion: loads server state and shows the could-not-be-restored message', async () => {
@@ -434,6 +462,39 @@ describe('BankReconciliationFormPage', () => {
 
     const key = draftKey('u-1', { reconciliationId: 'r-1' })
     expect(loadDraft(key, 'session-1')).not.toBeNull()
+  })
+
+  it('does not write a failed save draft under a Session adopted while the save is pending (fails if the catch guard is removed)', async () => {
+    const detail = makeDetail()
+    mockExisting.mockReturnValue({ data: detail, isLoading: false, isError: false })
+    let rejectSave!: (error: unknown) => void
+    mockUpdate.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSave = reject }))
+    const key = draftKey('u-1', { reconciliationId: 'r-1' })
+    const view = renderEdit()
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeDisabled())
+    await userEvent.clear(screen.getByLabelText('Closing Balance'))
+    await userEvent.type(screen.getByLabelText('Closing Balance'), '777.00')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    mockSessionId.value = 'session-2'
+    view.rerender(
+      <MemoryRouter initialEntries={['/accounting/bank-reconciliations/r-1/edit']}>
+        <Routes>
+          <Route path="/accounting/bank-reconciliations/:id/edit" element={<BankReconciliationFormPage />} />
+          <Route path="/accounting/bank-reconciliations/:id/view" element={<div>DETAIL VIEW</div>} />
+          <Route path="/accounting/bank-reconciliations" element={<div>LIST PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await act(async () => {
+      rejectSave({ status: 409, data: 'Reconciliation has concurrency conflict.' })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    await waitFor(() => expect(screen.getByLabelText('Closing Balance')).toHaveValue('100.00'))
+    const stored = JSON.parse(sessionStorage.getItem(key) ?? 'null')
+    expect(stored?.sessionId === 'session-2' && stored?.form.closingBalance === '777.00').toBe(false)
   })
 
   it('clears the stored draft after a successful save and after a confirmed Cancel', async () => {
