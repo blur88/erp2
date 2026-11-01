@@ -27,6 +27,7 @@ describe('reconciliationDraftStorage', () => {
   it('round-trips a draft for an existing reconciliation and for a create token', () => {
     const draft: StoredDraft = {
       v: 1,
+      sessionId: 'session-1',
       lockVersion: 2,
       form: { ...emptyForm(), closingBalance: '500.00' },
       picker: {
@@ -38,29 +39,46 @@ describe('reconciliationDraftStorage', () => {
 
     const key = draftKey('u1', { reconciliationId: 'r1' })
     saveDraft(key, draft)
-    expect(loadDraft(key)).toEqual(draft)
+    expect(loadDraft(key, 'session-1')).toEqual(draft)
 
     clearDraft(key)
-    expect(loadDraft(key)).toBeNull()
+    expect(loadDraft(key, 'session-1')).toBeNull()
 
     const createKey = draftKey('u1', { createToken: newCreateToken() })
     saveDraft(createKey, draft)
-    expect(loadDraft(createKey)).toEqual(draft)
+    expect(loadDraft(createKey, 'session-1')).toEqual(draft)
+  })
+
+  it('deletes drafts from another or missing session on restore', () => {
+    const key = draftKey('u1', { reconciliationId: 'r1' })
+    const draft: StoredDraft = {
+      v: 1, sessionId: 'session-1', lockVersion: 2, form: emptyForm(),
+      picker: { checklist: { page: 1, search: '' }, setup: { page: 1, search: '', filter: 'ALL' as const } },
+      savedAt: '2026-10-04T00:00:00.000Z',
+    }
+    saveDraft(key, draft)
+    expect(loadDraft(key, 'session-2')).toBeNull()
+    expect(sessionStorage.getItem(key)).toBeNull()
+
+    sessionStorage.setItem(key, JSON.stringify({ ...draft, sessionId: undefined }))
+    expect(loadDraft(key, 'session-1')).toBeNull()
+    expect(sessionStorage.getItem(key)).toBeNull()
   })
 
   it('returns null and does not throw for corrupt JSON', () => {
     const key = draftKey('u1', { reconciliationId: 'r1' })
     sessionStorage.setItem(key, 'not-valid-json{')
-    expect(loadDraft(key)).toBeNull()
+    expect(loadDraft(key, 'session-1')).toBeNull()
 
     sessionStorage.setItem(key, JSON.stringify({ v: 2, form: {} }))
-    expect(loadDraft(key)).toBeNull()
+    expect(loadDraft(key, 'session-1')).toBeNull()
   })
 
   it('does not throw when sessionStorage.setItem throws (quota) or sessionStorage is undefined', () => {
     const key = draftKey('u1', { reconciliationId: 'r1' })
     const draft: StoredDraft = {
       v: 1,
+      sessionId: 'session-1',
       lockVersion: null,
       form: emptyForm(),
       picker: {
@@ -80,8 +98,8 @@ describe('reconciliationDraftStorage', () => {
     const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('SecurityError')
     })
-    expect(() => loadDraft(key)).not.toThrow()
-    expect(loadDraft(key)).toBeNull()
+    expect(() => loadDraft(key, 'session-1')).not.toThrow()
+    expect(loadDraft(key, 'session-1')).toBeNull()
     getItemSpy.mockRestore()
 
     const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
