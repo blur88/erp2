@@ -250,7 +250,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
           clearTimers()
           setIsIdle(false)
           isIdleRef.current = false
-          if (onIdleTimeout) void onIdleTimeout().catch(() => {})
+          if (onIdleTimeout) void onIdleTimeout().then(ended => { if (!ended) recheckIdleRef.current() }).catch(() => {})
           else onTimeout?.()
           return
         }
@@ -275,7 +275,8 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
           countdownIntervalRef.current = setInterval(() => {
             setRemainingTime((prev) => {
               if (prev <= 1) {
-                clearTimers()
+                if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+                countdownIntervalRef.current = null
                 return 0
               }
               return prev - 1
@@ -286,7 +287,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
           timeoutTimerRef.current = setTimeout(() => {
             clearTimers()
             setRemainingTime(0)
-            if (onIdleTimeout) void onIdleTimeout().catch(() => {})
+            if (onIdleTimeout) void onIdleTimeout().then(ended => { if (!ended) recheckIdleRef.current() }).catch(() => {})
             else onTimeout?.()
           }, timeRemaining)
         }
