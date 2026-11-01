@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import {
   Alert,
   Box,
@@ -74,7 +74,12 @@ import SetupClassificationSection from './SetupClassificationSection'
 const LIST_PATH = '/accounting/bank-reconciliations'
 
 export default function BankReconciliationFormPage(): React.ReactElement {
-  const sessionId = sessionCoordinator.getSnapshot()?.id
+  const session = useSyncExternalStore(
+    (listener) => sessionCoordinator.subscribe(listener),
+    () => sessionCoordinator.getSnapshot(),
+    () => sessionCoordinator.getSnapshot(),
+  )
+  const sessionId = session?.id
   return <BankReconciliationFormPageContent key={sessionId ?? 'no-session'} />
 }
 

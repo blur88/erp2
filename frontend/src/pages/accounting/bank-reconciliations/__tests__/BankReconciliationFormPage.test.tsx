@@ -15,9 +15,15 @@ import BankReconciliationFormPage from '../BankReconciliationFormPage'
 import { draftKey, loadDraft, saveDraft } from '../reconciliationDraftStorage'
 import { emptyForm } from '../reconciliationForm'
 
-const mockSessionId = vi.hoisted(() => ({ value: 'session-1' }))
+const mockSessionId = vi.hoisted(() => ({ value: 'session-1', snapshot: { id: 'session-1' } }))
 vi.mock('@/services/session', () => ({
-  sessionCoordinator: { getSnapshot: () => ({ id: mockSessionId.value }) },
+  sessionCoordinator: {
+    getSnapshot: () => {
+      if (mockSessionId.snapshot.id !== mockSessionId.value) mockSessionId.snapshot = { id: mockSessionId.value }
+      return mockSessionId.snapshot
+    },
+    subscribe: () => () => undefined,
+  },
 }))
 
 // When set, the form's navigations are swallowed so it stays mounted — which is
