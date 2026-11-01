@@ -3,6 +3,7 @@ import { sessionCoordinator } from '@/services/session'
 import { authApi } from '@/services/authApi'
 import type { AppDispatch } from '@/store'
 import type { NavigateFunction } from 'react-router-dom'
+import type { Session } from '@/services/session/storage'
 
 async function endSession(dispatch: AppDispatch, id = sessionCoordinator.getSnapshot()?.id, triedToken?: string) {
   const ended = id ? await sessionCoordinator.signOut(id, triedToken) : null
@@ -38,8 +39,9 @@ export async function signOutManually(
 
 export async function signOutForIdle(
   dispatch: AppDispatch, _refreshToken: string | null | undefined, navigate: NavigateFunction,
+  alreadyEnded?: Session,
 ) {
-  const ended = await endSessionForUser(dispatch)
+  const ended = alreadyEnded ?? await endSessionForUser(dispatch)
   if (ended === undefined) return
   navigate('/login', { replace: true })
   void backendLogout(ended)

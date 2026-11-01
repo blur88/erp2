@@ -66,6 +66,7 @@ async function logout(page) {
 try {
   await tabA.goto(base)
   assert.equal(await tabA.evaluate(() => isSecureContext), false, 'LAN HTTP must be an insecure context')
+  assert.equal(await tabA.evaluate(() => window.__ENV__?.SESSION_IDLE_TIMEOUT_MS), 30_000, 'test stack must use the short idle timeout override')
   await login(tabA, users[0])
   await tabB.goto(base)
   await assertSignedIn(tabB, users[0].username)
@@ -188,9 +189,27 @@ try {
   await restoredAfterSignIn.close()
   console.log('PASS browser-restored tab has no old reconciliation draft after same-user sign-out and sign-in')
 
-  await logout(tabB)
-  await login(tabB, users[1])
-  await assertSignedIn(tabA, users[1].username)
+  // The test-stack override keeps the shared idle behavior quick to exercise.
+  await login(tabA, users[0])
+  await tabB.goto(base)
+  await assertSignedIn(tabB, users[0].username)
+  const testIdleTimeout = await tabA.evaluate(() => window.__ENV__.SESSION_IDLE_TIMEOUT_MS)
+  await tabA.mouse.move(20, 20)
+  await new Promise(resolve => setTimeout(resolve, 20_000))
+  await tabA.mouse.move(40, 40)
+  await new Promise(resolve => setTimeout(resolve, 18_000))
+  await assertSignedIn(tabB, users[0].username)
+  assert.ok((await readSharedSession(tabA))?.lastActivity > Date.now() - 20_000, 'activity in tab A must update shared lastActivity')
+  console.log('PASS activity in one tab keeps the other signed in under the short idle override')
+  await new Promise(resolve => setTimeout(resolve, testIdleTimeout + 7_000))
+  await tabA.waitForURL('**/login', { timeout: 10_000 })
+  await tabB.waitForURL('**/login', { timeout: 10_000 })
+  assert.equal(await readSharedSession(tabA), null)
+  assert.equal(await readSharedSession(tabB), null)
+  console.log('PASS inactivity in all tabs signs every tab out under the short idle override')
+
+  await login(tabA, users[1])
+  await assertSignedIn(tabB, users[1].username)
   console.log('PASS user switch propagates to the other tab')
 } finally {
   await browser.close()

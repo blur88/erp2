@@ -1,4 +1,4 @@
-import { SessionCoordinator } from './coordinator'
+import { SESSION_ACTIVITY_WRITE_INTERVAL, SESSION_IDLE_TIMEOUT, SessionCoordinator } from './coordinator'
 import { IndexedDbSessionStorage } from './storage'
 
 // Browser resources are acquired only at startup, alongside storage.
@@ -17,3 +17,6 @@ export const sessionCoordinator = new SessionCoordinator({
   resumeTargets: typeof window === 'undefined' ? undefined : { window, document },
   onError(error) { window.alert(error instanceof Error ? error.message : String(error)) },
 })
+
+export { SessionCoordinator, SESSION_ACTIVITY_WRITE_INTERVAL, SESSION_IDLE_TIMEOUT } from './coordinator'
+export { IndexedDbSessionStorage } from './storage'

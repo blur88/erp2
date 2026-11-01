@@ -1,7 +1,8 @@
 import { createTestSession } from '@/test/createTestSession'
 import { afterEach } from 'vitest'
 const sessionHolder = vi.hoisted(() => ({ coordinator: null as any }))
-vi.mock('@/services/session', () => ({ get sessionCoordinator() { return sessionHolder.coordinator } }))
+vi.mock('@/services/session', () => ({ SESSION_IDLE_TIMEOUT: 12 * 60 * 60 * 1000, get sessionCoordinator() { return sessionHolder.coordinator }, signOutForIdle: vi.fn() }))
+vi.mock('@/services/auth/signOut', () => ({ signOutForIdle: vi.fn(async (dispatch: any, _token: any, nav: any) => { dispatch({ type: 'auth/clearAuth' }); nav('/login', { replace: true }); (await import('@/services/authApi')).authApi.logout(_token, 'access') }) }))
 afterEach(() => sessionHolder.coordinator?.dispose())
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'

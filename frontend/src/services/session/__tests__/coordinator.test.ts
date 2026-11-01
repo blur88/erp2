@@ -1,6 +1,6 @@
 import { IDBFactory } from 'fake-indexeddb'
 import { describe, expect, it, vi } from 'vitest'
-import { SessionCoordinator } from '../coordinator'
+import { SESSION_ACTIVITY_WRITE_INTERVAL, SESSION_IDLE_TIMEOUT, SessionCoordinator } from '../coordinator'
 import { IndexedDbSessionStorage } from '../storage'
 import type { AuthResponse } from '@/store/slices/authSlice'
 
@@ -57,6 +57,49 @@ it('interleaved single-field writers preserve tokens, remember-me and the latest
   await b.signOut(session.id)
   expect(await a.updateField(session.id, 'accessToken', 'resurrected')).toBeNull()
   a.dispose(); b.dispose()
+})
+
+it('writes the first activity immediately, throttles for a minute, and preserves concurrent refresh credentials', async () => {
+  const factory = new IDBFactory()
+  let now = 100_000
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), clock: () => now })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), clock: () => now })
+  await a.start(); await b.start()
+  const session = (await a.signIn(response))!
+  await a.recordActivity(session.id)
+  expect((await a.credentialsForRequest())?.lastActivity).toBe(now)
+  now += SESSION_ACTIVITY_WRITE_INTERVAL - 1
+  await b.recordActivity(session.id)
+  expect((await b.credentialsForRequest())?.lastActivity).toBe(100_000)
+  await b.saveRefresh(session.id, 'refresh', { ...response, accessToken: 'rotated', refreshToken: 'rotated-refresh' })
+  now += 1
+  await a.recordActivity(session.id)
+  expect(await a.credentialsForRequest()).toMatchObject({ lastActivity: now, accessToken: 'rotated', refreshToken: 'rotated-refresh' })
+  a.dispose(); b.dispose()
+})
+
+it('an idle tab respects activity and Remember me saved in another tab, then atomically signs out only when still idle', async () => {
+  const factory = new IDBFactory()
+  let now = 500_000
+  const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), clock: () => now })
+  const b = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), clock: () => now })
+  await a.start(); await b.start()
+  const session = (await a.signIn(response))!
+  now += SESSION_IDLE_TIMEOUT
+  await b.recordActivity(session.id)
+  expect(await a.signOutIfIdle(session.id)).toBeNull()
+  now += SESSION_IDLE_TIMEOUT
+  await b.updateField(session.id, 'rememberMe', true)
+  expect(await a.signOutIfIdle(session.id)).toBeNull()
+  await b.updateField(session.id, 'rememberMe', false)
+  now += SESSION_IDLE_TIMEOUT
+  expect(await a.signOutIfIdle(session.id)).toMatchObject({ id: session.id })
+  expect(await b.credentialsForRequest()).toBeNull()
+  a.dispose(); b.dispose()
+})
+
+it('defaults the shared idle threshold to 12 hours', async () => {
+  expect(SESSION_IDLE_TIMEOUT).toBe(12 * 60 * 60 * 1000)
 })
 
 it('removes legacy storage without reading it', async () => {

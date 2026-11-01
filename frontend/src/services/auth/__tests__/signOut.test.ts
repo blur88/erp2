@@ -6,6 +6,7 @@ import { authApi } from '@/services/authApi'
 import { SessionCoordinator } from '@/services/session/coordinator'
 import { IndexedDbSessionStorage } from '@/services/session/storage'
 import type { AuthResponse } from '@/store/slices/authSlice'
+import type { Session } from '@/services/session/storage'
 import {
   signOutManually, signOutForIdle, signOutAfterPasswordChange,
   signOutFromPasswordChange, clearLocalSessionForMissingRefreshToken,
@@ -58,6 +59,16 @@ describe('coordinated sign-out adapters', () => {
     await exit(store.dispatch, 'refresh', navigate)
     expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
     expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access')
+  })
+
+  it('completes an idle sign-out with the Session already atomically removed', async () => {
+    const current = await holder.coordinator.credentialsForRequest() as Session
+    const ended = await holder.coordinator.signOut(current.id)
+    const navigate = vi.fn()
+    await signOutForIdle(store.dispatch, current.refreshToken, navigate, ended!)
+    expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
+    expect(authApi.logout).toHaveBeenCalledWith(current.refreshToken, current.accessToken)
+    expect(await holder.coordinator.credentialsForRequest()).toBeNull()
   })
 
   it('password-change completion deletes shared state before its best-effort logout', async () => {
