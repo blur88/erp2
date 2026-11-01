@@ -53,7 +53,7 @@ export default function RootLayout() {
     const session = idleSessionRef.current ?? await sessionCoordinator.credentialsForRequest()
     if (!session || session.rememberMe) return false
     const ended = await sessionCoordinator.signOutIfIdle(session.id, Date.now(), IDLE_TIMEOUT)
-    if (ended) void signOutForIdle(dispatch, ended.refreshToken, navigate, ended)
+    if (ended) void signOutForIdle(dispatch, navigate, ended)
     return !!ended
   }, [dispatch, navigate])
 
@@ -62,7 +62,7 @@ export default function RootLayout() {
     const session = await sessionCoordinator.credentialsForRequest()
     if (!session) return
     const ended = await sessionCoordinator.signOut(session.id)
-    if (ended) void signOutForIdle(dispatch, ended.refreshToken, navigate, ended)
+    if (ended) void signOutForIdle(dispatch, navigate, ended)
   }, [dispatch, navigate])
 
   const activityEvents = useMemo(() => ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'], [])

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { SESSION_ACTIVITY_WRITE_INTERVAL } from '@/services/session/coordinator'
 
 interface UseIdleTimerOptions {
   /**
@@ -152,7 +153,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
     const now = Date.now()
     lastActivityRef.current = now
     let write: Promise<unknown> = Promise.resolve()
-    if (persist && onActivity && (forceActivityWrite || lastActivityWriteAtRef.current === null || now - lastActivityWriteAtRef.current >= 60_000)) {
+    if (persist && onActivity && (forceActivityWrite || lastActivityWriteAtRef.current === null || now - lastActivityWriteAtRef.current >= SESSION_ACTIVITY_WRITE_INTERVAL)) {
       const previousWriteAt = lastActivityWriteAtRef.current
       lastActivityWriteAtRef.current = now
       write = activityWriteRef.current.catch(() => {}).then(() => onActivity(now)).catch(error => {

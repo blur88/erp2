@@ -38,7 +38,7 @@ export async function signOutManually(
 }
 
 export async function signOutForIdle(
-  dispatch: AppDispatch, _refreshToken: string | null | undefined, navigate: NavigateFunction,
+  dispatch: AppDispatch, navigate: NavigateFunction,
   alreadyEnded?: Session,
 ) {
   const ended = alreadyEnded ?? await endSessionForUser(dispatch)

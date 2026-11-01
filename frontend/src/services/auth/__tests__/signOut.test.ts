@@ -54,9 +54,18 @@ describe('coordinated sign-out adapters', () => {
     finish()
   })
 
-  it.each([signOutForIdle, signOutFromPasswordChange])('navigation exits clear before backend logout: %s', async exit => {
+  it('idle sign-out deletes shared state and clears locally before backend logout', async () => {
     const navigate = vi.fn(() => expectCleared())
-    await exit(store.dispatch, 'refresh', navigate)
+    await signOutForIdle(store.dispatch, navigate)
+    expectCleared()
+    expect(await holder.coordinator.credentialsForRequest()).toBeNull()
+    expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
+    expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access')
+  })
+
+  it('password-change navigation exits clear before backend logout', async () => {
+    const navigate = vi.fn(() => expectCleared())
+    await signOutFromPasswordChange(store.dispatch, 'refresh', navigate)
     expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
     expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access')
   })
@@ -65,7 +74,7 @@ describe('coordinated sign-out adapters', () => {
     const current = await holder.coordinator.credentialsForRequest() as Session
     const ended = await holder.coordinator.signOut(current.id)
     const navigate = vi.fn()
-    await signOutForIdle(store.dispatch, current.refreshToken, navigate, ended!)
+    await signOutForIdle(store.dispatch, navigate, ended!)
     expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
     expect(authApi.logout).toHaveBeenCalledWith(current.refreshToken, current.accessToken)
     expect(await holder.coordinator.credentialsForRequest()).toBeNull()
@@ -101,7 +110,7 @@ describe('coordinated sign-out adapters', () => {
       storage.close()
 
       if (exit === 'manual') await signOutManually(store.dispatch, 'refresh', navigate)
-      else if (exit === 'idle') await signOutForIdle(store.dispatch, 'refresh', navigate)
+      else if (exit === 'idle') await signOutForIdle(store.dispatch, navigate)
       else if (exit === 'password-change completion') await signOutAfterPasswordChange(store.dispatch, 'refresh')
       else await signOutFromPasswordChange(store.dispatch, 'refresh', navigate)
 
