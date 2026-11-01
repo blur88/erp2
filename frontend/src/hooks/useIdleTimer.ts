@@ -98,6 +98,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
   const lastActivityRef = useRef<number>(Date.now())
   const isIdleRef = useRef<boolean>(false)
   const activityWriteRef = useRef<Promise<unknown>>(Promise.resolve())
+  const lastActivityWriteAtRef = useRef<number | null>(null)
   const recheckIdleRef = useRef<() => void>(() => {})
 
   // Clear all timers
@@ -145,12 +146,21 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
   }, [warningTime, onTimeout, onIdle, onIdleTimeout, clearTimers])
 
   // Reset the idle timer
-  const reset = useCallback((persist = true): Promise<void> => {
+  const reset = useCallback((persist = true, forceActivityWrite = false): Promise<void> => {
     if (!enabled || isPaused) return Promise.resolve()
 
     const now = Date.now()
     lastActivityRef.current = now
-    if (persist && onActivity) activityWriteRef.current = activityWriteRef.current.then(() => onActivity(now))
+    let write: Promise<unknown> = Promise.resolve()
+    if (persist && onActivity && (forceActivityWrite || lastActivityWriteAtRef.current === null || now - lastActivityWriteAtRef.current >= 60_000)) {
+      const previousWriteAt = lastActivityWriteAtRef.current
+      lastActivityWriteAtRef.current = now
+      write = activityWriteRef.current.catch(() => {}).then(() => onActivity(now)).catch(error => {
+        if (lastActivityWriteAtRef.current === now) lastActivityWriteAtRef.current = previousWriteAt
+        throw error
+      })
+      activityWriteRef.current = write.catch(() => {})
+    }
     clearTimers()
 
     // If was idle, trigger onActive callback
@@ -160,9 +170,6 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
       setRemainingTime(0)
       onActive?.()
     }
-
-    const write = persist && onActivity ? activityWriteRef.current : Promise.resolve()
-    void write.catch(() => {})
 
     // Set timer to trigger idle state (show warning)
     const idleDelay = timeout - warningTime
@@ -177,8 +184,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
             idleTimerRef.current = setTimeout(() => reset(false), Math.max(1000, idleDelay - elapsed))
             return
           }
-          const lastAtWarning = sharedLastActivity ?? lastActivityRef.current
-          const remaining = Math.max(0, timeout - (Date.now() - lastAtWarning))
+          const remaining = Math.max(0, timeout - (Date.now() - sharedLastActivity))
           if (!onIdleTimeout) {
             setIsIdle(true)
             isIdleRef.current = true
@@ -222,7 +228,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
     reset()
   }, [reset])
 
-  const stayActive = useCallback(() => reset(), [reset])
+  const stayActive = useCallback(() => reset(true, true), [reset])
 
   // Event handler for user activity
   const handleActivity = useCallback(() => {

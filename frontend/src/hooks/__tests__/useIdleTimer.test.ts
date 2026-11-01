@@ -65,6 +65,42 @@ describe('useIdleTimer', () => {
     expect(onActivity).toHaveBeenCalledTimes(2)
   })
 
+  it('writes activity only once for repeated events inside a minute', async () => {
+    const onActivity = vi.fn().mockResolvedValue(undefined)
+    renderHook(() => useIdleTimer({ timeout: TIMEOUT, warningTime: WARNING, onActivity, enabled: true }))
+    await act(async () => { await Promise.resolve() })
+    expect(onActivity).toHaveBeenCalledOnce()
+
+    await act(async () => {
+      for (let index = 0; index < 20; index++) window.dispatchEvent(new Event('mousemove'))
+      await Promise.resolve()
+    })
+
+    expect(onActivity).toHaveBeenCalledOnce()
+  })
+
+  it('recovers after one failed activity write and still signs out after later inactivity', async () => {
+    const onActivity = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('storage unavailable'))
+      .mockResolvedValue(undefined)
+    const onIdleTimeout = vi.fn().mockResolvedValue(true)
+    vi.spyOn(window, 'alert').mockImplementation(() => {})
+    renderHook(() => useIdleTimer({ timeout: 120_000, warningTime: 20_000, onActivity, onIdleTimeout, enabled: true }))
+    await act(async () => { await Promise.resolve() })
+    expect(onActivity).toHaveBeenCalledOnce()
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    await act(async () => { window.dispatchEvent(new Event('mousemove')); await Promise.resolve() })
+    expect(onActivity).toHaveBeenCalledTimes(2)
+    expect(window.alert).toHaveBeenCalledOnce()
+
+    await act(async () => { window.dispatchEvent(new Event('mousemove')); await Promise.resolve() })
+    expect(onActivity).toHaveBeenCalledTimes(3)
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000) })
+    expect(onIdleTimeout).toHaveBeenCalledOnce()
+  })
+
   it('does not sign out when another tab has recent shared activity', async () => {
     const getLastActivity = vi.fn(async () => Date.now())
     const onIdle = vi.fn()

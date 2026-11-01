@@ -1,47 +1,37 @@
-import { createTestSession } from '@/test/createTestSession'
-import { afterEach } from 'vitest'
-const sessionHolder = vi.hoisted(() => ({ coordinator: null as any }))
-vi.mock('@/services/session', () => ({ SESSION_IDLE_TIMEOUT: 12 * 60 * 60 * 1000, get sessionCoordinator() { return sessionHolder.coordinator }, signOutForIdle: vi.fn() }))
-vi.mock('@/services/auth/signOut', () => ({ signOutForIdle: vi.fn(async (dispatch: any, _token: any, nav: any) => { dispatch({ type: 'auth/clearAuth' }); nav('/login', { replace: true }); (await import('@/services/authApi')).authApi.logout(_token, 'access') }) }))
-afterEach(() => sessionHolder.coordinator?.dispose())
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { MemoryRouter } from 'react-router-dom'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
-import { beforeEach, expect, it, vi } from 'vitest'
-import RootLayout from '../RootLayout'
+import { IDBFactory } from 'fake-indexeddb'
 import authReducer from '@/store/slices/authSlice'
+import { sessionCoordinator } from '@/services/session'
+import { signOutForIdle } from '@/services/auth/signOut'
 import { authApi } from '@/services/authApi'
 
 const navigate = vi.hoisted(() => vi.fn())
-vi.mock('react-router-dom', async importOriginal => ({
-  ...await importOriginal<typeof import('react-router-dom')>(), useNavigate: () => navigate,
-}))
-vi.mock('@/hooks/useRegionalSettings', () => ({ useRegionalSettings: vi.fn() }))
-vi.mock('@/pages/accounting/bank-reconciliations/useClearReconciliationDraftsOnSignOut', () => ({ useClearReconciliationDraftsOnSignOut: vi.fn() }))
-vi.mock('@/hooks/useIdleTimer', () => ({ useIdleTimer: () => ({ remainingTime: 1, reset: vi.fn() }) }))
-vi.mock('@/components/auth/IdleWarningDialog', () => ({ default: ({ onLogout }: { onLogout: () => void }) => <button onClick={onLogout}>Sign out now</button> }))
 vi.mock('@/services/authApi', () => ({ authApi: { logout: vi.fn() } }))
+vi.stubGlobal('indexedDB', new IDBFactory())
+afterEach(() => sessionCoordinator.dispose())
 
 beforeEach(async () => {
-    sessionHolder.coordinator = await createTestSession()
   navigate.mockClear()
   vi.mocked(authApi.logout).mockReset().mockResolvedValue({ data: undefined } as any)
+  await sessionCoordinator.start()
+  const existing = sessionCoordinator.getSnapshot()
+  if (existing) await sessionCoordinator.signOut(existing.id)
+  await sessionCoordinator.signIn({
+    accessToken: 'access', refreshToken: 'refresh', user: { id: 'test-user' }, expiresIn: 900,
+  } as any)
 })
 
-it.each(['refresh', undefined])('root forced/idle sign-out clears auth and replaces login (window token %s)', async refreshToken => {
+it('signOutForIdle deletes the shared session, clears auth, navigates, and logs out through the transport', async () => {
   const initial = authReducer(undefined, { type: 'init' })
   const store = configureStore({ reducer: { auth: authReducer }, preloadedState: {
     auth: { ...initial, isAuthenticated: true, accessToken: 'access', refreshToken: 'refresh' },
   } })
-  ;(window as any).store = { getState: () => ({ auth: { refreshToken } }) }
-  try {
-    render(<Provider store={store}><MemoryRouter><RootLayout /></MemoryRouter></Provider>)
-    fireEvent.click(screen.getByText('Sign out now'))
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/login', { replace: true }))
-    expect(store.getState().auth).toMatchObject({ accessToken: null, refreshToken: null, isAuthenticated: false })
-    expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access')
-  } finally {
-    delete (window as any).store
-  }
+
+  await signOutForIdle(store.dispatch as any, 'refresh', navigate)
+
+  expect(await sessionCoordinator.credentialsForRequest()).toBeNull()
+  expect(store.getState().auth).toMatchObject({ accessToken: null, refreshToken: null, isAuthenticated: false })
+  expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
+  await vi.waitFor(() => expect(authApi.logout).toHaveBeenCalledWith('refresh', 'access'))
 })

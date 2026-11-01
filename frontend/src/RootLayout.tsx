@@ -9,11 +9,11 @@ import IdleWarningDialog from './components/auth/IdleWarningDialog'
 import { useClearReconciliationDraftsOnSignOut } from './pages/accounting/bank-reconciliations/useClearReconciliationDraftsOnSignOut'
 
 import { signOutForIdle } from '@/services/auth/signOut'
-import { SESSION_IDLE_TIMEOUT, sessionCoordinator } from '@/services/session'
+import { sessionCoordinator } from '@/services/session'
 import type { Session } from '@/services/session/storage'
+import { resolveIdleTimeout } from '@/services/session/idleTimeout'
 
-const configuredIdleTimeout = Number((window as any).__ENV__?.SESSION_IDLE_TIMEOUT_MS)
-const IDLE_TIMEOUT = Number.isFinite(configuredIdleTimeout) && configuredIdleTimeout > 0 ? configuredIdleTimeout : SESSION_IDLE_TIMEOUT
+const IDLE_TIMEOUT = resolveIdleTimeout((window as any).__ENV__)
 const WARNING_TIME = Math.min(5 * 60 * 1000, IDLE_TIMEOUT / 6)
 
 const PageLoader = () => (
