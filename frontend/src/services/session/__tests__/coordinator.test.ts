@@ -336,7 +336,8 @@ describe('expired-lock 401 recovery', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
     const factory = new IDBFactory()
     const ownerTab = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), clock: Date.now })
-    const recoveringTab = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), clock: Date.now })
+    const recoveringStorage = new IndexedDbSessionStorage(factory)
+    const recoveringTab = new SessionCoordinator({ storage: recoveringStorage, clock: Date.now })
     await ownerTab.start(); await recoveringTab.start()
     const session = (await ownerTab.signIn(response))!
     const storage = new IndexedDbSessionStorage(factory)
@@ -347,7 +348,7 @@ describe('expired-lock 401 recovery', () => {
     const result = recoveringTab.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(unauthorized))
     for (let i = 0; i < 100 && vi.getTimerCount() === 0; i++) await new Promise<void>(resolve => setImmediate(resolve))
     storage.close()
-    return { factory, ownerTab, recoveringTab, session, unauthorized, result }
+    return { factory, ownerTab, recoveringStorage, recoveringTab, session, unauthorized, result }
   }
 
   it('cleans up locally when the session is deleted during recovery', async () => {
@@ -370,12 +371,16 @@ describe('expired-lock 401 recovery', () => {
     } finally { state.ownerTab.dispose(); state.recoveringTab.dispose(); vi.useRealTimers() }
   })
 
-  it('retries through the lock when the holder publishes a newer token', async () => {
+  it('reuses a newer token after reacquiring and releasing its lock', async () => {
     const state = await setup()
     try {
+      const acquire = vi.spyOn(state.recoveringStorage, 'acquireRefreshLock')
       await state.ownerTab.saveRefresh(state.session.id, 'refresh', { ...response, accessToken: 'recovered', refreshToken: 'recovered-refresh' })
       await vi.advanceTimersByTimeAsync(250)
       expect((await state.result).accessToken).toBe('recovered')
+      expect(acquire).toHaveBeenCalledOnce()
+      expect(acquire.mock.calls[0][1]).toBe('recovered')
+      expect((await state.recoveringStorage.acquireRefreshLock(state.session.id, 'recovered', 'probe', Date.now)).acquired).toBe(true)
     } finally { state.ownerTab.dispose(); state.recoveringTab.dispose(); vi.useRealTimers() }
   })
 

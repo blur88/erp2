@@ -199,16 +199,22 @@ export class SessionCoordinator {
       if (!session || session.id !== id) throw new Error('Session ended before refresh')
       return session
     }
+    let retryNewerSessionThroughLock = false
     for (;;) {
       let session = verify(await this.credentialsForRequest())
-      if (session.accessToken !== usedAccessToken) return session
+      if (session.accessToken !== usedAccessToken && !retryNewerSessionThroughLock) return session
+      const lockAccessToken = retryNewerSessionThroughLock ? session.accessToken : usedAccessToken
       const attempt = await this.run(async () => {
-        const result = await this.options.storage.acquireRefreshLock(id, usedAccessToken, holder, this.options.clock ?? Date.now)
+        const result = await this.options.storage.acquireRefreshLock(id, lockAccessToken, holder, this.options.clock ?? Date.now)
         this.adopt(result.session)
         return result
       })
       session = verify(attempt.session)
-      if (session.accessToken !== usedAccessToken) return session
+      if (session.accessToken !== lockAccessToken) {
+        if (!retryNewerSessionThroughLock && session.accessToken !== usedAccessToken) return session
+        if (session.accessToken !== usedAccessToken) retryNewerSessionThroughLock = true
+        continue
+      }
       if (!attempt.acquired || !attempt.lock) {
         await this.waitForRefreshChange()
         continue
@@ -234,7 +240,11 @@ export class SessionCoordinator {
             if (attempt.takeover) {
               leaveToExpire = true
               const recovered = await this.recoverExpiredLockTakeover(id, triedToken, usedAccessToken)
-              if (!recovered) continue
+              if (!recovered) {
+                leaveToExpire = false
+                retryNewerSessionThroughLock = true
+                continue
+              }
             }
             else {
               const ended = await this.signOut(id, triedToken)

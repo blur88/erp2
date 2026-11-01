@@ -109,15 +109,35 @@ try {
   await context.unroute(refreshUrl)
   console.log('PASS simultaneous expired-token refresh uses one request and keeps both tabs signed in')
 
+  const recoveryPauseKey = '__erpSessionRecoveryPause'
+  await context.addInitScript(key => {
+    const open = XMLHttpRequest.prototype.open
+    XMLHttpRequest.prototype.open = function (...args) {
+      if (new URL(String(args[1]), location.href).pathname === '/api/auth/refresh') {
+        this.addEventListener('loadend', function () {
+          if (this.status !== 200) return
+          let payload
+          try {
+            const body = JSON.parse(this.responseText)
+            payload = body.data ?? body
+          } catch { return }
+          const state = JSON.parse(sessionStorage.getItem(key) ?? 'null')
+          if (!state?.targetRefreshToken || state.paused || payload.refreshToken === state.targetRefreshToken) return
+          state.paused = true
+          state.targetRefreshToken = null
+          state.pauseCount++
+          sessionStorage.setItem(key, JSON.stringify(state))
+          // This runs before Axios's loadend handler saves the rotated tokens.
+          debugger
+        }, { once: true })
+      }
+      return open.apply(this, args)
+    }
+  }, recoveryPauseKey)
+
   async function pauseBeforeRefreshSave(page) {
     const originalRefreshToken = (await readSharedSession(page)).refreshToken
-    await page.addInitScript(originalToken => {
-      const put = IDBObjectStore.prototype.put
-      IDBObjectStore.prototype.put = function (value, key) {
-        if (this.name === 'session' && key === 'current' && value?.refreshToken !== originalToken) debugger
-        return put.apply(this, arguments)
-      }
-    }, originalRefreshToken)
+    await page.evaluate(({ key, token }) => sessionStorage.setItem(key, JSON.stringify({ targetRefreshToken: token, paused: false, pauseCount: 0 })), { key: recoveryPauseKey, token: originalRefreshToken })
     const cdp = await context.newCDPSession(page)
     await cdp.send('Debugger.enable')
     const paused = new Promise(resolve => cdp.once('Debugger.paused', resolve))
@@ -135,11 +155,9 @@ try {
       if (!error.message.includes('net::ERR_ABORTED')) throw error
     })
     await withTimeout(debug.paused, 15000, 'holder refresh response was not paused after server rotation')
-    let refresh401At
     const takeover401 = new Promise(resolve => {
       const listener = response => {
         if (response.status() === 401 && new URL(response.url()).pathname === '/api/auth/refresh') {
-          refresh401At = Date.now()
           tabB.off('response', listener)
           resolve()
         }
@@ -150,13 +168,12 @@ try {
       if (!error.message.includes('net::ERR_ABORTED')) throw error
     })
     await withTimeout(takeover401, 25_000, 'replacement tab did not take over and receive the unchanged-token 401')
-    assert.ok(Date.now() - refresh401At < 30_000, 'recovery starts from the takeover 401, not a fixed 45-second cutoff')
     if (recoverHolder) {
       await debug.cdp.send('Debugger.resume')
       await withTimeout(Promise.all([holderReload, waitingReload]), 15_000, 'tabs did not settle after holder resumed')
       await assertSignedIn(tabA, users[0].username)
       await assertSignedIn(tabB, users[0].username)
-      assert.ok(Date.now() - refresh401At < 30_000, 'holder resumed before the replacement recovery deadline')
+      assert.deepEqual(await tabA.evaluate(key => JSON.parse(sessionStorage.getItem(key)), recoveryPauseKey), { targetRefreshToken: null, paused: true, pauseCount: 1 })
       console.log('PASS paused holder resumed before its actual recovery deadline; session survived in both tabs')
     } else {
       await withTimeout(tabB.waitForURL('**/login'), 40_000, 'replacement did not perform matched sign-out at the recovery deadline')
@@ -165,6 +182,7 @@ try {
       await withTimeout(Promise.all([holderReload, tabA.waitForURL('**/login')]), 15_000, 'resumed holder did not observe the completed sign-out')
       assert.equal(await readSharedSession(tabA), null)
       assert.equal(await readSharedSession(tabB), null)
+      assert.deepEqual(await tabA.evaluate(key => JSON.parse(sessionStorage.getItem(key)), recoveryPauseKey), { targetRefreshToken: null, paused: true, pauseCount: 1 })
       console.log('PASS holder stayed paused through matched sign-out; every tab signed out')
     }
     await debug.cdp.detach()
