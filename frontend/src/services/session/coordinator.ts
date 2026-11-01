@@ -4,6 +4,8 @@ import type { Session, SessionStorage } from './storage'
 export const STORAGE_UNAVAILABLE = "This browser's storage is unavailable"
 export const SESSION_IDLE_TIMEOUT = 12 * 60 * 60 * 1000
 export const SESSION_ACTIVITY_WRITE_INTERVAL = 60 * 1000
+export const REFRESH_RECOVERY_WINDOW = 30_000
+export const REFRESH_RECOVERY_POLL = 250
 export interface SessionChannel {
   postMessage(message: unknown): void
   close(): void
@@ -197,16 +199,22 @@ export class SessionCoordinator {
       if (!session || session.id !== id) throw new Error('Session ended before refresh')
       return session
     }
+    let retryNewerSessionThroughLock = false
     for (;;) {
       let session = verify(await this.credentialsForRequest())
-      if (session.accessToken !== usedAccessToken) return session
+      if (session.accessToken !== usedAccessToken && !retryNewerSessionThroughLock) return session
+      const lockAccessToken = retryNewerSessionThroughLock ? session.accessToken : usedAccessToken
       const attempt = await this.run(async () => {
-        const result = await this.options.storage.acquireRefreshLock(id, usedAccessToken, holder, this.options.clock ?? Date.now)
+        const result = await this.options.storage.acquireRefreshLock(id, lockAccessToken, holder, this.options.clock ?? Date.now)
         this.adopt(result.session)
         return result
       })
       session = verify(attempt.session)
-      if (session.accessToken !== usedAccessToken) return session
+      if (session.accessToken !== lockAccessToken) {
+        if (!retryNewerSessionThroughLock && session.accessToken !== usedAccessToken) return session
+        if (session.accessToken !== usedAccessToken) retryNewerSessionThroughLock = true
+        continue
+      }
       if (!attempt.acquired || !attempt.lock) {
         await this.waitForRefreshChange()
         continue
@@ -229,7 +237,15 @@ export class SessionCoordinator {
           if (status === 401) {
             const latest = verify(await this.credentialsForRequest())
             if (latest.accessToken !== usedAccessToken || latest.refreshToken !== triedToken) continue
-            if (attempt.takeover) leaveToExpire = true
+            if (attempt.takeover) {
+              leaveToExpire = true
+              const recovered = await this.recoverExpiredLockTakeover(id, triedToken, usedAccessToken)
+              if (!recovered) {
+                leaveToExpire = false
+                retryNewerSessionThroughLock = true
+                continue
+              }
+            }
             else {
               const ended = await this.signOut(id, triedToken)
               if (!ended) {
@@ -255,11 +271,31 @@ export class SessionCoordinator {
     }
   }
 
-  private waitForRefreshChange(): Promise<void> {
+  /** Wait briefly for a stalled lock holder to publish its rotated credentials. */
+  private async recoverExpiredLockTakeover(id: string, refreshToken: string, usedAccessToken: string): Promise<boolean> {
+    const clock = this.options.clock ?? Date.now
+    const deadline = clock() + REFRESH_RECOVERY_WINDOW
+    while (clock() < deadline) {
+      await this.waitForRefreshChange(Math.min(REFRESH_RECOVERY_POLL, deadline - clock()))
+      const session = await this.credentialsForRequest()
+      if (!session || session.id !== id) throw new Error('Session ended before refresh recovery')
+      if (session.accessToken !== usedAccessToken || session.refreshToken !== refreshToken) return false
+    }
+    // The session id and refresh token are checked atomically by signOut.
+    const ended = await this.signOut(id, refreshToken)
+    if (!ended) {
+      const current = await this.credentialsForRequest()
+      if (!current || current.id !== id) throw new Error('Session ended before refresh recovery')
+      if (current.accessToken !== usedAccessToken || current.refreshToken !== refreshToken) return false
+    }
+    return true
+  }
+
+  private waitForRefreshChange(delay = REFRESH_RECOVERY_POLL): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.disposed) { reject(new Error('Session coordinator is disposed')); return }
       const wake = () => { clearTimeout(timer); this.waiters.delete(wake); resolve() }
-      const timer = setTimeout(wake, 250)
+      const timer = setTimeout(wake, delay)
       this.waiters.add(wake)
     })
   }

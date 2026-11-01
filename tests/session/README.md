@@ -33,14 +33,26 @@ The concurrent refresh case reloads both tabs after access-token expiry and
 holds the first refresh until both tabs have received a 401. It checks that one
 refresh request completes and that both tabs remain signed in.
 
+Two takeover recovery cases pause tab A with CDP in the successful refresh
+XHR's `load` handler, after the server rotates the token and before Axios opens
+the IndexedDB write transaction. One context init script reads a mutable
+per-run target so only the current refresh save pauses. In the recovery case, tab
+B takes over after the 15-second lock expiry, receives the unchanged-token 401,
+and tab A resumes before tab B's actual 30-second recovery deadline; both tabs
+must remain signed in. In the loss case, tab A stays paused until tab B's matched
+sign-out completes, then resumes and must observe the deletion. The 45-second
+nominal acquisition-to-sign-out window is not an exact cutoff: request duration
+and browser scheduling affect when recovery starts and completes. Between the
+cases, the harness signs out and waits for the earlier lock lease to expire
+before starting a new Session.
+
 The in-flight refresh case holds `/api/auth/refresh` after the 8 s access-token
 expiry causes a 401, signs out from tab A, waits for tab B to request `/login`,
 releases refresh, then checks that the shared record is null in both tabs once
 each has settled on `/login`.
 The sign-out reload destroys tab B's document, so this case does not verify
 rejection of a late refresh save; the coordinator unit tests cover stale-save
-rejection. The Q25 CDP `Debugger.pause` variant is deferred; see [the #1345
-decision comment](https://github.com/blur88/erp2/issues/1345#issuecomment-6544506391).
+rejection.
 
 The idle cases keep two tabs open: tab B's warning begins at about 100 seconds; tab A acts at about 105 seconds, after that warning starts. At about 130 seconds, after the 120-second timeout plus a margin, the browser checks that B has not reached `/login` and the shared Session still exists. It then verifies that inactivity in both tabs signs both out. The 120-second override is set by `tests/session/compose.yml`, which also lifts the frontend read-only setting for the test stack so the entrypoint can write `env-config.js`; ordinary runtime configuration defaults to 12 hours.
 

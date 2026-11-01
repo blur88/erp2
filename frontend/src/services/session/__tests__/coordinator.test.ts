@@ -331,21 +331,73 @@ it('a timeout leaves the lock until expiry and preserves the session', async () 
   a.dispose()
 })
 
-it('a takeover 401 leaves the lock until expiry and preserves the session', async () => {
-  let now = 1000
-  const storage = new IndexedDbSessionStorage(new IDBFactory())
-  const a = new SessionCoordinator({ storage, clock: () => now })
-  await a.start()
-  const session = (await a.signIn(response))!
-  expect((await storage.acquireRefreshLock(session.id, 'access', 'previous', () => now)).acquired).toBe(true)
-  now += 15000
-  const unauthorized = Object.assign(new Error('unauthorized'), { response: { status: 401 } })
-  await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(unauthorized))).rejects.toBe(unauthorized)
-  expect((await a.credentialsForRequest())?.id).toBe(session.id)
-  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(false)
-  now += 15000
-  expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', () => now)).acquired).toBe(true)
-  a.dispose()
+describe('expired-lock 401 recovery', () => {
+  async function setup() {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    const factory = new IDBFactory()
+    const ownerTab = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), clock: Date.now })
+    const recoveringStorage = new IndexedDbSessionStorage(factory)
+    const recoveringTab = new SessionCoordinator({ storage: recoveringStorage, clock: Date.now })
+    await ownerTab.start(); await recoveringTab.start()
+    const session = (await ownerTab.signIn(response))!
+    const storage = new IndexedDbSessionStorage(factory)
+    await storage.open()
+    expect((await storage.acquireRefreshLock(session.id, 'access', 'stalled-holder', Date.now)).acquired).toBe(true)
+    await vi.advanceTimersByTimeAsync(15_000)
+    const unauthorized = Object.assign(new Error('unauthorized'), { response: { status: 401 } })
+    const result = recoveringTab.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(unauthorized))
+    for (let i = 0; i < 100 && vi.getTimerCount() === 0; i++) await new Promise<void>(resolve => setImmediate(resolve))
+    storage.close()
+    return { factory, ownerTab, recoveringStorage, recoveringTab, session, unauthorized, result }
+  }
+
+  it('cleans up locally when the session is deleted during recovery', async () => {
+    const state = await setup()
+    try {
+      await state.ownerTab.signOut(state.session.id)
+      await vi.advanceTimersByTimeAsync(250)
+      await expect(state.result).rejects.toThrow('Session ended before refresh recovery')
+      expect(state.recoveringTab.getSnapshot()).toBeNull()
+    } finally { state.ownerTab.dispose(); state.recoveringTab.dispose(); vi.useRealTimers() }
+  })
+
+  it('discards the old operation when another session replaces it', async () => {
+    const state = await setup()
+    try {
+      const replacement = (await state.ownerTab.signIn({ ...response, accessToken: 'replacement' }))!
+      await vi.advanceTimersByTimeAsync(250)
+      await expect(state.result).rejects.toThrow('Session ended before refresh recovery')
+      expect(state.recoveringTab.getSnapshot()?.id).toBe(replacement.id)
+    } finally { state.ownerTab.dispose(); state.recoveringTab.dispose(); vi.useRealTimers() }
+  })
+
+  it('reuses a newer token after reacquiring and releasing its lock', async () => {
+    const state = await setup()
+    try {
+      const acquire = vi.spyOn(state.recoveringStorage, 'acquireRefreshLock')
+      await state.ownerTab.saveRefresh(state.session.id, 'refresh', { ...response, accessToken: 'recovered', refreshToken: 'recovered-refresh' })
+      await vi.advanceTimersByTimeAsync(250)
+      expect((await state.result).accessToken).toBe('recovered')
+      expect(acquire).toHaveBeenCalledOnce()
+      expect(acquire.mock.calls[0][1]).toBe('recovered')
+      expect((await state.recoveringStorage.acquireRefreshLock(state.session.id, 'recovered', 'probe', Date.now)).acquired).toBe(true)
+    } finally { state.ownerTab.dispose(); state.recoveringTab.dispose(); vi.useRealTimers() }
+  })
+
+  it('signs out only the original session and token when the recovery deadline expires', async () => {
+    const state = await setup()
+    try {
+      await vi.advanceTimersByTimeAsync(14_999)
+      const storage = new IndexedDbSessionStorage(state.factory)
+      await storage.open()
+      expect((await storage.acquireRefreshLock(state.session.id, 'access', 'probe', Date.now)).acquired).toBe(false)
+      await vi.advanceTimersByTimeAsync(15_001)
+      await expect(state.result).rejects.toBe(state.unauthorized)
+      expect(await state.ownerTab.credentialsForRequest()).toBeNull()
+      expect(state.recoveringTab.getSnapshot()).toBeNull()
+      storage.close()
+    } finally { state.ownerTab.dispose(); state.recoveringTab.dispose(); vi.useRealTimers() }
+  })
 })
 
 it('a successful refresh that cannot be saved leaves the lock to expire', async () => {
