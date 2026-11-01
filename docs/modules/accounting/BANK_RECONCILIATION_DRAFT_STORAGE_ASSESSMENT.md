@@ -42,6 +42,7 @@ What is written (`StoredDraft`):
 | `form.setupChanges` | journal line ids with a classification |
 | `picker` | page numbers, search text, filter |
 | `lockVersion`, `savedAt` | concurrency and time metadata |
+| `sessionId` | id of the Session that saved the draft; missing or different ids are deleted on restore |
 
 No credential, token, personal data or bank account number is included. The
 financial content is business data: statement balances and transaction

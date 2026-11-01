@@ -27,6 +27,7 @@ import {
   useUpdateBankReconciliationMutation,
 } from '@/store/api/accountingApi'
 import { useAppSelector } from '@/hooks/useRedux'
+import { sessionCoordinator } from '@/services/session'
 import { selectCurrentUser } from '@/store/slices/authSlice'
 import type {
   Account,
@@ -80,6 +81,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
   const { showSuccess, showError } = useNotification()
   const currentUser = useAppSelector(selectCurrentUser)
   const userId = currentUser?.id ?? 'anonymous'
+  const sessionId = sessionCoordinator.getSnapshot()?.id
 
   // Manage create token in URL query
   const searchParams = new URLSearchParams(location.search)
@@ -173,7 +175,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       const base = fromDetail(existingDetail)
       setBaseline(base)
 
-      const stored = loadDraft(storageKey)
+      const stored = loadDraft(storageKey, sessionId)
       if (stored) {
         if (stored.lockVersion === existingDetail.lockVersion) {
           setForm(stored.form)
@@ -189,13 +191,13 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       }
     } else {
       initializedRef.current = true
-      const stored = loadDraft(storageKey)
+      const stored = loadDraft(storageKey, sessionId)
       if (stored) {
         setForm(stored.form)
         setPicker(stored.picker)
       }
     }
-  }, [isEdit, existingDetail, storageKey])
+  }, [isEdit, existingDetail, storageKey, sessionId])
 
   // Apply next period defaults when selecting account in create mode
   useEffect(() => {
@@ -224,12 +226,13 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     const lockVersion = isEdit ? baseLockVersion : null
     saveDraft(storageKey, {
       v: 1,
+      sessionId: sessionId ?? '',
       lockVersion,
       form,
       picker,
       savedAt: new Date().toISOString(),
     })
-  }, [storageKey, form, picker, isEdit, baseLockVersion, baseline])
+  }, [storageKey, form, picker, isEdit, baseLockVersion, baseline, sessionId])
 
   // Monotonically increasing counter for preview
   const previewSeqRef = useRef(0)
@@ -551,6 +554,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       const lockVersion = isEdit ? baseLockVersion : null
       saveDraft(storageKey, {
         v: 1,
+        sessionId: sessionId ?? '',
         lockVersion,
         form,
         picker,
@@ -567,6 +571,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     updateReconciliation,
     createReconciliation,
     storageKey,
+    sessionId,
     showSuccess,
     navigate,
   ])

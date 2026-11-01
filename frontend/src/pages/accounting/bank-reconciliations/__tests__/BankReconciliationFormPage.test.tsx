@@ -13,6 +13,12 @@ import type {
 } from '@/types'
 import BankReconciliationFormPage from '../BankReconciliationFormPage'
 import { draftKey, loadDraft, saveDraft } from '../reconciliationDraftStorage'
+import { emptyForm } from '../reconciliationForm'
+
+const mockSessionId = vi.hoisted(() => ({ value: 'session-1' }))
+vi.mock('@/services/session', () => ({
+  sessionCoordinator: { getSnapshot: () => ({ id: mockSessionId.value }) },
+}))
 
 // When set, the form's navigations are swallowed so it stays mounted — which is
 // what happens in the app while the lazy detail route is still loading.
@@ -177,6 +183,7 @@ const defaultPreviewResult: PreviewResultDto = {
 
 describe('BankReconciliationFormPage', () => {
   beforeEach(() => {
+    mockSessionId.value = 'session-1'
     sessionStorage.clear()
     localStorage.clear()
     vi.clearAllMocks()
@@ -327,6 +334,7 @@ describe('BankReconciliationFormPage', () => {
     const key = draftKey('u-1', { createToken: token })
     saveDraft(key, {
       v: 1,
+      sessionId: 'session-1',
       lockVersion: null,
       form: {
         bankAccountId: 'ba-1',
@@ -352,6 +360,24 @@ describe('BankReconciliationFormPage', () => {
     })
   })
 
+  it('deletes the same user draft after a new sign-in creates another session', async () => {
+    const token = 'tok-new-session'
+    const key = draftKey('u-1', { createToken: token })
+    saveDraft(key, {
+      v: 1,
+      sessionId: 'session-1',
+      lockVersion: null,
+      form: { ...emptyForm(), closingBalance: '321.00' },
+      picker: { checklist: { page: 1, search: '' }, setup: { page: 1, search: '', filter: 'ALL' } },
+      savedAt: new Date().toISOString(),
+    })
+    mockSessionId.value = 'session-2'
+    renderCreate(`?draft=${token}`)
+    await waitFor(() => expect(screen.getByLabelText('Closing Balance')).not.toHaveValue('321.00'))
+    expect(screen.getByLabelText('Closing Balance')).not.toHaveValue('321.00')
+    expect(loadDraft(key, 'session-2')?.sessionId).toBe('session-2')
+  })
+
   it('stale lockVersion: loads server state and shows the could-not-be-restored message', async () => {
     const detail = makeDetail({ lockVersion: 2, summary: { ...makeDetail().summary, closingBalance: '999.00' } })
     mockExisting.mockReturnValue({ data: detail, isLoading: false, isError: false })
@@ -359,6 +385,7 @@ describe('BankReconciliationFormPage', () => {
     const key = draftKey('u-1', { reconciliationId: 'r-1' })
     saveDraft(key, {
       v: 1,
+      sessionId: 'session-1',
       lockVersion: 1, // older lockVersion!
       form: {
         bankAccountId: 'ba-1',
@@ -381,7 +408,7 @@ describe('BankReconciliationFormPage', () => {
 
     // Must show server state (999.00), not the draft (111.00)
     expect(screen.getByLabelText('Closing Balance')).toHaveValue('999.00')
-    expect(loadDraft(key)).toBeNull()
+    expect(loadDraft(key, 'session-1')).toBeNull()
   })
 
   it('a failed save keeps the form and the stored draft and shows the server message', async () => {
@@ -397,7 +424,7 @@ describe('BankReconciliationFormPage', () => {
     expect(await screen.findByText('Reconciliation has concurrency conflict.')).toBeInTheDocument()
 
     const key = draftKey('u-1', { reconciliationId: 'r-1' })
-    expect(loadDraft(key)).not.toBeNull()
+    expect(loadDraft(key, 'session-1')).not.toBeNull()
   })
 
   it('clears the stored draft after a successful save and after a confirmed Cancel', async () => {
@@ -410,13 +437,14 @@ describe('BankReconciliationFormPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
     await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
-    expect(loadDraft(key)).toBeNull()
+    expect(loadDraft(key, 'session-1')).toBeNull()
 
     unmount()
 
     // Now test cancel
     saveDraft(key, {
       v: 1,
+      sessionId: 'session-1',
       lockVersion: 1,
       form: { ...makeDetail(), closingBalance: '888.00' } as any,
       picker: { checklist: { page: 1, search: '' }, setup: { page: 1, search: '', filter: 'ALL' } },
@@ -432,7 +460,7 @@ describe('BankReconciliationFormPage', () => {
     await userEvent.click(confirmBtn)
 
     await waitFor(() => {
-      expect(loadDraft(key)).toBeNull()
+      expect(loadDraft(key, 'session-1')).toBeNull()
     })
   })
 
@@ -496,6 +524,7 @@ describe('BankReconciliationFormPage', () => {
       const token = 'tok-payload'
       saveDraft(draftKey('u-1', { createToken: token }), {
         v: 1,
+        sessionId: 'session-1',
         lockVersion: null,
         form: {
           bankAccountId: 'ba-1',
@@ -597,6 +626,7 @@ describe('BankReconciliationFormPage', () => {
       mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
       saveDraft(draftKey('u-1', { reconciliationId: 'r-1' }), {
         v: 1,
+        sessionId: 'session-1',
         lockVersion: 1,
         form: {
           bankAccountId: 'ba-1',
@@ -652,7 +682,7 @@ describe('BankReconciliationFormPage', () => {
       ).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled()
       // The stored draft keeps the version it was based on, so a reload reports it as stale.
-      expect(loadDraft(key)?.lockVersion).toBe(1)
+      expect(loadDraft(key, 'session-1')?.lockVersion).toBe(1)
       expect(mockUpdate).toHaveBeenCalledTimes(1)
     })
 
@@ -661,6 +691,7 @@ describe('BankReconciliationFormPage', () => {
       const key = draftKey('u-1', { createToken: token })
       saveDraft(key, {
         v: 1,
+        sessionId: 'session-1',
         lockVersion: null,
         form: {
           bankAccountId: 'ba-1', periodFrom: '2026-01-01', periodTo: '2026-01-31',
@@ -693,7 +724,7 @@ describe('BankReconciliationFormPage', () => {
         // Force the still-mounted form to re-render with the refetched next-period.
         await userEvent.type(screen.getByPlaceholderText('Search transactions...'), 'x')
         await act(() => new Promise<void>((r) => setTimeout(r, 400)))
-        expect(loadDraft(key)).toBeNull()
+        expect(loadDraft(key, 'session-1')).toBeNull()
       } finally {
         swallowNavigation = false
       }
