@@ -360,22 +360,31 @@ describe('BankReconciliationFormPage', () => {
     })
   })
 
-  it('deletes the same user draft after a new sign-in creates another session', async () => {
+  it('resets an initialized form and does not resave its values under a new session id', async () => {
     const token = 'tok-new-session'
     const key = draftKey('u-1', { createToken: token })
-    saveDraft(key, {
-      v: 1,
-      sessionId: 'session-1',
-      lockVersion: null,
-      form: { ...emptyForm(), closingBalance: '321.00' },
-      picker: { checklist: { page: 1, search: '' }, setup: { page: 1, search: '', filter: 'ALL' } },
-      savedAt: new Date().toISOString(),
-    })
+    const view = renderCreate(`?draft=${token}`)
+    const closingBalance = screen.getByLabelText('Closing Balance')
+    await userEvent.type(closingBalance, '321.00')
+    await waitFor(() => expect(loadDraft(key, 'session-1')?.form.closingBalance).toBe('321.00'))
+
     mockSessionId.value = 'session-2'
-    renderCreate(`?draft=${token}`)
+    view.rerender(
+      <MemoryRouter initialEntries={[`/accounting/bank-reconciliations/create?draft=${token}`]}>
+        <Routes>
+          <Route path="/accounting/bank-reconciliations/create" element={<BankReconciliationFormPage />} />
+          <Route path="/accounting/bank-reconciliations/:id/view" element={<div>DETAIL VIEW</div>} />
+          <Route path="/accounting/bank-reconciliations" element={<div>LIST PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
     await waitFor(() => expect(screen.getByLabelText('Closing Balance')).not.toHaveValue('321.00'))
-    expect(screen.getByLabelText('Closing Balance')).not.toHaveValue('321.00')
-    expect(loadDraft(key, 'session-2')?.sessionId).toBe('session-2')
+    await waitFor(() => {
+      const stored = JSON.parse(sessionStorage.getItem(key) ?? 'null')
+      expect(stored?.sessionId).toBe('session-2')
+      expect(stored?.form.closingBalance).not.toBe('321.00')
+    })
   })
 
   it('stale lockVersion: loads server state and shows the could-not-be-restored message', async () => {
