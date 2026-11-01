@@ -114,7 +114,7 @@ try {
     const open = XMLHttpRequest.prototype.open
     XMLHttpRequest.prototype.open = function (...args) {
       if (new URL(String(args[1]), location.href).pathname === '/api/auth/refresh') {
-        this.addEventListener('loadend', function () {
+        this.addEventListener('load', function () {
           if (this.status !== 200) return
           let payload
           try {
@@ -127,7 +127,6 @@ try {
           state.targetRefreshToken = null
           state.pauseCount++
           sessionStorage.setItem(key, JSON.stringify(state))
-          // This runs before Axios's loadend handler saves the rotated tokens.
           debugger
         }, { once: true })
       }
@@ -136,12 +135,14 @@ try {
   }, recoveryPauseKey)
 
   async function pauseBeforeRefreshSave(page) {
-    const originalRefreshToken = (await readSharedSession(page)).refreshToken
+    const session = await readSharedSession(page)
+    const originalRefreshToken = session.refreshToken
+    const accessTokenExpiresAt = JSON.parse(Buffer.from(session.accessToken.split('.')[1], 'base64url').toString()).exp * 1000
     await page.evaluate(({ key, token }) => sessionStorage.setItem(key, JSON.stringify({ targetRefreshToken: token, paused: false, pauseCount: 0 })), { key: recoveryPauseKey, token: originalRefreshToken })
     const cdp = await context.newCDPSession(page)
     await cdp.send('Debugger.enable')
     const paused = new Promise(resolve => cdp.once('Debugger.paused', resolve))
-    return { cdp, paused }
+    return { cdp, paused, accessTokenExpiresAt }
   }
 
   async function exerciseTakeoverRecovery(recoverHolder) {
@@ -150,7 +151,7 @@ try {
     await tabB.goto(base)
     await assertSignedIn(tabB, users[0].username)
     const debug = await pauseBeforeRefreshSave(tabA)
-    await new Promise(resolve => setTimeout(resolve, 8500))
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, debug.accessTokenExpiresAt - Date.now() + 1000)))
     const holderReload = tabA.reload().catch(error => {
       if (!error.message.includes('net::ERR_ABORTED')) throw error
     })
@@ -164,10 +165,26 @@ try {
       }
       tabB.on('response', listener)
     })
+    const authResponses = []
+    const apiResponses = []
+    const onAuthResponse = response => {
+      const path = new URL(response.url()).pathname
+      if (path.startsWith('/api/auth/')) authResponses.push([response.status(), path])
+      if (path.startsWith('/api/')) apiResponses.push([response.status(), path])
+    }
+    tabB.on('response', onAuthResponse)
     const waitingReload = tabB.reload().catch(error => {
       if (!error.message.includes('net::ERR_ABORTED')) throw error
     })
-    await withTimeout(takeover401, 25_000, 'replacement tab did not take over and receive the unchanged-token 401')
+    try {
+      await withTimeout(takeover401, 25_000, 'replacement tab did not take over and receive the unchanged-token 401')
+    } catch (error) {
+      console.error('tab B API responses:', JSON.stringify({ authResponses, apiResponses }))
+      throw error
+    } finally {
+      tabB.off('response', onAuthResponse)
+    }
+    if (!recoverHolder) console.log('tab B auth responses:', JSON.stringify(authResponses))
     if (recoverHolder) {
       await debug.cdp.send('Debugger.resume')
       await withTimeout(Promise.all([holderReload, waitingReload]), 15_000, 'tabs did not settle after holder resumed')
@@ -176,7 +193,7 @@ try {
       assert.deepEqual(await tabA.evaluate(key => JSON.parse(sessionStorage.getItem(key)), recoveryPauseKey), { targetRefreshToken: null, paused: true, pauseCount: 1 })
       console.log('PASS paused holder resumed before its actual recovery deadline; session survived in both tabs')
     } else {
-      await withTimeout(tabB.waitForURL('**/login'), 40_000, 'replacement did not perform matched sign-out at the recovery deadline')
+      await withTimeout(tabB.waitForURL('**/login', { timeout: 40_000 }), 40_000, 'replacement did not perform matched sign-out at the recovery deadline')
       assert.equal(await readSharedSession(tabB), null)
       await debug.cdp.send('Debugger.resume')
       await withTimeout(Promise.all([holderReload, tabA.waitForURL('**/login')]), 15_000, 'resumed holder did not observe the completed sign-out')
@@ -189,6 +206,8 @@ try {
   }
 
   await exerciseTakeoverRecovery(true)
+  await logout(tabA)
+  await new Promise(resolve => setTimeout(resolve, 16_000))
   await login(tabA, users[0])
   await assertSignedIn(tabB, users[0].username)
   await exerciseTakeoverRecovery(false)

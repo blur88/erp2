@@ -34,15 +34,17 @@ holds the first refresh until both tabs have received a 401. It checks that one
 refresh request completes and that both tabs remain signed in.
 
 Two takeover recovery cases pause tab A with CDP in the successful refresh
-XHR's `loadend` handler, before Axios opens the IndexedDB write transaction.
-The server has rotated the token, and the response has arrived, while the
-holder is stopped before saving the new credentials. In the recovery case, tab
+XHR's `load` handler, after the server rotates the token and before Axios opens
+the IndexedDB write transaction. One context init script reads a mutable
+per-run target so only the current refresh save pauses. In the recovery case, tab
 B takes over after the 15-second lock expiry, receives the unchanged-token 401,
 and tab A resumes before tab B's actual 30-second recovery deadline; both tabs
 must remain signed in. In the loss case, tab A stays paused until tab B's matched
 sign-out completes, then resumes and must observe the deletion. The 45-second
 nominal acquisition-to-sign-out window is not an exact cutoff: request duration
-and browser scheduling affect when recovery starts and completes.
+and browser scheduling affect when recovery starts and completes. Between the
+cases, the harness signs out and waits for the earlier lock lease to expire
+before starting a new Session.
 
 The in-flight refresh case holds `/api/auth/refresh` after the 8 s access-token
 expiry causes a 401, signs out from tab A, waits for tab B to request `/login`,
