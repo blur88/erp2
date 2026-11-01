@@ -42,7 +42,7 @@ rejection of a late refresh save; the coordinator unit tests cover stale-save
 rejection. The Q25 CDP `Debugger.pause` variant is deferred; see [the #1345
 decision comment](https://github.com/blur88/erp2/issues/1345#issuecomment-6544506391).
 
-The idle cases keep two tabs open: tab B's warning begins at about 100 seconds; tab A acts at about 105 seconds, after that warning starts. At about 130 seconds, after the 120-second timeout plus a margin, the browser checks that B has not reached `/login` and the shared Session still exists. It then verifies that inactivity in both tabs signs both out. The 120-second override is set only by `tests/session/compose.yml`; ordinary runtime configuration defaults to 12 hours.
+The idle cases keep two tabs open: tab B's warning begins at about 100 seconds; tab A acts at about 105 seconds, after that warning starts. At about 130 seconds, after the 120-second timeout plus a margin, the browser checks that B has not reached `/login` and the shared Session still exists. It then verifies that inactivity in both tabs signs both out. The 120-second override is set by `tests/session/compose.yml`, which also lifts the frontend read-only setting for the test stack so the entrypoint can write `env-config.js`; ordinary runtime configuration defaults to 12 hours.
 
 After the run, restore the ordinary local Compose configuration:
 
