@@ -4,6 +4,8 @@ import type { Session, SessionStorage } from './storage'
 export const STORAGE_UNAVAILABLE = "This browser's storage is unavailable"
 export const SESSION_IDLE_TIMEOUT = 12 * 60 * 60 * 1000
 export const SESSION_ACTIVITY_WRITE_INTERVAL = 60 * 1000
+export const REFRESH_RECOVERY_WINDOW = 30_000
+export const REFRESH_RECOVERY_POLL = 250
 export interface SessionChannel {
   postMessage(message: unknown): void
   close(): void
@@ -229,7 +231,11 @@ export class SessionCoordinator {
           if (status === 401) {
             const latest = verify(await this.credentialsForRequest())
             if (latest.accessToken !== usedAccessToken || latest.refreshToken !== triedToken) continue
-            if (attempt.takeover) leaveToExpire = true
+            if (attempt.takeover) {
+              leaveToExpire = true
+              const recovered = await this.recoverExpiredLockTakeover(id, triedToken, usedAccessToken)
+              if (!recovered) continue
+            }
             else {
               const ended = await this.signOut(id, triedToken)
               if (!ended) {
@@ -255,11 +261,31 @@ export class SessionCoordinator {
     }
   }
 
-  private waitForRefreshChange(): Promise<void> {
+  /** Wait briefly for a stalled lock holder to publish its rotated credentials. */
+  private async recoverExpiredLockTakeover(id: string, refreshToken: string, usedAccessToken: string): Promise<boolean> {
+    const clock = this.options.clock ?? Date.now
+    const deadline = clock() + REFRESH_RECOVERY_WINDOW
+    while (clock() < deadline) {
+      await this.waitForRefreshChange(Math.min(REFRESH_RECOVERY_POLL, deadline - clock()))
+      const session = await this.credentialsForRequest()
+      if (!session || session.id !== id) throw new Error('Session ended before refresh recovery')
+      if (session.accessToken !== usedAccessToken || session.refreshToken !== refreshToken) return false
+    }
+    // The session id and refresh token are checked atomically by signOut.
+    const ended = await this.signOut(id, refreshToken)
+    if (!ended) {
+      const current = await this.credentialsForRequest()
+      if (!current || current.id !== id) throw new Error('Session ended before refresh recovery')
+      if (current.accessToken !== usedAccessToken || current.refreshToken !== refreshToken) return false
+    }
+    return true
+  }
+
+  private waitForRefreshChange(delay = REFRESH_RECOVERY_POLL): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.disposed) { reject(new Error('Session coordinator is disposed')); return }
       const wake = () => { clearTimeout(timer); this.waiters.delete(wake); resolve() }
-      const timer = setTimeout(wake, 250)
+      const timer = setTimeout(wake, delay)
       this.waiters.add(wake)
     })
   }
