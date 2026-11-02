@@ -30,6 +30,11 @@ docker run --rm --network host -v "$PWD:/work:ro" -w /work \
   mcr.microsoft.com/playwright:v1.63.0-noble \
   timeout 600 sh -c 'npm install --no-save --prefix /tmp/session-pw playwright@1.63.0 >/dev/null && node tests/session/cross-tab.mjs'
 
+if [[ ${SESSION_TEST_DEBUG:-0} == 1 ]]; then
+  docker compose -f docker-compose.yml -f tests/session/compose.yml exec -T nginx nginx -s reopen
+  docker compose -f docker-compose.yml -f tests/session/compose.yml exec -T nginx cat /var/log/nginx/access.log > "${SESSION_TEST_NGINX_LOG_PATH:-/tmp/session-nginx-access.log}"
+fi
+
 # Restart NGINX with its unmodified default login_limit in a fresh zone.
 cp nginx/nginx.conf "$test_conf"
 docker compose -f docker-compose.yml -f tests/session/compose.yml up -d --force-recreate nginx
