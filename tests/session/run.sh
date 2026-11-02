@@ -16,6 +16,7 @@ test_conf=tests/session/nginx.test.conf
 trap 'rm -f "$test_conf"' EXIT
 sed -e 's/zone=login_limit:10m rate=5r\/m/zone=login_limit:10m rate=600r\/m/' \
   -e 's/limit_req zone=login_limit burst=3 nodelay/limit_req zone=login_limit burst=50 nodelay/' \
+  -e 's/access.log combined buffer=16k/access.log combined/' \
   nginx/nginx.conf > "$test_conf"
 if cmp -s nginx/nginx.conf "$test_conf"; then
   echo 'Could not apply the test-only NGINX rate override' >&2
@@ -31,8 +32,7 @@ docker run --rm --network host -v "$PWD:/work:ro" -w /work \
   timeout 600 sh -c 'npm install --no-save --prefix /tmp/session-pw playwright@1.63.0 >/dev/null && node tests/session/cross-tab.mjs'
 
 if [[ ${SESSION_TEST_DEBUG:-0} == 1 ]]; then
-  docker compose -f docker-compose.yml -f tests/session/compose.yml exec -T nginx nginx -s reopen
-  docker compose -f docker-compose.yml -f tests/session/compose.yml exec -T nginx cat /var/log/nginx/access.log > "${SESSION_TEST_NGINX_LOG_PATH:-/tmp/session-nginx-access.log}"
+  docker compose -f docker-compose.yml -f tests/session/compose.yml logs --no-color nginx > "${SESSION_TEST_NGINX_LOG_PATH:-/tmp/session-nginx-access.log}"
 fi
 
 # Restart NGINX with its unmodified default login_limit in a fresh zone.
