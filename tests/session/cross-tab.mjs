@@ -310,6 +310,22 @@ try {
 
   await installRecoveryHooks()
   await exerciseTakeoverRecovery(true)
+  const authTrafficListeners = []
+  if (process.env.SESSION_TEST_DEBUG === '1') {
+    for (const [page, tab] of [[tabA, 'A'], [tabB, 'B']]) {
+      const onRequest = request => {
+        const url = new URL(request.url())
+        if (url.pathname.startsWith('/api/auth/')) console.log(`[AUTH ${tab}] ${Date.now()} ${request.method()} ${url.pathname} -`)
+      }
+      const onResponse = response => {
+        const url = new URL(response.url())
+        if (url.pathname.startsWith('/api/auth/')) console.log(`[AUTH ${tab}] ${Date.now()} ${response.request().method()} ${url.pathname} ${response.status()}`)
+      }
+      page.on('request', onRequest)
+      page.on('response', onResponse)
+      authTrafficListeners.push([page, onRequest, onResponse])
+    }
+  }
   await logout(tabA)
   await new Promise(resolve => setTimeout(resolve, 16_000))
   let loginRequestSeen = null
@@ -322,9 +338,11 @@ try {
   const loginConsoleListener = message => {
     if (message.type() === 'error') console.error(`[POST-RECOVERY-LOGIN] console ${Date.now()} ${message.text()}`)
   }
-  tabA.on('request', loginRequestListener)
-  tabA.on('response', loginResponseListener)
-  tabA.on('console', loginConsoleListener)
+  if (process.env.SESSION_TEST_DEBUG === '1') {
+    tabA.on('request', loginRequestListener)
+    tabA.on('response', loginResponseListener)
+    tabA.on('console', loginConsoleListener)
+  }
   try {
     await login(tabA, users[0])
   } catch (error) {
@@ -333,9 +351,15 @@ try {
     await tabA.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {})
     throw error
   } finally {
-    tabA.off('request', loginRequestListener)
-    tabA.off('response', loginResponseListener)
-    tabA.off('console', loginConsoleListener)
+    if (process.env.SESSION_TEST_DEBUG === '1') {
+      tabA.off('request', loginRequestListener)
+      tabA.off('response', loginResponseListener)
+      tabA.off('console', loginConsoleListener)
+    }
+  }
+  for (const [page, onRequest, onResponse] of authTrafficListeners) {
+    page.off('request', onRequest)
+    page.off('response', onResponse)
   }
   await assertSignedIn(tabB, users[0].username)
   await exerciseTakeoverRecovery(false)
