@@ -312,7 +312,30 @@ try {
   await exerciseTakeoverRecovery(true)
   await logout(tabA)
   await new Promise(resolve => setTimeout(resolve, 16_000))
-  await login(tabA, users[0])
+  let loginRequestSeen = null
+  const loginRequestListener = request => {
+    if (new URL(request.url()).pathname === '/api/auth/login') loginRequestSeen = request
+  }
+  const loginResponseListener = response => {
+    if (new URL(response.url()).pathname === '/api/auth/login') console.error(`[POST-RECOVERY-LOGIN] response ${Date.now()} ${response.status()}`)
+  }
+  const loginConsoleListener = message => {
+    if (message.type() === 'error') console.error(`[POST-RECOVERY-LOGIN] console ${Date.now()} ${message.text()}`)
+  }
+  tabA.on('request', loginRequestListener)
+  tabA.on('response', loginResponseListener)
+  tabA.on('console', loginConsoleListener)
+  try {
+    await login(tabA, users[0])
+  } catch (error) {
+    console.error(`[POST-RECOVERY-LOGIN] failed ${Date.now()} url=${tabA.url()} request=${loginRequestSeen?.url() ?? 'none'} error=${error.stack ?? error}`)
+    await tabA.screenshot({ path: `/tmp/session-post-recovery-login-${Date.now()}.png`, fullPage: true }).catch(() => {})
+    throw error
+  } finally {
+    tabA.off('request', loginRequestListener)
+    tabA.off('response', loginResponseListener)
+    tabA.off('console', loginConsoleListener)
+  }
   await assertSignedIn(tabB, users[0].username)
   await exerciseTakeoverRecovery(false)
   await login(tabA, users[0])
