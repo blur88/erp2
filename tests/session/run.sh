@@ -21,7 +21,7 @@ if ! grep -q 'rate=120r/m' "$test_conf"; then
   echo 'Could not apply the test-only NGINX 120 r/m rate override' >&2
   exit 2
 fi
-if ! grep -q 'access_log combined;' "$test_conf"; then
+if ! grep -q 'access.log combined;' "$test_conf"; then
   echo 'Could not disable NGINX access-log buffering for debug capture' >&2
   exit 2
 fi
