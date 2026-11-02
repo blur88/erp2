@@ -199,7 +199,7 @@ try {
     const debug = await pauseBeforeRefreshSave(tabA)
     try {
     await new Promise(resolve => setTimeout(resolve, Math.max(0, debug.accessTokenExpiresAt - Date.now() + 1000)))
-    console.log(`[RECOVERY] ${Date.now()} holder reload start`)
+    if (process.env.SESSION_TEST_DEBUG === '1') console.log(`[RECOVERY] ${Date.now()} holder reload start`)
     const holderReload = tabA.reload().catch(error => {
       if (!error.message.includes('net::ERR_ABORTED')) throw error
     })
