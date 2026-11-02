@@ -20,14 +20,15 @@ runs Chromium through the real NGINX and backend. It prints each passing case
 and sign-out propagation time, and exits nonzero on failure.
 
 The test-only Compose override sets `JWT_ACCESS_TOKEN_EXPIRY=8s` and `SESSION_IDLE_TIMEOUT_MS=120000`. The runner
-generates `tests/session/nginx.test.conf` from deployed `nginx/nginx.conf`,
-changing `login_limit` from `5r/m` to `600r/m` and its burst from `3` to `50`;
-it deletes that generated
-file on exit. The browser results verify coordination under these overrides,
-not under the default rate limit or production idle timeout. The runner then recreates NGINX with the
-unmodified configuration and runs `rate-limit.mjs` separately: it exhausts the
-default `login_limit`, observes a real refresh 429, and checks that the Session
-survives. The transport test checks that a single request does not automatically
+generates `tests/session/nginx.test.conf` from deployed `nginx/nginx.conf` with
+two changes: `login_limit` from `5r/m` to `120r/m`, and an unbuffered
+`access_log` so debug capture can read it. The runner force-recreates NGINX so
+the mounted configuration is loaded, then deletes the generated file on exit.
+The browser results verify coordination under these overrides, not under the
+default rate limit or production idle timeout. The runner then recreates NGINX
+with the unmodified configuration and runs `rate-limit.mjs` separately: it
+exhausts the default `login_limit`, observes a real refresh 429, and checks that
+the Session survives. The transport test checks that a single request does not automatically
 retry a 429. No production host is involved.
 
 The concurrent refresh case reloads both tabs after access-token expiry and
