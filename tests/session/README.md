@@ -35,7 +35,7 @@ refresh request completes and that both tabs remain signed in.
 
 Two takeover recovery cases pause tab A with CDP either in the successful
 `/api/auth/refresh` XHR `load` handler, or, when tab A has a tracked IndexedDB
-transaction open, in the harness's `complete` listener on tab A's last open
+transaction open, in the harness's `complete`, `abort` or `error` listener on tab A's last open
 transaction. In both cases the pause is before `SessionCoordinator.saveRefresh`
 opens its IndexedDB write transaction (`storage.change`). The init script tracks
 each tab's IndexedDB transactions and waits for tab A's open transactions to
@@ -43,11 +43,11 @@ complete before pausing. A concurrent `credentialsForRequest` read can open whil
 the refresh XHR is in flight. The save still cannot open before the pause: both
 `credentialsForRequest` and `saveRefresh` run through `SessionCoordinator.run`
 ([coordinator.ts:96-100](../../frontend/src/services/session/coordinator.ts#L96),
-[coordinator.ts:180-191](../../frontend/src/services/session/coordinator.ts#L180)),
+[coordinator.ts:182-193](../../frontend/src/services/session/coordinator.ts#L182)),
 so the save is queued behind the pending read. The harness registers its
 transaction `complete` listener inside the wrapped
 `IDBDatabase.prototype.transaction`, before
-[`storage.ts:50`](../../frontend/src/services/session/storage.ts#L50) assigns
+[`storage.ts:51`](../../frontend/src/services/session/storage.ts#L51) assigns
 `oncomplete`, so the pause runs before that read resolves. A per-page init script
 reads a mutable per-run target so only the current refresh save pauses.
 In the recovery case, tab
