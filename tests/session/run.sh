@@ -27,9 +27,9 @@ docker compose -f docker-compose.yml -f tests/session/compose.yml up -d --build 
 docker run --rm --network host -v "$PWD:/work:ro" -w /work \
   -e SESSION_TEST_BASE_URL -e SESSION_TEST_USER_A -e SESSION_TEST_PASSWORD_A \
   -e SESSION_TEST_USER_B -e SESSION_TEST_PASSWORD_B \
-  -e SESSION_TEST_DEBUG \
+  -e SESSION_TEST_DEBUG -e SESSION_TEST_ONLY -e SESSION_TEST_ITERATIONS \
   mcr.microsoft.com/playwright:v1.63.0-noble \
-  timeout 600 sh -c 'npm install --no-save --prefix /tmp/session-pw playwright@1.63.0 >/dev/null && node tests/session/cross-tab.mjs'
+  timeout "${SESSION_TEST_TIMEOUT_SECONDS:-600}" sh -c 'npm install --no-save --prefix /tmp/session-pw playwright@1.63.0 >/dev/null && node tests/session/cross-tab.mjs'
 
 if [[ ${SESSION_TEST_DEBUG:-0} == 1 ]]; then
   docker compose -f docker-compose.yml -f tests/session/compose.yml logs --no-color nginx > "${SESSION_TEST_NGINX_LOG_PATH:-/tmp/session-nginx-access.log}"

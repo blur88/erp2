@@ -312,19 +312,26 @@ try {
   await exerciseTakeoverRecovery(true)
   const authTrafficListeners = []
   if (process.env.SESSION_TEST_DEBUG === '1') {
-    for (const [page, tab] of [[tabA, 'A'], [tabB, 'B']]) {
-      const onRequest = request => {
-        const url = new URL(request.url())
-        if (url.pathname.startsWith('/api/auth/')) console.log(`[AUTH ${tab}] ${Date.now()} ${request.method()} ${url.pathname} -`)
-      }
-      const onResponse = response => {
-        const url = new URL(response.url())
-        if (url.pathname.startsWith('/api/auth/')) console.log(`[AUTH ${tab}] ${Date.now()} ${response.request().method()} ${url.pathname} ${response.status()}`)
-      }
-      page.on('request', onRequest)
-      page.on('response', onResponse)
-      authTrafficListeners.push([page, onRequest, onResponse])
+    const tabForRequest = request => {
+      try {
+        const page = request.frame().page()
+        if (page === tabA) return 'A'
+        if (page === tabB) return 'B'
+      } catch {}
+      return 'unknown'
     }
+    const onRequest = request => {
+      const url = new URL(request.url())
+      if (url.pathname.startsWith('/api/auth/')) console.log(`[AUTH ${tabForRequest(request)}] ${Date.now()} ${request.method()} ${url.pathname} -`)
+    }
+    const onResponse = response => {
+      const request = response.request()
+      const url = new URL(response.url())
+      if (url.pathname.startsWith('/api/auth/')) console.log(`[AUTH ${tabForRequest(request)}] ${Date.now()} ${request.method()} ${url.pathname} ${response.status()}`)
+    }
+    context.on('request', onRequest)
+    context.on('response', onResponse)
+    authTrafficListeners.push([context, onRequest, onResponse])
   }
   await logout(tabA)
   await new Promise(resolve => setTimeout(resolve, 16_000))
