@@ -35,8 +35,17 @@ refresh request completes and that both tabs remain signed in.
 
 Two takeover recovery cases pause tab A with CDP in the successful refresh
 XHR's `load` handler, after the server rotates the token and before Axios opens
-the IndexedDB write transaction. One context init script reads a mutable
-per-run target so only the current refresh save pauses. In the recovery case, tab
+the IndexedDB write transaction. The init script tracks tab A's IndexedDB
+transactions and waits until they have all completed before pausing. This keeps
+tab A from holding the shared `session` store while tab B acquires the refresh
+lock, while preserving the pause before tab A's refresh save. The transaction
+observed during refresh is the coordinator's own readonly reread in
+`refreshAfter401` (`coordinator.ts`, immediately after `acquireRefreshLock`).
+That read completes before the successful refresh callback can return. The
+subsequent `storage.change` that saves the rotated token is sequenced after the
+refresh promise resolves, so it cannot open before the pause resumes. A per-page init
+script reads a mutable per-run target so only the current refresh save pauses.
+In the recovery case, tab
 B takes over after the 15-second lock expiry, receives the unchanged-token 401,
 and tab A resumes before tab B's actual 30-second recovery deadline; both tabs
 must remain signed in. In the loss case, tab A stays paused until tab B's matched

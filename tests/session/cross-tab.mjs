@@ -9,9 +9,9 @@ const users = [
   { username: process.env.SESSION_TEST_USER_B, password: process.env.SESSION_TEST_PASSWORD_B },
 ]
 const browser = await chromium.launch({ headless: true })
-const context = await browser.newContext()
-const tabA = await context.newPage()
-const tabB = await context.newPage()
+let context = await browser.newContext()
+let tabA = await context.newPage()
+let tabB = await context.newPage()
 
 async function readSharedSession(page) {
   return withTimeout(page.evaluate(async () => new Promise((resolve, reject) => {
@@ -110,10 +110,37 @@ try {
   console.log('PASS simultaneous expired-token refresh uses one request and keeps both tabs signed in')
 
   const recoveryPauseKey = '__erpSessionRecoveryPause'
-  await context.addInitScript(key => {
+  async function installRecoveryHooks() {
+  for (const [page, name] of [[tabA, 'A'], [tabB, 'B']]) {
+  await page.addInitScript(({ key, debug }) => {
+    const pendingTransactions = new Set()
+    const waiters = new Set()
+    let refreshInFlight = false
+    const originalTransaction = IDBDatabase.prototype.transaction
+    let txId = 0
+    IDBDatabase.prototype.transaction = function (stores, mode, ...rest) {
+      const tx = originalTransaction.call(this, stores, mode, ...rest)
+      try {
+        const id = `tx-${++txId}`
+        pendingTransactions.add(id)
+        const opened = Date.now()
+        const names = typeof stores === 'string' ? stores : Array.from(stores).join(',')
+        if (debug) console.log(`[SESSIONDBG] tx-open ${id} ${typeof mode === 'string' ? mode : 'readonly'} ${names} ${opened}`)
+        if (debug && names.split(',').includes('session') && refreshInFlight) console.log(`[SESSIONDBG] in-flight-stack ${id} ${new Error().stack}`)
+        for (const event of ['complete', 'abort', 'error']) tx.addEventListener(event, () => {
+          pendingTransactions.delete(id)
+          for (const wake of waiters) wake()
+          try { if (debug) console.log(`[SESSIONDBG] tx-end ${id} ${event} ${Date.now()}`) } catch {}
+        }, { once: true })
+      } catch {}
+      return tx
+    }
     const open = XMLHttpRequest.prototype.open
     XMLHttpRequest.prototype.open = function (...args) {
       if (new URL(String(args[1]), location.href).pathname === '/api/auth/refresh') {
+        refreshInFlight = true
+        try { if (debug) console.log(`[SESSIONDBG] refresh-request ${Date.now()}`) } catch {}
+        try { this.addEventListener('loadend', () => { refreshInFlight = false; try { if (debug) console.log(`[SESSIONDBG] refresh-response ${this.status} ${Date.now()}`) } catch {} }, { once: true }) } catch {}
         this.addEventListener('load', function () {
           if (this.status !== 200) return
           let payload
@@ -123,16 +150,35 @@ try {
           } catch { return }
           const state = JSON.parse(sessionStorage.getItem(key) ?? 'null')
           if (!state?.targetRefreshToken || state.paused || payload.refreshToken === state.targetRefreshToken) return
-          state.paused = true
-          state.targetRefreshToken = null
-          state.pauseCount++
-          sessionStorage.setItem(key, JSON.stringify(state))
-          debugger
+          const pauseWhenClear = () => {
+            if (pendingTransactions.size) {
+              const wake = () => { waiters.delete(wake); pauseWhenClear() }
+              waiters.add(wake)
+              return
+            }
+            state.paused = true
+            state.targetRefreshToken = null
+            state.pauseCount++
+            sessionStorage.setItem(key, JSON.stringify(state))
+            debugger
+          }
+          pauseWhenClear()
         }, { once: true })
       }
       return open.apply(this, args)
     }
-  }, recoveryPauseKey)
+  }, { key: recoveryPauseKey, debug: process.env.SESSION_TEST_DEBUG === '1' })
+    if (process.env.SESSION_TEST_DEBUG === '1') {
+    page.on('console', message => { if (message.type() === 'log' && message.text().startsWith('[SESSIONDBG')) console.log(`[SESSIONDBG ${name}] ${message.text().slice('[SESSIONDBG] '.length)}`) })
+    page.on('request', request => { if (new URL(request.url()).pathname === '/api/auth/refresh') console.log(`[SESSIONDBG ${name}] request ${Date.now()} ${request.method()}`) })
+    page.on('response', response => { if (new URL(response.url()).pathname === '/api/auth/refresh') console.log(`[SESSIONDBG ${name}] response ${Date.now()} ${response.status()}`) })
+    if (name === 'A') {
+      page.on('framenavigated', frame => { if (frame === page.mainFrame()) console.log(`[SESSIONDBG A] navigation ${Date.now()} ${frame.url()}`) })
+      page.on('response', response => { const path = new URL(response.url()).pathname; if (path.startsWith('/api/') && !path.startsWith('/api/auth/')) console.log(`[SESSIONDBG A] api-response ${Date.now()} ${response.status()} ${path}`) })
+    }
+    }
+  }
+  }
 
   async function pauseBeforeRefreshSave(page) {
     const session = await readSharedSession(page)
@@ -151,7 +197,9 @@ try {
     await tabB.goto(base)
     await assertSignedIn(tabB, users[0].username)
     const debug = await pauseBeforeRefreshSave(tabA)
+    try {
     await new Promise(resolve => setTimeout(resolve, Math.max(0, debug.accessTokenExpiresAt - Date.now() + 1000)))
+    console.log(`[RECOVERY] ${Date.now()} holder reload start`)
     const holderReload = tabA.reload().catch(error => {
       if (!error.message.includes('net::ERR_ABORTED')) throw error
     })
@@ -181,9 +229,7 @@ try {
     } catch (error) {
       console.error('tab B API responses:', JSON.stringify({ authResponses, apiResponses }))
       throw error
-    } finally {
-      tabB.off('response', onAuthResponse)
-    }
+    } finally { tabB.off('response', onAuthResponse) }
     if (!recoverHolder) console.log('tab B auth responses:', JSON.stringify(authResponses))
     if (recoverHolder) {
       await debug.cdp.send('Debugger.resume')
@@ -202,9 +248,67 @@ try {
       assert.deepEqual(await tabA.evaluate(key => JSON.parse(sessionStorage.getItem(key)), recoveryPauseKey), { targetRefreshToken: null, paused: true, pauseCount: 1 })
       console.log('PASS holder stayed paused through matched sign-out; every tab signed out')
     }
-    await debug.cdp.detach()
+    } finally {
+      await debug.cdp.send('Debugger.resume').catch(() => {})
+      await debug.cdp.detach().catch(() => {})
+    }
   }
 
+  if (process.env.SESSION_TEST_ONLY === 'recovery') {
+    const iterations = Number(process.env.SESSION_TEST_ITERATIONS ?? 1)
+    assert.ok(Number.isInteger(iterations) && iterations > 0, 'SESSION_TEST_ITERATIONS must be a positive integer')
+    let failed = 0
+    let failedRecovery = 0
+    let failedLoss = 0
+    let currentCase = 'recovery'
+    let recoveryPassed = 0
+    let lossPassed = 0
+    let notPaused = 0
+    let didNotTakeOver = 0
+    await context.close()
+    for (let iteration = 1; iteration <= iterations; iteration++) {
+      let contextClosed = false
+      try {
+        context = await browser.newContext()
+        tabA = await context.newPage()
+        tabB = await context.newPage()
+        await installRecoveryHooks()
+        await tabA.goto(base)
+        await login(tabA, users[0])
+        await tabB.goto(base)
+        await exerciseTakeoverRecovery(true)
+        recoveryPassed++
+        currentCase = 'loss'
+        console.log(`MODE ${Date.now()} iteration ${iteration} recovery PASS`)
+        await logout(tabA)
+        await new Promise(resolve => setTimeout(resolve, 16_000))
+        await login(tabA, users[0])
+        await assertSignedIn(tabB, users[0].username)
+        await exerciseTakeoverRecovery(false)
+        lossPassed++
+        console.log(`MODE ${Date.now()} iteration ${iteration} loss PASS`)
+        await login(tabA, users[0])
+        await assertSignedIn(tabB, users[0].username)
+        console.log(`ITERATION ${Date.now()} ${iteration}/${iterations} PASS`)
+      } catch (error) {
+        failed++
+        if (currentCase === 'recovery') failedRecovery++
+        else failedLoss++
+        if (String(error.message ?? error).includes('not paused')) notPaused++
+        if (String(error.message ?? error).includes('did not take over')) didNotTakeOver++
+        console.error(`FAIL ${Date.now()} iteration ${iteration}/${iterations} case=${currentCase}: ${error.stack ?? error}`)
+        await context.close().catch(() => {})
+        contextClosed = true
+      }
+      if (!contextClosed) await context.close().catch(() => {})
+      currentCase = 'recovery'
+    }
+    console.log(`SUMMARY ${failed}/${iterations} iterations failed; recovery ${recoveryPassed} passed/${failedRecovery} failed, loss ${lossPassed} passed/${failedLoss} failed; not paused ${notPaused}, did not take over ${didNotTakeOver}`)
+    await browser.close()
+    process.exit(failed ? 1 : 0)
+  }
+
+  await installRecoveryHooks()
   await exerciseTakeoverRecovery(true)
   await logout(tabA)
   await new Promise(resolve => setTimeout(resolve, 16_000))
