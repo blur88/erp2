@@ -22,7 +22,7 @@ if cmp -s nginx/nginx.conf "$test_conf"; then
   exit 2
 fi
 
-docker compose -f docker-compose.yml -f tests/session/compose.yml up -d --build backend frontend nginx
+docker compose -f docker-compose.yml -f tests/session/compose.yml up -d --build --force-recreate nginx backend frontend
 docker run --rm --network host -v "$PWD:/work:ro" -w /work \
   -e SESSION_TEST_BASE_URL -e SESSION_TEST_USER_A -e SESSION_TEST_PASSWORD_A \
   -e SESSION_TEST_USER_B -e SESSION_TEST_PASSWORD_B \
