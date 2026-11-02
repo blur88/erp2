@@ -329,7 +329,8 @@ try {
     await login(tabA, users[0])
   } catch (error) {
     console.error(`[POST-RECOVERY-LOGIN] failed ${Date.now()} url=${tabA.url()} request=${loginRequestSeen?.url() ?? 'none'} error=${error.stack ?? error}`)
-    await tabA.screenshot({ path: `/tmp/session-post-recovery-login-${Date.now()}.png`, fullPage: true }).catch(() => {})
+    const screenshotPath = process.env.SESSION_TEST_SCREENSHOT_PATH ?? `/tmp/session-post-recovery-login-${Date.now()}.png`
+    await tabA.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {})
     throw error
   } finally {
     tabA.off('request', loginRequestListener)

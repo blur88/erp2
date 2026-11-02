@@ -21,7 +21,7 @@ and sign-out propagation time, and exits nonzero on failure.
 
 The test-only Compose override sets `JWT_ACCESS_TOKEN_EXPIRY=8s` and `SESSION_IDLE_TIMEOUT_MS=120000`. The runner
 generates `tests/session/nginx.test.conf` from deployed `nginx/nginx.conf`,
-changing only `login_limit` from `5r/m` to `120r/m`; it deletes that generated
+changing only `login_limit` from `5r/m` to `600r/m`; it deletes that generated
 file on exit. The browser results verify coordination under these overrides,
 not under the default rate limit or production idle timeout. The runner then recreates NGINX with the
 unmodified configuration and runs `rate-limit.mjs` separately: it exhausts the

@@ -14,7 +14,7 @@ fi
 
 test_conf=tests/session/nginx.test.conf
 trap 'rm -f "$test_conf"' EXIT
-sed 's/zone=login_limit:10m rate=5r\/m/zone=login_limit:10m rate=120r\/m/' nginx/nginx.conf > "$test_conf"
+sed 's/zone=login_limit:10m rate=5r\/m/zone=login_limit:10m rate=600r\/m/' nginx/nginx.conf > "$test_conf"
 if cmp -s nginx/nginx.conf "$test_conf"; then
   echo 'Could not apply the test-only NGINX rate override' >&2
   exit 2
