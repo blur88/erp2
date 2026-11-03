@@ -1,5 +1,5 @@
 import type { AuthResponse } from '@/store/slices/authSlice'
-import type { Session, SessionStorage } from './storage'
+import type { RefreshLock, Session, SessionStorage } from './storage'
 
 export const STORAGE_UNAVAILABLE = "This browser's storage is unavailable"
 export const SESSION_IDLE_TIMEOUT = 12 * 60 * 60 * 1000
@@ -200,30 +200,42 @@ export class SessionCoordinator {
       return session
     }
     let retryNewerSessionThroughLock = false
+    let waitingFor: RefreshLock | undefined
     for (;;) {
       let session = verify(await this.credentialsForRequest())
       if (session.accessToken !== usedAccessToken && !retryNewerSessionThroughLock) return session
       const lockAccessToken = retryNewerSessionThroughLock ? session.accessToken : usedAccessToken
       const attempt = await this.run(async () => {
-        const result = await this.options.storage.acquireRefreshLock(id, lockAccessToken, holder, this.options.clock ?? Date.now)
+        const result = await this.options.storage.acquireRefreshLock(id, lockAccessToken, holder, this.options.clock ?? Date.now, waitingFor)
         this.adopt(result.session)
         return result
       })
       session = verify(attempt.session)
+      if (attempt.failure) {
+        if (attempt.failure.refreshToken !== session.refreshToken) {
+          waitingFor = undefined
+          continue
+        }
+        const error = Object.assign(new Error(attempt.failure.message), { response: { status: attempt.failure.status } })
+        throw error
+      }
       if (session.accessToken !== lockAccessToken) {
         if (!retryNewerSessionThroughLock && session.accessToken !== usedAccessToken) return session
         if (session.accessToken !== usedAccessToken) retryNewerSessionThroughLock = true
         continue
       }
       if (!attempt.acquired || !attempt.lock) {
+        if (attempt.lock) waitingFor = attempt.lock
         await this.waitForRefreshChange()
         continue
       }
       const lock = attempt.lock
+      waitingFor = undefined
       const release = async () => {
         if (await this.options.storage.releaseRefreshLock(lock)) this.options.channel?.postMessage('changed')
       }
       let leaveToExpire = false
+      let lockReleased = false
       try {
         session = verify(await this.credentialsForRequest())
         if (session.accessToken !== usedAccessToken) return session
@@ -234,6 +246,18 @@ export class SessionCoordinator {
         } catch (error) {
           const failure = error as { code?: string; response?: { status?: number } }
           const status = failure?.response?.status
+          if (status === 429) {
+            const released = await this.options.storage.releaseRefreshLockWithFailure(lock, {
+              sessionId: id,
+              refreshToken: triedToken,
+              status,
+              message: error instanceof Error ? error.message : 'Refresh rate limited',
+            })
+            if (released) {
+              lockReleased = true
+              this.options.channel?.postMessage('changed')
+            }
+          }
           if (status === 401) {
             const latest = verify(await this.credentialsForRequest())
             if (latest.accessToken !== usedAccessToken || latest.refreshToken !== triedToken) continue
@@ -266,7 +290,7 @@ export class SessionCoordinator {
         this.options.channel?.postMessage('changed')
         return saved
       } finally {
-        if (!leaveToExpire) await release()
+        if (!leaveToExpire && !lockReleased) await release()
       }
     }
   }

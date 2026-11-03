@@ -34,12 +34,17 @@ try {
     }
     await route.continue()
   }, { times: 1 })
+  let refreshRequests = 0
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/api/auth/refresh') refreshRequests++
+  })
   const refresh = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/refresh', { timeout: 15000 })
   await page.reload()
   const refreshResponse = await refresh
   assert.ok(limited, 'default auth rate limit did not return 429')
   assert.equal(refreshResponse.status(), 429, 'refresh must be rejected by the real default limit')
   await new Promise(resolve => setTimeout(resolve, 1000))
+  assert.equal(refreshRequests, 1, 'a 429 must not start another refresh request for the same attempt')
   assert.ok(!new URL(page.url()).pathname.startsWith('/login'), '429 must not navigate to sign-in')
   const currentId = await page.evaluate(() => new Promise((resolve, reject) => {
     const open = indexedDB.open('erp-session')

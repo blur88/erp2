@@ -10,15 +10,17 @@ export interface Session {
 }
 
 export interface RefreshLock { holder: string; expires: number }
-export type LockAttempt = { session: Session | null; lock: RefreshLock | null; acquired: boolean; takeover: boolean }
+export interface RefreshFailure { sessionId: string; refreshToken: string; status: number; message: string }
+export type LockAttempt = { session: Session | null; lock: RefreshLock | null; acquired: boolean; takeover: boolean; failure?: RefreshFailure }
 
 export interface SessionStorage {
   open(): Promise<void>
   read(): Promise<Session | null>
   readSignOutMarker(): Promise<string | null>
   change(update: (current: Session | null, lastEnded: string | null) => Session | null): Promise<Session | null>
-  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number): Promise<LockAttempt>
+  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number, waitingFor?: RefreshLock): Promise<LockAttempt>
   releaseRefreshLock(lock: RefreshLock): Promise<boolean>
+  releaseRefreshLockWithFailure(lock: RefreshLock, failure: RefreshFailure): Promise<boolean>
   close(): void
 }
 
@@ -83,24 +85,58 @@ export class IndexedDbSessionStorage implements SessionStorage {
     })
   }
   change(update: (current: Session | null, lastEnded: string | null) => Session | null) { return this.transaction('readwrite', update) }
-  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number): Promise<LockAttempt> {
+  private refreshFailureKey(lock: RefreshLock) { return `refresh-failure:${lock.holder}:${lock.expires}` }
+
+  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number, waitingFor?: RefreshLock): Promise<LockAttempt> {
     return new Promise((resolve, reject) => {
       if (!this.database) { reject(new Error('Session storage is not open')); return }
       const tx = this.database.transaction('session', 'readwrite')
       const store = tx.objectStore('session')
       const sessionRequest = store.get('current')
       const lockRequest = store.get('refresh-lock')
+      const failureRequest = waitingFor ? store.get(this.refreshFailureKey(waitingFor)) : undefined
       let result: LockAttempt
-      lockRequest.onsuccess = () => {
+      let lockReady = false
+      let failureReady = !failureRequest
+      tx.oncomplete = () => resolve(result)
+      tx.onabort = () => reject(tx.error ?? new Error('Session storage transaction aborted'))
+      tx.onerror = () => reject(tx.error)
+      const finish = () => {
+        if (!lockReady || !failureReady) return
         const now = clock()
         const session: Session | null = sessionRequest.result ?? null
         const existing: RefreshLock | null = lockRequest.result ?? null
+        const failure: RefreshFailure | undefined = failureRequest?.result
+        if (failure && failure.sessionId === id && session?.id === id) {
+          result = { session, lock: existing, acquired: false, takeover: false, failure }
+          return
+        }
         const acquired = session?.id === id && session.accessToken === accessToken && (!existing || existing.expires <= now)
         const lock = acquired ? { holder, expires: now + 15000 } : existing
         if (acquired) store.put(lock, 'refresh-lock')
         result = { session, lock, acquired, takeover: !!(acquired && existing) }
       }
-      tx.oncomplete = () => resolve(result)
+      lockRequest.onsuccess = () => { lockReady = true; finish() }
+      if (failureRequest) failureRequest.onsuccess = () => { failureReady = true; finish() }
+    })
+  }
+
+  releaseRefreshLockWithFailure(lock: RefreshLock, failure: RefreshFailure): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      if (!this.database) { reject(new Error('Session storage is not open')); return }
+      const tx = this.database.transaction('session', 'readwrite')
+      const store = tx.objectStore('session')
+      const request = store.get('refresh-lock')
+      let released = false
+      request.onsuccess = () => {
+        const current: RefreshLock | undefined = request.result
+        if (current?.holder === lock.holder && current.expires === lock.expires) {
+          store.put(failure, this.refreshFailureKey(lock))
+          store.delete('refresh-lock')
+          released = true
+        }
+      }
+      tx.oncomplete = () => resolve(released)
       tx.onabort = () => reject(tx.error ?? new Error('Session storage transaction aborted'))
       tx.onerror = () => reject(tx.error)
     })
