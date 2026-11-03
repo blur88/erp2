@@ -9,9 +9,9 @@ const users = [
   { username: process.env.SESSION_TEST_USER_B, password: process.env.SESSION_TEST_PASSWORD_B },
 ]
 const browser = await chromium.launch({ headless: true })
-const context = await browser.newContext()
-const tabA = await context.newPage()
-const tabB = await context.newPage()
+let context = await browser.newContext()
+let tabA = await context.newPage()
+let tabB = await context.newPage()
 
 async function readSharedSession(page) {
   return withTimeout(page.evaluate(async () => new Promise((resolve, reject) => {
@@ -63,6 +63,88 @@ async function logout(page) {
   await page.waitForURL('**/login')
 }
 
+function createAuthTrace() {
+  const traceContext = context
+  const tracePages = [tabA, tabB]
+  const debug = process.env.SESSION_TEST_DEBUG === '1'
+  const responses = new Map(tracePages.map(page => [page, []]))
+  const loginRequests = new Map()
+  const waiters = new Set()
+  let captureWindow = false
+
+  function pageForRequest(request) {
+    try {
+      const page = request.frame().page()
+      return responses.has(page) ? page : null
+    } catch {
+      return null
+    }
+  }
+
+  const onRequest = request => {
+    const page = pageForRequest(request)
+    if (!page) return
+    const url = new URL(request.url())
+    if (url.pathname === '/api/auth/login') loginRequests.set(page, request)
+    if (captureWindow && debug && url.pathname.startsWith('/api/auth/')) {
+      const tab = page === tabA ? 'A' : 'B'
+      console.log(`[AUTH ${tab}] ${Date.now()} ${request.method()} ${url.pathname} -`)
+    }
+  }
+
+  const onResponse = response => {
+    const request = response.request()
+    const page = pageForRequest(request)
+    if (!page) return
+    const url = new URL(response.url())
+    const record = { status: response.status(), path: url.pathname, response }
+    if (url.pathname.startsWith('/api/')) responses.get(page).push(record)
+    if (captureWindow && debug && url.pathname.startsWith('/api/auth/')) {
+      const tab = page === tabA ? 'A' : 'B'
+      console.log(`[AUTH ${tab}] ${Date.now()} ${request.method()} ${url.pathname} ${response.status()}`)
+    }
+    for (const waiter of waiters) {
+      if (waiter.page === page && waiter.predicate(response)) {
+        waiters.delete(waiter)
+        waiter.resolve(response)
+      }
+    }
+  }
+
+  const onConsole = (page, message) => {
+    if (captureWindow && debug && message.type() === 'error') {
+      console.error(`[POST-RECOVERY-LOGIN] console ${Date.now()} ${message.text()}`)
+    }
+  }
+  const consoleListeners = tracePages.map(page => {
+    const listener = message => onConsole(page, message)
+    page.on('console', listener)
+    return [page, listener]
+  })
+
+  traceContext.on('request', onRequest)
+  traceContext.on('response', onResponse)
+
+  return {
+    beginWindow() { captureWindow = true },
+    endWindow() { captureWindow = false },
+    loginRequest(page) { return loginRequests.get(page) ?? null },
+    responseCount(page) { return responses.get(page).length },
+    apiResponses(page, fromIndex = 0) { return responses.get(page).slice(fromIndex).map(({ status, path }) => [status, path]) },
+    waitForResponse(page, predicate, fromIndex = 0) {
+      const previous = responses.get(page).slice(fromIndex).find(({ response }) => predicate(response))
+      if (previous) return Promise.resolve(previous.response)
+      return new Promise(resolve => waiters.add({ page, predicate, resolve }))
+    },
+    dispose() {
+      traceContext.off('request', onRequest)
+      traceContext.off('response', onResponse)
+      for (const [page, listener] of consoleListeners) page.off('console', listener)
+      waiters.clear()
+    },
+  }
+}
+
 try {
   await tabA.goto(base)
   assert.equal(await tabA.evaluate(() => isSecureContext), false, 'LAN HTTP must be an insecure context')
@@ -110,29 +192,125 @@ try {
   console.log('PASS simultaneous expired-token refresh uses one request and keeps both tabs signed in')
 
   const recoveryPauseKey = '__erpSessionRecoveryPause'
-  await context.addInitScript(key => {
-    const open = XMLHttpRequest.prototype.open
-    XMLHttpRequest.prototype.open = function (...args) {
-      if (new URL(String(args[1]), location.href).pathname === '/api/auth/refresh') {
-        this.addEventListener('load', function () {
-          if (this.status !== 200) return
-          let payload
+  async function installRecoveryHooks() {
+    for (const [page, name] of [[tabA, 'A'], [tabB, 'B']]) {
+      await page.addInitScript(({ key, debug }) => {
+        const pendingTransactions = new Set()
+        const waiters = new Set()
+        let refreshInFlight = false
+        const originalTransaction = IDBDatabase.prototype.transaction
+        let txId = 0
+        const reportTrackingError = (operation, error) => {
+          if (debug) console.error(`[SESSIONDBG] instrumentation-error ${operation}: ${error?.stack ?? error}`)
+        }
+
+        IDBDatabase.prototype.transaction = function (stores, mode, ...rest) {
+          const tx = originalTransaction.call(this, stores, mode, ...rest)
+          let id
           try {
-            const body = JSON.parse(this.responseText)
-            payload = body.data ?? body
-          } catch { return }
-          const state = JSON.parse(sessionStorage.getItem(key) ?? 'null')
-          if (!state?.targetRefreshToken || state.paused || payload.refreshToken === state.targetRefreshToken) return
-          state.paused = true
-          state.targetRefreshToken = null
-          state.pauseCount++
-          sessionStorage.setItem(key, JSON.stringify(state))
-          debugger
-        }, { once: true })
+            id = `tx-${++txId}`
+            pendingTransactions.add(id)
+            const opened = Date.now()
+            const names = typeof stores === 'string' ? stores : Array.from(stores).join(',')
+            if (debug) console.log(`[SESSIONDBG] tx-open ${id} ${typeof mode === 'string' ? mode : 'readonly'} ${names} ${opened}`)
+            if (debug && names.split(',').includes('session') && refreshInFlight) console.log(`[SESSIONDBG] in-flight-stack ${id} ${new Error().stack}`)
+            for (const event of ['complete', 'abort', 'error']) {
+              tx.addEventListener(event, () => {
+                if (event !== 'error') pendingTransactions.delete(id)
+                try {
+                  if (debug) console.log(`[SESSIONDBG] ${event === 'error' ? 'tx-error' : 'tx-end'} ${id} ${event} ${Date.now()}`)
+                } catch (error) {
+                  reportTrackingError(`transaction ${id} ${event} log`, error)
+                }
+                if (pendingTransactions.size === 0) {
+                  const ready = [...waiters]
+                  waiters.clear()
+                  for (const wake of ready) wake()
+                }
+              }, { once: true })
+            }
+          } catch (error) {
+            reportTrackingError(id ? `transaction ${id} tracking` : 'transaction tracking', error)
+          }
+          return tx
+        }
+
+        const open = XMLHttpRequest.prototype.open
+        XMLHttpRequest.prototype.open = function (...args) {
+          if (new URL(String(args[1]), location.href).pathname === '/api/auth/refresh') {
+            refreshInFlight = true
+            try {
+              if (debug) console.log(`[SESSIONDBG] refresh-request ${Date.now()}`)
+            } catch (error) {
+              reportTrackingError('refresh request log', error)
+            }
+            try {
+              this.addEventListener('loadend', () => {
+                refreshInFlight = false
+                try {
+                  if (debug) console.log(`[SESSIONDBG] refresh-response ${this.status} ${Date.now()}`)
+                } catch (error) {
+                  reportTrackingError('refresh response log', error)
+                }
+              }, { once: true })
+            } catch (error) {
+              reportTrackingError('refresh loadend listener', error)
+            }
+            this.addEventListener('load', function () {
+              if (this.status !== 200) return
+              let payload
+              try {
+                const body = JSON.parse(this.responseText)
+                payload = body.data ?? body
+              } catch { return }
+              const state = JSON.parse(sessionStorage.getItem(key) ?? 'null')
+              if (!state?.targetRefreshToken || state.paused || payload.refreshToken === state.targetRefreshToken) return
+              const pauseWhenClear = () => {
+                if (state.paused) return
+                if (pendingTransactions.size) {
+                  const wake = () => { waiters.delete(wake); pauseWhenClear() }
+                  waiters.add(wake)
+                  return
+                }
+                state.paused = true
+                state.targetRefreshToken = null
+                state.pauseCount++
+                sessionStorage.setItem(key, JSON.stringify(state))
+                debugger
+              }
+              pauseWhenClear()
+            }, { once: true })
+          }
+          return open.apply(this, args)
+        }
+      }, { key: recoveryPauseKey, debug: process.env.SESSION_TEST_DEBUG === '1' })
+
+      page.on('console', message => {
+        if (process.env.SESSION_TEST_DEBUG === '1' && message.text().startsWith('[SESSIONDBG] instrumentation-error')) {
+          console.error(`[SESSIONDBG ${name}] ${message.text()}`)
+        } else if (process.env.SESSION_TEST_DEBUG === '1' && message.type() === 'log' && message.text().startsWith('[SESSIONDBG]')) {
+          console.log(`[SESSIONDBG ${name}] ${message.text().slice('[SESSIONDBG] '.length)}`)
+        }
+      })
+      if (process.env.SESSION_TEST_DEBUG === '1') {
+        page.on('request', request => {
+          if (new URL(request.url()).pathname === '/api/auth/refresh') console.log(`[SESSIONDBG ${name}] request ${Date.now()} ${request.method()}`)
+        })
+        page.on('response', response => {
+          if (new URL(response.url()).pathname === '/api/auth/refresh') console.log(`[SESSIONDBG ${name}] response ${Date.now()} ${response.status()}`)
+        })
+        if (name === 'A') {
+          page.on('framenavigated', frame => {
+            if (frame === page.mainFrame()) console.log(`[SESSIONDBG A] navigation ${Date.now()} ${frame.url()}`)
+          })
+          page.on('response', response => {
+            const path = new URL(response.url()).pathname
+            if (path.startsWith('/api/') && !path.startsWith('/api/auth/')) console.log(`[SESSIONDBG A] api-response ${Date.now()} ${response.status()} ${path}`)
+          })
+        }
       }
-      return open.apply(this, args)
     }
-  }, recoveryPauseKey)
+  }
 
   async function pauseBeforeRefreshSave(page) {
     const session = await readSharedSession(page)
@@ -145,74 +323,131 @@ try {
     return { cdp, paused, accessTokenExpiresAt }
   }
 
-  async function exerciseTakeoverRecovery(recoverHolder) {
+  async function exerciseTakeoverRecovery(recoverHolder, authTrace) {
     await tabA.goto(base)
     await assertSignedIn(tabA, users[0].username)
     await tabB.goto(base)
     await assertSignedIn(tabB, users[0].username)
     const debug = await pauseBeforeRefreshSave(tabA)
-    await new Promise(resolve => setTimeout(resolve, Math.max(0, debug.accessTokenExpiresAt - Date.now() + 1000)))
-    const holderReload = tabA.reload().catch(error => {
-      if (!error.message.includes('net::ERR_ABORTED')) throw error
-    })
-    await withTimeout(debug.paused, 15000, 'holder refresh response was not paused after server rotation')
-    const takeover401 = new Promise(resolve => {
-      const listener = response => {
-        if (response.status() === 401 && new URL(response.url()).pathname === '/api/auth/refresh') {
-          tabB.off('response', listener)
-          resolve()
-        }
-      }
-      tabB.on('response', listener)
-    })
-    const authResponses = []
-    const apiResponses = []
-    const onAuthResponse = response => {
-      const path = new URL(response.url()).pathname
-      if (path.startsWith('/api/auth/')) authResponses.push([response.status(), path])
-      if (path.startsWith('/api/')) apiResponses.push([response.status(), path])
-    }
-    tabB.on('response', onAuthResponse)
-    const waitingReload = tabB.reload().catch(error => {
-      if (!error.message.includes('net::ERR_ABORTED')) throw error
-    })
     try {
-      await withTimeout(takeover401, 25_000, 'replacement tab did not take over and receive the unchanged-token 401')
-    } catch (error) {
-      console.error('tab B API responses:', JSON.stringify({ authResponses, apiResponses }))
-      throw error
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, debug.accessTokenExpiresAt - Date.now() + 1000)))
+      if (process.env.SESSION_TEST_DEBUG === '1') console.log(`[RECOVERY] ${Date.now()} holder reload start`)
+      const holderReload = tabA.reload().catch(error => {
+        if (!error.message.includes('net::ERR_ABORTED')) throw error
+      })
+      await withTimeout(debug.paused, 15000, 'holder refresh response was not paused after server rotation')
+      const tabBResponseStart = authTrace.responseCount(tabB)
+      const takeover401 = authTrace.waitForResponse(tabB, response =>
+        response.status() === 401 && new URL(response.url()).pathname === '/api/auth/refresh', tabBResponseStart)
+      const waitingReload = tabB.reload().catch(error => {
+        if (!error.message.includes('net::ERR_ABORTED')) throw error
+      })
+      try {
+        await withTimeout(takeover401, 25_000, 'replacement tab did not take over and receive the unchanged-token 401')
+      } catch (error) {
+        console.error('tab B API responses:', JSON.stringify(authTrace.apiResponses(tabB, tabBResponseStart)))
+        throw error
+      }
+      if (!recoverHolder) console.log('tab B auth responses:', JSON.stringify(authTrace.apiResponses(tabB, tabBResponseStart).filter(([, path]) => path.startsWith('/api/auth/'))))
+      if (recoverHolder) {
+        await debug.cdp.send('Debugger.resume')
+        await withTimeout(Promise.all([holderReload, waitingReload]), 15_000, 'tabs did not settle after holder resumed')
+        await assertSignedIn(tabA, users[0].username)
+        await assertSignedIn(tabB, users[0].username)
+        assert.deepEqual(await tabA.evaluate(key => JSON.parse(sessionStorage.getItem(key)), recoveryPauseKey), { targetRefreshToken: null, paused: true, pauseCount: 1 })
+        console.log('PASS paused holder resumed before its actual recovery deadline; session survived in both tabs')
+      } else {
+        await withTimeout(tabB.waitForURL('**/login', { timeout: 40_000 }), 40_000, 'replacement did not perform matched sign-out at the recovery deadline')
+        assert.equal(await readSharedSession(tabB), null)
+        await debug.cdp.send('Debugger.resume')
+        await withTimeout(Promise.all([holderReload, tabA.waitForURL('**/login')]), 15_000, 'resumed holder did not observe the completed sign-out')
+        assert.equal(await readSharedSession(tabA), null)
+        assert.equal(await readSharedSession(tabB), null)
+        assert.deepEqual(await tabA.evaluate(key => JSON.parse(sessionStorage.getItem(key)), recoveryPauseKey), { targetRefreshToken: null, paused: true, pauseCount: 1 })
+        console.log('PASS holder stayed paused through matched sign-out; every tab signed out')
+      }
     } finally {
-      tabB.off('response', onAuthResponse)
+      await debug.cdp.send('Debugger.resume').catch(() => {})
+      await debug.cdp.detach().catch(() => {})
     }
-    if (!recoverHolder) console.log('tab B auth responses:', JSON.stringify(authResponses))
-    if (recoverHolder) {
-      await debug.cdp.send('Debugger.resume')
-      await withTimeout(Promise.all([holderReload, waitingReload]), 15_000, 'tabs did not settle after holder resumed')
-      await assertSignedIn(tabA, users[0].username)
-      await assertSignedIn(tabB, users[0].username)
-      assert.deepEqual(await tabA.evaluate(key => JSON.parse(sessionStorage.getItem(key)), recoveryPauseKey), { targetRefreshToken: null, paused: true, pauseCount: 1 })
-      console.log('PASS paused holder resumed before its actual recovery deadline; session survived in both tabs')
-    } else {
-      await withTimeout(tabB.waitForURL('**/login', { timeout: 40_000 }), 40_000, 'replacement did not perform matched sign-out at the recovery deadline')
-      assert.equal(await readSharedSession(tabB), null)
-      await debug.cdp.send('Debugger.resume')
-      await withTimeout(Promise.all([holderReload, tabA.waitForURL('**/login')]), 15_000, 'resumed holder did not observe the completed sign-out')
-      assert.equal(await readSharedSession(tabA), null)
-      assert.equal(await readSharedSession(tabB), null)
-      assert.deepEqual(await tabA.evaluate(key => JSON.parse(sessionStorage.getItem(key)), recoveryPauseKey), { targetRefreshToken: null, paused: true, pauseCount: 1 })
-      console.log('PASS holder stayed paused through matched sign-out; every tab signed out')
-    }
-    await debug.cdp.detach()
   }
 
-  await exerciseTakeoverRecovery(true)
-  await logout(tabA)
-  await new Promise(resolve => setTimeout(resolve, 16_000))
-  await login(tabA, users[0])
-  await assertSignedIn(tabB, users[0].username)
-  await exerciseTakeoverRecovery(false)
-  await login(tabA, users[0])
-  await assertSignedIn(tabB, users[0].username)
+  async function runRecoveryPair(authTrace, { onCase = () => {}, onPass = () => {} } = {}) {
+    onCase('recovery')
+    await exerciseTakeoverRecovery(true, authTrace)
+    onPass('recovery')
+
+    onCase('loss')
+    authTrace.beginWindow()
+    try {
+      await logout(tabA)
+      await new Promise(resolve => setTimeout(resolve, 16_000))
+      try {
+        await login(tabA, users[0])
+      } catch (error) {
+        console.error(`[POST-RECOVERY-LOGIN] failed ${Date.now()} url=${tabA.url()} request=${authTrace.loginRequest(tabA)?.url() ?? 'none'} error=${error.stack ?? error}`)
+        throw error
+      }
+    } finally {
+      authTrace.endWindow()
+    }
+    await assertSignedIn(tabB, users[0].username)
+    await exerciseTakeoverRecovery(false, authTrace)
+    onPass('loss')
+    await login(tabA, users[0])
+    await assertSignedIn(tabB, users[0].username)
+  }
+
+  if (process.env.SESSION_TEST_ONLY === 'recovery') {
+    const iterations = Number(process.env.SESSION_TEST_ITERATIONS ?? 1)
+    assert.ok(Number.isInteger(iterations) && iterations > 0, 'SESSION_TEST_ITERATIONS must be a positive integer')
+    const counts = {
+      currentCase: 'recovery',
+      recovery: { passed: 0, failed: 0 },
+      loss: { passed: 0, failed: 0 },
+    }
+    await context.close()
+    for (let iteration = 1; iteration <= iterations; iteration++) {
+      counts.currentCase = 'recovery'
+      let authTrace
+      try {
+        context = await browser.newContext()
+        tabA = await context.newPage()
+        tabB = await context.newPage()
+        await installRecoveryHooks()
+        await tabA.goto(base)
+        await login(tabA, users[0])
+        await tabB.goto(base)
+        authTrace = createAuthTrace()
+        await runRecoveryPair(authTrace, {
+          onCase: testCase => { counts.currentCase = testCase },
+          onPass: testCase => {
+            counts[testCase].passed++
+            console.log(`MODE ${Date.now()} iteration ${iteration} ${testCase} PASS`)
+          },
+        })
+        console.log(`ITERATION ${Date.now()} ${iteration}/${iterations} PASS`)
+      } catch (error) {
+        counts[counts.currentCase].failed++
+        console.error(`FAIL ${Date.now()} iteration ${iteration}/${iterations} case=${counts.currentCase}: ${error.stack ?? error}`)
+      } finally {
+        authTrace?.dispose()
+        await context.close().catch(() => {})
+      }
+    }
+    const failed = counts.recovery.failed + counts.loss.failed
+    console.log(`SUMMARY ${failed}/${iterations} iterations failed; recovery ${counts.recovery.passed} passed/${counts.recovery.failed} failed, loss ${counts.loss.passed} passed/${counts.loss.failed} failed`)
+    await browser.close()
+    process.exit(failed ? 1 : 0)
+  }
+
+  await installRecoveryHooks()
+  const authTrace = createAuthTrace()
+  try {
+    await runRecoveryPair(authTrace)
+  } finally {
+    authTrace.dispose()
+  }
 
   const { promise: refreshGate, resolve: releaseRefresh } = Promise.withResolvers()
   const { promise: refreshRequestCaptured, resolve: markRefreshRequestCaptured } = Promise.withResolvers()
