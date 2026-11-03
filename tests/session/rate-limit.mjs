@@ -42,7 +42,7 @@ try {
     const order = ++eventOrder
     const pathname = new URL(request.url()).pathname
     if (pathname === '/api/auth/refresh') refreshRequestOrders.push(order)
-    else if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/') && pathname !== '/api/health' && !pathname.startsWith('/api/health/')) protectedRequestOrders.push(order)
+    else if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/') && pathname !== '/api/health') protectedRequestOrders.push(order)
   })
   page.on('response', response => {
     const order = ++eventOrder
