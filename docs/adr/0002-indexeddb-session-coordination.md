@@ -6,7 +6,7 @@ status: accepted
 
 ## Decision
 
-Use one IndexedDB Session record, a separate IndexedDB refresh-lock record and BroadcastChannel change notifications. IndexedDB is authoritative; a message only tells a tab to read it again. Redux holds each tab's in-memory view. The coordinator owns storage transactions and concurrency rules, with injectable storage, channel and clock and an explicit dispose operation.
+Use one IndexedDB object store for the current Session record, the refresh lock and per-attempt refresh failure records, with BroadcastChannel change notifications. The failure records use `refresh-failure:<holder>:<expires>` keys and retain a 429 outcome for requests using the same Session and refresh token that started before that attempt settled. Delete them atomically when their Session ends or a newer refresh succeeds; a request started after the attempt settles may refresh. IndexedDB is authoritative; a message only tells a tab to read it again. Redux holds each tab's in-memory view. The coordinator owns storage transactions and concurrency rules, with injectable storage, channel and clock and an explicit dispose operation.
 
 This is the decision in [#1345 Q7–Q9, Q17 and Q21](https://github.com/blur88/erp2/issues/1345#issuecomment-6505446834), implemented incrementally from [T1 (#1548)](https://github.com/blur88/erp2/issues/1548). T1 adds the Session record, request reconciliation, matched deletion and writes. A [reviewed resurrection case](https://github.com/blur88/erp2/issues/1548#issuecomment-6528829195) also requires a last-ended-Session marker: login captures it before the network request and compares it when saving. This invalidates pending logins without ordering concurrent valid sign-ins.
 

@@ -181,14 +181,13 @@ export class SessionCoordinator {
   /** Token rotation needs a pair update matched to the token actually tried. */
   saveRefresh(id: string, refreshToken: string, response: AuthResponse) {
     return this.run(async () => {
-      let saved = false
-      const current = await this.options.storage.change(session => {
-        if (session?.id !== id || session.refreshToken !== refreshToken) return session
-        saved = true
-        return { ...session, accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user }
+      const result = await this.options.storage.saveRefresh(id, refreshToken, {
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        user: response.user,
       })
-      this.adopt(current)
-      return saved ? current : null
+      this.adopt(result.session)
+      return result.saved ? result.session : null
     })
   }
 
