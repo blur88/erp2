@@ -17,7 +17,7 @@ Replace `10.1.1.34` with the host's LAN IPv4 address. The runner rejects
 to pull `mcr.microsoft.com/playwright:v1.63.0-noble` and install the matching
 Playwright package. The script rebuilds the real frontend and backend, then
 runs Chromium through the real NGINX and backend. It prints each passing case
-and sign-out propagation time, and exits nonzero on failure.
+and End browser Session propagation time, and exits nonzero on failure.
 
 The test-only Compose override sets `JWT_ACCESS_TOKEN_EXPIRY=8s` and `SESSION_IDLE_TIMEOUT_MS=120000`. The runner
 generates `tests/session/nginx.test.conf` from deployed `nginx/nginx.conf` with
@@ -47,6 +47,15 @@ The runner accepts these optional environment variables:
 The concurrent refresh case reloads both tabs after access-token expiry and
 holds the first refresh until both tabs have received a 401. It checks that one
 refresh request completes and that both tabs remain signed in.
+
+The suspended-tab case suppresses `erp-session` BroadcastChannel delivery to
+tab B, ends the browser Session in tab A, then resumes B with `visibilitychange`.
+It checks that B sends no authenticated request before navigating to `/login`.
+During that case, the init script gates tab B's other document-visibility and
+window-focus listeners so they cannot trigger their own reconciliation; it
+identifies the coordinator listener by its `credentialsForRequest` callback.
+Before suppression, the request observer confirms it sees an `Authorization`
+header on an authenticated API request from tab B.
 
 Two takeover recovery cases pause tab A with CDP either in the successful
 `/api/auth/refresh` XHR `load` handler, or, when tab A has a tracked IndexedDB
@@ -81,8 +90,8 @@ In the recovery case, tab
 B takes over after the 15-second lock expiry, receives the unchanged-token 401,
 and tab A resumes before tab B's actual 30-second recovery deadline; both tabs
 must remain signed in. In the loss case, tab A stays paused until tab B's matched
-sign-out completes, then resumes and must observe the deletion. The 45-second
-nominal acquisition-to-sign-out window is not an exact cutoff: request duration
+End browser Session completes, then resumes and must observe the deletion. The
+45-second nominal acquisition-to-End-browser-Session window is not an exact cutoff: request duration
 and browser scheduling affect when recovery starts and completes. Between the
 cases, the harness signs out and waits for the earlier lock lease to expire
 before starting a new Session.
@@ -99,7 +108,7 @@ The in-flight refresh case holds `/api/auth/refresh` after the 8 s access-token
 expiry causes a 401, signs out from tab A, waits for tab B to request `/login`,
 releases refresh, then checks that the shared record is null in both tabs once
 each has settled on `/login`.
-The sign-out reload destroys tab B's document, so this case does not verify
+The End browser Session reload destroys tab B's document, so this case does not verify
 rejection of a late refresh save; the coordinator unit tests cover stale-save
 rejection.
 

@@ -197,6 +197,26 @@ try {
     window.__sessionTestDroppedBroadcasts = 0
     window.__sessionTestIsolateResume = false
   })
+  const authenticatedRequestsBeforeSuppression = []
+  const authenticatedRequestsBeforeLogin = []
+  let requestPhase = 'baseline'
+  let reachedLogin = false
+  const onMainFrameNavigated = frame => {
+    if (requestPhase === 'resume' && frame === tabB.mainFrame() && new URL(frame.url()).pathname === '/login') reachedLogin = true
+  }
+  const onRequest = request => {
+    const phaseAtStart = requestPhase
+    const beforeLoginAtStart = phaseAtStart === 'resume' && !reachedLogin
+    const url = new URL(request.url())
+    if (!url.pathname.startsWith('/api/') || url.pathname.startsWith('/api/auth/')) return
+    const authorization = Object.keys(request.headers()).find(header => header.toLowerCase() === 'authorization')
+    if (!authorization) return
+    const requestDescription = `${request.method()} ${url.pathname}`
+    if (phaseAtStart === 'baseline') authenticatedRequestsBeforeSuppression.push(requestDescription)
+    else if (beforeLoginAtStart) authenticatedRequestsBeforeLogin.push(requestDescription)
+  }
+  tabB.on('framenavigated', onMainFrameNavigated)
+  tabB.on('request', onRequest)
   await tabB.reload()
   await assertSignedIn(tabB, users[0].username)
   // Refresh the short-lived token before the missed-message window.
@@ -204,10 +224,13 @@ try {
   await login(tabA, users[0])
   await assertSignedIn(tabB, users[0].username)
   await tabB.waitForLoadState('networkidle')
+  assert.ok(authenticatedRequestsBeforeSuppression.length > 0, 'request observer must capture an Authorization header from tab B before suppression')
   await tabB.evaluate(() => {
     window.__sessionTestSuppressBroadcasts = true
     window.__sessionTestIsolateResume = true
   })
+  await tabB.waitForLoadState('networkidle')
+  requestPhase = 'resume'
   const droppedBroadcastsBeforeSignOut = await tabB.evaluate(() => window.__sessionTestDroppedBroadcasts)
   await logout(tabA)
   assert.equal(await readSharedSession(tabA), null)
@@ -218,20 +241,6 @@ try {
   )
   assert.ok(!new URL(tabB.url()).pathname.startsWith('/login'), 'tab B must remain stale until it resumes')
 
-  let reachedLogin = false
-  const authenticatedRequestsBeforeLogin = []
-  const onMainFrameNavigated = frame => {
-    if (frame === tabB.mainFrame() && new URL(frame.url()).pathname === '/login') reachedLogin = true
-  }
-  const onRequest = request => {
-    const url = new URL(request.url())
-    const authorization = Object.keys(request.headers()).find(header => header.toLowerCase() === 'authorization')
-    if (!reachedLogin && url.pathname.startsWith('/api/') && authorization) {
-      authenticatedRequestsBeforeLogin.push(`${request.method()} ${url.pathname}`)
-    }
-  }
-  tabB.on('framenavigated', onMainFrameNavigated)
-  tabB.on('request', onRequest)
   await tabB.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
   await withTimeout(tabB.waitForURL('**/login'), 5000, 'resumed tab B did not reconcile the deleted Session')
   await tabB.waitForLoadState('domcontentloaded')
