@@ -33,7 +33,7 @@ try {
       if (response.status() === 429) { limited = true; break }
     }
     await route.continue()
-  })
+  }, { times: 1 })
   const refresh = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/refresh', { timeout: 15000 })
   await page.reload()
   const refreshResponse = await refresh
@@ -55,5 +55,6 @@ try {
   assert.equal(currentId, sessionId, '429 must preserve the shared Session')
   console.log('PASS real refresh 429 under default login_limit preserves Session')
 } finally {
+  await page.unrouteAll({ behavior: 'wait' })
   await browser.close()
 }
