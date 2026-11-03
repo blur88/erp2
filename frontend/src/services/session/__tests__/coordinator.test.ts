@@ -6,6 +6,22 @@ import type { AuthResponse } from '@/store/slices/authSlice'
 
 const response = { accessToken: 'access', refreshToken: 'refresh', user: { id: 'alice' }, expiresIn: 900 } as AuthResponse
 
+async function refreshFailureKeys(factory: IDBFactory) {
+  const database = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = factory.open('erp-session', 1)
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+  return new Promise<string[]>((resolve, reject) => {
+    const transaction = database.transaction('session', 'readonly')
+    const request = transaction.objectStore('session').getAllKeys()
+    request.onsuccess = () => resolve(request.result.map(String).filter(key => key.startsWith('refresh-failure:')))
+    transaction.onerror = () => reject(transaction.error)
+    transaction.onabort = () => reject(transaction.error)
+    transaction.oncomplete = () => database.close()
+  })
+}
+
 describe('shared session', () => {
   it('a tab with a dropped notification checks storage before using credentials; reload cannot resurrect it', async () => {
     const indexedDB = new IDBFactory()
@@ -394,6 +410,73 @@ it('a protected request started before a 429 receives that attempt outcome even 
   coordinator.dispose()
 })
 
+it('deletes refresh failures when the session signs out', async () => {
+  const factory = new IDBFactory()
+  const coordinator = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await coordinator.start()
+  const session = (await coordinator.signIn(response))!
+  const error = Object.assign(new Error('rate limited'), { response: { status: 429 } })
+  await expect(coordinator.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(error))).rejects.toBe(error)
+  expect(await refreshFailureKeys(factory)).toHaveLength(1)
+
+  await coordinator.signOut(session.id)
+
+  expect(await refreshFailureKeys(factory)).toEqual([])
+  coordinator.dispose()
+})
+
+it('does not record a rate-limit response that arrives after sign-out', async () => {
+  const factory = new IDBFactory()
+  const coordinator = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await coordinator.start()
+  const session = (await coordinator.signIn(response))!
+  let rejectRefresh!: (error: Error) => void
+  const refresh = vi.fn(() => new Promise<AuthResponse>((_resolve, reject) => { rejectRefresh = reject }))
+  const pending = coordinator.refreshAfter401(session.id, 'access', refresh)
+
+  await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce())
+  await coordinator.signOut(session.id)
+  const error = Object.assign(new Error('rate limited'), { response: { status: 429 } })
+  rejectRefresh(error)
+
+  await expect(pending).rejects.toBe(error)
+  expect(await refreshFailureKeys(factory)).toEqual([])
+  coordinator.dispose()
+})
+
+it('deletes refresh failures when a new user replaces the session', async () => {
+  const factory = new IDBFactory()
+  const coordinator = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory) })
+  await coordinator.start()
+  const session = (await coordinator.signIn(response))!
+  const error = Object.assign(new Error('rate limited'), { response: { status: 429 } })
+  await expect(coordinator.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(error))).rejects.toBe(error)
+  expect(await refreshFailureKeys(factory)).toHaveLength(1)
+
+  const next = await coordinator.signIn({ ...response, user: { ...response.user, id: 'bob' } })
+
+  expect(next?.id).not.toBe(session.id)
+  expect(await refreshFailureKeys(factory)).toEqual([])
+  coordinator.dispose()
+})
+
+it('deletes refresh failures when a later refresh succeeds', async () => {
+  let now = 1000
+  const factory = new IDBFactory()
+  const coordinator = new SessionCoordinator({ storage: new IndexedDbSessionStorage(factory), clock: () => now })
+  await coordinator.start()
+  const session = (await coordinator.signIn(response))!
+  const error = Object.assign(new Error('rate limited'), { response: { status: 429 } })
+  await expect(coordinator.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(error))).rejects.toBe(error)
+  expect(await refreshFailureKeys(factory)).toHaveLength(1)
+
+  now++
+  await coordinator.refreshAfter401(session.id, 'access', vi.fn().mockResolvedValue(response))
+
+  expect(await refreshFailureKeys(factory)).toEqual([])
+  coordinator.dispose()
+})
+
 it('a normal refresh 401 ends only the matching session', async () => {
   const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(new IDBFactory()) })
   await a.start()
@@ -494,7 +577,7 @@ it('a successful refresh that cannot be saved leaves the lock to expire', async 
   const a = new SessionCoordinator({ storage })
   await a.start()
   const session = (await a.signIn(response))!
-  vi.spyOn(storage, 'change').mockRejectedValueOnce(new Error('write failed'))
+  vi.spyOn(storage, 'saveRefresh').mockRejectedValueOnce(new Error('write failed'))
   await expect(a.refreshAfter401(session.id, 'access', vi.fn().mockResolvedValue({ ...response, accessToken: 'new' }))).rejects.toThrow('write failed')
   expect((await storage.acquireRefreshLock(session.id, 'access', 'probe', Date.now)).acquired).toBe(false)
   a.dispose()
