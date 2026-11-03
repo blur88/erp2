@@ -1,0 +1,11 @@
+services:
+  backend:
+    environment:
+      JWT_ACCESS_TOKEN_EXPIRY: 8s
+  frontend:
+    environment:
+      SESSION_IDLE_TIMEOUT_MS: 120000
+    read_only: false
+  nginx:
+    volumes:
+      - ./tests/session/nginx.test.conf:/etc/nginx/nginx.conf:ro

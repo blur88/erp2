@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { SESSION_ACTIVITY_WRITE_INTERVAL } from '@/services/session/coordinator'
 
 interface UseIdleTimerOptions {
   /**
@@ -28,6 +29,10 @@ interface UseIdleTimerOptions {
    */
   onActive?: () => void
 
+  getLastActivity?: () => Promise<number | null>
+  onActivity?: (now: number) => Promise<unknown>
+  onIdleTimeout?: () => Promise<unknown>
+
   /**
    * Events that should reset the idle timer
    * @default ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll']
@@ -49,7 +54,7 @@ interface UseIdleTimerReturn {
   remainingTime: number
 
   /** Reset the idle timer manually */
-  reset: () => void
+  reset: () => Promise<void>
 
   /** Pause the idle timer */
   pause: () => void
@@ -72,11 +77,14 @@ interface UseIdleTimerReturn {
  */
 export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerReturn {
   const {
-    timeout = 60 * 60 * 1000, // 60 minutes default
+    timeout = 12 * 60 * 60 * 1000, // 12 hours default
     warningTime = 5 * 60 * 1000, // 5 minutes warning default
     onIdle,
     onTimeout,
     onActive,
+    getLastActivity,
+    onActivity,
+    onIdleTimeout,
     events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'],
     enabled = true,
   } = options
@@ -90,6 +98,9 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
   const countdownIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastActivityRef = useRef<number>(Date.now())
   const isIdleRef = useRef<boolean>(false)
+  const activityWriteRef = useRef<Promise<unknown>>(Promise.resolve())
+  const lastActivityWriteAtRef = useRef<number | null>(null)
+  const recheckIdleRef = useRef<() => void>(() => {})
 
   // Clear all timers
   const clearTimers = useCallback(() => {
@@ -108,15 +119,16 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
   }, [])
 
   // Start countdown during warning period
-  const startCountdown = useCallback(() => {
-    const warningTimeInSeconds = warningTime / 1000
+  const startCountdown = useCallback((remaining = warningTime) => {
+    const warningTimeInSeconds = Math.ceil(remaining / 1000)
     setRemainingTime(warningTimeInSeconds)
 
     // Update remaining time every second
     countdownIntervalRef.current = setInterval(() => {
       setRemainingTime((prev) => {
         if (prev <= 1) {
-          clearTimers()
+          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+          countdownIntervalRef.current = null
           return 0
         }
         return prev - 1
@@ -127,15 +139,29 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
     timeoutTimerRef.current = setTimeout(() => {
       clearTimers()
       setRemainingTime(0)
-      onTimeout?.()
-    }, warningTime)
-  }, [warningTime, onTimeout, clearTimers])
+      if (onIdleTimeout) {
+        void onIdleTimeout().then(ended => { if (!ended) recheckIdleRef.current() }).catch(() => {})
+      } else onTimeout?.()
+    }, remaining)
+    onIdle?.()
+  }, [warningTime, onTimeout, onIdle, onIdleTimeout, clearTimers])
 
   // Reset the idle timer
-  const reset = useCallback(() => {
-    if (!enabled || isPaused) return
+  const reset = useCallback((persist = true, forceActivityWrite = false): Promise<void> => {
+    if (!enabled || isPaused) return Promise.resolve()
 
-    lastActivityRef.current = Date.now()
+    const now = Date.now()
+    lastActivityRef.current = now
+    let write: Promise<unknown> = Promise.resolve()
+    if (persist && onActivity && (forceActivityWrite || lastActivityWriteAtRef.current === null || now - lastActivityWriteAtRef.current >= SESSION_ACTIVITY_WRITE_INTERVAL)) {
+      const previousWriteAt = lastActivityWriteAtRef.current
+      lastActivityWriteAtRef.current = now
+      write = activityWriteRef.current.catch(() => {}).then(() => onActivity(now)).catch(error => {
+        if (lastActivityWriteAtRef.current === now) lastActivityWriteAtRef.current = previousWriteAt
+        throw error
+      })
+      activityWriteRef.current = write.catch(() => {})
+    }
     clearTimers()
 
     // If was idle, trigger onActive callback
@@ -149,12 +175,47 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
     // Set timer to trigger idle state (show warning)
     const idleDelay = timeout - warningTime
     idleTimerRef.current = setTimeout(() => {
-      setIsIdle(true)
-      isIdleRef.current = true
-      onIdle?.()
-      startCountdown()
+      void (async () => {
+        if (getLastActivity) await activityWriteRef.current
+        const sharedLastActivity = getLastActivity ? await getLastActivity() : lastActivityRef.current
+        if (getLastActivity) {
+          if (sharedLastActivity === null) return
+          const elapsed = Date.now() - sharedLastActivity
+          if (elapsed < idleDelay) {
+            idleTimerRef.current = setTimeout(() => reset(false), Math.max(1000, idleDelay - elapsed))
+            return
+          }
+          const remaining = Math.max(0, timeout - (Date.now() - sharedLastActivity))
+          if (!onIdleTimeout) {
+            setIsIdle(true)
+            isIdleRef.current = true
+            onIdle?.()
+          }
+          startCountdown(remaining)
+          return
+        }
+        setIsIdle(true)
+        isIdleRef.current = true
+        startCountdown()
+      })().catch(() => {})
     }, idleDelay)
-  }, [enabled, isPaused, timeout, warningTime, onIdle, onActive, clearTimers, startCountdown])
+    return write.then(() => undefined)
+  }, [enabled, isPaused, timeout, warningTime, onIdle, onActive, onActivity, onIdleTimeout, getLastActivity, clearTimers, startCountdown])
+  recheckIdleRef.current = () => {
+    if (!getLastActivity) { void reset(false); return }
+    void getLastActivity().then(latest => {
+      if (latest === null) return
+      const elapsed = Date.now() - latest
+      const idleDelay = timeout - warningTime
+      if (elapsed >= idleDelay) {
+        setIsIdle(true)
+        isIdleRef.current = true
+        startCountdown(Math.max(0, timeout - elapsed))
+      } else {
+        idleTimerRef.current = setTimeout(() => recheckIdleRef.current(), Math.max(1000, idleDelay - elapsed))
+      }
+    }).catch(() => {})
+  }
 
   // Pause the timer
   const pause = useCallback(() => {
@@ -168,20 +229,27 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
     reset()
   }, [reset])
 
+  const stayActive = useCallback(() => reset(true, true), [reset])
+
   // Event handler for user activity
   const handleActivity = useCallback(() => {
-    reset()
-  }, [reset])
+    void reset().catch(() => {
+      if (onActivity) window.alert("Unable to update session activity. This browser's storage is unavailable.")
+    })
+  }, [onActivity, reset])
 
   // Check for elapsed time on window focus (handles laptop standby/sleep)
   useEffect(() => {
     if (!enabled) return
 
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (!document.hidden) {
         // Window became visible, check if too much time has passed
         const now = Date.now()
-        const elapsed = now - lastActivityRef.current
+        const sharedLastActivity = getLastActivity ? await getLastActivity() : null
+        const lastActivity = sharedLastActivity ?? lastActivityRef.current
+        lastActivityRef.current = lastActivity
+        const elapsed = now - lastActivity
 
         // If more time has passed than the timeout, force logout
         if (elapsed >= timeout) {
@@ -189,7 +257,8 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
           clearTimers()
           setIsIdle(false)
           isIdleRef.current = false
-          onTimeout?.()
+          if (onIdleTimeout) void onIdleTimeout().then(ended => { if (!ended) recheckIdleRef.current() }).catch(() => {})
+          else onTimeout?.()
           return
         }
 
@@ -213,7 +282,8 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
           countdownIntervalRef.current = setInterval(() => {
             setRemainingTime((prev) => {
               if (prev <= 1) {
-                clearTimers()
+                if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+                countdownIntervalRef.current = null
                 return 0
               }
               return prev - 1
@@ -224,7 +294,8 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
           timeoutTimerRef.current = setTimeout(() => {
             clearTimers()
             setRemainingTime(0)
-            onTimeout?.()
+            if (onIdleTimeout) void onIdleTimeout().then(ended => { if (!ended) recheckIdleRef.current() }).catch(() => {})
+            else onTimeout?.()
           }, timeRemaining)
         }
       }
@@ -235,7 +306,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [enabled, timeout, warningTime, onIdle, onTimeout, clearTimers])
+  }, [enabled, timeout, warningTime, onIdle, onTimeout, onIdleTimeout, getLastActivity, clearTimers])
 
   // Setup event listeners
   useEffect(() => {
@@ -264,7 +335,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
   return {
     isIdle,
     remainingTime: Math.ceil(remainingTime),
-    reset,
+    reset: stayActive,
     pause,
     resume,
   }

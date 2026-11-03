@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import {
   Alert,
   Box,
@@ -27,6 +27,7 @@ import {
   useUpdateBankReconciliationMutation,
 } from '@/store/api/accountingApi'
 import { useAppSelector } from '@/hooks/useRedux'
+import { sessionCoordinator } from '@/services/session'
 import { selectCurrentUser } from '@/store/slices/authSlice'
 import type {
   Account,
@@ -49,12 +50,14 @@ import {
   loadDraft,
   newCreateToken,
   saveDraft,
+  type StoredDraft,
 } from './reconciliationDraftStorage'
 import {
   applyPreview,
   clearClassification,
   effectiveClassification,
   emptyForm,
+  emptyPicker,
   fromDetail,
   isDirty,
   previewTotals,
@@ -72,7 +75,26 @@ import SetupClassificationSection from './SetupClassificationSection'
 
 const LIST_PATH = '/accounting/bank-reconciliations'
 
+function buildDraft(
+  sessionId: string,
+  lockVersion: number | null,
+  form: ReconciliationFormState,
+  picker: PickerContext,
+): StoredDraft {
+  return { v: 1, sessionId, lockVersion, form, picker, savedAt: new Date().toISOString() }
+}
+
 export default function BankReconciliationFormPage(): React.ReactElement {
+  const session = useSyncExternalStore(
+    (listener) => sessionCoordinator.subscribe(listener),
+    () => sessionCoordinator.getSnapshot(),
+    () => sessionCoordinator.getSnapshot(),
+  )
+  const sessionId = session?.id
+  return <BankReconciliationFormPageContent key={sessionId ?? 'no-session'} />
+}
+
+function BankReconciliationFormPageContent(): React.ReactElement {
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
@@ -80,6 +102,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
   const { showSuccess, showError } = useNotification()
   const currentUser = useAppSelector(selectCurrentUser)
   const userId = currentUser?.id ?? 'anonymous'
+  const sessionId = sessionCoordinator.getSnapshot()?.id
 
   // Manage create token in URL query
   const searchParams = new URLSearchParams(location.search)
@@ -105,10 +128,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
 
   const [form, setForm] = useState<ReconciliationFormState>(emptyForm)
   const [baseline, setBaseline] = useState<ReconciliationFormState>(emptyForm)
-  const [picker, setPicker] = useState<PickerContext>({
-    checklist: { page: 1, search: '' },
-    setup: { page: 1, search: '', filter: 'ALL' },
-  })
+  const [picker, setPicker] = useState<PickerContext>(emptyPicker)
 
   const [staleLockWarning, setStaleLockWarning] = useState(false)
   const [checklistRows, setChecklistRows] = useState<ReconciliationLineDto[]>([])
@@ -173,7 +193,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       const base = fromDetail(existingDetail)
       setBaseline(base)
 
-      const stored = loadDraft(storageKey)
+      const stored = loadDraft(storageKey, sessionId)
       if (stored) {
         if (stored.lockVersion === existingDetail.lockVersion) {
           setForm(stored.form)
@@ -189,13 +209,13 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       }
     } else {
       initializedRef.current = true
-      const stored = loadDraft(storageKey)
+      const stored = loadDraft(storageKey, sessionId)
       if (stored) {
         setForm(stored.form)
         setPicker(stored.picker)
       }
     }
-  }, [isEdit, existingDetail, storageKey])
+  }, [isEdit, existingDetail, storageKey, sessionId])
 
   // Apply next period defaults when selecting account in create mode
   useEffect(() => {
@@ -217,19 +237,14 @@ export default function BankReconciliationFormPage(): React.ReactElement {
   // Save draft on form or picker changes
   useEffect(() => {
     if (!initializedRef.current) return
+    if (!sessionId) return
     if (finishedRef.current) return
     if (isEdit && !isDirty(form, baseline)) return
     if (isEdit && baseLockVersion === null) return
 
     const lockVersion = isEdit ? baseLockVersion : null
-    saveDraft(storageKey, {
-      v: 1,
-      lockVersion,
-      form,
-      picker,
-      savedAt: new Date().toISOString(),
-    })
-  }, [storageKey, form, picker, isEdit, baseLockVersion, baseline])
+    saveDraft(storageKey, buildDraft(sessionId, lockVersion, form, picker))
+  }, [storageKey, form, picker, isEdit, baseLockVersion, baseline, sessionId])
 
   // Monotonically increasing counter for preview
   const previewSeqRef = useRef(0)
@@ -548,14 +563,10 @@ export default function BankReconciliationFormPage(): React.ReactElement {
       }
     } catch (err) {
       setSaveError(reconciliationErrorMessage(err, 'Failed to save bank reconciliation'))
+      const currentSessionId = sessionCoordinator.getSnapshot()?.id
+      if (!sessionId || currentSessionId !== sessionId) return
       const lockVersion = isEdit ? baseLockVersion : null
-      saveDraft(storageKey, {
-        v: 1,
-        lockVersion,
-        form,
-        picker,
-        savedAt: new Date().toISOString(),
-      })
+      saveDraft(storageKey, buildDraft(currentSessionId, lockVersion, form, picker))
     }
   }, [
     isEdit,
@@ -567,6 +578,7 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     updateReconciliation,
     createReconciliation,
     storageKey,
+    sessionId,
     showSuccess,
     navigate,
   ])

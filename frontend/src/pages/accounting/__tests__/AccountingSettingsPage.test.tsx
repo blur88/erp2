@@ -647,7 +647,8 @@ describe('AccountingSettingsPage — page-level save', () => {
    * was removed. Themed sx values are observable in jsdom, but layout checks
    * such as clipping, scrolling, sticky positioning and alignment need a
    * browser (see docs/frontend/testing-and-print.md, "What jsdom can observe").
-   * Check layout manually; the repo has no browser-test infrastructure (see
+   * Check layout manually; tests/session/ is a manual, non-CI harness for
+   * session coordination only (see
    * AGENTS.md, "Critical rules and traps", "jsdom cannot test layout or print"
    * bullet).
    */

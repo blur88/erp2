@@ -211,3 +211,5 @@ docs/test/
 .antigravitycli/
 .superpowers/
 backend/leakcheck-reports/
+# Generated only for the local cross-tab browser run.
+/tests/session/nginx.test.conf

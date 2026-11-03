@@ -1,0 +1,12 @@
+const { chromium } = require(process.env.PLAYWRIGHT_PACKAGE || 'playwright')
+;(async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+  await page.addInitScript(() => { IDBFactory.prototype.open = () => { throw new Error('Injected storage denial for screenshot') } })
+  if (!process.env.SESSION_TEST_URL) throw new Error('Set SESSION_TEST_URL to the application LAN HTTP URL')
+  await page.goto(process.env.SESSION_TEST_URL)
+  await page.getByRole('alert').filter({ hasText: "This browser's storage is unavailable" }).waitFor()
+  await page.screenshot({ path: process.env.SESSION_SCREENSHOT_PATH || '/tmp/1548-storage-unavailable.png' })
+  console.log(JSON.stringify({ url: page.url(), secureContext: await page.evaluate(() => isSecureContext), alert: await page.getByRole('alert').innerText() }))
+  await browser.close()
+})().catch(error => { console.error(error); process.exitCode = 1 })

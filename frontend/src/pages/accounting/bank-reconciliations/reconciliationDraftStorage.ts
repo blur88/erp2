@@ -2,6 +2,7 @@ import type { PickerContext, ReconciliationFormState } from './reconciliationFor
 
 export interface StoredDraft {
   v: 1
+  sessionId: string
   lockVersion: number | null
   form: ReconciliationFormState
   picker: PickerContext
@@ -29,13 +30,17 @@ export function saveDraft(key: string, draft: StoredDraft): void {
   }
 }
 
-export function loadDraft(key: string): StoredDraft | null {
+export function loadDraft(key: string, sessionId: string | undefined): StoredDraft | null {
   try {
     if (typeof sessionStorage === 'undefined') return null
     const raw = sessionStorage.getItem(key)
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object' || parsed.v !== 1) return null
+    if (!sessionId || parsed.sessionId !== sessionId) {
+      sessionStorage.removeItem(key)
+      return null
+    }
     return parsed as StoredDraft
   } catch {
     return null

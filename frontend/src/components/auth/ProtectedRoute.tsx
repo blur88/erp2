@@ -4,6 +4,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { useAppSelector, useAppDispatch } from '@/hooks/useRedux';
 import { getCurrentUser } from '@/store/slices/authSlice';
 
+import { sessionCoordinator } from '@/services/session';
 import { clearLocalSessionForRouteCheck } from '@/services/auth/signOut';
 
 interface ProtectedRouteProps {
@@ -28,29 +29,35 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       verificationAttempted.current = true;
       setShouldVerify(true);
 
+      const sessionId = sessionCoordinator.getSnapshot()?.id;
+      let active = true;
+
       // Set a hard timeout to force redirect to login if verification takes too long
       const timeoutId = setTimeout(() => {
         console.warn('Token verification timeout - clear local auth');
-        clearLocalSessionForRouteCheck(dispatch);
+        clearLocalSessionForRouteCheck(dispatch, sessionId);
         setShouldVerify(false);
       }, 3000); // 3 second timeout
 
       dispatch(getCurrentUser())
         .then(() => {
+          if (!active) return;
           clearTimeout(timeoutId);
           setShouldVerify(false);
         })
         .catch((error) => {
+          if (!active) return;
           // If verification fails, clear auth state
           console.error('Token verification failed:', error);
           clearTimeout(timeoutId);
-          clearLocalSessionForRouteCheck(dispatch);
+          clearLocalSessionForRouteCheck(dispatch, sessionId);
           setShouldVerify(false);
         });
+      return () => { active = false; clearTimeout(timeoutId); };
     } else if (accessToken && !isAuthenticated && !user && verificationAttempted.current) {
       // Already attempted verification but still not authenticated - clear auth
       clearLocalSessionForRouteCheck(dispatch);
-    } else if (!accessToken && !isAuthenticated) {
+    } else if (isAuthenticated || !accessToken) {
       // No token and not authenticated - ready to redirect
       setShouldVerify(false);
     }

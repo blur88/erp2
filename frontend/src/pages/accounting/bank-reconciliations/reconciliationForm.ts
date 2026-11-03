@@ -37,6 +37,13 @@ export function emptyForm(): ReconciliationFormState {
   }
 }
 
+export function emptyPicker(): PickerContext {
+  return {
+    checklist: { page: 1, search: '' },
+    setup: { page: 1, search: '', filter: 'ALL' },
+  }
+}
+
 export function fromDetail(d: BankReconciliationDetailDto): ReconciliationFormState {
   const matched: Record<string, { moneyIn: string; moneyOut: string }> = {}
   for (const line of d.matched ?? []) {

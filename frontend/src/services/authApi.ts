@@ -54,16 +54,16 @@ export const authApi = {
    * Refresh access token using refresh token
    */
   refreshToken: async (refreshToken: string): Promise<AxiosResponse<AuthResponse>> => {
-    return await authAxios.post<AuthResponse>('/auth/refresh', { refreshToken });
+    return await authAxios.post<AuthResponse>('/auth/refresh', { refreshToken }, { timeout: 10000 });
   },
 
   /**
-   * Logout user and invalidate refresh token
-   * Note: This requires Authorization header via the main api instance
+   * Sign out using credentials captured before the shared Session was deleted.
    */
-  logout: async (refreshToken: string): Promise<AxiosResponse<void>> => {
-    const apiInstance = (await import('./api')).default;
-    return await apiInstance.post<void>('/auth/logout', { refreshToken });
+  logout: async (refreshToken: string, accessToken?: string): Promise<AxiosResponse<void>> => {
+    return await authAxios.post<void>('/auth/logout', { refreshToken }, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    });
   },
 
   /**

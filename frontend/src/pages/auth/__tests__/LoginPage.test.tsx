@@ -6,6 +6,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import '@testing-library/jest-dom/vitest';
 import LoginPage from '../LoginPage';
 import authReducer from '../../../store/slices/authSlice';
+import { authApi } from '@/services/authApi';
 
 // Mock react-router-dom navigate
 const mockNavigate = vi.fn();
@@ -19,6 +20,7 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../../../services/authApi', () => ({
   authApi: {
+    login: vi.fn(),
     shouldShowDefaultCredentials: vi.fn().mockResolvedValue({
       data: { showDefaultCredentials: true },
     }),
@@ -125,6 +127,19 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(submitButton).not.toBeDisabled();
     });
+  });
+
+  it('storage-open failure shows the required message and never establishes a Session', async () => {
+    vi.mocked(authApi.login).mockResolvedValueOnce({ data: {
+      accessToken: 'access', refreshToken: 'refresh', user: { id: 'alice' }, expiresIn: 900,
+    } } as any);
+    await renderLoginPage();
+    fireEvent.change(screen.getByLabelText(/username or email/i), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'Password@123' } });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+    expect(await screen.findByText("This browser's storage is unavailable")).toBeInTheDocument();
+    expect((store.getState() as any).auth.isAuthenticated).toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('should show remember me checkbox', async () => {

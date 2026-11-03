@@ -18,7 +18,6 @@ import {
   selectCurrentUser,
   selectRefreshToken,
 } from '@/store/slices/authSlice'
-import { persistor } from '@/store'
 import { signOutManually } from '@/services/auth/signOut'
 
 interface SidebarUserMenuProps {
@@ -57,7 +56,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
 
   const handleLogoutClick = async () => {
     handleMenuClose()
-    await signOutManually(dispatch, refreshToken, () => persistor.purge(), navigate)
+    await signOutManually(dispatch, refreshToken, navigate)
   }
 
   const avatarElement = (

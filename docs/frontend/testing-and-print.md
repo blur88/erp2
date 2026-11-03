@@ -12,9 +12,9 @@ The accounting reports (Profit & Loss, Balance Sheet, Form B) printed from insid
 
 `#root` hiding must become conditional again, and the page must release **every** height/overflow constraint on its ancestor chain (`100vh`, `height: 100%`, `overflow: auto`): `#root`, its children, `main`, `.app-shell-root` (`MainLayout`'s outer 100vh flex Box — it sits one level below `#root > *` and above `main`, so no structural selector reaches it), and `EntityTable`'s `.entity-table-card` / `-frame` / `-scroller`, the real overflow owners. Miss one and the report is pinned to a single viewport and silently truncates. This is what the removed `accountingReportPrint.css` did.
 
-## There is no browser test infrastructure
+## Manual browser harness
 
-jsdom has no layout engine and does not evaluate `@media print`, so **the Vitest suite cannot validate any print path** — it can only assert that selectors exist. The Playwright gate that covered the accounting print path (`frontend/e2e/accounting-print.spec.ts`, CI job `Accounting Reports - Print/PDF Gate`, #1214) was removed with that path in #1223 and dropped from ruleset 15609777's required checks. There is no `playwright.config.ts`, no `frontend/e2e/` and no `test:print` script; reintroducing browser coverage means standing all of that back up.
+jsdom has no layout engine and does not evaluate `@media print`, so **the Vitest suite cannot validate any print path** — it can only assert that selectors exist. The Playwright gate that covered the accounting print path (`frontend/e2e/accounting-print.spec.ts`, CI job `Accounting Reports - Print/PDF Gate`, #1214) was removed with that path in #1223 and dropped from ruleset 15609777's required checks. There is no `playwright.config.ts`, no `frontend/e2e/` and no `test:print` script; `tests/session/` provides a manual, non-CI LAN HTTP harness for session coordination; it does not cover printing.
 
 SO/PO print is covered only by the jsdom suite plus a manual browser pass.
 
@@ -63,7 +63,7 @@ Two invariants the suite cannot protect; change them only deliberately:
 
 **Invariant:** No test evaluates `frontend/src/store/index.ts`, directly or transitively. There is no opt-out. Use `createTestStore` (`@/test/createTestStore`) or a complete hoisted `vi.mock('@/store', () => ({ … }))` stub. A future store-wiring test must use an isolated store factory with explicit cleanup; any exception needs its own issue against a concrete need.
 
-`ApiService`'s request interceptor (`frontend/src/services/api.ts`) lazily imports the application store before sending a request (then caches it), so a test reaching that interceptor can evaluate the singleton without importing it directly. Mock the RTK Query hook or the `ApiService` method (`get`, `post`, …) before the request reaches the Axios transport; an MSW response handler runs too late to prevent this import.
+`ApiService`'s request interceptor (`frontend/src/services/api.ts`) checks the shared Session through the coordinator. Its 401 response path still lazily imports the application store (then caches it), so a test reaching that path can evaluate the singleton without importing it directly. Mock the RTK Query hook or the `ApiService` method (`get`, `post`, …), or provide a complete hoisted store stub when testing the transport itself. An MSW response handler alone does not prevent that import on a 401.
 
 **Coverage:** A Vitest-only Vite plugin replaces the entire resolved store module, including its imports, in both configured projects (`node` and `jsdom`). The original code never runs and the singleton is never constructed. A transform alone is not a violation: the replacement records a violation only when it executes, then throws. This observes actual evaluation attempts during configured Vitest runs, whatever the specifier form (including template and interpolated paths) or import depth. Unexecuted paths are not violations; the guard makes no claim about hypothetical paths.
 

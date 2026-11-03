@@ -1,3 +1,4 @@
 window.__ENV__ = {
-  VITE_API_BASE_URL: '/api'
+  VITE_API_BASE_URL: '/api',
+  SESSION_IDLE_TIMEOUT_MS: 43200000
 };
