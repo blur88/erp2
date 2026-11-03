@@ -28,7 +28,7 @@ const api: AxiosInstance = axios.create({
 // Request interceptor to inject access token and set baseURL
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    ;(config as any)._requestStartedAt ??= performance.timeOrigin + performance.now()
+    ;(config as any)._requestStartedAt ??= Date.now()
     // Set base URL
     if (!config.baseURL) {
       config.baseURL = getApiBaseUrl()
