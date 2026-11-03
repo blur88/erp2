@@ -193,7 +193,7 @@ export class SessionCoordinator {
   }
 
   /** Coordinate refresh without holding the local operation queue across the network. */
-  async refreshAfter401(id: string, usedAccessToken: string, refresh: (token: string) => Promise<AuthResponse>): Promise<Session> {
+  async refreshAfter401(id: string, usedAccessToken: string, refresh: (token: string) => Promise<AuthResponse>, requestStartedAt = (this.options.clock ?? Date.now)()): Promise<Session> {
     const holder = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
     const verify = (session: Session | null) => {
       if (!session || session.id !== id) throw new Error('Session ended before refresh')
@@ -206,7 +206,7 @@ export class SessionCoordinator {
       if (session.accessToken !== usedAccessToken && !retryNewerSessionThroughLock) return session
       const lockAccessToken = retryNewerSessionThroughLock ? session.accessToken : usedAccessToken
       const attempt = await this.run(async () => {
-        const result = await this.options.storage.acquireRefreshLock(id, lockAccessToken, holder, this.options.clock ?? Date.now, waitingFor)
+        const result = await this.options.storage.acquireRefreshLock(id, lockAccessToken, holder, this.options.clock ?? Date.now, waitingFor, requestStartedAt)
         this.adopt(result.session)
         return result
       })
@@ -252,6 +252,7 @@ export class SessionCoordinator {
               refreshToken: triedToken,
               status,
               message: error instanceof Error ? error.message : 'Refresh rate limited',
+              settledAt: (this.options.clock ?? Date.now)(),
             })
             if (released) {
               lockReleased = true

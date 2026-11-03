@@ -10,7 +10,7 @@ export interface Session {
 }
 
 export interface RefreshLock { holder: string; expires: number }
-export interface RefreshFailure { sessionId: string; refreshToken: string; status: number; message: string }
+export interface RefreshFailure { sessionId: string; refreshToken: string; status: number; message: string; settledAt: number }
 export type LockAttempt = { session: Session | null; lock: RefreshLock | null; acquired: boolean; takeover: boolean; failure?: RefreshFailure }
 
 export interface SessionStorage {
@@ -18,7 +18,7 @@ export interface SessionStorage {
   read(): Promise<Session | null>
   readSignOutMarker(): Promise<string | null>
   change(update: (current: Session | null, lastEnded: string | null) => Session | null): Promise<Session | null>
-  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number, waitingFor?: RefreshLock): Promise<LockAttempt>
+  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number, waitingFor?: RefreshLock, requestStartedAt?: number): Promise<LockAttempt>
   releaseRefreshLock(lock: RefreshLock): Promise<boolean>
   releaseRefreshLockWithFailure(lock: RefreshLock, failure: RefreshFailure): Promise<boolean>
   close(): void
@@ -87,7 +87,7 @@ export class IndexedDbSessionStorage implements SessionStorage {
   change(update: (current: Session | null, lastEnded: string | null) => Session | null) { return this.transaction('readwrite', update) }
   private refreshFailureKey(lock: RefreshLock) { return `refresh-failure:${lock.holder}:${lock.expires}` }
 
-  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number, waitingFor?: RefreshLock): Promise<LockAttempt> {
+  acquireRefreshLock(id: string, accessToken: string, holder: string, clock: () => number, waitingFor?: RefreshLock, requestStartedAt?: number): Promise<LockAttempt> {
     return new Promise((resolve, reject) => {
       if (!this.database) { reject(new Error('Session storage is not open')); return }
       const tx = this.database.transaction('session', 'readwrite')
@@ -95,9 +95,11 @@ export class IndexedDbSessionStorage implements SessionStorage {
       const sessionRequest = store.get('current')
       const lockRequest = store.get('refresh-lock')
       const failureRequest = waitingFor ? store.get(this.refreshFailureKey(waitingFor)) : undefined
+      const failuresCursor = !waitingFor && requestStartedAt !== undefined ? store.openCursor() : undefined
       let result: LockAttempt
       let lockReady = false
-      let failureReady = !failureRequest
+      let failureReady = !failureRequest && !failuresCursor
+      let relevantFailure: RefreshFailure | undefined
       tx.oncomplete = () => resolve(result)
       tx.onabort = () => reject(tx.error ?? new Error('Session storage transaction aborted'))
       tx.onerror = () => reject(tx.error)
@@ -106,7 +108,7 @@ export class IndexedDbSessionStorage implements SessionStorage {
         const now = clock()
         const session: Session | null = sessionRequest.result ?? null
         const existing: RefreshLock | null = lockRequest.result ?? null
-        const failure: RefreshFailure | undefined = failureRequest?.result
+        const failure: RefreshFailure | undefined = failureRequest?.result ?? relevantFailure
         if (failure && failure.sessionId === id && session?.id === id) {
           result = { session, lock: existing, acquired: false, takeover: false, failure }
           return
@@ -118,6 +120,16 @@ export class IndexedDbSessionStorage implements SessionStorage {
       }
       lockRequest.onsuccess = () => { lockReady = true; finish() }
       if (failureRequest) failureRequest.onsuccess = () => { failureReady = true; finish() }
+      if (failuresCursor) failuresCursor.onsuccess = () => {
+        const cursor = failuresCursor.result
+        if (!cursor) { failureReady = true; finish(); return }
+        const failure = cursor.value as RefreshFailure
+        const session = sessionRequest.result as Session | null
+        if (String(cursor.key).startsWith('refresh-failure:') && failure.sessionId === id && failure.refreshToken === session?.refreshToken && requestStartedAt! < failure.settledAt && (!relevantFailure || failure.settledAt < relevantFailure.settledAt)) {
+          relevantFailure = failure
+        }
+        cursor.continue()
+      }
     })
   }
 

@@ -40,6 +40,7 @@ api.interceptors.request.use(
     if (previousSessionId && previousSessionId !== session?.id) throw new Error('Session ended before request')
     ;(config as any)._sessionId = session?.id
     ;(config as any)._accessToken = accessToken
+    ;(config as any)._requestStartedAt ??= performance.timeOrigin + performance.now()
 
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`
@@ -107,7 +108,7 @@ api.interceptors.response.use(
 
         const { authApi } = await import('./authApi')
         try {
-          await sessionCoordinator.refreshAfter401(session!.id, originalRequest._accessToken, async token => (await authApi.refreshToken(token)).data)
+          await sessionCoordinator.refreshAfter401(session!.id, originalRequest._accessToken, async token => (await authApi.refreshToken(token)).data, originalRequest._requestStartedAt)
         } catch (refreshError) {
           if (!sessionCoordinator.getSnapshot()) {
             const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')

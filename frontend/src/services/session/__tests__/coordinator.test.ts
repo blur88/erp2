@@ -375,6 +375,25 @@ it('cross-tab callers waiting on one rate-limited refresh all receive its 429 wi
   owner.dispose(); waiter.dispose()
 })
 
+it('a protected request started before a 429 receives that attempt outcome even if its 401 arrives later', async () => {
+  let now = 1000
+  const coordinator = new SessionCoordinator({ storage: new IndexedDbSessionStorage(new IDBFactory()), clock: () => now })
+  await coordinator.start()
+  const session = (await coordinator.signIn(response))!
+  const error = Object.assign(new Error('rate limited'), { response: { status: 429 } })
+  await expect(coordinator.refreshAfter401(session.id, 'access', vi.fn().mockRejectedValue(error), 900)).rejects.toBe(error)
+
+  const delayedRefresh = vi.fn().mockResolvedValue({ ...response, accessToken: 'should-not-be-used' })
+  await expect(coordinator.refreshAfter401(session.id, 'access', delayedRefresh, 950)).rejects.toMatchObject({ response: { status: 429 } })
+  expect(delayedRefresh).not.toHaveBeenCalled()
+
+  now = 1001
+  const laterRefresh = vi.fn().mockResolvedValue({ ...response, accessToken: 'new-access', refreshToken: 'new-refresh' })
+  expect((await coordinator.refreshAfter401(session.id, 'access', laterRefresh)).accessToken).toBe('new-access')
+  expect(laterRefresh).toHaveBeenCalledOnce()
+  coordinator.dispose()
+})
+
 it('a normal refresh 401 ends only the matching session', async () => {
   const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(new IDBFactory()) })
   await a.start()
