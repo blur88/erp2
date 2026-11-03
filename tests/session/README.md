@@ -88,7 +88,7 @@ cases, the harness signs out and waits for the earlier lock lease to expire
 before starting a new Session.
 
 During the debug capture, NGINX logged `show-default-credentials` as 304 while
-the Playwright page response was 200. This is consistent with browser cache
+the Playwright page response was 200 ([capture](https://github.com/blur88/erp2/pull/1618#issuecomment-6585515314)). This is consistent with browser cache
 revalidation: NGINX logs the 304 sent on the wire, and the Fetch Standard says
 that a revalidated 304 updates and returns the stored response to the page
 ([HTTP-network-or-cache fetch](https://fetch.spec.whatwg.org/#http-network-or-cache-fetch)).
