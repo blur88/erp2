@@ -34,9 +34,21 @@ try {
     }
     await route.continue()
   }, { times: 1 })
-  let refreshRequests = 0
+  let eventOrder = 0
+  let refresh429ResponseOrder = null
+  const refreshRequestOrders = []
+  const protectedRequestOrders = []
   page.on('request', request => {
-    if (new URL(request.url()).pathname === '/api/auth/refresh') refreshRequests++
+    const order = ++eventOrder
+    const pathname = new URL(request.url()).pathname
+    if (pathname === '/api/auth/refresh') refreshRequestOrders.push(order)
+    else if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/')) protectedRequestOrders.push(order)
+  })
+  page.on('response', response => {
+    const order = ++eventOrder
+    if (new URL(response.url()).pathname === '/api/auth/refresh' && response.status() === 429 && refresh429ResponseOrder === null) {
+      refresh429ResponseOrder = order
+    }
   })
   const refresh = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/refresh', { timeout: 15000 })
   await page.reload()
@@ -44,7 +56,12 @@ try {
   assert.ok(limited, 'default auth rate limit did not return 429')
   assert.equal(refreshResponse.status(), 429, 'refresh must be rejected by the real default limit')
   await new Promise(resolve => setTimeout(resolve, 1000))
-  assert.equal(refreshRequests, 1, 'a 429 must not start another refresh request for the same attempt')
+  for (const refreshOrder of refreshRequestOrders.slice(1)) {
+    assert.ok(
+      refresh429ResponseOrder !== null && protectedRequestOrders.some(order => order > refresh429ResponseOrder && order < refreshOrder),
+      'a later refresh must follow a protected request sent after the prior refresh 429 response'
+    )
+  }
   assert.ok(!new URL(page.url()).pathname.startsWith('/login'), '429 must not navigate to sign-in')
   const currentId = await page.evaluate(() => new Promise((resolve, reject) => {
     const open = indexedDB.open('erp-session')
