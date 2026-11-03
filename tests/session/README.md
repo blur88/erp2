@@ -31,27 +31,52 @@ exhausts the default `login_limit`, observes a real refresh 429, and checks that
 the Session survives. The transport test checks that a single request does not automatically
 retry a 429. No production host is involved.
 
+The runner accepts these optional environment variables:
+
+- `SESSION_TEST_ONLY=recovery` runs the initial shared-session, reload and
+  concurrent-refresh cases once, then runs only the recovery/loss pair loop.
+- `SESSION_TEST_ITERATIONS` sets the number of loop iterations; it must be a
+  positive integer and defaults to `1`.
+- `SESSION_TEST_DEBUG=1` enables transaction/auth diagnostics and saves
+  `docker compose logs nginx` after the browser run.
+- `SESSION_TEST_TIMEOUT_SECONDS` sets the Playwright container timeout for the
+  cross-tab step; it defaults to `600` seconds.
+- `SESSION_TEST_NGINX_LOG_PATH` chooses the host path for captured NGINX logs;
+  it defaults to `/tmp/session-nginx-access.log` and is used with debug enabled.
+
 The concurrent refresh case reloads both tabs after access-token expiry and
 holds the first refresh until both tabs have received a 401. It checks that one
 refresh request completes and that both tabs remain signed in.
 
 Two takeover recovery cases pause tab A with CDP either in the successful
 `/api/auth/refresh` XHR `load` handler, or, when tab A has a tracked IndexedDB
-transaction open, in the harness's `complete`, `abort` or `error` listener on tab A's last open
-transaction. In both cases the pause is before `SessionCoordinator.saveRefresh`
-opens its IndexedDB write transaction (`storage.change`). The init script tracks
-each tab's IndexedDB transactions and waits for tab A's open transactions to
-complete before pausing. A concurrent `credentialsForRequest` read can open while
-the refresh XHR is in flight. The save still cannot open before the pause: both
-`credentialsForRequest` and `saveRefresh` run through `SessionCoordinator.run`
-([coordinator.ts:96-100](../../frontend/src/services/session/coordinator.ts#L96),
-[coordinator.ts:182-193](../../frontend/src/services/session/coordinator.ts#L182)),
-so the save is queued behind the pending read. The harness registers its
-transaction `complete` listener inside the wrapped
+transaction open, after the harness's `complete` or `abort` listener on tab A's
+last open transaction clears the tracker. The harness also logs `error` events
+but keeps those transactions tracked until they complete or abort. The
+load-handler pause runs before the refresh save because Axios
+settles its XHR adapter from `loadend`, after the XHR `load` event, while the
+harness pauses during `load`
+([Axios xhr adapter `loadend` handler](https://github.com/axios/axios/blob/v1.20.0/lib/adapters/xhr.js#L43),
+[its registration](https://github.com/axios/axios/blob/v1.20.0/lib/adapters/xhr.js#L125),
+[coordinator.ts:233](../../frontend/src/services/session/coordinator.ts#L233),
+and [coordinator.ts:261](../../frontend/src/services/session/coordinator.ts#L261)).
+`refreshAfter401` therefore cannot continue to `saveRefresh` until the harness
+resumes. The transaction listener is also registered inside the wrapped
 `IDBDatabase.prototype.transaction`, before
 [`storage.ts:51`](../../frontend/src/services/session/storage.ts#L51) assigns
-`oncomplete`, so the pause runs before that read resolves. A per-page init script
-reads a mutable per-run target so only the current refresh save pauses.
+`oncomplete`, so a pause waiting for the last open transaction runs before that
+read resolves. The init script tracks each tab's IndexedDB transactions, logs
+`error` events, and removes a transaction from the pending set only on
+`complete` or `abort`; it waits until tab A has no open transactions before
+pausing. A concurrent
+`credentialsForRequest` read can open while the refresh XHR is in flight. Every
+coordinator session read, write and lock acquisition goes through the `run` queue
+([coordinator.ts:53-59](../../frontend/src/services/session/coordinator.ts#L53),
+[coordinator.ts:88-211](../../frontend/src/services/session/coordinator.ts#L88));
+releasing the refresh lock is the direct-storage exception
+([coordinator.ts:222-225](../../frontend/src/services/session/coordinator.ts#L222)).
+Disposal closes storage after the queue drains ([coordinator.ts:318-319](../../frontend/src/services/session/coordinator.ts#L318)).
+A per-page init script reads a mutable per-run target so only the current refresh save pauses.
 In the recovery case, tab
 B takes over after the 15-second lock expiry, receives the unchanged-token 401,
 and tab A resumes before tab B's actual 30-second recovery deadline; both tabs
@@ -61,6 +86,14 @@ nominal acquisition-to-sign-out window is not an exact cutoff: request duration
 and browser scheduling affect when recovery starts and completes. Between the
 cases, the harness signs out and waits for the earlier lock lease to expire
 before starting a new Session.
+
+During the debug capture, NGINX logged `show-default-credentials` as 304 while
+the Playwright page response was 200. This is consistent with browser cache
+revalidation: NGINX logs the 304 sent on the wire, and the Fetch Standard says
+that a revalidated 304 updates and returns the stored response to the page
+([HTTP-network-or-cache fetch](https://fetch.spec.whatwg.org/#http-network-or-cache-fetch)).
+The browser-facing cached response retains its 200 status, which Playwright
+reports from the page response event.
 
 The in-flight refresh case holds `/api/auth/refresh` after the 8 s access-token
 expiry causes a 401, signs out from tab A, waits for tab B to request `/login`,
