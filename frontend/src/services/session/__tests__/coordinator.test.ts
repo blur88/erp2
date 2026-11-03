@@ -305,6 +305,76 @@ it('429 preserves the session, releases the lock and never retries automatically
   a.dispose(); b.dispose()
 })
 
+it('same-tab callers waiting on one rate-limited refresh all receive its 429 without retrying', async () => {
+  const storage = new IndexedDbSessionStorage(new IDBFactory())
+  const coordinator = new SessionCoordinator({ storage })
+  await coordinator.start()
+  const session = (await coordinator.signIn(response))!
+  const acquireLock = storage.acquireRefreshLock.bind(storage)
+  const acquire = vi.spyOn(storage, 'acquireRefreshLock')
+  const attempts: Array<{ acquired: boolean }> = []
+  acquire.mockImplementation(async (...args) => {
+    const attempt = await acquireLock(...args)
+    attempts.push(attempt)
+    return attempt
+  })
+  const error = Object.assign(new Error('rate limited'), { response: { status: 429 } })
+  let rejectRefresh!: (error: Error) => void
+  const refresh = vi.fn(() => new Promise<AuthResponse>((_resolve, reject) => { rejectRefresh = reject }))
+  const results = [1, 2, 3].map(() => coordinator.refreshAfter401(session.id, 'access', refresh))
+
+  await vi.waitFor(() => expect(attempts).toHaveLength(3))
+  expect(attempts.filter(attempt => attempt.acquired)).toHaveLength(1)
+  rejectRefresh(error)
+  const settled = await Promise.allSettled(results)
+
+  expect(refresh).toHaveBeenCalledTimes(1)
+  expect(settled).toEqual(results.map(() => ({ status: 'rejected', reason: error })))
+  coordinator.dispose()
+})
+
+it('cross-tab callers waiting on one rate-limited refresh all receive its 429 without retrying', async () => {
+  const factory = new IDBFactory()
+  const ownerStorage = new IndexedDbSessionStorage(factory)
+  const waiterStorage = new IndexedDbSessionStorage(factory)
+  const owner = new SessionCoordinator({ storage: ownerStorage })
+  const waiter = new SessionCoordinator({ storage: waiterStorage })
+  await owner.start(); await waiter.start()
+  const session = (await owner.signIn(response))!
+  const ownerAcquireLock = ownerStorage.acquireRefreshLock.bind(ownerStorage)
+  const waiterAcquireLock = waiterStorage.acquireRefreshLock.bind(waiterStorage)
+  const ownerAcquire = vi.spyOn(ownerStorage, 'acquireRefreshLock')
+  const waiterAcquire = vi.spyOn(waiterStorage, 'acquireRefreshLock')
+  const attempts: Array<{ acquired: boolean }> = []
+  ownerAcquire.mockImplementation(async (...args) => {
+    const attempt = await ownerAcquireLock(...args)
+    attempts.push(attempt)
+    return attempt
+  })
+  waiterAcquire.mockImplementation(async (...args) => {
+    const attempt = await waiterAcquireLock(...args)
+    attempts.push(attempt)
+    return attempt
+  })
+  const error = Object.assign(new Error('rate limited'), { response: { status: 429 } })
+  let rejectRefresh!: (error: Error) => void
+  const refresh = vi.fn(() => new Promise<AuthResponse>((_resolve, reject) => { rejectRefresh = reject }))
+  const results = [
+    owner.refreshAfter401(session.id, 'access', refresh),
+    waiter.refreshAfter401(session.id, 'access', refresh),
+    waiter.refreshAfter401(session.id, 'access', refresh),
+  ]
+
+  await vi.waitFor(() => expect(attempts).toHaveLength(3))
+  expect(attempts.filter(attempt => attempt.acquired)).toHaveLength(1)
+  rejectRefresh(error)
+  const settled = await Promise.allSettled(results)
+
+  expect(refresh).toHaveBeenCalledTimes(1)
+  expect(settled).toEqual(results.map(() => ({ status: 'rejected', reason: error })))
+  owner.dispose(); waiter.dispose()
+})
+
 it('a normal refresh 401 ends only the matching session', async () => {
   const a = new SessionCoordinator({ storage: new IndexedDbSessionStorage(new IDBFactory()) })
   await a.start()
