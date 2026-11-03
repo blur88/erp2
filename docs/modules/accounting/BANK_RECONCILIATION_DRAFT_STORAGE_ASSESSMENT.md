@@ -6,9 +6,9 @@ approved `sessionStorage` design (spec D9) is retained.
 
 The dismissal does **not** cover financial data held in the draft or cross-tab
 sign-out. The financial-data risk remains accepted below. The historical
-cross-tab failure motivated #1345; see the [current coordination behavior and
-accepted limits](../../frontend/session-coordination.md). Its browser verification
-is still pending.
+cross-tab failure is addressed by the current coordinator; see its [behavior
+and accepted limits](../../frontend/session-coordination.md), including the
+recorded Chromium-over-HTTP verification.
 
 ## The alert
 
@@ -80,8 +80,7 @@ At the recorded commit, the last row was wider than this feature.
 `sessionStorage` was per tab, auth state was persisted to shared `localStorage` by redux-persist, and nothing synchronised sign-out between tabs (there was no
 `storage` listener or `BroadcastChannel`). An open tab could write its in-memory
 session back after another tab signed out. This describes the historical
-failure, not the current coordinator; #1345 tracks the rebuild and browser
-verification. See the [current limits](../../frontend/session-coordination.md).
+failure, not the current coordinator. See the [current limits](../../frontend/session-coordination.md).
 
 Not exercised: a restored tab whose JavaScript never runs (offline or crashed
 page); browsers other than Chromium.
@@ -102,11 +101,12 @@ page); browsers other than Chromium.
   Question 1.
 - **Financial data in the draft:** not a false positive. It is an accepted,
   recorded residual risk of the approved `sessionStorage` design, with cross-tab
-  verification tracked separately in #1345.
+  verified by the Chromium-over-HTTP browser run recorded in the
+  [coordination limits](../../frontend/session-coordination.md).
 
 Alert 46 was dismissed as a false positive on 2026-10-05, citing this document,
 after the owner reviewed the browser evidence. The dismissal applies to the
 traced value. The retention of financial data in the draft and the cross-tab
 sign-out behaviour are not false positives; they stay recorded here, and the
-second motivated the coordination work in #1345, whose browser verification
-is pending.
+second motivated the coordination work. Its browser verification and remaining
+limits are recorded in the [coordination limits](../../frontend/session-coordination.md).
