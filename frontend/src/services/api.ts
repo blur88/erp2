@@ -28,6 +28,7 @@ const api: AxiosInstance = axios.create({
 // Request interceptor to inject access token and set baseURL
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    ;(config as any)._requestStartedAt ??= performance.timeOrigin + performance.now()
     // Set base URL
     if (!config.baseURL) {
       config.baseURL = getApiBaseUrl()
@@ -40,7 +41,6 @@ api.interceptors.request.use(
     if (previousSessionId && previousSessionId !== session?.id) throw new Error('Session ended before request')
     ;(config as any)._sessionId = session?.id
     ;(config as any)._accessToken = accessToken
-    ;(config as any)._requestStartedAt ??= performance.timeOrigin + performance.now()
 
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`
