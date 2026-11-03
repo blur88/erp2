@@ -101,8 +101,8 @@ page); browsers other than Chromium.
   Question 1.
 - **Financial data in the draft:** not a false positive. It is an accepted,
   recorded residual risk of the approved `sessionStorage` design, with cross-tab
-  verified by the Chromium-over-HTTP browser run recorded in the
-  [coordination limits](../../frontend/session-coordination.md).
+  sign-out behaviour verified by five Chromium-over-HTTP browser runs whose
+  preserved PASS output is in [PR #1622 comment 6603850529](https://github.com/blur88/erp2/pull/1622#issuecomment-6603850529).
 
 Alert 46 was dismissed as a false positive on 2026-10-05, citing this document,
 after the owner reviewed the browser evidence. The dismissal applies to the

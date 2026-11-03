@@ -58,8 +58,8 @@ settles its XHR adapter from `loadend`, after the XHR `load` event, while the
 harness pauses during `load`
 ([Axios xhr adapter `loadend` handler](https://github.com/axios/axios/blob/v1.20.0/lib/adapters/xhr.js#L43),
 [its registration](https://github.com/axios/axios/blob/v1.20.0/lib/adapters/xhr.js#L125),
-[coordinator.ts:233](../../frontend/src/services/session/coordinator.ts#L233),
-and [coordinator.ts:261](../../frontend/src/services/session/coordinator.ts#L261)).
+[coordinator.ts:244](../../frontend/src/services/session/coordinator.ts#L244),
+and [coordinator.ts:285](../../frontend/src/services/session/coordinator.ts#L285)).
 `refreshAfter401` therefore cannot continue to `saveRefresh` until the harness
 resumes. The transaction listener is also registered inside the wrapped
 `IDBDatabase.prototype.transaction`, before
@@ -74,8 +74,8 @@ coordinator session read, write and lock acquisition goes through the `run` queu
 ([coordinator.ts:53-59](../../frontend/src/services/session/coordinator.ts#L53),
 [coordinator.ts:88-211](../../frontend/src/services/session/coordinator.ts#L88));
 releasing the refresh lock is the direct-storage exception
-([coordinator.ts:222-225](../../frontend/src/services/session/coordinator.ts#L222)).
-Disposal closes storage after the queue drains ([coordinator.ts:318-319](../../frontend/src/services/session/coordinator.ts#L318)).
+([coordinator.ts:233-235](../../frontend/src/services/session/coordinator.ts#L233)).
+Disposal closes storage after the queue drains ([coordinator.ts:343](../../frontend/src/services/session/coordinator.ts#L343)).
 A per-page init script reads a mutable per-run target so only the current refresh save pauses.
 In the recovery case, tab
 B takes over after the 15-second lock expiry, receives the unchanged-token 401,
