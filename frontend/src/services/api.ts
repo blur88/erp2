@@ -28,6 +28,7 @@ const api: AxiosInstance = axios.create({
 // Request interceptor to inject access token and set baseURL
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    ;(config as any)._requestStartedAt ??= performance.timeOrigin + performance.now()
     // Set base URL
     if (!config.baseURL) {
       config.baseURL = getApiBaseUrl()
@@ -107,7 +108,7 @@ api.interceptors.response.use(
 
         const { authApi } = await import('./authApi')
         try {
-          await sessionCoordinator.refreshAfter401(session!.id, originalRequest._accessToken, async token => (await authApi.refreshToken(token)).data)
+          await sessionCoordinator.refreshAfter401(session!.id, originalRequest._accessToken, async token => (await authApi.refreshToken(token)).data, originalRequest._requestStartedAt)
         } catch (refreshError) {
           if (!sessionCoordinator.getSnapshot()) {
             const { clearLocalSessionForFailedRefresh } = await import('./auth/signOut')
