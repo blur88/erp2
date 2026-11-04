@@ -1,0 +1,538 @@
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - Fresh Database Migrations	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pending	0	https://github.com/blur88/erp2/runs/126556296029	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - Fresh Database Migrations	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	skipping	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - Fresh Database Migrations	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	skipping	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - Fresh Database Migrations	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	skipping	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - Fresh Database Migrations	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pending	0	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - Fresh Database Migrations	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - Fresh Database Migrations	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - TLS Database Connection	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Refreshing checks status every 10 seconds. Press Ctrl+C to quit.
+
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Frontend - Lint, Type Check, Tests	pending	0	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Frontend - Lint, Type Check, Tests	pass	9m29s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+Analyze (actions)	pass	41s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039006	
+Analyze (javascript-typescript)	pass	1m17s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039384	
+Analyze (python)	pass	48s	https://github.com/blur88/erp2/actions/runs/41824606261/job/126556039272	
+Backend - Lint, Type Check, Unit Tests, E2E Tests	pass	5m28s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039265	
+CodeQL	pass	7s	https://github.com/blur88/erp2/runs/126556296029	
+Frontend - Lint, Type Check, Tests	pass	9m29s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556040144	
+Production Image - Fresh Database Migrations	pass	1m30s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556039059	
+Production Image - TLS Database Connection	pass	2m4s	https://github.com/blur88/erp2/actions/runs/41824607941/job/126556038659	
+watch exit=0
+
+[exited with code 0]

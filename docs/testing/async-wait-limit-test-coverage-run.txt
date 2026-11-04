@@ -1,0 +1,285 @@
+
+> erp-frontend@3.19.3 test:coverage
+> vitest --run --coverage
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.3 /home/blur/erp2/frontend
+      Coverage enabled with v8
+
+
+ Test Files  274 passed (274)
+      Tests  3072 passed (3072)
+   Start at  19:15:32
+   Duration  1470.00s (tests 53%, import 18%, environment 14%, transform 7%, setup 7%, worker 1%)
+
+    Isolate  274 workers spawned · ~2.67s startup each (spawn + environment, per file)
+             at least ~240.79s faster with isolate: false — reuses workers across files instead of one per file
+
+[34m % [39m[2mCoverage report from [22m[33mv8[39m
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   77.28 |    72.11 |   68.13 |   78.23 |                   
+ src               |    7.89 |        0 |    5.88 |    9.23 |                   
+  RootLayout.tsx   |    4.68 |        0 |       0 |    5.55 | 20-112            
+  router.tsx       |      25 |        0 |      50 |   27.27 | 22-35             
+ ...ting/Statement |     100 |    96.29 |     100 |     100 |                   
+  ...entFigure.tsx |     100 |     92.3 |     100 |     100 | 29-30             
+ ...omponents/auth |    80.7 |    82.92 |   76.92 |   77.55 |                   
+  ...ingDialog.tsx |   11.11 |        0 |       0 |   11.11 | 46-60             
+  ...ctedRoute.tsx |   93.75 |    89.47 |     100 |    92.5 | 45-46,90          
+ ...ponents/backup |   62.74 |    68.42 |   54.54 |    65.3 |                   
+  ...kupDialog.tsx |   62.74 |    68.42 |   54.54 |    65.3 | ...8-50,55-58,131 
+ ...ponents/common |   87.17 |    81.25 |   79.04 |   88.57 |                   
+  ...ssSection.tsx |     100 |    81.81 |     100 |     100 | 38-56,163,167     
+  EntityTable.tsx  |   96.15 |    93.84 |     100 |     100 | 142,168,184,235   
+  ...tedDialog.tsx |   88.63 |    74.48 |   77.41 |   88.37 | ...79-504,518-564 
+  MainLayout.tsx   |   63.15 |       50 |   42.85 |   70.58 | 25,29-32          
+  ...tionPanel.tsx |   63.46 |    52.77 |   52.94 |   64.58 | ...12,153,209-213 
+  ...entDialog.tsx |   82.55 |    80.28 |   74.07 |   84.41 | ...16,299-311,343 
+  RefundDialog.tsx |   82.57 |    79.67 |   76.47 |   85.21 | ...06,378-397,430 
+  SearchModal.tsx  |   93.69 |     92.2 |   83.78 |   93.39 | ...13-314,377-378 
+  Sidebar.tsx      |   78.09 |    72.17 |   69.69 |    80.2 | ...64,511,816-891 
+  ...rUserMenu.tsx |     100 |    61.53 |     100 |     100 | 39-42             
+  SystemStatus.tsx |   97.95 |    89.47 |     100 |     100 | ...57-358,403-407 
+  TableCard.tsx    |     100 |       50 |     100 |     100 | 40                
+  TopBar.tsx       |   90.47 |    94.73 |    64.7 |   89.65 | 280-281,299-319   
+  ...alogShell.tsx |   95.83 |    93.75 |     100 |     100 | 196               
+ ...mon/StatusChip |     100 |    86.66 |     100 |     100 |                   
+  ...yTypeChip.tsx |     100 |    69.23 |     100 |     100 | 29-32,41          
+ ...ponents/errors |   66.66 |      100 |      20 |   66.66 |                   
+  ...rBoundary.tsx |   66.66 |      100 |      20 |   66.66 | 39-42,73-76       
+ ...onents/filters |   95.73 |    93.19 |   95.23 |   95.86 |                   
+  FilterBar.tsx    |   97.05 |    94.64 |     100 |   96.87 | 175               
+  ...rCustomer.tsx |     100 |       50 |     100 |     100 | 14                
+  FilterPeriod.tsx |   88.67 |    82.14 |   84.21 |   89.79 | 84-86,169-176     
+  ...rSupplier.tsx |     100 |       50 |     100 |     100 | 14                
+ ...ents/inventory |   41.79 |    40.71 |   39.28 |   43.07 |                   
+  ...ySelector.tsx |      72 |    64.78 |   71.42 |   73.46 | ...45,169-172,179 
+  ...ortDialog.tsx |    23.8 |    15.94 |    7.14 |   24.69 | ...76-300,407-448 
+ ...ts/price-lists |   93.33 |    88.23 |   85.71 |   92.85 |                   
+  ...tSelector.tsx |   93.33 |    88.23 |   85.71 |   92.85 | 90                
+ ...mponents/print |   94.73 |    87.62 |     100 |   94.11 |                   
+  ...tTemplate.tsx |     100 |    84.05 |     100 |     100 | ...74-278,335-386 
+  InvoicePrint.tsx |   92.85 |    96.42 |     100 |    92.3 | 71                
+ ...nents/settings |   69.62 |    57.57 |      70 |   70.63 |                   
+  ...odsDialog.tsx |   44.44 |    16.66 |   28.57 |   44.44 | 23-42,58-61       
+  ...ormDialog.tsx |   54.16 |       20 |   33.33 |   54.16 | 42-46,55,72-108   
+  ...opyDialog.tsx |   70.83 |    61.22 |    87.5 |   74.41 | ...18-219,248-253 
+  ...ormDialog.tsx |   79.62 |    71.92 |   88.88 |      80 | ...61-162,287-292 
+ ...s/transactions |   57.53 |    47.12 |    64.7 |   56.25 |                   
+  ...neItemRow.tsx |   61.53 |    45.61 |      68 |   60.86 | ...88-198,234-244 
+  ...pingField.tsx |   28.57 |    14.28 |      40 |   30.76 | 31-43             
+  ...FormShell.tsx |     100 |    88.88 |     100 |     100 | 49                
+  numberFormat.ts  |      75 |    71.42 |      50 |   66.66 | 17                
+ src/hooks         |   70.05 |    55.06 |   74.41 |   70.87 |                   
+  useCurrency.ts   |   17.64 |        0 |       0 |   17.64 | 9-26,34,42-43     
+  ...yWorkspace.ts |   78.98 |    61.36 |      80 |   82.03 | ...76-277,287-288 
+  ...icateCheck.ts |     100 |     92.3 |     100 |     100 | 64                
+  useFilterBar.ts  |   97.56 |    90.47 |     100 |   97.08 | 33,200,206        
+  useIdleTimer.ts  |    57.3 |    51.76 |   54.76 |   61.03 | ...28-229,246-298 
+  ...ItemKeyNav.ts |   54.09 |    48.88 |     100 |   52.63 | ...65,69-73,84-88 
+  ...stUrlState.ts |   98.75 |    95.08 |     100 |     100 | 97,183-184        
+  ...ification.tsx |    62.5 |    42.85 |   26.66 |   66.66 | ...11,186,193-200 
+  ...ductSearch.ts |   93.54 |    94.11 |     100 |    93.1 | 23,69             
+  ...alSettings.ts |    5.55 |        0 |       0 |    9.09 | 10-20             
+  ...hAndFilter.ts |    7.31 |        0 |      75 |    6.17 | 25-175            
+  ...ngesGuard.tsx |      96 |    85.71 |      90 |   95.45 | 37                
+ src/mocks         |      80 |       50 |      75 |      80 |                   
+  handlers.ts      |   66.66 |      100 |       0 |   66.66 | 6                 
+  ...edRequests.ts |   83.33 |       50 |     100 |   83.33 | 16                
+ ...ges/accounting |   95.74 |    89.98 |   93.81 |   96.23 |                   
+  ...tingsPage.tsx |   98.23 |    92.68 |     100 |   98.03 | 171,189           
+  ...psSection.tsx |   84.84 |    71.42 |     100 |   88.46 | 88-90             
+  ...SheetPage.tsx |   95.45 |    88.57 |   86.36 |    97.4 | 177,443           
+  ...ountsPage.tsx |   91.48 |    96.42 |      75 |   90.69 | 117-119,123       
+  ...tsSection.tsx |     100 |      100 |    92.3 |     100 |                   
+  ...ngSection.tsx |   93.18 |    86.04 |   93.33 |   95.23 | 149,161           
+  FormBTaxView.tsx |   91.48 |    88.23 |   82.35 |    92.5 | 117,254-313       
+  ...edgerPage.tsx |     100 |    93.18 |     100 |     100 | 101,184           
+  ...triesPage.tsx |   91.66 |    78.94 |   84.61 |   90.47 | 62,86,114-115     
+  ...yViewPage.tsx |   95.83 |    88.88 |    90.9 |   95.65 | 93                
+  ...ngSection.tsx |     100 |       95 |   91.66 |     100 | 103               
+  ...ntingView.tsx |   90.47 |       85 |      90 |   94.73 | 70                
+  ...dLossPage.tsx |   94.59 |    96.77 |      90 |   93.93 | 39-45             
+  ...appingMeta.ts |    87.5 |    66.66 |     100 |    90.9 | 44                
+  ...ndLossRows.ts |     100 |     90.9 |     100 |     100 | 25,68             
+  ...roupsDraft.ts |     100 |    85.71 |     100 |     100 | 63,105            
+  ...ppingDraft.ts |      90 |       75 |   88.88 |   88.23 | 33,44             
+ ...econciliations |   90.07 |    86.23 |   84.48 |   92.98 |                   
+  ...etailView.tsx |   87.95 |    85.71 |      70 |   89.47 | ...93-199,237,472 
+  ...nFormPage.tsx |   89.89 |    86.17 |   85.29 |    93.3 | ...09,740,745,807 
+  ...tionsPage.tsx |    88.5 |    74.07 |      92 |   93.05 | ...19,159,229-275 
+  ...riesPanel.tsx |     100 |    83.33 |     100 |     100 | 42,72             
+  ...inePicker.tsx |   81.81 |    76.47 |   72.72 |   81.81 | 143,165           
+  ...onSection.tsx |    62.5 |     87.5 |   44.44 |    62.5 | 108-123,226-241   
+  ...aftStorage.ts |   89.47 |    81.48 |     100 |     100 | 26-35,52-75       
+  ...iationForm.ts |   92.92 |    84.74 |   94.11 |   95.34 | 191,267-269       
+ ...ing/components |   85.18 |    88.18 |   86.95 |   84.92 |                   
+  ...ormDialog.tsx |    97.1 |    97.29 |   95.45 |   96.77 | 166,196           
+  AccountList.tsx  |   67.85 |    69.04 |   78.26 |   68.51 | ...95,201-205,236 
+ ...nting/expenses |   80.76 |    73.73 |    80.8 |   82.08 |                   
+  ...etailPage.tsx |     100 |     87.5 |     100 |     100 | 11                
+  ...etailView.tsx |   89.13 |    77.55 |   82.75 |   89.01 | ...59,181,365-401 
+  ...eFormPage.tsx |   90.29 |    78.74 |   90.32 |   91.48 | ...33,249,257-263 
+  ExpensesPage.tsx |   66.21 |    63.36 |   70.27 |   68.88 | ...79-440,458-487 
+  ...nseActions.ts |     100 |    83.33 |     100 |     100 | 19,21             
+ ...g/owner-equity |   68.01 |    65.55 |   57.57 |   68.83 |                   
+  ...etailView.tsx |   53.33 |     64.7 |   30.43 |   54.78 | ...79-287,403-493 
+  ...yFormPage.tsx |   88.54 |    77.23 |   85.36 |   89.24 | ...83,359,427-432 
+  ...quityPage.tsx |   62.77 |    50.74 |   57.14 |   64.41 | ...84,442-551,577 
+ ...er-settlements |   92.41 |    88.14 |   91.82 |   93.73 |                   
+  ...Attention.tsx |     100 |    88.23 |     100 |     100 | 26,34             
+  ...etailView.tsx |   91.54 |    91.46 |      92 |   93.65 | 288-293           
+  ...tFormPage.tsx |   88.35 |    85.05 |   83.33 |   90.13 | ...66-501,657-662 
+  ...mentsPage.tsx |      88 |       75 |   91.66 |   89.39 | ...38,190,256-306 
+  ...RowPicker.tsx |     100 |    97.01 |     100 |     100 | 294,335           
+  ...tSelection.ts |   98.27 |    93.33 |     100 |     100 | 23,80-88          
+ ...ges/audit-logs |   66.66 |      100 |       0 |     100 |                   
+  ...gs.routes.tsx |   66.66 |      100 |       0 |     100 |                   
+ ...ogs/components |    46.7 |    56.66 |   38.09 |   48.34 |                   
+  DiffViewer.tsx   |      75 |    61.76 |      80 |   81.81 | 23,71-87,98       
+  ExportButton.tsx |   31.57 |    36.36 |      25 |   31.42 | ...46,50-55,59-76 
+  ...erSidebar.tsx |   41.93 |    57.77 |      25 |   42.16 | ...23,241,271-308 
+ src/pages/auth    |   85.33 |       75 |   78.57 |   86.95 |                   
+  LoginPage.tsx    |    87.8 |    86.36 |   93.33 |   86.84 | 72-74,84-85,160   
+  ...hangePage.tsx |    86.2 |    63.63 |   72.72 |   85.71 | 82,184,216,248    
+  auth.routes.tsx  |      60 |      100 |       0 |     100 |                   
+ ...ages/dashboard |   57.14 |       50 |    6.66 |   58.92 |                   
+  ...boardPage.tsx |   56.89 |       50 |    6.89 |   58.18 | ...93,332-362,367 
+  ...rd.routes.tsx |   66.66 |      100 |       0 |     100 |                   
+ ...ard/components |   45.35 |    25.66 |   42.62 |   46.75 |                   
+  ...anceChart.tsx |   45.35 |    25.66 |   42.62 |   46.75 | ...57,564-587,605 
+ ...ages/inventory |   79.39 |    67.14 |   69.58 |   81.49 |                   
+  ...oriesPage.tsx |   93.93 |    86.95 |      90 |   96.15 | 76                
+  ...yFormPage.tsx |   74.13 |    72.46 |      70 |   75.43 | ...48,156,205-206 
+  ...yViewPage.tsx |   76.19 |    74.07 |    62.5 |   76.19 | 58,66,78-81,121   
+  ...oductPage.tsx |   77.27 |    69.19 |   70.45 |    77.9 | ...51-661,755,771 
+  ...tmentPage.tsx |   92.89 |    74.88 |   93.87 |   93.93 | ...34,379-407,579 
+  ...ntoryPage.tsx |   67.56 |    35.36 |      40 |   67.56 | ...54-271,449-541 
+  ...tViewPage.tsx |   83.33 |       75 |   83.33 |   83.33 | 45,53,68          
+  ProductsPage.tsx |   69.56 |    53.12 |   54.54 |   78.04 | 96-104,122-148    
+  ...tViewPage.tsx |   67.34 |    65.11 |    64.7 |   67.34 | ...39,153,209-222 
+  ...mentsPage.tsx |      75 |    63.88 |   64.28 |   76.08 | ...07,114,141-154 
+  ...ry.routes.tsx |   52.38 |      100 |       0 |     100 |                   
+ ...ory/components |   91.35 |    82.66 |   83.33 |   92.57 |                   
+  CategoryList.tsx |   85.71 |    72.09 |   66.66 |   88.63 | 111-113,116,152   
+  ...ductsList.tsx |     100 |       75 |     100 |     100 | 27-33             
+  ...istoryTab.tsx |     100 |    88.88 |     100 |     100 | 42,59             
+  ProductList.tsx  |   76.47 |       80 |   69.23 |   76.47 | 65-69             
+  ...erviewTab.tsx |     100 |     82.6 |     100 |     100 | 25-26,59          
+  ...msPopover.tsx |     100 |    95.45 |     100 |     100 | 94                
+  ...tmentList.tsx |   77.77 |       90 |   66.66 |   77.77 | 40-41,43,64       
+  ...ementsTab.tsx |   96.77 |     87.5 |     100 |     100 | 36,66             
+ ...nventory/utils |     100 |    93.75 |     100 |     100 |                   
+  ...entDisplay.ts |     100 |    93.75 |     100 |     100 | 25                
+ ...ges/purchasing |   67.18 |    63.83 |   54.54 |   67.71 |                   
+  ...OrderPage.tsx |   92.19 |    71.52 |   83.78 |    93.7 | ...46,409,463,526 
+  ...etailPage.tsx |   43.68 |    58.82 |      25 |   42.57 | ...37-245,292-355 
+  ...rdersPage.tsx |   44.16 |       40 |   21.42 |   43.36 | ...04-314,323-397 
+  ...asingPage.tsx |   68.75 |    40.81 |   38.46 |   67.74 | ...11,307,408-420 
+  ...rFormPage.tsx |    82.3 |       75 |   91.42 |   82.56 | ...06,311,324,541 
+  ...ofilePage.tsx |      70 |    59.09 |      75 |   72.41 | 72-81,86,94,111   
+  ...liersPage.tsx |      68 |    63.63 |      40 |   66.66 | 72-84,92-101      
+  ...ng.routes.tsx |   53.33 |      100 |       0 |     100 |                   
+ ...ing/components |   78.87 |    72.72 |   70.12 |   79.56 |                   
+  ...OrderList.tsx |   13.79 |    33.33 |    5.26 |   14.28 | 31-68,75-95,110   
+  ...erviewTab.tsx |     100 |    59.52 |     100 |     100 | ...,33-97,106-129 
+  ...ymentsTab.tsx |     100 |    73.33 |     100 |     100 | 17-18,32-41       
+  ...intDialog.tsx |     100 |    75.86 |     100 |     100 | ...98,214-228,289 
+  SupplierList.tsx |   73.33 |      100 |   66.66 |   73.33 | 55-63             
+  ...OrdersTab.tsx |   93.33 |    71.42 |    87.5 |     100 | 31                
+ ...rchasing/hooks |       0 |        0 |       0 |       0 |                   
+  ...gAnalytics.ts |       0 |        0 |       0 |       0 | 58-100            
+ ...rchasing/utils |     100 |    90.47 |     100 |     100 |                   
+  poRefund.ts      |     100 |    66.66 |     100 |     100 | 12,16-25          
+ src/pages/sales   |   75.38 |    68.55 |   64.28 |   76.32 |                   
+  ...OrderPage.tsx |    91.9 |    73.55 |   88.46 |   93.92 | ...47,494,552,624 
+  ...rFormPage.tsx |   87.59 |    77.36 |    92.3 |   87.59 | ...73,377,395,562 
+  ...ofilePage.tsx |     100 |     87.5 |     100 |     100 | 58,82             
+  ...omersPage.tsx |      68 |     62.5 |      40 |   66.66 | 75-87,95-104      
+  OrdersPage.tsx   |   44.18 |    33.33 |   21.05 |    43.9 | ...82,191,206-235 
+  ...etailPage.tsx |   56.36 |       70 |   45.94 |   56.36 | ...48,275,329-392 
+  SalesPage.tsx    |   66.66 |    28.57 |   31.25 |   68.29 | ...87-220,335-347 
+  sales.routes.tsx |   53.33 |      100 |       0 |     100 |                   
+ ...les/components |   77.32 |    65.98 |   73.58 |   77.96 |                   
+  ...extHeader.tsx |   85.71 |    72.72 |     100 |   85.71 | 56                
+  CustomerList.tsx |   73.33 |      100 |   66.66 |   73.33 | 53-61             
+  ...OrdersTab.tsx |     100 |       75 |     100 |     100 | 29                
+  ...erviewTab.tsx |     100 |    78.57 |     100 |     100 | 35,37-40          
+  ...erviewTab.tsx |     100 |       75 |     100 |     100 | 42-52,71-110      
+  ...ymentsTab.tsx |     100 |       80 |     100 |     100 | 17-18,33          
+  SalesCharts.tsx  |   45.23 |    28.57 |      40 |      45 | ...40,304-308,328 
+  ...OrderList.tsx |   65.51 |    83.33 |   47.36 |   67.85 | 34-42             
+  ...intDialog.tsx |   83.01 |    79.56 |      75 |   82.35 | ...-50,85,141,189 
+  ...tatsCards.tsx |      40 |    24.44 |      60 |   46.15 | 31-37,45-48       
+ ...es/sales/hooks |   96.42 |    66.66 |     100 |   96.29 |                   
+  ...dAnalytics.ts |   96.42 |    66.66 |     100 |   96.29 | 73                
+ ...es/sales/utils |     100 |    97.22 |     100 |     100 |                   
+  orderActions.ts  |     100 |    97.22 |     100 |     100 | 54                
+ ...pages/settings |   60.37 |    50.42 |   47.05 |   63.01 |                   
+  ...mbersPage.tsx |   89.28 |    57.14 |   93.75 |   88.67 | ...23-124,143,232 
+  ...thodsPage.tsx |   35.29 |    26.66 |   21.42 |   35.41 | ...97-102,147-201 
+  ...oringPage.tsx |   84.12 |    78.48 |    90.9 |   83.33 | ...,77,82,159,195 
+  ...tingsPage.tsx |   65.38 |    68.42 |      60 |   65.38 | 64-73,78          
+  ...ementPage.tsx |   41.93 |    22.66 |   22.58 |   42.22 | ...38-239,252-583 
+  ...gs.routes.tsx |   51.72 |      100 |       0 |     100 |                   
+ src/services      |   54.23 |    61.11 |   58.33 |   54.46 |                   
+  api.ts           |   61.45 |    71.73 |   86.66 |   61.53 | ...00,127,137-190 
+  authApi.ts       |   22.72 |        0 |   11.11 |    23.8 | ...35,43-50,64-97 
+ src/services/auth |   94.87 |    90.47 |     100 |   96.77 |                   
+  signOut.ts       |   94.73 |    90.47 |     100 |   96.66 | 28                
+ ...rvices/session |    87.5 |    82.83 |    80.9 |   94.54 |                   
+  coordinator.ts   |   90.47 |    81.54 |   95.91 |   95.56 | ...76-277,311-313 
+  index.ts         |    12.5 |       50 |       0 |   14.28 | 9-18              
+  storage.ts       |   86.09 |     84.8 |   73.58 |   96.94 | 41-42,76-77       
+ src/store/api     |   28.14 |    19.67 |   16.46 |   27.01 |                   
+  accountingApi.ts |   35.08 |    26.92 |   24.71 |   31.06 | ...45-553,575-677 
+  auditLogApi.ts   |   33.33 |        0 |   14.28 |   33.33 | 37-52             
+  backupApi.ts     |   13.33 |        0 |    5.26 |   14.81 | 106-111,120-185   
+  baseQuery.ts     |     100 |    66.66 |     100 |     100 | 25                
+  inventoryApi.ts  |    8.88 |     9.09 |    4.65 |    8.88 | 42-239            
+  normalizers.ts   |     100 |    92.85 |     100 |     100 | 7                 
+  ...MethodsApi.ts |   22.22 |        0 |    6.66 |   22.22 | 14-57             
+  priceListApi.ts  |   26.08 |    21.42 |   19.04 |   26.08 | 44-63,73-99       
+  ...ettingsApi.ts |   33.33 |      100 |      20 |   33.33 | 62-80             
+  purchasingApi.ts |    8.92 |        0 |    4.25 |    8.92 | ...55-210,229-243 
+  salesApi.ts      |   16.17 |    14.28 |   14.54 |   16.17 | ...58-227,280-337 
+  ...OrderCache.ts |     100 |       50 |     100 |     100 | 20                
+  searchApi.ts     |      60 |      100 |   33.33 |      60 | 11-15             
+  settingsApi.ts   |   21.42 |      100 |      10 |   21.42 | 86-130            
+  ...agementApi.ts |      25 |        0 |      10 |      25 | 50-84             
+ src/store/slices  |   84.61 |       60 |   80.39 |   85.11 |                   
+  authSlice.ts     |    86.2 |    64.51 |   91.66 |   86.66 | ...35-239,257-258 
+  ...ntorySlice.ts |   85.71 |      100 |   66.66 |   83.33 | 32                
+  ...ationSlice.ts |   77.14 |       50 |   66.66 |   78.78 | 48-58             
+  salesSlice.ts    |      50 |      100 |       0 |      50 | 22-28             
+ src/test          |   89.65 |    77.77 |      90 |   91.66 |                   
+  ...ntimeGuard.ts |      40 |        0 |      50 |      50 | 14-15             
+ src/utils         |    91.5 |    86.57 |   91.66 |   93.08 |                   
+  clipboard.ts     |   94.44 |      100 |     100 |   94.44 | 30                
+  currency.ts      |   95.23 |    90.29 |    93.1 |   95.83 | ...92,299,340,372 
+  customerUtils.ts |     100 |       50 |     100 |     100 | 8                 
+  dateRange.ts     |   96.55 |    95.45 |     100 |   96.55 | 83                
+  errorMessage.ts  |   96.29 |    82.35 |     100 |   95.83 | 17                
+  filterBar.url.ts |   99.12 |    93.87 |     100 |     100 | ...72,189,213,222 
+  formatters.ts    |   71.52 |       61 |      75 |   76.03 | ...17,274,286-298 
+  ...sification.ts |     100 |    91.66 |     100 |     100 | 40                
+  stockStatus.ts   |     100 |       80 |     100 |     100 | 25-26             
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 77.28% ( 8671/11220 )
+Branches     : 72.11% ( 6938/9621 )
+Functions    : 68.13% ( 2324/3411 )
+Lines        : 78.23% ( 7932/10139 )
+================================================================================
