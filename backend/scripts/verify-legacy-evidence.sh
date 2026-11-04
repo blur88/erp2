@@ -6,7 +6,13 @@ REPO_DIR="${1:-$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 REPO_DIR="$(git -C "$REPO_DIR" rev-parse --show-toplevel)"
 # Check the Git index recursively. Untracked files and content edits are excluded
 # intentionally; only staged/tracked path changes belong to this guard (#1561).
-actual="$(git -C "$REPO_DIR" -c core.quotePath=false ls-files -- docs/testing/ docs/backend/measurements/)"
+tracked_files="$(mktemp)"
+trap 'rm -f -- "$tracked_files"' EXIT
+git -C "$REPO_DIR" ls-files -z -- docs/testing/ docs/backend/measurements/ > "$tracked_files"
+declare -A actual=() expected_paths=()
+while IFS= read -r -d '' path; do
+  actual["$path"]=1
+done < "$tracked_files"
 expected="$(cat <<'PATHS'
 docs/backend/measurements/1449/derive-results.py
 docs/backend/measurements/1449/gate-result.txt
@@ -34,16 +40,16 @@ PATHS
 )"
 found=0
 while IFS= read -r path; do
-  if ! grep -Fxq -- "$path" <<< "$actual"; then
-    printf 'legacy evidence removed: %s\n' "$path"
+  expected_paths["$path"]=1
+  if [[ ! ${actual["$path"]+present} ]]; then
+    printf '%s: legacy evidence record missing; cited records stay at their path\n' "$path"
     found=1
   fi
 done <<< "$expected"
-while IFS= read -r path; do
-  [ -n "$path" ] || continue
-  if ! grep -Fxq -- "$path" <<< "$expected"; then
-    printf 'legacy evidence added: %s\n' "$path"
+while IFS= read -r -d '' path; do
+  if [[ ! ${expected_paths["$path"]+present} ]]; then
+    printf '%s: new file in a closed evidence location; use docs/evidence/<issue>/\n' "$path"
     found=1
   fi
-done <<< "$actual"
+done < "$tracked_files"
 exit "$found"

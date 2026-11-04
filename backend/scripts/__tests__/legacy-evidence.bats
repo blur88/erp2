@@ -29,21 +29,21 @@ setup() {
   git -C "$REPO" add .
   run bash "$CHECK" "$REPO"
   [ "$status" -eq 1 ]
-  [ "$output" = $'legacy evidence added: docs/backend/measurements/nested/new record.txt\nlegacy evidence added: docs/testing/nested/new record.txt' ]
+  [ "$output" = $'docs/backend/measurements/nested/new record.txt: new file in a closed evidence location; use docs/evidence/<issue>/\ndocs/testing/nested/new record.txt: new file in a closed evidence location; use docs/evidence/<issue>/' ]
 }
 
 @test "reports removed paths in both legacy directories" {
   git -C "$REPO" rm -q -f docs/backend/measurements/1449/machine.txt docs/testing/msw-unhandled-request-rerun.json
   run bash "$CHECK" "$REPO"
   [ "$status" -eq 1 ]
-  [ "$output" = $'legacy evidence removed: docs/backend/measurements/1449/machine.txt\nlegacy evidence removed: docs/testing/msw-unhandled-request-rerun.json' ]
+  [ "$output" = $'docs/backend/measurements/1449/machine.txt: legacy evidence record missing; cited records stay at their path\ndocs/testing/msw-unhandled-request-rerun.json: legacy evidence record missing; cited records stay at their path' ]
 }
 
 @test "reports a rename as one removed and one added path" {
   git -C "$REPO" mv docs/testing/msw-unhandled-request-rerun.json docs/testing/renamed.json
   run bash "$CHECK" "$REPO"
   [ "$status" -eq 1 ]
-  [ "$output" = $'legacy evidence removed: docs/testing/msw-unhandled-request-rerun.json\nlegacy evidence added: docs/testing/renamed.json' ]
+  [ "$output" = $'docs/testing/msw-unhandled-request-rerun.json: legacy evidence record missing; cited records stay at their path\ndocs/testing/renamed.json: new file in a closed evidence location; use docs/evidence/<issue>/' ]
 }
 
 @test "allows content edits, untracked paths, and tracked paths outside legacy directories" {
