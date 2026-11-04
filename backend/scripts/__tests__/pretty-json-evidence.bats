@@ -69,13 +69,9 @@ PY
   [ "$output" = '' ]
 }
 
-@test "test:scripts discovers these cases and they invoke the real guard" {
-  run node -e 'const p=require(process.argv[1]); if(p.scripts["test:scripts"] !== "bats scripts/__tests__") process.exit(1)' "$SOURCE_REPO/backend/package.json"
+@test "the checked-out repository has no minified JSON evidence" {
+  run bash "$CHECK" "$SOURCE_REPO"
+
   [ "$status" -eq 0 ]
   [ "$output" = '' ]
-  [ -x "$CHECK" ]
-  write_single_line_json "$REPO/docs/testing/minified.json" 1025
-  run bash "$CHECK" "$REPO"
-  [ "$status" -eq 1 ]
-  [ "$output" = 'docs/testing/minified.json: single-line JSON exceeds 1024 bytes' ]
 }

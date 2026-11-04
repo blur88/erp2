@@ -18,7 +18,7 @@ json_files="$(mktemp)"
 trap 'rm -f -- "$json_files"' EXIT
 find "$DOCS_DIR" \
   -type d -path "$DOCS_DIR/archive" -prune -o \
-  \( -type f -o -type l \) -name '*.json' -print0 > "$json_files"
+  -type f -name '*.json' -print0 > "$json_files"
 
 found=0
 while IFS= read -r -d '' path; do

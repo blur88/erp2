@@ -116,9 +116,9 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 
 ### JSON evidence stays reviewable
 
-- **Rule:** Serialize tracked JSON evidence outside `docs/archive/` with two-space indentation. The [JSON evidence guard](backend/scripts/verify-json-evidence.sh), run by `npm run test:scripts`, rejects a single-line JSON file larger than 1,024 bytes under `docs/`; it excludes `docs/archive/`.
+- **Rule:** Serialize JSON files under `docs/`, outside `docs/archive/`, with two-space indentation. The [JSON evidence guard](backend/scripts/verify-json-evidence.sh), run by `npm run test:scripts`, rejects a single-line JSON file larger than 1,024 bytes under `docs/`; it excludes `docs/archive/`.
 - **Why:** A large minified evidence file produces a one-line diff that hides what changed. Pretty-printing preserves the parsed data while exposing changed fields to review.
-- **Diff failure:** Replacing the one-line 39 KB rerun record in [issue #1562](https://github.com/blur88/erp2/issues/1562) made later changes appear as a full-line replacement instead of a reviewable field change.
+- **Diff failure:** During [PR #1557](https://github.com/blur88/erp2/pull/1557)'s review, one `git diff` of the minified [rerun JSON](docs/testing/msw-unhandled-request-rerun.json) dumped 41 KB into the reviewer's context; its one-line layout cannot show a field-level change. [Issue #1562](https://github.com/blur88/erp2/issues/1562) records the follow-up.
 - **Trace:** [Issue #1562](https://github.com/blur88/erp2/issues/1562), [the guard](backend/scripts/verify-json-evidence.sh), and [its Bats cases](backend/scripts/__tests__/pretty-json-evidence.bats).
 
 ### Skip conditions fail closed
