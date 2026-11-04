@@ -114,6 +114,13 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 
 ## Guard scripts
 
+### JSON evidence stays reviewable
+
+- **Rule:** Serialize tracked JSON evidence outside `docs/archive/` with two-space indentation. The [JSON evidence guard](backend/scripts/verify-json-evidence.sh), run by `npm run test:scripts`, rejects a single-line JSON file larger than 1,024 bytes under `docs/`; it excludes `docs/archive/`.
+- **Why:** A large minified evidence file produces a one-line diff that hides what changed. Pretty-printing preserves the parsed data while exposing changed fields to review.
+- **Diff failure:** Replacing the one-line 39 KB rerun record in [issue #1562](https://github.com/blur88/erp2/issues/1562) made later changes appear as a full-line replacement instead of a reviewable field change.
+- **Trace:** [Issue #1562](https://github.com/blur88/erp2/issues/1562), [the guard](backend/scripts/verify-json-evidence.sh), and [its Bats cases](backend/scripts/__tests__/pretty-json-evidence.bats).
+
 ### Skip conditions fail closed
 
 - **Rule:** A guard skips only on a condition it has verified. When computing that condition fails (a command exits non-zero, a path cannot be computed or resolves to the wrong place), the guard fails. A verified absence (such as `[ -d ]` on a correctly resolved path) is a valid skip.

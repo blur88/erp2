@@ -1,1 +1,5 @@
-{"url":"http://10.1.1.34:5174/login","secureContext":false,"alert":"This browser's storage is unavailable"}
+{
+  "url": "http://10.1.1.34:5174/login",
+  "secureContext": false,
+  "alert": "This browser's storage is unavailable"
+}
