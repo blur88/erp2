@@ -1,6 +1,6 @@
 # Frontend Testing Limits and Printing
 
-What the Vitest/jsdom suite can and cannot observe, how printing works, and the invariants of the accounting `Statement` component that no automated test protects.
+What the Vitest/jsdom suite can and cannot observe, [how it handles unhandled MSW requests](#unhandled-msw-requests), how printing works, and the invariants of the accounting `Statement` component that no automated test protects.
 
 ## Printing is portal-only
 
@@ -74,3 +74,7 @@ The registry lives on `globalThis` under a `Symbol.for` key and survives module 
 **Diagnostics:** Recorded stacks provide context, not a guaranteed importer chain; transformed execution can obscure that chain.
 
 The [integration cases](../../frontend/src/test/__tests__/appStoreRuntimeGuard.test.ts) run the real config and plugin in isolated child processes. Runtime detection replaces the retired source-text matcher: type-erased value-form imports, a stub method sharing the loader parameter's name, and hoist-safe named factories have passing controls. The separate `configureStore(` plus `.middleware` text check remains unchanged. Design decisions are recorded in [issue #1501](https://github.com/blur88/erp2/issues/1501#issuecomment-6463202867).
+
+## Unhandled MSW requests
+
+The Vitest setup fails the suite when a test leaves an unhandled MSW request. Add the expected handler with `server.use(...)` in the test or add it to the shared handlers. For a deliberate rejection test, call `consumeUnhandledRequests()` and assert the exact method-and-URL entries it returns; do not consume them without asserting. The failure message points here: `docs/frontend/testing-and-print.md#unhandled-msw-requests`.

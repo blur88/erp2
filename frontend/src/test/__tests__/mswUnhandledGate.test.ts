@@ -38,6 +38,13 @@ export default async (env) => {
     expect(results.testResults).toHaveLength(2)
     const output = JSON.stringify(results) + result.stdout + result.stderr
     expect(output).toContain('Unhandled MSW requests:')
+    for (const guidance of [
+      'Add a handler with server.use(...) or in the shared handlers.',
+      'For a deliberate rejection test, call consumeUnhandledRequests() and assert the exact entries.',
+      'docs/frontend/testing-and-print.md#unhandled-msw-requests',
+    ]) {
+      expect(output).toContain(guidance)
+    }
     for (const request of [
       'GET http://localhost:3001/__gate_get__',
       'POST http://localhost:3001/__gate_post__',

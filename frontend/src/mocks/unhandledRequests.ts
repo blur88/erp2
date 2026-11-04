@@ -13,6 +13,13 @@ export function consumeUnhandledRequests(): string[] {
 export function reportUnhandledRequests() {
   const pending = consumeUnhandledRequests()
   if (pending.length) {
-    throw new Error(`Unhandled MSW requests:\n${pending.join('\n')}`)
+    throw new Error([
+      'Unhandled MSW requests:',
+      ...pending,
+      '',
+      'Add a handler with server.use(...) or in the shared handlers.',
+      'For a deliberate rejection test, call consumeUnhandledRequests() and assert the exact entries.',
+      'See docs/frontend/testing-and-print.md#unhandled-msw-requests.',
+    ].join('\n'))
   }
 }
