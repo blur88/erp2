@@ -26,11 +26,17 @@ const isJsdomEnvironment =
   typeof navigator !== 'undefined'
 
 if (isJsdomEnvironment) {
-  const [{ cleanup }, , { default: ButtonBase }] = await Promise.all([
+  const [{ cleanup, configure }, , { default: ButtonBase }] = await Promise.all([
     import('@testing-library/react'),
     import('@testing-library/jest-dom/vitest'),
     import('@mui/material/ButtonBase'),
   ])
+
+  // waitFor/findBy give up after 1s by default. Under full-suite load, a
+  // debounced preview or a post-save navigation can take longer than that
+  // even when the page is correct (#1560), so allow 5s.
+  // src/test/__tests__/asyncUtilTimeout.test.tsx guards this value.
+  configure({ asyncUtilTimeout: 5000 })
 
   const buttonBase = ButtonBase as any
   buttonBase.defaultProps = {
