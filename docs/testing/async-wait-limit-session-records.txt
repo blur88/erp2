@@ -506,3 +506,25 @@ gh pr checks exit=0
       1 Analyze (actions)	pass
       8 pass
 
+===== R30 tool_use toolu_013vn9wxnYyUzatVbCbo5MSY
+description: Rename ignored log file, stage evidence, recheck links
+called (UTC): 2026-11-04T13:39:36.483Z
+result (UTC): 2026-11-04T13:39:38.666Z
+----- command
+cd /home/blur/erp2 && mv docs/testing/async-wait-limit-test-coverage.log.txt docs/testing/async-wait-limit-test-coverage-run.txt && sed -i 's/async-wait-limit-test-coverage\.log\.txt/async-wait-limit-test-coverage-run.txt/g' docs/testing/async-wait-limit-evidence.md && grep -c 'coverage-run.txt' docs/testing/async-wait-limit-evidence.md && git add docs/testing/async-wait-limit-* && git status --short && cmp docs/testing/async-wait-limit-test-coverage-run.txt /tmp/claude-1000/-home-blur-erp2/29d49e56-a141-410a-a8dc-eccf2abf4ca1/scratchpad/coverage.txt && echo "coverage log byte-identical"; cd backend && npm run verify:doc-links 2>&1 | tail -2; echo "doc-links exit=${PIPESTATUS[0]}"
+----- output (verbatim tool result)
+1
+A  docs/testing/async-wait-limit-5s-loaded-loop.output.txt
+A  docs/testing/async-wait-limit-evidence.md
+A  docs/testing/async-wait-limit-head-before-after.output.txt
+A  docs/testing/async-wait-limit-lint-typecheck.output.txt
+A  docs/testing/async-wait-limit-pr-checks-watch.output.txt
+A  docs/testing/async-wait-limit-pr-checks.txt
+A  docs/testing/async-wait-limit-session-records.txt
+A  docs/testing/async-wait-limit-test-coverage-run.txt
+A  docs/testing/async-wait-limit-test-coverage.output.txt
+coverage log byte-identical
+
+262 local links checked in 52 files (170 external skipped) under /home/blur/erp2
+doc-links exit=0
+

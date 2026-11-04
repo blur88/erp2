@@ -6,7 +6,7 @@ This file is the evidence behind [#1560](https://github.com/blur88/erp2/issues/1
 
 | File | What it is | How it was preserved |
 |---|---|---|
-| [`async-wait-limit-session-records.txt`](async-wait-limit-session-records.txt) | Records R01–R29: each shell command, its call and result timestamps (UTC), and its output. | Copied from the agent session transcript (`~/.claude/projects/-home-blur-erp2/29d49e56-a141-410a-a8dc-eccf2abf4ca1.jsonl`). Each tool result is reproduced exactly as recorded, with no edits. |
+| [`async-wait-limit-session-records.txt`](async-wait-limit-session-records.txt) | Records R01–R30: each shell command, its call and result timestamps (UTC), and its output. | Copied from the agent session transcript (`~/.claude/projects/-home-blur-erp2/29d49e56-a141-410a-a8dc-eccf2abf4ca1.jsonl`). Each tool result is reproduced exactly as recorded, with no edits. |
 | [`async-wait-limit-5s-loaded-loop.output.txt`](async-wait-limit-5s-loaded-loop.output.txt) | Output of R14, the 5s loaded loop. | The background task's output file, copied byte for byte. Last written 2026-11-04 11:15:07 UTC. |
 | [`async-wait-limit-lint-typecheck.output.txt`](async-wait-limit-lint-typecheck.output.txt) | Output of R16: lint, type-check and type-check:test, each with its exit line. | The background task's output file, copied byte for byte. Last written 11:13:44 UTC. |
 | [`async-wait-limit-test-coverage.output.txt`](async-wait-limit-test-coverage.output.txt) and [`async-wait-limit-test-coverage-run.txt`](async-wait-limit-test-coverage-run.txt) | R23 `test:coverage`: the summary with its exit line, and the full run log. | The background task's output file and the log R23 wrote, copied byte for byte. Last written 11:40:03 UTC. |
@@ -42,6 +42,7 @@ Each row below is a result reported in PR #1649 and the record that supports it.
 | Commit `9b2cef0db`. | R25 |
 | At head `9b2cef0db`: guard test passes. With `origin/main`'s `setup.ts`, the guard test fails and the loaded loop is `RED 2 / 3`, with only the provider test failing. With head restored, the loaded loop is `RED 0 / 3`. | R26 and `async-wait-limit-head-before-after.output.txt` |
 | PR checks at `9b2cef0db`: the watch exited 0, then `gh pr checks 1649` exited 0 with all 8 checks passing. | R28, R29 and both `async-wait-limit-pr-checks` files |
+| `verify:doc-links`: 262 local links in 52 files, exit 0. This ran on the working tree after these evidence files were staged and before commit `82fafbf0f` was created. The record does not show that tree to be identical to the commit. | R30 |
 
 ## Unpreserved
 
@@ -51,12 +52,4 @@ These observations have no record beyond what is stated here:
 - **Full Vitest reporter output** for the loop runs (R06, R07, R10, R11, R14, R26) and for R08. Only the filtered lines the commands printed were kept.
 - **Machine state while a run was in progress.** Besides the busy-loop processes these runs started, nothing was sampled during a run. The only samples are before the first measurement (R01–R03) and at the start of `test:coverage` (R20–R22). Whether `test:coverage` had the machine to itself for its whole 1,470s is unpreserved.
 - **Load from the other checks during the 5s run.** The timestamps above show when they overlapped, but not how much CPU they used.
-
-## Checks added later
-
-These comparisons were run on 2026-11-04 while this file was being written. They are new checks, not records of the earlier runs:
-
-- `git show 9b2cef0db:frontend/src/test/setup.ts` is byte-identical to the copy of `setup.ts` taken in R13. That copy was restored before R14 and R16 ran.
-- `git show 9b2cef0db:frontend/src/test/__tests__/asyncUtilTimeout.test.tsx` is byte-identical to the content the session's Write call created. The file was not edited afterwards.
-
-Together they show that R13–R23 ran on the same two files that `9b2cef0db` commits.
+- **Byte comparisons made while writing this file.** Later comparisons checked `9b2cef0db`'s `frontend/src/test/setup.ts` against a scratch copy taken in R13, and its `asyncUtilTimeout.test.tsx` against the session's Write content. Their output is not among these records, so they are unpreserved, and they do not establish which files R13–R23 ran on. The recorded comparison at a committed head is R26.
