@@ -91,7 +91,7 @@ B takes over after the 15-second lock expiry, receives the unchanged-token 401,
 and tab A resumes before tab B's actual 30-second recovery deadline; both tabs
 must remain signed in. In the loss case, tab A stays paused until tab B's matched
 End browser Session completes, then resumes and must observe the deletion. The
-45-second nominal acquisition-to-End-browser-Session window is not an exact cutoff: request duration
+45-second nominal window from acquisition to End browser Session is not an exact cutoff: request duration
 and browser scheduling affect when recovery starts and completes. Between the
 cases, the harness signs out and waits for the earlier lock lease to expire
 before starting a new Session.

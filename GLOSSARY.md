@@ -209,7 +209,7 @@ A user's signed-in state in one browser or on one device. All tabs of that brows
 _Avoid_: tab, login (as a noun)
 
 **End browser Session**:
-Deleting the shared Session record for one browser, which clears its signed-in state from every tab. This alone does not revoke server credentials or end Sessions on other devices.
+Deleting the shared Session record for one browser profile, which clears its signed-in state from every tab. This alone does not revoke server credentials or end Sessions on other devices.
 _Avoid_: sign out, logout
 
 **Sign out**:

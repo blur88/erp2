@@ -101,7 +101,7 @@ page); browsers other than Chromium.
   Question 1.
 - **Financial data in the draft:** not a false positive. It is an accepted,
   recorded residual risk of the approved `sessionStorage` design, with cross-tab
-  sign-out behaviour supported by five Chromium-over-HTTP runs whose preserved
+  End browser Session behaviour supported by five Chromium-over-HTTP runs whose preserved
   PASS output is in [PR #1622 comment 6603850529](https://github.com/blur88/erp2/pull/1622#issuecomment-6603850529), and by the suspended-tab resume PASS output in the [PR #1638 body at head `1cf0a270d`](https://github.com/blur88/erp2/pull/1638).
 
 Alert 46 was dismissed as a false positive on 2026-10-05, citing this document,

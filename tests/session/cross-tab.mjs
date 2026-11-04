@@ -208,7 +208,8 @@ try {
     const phaseAtStart = requestPhase
     const beforeLoginAtStart = phaseAtStart === 'resume' && !reachedLogin
     const url = new URL(request.url())
-    if (!url.pathname.startsWith('/api/') || url.pathname.startsWith('/api/auth/')) return
+    if (!url.pathname.startsWith('/api/')) return
+    if (phaseAtStart === 'baseline' && url.pathname.startsWith('/api/auth/')) return
     const authorization = Object.keys(request.headers()).find(header => header.toLowerCase() === 'authorization')
     if (!authorization) return
     const requestDescription = `${request.method()} ${url.pathname}`
@@ -230,14 +231,14 @@ try {
     window.__sessionTestIsolateResume = true
   })
   await tabB.waitForLoadState('networkidle')
-  requestPhase = 'resume'
-  const droppedBroadcastsBeforeSignOut = await tabB.evaluate(() => window.__sessionTestDroppedBroadcasts)
+  const droppedBroadcastsBeforeEndBrowserSession = await tabB.evaluate(() => window.__sessionTestDroppedBroadcasts)
   await logout(tabA)
   assert.equal(await readSharedSession(tabA), null)
+  requestPhase = 'resume'
   await withTimeout(
-    tabB.waitForFunction(previous => window.__sessionTestDroppedBroadcasts > previous, droppedBroadcastsBeforeSignOut),
+    tabB.waitForFunction(previous => window.__sessionTestDroppedBroadcasts > previous, droppedBroadcastsBeforeEndBrowserSession),
     5000,
-    'tab B did not suppress the sign-out BroadcastChannel message',
+    'tab B did not suppress the End browser Session BroadcastChannel message',
   )
   assert.ok(!new URL(tabB.url()).pathname.startsWith('/login'), 'tab B must remain stale until it resumes')
 
