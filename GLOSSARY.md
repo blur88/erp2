@@ -208,6 +208,10 @@ _Avoid_: undo, revert
 A user's signed-in state in one browser or on one device. All tabs of that browser share one Session.
 _Avoid_: tab, login (as a noun)
 
+**End browser Session**:
+Deleting the shared Session record for one browser profile, which clears its signed-in state from every tab. This alone does not revoke server credentials or end Sessions on other devices.
+_Avoid_: sign out, logout
+
 **Sign out**:
 Ending every Session of a user, in every browser and on every device, at once. Changing the password has the same effect.
 _Avoid_: log out, logout

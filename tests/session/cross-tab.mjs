@@ -158,6 +158,100 @@ try {
   await assertSignedIn(tabB, users[0].username)
   console.log('PASS session restore after reload')
 
+  // Keep tab B's other resume listeners from independently reconciling this missed-message case.
+  await tabB.addInitScript(() => {
+    const isCoordinatorResume = listener => String(listener).includes('credentialsForRequest')
+    const addDocumentEventListener = Document.prototype.addEventListener
+    Document.prototype.addEventListener = function (type, listener, options) {
+      if (type !== 'visibilitychange') {
+        return addDocumentEventListener.call(this, type, listener, options)
+      }
+      const coordinatorListener = isCoordinatorResume(listener)
+      return addDocumentEventListener.call(this, type, function (...args) {
+        if (window.__sessionTestIsolateResume && !coordinatorListener) return
+        return listener.apply(this, args)
+      }, options)
+    }
+    const addWindowEventListener = Window.prototype.addEventListener
+    Window.prototype.addEventListener = function (type, listener, options) {
+      if (type !== 'focus') return addWindowEventListener.call(this, type, listener, options)
+      const coordinatorListener = isCoordinatorResume(listener)
+      return addWindowEventListener.call(this, type, function (...args) {
+        if (window.__sessionTestIsolateResume && !coordinatorListener) return
+        return listener.apply(this, args)
+      }, options)
+    }
+    const addEventListener = BroadcastChannel.prototype.addEventListener
+    BroadcastChannel.prototype.addEventListener = function (type, listener, options) {
+      if (this.name !== 'erp-session' || type !== 'message') return addEventListener.call(this, type, listener, options)
+      return addEventListener.call(this, type, function (event) {
+        if (window.__sessionTestSuppressBroadcasts) {
+          window.__sessionTestDroppedBroadcasts++
+          return
+        }
+        if (typeof listener === 'function') listener.call(this, event)
+        else listener.handleEvent(event)
+      }, options)
+    }
+    window.__sessionTestSuppressBroadcasts = false
+    window.__sessionTestDroppedBroadcasts = 0
+    window.__sessionTestIsolateResume = false
+  })
+  const authenticatedRequestsBeforeSuppression = []
+  const authenticatedRequestsBeforeLogin = []
+  let requestPhase = 'baseline'
+  let reachedLogin = false
+  const onMainFrameNavigated = frame => {
+    if (requestPhase === 'resume' && frame === tabB.mainFrame() && new URL(frame.url()).pathname === '/login') reachedLogin = true
+  }
+  const onRequest = request => {
+    const phaseAtStart = requestPhase
+    const beforeLoginAtStart = phaseAtStart === 'resume' && !reachedLogin
+    const url = new URL(request.url())
+    if (!url.pathname.startsWith('/api/')) return
+    if (phaseAtStart === 'baseline' && url.pathname.startsWith('/api/auth/')) return
+    const authorization = Object.keys(request.headers()).find(header => header.toLowerCase() === 'authorization')
+    if (!authorization) return
+    const requestDescription = `${request.method()} ${url.pathname}`
+    if (phaseAtStart === 'baseline') authenticatedRequestsBeforeSuppression.push(requestDescription)
+    else if (beforeLoginAtStart) authenticatedRequestsBeforeLogin.push(requestDescription)
+  }
+  tabB.on('framenavigated', onMainFrameNavigated)
+  tabB.on('request', onRequest)
+  await tabB.reload()
+  await assertSignedIn(tabB, users[0].username)
+  // Refresh the short-lived token before the missed-message window.
+  await logout(tabA)
+  await login(tabA, users[0])
+  await assertSignedIn(tabB, users[0].username)
+  await tabB.waitForLoadState('networkidle')
+  assert.ok(authenticatedRequestsBeforeSuppression.length > 0, 'request observer must capture an Authorization header from tab B before suppression')
+  await tabB.evaluate(() => {
+    window.__sessionTestSuppressBroadcasts = true
+    window.__sessionTestIsolateResume = true
+  })
+  await tabB.waitForLoadState('networkidle')
+  const droppedBroadcastsBeforeEndBrowserSession = await tabB.evaluate(() => window.__sessionTestDroppedBroadcasts)
+  await logout(tabA)
+  assert.equal(await readSharedSession(tabA), null)
+  requestPhase = 'resume'
+  await withTimeout(
+    tabB.waitForFunction(previous => window.__sessionTestDroppedBroadcasts > previous, droppedBroadcastsBeforeEndBrowserSession),
+    5000,
+    'tab B did not suppress the End browser Session BroadcastChannel message',
+  )
+  assert.ok(!new URL(tabB.url()).pathname.startsWith('/login'), 'tab B must remain stale until it resumes')
+
+  await tabB.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await withTimeout(tabB.waitForURL('**/login'), 5000, 'resumed tab B did not reconcile the deleted Session')
+  await tabB.waitForLoadState('domcontentloaded')
+  assert.deepEqual(authenticatedRequestsBeforeLogin, [], 'tab B must send no authenticated request before reaching /login')
+  tabB.off('framenavigated', onMainFrameNavigated)
+  tabB.off('request', onRequest)
+  console.log('PASS suspended tab resumes after a missed sign-out without sending an authenticated request')
+  await login(tabA, users[0])
+  await assertSignedIn(tabB, users[0].username)
+
   // Hold the first refresh until both tabs have received an expired-token 401.
   await new Promise(resolve => setTimeout(resolve, 8500))
   const expired = new Set()
