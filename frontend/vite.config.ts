@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type ViteUserConfig } from 'vitest/config'
 import { createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -139,5 +139,5 @@ export default defineConfig(({ mode }) => {
         },
       ],
     },
-  }
+  } satisfies ViteUserConfig
 })
