@@ -1,0 +1,26 @@
+HEAD 9b2cef0db4e283dd6b4e8baf773dbb11cef418cb
+== AFTER guard (head setup.ts)
+setup.ts == HEAD
+ ✓ |jsdom| src/test/__tests__/asyncUtilTimeout.test.tsx > Testing Library async wait limit > is 5000ms for every jsdom test 7ms
+      Tests  1 passed (1)
+== BEFORE: main setup.ts swapped in
+setup.ts == origin/main
+ × |jsdom| src/test/__tests__/asyncUtilTimeout.test.tsx > Testing Library async wait limit > is 5000ms for every jsdom test 20ms
+AssertionError: expected 1000 to be 5000 // Object.is equality
+      Tests  1 failed (1)
+run 1 rc=0       Tests  2 passed | 102 skipped (104)
+run 2 rc=1       Tests  1 failed | 1 passed | 102 skipped (104)
+ FAIL  |jsdom| src/pages/accounting/provider-settlements/__tests__/ProviderSettlementFormPage.test.tsx > ProviderSettlementFormPage unsaved changes (#1277) > disables every action and labels the create while it is in flight
+TestingLibraryElementError: Unable to find an element with the text: LIST PAGE. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+run 3 rc=1       Tests  1 failed | 1 passed | 102 skipped (104)
+ FAIL  |jsdom| src/pages/accounting/provider-settlements/__tests__/ProviderSettlementFormPage.test.tsx > ProviderSettlementFormPage unsaved changes (#1277) > disables every action and labels the create while it is in flight
+TestingLibraryElementError: Unable to find an element with the text: LIST PAGE. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+RED 2 / 3 (hogs=8)
+== AFTER: head setup.ts restored
+tree == HEAD
+run 1 rc=0       Tests  2 passed | 102 skipped (104)
+run 2 rc=0       Tests  2 passed | 102 skipped (104)
+run 3 rc=0       Tests  2 passed | 102 skipped (104)
+RED 0 / 3 (hogs=8)
+
+[exited with code 0]

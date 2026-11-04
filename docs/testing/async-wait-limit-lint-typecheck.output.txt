@@ -1,0 +1,15 @@
+lint exit=0
+
+> erp-frontend@3.19.3 lint
+> eslint . --max-warnings 0
+
+type-check exit=0
+> erp-frontend@3.19.3 type-check
+> tsc --noEmit
+
+type-check:test exit=0
+> erp-frontend@3.19.3 type-check:test
+> tsc -p tsconfig.test.json --noEmit
+
+
+[exited with code 0]

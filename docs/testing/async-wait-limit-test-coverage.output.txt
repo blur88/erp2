@@ -1,0 +1,5 @@
+ Test Files  274 passed (274)
+      Tests  3072 passed (3072)
+test:coverage exit=0
+
+[exited with code 0]
