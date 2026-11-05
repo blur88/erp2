@@ -1,6 +1,6 @@
 # Issue #1682 disclosure inventory
 
-AGENTS.md word count (`wc -w`): 1,882 before; 1,731 after. Only the three requested blocks changed. Raw output is preserved in [word-count.txt](word-count.txt), from these commands in order:
+AGENTS.md word count (`wc -w`): 1,882 before; 1,731 after. Only the three requested blocks changed. Raw output is preserved in [word-count.txt](word-count.txt), from these commands in order (HEAD was the implementation commit `8d9528214`; the follow-up evidence commit leaves AGENTS.md unchanged):
 
 ```bash
 git rev-parse df51bb15c
