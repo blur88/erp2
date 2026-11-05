@@ -276,6 +276,11 @@ jobs:
             exit 1
           fi
 
+      - name: Verify frontend runtime configuration on read-only Compose root
+        run: |
+          docker compose build frontend
+          frontend/scripts/verify-runtime-env.sh
+
       - name: Boot the production image against the empty database
         run: |
           # DB_SSL=false because the Postgres service container above serves

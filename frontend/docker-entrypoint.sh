@@ -1,15 +1,19 @@
 #!/bin/sh
 
-# Replace environment variables in built files
+# Generate runtime configuration on the Compose /var/run tmpfs.
 # This allows runtime configuration of the React app
 
 # Create environment configuration that gets injected into HTML
-cat > /usr/share/nginx/html/env-config.js << ENVEOF
+if ! cat > /var/run/env-config.js << ENVEOF
 window.__ENV__ = {
-  VITE_API_BASE_URL: "${VITE_API_BASE_URL}",
+  VITE_API_BASE_URL: "${VITE_API_BASE_URL:-/api}",
   SESSION_IDLE_TIMEOUT_MS: ${SESSION_IDLE_TIMEOUT_MS:-43200000}
 };
 ENVEOF
+then
+  echo "Failed to generate runtime configuration at /var/run/env-config.js" >&2
+  exit 1
+fi
 
 # Execute the main command
 exec "$@"

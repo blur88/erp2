@@ -5,7 +5,6 @@ services:
   frontend:
     environment:
       SESSION_IDLE_TIMEOUT_MS: 120000
-    read_only: false
   nginx:
     volumes:
       - ./tests/session/nginx.test.conf:/etc/nginx/nginx.conf:ro
