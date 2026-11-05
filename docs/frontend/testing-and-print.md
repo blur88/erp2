@@ -8,7 +8,7 @@ How frontend type checks divide application and test files, what the Vitest/jsdo
 
 `npm run type-check:test` runs `tsc -p tsconfig.test.json --noEmit` and `tsc -p tsconfig.node.json --noEmit`. The test config includes all of `src`, adds Vitest globals and has no exclusions, so it checks tests, setup and mocks alongside production source; production files are checked a second time with Vitest globals. The node config checks `vite.config.ts` and `src/test/appStoreRuntimeGuard.ts`. CI runs this as a step in the existing **Frontend - Lint, Type Check, Tests** job.
 
-This check was added after #1539 found that excluding `setupTests.ts` let the removed MSW `onUnhandledRequest: 'warn'` option pass unnoticed. See [issue #1539](https://github.com/blur88/erp2/issues/1539).
+`#1539` added `tsconfig.test.json` after the excluded `setupTests.ts` let the removed MSW `onUnhandledRequest: 'warn'` option pass unnoticed; `#1564` added the `tsconfig.node.json` pass. See [issue #1539](https://github.com/blur88/erp2/issues/1539).
 
 ## Printing is portal-only
 
