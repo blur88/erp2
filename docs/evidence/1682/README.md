@@ -1,13 +1,6 @@
 # Issue #1682 disclosure inventory
 
-AGENTS.md word count (`wc -w`): 1,882 before; 1,731 after. Only the three requested blocks changed. Raw output is preserved in [word-count.txt](word-count.txt), from these commands in order (HEAD was the implementation commit `8d9528214`; the follow-up evidence commit leaves AGENTS.md unchanged):
-
-```bash
-git rev-parse df51bb15c
-git show df51bb15c:AGENTS.md | wc -w
-git rev-parse HEAD
-git show HEAD:AGENTS.md | wc -w
-```
+AGENTS.md word count (`wc -w`): 1,882 before; 1,730 after the round 4 fixes at `6dde37b6c`. Only the three requested blocks changed. Raw output, including the earlier 1,731-word implementation measurement, is preserved in [word-count.txt](word-count.txt). The evidence-only follow-up leaves AGENTS.md unchanged.
 
 Every removed sentence is accounted for below by its constituent claims. Destinations identify the exact lines containing those claims, including existing explanations. Destination excerpts omit inline-code backticks; references remain checkable if lines move. Moved requirements and inventories are marked explicitly.
 
