@@ -87,7 +87,7 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 
 **Redis and queues**
 
-- **`noeviction`, queue keys only.** Eviction silently destroys queue state. Never add cache or session keys to this instance. — [Redis](docs/backend/redis.md#noeviction-is-a-correctness-requirement-1036).
+- **`noeviction`, queue keys only.** Eviction silently destroys queue state. Never add cache or session keys to this instance — [Redis](docs/backend/redis.md#noeviction-is-a-correctness-requirement-1036).
 - **RESP2 is pinned.** RESP3 silently changes reply shapes — [protocol constraints](docs/backend/redis.md#ioredis-6-with-resp2-pinned-1069).
 - **Scheduler safety.** Nothing in the codebase cleans up v5 repeatables any more, so a v5 process must never write to this Redis again. Scheduler removal: never `ZREM` — [safe reconciliation](docs/backend/bullmq-backup-schedulers.md#removing-orphans-the-reconcile-cli).
 
@@ -108,7 +108,7 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 **Bank reconciliation**
 
 - **Only the working set reserves journal lines.** Versions reserve nothing — [reservations](docs/modules/accounting/BANK_RECONCILIATION.md#storage).
-- **Versions are immutable.** Nothing under `backend/src/` may disable these triggers; outside migrations, nothing under `backend/src/` may drop the index. — [immutability](docs/modules/accounting/BANK_RECONCILIATION.md#versions-are-immutable-with-no-bypass).
+- **Versions are immutable.** Nothing under `backend/src/` may disable `trg_bsr_*` triggers; outside migrations, nothing under `backend/src/` may drop `UQ_bsr_one_draft_per_account` — [immutability](docs/modules/accounting/BANK_RECONCILIATION.md#versions-are-immutable-with-no-bypass).
 - **Lock order.** Inconsistent acquisition order risks deadlocks — [lock order](CODING_STANDARDS.md#reconciliation-lock-order).
 
 **Documentation**

@@ -9,9 +9,9 @@ git rev-parse HEAD
 git show HEAD:AGENTS.md | wc -w
 ```
 
-Every removed sentence is accounted for below by its constituent claims. Destinations identify the exact lines containing those claims, including existing explanations. Exact destination text is quoted so references remain checkable if lines move. Moved requirements and inventories are marked explicitly.
+Every removed sentence is accounted for below by its constituent claims. Destinations identify the exact lines containing those claims, including existing explanations. Destination excerpts omit inline-code backticks; references remain checkable if lines move. Moved requirements and inventories are marked explicitly.
 
-| Removed claim or instruction | Destination (`file:line`) | Exact destination text |
+| Removed claim or instruction | Destination (`file:line`) | Destination excerpt (inline-code backticks omitted) |
 |---|---|---|
 | Redis is BullMQ’s store only | `docs/backend/redis.md:7` | ``Redis 8.6 backs BullMQ and nothing else — no cache, no sessions, despite what older comments claim.`` |
 | noeviction and silent queue-state loss | `docs/backend/redis.md:11` | ``--maxmemory-policy noeviction is required, not a tuning preference. BullMQ has no recovery path for evicted keys: under an eviction policy Redis can silently drop job hashes, queue state or scheduler metadata, and jobs vanish with no error. Under noeviction, hitting the memory cap is instead a hard OOM command not allowed failure.`` |
