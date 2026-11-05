@@ -22,9 +22,9 @@ The accounting reports (Profit & Loss, Balance Sheet, Form B) printed from insid
 
 ## Manual browser harness
 
-jsdom has no layout engine and does not evaluate `@media print`, so **the Vitest suite cannot validate any print path** — it can only assert that selectors exist. The Playwright gate that covered the accounting print path (`frontend/e2e/accounting-print.spec.ts`, CI job `Accounting Reports - Print/PDF Gate`, #1214) was removed with that path in #1223 and dropped from ruleset 15609777's required checks. There is no `playwright.config.ts`, no `frontend/e2e/` and no `test:print` script; `tests/session/` provides a manual, non-CI LAN HTTP harness for session coordination; it does not cover printing.
+jsdom has no layout engine and does not evaluate `@media print`, so **the Vitest suite cannot validate any print path** — it can only assert that selectors exist. The Playwright gate that covered the accounting print path (`frontend/e2e/accounting-print.spec.ts`, CI job `Accounting Reports - Print/PDF Gate`, #1214) was removed with that path in #1223 and dropped from ruleset 15609777's required checks. There is no `playwright.config.ts`, no `frontend/e2e/` and no `test:print` script; `tests/session/` provides a manual, non-CI LAN HTTP harness for session coordination only; it covers neither printing nor layout.
 
-SO/PO print is covered only by the jsdom suite plus a manual browser pass.
+Print and layout changes need a manual browser pass. SO/PO print has only jsdom coverage in the automated suite.
 
 ## What jsdom can observe
 
