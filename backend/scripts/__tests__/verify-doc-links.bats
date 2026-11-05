@@ -400,7 +400,7 @@ EOF
   git -C "$TEST_REPO" add README.md backend/scripts/verify-doc-links.mjs
   run env -C /tmp node "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" == "Untracked Markdown (stage with git add -N <file> and rerun):"$'\n'"private.md — not checked"$'\n'"README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+  [[ "$output" == "Untracked Markdown (stage with the commands below and rerun):"$'\n'"private.md — not checked; git add -N -- ':(top,literal)private.md'"$'\n'"README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
 
 @test "running from a repository subdirectory still finds the repository root" {
@@ -413,7 +413,7 @@ EOF
   git -C "$TEST_REPO" add README.md backend/scripts/verify-doc-links.mjs
   run env -C "$TEST_REPO/backend" node "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" == "Untracked Markdown (stage with git add -N <file> and rerun):"$'\n'"private.md — not checked"$'\n'"README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+  [[ "$output" == "Untracked Markdown (stage with the commands below and rerun):"$'\n'"private.md — not checked; git add -N -- ':(top,literal)private.md'"$'\n'"README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
 
 @test "gitignored targets are treated as untracked" {
@@ -508,7 +508,7 @@ EOF
 EOF
   run node "$SCRIPT"
   [ "$status" -eq 0 ]
-  [[ "$output" == "Untracked Markdown (stage with git add -N <file> and rerun):"$'\n'"new notes.md — not checked"$'\n'"second.MD — not checked"$'\n'"0 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+  [[ "$output" == "Untracked Markdown (stage with the commands below and rerun):"$'\n'"new notes.md — not checked; git add -N -- ':(top,literal)new notes.md'"$'\n'"second.MD — not checked; git add -N -- ':(top,literal)second.MD'"$'\n'"0 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
 
 @test "untracked Markdown notice preserves tracked broken link failure" {
@@ -521,7 +521,7 @@ EOF
 EOF
   run node "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" == "Untracked Markdown (stage with git add -N <file> and rerun):"$'\n'"new.md — not checked"$'\n'"README.md:1: [broken](missing.md) — target does not exist"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+  [[ "$output" == "Untracked Markdown (stage with the commands below and rerun):"$'\n'"new.md — not checked; git add -N -- ':(top,literal)new.md'"$'\n'"README.md:1: [broken](missing.md) — target does not exist"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
 
 @test "no untracked Markdown leaves output unchanged" {
@@ -531,4 +531,46 @@ DOC
   run_check
   [ "$status" -eq 0 ]
   [[ "$output" == "0 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+}
+
+@test "nested Markdown hint stages the literal spaced path from root and backend" {
+  write_file README.md <<'DOC'
+# Tracked
+DOC
+  git -C "$TEST_REPO" add -A
+  write_file 'docs/new notes.md' <<'DOC'
+# New
+DOC
+  for directory in "$TEST_REPO" "$TEST_REPO/backend"; do
+    run env -C "$directory" node "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "Untracked Markdown (stage with the commands below and rerun):"$'\n'"docs/new notes.md — not checked; git add -N -- ':(top,literal)docs/new notes.md'"$'\n'"0 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+    run env -C "$directory" bash -c "${lines[1]#*; }"
+    [ "$status" -eq 0 ]
+    git -C "$TEST_REPO" reset -q -- 'docs/new notes.md'
+  done
+}
+
+@test "untracked Markdown notice preserves exit 2 without tracked Markdown" {
+  git -C "$TEST_REPO" add backend/scripts/verify-doc-links.mjs
+  write_file new.md <<'DOC'
+# New
+DOC
+  run node "$SCRIPT"
+  [ "$status" -eq 2 ]
+  [[ "$output" == "Untracked Markdown (stage with the commands below and rerun):"$'\n'"new.md — not checked; git add -N -- ':(top,literal)new.md'"$'\n'"verify-doc-links: zero Markdown files discovered" ]]
+}
+
+@test "duplicate glossary term retains exit 1 alongside untracked notice" {
+  write_file GLOSSARY.md <<'DOC'
+**Post**:
+**Post**:
+DOC
+  git -C "$TEST_REPO" add -A
+  write_file new.md <<'DOC'
+# New
+DOC
+  run node "$SCRIPT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == "Untracked Markdown (stage with the commands below and rerun):"$'\n'"new.md — not checked; git add -N -- ':(top,literal)new.md'"$'\n'"GLOSSARY.md:2: **Post** — duplicate glossary term; first defined at line 1"$'\n'"1 duplicate glossary term, 0 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }

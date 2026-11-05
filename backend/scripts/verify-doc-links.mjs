@@ -405,8 +405,11 @@ function main() {
     .toString('utf8').split('\0')
     .filter((file) => file.toLowerCase().endsWith('.md'));
   if (untrackedMarkdown.length) {
-    process.stdout.write('Untracked Markdown (stage with git add -N <file> and rerun):\n');
-    for (const file of untrackedMarkdown) process.stdout.write(`${file} — not checked\n`);
+    process.stdout.write('Untracked Markdown (stage with the commands below and rerun):\n');
+    for (const file of untrackedMarkdown) {
+      const pathspec = `:(top,literal)${file}`.replaceAll("'", "'\\''");
+      process.stdout.write(`${file} — not checked; git add -N -- '${pathspec}'\n`);
+    }
   }
   const { tracked, markdown } = trackedMarkdown(root);
   const documents = readDocuments(root, markdown);
