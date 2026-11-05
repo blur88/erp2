@@ -400,7 +400,7 @@ EOF
   git -C "$TEST_REPO" add README.md backend/scripts/verify-doc-links.mjs
   run env -C /tmp node "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" == "README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+  [[ "$output" == "Untracked Markdown (stage with git add -N <file> and rerun):"$'\n'"private.md — not checked"$'\n'"README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
 
 @test "running from a repository subdirectory still finds the repository root" {
@@ -413,7 +413,7 @@ EOF
   git -C "$TEST_REPO" add README.md backend/scripts/verify-doc-links.mjs
   run env -C "$TEST_REPO/backend" node "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" == "README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+  [[ "$output" == "Untracked Markdown (stage with git add -N <file> and rerun):"$'\n'"private.md — not checked"$'\n'"README.md:1: [local](private.md) — target does not exist in Git (found on disk but untracked or ignored; stage it with git add)"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
 
 @test "gitignored targets are treated as untracked" {
@@ -487,4 +487,48 @@ EOF
   run_check
   [ "$status" -eq 0 ]
   [[ "$output" == *"0 local links checked in 1 files (0 external skipped)"* ]]
+}
+
+@test "untracked Markdown notice preserves success and excludes ignored files" {
+  write_file README.md <<'EOF'
+# Tracked
+EOF
+  write_file .gitignore <<'EOF'
+ignored.md
+EOF
+  git -C "$TEST_REPO" add -A
+  write_file 'new notes.md' <<'EOF'
+[broken](missing.md)
+EOF
+  write_file second.MD <<'EOF'
+# New
+EOF
+  write_file ignored.md <<'EOF'
+# Ignored
+EOF
+  run node "$SCRIPT"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "Untracked Markdown (stage with git add -N <file> and rerun):"$'\n'"new notes.md — not checked"$'\n'"second.MD — not checked"$'\n'"0 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+}
+
+@test "untracked Markdown notice preserves tracked broken link failure" {
+  write_file README.md <<'EOF'
+[broken](missing.md)
+EOF
+  git -C "$TEST_REPO" add -A
+  write_file new.md <<'EOF'
+# New
+EOF
+  run node "$SCRIPT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == "Untracked Markdown (stage with git add -N <file> and rerun):"$'\n'"new.md — not checked"$'\n'"README.md:1: [broken](missing.md) — target does not exist"$'\n'"1 broken link, 1 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+}
+
+@test "no untracked Markdown leaves output unchanged" {
+  write_file README.md <<'DOC'
+# Tracked
+DOC
+  run_check
+  [ "$status" -eq 0 ]
+  [[ "$output" == "0 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
