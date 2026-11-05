@@ -16,8 +16,8 @@ compose=(docker compose -f docker-compose.yml -f "$override")
 "${compose[@]}" run -d --no-deps --name "$name-frontend" frontend >/dev/null
 # Resolve only this test's frontend, independently of other Compose containers.
 frontend_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$name-frontend")
-"${compose[@]}" run -d --no-deps --name "$name-edge" \
-  --add-host "frontend:$frontend_ip" nginx >/dev/null
+printf '{"services":{"frontend":{"extra_hosts":["backend:127.0.0.1"]},"nginx":{"extra_hosts":["backend:127.0.0.1","frontend:%s"]}}}\n' "$frontend_ip" > "$override"
+"${compose[@]}" run -d --no-deps --name "$name-edge" nginx >/dev/null
 status=
 for attempt in {1..30}; do
   # Fetch via the frontend's curl, but target the edge's public HTTP listener.
