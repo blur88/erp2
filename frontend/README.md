@@ -122,6 +122,7 @@ npm run preview          # Preview production build locally
 # Code Quality
 npm run lint             # Run ESLint
 npm run type-check       # Run TypeScript compiler check
+npm run type-check:test
 
 # Testing
 npm run test             # Run tests

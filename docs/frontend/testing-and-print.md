@@ -1,6 +1,14 @@
 # Frontend Testing Limits and Printing
 
-What the Vitest/jsdom suite can and cannot observe, [how it handles unhandled MSW requests](#unhandled-msw-requests), how printing works, and the invariants of the accounting `Statement` component that no automated test protects.
+How frontend type checks divide application and test files, what the Vitest/jsdom suite can and cannot observe, [how it handles unhandled MSW requests](#unhandled-msw-requests), how printing works, and the invariants of the accounting `Statement` component that no automated test protects.
+
+## Frontend type-checking
+
+`npm run type-check` runs `tsc --noEmit` with `frontend/tsconfig.json`. That config includes `src` but excludes `src/**/*.test.ts`, `src/**/*.test.tsx`, `src/**/__tests__/**`, `src/setupTests.ts`, `src/test/**` and `src/mocks/**`.
+
+`npm run type-check:test` runs `tsc -p tsconfig.test.json --noEmit` and `tsc -p tsconfig.node.json --noEmit`. The test config includes all of `src`, adds Vitest globals and has no exclusions, so it checks tests, setup and mocks alongside production source; production files are checked a second time with Vitest globals. The node config checks `vite.config.ts` and `src/test/appStoreRuntimeGuard.ts`. CI runs this as a step in the existing **Frontend - Lint, Type Check, Tests** job.
+
+#1539 added `tsconfig.test.json` after the excluded `setupTests.ts` let the removed MSW `onUnhandledRequest: 'warn'` option pass unnoticed; #1564 added the `tsconfig.node.json` pass. See [issue #1539](https://github.com/blur88/erp2/issues/1539).
 
 ## Printing is portal-only
 
