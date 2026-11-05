@@ -574,3 +574,27 @@ DOC
   [ "$status" -eq 1 ]
   [[ "$output" == "Untracked Markdown (stage with the commands below and rerun):"$'\n'"new.md — not checked; git add -N -- ':(top,literal)new.md'"$'\n'"GLOSSARY.md:2: **Post** — duplicate glossary term; first defined at line 1"$'\n'"1 duplicate glossary term, 0 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
 }
+
+@test "single-quoted filename hint stages the intended file under a POSIX shell" {
+  write_file README.md <<'DOC'
+# Tracked
+DOC
+  git -C "$TEST_REPO" add -A
+  local filename="docs/author's; notes.md"
+  write_file "$filename" <<'DOC'
+# New
+DOC
+  local prefix="$filename — not checked; "
+  for directory in "$TEST_REPO" "$TEST_REPO/backend"; do
+    run env -C "$directory" node "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "Untracked Markdown (stage with the commands below and rerun):"$'\n'"$prefix""git add -N -- ':(top,literal)docs/author'\\''s; notes.md'"$'\n'"0 local links checked in 1 files (0 external skipped) under $TEST_ROOT" ]]
+    local command="${lines[1]#"$prefix"}"
+    run env -C "$directory" sh -c "$command"
+    [ "$status" -eq 0 ]
+    run git -C "$TEST_REPO" ls-files --error-unmatch -- ":(top,literal)$filename"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$filename" ]
+    git -C "$TEST_REPO" reset -q -- ":(top,literal)$filename"
+  done
+}
