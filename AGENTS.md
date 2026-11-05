@@ -117,6 +117,8 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 
 ## Git and pull requests
 
+- Follow [agent-authored text and owner decisions](docs/agents/issue-tracker.md#agent-authored-text-and-owner-decisions).
+
 - Commit on a branch. Run `git config core.hooksPath .githooks` once per clone; its pre-commit hook refuses commits on `main`, its pre-push hook refuses a branch that lacks the remote's current `main` (a releasing merge adds a `chore(release)` commit to `main`, so branch from a freshly pulled `main`), and each chains its `.git/hooks/` counterpart.
 - Pull `main` with `git pull --ff-only`; a merge commit re-triggers the Release workflow.
 - Commits follow Conventional Commits (`feat(accounting): …`, `fix(…): …`, `test(…): …`, `chore: …`).
