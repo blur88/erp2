@@ -66,6 +66,15 @@ Each rule has [one owner](#one-owner-per-rule): the module or technical doc when
 - **Diff failure:** Calling `restoreStock` or `removeStock` before locking products, or locking the next product only after mutating an earlier product's batches, recreates these cycles or lost updates.
 - **Trace:** [Issue #1498](https://github.com/blur88/erp2/issues/1498#issuecomment-6448449040), [SalesOrderFulfillmentService](backend/src/modules/sales/services/sales-order-fulfillment.service.ts), [PurchaseOrderLifecycleService](backend/src/modules/purchasing/services/purchase-order-lifecycle.service.ts), and [PostgreSQL regression tests](backend/test/cost-batch-lock-order.concurrency.e2e-spec.ts). Partly enforced by [the call-site guard](backend/scripts/verify-cost-batch-writer-callers.sh) (run by `npm run test:scripts`): it fails on a call to `reduceStock`, `restoreStock`, `removeStock` or `addStock` from a (file, writer) pair not on its reviewed list. It covers `addStock` too, wider than this rule, so receive and product creation stay listed. It detects unreviewed caller locations only; it does not prove that a caller holds its product locks or takes them in this order.
 
+## Tests
+
+### Typed fixtures keep excess-property checking
+
+- **Rule:** Test fixtures and mocks typed against a DTO or another declared type keep excess-property checking in frontend tests under `frontend/src/` and backend tests under `backend/src/` and `backend/test/`. Return the object literal directly from a function with the declared return type, or check the literal with `satisfies <Type>`. Do not bypass the check by returning an unannotated intermediate variable or casting the object to the target or a wider type. Exception: a fixture that must be mutated after construction declares the variable with the type (`const detail: Dto = { … }`), which checks the literal before mutation.
+- **Why:** Returning an unannotated variable can satisfy structural assignability while retaining stale extra properties; the fixture then stops detecting drift from its declared type.
+- **Diff failure:** Changing `makeDetail(...): BankReconciliationDetailDto { return { … } }` to `const detail = { … }; return detail` in the two reconciliation detail tests silenced excess-property errors while retaining stale top-level `openingBalance`, `closingBalance` and `setupSummary` properties. Restoring the direct returns exposed the invalid properties so they could be removed.
+- **Trace:** [Issue #1566](https://github.com/blur88/erp2/issues/1566), [PR #1563](https://github.com/blur88/erp2/pull/1563), [escape commit `1a354afdd`](https://github.com/blur88/erp2/commit/1a354afdd) and [repair commit `394f82313`](https://github.com/blur88/erp2/commit/394f82313). Current direct-return fixtures: [BankReconciliationDetailPage tests](frontend/src/pages/accounting/bank-reconciliations/__tests__/BankReconciliationDetailPage.test.tsx) and [BankReconciliationDetailView tests](frontend/src/pages/accounting/bank-reconciliations/__tests__/BankReconciliationDetailView.test.tsx).
+
 ## E2E tests
 
 ### E2E request-trace cleanup
