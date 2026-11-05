@@ -401,6 +401,16 @@ function report(root, documents, externalSkipped, glossaryDuplicates) {
 
 function main() {
   const root = findRepositoryRoot();
+  const untrackedMarkdown = git(['ls-files', '--others', '--exclude-standard', '-z'], root)
+    .toString('utf8').split('\0')
+    .filter((file) => file.toLowerCase().endsWith('.md'));
+  if (untrackedMarkdown.length) {
+    process.stdout.write('Untracked Markdown (stage with the commands below and rerun):\n');
+    for (const file of untrackedMarkdown) {
+      const pathspec = `:(top,literal)${file}`.replaceAll("'", "'\\''");
+      process.stdout.write(`${file} — not checked; git add -N -- '${pathspec}'\n`);
+    }
+  }
   const { tracked, markdown } = trackedMarkdown(root);
   const documents = readDocuments(root, markdown);
   const externalSkipped = validateDocuments(root, tracked, documents);
