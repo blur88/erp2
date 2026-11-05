@@ -21,6 +21,7 @@ import {
   RefreshTokenDto,
   ChangePasswordDto,
 } from './dto';
+import type { AuthUserResponse } from './dto/auth-response.dto';
 
 import { AuthUserLockHook, AuthUserLockOperation } from './auth-user-lock.hook';
 
@@ -148,7 +149,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: this.getAccessTokenExpiry(),
-      user: this.sanitizeUser(user),
+      user: this.toAuthUserResponse(user),
       requiresPasswordChange: user.requiresPasswordChange || false,
     };
   }
@@ -228,7 +229,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: this.getAccessTokenExpiry(),
-      user: this.sanitizeUser(user),
+      user: this.toAuthUserResponse(user),
       requiresPasswordChange: user.requiresPasswordChange || false,
     };
   }
@@ -281,7 +282,7 @@ export class AuthService {
       return {
         ...issued,
         expiresIn: this.getAccessTokenExpiry(),
-        user: this.sanitizeUser(user),
+        user: this.toAuthUserResponse(user),
         requiresPasswordChange: user.requiresPasswordChange || false,
       };
     });
@@ -366,14 +367,14 @@ export class AuthService {
   /**
    * Get current user by ID
    */
-  async getCurrentUser(userId: string): Promise<Partial<User>> {
+  async getCurrentUser(userId: string): Promise<AuthUserResponse> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    return this.sanitizeUser(user);
+    return this.toAuthUserResponse(user);
   }
 
   /**
@@ -552,13 +553,26 @@ export class AuthService {
     }
   }
 
-  /**
-   * Remove sensitive data from user object
-   */
-  private sanitizeUser(user: User): Partial<User> {
-    const { password, failedLoginAttempts, lockedUntil, tokenVersion, ...sanitized } =
-      user;
-    return sanitized;
+  /** Build the public profile from explicitly approved fields. */
+  private toAuthUserResponse(user: User): AuthResponseDto['user'] {
+    return {
+      id: user.id,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      deletedAt: user.deletedAt,
+      isActive: user.isActive,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      status: user.status,
+      lastLoginAt: user.lastLoginAt,
+      lastLoginIp: user.lastLoginIp,
+      notes: user.notes,
+      requiresPasswordChange: user.requiresPasswordChange,
+    };
   }
 
   /**
