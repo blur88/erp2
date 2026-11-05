@@ -326,8 +326,25 @@ describe("AuthService", () => {
 
       expect(result).toBeDefined();
       expect(result.user.username).toBe("testuser");
-      expect(result.user).not.toHaveProperty("password"); // Password should be removed
-      expect(result.user).not.toHaveProperty("tokenVersion");
+      expect(Object.keys(result.user).sort()).toEqual([
+        "createdAt",
+        "deletedAt",
+        "email",
+        "firstName",
+        "id",
+        "isActive",
+        "lastLoginAt",
+        "lastLoginIp",
+        "lastName",
+        "notes",
+        "phoneNumber",
+        "requiresPasswordChange",
+        "role",
+        "status",
+        "updatedAt",
+        "username",
+      ]);
+      expect(result.user.lastLoginIp).toBe(mockRequest.ip);
     });
 
     it("should throw UnauthorizedException for invalid username", async () => {
@@ -639,6 +656,24 @@ describe("AuthService", () => {
 
       expect(result).toHaveProperty("accessToken");
       expect(result).toHaveProperty("refreshToken");
+      expect(Object.keys(result.user).sort()).toEqual([
+        "createdAt",
+        "deletedAt",
+        "email",
+        "firstName",
+        "id",
+        "isActive",
+        "lastLoginAt",
+        "lastLoginIp",
+        "lastName",
+        "notes",
+        "phoneNumber",
+        "requiresPasswordChange",
+        "role",
+        "status",
+        "updatedAt",
+        "username",
+      ]);
       expect(mockRefreshTokenRepository.remove).toHaveBeenCalled(); // Old token deleted
       expect(mockRefreshTokenRepository.save).toHaveBeenCalled(); // New token saved
     });

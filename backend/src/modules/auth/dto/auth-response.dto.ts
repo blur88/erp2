@@ -1,6 +1,26 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { User } from '@/database/entities/user.entity';
 
+export type AuthUserResponse = Pick<
+  User,
+  | 'id'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'deletedAt'
+  | 'isActive'
+  | 'username'
+  | 'email'
+  | 'firstName'
+  | 'lastName'
+  | 'phoneNumber'
+  | 'role'
+  | 'status'
+  | 'lastLoginAt'
+  | 'lastLoginIp'
+  | 'notes'
+  | 'requiresPasswordChange'
+>;
+
 export class AuthResponseDto {
   @ApiProperty({
     description: 'JWT access token (short-lived, 15 minutes)',
@@ -24,7 +44,7 @@ export class AuthResponseDto {
     description: 'User profile information',
     type: () => User,
   })
-  user: Partial<User>;
+  user: AuthUserResponse;
 
   @ApiProperty({
     description: 'Whether user must change password before accessing app',
