@@ -1,0 +1,15 @@
+df51bb15cf9410cce7bbbc5ee68352c50eae3d0a
+1882
+8d9528214f499f38137986a1a320e96754485926
+1731
+
+Round 4 follow-up (commands and raw output):
+$ git rev-parse HEAD
+6dde37b6cc61c34cf28b10464efe07c86e0c6f60
+exit=0
+$ git show df51bb15c:AGENTS.md | wc -w
+1882
+exit=0
+$ git show HEAD:AGENTS.md | wc -w
+1730
+exit=0

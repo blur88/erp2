@@ -85,11 +85,11 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 - **Docker rebuilds.** There is no live-reload mount: backend or frontend source changes need `docker compose build <service> && docker compose up -d <service>`.
 - **Dead-code sweeps.** `maintain.sh`'s knip step always exits 0; run `npx knip` directly for pass/fail. Knip flags service methods called only by sibling services — grep `backend/src` before deleting.
 
-**Redis and queues** — details: [Redis](docs/backend/redis.md), [BullMQ backup schedulers](docs/backend/bullmq-backup-schedulers.md)
+**Redis and queues**
 
-- **`noeviction`, queue keys only.** Redis is BullMQ's store and runs `--maxmemory-policy noeviction`; eviction silently destroys queue state. Never add cache or session keys — a cache needs a separate Redis service.
-- **RESP2 is pinned.** `createBullOptions()` pins BullMQ `protocol: 2`; direct clients do too. RESP3 silently changes reply shapes; adopting it is its own change. Checks: `redis-client-inventory.spec.ts`, `bull-options.factory.spec.ts`, direct-client specs, and ESLint's runtime BullMQ import ban.
-- **Never write to this Redis from BullMQ v5**, and never remove a scheduler with `ZREM` — use the dry-run-by-default `backup:reconcile-schedulers` CLI. `test:redis` checks reconciler and schedule-deletion removal; no check detects a v5 writer or arbitrary `ZREM`.
+- **`noeviction`, queue keys only.** Eviction silently destroys queue state. Never add cache or session keys to this instance — [Redis](docs/backend/redis.md#noeviction-is-a-correctness-requirement-1036).
+- **RESP2 is pinned.** RESP3 silently changes reply shapes — [protocol constraints](docs/backend/redis.md#ioredis-6-with-resp2-pinned-1069).
+- **Scheduler safety.** Nothing in the codebase cleans up v5 repeatables any more, so a v5 process must never write to this Redis again. Scheduler removal: never `ZREM` — [safe reconciliation](docs/backend/bullmq-backup-schedulers.md#removing-orphans-the-reconcile-cli).
 
 **Tests**
 
@@ -99,17 +99,17 @@ CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging ne
 - **Cron is off in test apps** (`NODE_ENV=test`); call handler methods directly. BullMQ repeatable jobs still run.
 - **`test:redis` writes to Redis** and requires `REDIS_TEST_ALLOW_WRITES=1`; point it only at a disposable instance.
 
-**Frontend** — details: [Testing limits and printing](docs/frontend/testing-and-print.md)
+**Frontend**
 
-- Tests never evaluate `frontend/src/store/index.ts`; a Vitest-only plugin blocks it. Use `createTestStore` or a complete hoisted `vi.mock('@/store', …)` stub. See [enforcement boundary](docs/frontend/testing-and-print.md#tests-never-evaluate-the-application-store).
-- **Printing is portal-only.** Document dialogs render through MUI portals outside `#root`, and `@media print { #root { display: none } }` isolates them. Nothing prints from inside `#root`; adding such a page means making that rule conditional and releasing every height/overflow constraint on its ancestor chain.
-- **jsdom cannot test layout or print.** `tests/session/` provides a manual, non-CI LAN HTTP harness for session coordination only; it does not cover printing or layout. Print and layout changes need a manual browser pass.
+- **Tests never evaluate the application store.** Runtime evaluation fails tests — [store isolation](docs/frontend/testing-and-print.md#tests-never-evaluate-the-application-store).
+- **Printing is portal-only.** Print content inside `#root` is hidden — [printing](docs/frontend/testing-and-print.md#printing-is-portal-only).
+- **jsdom cannot test layout or print.** `tests/session/` covers neither printing nor layout — [testing limits](docs/frontend/testing-and-print.md#manual-browser-harness).
 
-**Bank reconciliation** — details: [Bank Reconciliation](docs/modules/accounting/BANK_RECONCILIATION.md)
+**Bank reconciliation**
 
-- **Only the working set reserves journal lines; Versions do not.** One unique index on working set rows is the whole reservation mechanism.
-- **Versions are immutable.** In `backend/src/`: no trigger bypasses; index drops only in migrations. Enforced by `cd backend && npm run test:scripts`; only fixture `removeSuiteBankReconciliations` may disable `trg_bsr_*` triggers.
-- **Lock order:** Bank account `FOR NO KEY UPDATE` → header → working set rows ascending by `journalEntryLineId`; never lock `accounting_settings` after account. See [reconciliation lock-order guidance](CODING_STANDARDS.md#reconciliation-lock-order).
+- **Only the working set reserves journal lines.** Versions reserve nothing — [reservations](docs/modules/accounting/BANK_RECONCILIATION.md#storage).
+- **Versions are immutable.** Nothing under `backend/src/` may disable `trg_bsr_*` triggers; outside migrations, nothing under `backend/src/` may drop `UQ_bsr_one_draft_per_account` — [immutability](docs/modules/accounting/BANK_RECONCILIATION.md#versions-are-immutable-with-no-bypass).
+- **Lock order.** Inconsistent acquisition order risks deadlocks — [lock order](CODING_STANDARDS.md#reconciliation-lock-order).
 
 **Documentation**
 

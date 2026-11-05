@@ -13,7 +13,7 @@ How backup schedules are stored in the BullMQ queue, how orphaned scheduler entr
 
 That legacy shape was captured byte-for-byte from a real `bullmq@5.81.3` `Queue.add(..., { repeat: { pattern } })` against Redis 8.6.2 while the alias was installed, then asserted to match. The captured shape is recorded in the helper's docblock. One detail a from-memory reconstruction gets wrong: the metadata hash `repeat:<member>` holds **only `{name, pattern}`** — no `data` field. The `scheduleId` lives on the delayed job hash `repeat:<member>:<millis>`. The reconciler's `ic` check short-circuits before its `data` read, which is why the legacy entry is skipped rather than misclassified.
 
-Unit tests mock `hexists`, so they cannot catch an inverted `ic` check; only `npm run test:redis` does (see [Backend testing](testing.md#real-redis-suite-testredis)). Verified by inverting the `ic` discriminator, which turns the legacy test red at the `legacySkipped` assertion.
+The [real-Redis suite](testing.md#real-redis-suite-testredis) (`test:redis`) checks reconciler and schedule-deletion removal; no check detects a v5 writer or arbitrary `ZREM`. Unit tests mock `hexists`, so they cannot catch an inverted `ic` check; only this suite does. Verified by inverting the `ic` discriminator, which turns the legacy test red at the `legacySkipped` assertion.
 
 If a `Legacy (non-scheduler) repeat entry` warning ever appears at boot, an environment holds pre-v6 state. BullMQ 6 cannot remove it safely — `removeJobScheduler` would delete its metadata but leave the delayed occurrence live — so it needs BullMQ 5's `removeRepeatableByKey`.
 
