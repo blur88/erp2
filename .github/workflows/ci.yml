@@ -281,6 +281,11 @@ jobs:
           docker compose build frontend
           frontend/scripts/verify-runtime-env.sh
 
+      - name: Verify edge runtime configuration cache headers
+        run: |
+          docker compose build nginx
+          frontend/scripts/verify-edge-runtime-env.sh
+
       - name: Boot the production image against the empty database
         run: |
           # DB_SSL=false because the Postgres service container above serves
