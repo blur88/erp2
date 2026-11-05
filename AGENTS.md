@@ -50,7 +50,7 @@ The full frontend suite takes tens of minutes; it is not hung.
 
 ## Pre-PR verification (authoritative)
 
-Run the checks for every area your change touches. When scopes overlap, run each check once. PRs must list the exact commands run and whether each passed.
+Run the checks for every area your change touches. When scopes overlap, run each check once. PRs paste the raw output of each command run locally, with `git rev-parse HEAD` and `echo "exit=$?"` around it ([Recorded results are preserved](CODING_STANDARDS.md#recorded-results-are-preserved)).
 
 | Files touched | Required |
 |---|---|
