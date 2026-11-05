@@ -593,7 +593,7 @@ jobs:
       - name: Type check
         run: npm run type-check
 
-      - name: Type check frontend source, tests and configs
+      - name: Type check frontend source, tests and Vite config
         run: npm run type-check:test
 
       # Runs the suite once with coverage instrumentation rather than running
