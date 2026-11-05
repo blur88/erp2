@@ -44,6 +44,25 @@ describe("AuthService", () => {
   let jwtService: JwtService;
   let configService: ConfigService;
 
+  const expectedAuthUserKeys = [
+    "createdAt",
+    "deletedAt",
+    "email",
+    "firstName",
+    "id",
+    "isActive",
+    "lastLoginAt",
+    "lastLoginIp",
+    "lastName",
+    "notes",
+    "phoneNumber",
+    "requiresPasswordChange",
+    "role",
+    "status",
+    "updatedAt",
+    "username",
+  ];
+
   const mockUser: Partial<User> = {
     tokenVersion: 0,
     id: "123e4567-e89b-12d3-a456-426614174000",
@@ -326,24 +345,7 @@ describe("AuthService", () => {
 
       expect(result).toBeDefined();
       expect(result.user.username).toBe("testuser");
-      expect(Object.keys(result.user).sort()).toEqual([
-        "createdAt",
-        "deletedAt",
-        "email",
-        "firstName",
-        "id",
-        "isActive",
-        "lastLoginAt",
-        "lastLoginIp",
-        "lastName",
-        "notes",
-        "phoneNumber",
-        "requiresPasswordChange",
-        "role",
-        "status",
-        "updatedAt",
-        "username",
-      ]);
+      expect(Object.keys(result.user).sort()).toEqual(expectedAuthUserKeys);
       expect(result.user.lastLoginIp).toBe(mockRequest.ip);
     });
 
@@ -656,24 +658,7 @@ describe("AuthService", () => {
 
       expect(result).toHaveProperty("accessToken");
       expect(result).toHaveProperty("refreshToken");
-      expect(Object.keys(result.user).sort()).toEqual([
-        "createdAt",
-        "deletedAt",
-        "email",
-        "firstName",
-        "id",
-        "isActive",
-        "lastLoginAt",
-        "lastLoginIp",
-        "lastName",
-        "notes",
-        "phoneNumber",
-        "requiresPasswordChange",
-        "role",
-        "status",
-        "updatedAt",
-        "username",
-      ]);
+      expect(Object.keys(result.user).sort()).toEqual(expectedAuthUserKeys);
       expect(mockRefreshTokenRepository.remove).toHaveBeenCalled(); // Old token deleted
       expect(mockRefreshTokenRepository.save).toHaveBeenCalled(); // New token saved
     });

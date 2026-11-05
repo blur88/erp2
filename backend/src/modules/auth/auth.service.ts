@@ -21,6 +21,7 @@ import {
   RefreshTokenDto,
   ChangePasswordDto,
 } from './dto';
+import type { AuthUserResponse } from './dto/auth-response.dto';
 
 import { AuthUserLockHook, AuthUserLockOperation } from './auth-user-lock.hook';
 
@@ -148,7 +149,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: this.getAccessTokenExpiry(),
-      user: this.mapToResponseDto(user),
+      user: this.toAuthUserResponse(user),
       requiresPasswordChange: user.requiresPasswordChange || false,
     };
   }
@@ -228,7 +229,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: this.getAccessTokenExpiry(),
-      user: this.mapToResponseDto(user),
+      user: this.toAuthUserResponse(user),
       requiresPasswordChange: user.requiresPasswordChange || false,
     };
   }
@@ -281,7 +282,7 @@ export class AuthService {
       return {
         ...issued,
         expiresIn: this.getAccessTokenExpiry(),
-        user: this.mapToResponseDto(user),
+        user: this.toAuthUserResponse(user),
         requiresPasswordChange: user.requiresPasswordChange || false,
       };
     });
@@ -366,14 +367,14 @@ export class AuthService {
   /**
    * Get current user by ID
    */
-  async getCurrentUser(userId: string): Promise<Partial<User>> {
+  async getCurrentUser(userId: string): Promise<AuthUserResponse> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    return this.mapToResponseDto(user);
+    return this.toAuthUserResponse(user);
   }
 
   /**
@@ -553,7 +554,7 @@ export class AuthService {
   }
 
   /** Build the public profile from explicitly approved fields. */
-  private mapToResponseDto(user: User): AuthResponseDto['user'] {
+  private toAuthUserResponse(user: User): AuthResponseDto['user'] {
     return {
       id: user.id,
       createdAt: user.createdAt,

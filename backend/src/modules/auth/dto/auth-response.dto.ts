@@ -42,7 +42,6 @@ export class AuthResponseDto {
 
   @ApiProperty({
     description: 'User profile information',
-    type: () => User,
   })
   user: AuthUserResponse;
 
