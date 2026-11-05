@@ -34,9 +34,13 @@ for api in unset '' /explicit-api; do
   expected=${api:-/api}; [[ $api != unset ]] || expected=/api
   grep -Fq "VITE_API_BASE_URL: \"$expected\"" <<< "$response"
   grep -qi '^Cache-Control: no-store' <<< "$response"
-  ! grep -Eqi 'max-age|^Expires:|public, no-transform' <<< "$response"
+  if grep -Eqi 'max-age|^Expires:|public, no-transform' <<< "$response"; then
+    echo 'Runtime configuration has conflicting cache headers' >&2; exit 1
+  fi
   docker exec "$name" curl -fsS http://localhost/ | grep -Fq '/env-config.js?v=2'
-  ! docker logs "$name" 2>&1 | grep -q 'Read-only file system'
+  if docker logs "$name" 2>&1 | grep -q 'Read-only file system'; then
+    echo 'Frontend startup logged a read-only filesystem write failure' >&2; exit 1
+  fi
   cleanup
   echo "PASS $compose_file runtime override, API '$api', read-only root and HTTP cache headers"
 done
@@ -47,6 +51,8 @@ if docker run --rm --read-only --entrypoint /docker-entrypoint.sh "$image" \
   echo 'Expected runtime generation failure' >&2; exit 1
 fi
 grep -q 'Failed to generate runtime configuration' /tmp/"$name".log
-! grep -q STALE_COMMAND_STARTED /tmp/"$name".log
+if grep -q STALE_COMMAND_STARTED /tmp/"$name".log; then
+  echo 'Command started despite runtime configuration generation failure' >&2; exit 1
+fi
 rm /tmp/"$name".log
 echo 'PASS failed write prevents command startup'

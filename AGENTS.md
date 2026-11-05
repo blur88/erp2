@@ -21,7 +21,7 @@ Non-obvious decisions:
 
 - TypeScript `strict: false`; use `as any` where TypeORM types resist.
 - The database connection forces IPv4 (`family: 4`). Database SSL is opt-in via `DB_SSL=true` in **every** environment (#1158); `NODE_ENV` is deliberately not consulted, because the in-Compose Postgres serves no TLS. `ssl.config.spec.ts` asserts the result is identical across environments.
-- Frontend runtime configuration is written to `/var/run/env-config.js` on tmpfs and served with `no-store` through the versioned `/env-config.js?v=2` script URL, populating `window.__ENV__` with the root filesystem read-only.
+- Frontend runtime configuration is written to `/var/run/env-config.js` on tmpfs and served through the edge NGINX with `no-store` through the versioned `/env-config.js?v=2` script URL, populating `window.__ENV__` with the root filesystem read-only, so one image works in every environment.
 - Path aliases: frontend `@/` → `src/`; backend `@/*`, `@modules/*`, `@common/*`, `@config/*`, `@database/*` → the matching `src/` directories (but see the path-alias trap below).
 - Frontend API calls use RTK Query (`frontend/src/store/api/`) over the Axios `ApiService` transport.
 
