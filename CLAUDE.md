@@ -80,7 +80,7 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 - DB uses `family: 4` (IPv4 force). Database SSL is **opt-in via `DB_SSL` in every environment, including production** (#1158) — `NODE_ENV` is deliberately not consulted, because the in-compose Postgres is on a private Docker network and serves no TLS. `createSSLConfig` returns `false` unless `DB_SSL=true`, and `{ rejectUnauthorized: true }` (plus CA/cert/key when all three are set) when it is. `ssl.config.spec.ts` asserts the result is identical across environments; a production-only branch is what made the flag inert before.
 - Frontend environment variables injected at runtime via `window.__ENV__` (not build-time) so one Docker image works across environments
 - Backend source changes require `docker compose build backend && docker compose up -d backend` — there is no volume mount for live reload in Docker
-- `ApiService` returns the backend body directly — see Gotchas for access patterns
+- See Gotchas → API response structure
 - Frontend API calls use RTK Query (`frontend/src/store/api/`); `ApiService` (Axios) is the underlying transport layer
 
 ## Pre-PR verification gates
@@ -108,7 +108,7 @@ Single-context: one root `GLOSSARY.md` + `docs/adr/`, created lazily. See `docs/
 
 **Soft delete**: Always use TypeORM's `softDelete(id)` method — it sets the `deletedAt` timestamp. Setting `isActive = false` manually does NOT set `deletedAt`, breaking `withDeleted` queries and the restore flow.
 
-**API response structure**: `ApiService` strips the Axios wrapper and returns the backend body directly. For paginated list endpoints the body is `{ data: T[], meta: {...} }` — access items as `response.data` and pagination as `response.meta`. The categories tree also returns `{ data, meta }` — access nodes as `response.data` and tree metadata as `response.meta` (see `CategoryTreeResponseDto` in `backend/src/modules/inventory/dto/category.dto.ts`). The chart-of-accounts tree returns a plain array — access as `response` directly (no `.data`). Getting this wrong causes empty lists with no errors.
+**API response structure**: `ApiService` strips the Axios wrapper and returns the backend body directly. For paginated list endpoints the body is `{ data: T[], meta: {...} }` — access items as `response.data` and pagination as `response.meta`. The categories tree also returns `{ data, meta }` — access nodes as `response.data` and tree metadata as `response.meta` (see `CategoryTreeResponseDto` in `backend/src/modules/inventory/dto/category.dto.ts`). The chart-of-accounts tree returns a plain array — access as `response` directly (no `.data`; see `backend/src/modules/accounting/controllers/chart-of-account.controller.ts`). Getting this wrong causes empty lists with no errors.
 
 **Account lockout clock:** Lockout expiry (`User.isLocked`, the login check in `auth.service.ts`, and the `isLocked` filter/count in `users.service.ts`) is evaluated against the **Node container clock** (`new Date()`), never SQL `NOW()`. This keeps login and the user list using one clock so a skewed Postgres container clock can't disagree (issue #710). Docker container clocks can drift after host sleep/resume or container start; if a lockout seems wrong, run `docker compose restart backend` (or resync the host clock). Do not change these comparisons to SQL `NOW()`.
 
