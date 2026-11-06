@@ -16,11 +16,7 @@ Imported stylesheet rules are stubbed in this setup as well: Vitest does not
 inject `statement.css`, so its sticky, `text-align` and `tabular-nums` rules
 never reach `getComputedStyle`.
 
-Emotion styles behave differently: MUI `sx` DOES reach
-`getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 (see
-`MainLayout.test.tsx:40`); theme `styleOverrides` use the same Emotion
-pipeline. Theme colours applied via `sx` are assertable; the Statement suite
-does not rely on that.
+For Emotion `sx` and theme override assertability, consult the [measured boundary](#theme-and-jsdom-assertability-evidence).
 
 The Vitest suite therefore proves **structure and themed `sx` values only**:
 one cell per figure, a single `amountHook` node, the complete signed
@@ -213,8 +209,7 @@ row would scroll away and leave the labels floating over the data.
 **Why it matters:** a larger bottom-line figure places its decimal separator at
 a different x position from every other row — the exact misalignment the old
 two-cell integer/fraction split existed to prevent. The bottom-line *label* may
-be larger (`1rem`); the *figure* may not. CLAUDE.md records this as an
-invariant the suite cannot protect.
+be larger (`1rem`); the *figure* may not. See the [invariants the suite cannot protect](#theme-and-jsdom-assertability-evidence).
 
 ## ST-13 — Paren alignment across the sign boundary (#1228)
 
@@ -625,3 +620,43 @@ rather than trivially satisfied. Spacer read from the **pseudo-element**:
 - Screen-reader announcement remains **unverified**, as recorded in the
   2026-09-11 run. Nothing in this change affects the accessible-value
   structure.
+
+## Theme and jsdom assertability evidence
+
+**Statement (P&L / Balance Sheet / Form B) has limited automated visual coverage**: `components/accounting/Statement/` was aligned to the app theme in #1224 — MUI `Paper` frame, theme palette, sticky header, and one right-aligned figure cell per column in place of the integer/fraction split.
+
+Emotion styles are a different story, and the boundary was **measured**, not
+inferred from the shared pipeline. Probed 2026-09-11 against
+**@mui/material 9.4.0, jsdom 30.0.1, vitest 5.0.0**, each case asserting the
+correct value *and* a deliberately wrong one:
+
+| Applied via | Observable through `toHaveStyle`? |
+|---|---|
+| `sx` on the asserted element itself | **yes** (`MainLayout.test.tsx` reads `sx={{ pt: 11 }}` as `paddingTop: 88px`) |
+| `sx` descendant selector (`'& .stmt-cell-code'`) | **yes** — measured on `Statement` itself: `.stmt-figure-negative` computes `rgb(239, 83, 80)`, `.stmt-cell-code` computes `rgb(189, 189, 189)` |
+| theme `styleOverrides` on a themeable slot | **yes** (`MuiButton` root `paddingTop` computes `88px`) |
+| an imported stylesheet (`statement.css`) | **no** — Vitest does not inject it |
+
+So Statement's themed colours *are* assertable, including the descendant-selector
+ones; the current suite simply does not assert them. What stays out of reach is
+the imported stylesheet and anything needing layout.
+
+Two measurement traps, both of which produced false negatives on the first pass
+here:
+
+- **Render through a `ThemeProvider`.** A component rendered bare computes no
+  themed colour, which reads as "Emotion is unobservable" when it only means the
+  theme was absent.
+- **`toHaveStyle` failing on a wrong value proves nothing by itself.** An element
+  with no rule at all computes `rgb(0, 0, 0)`, so a wrong-colour assertion
+  "fails" there too. Read the actual computed value before concluding a rule did
+  not apply.
+
+An older note (#1098, measured on MUI 9.3.1 / vitest 4.1.10) recorded that a
+pure-`sx` control failed. That does not reproduce on the versions above; treat
+it as superseded rather than as a live constraint.
+
+Two invariants the suite *cannot* protect, so change them only deliberately:
+
+- **The paren spacer must stay CSS generated content** (`[data-role="paren-spacer"]`, whose `parenSpacerSx` supplies `&::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser. Note that `toHaveTextContent('56,800.00')` is a substring assertion — it would still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
+- **Every figure must render at the same font size.** The bottom line is distinguished by weight and its double rule. A larger bottom-line figure places its decimal separator at a different x position from every other row, which is the exact misalignment the old two-cell split existed to prevent.

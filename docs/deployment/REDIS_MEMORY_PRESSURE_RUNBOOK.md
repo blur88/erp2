@@ -23,7 +23,7 @@ curl -s -H "Authorization: Bearer <admin-token>" \
   http://<host>/api/health/redis-memory | jq '.pressure, .history, .counters'
 ```
 
-The `redis_cli` helper from CLAUDE.md is used throughout this runbook:
+Initialize this authenticated `redis_cli` helper in the deployment directory before running Redis commands:
 
 ```bash
 redis_password="$(docker compose exec -T backend printenv REDIS_PASSWORD)"
@@ -32,7 +32,7 @@ redis_cli() { docker compose exec -T -e REDISCLI_AUTH="$redis_password" redis re
 
 Extract the password from the container as shown — `$REDIS_PASSWORD` is
 generally *not* exported in the host shell, and an unset var makes
-`REDISCLI_AUTH=""` fail with `NOAUTH`.
+`REDISCLI_AUTH=""` fail with `NOAUTH`. `REDISCLI_AUTH` also keeps the password out of the process argument list, unlike `-a`.
 
 ## Interpreting the pressure state
 
@@ -153,7 +153,7 @@ redis_cli INFO memory | grep -E "^used_memory_human:|^used_memory_peak_human:|^m
 # What is in the instance — queue keys only
 redis_cli INFO keyspace
 
-# Queue depth (the established inspection from CLAUDE.md)
+# Queue depth
 redis_cli ZCARD bull:backup-queue:delayed
 redis_cli ZRANGE bull:backup-queue:delayed 0 -1
 redis_cli ZRANGE bull:backup-queue:repeat 0 -1 WITHSCORES
@@ -181,6 +181,8 @@ the 60s interval it may cover a recent slice (roughly the newest 3.5 days on a
 7-day request) while the statistics describe the whole window — do not
 interpret the chart's visible range as the statistics' coverage. The SQL in
 #1057 remains valid for offline analysis.
+
+Counter deltas in `windowStats` sum positive consecutive increases rather than `max - min`, which is wrong across `CONFIG RESETSTAT`. A null delta means fewer than two comparable readings; it differs from measured zero. The sample limit is 5000 rows.
 
 ## OOM occurrences
 
@@ -258,8 +260,9 @@ eviction can silently drop job hashes or queue state.
 
 **Decision: retain 256 MiB.** Local history demonstrates persistence across
 Redis restarts; **production sizing and survival across a confirmed deploy
-remain unverified.** The mandatory production measurement in `CLAUDE.md` is
-**not** discharged by this section and remains required unconditionally.
+remain unverified.** Before rollout, capture production values and re-evaluate
+the 256 MiB cap against them. This is a mandatory rollout gate; the local
+measurement in this section does **not** discharge it.
 
 Evidence is one frozen window from the **local development stack only**, upper
 bound `sampledAt < 2026-09-05 00:00:00-07`:
@@ -524,3 +527,29 @@ unacknowledged OOM count, and the last five recovered episodes.
 - Alert and acknowledgement state is durable in Postgres and survives
   backend restarts; the panel is a live view over persisted state, and the
   log-based escalation above remains the signal to watch.
+
+## Policy rollout verification
+
+First initialize the authenticated helper from [Prerequisites and access](#prerequisites-and-access).
+
+*Mandatory pre-rollout baseline capture* — run per environment from the deployment directory (wherever that environment's compose files live), **before** switching the policy. A non-zero `evicted_keys` means eviction has already damaged queue state and must be investigated before any change:
+
+```bash
+redis_cli CONFIG GET maxmemory-policy
+redis_cli INFO memory | grep -E "^used_memory_peak_human:|^maxmemory_human:"
+redis_cli INFO stats | grep -E "^evicted_keys:"   # MUST be 0
+redis_cli INFO keyspace
+```
+
+*Verification after rollout* needs a restart-bounded window plus a positive marker — `docker compose logs` retains pre-change history, so a naive grep still finds the old warning, and a backend that fails to start produces an empty window that reads as success:
+
+```bash
+docker compose up -d redis && docker compose restart backend
+docker compose logs backend --since 90s 2>&1 | grep -E "Initialized [0-9]+ backup schedules|Eviction policy"
+```
+
+Pass requires **both**: `Initialized N backup schedules` present (it cannot print unless BullMQ initialized against Redis) and `Eviction policy` absent.
+
+## Sampler implementation constraints
+
+The monitoring module only reads Redis through `INFO`. Its Postgres `bigint` columns require `SafeIntegerTransformer` (`safe-integer.transformer.ts`), which throws for values past `MAX_SAFE_INTEGER` rather than silently truncating them.
