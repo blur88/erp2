@@ -300,6 +300,13 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     }
   }, [form, runPreview])
 
+  useEffect(() => {
+    return () => {
+      if (previewTimerRef.current) clearTimeout(previewTimerRef.current)
+      previewSeqRef.current++
+    }
+  }, [])
+
   // Monotonically increasing counter for checklist search
   const checklistSeqRef = useRef(0)
   const checklistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -360,6 +367,10 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     checklistDebounceRef.current = setTimeout(() => {
       runChecklistSearch(picker.checklist.search, picker.checklist.page, form)
     }, 150)
+    return () => {
+      if (checklistDebounceRef.current) clearTimeout(checklistDebounceRef.current)
+      checklistSeqRef.current++
+    }
   }, [
     form.bankAccountId,
     form.periodFrom,
@@ -437,6 +448,10 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     setupDebounceRef.current = setTimeout(() => {
       runSetupSearch(picker.setup.search, picker.setup.filter, picker.setup.page, form)
     }, 150)
+    return () => {
+      if (setupDebounceRef.current) clearTimeout(setupDebounceRef.current)
+      setupSeqRef.current++
+    }
   }, [
     isFirst,
     form.bankAccountId,
