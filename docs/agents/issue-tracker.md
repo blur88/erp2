@@ -25,7 +25,7 @@ Only the owner's own words, or a verbatim quote of those words that keeps their 
 
 Existing PR footers may stay. Leave existing issues, PRs and comments unchanged.
 
-These rules follow [issue #1693's Owner decision](https://github.com/blur88/erp2/issues/1693#owner-decision) and [its triage decisions](https://github.com/blur88/erp2/issues/1693#issuecomment-6676702873): the owner chose no attribution for new text, accepted that posted text alone cannot identify its author, and kept existing text unchanged.
+These rules follow [issue #1693's Owner decision](https://github.com/blur88/erp2/issues/1693#owner-decision), where the owner chose no attribution for new text and kept existing text unchanged, and [its Problem section](https://github.com/blur88/erp2/issues/1693#problem), where the owner accepted that posted text alone cannot identify its author. [Its triage decisions](https://github.com/blur88/erp2/issues/1693#issuecomment-6676702873) set the PR-footer sentence.
 
 ## Writing an agent brief
 
