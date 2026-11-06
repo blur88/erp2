@@ -94,6 +94,16 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 - Frontend `src/**`: `cd frontend && npm run lint && npm run type-check && npm run test` (full suite required even for one-line changes)
 - Cross-app DTO/interface changes: both backend and frontend suites, plus `cd backend && npm run type-check` — an exported DTO or interface whose declaration no longer resolves is exactly what this gate catches
 
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `blur88/erp2` via the `gh` CLI; issues close only through PRs (`Closes` vs `Refs`). See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: one root `GLOSSARY.md` + `docs/adr/`, created lazily. See `docs/agents/domain.md`.
+
 ## Gotchas
 
 **NestJS route order**: Specific routes (`/products/deleted`) MUST be declared before parameterized routes (`/products/:id`) in controllers, or NestJS will try to treat `"deleted"` as a UUID and fail.
