@@ -35,6 +35,9 @@ and role-based access control.
 git clone <repository-url>
 cd erp2
 
+# Enable local guards against committing or pushing to main (once per clone)
+git config core.hooksPath .githooks
+
 # Start all services
 docker compose up -d
 
