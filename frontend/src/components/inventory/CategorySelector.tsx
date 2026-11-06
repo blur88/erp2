@@ -35,6 +35,15 @@ interface CategoryOption extends Category {
   indentLevel: number
 }
 
+interface CategoryTreeResponse {
+  data: Category[]
+  meta: {
+    totalCategories: number
+    maxDepth: number
+    rootCategories: number
+  }
+}
+
 const CategorySelector: React.FC<CategorySelectorProps> = ({
   value,
   onChange,
@@ -56,11 +65,8 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   const loadCategories = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await ApiService.get<any>('/inventory/categories/tree', { params: { includeProductCount: true } })
-
-      // The API returns { data: Category[], meta: {...} } or a plain array
-      const categoryTree = (response as any)?.data || (Array.isArray(response) ? response : [])
-      const flatCategories = flattenCategoryTree(categoryTree)
+      const response = await ApiService.get<CategoryTreeResponse>('/inventory/categories/tree', { params: { includeProductCount: true } })
+      const flatCategories = flattenCategoryTree(response.data)
       
       // Filter out excluded categories and disabled categories (unless it's the current value)
       const filteredCategories = flatCategories.filter(
