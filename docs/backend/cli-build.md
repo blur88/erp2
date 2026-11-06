@@ -1,6 +1,8 @@
 # CLI and application bundle alias resolution
 
-`backup:reconcile-schedulers` needs this; `admin:create` does not, only because it uses relative imports throughout. The failure is runtime-only — it passes `npm run type-check` and surfaces as an unresolvable module when the script actually runs — and it arrives transitively, so a script whose own imports are all relative can still need the flag via what it pulls in.
+TypeScript CLI scripts that directly or transitively import configured path aliases must preload `tsconfig-paths/register` (for example, `ts-node -r tsconfig-paths/register ...`). Type-checking resolves aliases, but Node runtime loading does not.
+
+`backup:reconcile-schedulers` needs this preload; `admin:create` does not, only because it uses relative imports throughout. The failure is runtime-only — it passes `npm run type-check` and surfaces as an unresolvable module when the script actually runs — and it arrives transitively, so a script whose own imports are all relative can still need the flag via what it pulls in.
 
 **The same trap reaches the application bundle, and there it is fatal.** The Docker build runs two compilers in sequence:
 

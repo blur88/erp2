@@ -9,6 +9,8 @@ ERP system — NestJS 11 backend + React 19 / TypeScript 6 / Material-UI v9 fron
 - **Testing**: Jest (backend) + Vitest (frontend)
 - **Default admin**: `admin / Admin@123!` — change on first login
 
+For backend Jest configuration and ESM failures, read [backend testing](../backend/testing.md).
+
 ## Key Commands
 
 ```bash
@@ -26,7 +28,7 @@ cd backend && npm run test
 
 # Run a single backend test file (path relative to backend/)
 # NODE_OPTIONS is required — bare `npx jest` runs without vm-based ESM and
-# every .ts file falls back to CommonJS (see the Jest ESM section below).
+# every .ts file falls back to CommonJS (see docs/backend/testing.md).
 cd backend && NODE_OPTIONS=--experimental-vm-modules npx jest src/path/to/file.spec.ts --no-coverage
 
 # Run backend e2e tests (required after entity/migration changes)

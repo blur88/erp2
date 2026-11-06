@@ -23,7 +23,7 @@ curl -s -H "Authorization: Bearer <admin-token>" \
   http://<host>/api/health/redis-memory | jq '.pressure, .history, .counters'
 ```
 
-The `redis_cli` helper from CLAUDE.md is used throughout this runbook:
+Initialize this authenticated `redis_cli` helper in the deployment directory before running Redis commands:
 
 ```bash
 redis_password="$(docker compose exec -T backend printenv REDIS_PASSWORD)"
@@ -32,7 +32,7 @@ redis_cli() { docker compose exec -T -e REDISCLI_AUTH="$redis_password" redis re
 
 Extract the password from the container as shown — `$REDIS_PASSWORD` is
 generally *not* exported in the host shell, and an unset var makes
-`REDISCLI_AUTH=""` fail with `NOAUTH`.
+`REDISCLI_AUTH=""` fail with `NOAUTH`. `REDISCLI_AUTH` also keeps the password out of the process argument list, unlike `-a`.
 
 ## Interpreting the pressure state
 
@@ -153,7 +153,7 @@ redis_cli INFO memory | grep -E "^used_memory_human:|^used_memory_peak_human:|^m
 # What is in the instance — queue keys only
 redis_cli INFO keyspace
 
-# Queue depth (the established inspection from CLAUDE.md)
+# Queue depth
 redis_cli ZCARD bull:backup-queue:delayed
 redis_cli ZRANGE bull:backup-queue:delayed 0 -1
 redis_cli ZRANGE bull:backup-queue:repeat 0 -1 WITHSCORES
@@ -181,6 +181,8 @@ the 60s interval it may cover a recent slice (roughly the newest 3.5 days on a
 7-day request) while the statistics describe the whole window — do not
 interpret the chart's visible range as the statistics' coverage. The SQL in
 #1057 remains valid for offline analysis.
+
+Counter deltas in `windowStats` sum positive consecutive increases rather than `max - min`, which is wrong across `CONFIG RESETSTAT`. A null delta means fewer than two comparable readings; it differs from measured zero. The sample limit is 5000 rows.
 
 ## OOM occurrences
 
@@ -258,8 +260,9 @@ eviction can silently drop job hashes or queue state.
 
 **Decision: retain 256 MiB.** Local history demonstrates persistence across
 Redis restarts; **production sizing and survival across a confirmed deploy
-remain unverified.** The mandatory production measurement in `CLAUDE.md` is
-**not** discharged by this section and remains required unconditionally.
+remain unverified.** Before rollout, capture production values and re-evaluate
+the 256 MiB cap against them. This is a mandatory rollout gate; the local
+measurement in this section does **not** discharge it.
 
 Evidence is one frozen window from the **local development stack only**, upper
 bound `sampledAt < 2026-09-05 00:00:00-07`:
@@ -525,27 +528,18 @@ unacknowledged OOM count, and the last five recovered episodes.
   backend restarts; the panel is a live view over persisted state, and the
   log-based escalation above remains the signal to watch.
 
-## Queue policy, rollout evidence and sampler implementation
+## Policy rollout verification
 
-**Redis is `noeviction`, and BullMQ requires it**: The Redis instance is the BullMQ queue backing store *only* — no cache, no sessions, despite what older comments claimed. `--maxmemory-policy noeviction` (issue #1036) is a correctness requirement, not a tuning preference: BullMQ has no recovery path for evicted keys, so under an eviction policy Redis can silently drop job hashes, queue state, or scheduler metadata and jobs vanish with no error.
-
-Never add cache or session keys to this instance. Cache workloads want eviction, queue workloads must never be evicted, and the two are irreconcilable on one instance — introducing a cache requires a *separate* Redis service, never a policy revert. `users.module.ts` carries a dormant `CacheModule.register()` that is the concrete way this gets violated.
-
-`--maxmemory-policy` is a start-time flag on the `redis-server` command, so the container must be **recreated** (`docker compose up -d redis`), not merely restarted; a runtime `CONFIG SET` is reverted on the next recreate. The compose files are the source of truth.
+First initialize the authenticated helper from [Prerequisites and access](#prerequisites-and-access).
 
 *Mandatory pre-rollout baseline capture* — run per environment from the deployment directory (wherever that environment's compose files live), **before** switching the policy. A non-zero `evicted_keys` means eviction has already damaged queue state and must be investigated before any change:
 
 ```bash
-redis_password="$(docker compose exec -T backend printenv REDIS_PASSWORD)"
-redis_cli() { docker compose exec -T -e REDISCLI_AUTH="$redis_password" redis redis-cli --raw "$@"; }
-
 redis_cli CONFIG GET maxmemory-policy
 redis_cli INFO memory | grep -E "^used_memory_peak_human:|^maxmemory_human:"
 redis_cli INFO stats | grep -E "^evicted_keys:"   # MUST be 0
 redis_cli INFO keyspace
 ```
-
-Extract the password from the container as shown — `$REDIS_PASSWORD` is generally *not* exported in the host shell, and an unset var makes `REDISCLI_AUTH=""` fail with `NOAUTH`. `REDISCLI_AUTH` also keeps the password out of the process argument list, unlike `-a`.
 
 *Verification after rollout* needs a restart-bounded window plus a positive marker — `docker compose logs` retains pre-change history, so a naive grep still finds the old warning, and a backend that fails to start produces an empty window that reads as success:
 
@@ -556,51 +550,6 @@ docker compose logs backend --since 90s 2>&1 | grep -E "Initialized [0-9]+ backu
 
 Pass requires **both**: `Initialized N backup schedules` present (it cannot print unless BullMQ initialized against Redis) and `Eviction policy` absent.
 
-The 256 MiB cap is **retained** (decision recorded 2026-09-05). Local history
-demonstrates persistence across Redis restarts; **production sizing and survival
-across a confirmed deploy remain unverified**, and re-evaluating the cap against
-captured production values is still a mandatory rollout gate, not an optional
-follow-up. Nothing in the local measurement discharges it.
+## Sampler implementation constraints
 
-The evidence is one frozen window on the **local development stack only**
-(`instanceId = erp_backend`, `sampledAt < 2026-09-05 00:00:00-07`): 30,667
-samples over 21d 10h, 0 failed, peak `usedBytes` 3,008,424 of 268,435,456 =
-**1.121%**, p95 2,961,160.8, `evictedKeys` and `oomErrors` both 0. Utilization
-is computed from the byte columns; the stored `utilizationPercent` rounds to
-whole percentages (`redis-info.parser.ts:50`) and reads `1.00`.
-
-Two limits on that evidence. Zero counters mean **none observed** — `evicted_keys`
-is inert under `noeviction`, and `oomErrors` lives inside the Redis process, so a
-container OOM kill or Redis restart **can occur without incrementing either
-counter** (the replacement process starts fresh; already-persisted samples and
-alert rows remain). And the window's three sampling gaps identify **sampling
-interruptions**; the restart correlation comes from the retained
-`redis_alert_state` run_id rows, which resolve two of the three to Redis
-restarts. Neither is deployment evidence, so this window spans **zero verified
-deploys**.
-
-The recorded query output is the evidence, not the query: 90-day retention with
-a nightly prune means re-running the bounded query returns fewer rows over time.
-The cap matters more now that `noeviction` makes hitting it a hard `OOM command
-not allowed` failure rather than silent eviction.
-
-`docker-compose.prod.yml` sets the Redis container `limits.memory: 512M` against
-`--maxmemory 256mb` (`reservations.memory: 256M`) — recorded as an unmeasured
-configuration fact, not a defect: Redis needs memory beyond `used_memory` during
-RDB save and AOF rewrite, and this stack runs both. See
-`docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md` for the full measurement,
-the reproduce query, the restart-correlation method and its caveats, and the
-investigation triggers.
-
-**Redis memory monitoring persists to Postgres, never to Redis**: the sampler writes samples (`redis_memory_samples`) and alert state (`redis_alert_state`) through TypeORM; Redis itself is only ever *read* (INFO) by the monitoring module. Alert state is keyed by the Redis `run_id`, so a Redis restart yields a **new** row rather than clearing a watermark — the old row is retained for diagnostics and simply no longer consulted. Samples are keyed by `MONITORING_INSTANCE_ID`, which **must be stable across restarts and unique per running sampler** (compose pins `erp_backend`; `HOSTNAME` is the container ID and changes on recreation). The `bigint` columns on these tables need `SafeIntegerTransformer` (`safe-integer.transformer.ts`), which throws rather than silently truncating values past `MAX_SAFE_INTEGER`.
-
-The detail route also returns `windowStats` — an **exact** aggregate over the
-full filtered window, computed in SQL and grouped by instance. It exists because
-`samples` is capped at `REDIS_DETAIL_MAX_ROWS` (5000) and newest-anchored: at the
-60s interval a 7-day request returns roughly the newest 3.5 days, so any peak
-computed from `samples` describes that slice, not the window. Read peaks from
-`windowStats`, never from `samples`. Counter deltas there are the **sum of
-positive consecutive increases**, not `max - min`, which is wrong in both
-directions across a `CONFIG RESETSTAT`; `delta: null` means fewer than two
-comparable readings and is distinct from a measured `0`. `/settings/redis-monitoring`
-renders this.
+The monitoring module only reads Redis through `INFO`. Its Postgres `bigint` columns require `SafeIntegerTransformer` (`safe-integer.transformer.ts`), which throws for values past `MAX_SAFE_INTEGER` rather than silently truncating them.

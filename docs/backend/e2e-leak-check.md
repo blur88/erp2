@@ -23,7 +23,7 @@ once between migrations and baseline capture. Remove that step and the two
 tables the gate is supposed to protect become its first false positives.
 
 That boot entry lives in `test/`, never under `src/database/cli/` — see the
-`tsconfig.cli.json` trap above.
+[CLI compilation alias trap](cli-build.md).
 
 **Reuse is rejected on two migration comparisons, not one.** Stored-vs-applied
 compares the retained database to itself, so a newly pulled migration leaves it
@@ -50,7 +50,7 @@ and skips this turns the nightly gate red.
 `redis_alert_state` are not captured or compared: the sampler writes a startup
 sample in `onModuleInit` on every app boot under a per-boot instanceId (one row
 per boot, +38/pass measured 2026-09-27), which no suite can prevent. That write
-is not cron, so turning cron off in test apps (below) does not remove it.
+is not cron, so disabling cron through `createScheduleOptions()` does not remove it.
 
 **Cron does not run in e2e-booted apps** (#1311). `createScheduleOptions()`
 (`config/schedule-options.factory.ts`) passes `cronJobs: false` to
@@ -67,7 +67,7 @@ BullMQ repeatable jobs are **not** covered: they are created from persisted
 `backup_schedules` rows at boot but then execute on a time schedule in any
 booted app's worker, independent of `ScheduleModule`.
 
-They are **counted and reported, never diffed**. Every report ends with an
+The excluded sampler tables are **counted and reported, never diffed**. Every report ends with an
 `ignored (sampler, not suite-attributable)` section giving each table's
 baseline count, current count and signed delta — e.g.
 `redis_memory_samples: baseline 1, now 55 (+54)`. The counts live in the
