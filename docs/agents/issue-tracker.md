@@ -21,7 +21,7 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 ### Agent-authored text and owner decisions
 
-For text posted on or after 2026-11-06, the first line of every agent-written issue body, issue comment, PR body, PR comment and PR review comment is exactly:
+For text posted on or after 2026-11-05T18:25:25Z (the [brief comment](https://github.com/blur88/erp2/issues/1688#issuecomment-6665850290)), the first line of every agent-written issue body, issue comment, PR body, PR comment and PR review comment is exactly:
 
 ```text
 > Written by an AI agent ({agent name}); not a statement by the repository owner.
@@ -39,7 +39,7 @@ The two rules below apply to every acceptance criterion an agent writes, in an i
 
 Each criterion states something checkable on the merged diff or its recorded output, never an order in time. Where a standard requires an order, state its final state: "Change the owner first" becomes "The rule's authoritative source and every copy agree in the merged diff."
 
-Each claim a criterion makes about existing code, tests or fixtures cites recorded evidence supporting that exact claim: a `file:line`, or a command and its output. "Passes unmodified" needs the relevant test run unchanged; a fixture search alone does not show it. One piece of evidence may support several criteria without repetition. [Issue #1688, Problem 3](https://github.com/blur88/erp2/issues/1688) and [brief D](https://github.com/blur88/erp2/issues/1688#issuecomment-6665850290) record the uncheckable criteria and defines these requirements.
+Each claim a criterion makes about existing code, tests or fixtures cites recorded evidence supporting that exact claim: a `file:line`, or a command and its output. "Passes unmodified" needs the relevant test run unchanged; a fixture search alone does not show it. One piece of evidence may support several criteria without repetition. [Issue #1688, Problem 3](https://github.com/blur88/erp2/issues/1688) and [brief D](https://github.com/blur88/erp2/issues/1688#issuecomment-6665850290) record the uncheckable criteria and define these requirements.
 
 Creating a new issue needs no pointer sweep. Before posting a brief for issue #N, substitute its number and run:
 
