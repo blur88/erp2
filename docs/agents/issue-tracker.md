@@ -21,7 +21,7 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 ### Agent-authored text and owner decisions
 
-For text posted after the adoption of #1688, the first line of every agent-written issue body, issue comment, PR body, PR comment and PR review comment is exactly:
+For text posted after the PR that closes [issue #1688](https://github.com/blur88/erp2/issues/1688) merges, the first line of every agent-written issue body, issue comment, PR body, PR comment and PR review comment is exactly:
 
 ```text
 > Written by an AI agent ({agent name}); not a statement by the repository owner.
@@ -35,7 +35,7 @@ These rules follow [issue #1688, Problem 1 and the brief's Current behavior](htt
 
 ## Writing an agent brief
 
-The two rules below apply to every criterion an agent writes, in an issue body or brief comment, whatever the tool (`/retro`, `/to-tickets`, `/triage` or plain `gh issue create`).
+The two rules below apply to every acceptance criterion an agent writes, in an issue body or brief comment, whatever the tool (`/retro`, `/to-tickets`, `/triage` or plain `gh issue create`).
 
 Each criterion states something checkable on the merged diff or its recorded output, never an order in time. Where a standard requires an order, state its final state: "Change the owner first" becomes "The rule's authoritative source and every copy agree in the merged diff."
 
