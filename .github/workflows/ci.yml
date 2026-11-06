@@ -21,6 +21,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test-git-hooks:
+    name: Git hook integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Test local main guards
+        run: sh scripts/tests/git-hooks.sh
+
   test-backend:
     name: Backend - Lint, Type Check, Unit Tests, E2E Tests
     runs-on: ubuntu-latest
