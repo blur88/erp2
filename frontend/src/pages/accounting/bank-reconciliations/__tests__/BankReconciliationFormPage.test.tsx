@@ -746,6 +746,31 @@ describe('BankReconciliationFormPage', () => {
       meta: { total: 1, page: 1, limit: 25 },
     })
 
+    it('does not start pending searches after the form unmounts', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      const { unmount } = renderEdit()
+
+      expect(mockSearchLines).not.toHaveBeenCalled()
+      unmount()
+      await wait(250)
+
+      expect(mockSearchLines).not.toHaveBeenCalled()
+    })
+
+    it('does not start a pending preview after the form unmounts', async () => {
+      mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+      const { unmount } = renderEdit()
+      await waitFor(() => expect(mockPreview).toHaveBeenCalledTimes(1))
+
+      const checkbox = await screen.findByRole('checkbox', { name: /^Select JE-001,/ })
+      fireEvent.click(checkbox)
+      const callsBeforeUnmount = mockPreview.mock.calls.length
+      unmount()
+      await wait(400)
+
+      expect(mockPreview).toHaveBeenCalledTimes(callsBeforeUnmount)
+    })
+
     it('an unchanged successful preview causes no further preview requests', async () => {
       mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
       renderEdit()

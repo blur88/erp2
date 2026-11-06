@@ -72,6 +72,8 @@ PY
 
 The final standards and specification review reported no remaining findings.
 This is local verification, not a CI check: the external memory directory and
-validator are not available in a fresh checkout. No application code, database,
-or environment configuration changed. Backend and frontend checks do not apply
-to this documentation-only repository change.
+validator are not available in a fresh checkout. The external memory work has
+no application, database, or environment configuration effects. Frontend CI
+also exposed reconciliation debounce callbacks running after test teardown;
+the accompanying application cleanup and unmount regression tests address that
+separate failure.
