@@ -8,7 +8,8 @@ git init -q --bare "$tmp/remote"
 cd "$tmp/work"
 git config user.name 'Hook Test'
 git config user.email 'hooks@example.invalid'
-git config core.hooksPath "$root/.githooks"
+cp -R "$root/.githooks" .githooks
+git config core.hooksPath .githooks
 if git commit --allow-empty -m blocked >"$tmp/output" 2>&1; then
   echo 'FAIL: main commit allowed'; exit 1
 fi
@@ -30,6 +31,15 @@ grep -q 'open a PR' "$tmp/output"
 if printf 'refs/heads/feature abc refs/heads/feature def\nrefs/heads/feature abc refs/heads/main def\n' | "$root/.githooks/pre-push" >"$tmp/output" 2>&1; then
   echo 'FAIL: mixed push allowed'; exit 1
 fi
+# Seed remote main directly so deletion must reach the hook.
+git --git-dir="$tmp/remote" update-ref refs/heads/main "$(git rev-parse feature)"
+if git push --delete origin main >"$tmp/output" 2>&1; then
+  echo 'FAIL: main deletion allowed'; exit 1
+fi
+grep -q 'open a PR' "$tmp/output"
 git checkout -q --detach
+before=$(git rev-parse HEAD)
 git commit -q --allow-empty -m detached
+test "$(git rev-parse HEAD^)" = "$before"
+test "$(git log -1 --format=%s)" = detached
 printf 'PASS: commit and push guards\n'

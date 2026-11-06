@@ -95,6 +95,6 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 ## Pull requests
 
-Enable the local commit and push guards once per clone with `git config core.hooksPath .githooks`. They block commits on `main` and pushes targeting `main`, including pushes from another branch. Push a feature branch and open a PR. These local hooks do not affect merges performed on GitHub by `gh pr merge`.
+Follow the [Quick Start](../../README.md#quick-start) to enable the local commit and push guards. They block commits on `main` and pushes targeting `main`, including pushes from another branch. Push a feature branch and open a PR. These local hooks do not affect merges performed on GitHub by `gh pr merge`.
 
 For stacked PRs, `gh pr merge --delete-branch` on the base PR closes the stacked PR; GitHub refuses to retarget or reopen it afterward. Retarget the stacked PR to `main` first, or merge the base PR without `--delete-branch`.
