@@ -73,7 +73,3 @@ PRs should include:
 - Never commit real secrets; copy from `.env.example`.
 - Rotate default credentials in non-dev environments.
 - Validate DB changes with migrations (`npm run migration:run`) instead of manual schema edits.
-
-## Agent Guidance
-- Working with GitHub issues or PR issue-closing semantics → read [issue tracker guidance](docs/agents/issue-tracker.md).
-- Defining domain terminology or recording architectural decisions → read [domain documentation guidance](docs/agents/domain.md).
