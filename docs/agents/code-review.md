@@ -2,6 +2,8 @@
 
 Use this convention when invoking `/code-review`. It overrides the `mattpocock-skills:code-review` skill's unconditional subagents and its baseline question when review state is already known. Use the `mattpocock-skills:code-review` skill's Standards smell baseline and originating issue for both delegated and inline reviews.
 
+For external review subjects, follow the [external-file workflow](external-files.md). Review the repository completion record against its Git PR baseline as usual.
+
 ## Terms
 
 - **PR baseline**: merge-base of HEAD with the PR's actual base branch (`main` by default; the real base for a stacked PR). Ask only when repository and PR metadata can't settle it unambiguously; a detached HEAD or unpushed base alone doesn't require a question. It stays fixed across normal rounds; a scope reset may set and record a new baseline.

@@ -20,6 +20,8 @@ Backend Jest requires `NODE_OPTIONS=--experimental-vm-modules`; use the npm test
 
 ## Read when relevant
 
+- Changing files outside Git, reviewing external files, or recording their completion → read [external-file workflow](docs/agents/external-files.md).
+
 - Reviewing a diff → read [coding standards](CODING_STANDARDS.md) and the [review convention](docs/agents/code-review.md).
 - Opening, stacking or merging a PR, starting development, changing architecture or deployment configuration, running migrations, sweeping dead code, or updating main → read [development reference](docs/agents/development-reference.md).
 - Working with GitHub issues or PR issue-closing semantics → read [issue tracker guidance](docs/agents/issue-tracker.md).
