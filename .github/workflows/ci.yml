@@ -601,11 +601,7 @@ jobs:
       - name: Type check
         run: npm run type-check
 
-      # Runs the suite once with coverage instrumentation rather than running
-      # `npm run test` and `npm run test:coverage` back to back — vitest computes
-      # coverage in the same pass, so a second run would just double a ~30 minute
-      # job. AGENTS.md requires the coverage gate for frontend changes; this is
-      # what enforces it.
+      # Verification policy: AGENTS.md, Change-Scoped Verification gate table.
       - name: Tests with coverage
         run: npm run test:coverage
         env:

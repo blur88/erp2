@@ -29,7 +29,7 @@ For external review subjects, follow the [external-file workflow](external-files
   - Standards: "No delta since round <nn>", unless the delta-round broadening rule applies.
   - Evidence check: say which claims were verified against the final SHA and record every gap explicitly. A gap doesn't waive a required check or make the PR merge-ready.
   - Doesn't move the last reviewed commit forward. Must be redone if HEAD moves.
-- **Verification**: each round re-runs the checks its changes warrant; there's no blanket re-run of every recorded command. Required checks are always mandatory. Reproduce checks that depend on a clean checkout in a clean checkout, using a runner or by hand, or record them as verification gaps.
+- **Verification**: rounds stay incremental; the pre-merge round follows the final-head rule in [AGENTS.md](../../AGENTS.md#change-scoped-verification-required-before-merge). Reproduce checks that depend on a clean checkout in a clean checkout, using a runner or by hand, or record them as verification gaps.
 
 ## State and reports
 
@@ -47,7 +47,7 @@ For external review subjects, follow the [external-file workflow](external-files
   - PR baseline, delta base (N/A on the initial round; the saved state for a post-commit difference review), reviewed head;
   - working tree included yes/no, plus the untracked files list and a patch link;
   - scope (full PR, delta, or broadened + reason) and mode (inline or subagents + reason);
-  - verification re-run (commands + results) and verification gaps.
+  - verification re-run (commands + results using the [AGENTS.md report statuses](../../AGENTS.md#change-scoped-verification-required-before-merge)) and verification gaps.
 
   Then `## Standards`, `## Spec`, and an outcome (complete / partial / aborted), recorded separately from unresolved blocking findings.
 

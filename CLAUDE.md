@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for working in this repository. Read [AGENTS.md](AGENTS.md) for repository conventions and the authoritative Change-Scoped Verification gates before preparing a PR. Record the exact verification commands and results in the PR.
+Guidance for working in this repository. Read [AGENTS.md](AGENTS.md) for repository conventions and the authoritative Change-Scoped Verification gates, timing and report statuses.
 
 ## Rules
 
