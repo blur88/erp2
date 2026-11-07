@@ -142,3 +142,12 @@ DOC
   [ "$status" -eq 1 ]
   [[ "$output" == *"missing path tsconfig.build.json"* ]]
 }
+
+@test "explicit dot paths include root source files and extensionless directories" {
+  for reference in ./missing.ts ./tools/missing-directory; do
+    printf '# Claude guidance\n`%s`\n' "$reference" > "$FIXTURE/CLAUDE.md"
+    run node "$CHECKER" "$FIXTURE"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"missing path $reference"* ]]
+  done
+}

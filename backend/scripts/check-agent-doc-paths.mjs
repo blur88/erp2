@@ -53,10 +53,13 @@ function visit(document) {
   for (const [, code] of text.matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)) {
     const value = stripLine(code);
     if (skipped(value) || external(value) || /[\s(){}]/.test(value) || value.startsWith('/')) continue;
-    const normalized = value.replace(/^\.\//, '');
+    if (value.startsWith('./')) {
+      check(path.resolve(root, value), document, code);
+      continue;
+    }
+    const normalized = value;
     // Source/import paths are app-relative, unlike explicit repo paths or ./ paths.
-    if (/^(?:@|src\/|test\/|config\/|scripts\/|styles\/|components\/|dist\/|node_modules\/|tsconfig-paths\/)/.test(normalized)
-      && !value.startsWith('./')) continue;
+    if (/^(?:@|src\/|test\/|config\/|scripts\/|styles\/|components\/|dist\/|node_modules\/|tsconfig-paths\/)/.test(normalized)) continue;
     const qualified = normalized.includes('/');
     if (qualified && !/^(?:backend|frontend|docs|nginx|\.github|\.husky)\//.test(normalized)
       && (!/(?:\.[a-z\d]+|\/)$/i.test(normalized) || /^[A-Z]/.test(normalized))) continue;
