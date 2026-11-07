@@ -110,3 +110,35 @@ DOC
   [[ "$output" == *"missing anchor #example-heading"* ]]
   [[ "$output" != *"missing path"* ]]
 }
+
+@test "dot-prefixed repository paths are checked" {
+  printf '\n`./backend/src/missing.ts`\n' >> "$FIXTURE/CLAUDE.md"
+  run node "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing path ./backend/src/missing.ts"* ]]
+}
+
+@test "missing root JSON files are checked" {
+  printf '\n`package-does-not-exist.json`\n' >> "$FIXTURE/CLAUDE.md"
+  run node "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing path package-does-not-exist.json"* ]]
+}
+
+@test "paths outside the familiar repository directories are checked" {
+  printf '\n`tools/missing-checker.mjs`\n' >> "$FIXTURE/CLAUDE.md"
+  run node "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing path tools/missing-checker.mjs"* ]]
+}
+
+@test "unqualified app configuration names must exist in an app root" {
+  printf '\n`tsconfig.build.json`\n' >> "$FIXTURE/CLAUDE.md"
+  printf '{}\n' > "$FIXTURE/backend/tsconfig.build.json"
+  run node "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 0 ]
+  rm "$FIXTURE/backend/tsconfig.build.json"
+  run node "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing path tsconfig.build.json"* ]]
+}

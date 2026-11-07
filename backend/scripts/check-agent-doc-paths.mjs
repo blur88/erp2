@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Backticked paths are repository-relative; Markdown destinations are document-relative.
 // Bare source filenames and app-relative imports (src/, test/, etc.) are not repo pointers.
+// Unqualified configuration files are checked in the repo root and both app roots.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,9 +52,23 @@ function visit(document) {
   const text = prose(readFileSync(document, 'utf8'));
   for (const [, code] of text.matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)) {
     const value = stripLine(code);
-    // Explicit repo prefixes avoid interpreting URLs, API routes, imports and commands as files.
-    if (skipped(value) || !/^(?:(?:backend|frontend|docs|nginx|\.github|\.husky)\/[^\s]*|(?:\.\/)?(?:[\w-]+\.md|docker-compose[^/\s]*\.ya?ml|deploy\.sh|maintain\.sh|playwright\.config\.ts|\.env[^/\s]*))$/.test(value)) continue;
-    check(path.resolve(root, value), document, code);
+    if (skipped(value) || external(value) || /[\s(){}]/.test(value) || value.startsWith('/')) continue;
+    const normalized = value.replace(/^\.\//, '');
+    // Source/import paths are app-relative, unlike explicit repo paths or ./ paths.
+    if (/^(?:@|src\/|test\/|config\/|scripts\/|styles\/|components\/|dist\/|node_modules\/|tsconfig-paths\/)/.test(normalized)
+      && !value.startsWith('./')) continue;
+    const qualified = normalized.includes('/');
+    if (qualified && !/^(?:backend|frontend|docs|nginx|\.github|\.husky)\//.test(normalized)
+      && (!/(?:\.[a-z\d]+|\/)$/i.test(normalized) || /^[A-Z]/.test(normalized))) continue;
+    const rootFile = /^(?:[\w.-]+\.(?:md|json|ya?ml|sh)|playwright\.config\.ts|\.env[\w.-]*)$/.test(normalized);
+    if (!qualified && !rootFile) continue;
+    let target = path.resolve(root, value);
+    // Unqualified configuration/script names may refer to either app or CI tooling.
+    if (!qualified && !existsSync(target)) {
+      target = ['backend', 'frontend', 'backend/scripts', '.github/workflows'].map(directory => path.join(root, directory, normalized))
+        .find(candidate => existsSync(candidate)) ?? target;
+    }
+    check(target, document, code);
   }
   const definitions = new Map([...text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(<[^>]+>|\S+)/gm)]
     .map(([, label, destination]) => [label.toLowerCase(), destination]));
