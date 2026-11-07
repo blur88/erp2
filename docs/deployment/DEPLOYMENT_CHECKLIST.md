@@ -297,7 +297,7 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "
 ### Announcement
 - [ ] Users notified of successful deployment
 - [ ] New features announced
-- [ ] User guide shared: `docs/PRICE_LIST_USER_GUIDE.md`
+- [ ] User guide shared: `docs/modules/price-lists/PRICE_LIST_USER_GUIDE.md`
 - [ ] Support team notified deployment complete
 - [ ] Known issues communicated (if any)
 

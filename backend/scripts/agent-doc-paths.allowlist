@@ -1,0 +1,9 @@
+# Exact repository-relative paths intentionally mentioned as absent or removed.
+frontend/e2e
+playwright.config.ts
+GLOSSARY-MAP.md
+GLOSSARY.md
+# Optional architecture directory (docs/agents/domain.md).
+docs/adr
+# Accounting print gate removed in #1223 (docs/frontend/printing.md).
+frontend/e2e/accounting-print.spec.ts
