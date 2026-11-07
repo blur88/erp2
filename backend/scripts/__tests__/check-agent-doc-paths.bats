@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# Guard repository paths and Markdown pointers in agent guidance (#1705).
 
 setup() {
   CHECKER="${BATS_TEST_DIRNAME}/../check-agent-doc-paths.mjs"
@@ -194,4 +195,17 @@ DOC
   run_checker
   [ "$status" -eq 1 ]
   [[ "$output" == *"missing path frontend/e2e"* ]]
+}
+
+@test "a stray backtick cannot hide a broken link on a later line" {
+  cat >> "$FIXTURE/CLAUDE.md" <<'DOC'
+Use a ` here.
+
+[x](missing.md)
+
+A later ` closes nothing on the earlier line.
+DOC
+  run_checker
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"CLAUDE.md: missing path missing.md"* ]]
 }

@@ -2,7 +2,7 @@
 // Agent document pointer validation (#1705).
 // Backticked paths are repository-relative; Markdown destinations are document-relative.
 // Bare source filenames and app-relative imports (src/, test/, etc.) are not repo pointers.
-// Unqualified configuration files are checked in the repo root and both app roots.
+// Unqualified names are checked in the repo root, app roots, backend/scripts and .github/workflows.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,7 +61,7 @@ function visit(document) {
   if (visited.has(document)) return;
   visited.add(document);
   if (!pathExistsOrReport(document, document, relative(document))) return;
-  let text = stripFencesAndComments(readFileSync(document, 'utf8'));
+  const text = stripFencesAndComments(readFileSync(document, 'utf8'));
   for (const [, code] of text.matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)) {
     const value = stripLine(code);
     if (skipped(value) || external(value) || /[\s(){}]/.test(value) || value.startsWith('/')) continue;
@@ -72,9 +72,7 @@ function visit(document) {
     // Source/import paths are app-relative, unlike explicit repo paths or ./ paths.
     if (appRelativePath.test(value)) continue;
     const qualified = value.includes('/');
-    if (qualified && !repoDirectoryPath.test(value) && !fileOrDirectorySuffix.test(value)) {
-      continue;
-    }
+    if (qualified && !repoDirectoryPath.test(value) && !fileOrDirectorySuffix.test(value)) continue;
     const rootFile = rootFilename.test(value);
     if (!qualified && !rootFile) continue;
     let target = path.resolve(root, value);
@@ -85,11 +83,11 @@ function visit(document) {
     }
     pathExistsOrReport(target, document, code);
   }
-  text = text.replace(/(`+)[\s\S]*?\1/g, '');
-  const definitions = new Map([...text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(<[^>]+>|\S+)/gm)]
+  const linkText = text.replace(/(`+)[^\r\n]*?\1/g, '');
+  const definitions = new Map([...linkText.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(<[^>]+>|\S+)/gm)]
     .map(([, label, destination]) => [label.toLowerCase(), destination]));
-  const destinations = [...text.matchAll(/!?\[[^\]\n]*\]\(\s*(<[^>]*>|[^\s)]*)(?:\s+['"][^\n]*?['"])?\s*\)/g)].map(match => match[1]);
-  for (const [, label, ref] of text.matchAll(/!?\[([^\]\n]+)\]\[([^\]\n]*)\]/g)) {
+  const destinations = [...linkText.matchAll(/!?\[[^\]\n]*\]\(\s*(<[^>]*>|[^\s)]*)(?:\s+['"][^\n]*?['"])?\s*\)/g)].map(match => match[1]);
+  for (const [, label, ref] of linkText.matchAll(/!?\[([^\]\n]+)\]\[([^\]\n]*)\]/g)) {
     const destination = definitions.get((ref || label).toLowerCase());
     if (destination) destinations.push(destination);
   }
