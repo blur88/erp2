@@ -660,3 +660,12 @@ Two invariants the suite *cannot* protect, so change them only deliberately:
 
 - **The paren spacer must stay CSS generated content** (`[data-role="paren-spacer"]`, whose `parenSpacerSx` supplies `&::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser. Note that `toHaveTextContent('56,800.00')` is a substring assertion — it would still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
 - **Every figure must render at the same font size.** The bottom line is distinguished by weight and its double rule. A larger bottom-line figure places its decimal separator at a different x position from every other row, which is the exact misalignment the old two-cell split existed to prevent.
+
+## Verifying changes to this guidance
+
+When changing statement QA guidance, run the existing selector contract check to
+catch references to retired hooks (incident: #1698 / PR #1708):
+
+```bash
+cd frontend && npx vitest run src/components/accounting/Statement/__tests__/qaSelectorContract.test.tsx
+```
