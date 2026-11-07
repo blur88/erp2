@@ -88,10 +88,18 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 **Dead-code sweeps**: `maintain.sh do_knip()` wraps `npx knip` in `|| true`, so it always exits 0 and cannot be used as a gate — run `npx knip` directly per directory when you need pass/fail. Knip also reports false positives for backend service methods called by a *sibling service* rather than an HTTP route; grep the method name across `backend/src` before deleting anything.
 
-**Migration baseline**: the chain starts from a single `InitialSchema` genesis migration (#950). `npm run migration:run` works against an empty database, so a new migration can be validated end-to-end locally. Migration failure is fatal — there is no `schema:sync` fallback in the entrypoint or E2E setup. Verify a schema change with `backend/scripts/verify-baseline.sh` and `backend/scripts/verify-seeds.sh`.
+**Migration baseline**: the chain starts from a single `InitialSchema` genesis migration (#950). `npm run migration:run` works against an empty database, so the complete migration chain can be validated locally from an empty schema. For upgrade verification against existing data and migration history, use [disposable-clone migration verification](#disposable-clone-migration-verification). Migration failure is fatal — there is no `schema:sync` fallback in the entrypoint or E2E setup. Verify a schema change with `backend/scripts/verify-baseline.sh` and `backend/scripts/verify-seeds.sh`.
 
 
 **Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). This prevents accidental local merge commits when synchronizing main.
+
+## Disposable-clone migration verification
+
+For entity or migration changes, create a disposable PostgreSQL database and restore a dump of the pre-change database into it, preserving migration history. Use a local development snapshot or an approved sanitized snapshot; keep the source database unchanged.
+
+In a separate checkout of the candidate commit, run `npm ci` in `backend/`. For this host-run command, set the backend environment variables explicitly: `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`. These correspond respectively to `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD` in [the environment template](../../.env.example); Docker Compose normally performs this mapping, but host-run commands need the backend names. Use the disposable clone’s reachable host, port, database name and credentials rather than the source database values. Confirm the resolved host and database name identify the clone before running `npm run migration:run` from that same `backend/` directory. Record the candidate SHA, command, result and clone identity without credentials. Resolve failures before proceeding to e2e verification under [AGENTS.md](../../AGENTS.md#change-scoped-verification-required-before-merge).
+
+Delete the disposable database and checkout after capturing the result. CI migrations against an empty database supply different evidence from upgrading an existing schema and migration history.
 
 ## Pull requests
 
