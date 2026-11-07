@@ -97,7 +97,7 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 Follow the [Quick Start](../../README.md#quick-start) to enable the local commit and push guards. They block commits on `main` and pushes targeting `main`, including pushes from another branch. Push a feature branch and open a PR. These local hooks do not affect merges performed on GitHub by `gh pr merge`.
 
-Merge only the commit that was reviewed: `gh pr merge <n> --match-head-commit <reviewed SHA>`. If the PR head has moved past the last reviewed commit, review the newer commits first; the flag then refuses any push that lands in between.
+Merge with `gh pr merge <n> --match-head-commit <reviewed head>`; the flag refuses a push that lands between review and merge. For the reviewed head and merge-readiness requirements, follow the [review convention](code-review.md).
 
 For stacked PRs, `gh pr merge --delete-branch` on the base PR closes the stacked PR; GitHub refuses to retarget or reopen it afterward. Retarget the stacked PR to `main` first, or merge the base PR without `--delete-branch`.
 

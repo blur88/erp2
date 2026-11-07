@@ -208,5 +208,6 @@ docs/test/
 # Agent/CLI tool scratch dirs (local-only)
 .agents/
 .antigravitycli/
+.scratch/
 .superpowers/
 backend/leakcheck-reports/
