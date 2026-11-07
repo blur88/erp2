@@ -47,6 +47,9 @@ Run checks based on files touched (not just a default test set):
   - Catches errors in `test/**`, which `npm run type-check` cannot see at all —
     `tsconfig.build.json` has `include: ["src"]`. It additionally checks
     `src/**` under the test TypeScript configuration.
+- Backend script changes (`backend/scripts/**`), agent guidance (`AGENTS.md`, `CLAUDE.md`), or linked topic documentation:
+  - `cd backend && npm run test:scripts`
+  - For document pointer rules and limitations, read [agent document pointer checks](docs/backend/testing.md#agent-document-pointer-checks).
 - Backend DB changes (entities/migrations):
   - `cd backend && npm run migration:run && npm run test:e2e`
 - Frontend changes (`frontend/src/**`):

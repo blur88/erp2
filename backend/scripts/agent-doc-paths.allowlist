@@ -1,6 +1,8 @@
 # Exact repository-relative paths intentionally mentioned as absent or removed.
+# Playwright infrastructure removed in #1223 (docs/frontend/printing.md).
 frontend/e2e
 playwright.config.ts
+# Optional domain glossaries (docs/agents/domain.md).
 GLOSSARY-MAP.md
 GLOSSARY.md
 # Optional architecture directory (docs/agents/domain.md).

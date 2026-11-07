@@ -23,7 +23,7 @@ That legacy shape was **captured byte-for-byte from a real `bullmq@5.81.3` `Queu
 
 The unit tests mock `hexists`, so they cannot catch an inverted `ic` check — `npm run test:redis` is the only thing that does. It is on CI's critical path. **`Tests: 0 total` there is a failure, not a pass**: a suite that fails to load reports zero and looks green to a careless reading, though Jest's own exit code does catch it (see [Jest zero-discovery invariants](testing.md)). Verified by inverting the `ic` discriminator, which turns the legacy test red at the `legacySkipped` assertion.
 
-**`test:redis` requires an explicit opt-in** (#1190). `scripts/preflight-redis-test.sh` aborts unless `REDIS_TEST_ALLOW_WRITES=1`, *before* it opens any connection — so a run pointed at the wrong endpoint never touches it:
+**`test:redis` requires an explicit opt-in** (#1190). `backend/scripts/preflight-redis-test.sh` aborts unless `REDIS_TEST_ALLOW_WRITES=1`, *before* it opens any connection — so a run pointed at the wrong endpoint never touches it:
 
 ```bash
 REDIS_TEST_ALLOW_WRITES=1 npm run test:redis

@@ -359,7 +359,7 @@ the module without regenerating this block fails the suite.
 ## Selector reference
 
 Every query below addresses a DOM hook the component renders deliberately. They
-are asserted by `Statement/__tests__/qaSelectorContract.test.tsx`, so renaming
+are asserted by `frontend/src/components/accounting/Statement/__tests__/qaSelectorContract.test.tsx`, so renaming
 or dropping one turns the Vitest suite red and names this document — rather
 than leaving these steps silently returning `null`, which reads as a pass.
 
