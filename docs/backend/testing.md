@@ -22,7 +22,7 @@ Invariants that replaced it:
 
 ## Agent document pointer checks
 
-Agent document pointers are checked by `node backend/scripts/check-agent-doc-paths.mjs` from the repository root. Run `npm run test:scripts` from the backend directory for regression coverage. The checked root must be a Git repository root. Existence requires a Git-index entry (or a directory prefix of one) and a path on disk, so ignored or untracked local files cannot hide broken pointers. Stage new referenced files before running the checker. Fixture roots use their own optional `backend/scripts/agent-doc-paths.allowlist`; entries are exact repository-relative paths.
+Agent document pointers are checked by `node backend/scripts/check-agent-doc-paths.mjs` from the repository root. Run `npm run test:scripts` from the backend directory for regression coverage. The checked root must be a Git repository root. Existence requires a Git-index entry (or a directory prefix of one) and a path on disk, so ignored or untracked local files cannot hide broken pointers. Stage new referenced files before running the checker. Fixture roots use their own optional `backend/scripts/agent-doc-paths.allowlist`; entries are exact repository-relative paths. References to intentionally local-only or gitignored paths need an allowlist entry, even when those paths exist on the developer's machine.
 
 Recognized backticked paths are repository-relative: use `backend/scripts/<name>.sh` rather than an app-relative script path. Markdown links resolve relative to the containing document. Use a local Markdown link when a topic document should also be checked recursively.
 
