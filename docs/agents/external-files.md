@@ -38,4 +38,6 @@ For a memory validator change, snapshot the memory directory, run its persistent
 fixture suite, validate the live notes separately, then review the external diff
 and commit a verification record. The external project_memory_link_hygiene.md
 note owns the validator location, suite command and local prerequisites; consult
-it rather than duplicating those details in general workflow guidance.
+it rather than duplicating those details in general workflow guidance. Historical
+verification records may identify the current regression check explicitly, as the
+#1699 record does.

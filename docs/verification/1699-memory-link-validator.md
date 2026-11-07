@@ -28,6 +28,9 @@ OK — 113 memories, 143 links, 113 index rows; all resolve, no duplicates
 ```
 
 All nine fixture checks and the live-directory check passed on 2026-11-06.
+The fixtures covered missing angle links, punctuated line references, missing
+relative paths, existing angle links with anchors, column suffixes, globs,
+relative placeholders, absolute placeholders, and allowlisted paths.
 
 ### Current regression check (added for #1710)
 
