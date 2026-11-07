@@ -241,3 +241,24 @@ DOC
   [ "$status" -eq 1 ]
   [[ "$output" == *"missing path tsconfig.build.json"* ]]
 }
+
+@test "removing an inner comment cannot expose a link inside a reconstructed comment" {
+  cat >> "$FIXTURE/CLAUDE.md" <<'DOC'
+<!<!-- inner -->-- [hidden](missing.md) -->
+DOC
+  run_checker
+  [ "$status" -eq 0 ]
+}
+
+@test "heading HTML tags are removed without losing visible heading text" {
+  cat >> "$FIXTURE/CLAUDE.md" <<'DOC'
+## See <em>the <strong>guide</strong></em>
+[heading](#see-the-guide)
+DOC
+  run_checker
+  [ "$status" -eq 0 ]
+  printf '\n[bad](#see-the-wrong-guide)\n' >> "$FIXTURE/CLAUDE.md"
+  run_checker
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing anchor #see-the-wrong-guide"* ]]
+}

@@ -40,7 +40,21 @@ const stripLine = value => value.replace(/:\d+(?:[-:]\d+)?$/, '');
 const relative = value => path.relative(root, value).split(path.sep).join('/');
 
 function stripFencesAndComments(text) {
-  return text.replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, '');
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<!--[\s\S]*?-->/g, '');
+  } while (text !== previous);
+  return text.replace(/^\s*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, '');
+}
+
+function stripHeadingHtml(text) {
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<[^>]*>/g, '');
+  } while (text !== previous);
+  return text;
 }
 
 function anchors(text) {
@@ -51,10 +65,8 @@ function anchors(text) {
     const heading = lines[index].match(/^ {0,3}#{1,6}\s+(.+?)(?:\s+#+)?\s*$/)?.[1]
       ?? (index + 1 < lines.length && /^ {0,3}(?:=+|-+)\s*$/.test(lines[index + 1]) ? lines[index].trim() : undefined);
     if (!heading) continue;
-    const slug = heading
-      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    const slug = stripHeadingHtml(heading.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1'))
       .toLowerCase()
-      .replace(/<[^>]*>/g, '')
       .replace(/[^\p{L}\p{M}\p{N}_\-\s]/gu, '')
       .replace(/\s/g, '-');
     let id = slug;
