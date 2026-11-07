@@ -22,15 +22,17 @@ Invariants that replaced it:
 
 ## Agent document pointer checks
 
-Agent document pointers are checked by `node backend/scripts/check-agent-doc-paths.mjs` from the repository root. Run `npm run test:scripts` from the backend directory for regression coverage. Fixture roots use their own optional `backend/scripts/agent-doc-paths.allowlist`; entries are exact repository-relative paths.
+Agent document pointers are checked by `node backend/scripts/check-agent-doc-paths.mjs` from the repository root. Run `npm run test:scripts` from the backend directory for regression coverage. The checked root must be a Git repository root. Existence requires a Git-index entry (or a directory prefix of one) and a path on disk, so ignored or untracked local files cannot hide broken pointers. Stage new referenced files before running the checker. Fixture roots use their own optional `backend/scripts/agent-doc-paths.allowlist`; entries are exact repository-relative paths.
 
 Recognized backticked paths are repository-relative: use `backend/scripts/<name>.sh` rather than an app-relative script path. Markdown links resolve relative to the containing document. Use a local Markdown link when a topic document should also be checked recursively.
 
 Path rules and limitations:
 
 - Backticked tokens beginning with `src/`, `test/`, `config/`, `styles/`, `components/`, `dist/`, `node_modules/`, `tsconfig-paths/` or `@` are skipped as app-relative imports or aliases. Use a repository prefix such as `backend/` or `frontend/`, or an explicit `./` prefix, to make a repository path checkable.
-- Globs and placeholders containing `*`, `<` or `>` are skipped. Backticked absolute paths, URLs and tokens containing whitespace, parentheses or braces are also skipped. Markdown links to external URLs are skipped.
-- Unqualified configuration and script names are checked first at the repository root, then in `backend/`, `frontend/`, `backend/scripts/` and `.github/workflows/`; the first existing candidate is accepted.
-- Some extensionless paths and commands containing spaces are skipped. An explicit `./` prefix makes an extensionless path unambiguous.
+- Backticked paths and Markdown link destinations containing `*`, `<` or `>` are skipped. Backticked absolute paths, URLs and tokens containing whitespace, parentheses or braces are also skipped. Markdown links to external URLs are skipped.
+- Unqualified configuration and script names are checked first at the repository root, then in `backend/`, `frontend/`, `backend/scripts/` and `.github/workflows/`; the first tracked candidate present on disk is accepted.
+- Bare source filenames such as `missing.ts` and `missing.py`, some extensionless paths, and commands containing spaces are skipped. An explicit `./` prefix makes an extensionless path unambiguous.
 - Markdown paths appearing only in backticks are checked for existence but are not followed recursively.
 - Stale allowlist entries are not detected; review entries when restoring or removing the corresponding references.
+
+The lightweight Markdown parser recognizes code spans within a single line. Paired backticks on a line suppress enclosed links, even when the author intended a backtick as stray punctuation. Code spans wrapped across lines are not recognized and their links are checked.

@@ -8,9 +8,11 @@ setup() {
   mkdir -p "$FIXTURE/docs/topic" "$FIXTURE/backend/src"
   printf '# Agent guidance\n' > "$FIXTURE/AGENTS.md"
   printf '# Claude guidance\n' > "$FIXTURE/CLAUDE.md"
+  git init -q "$FIXTURE"
 }
 
 run_checker() {
+  git -C "$FIXTURE" add -A
   run node "$CHECKER" "$FIXTURE"
 }
 
@@ -208,4 +210,34 @@ DOC
   run_checker
   [ "$status" -eq 1 ]
   [[ "$output" == *"CLAUDE.md: missing path missing.md"* ]]
+}
+
+@test "an existing untracked file cannot satisfy a repository pointer" {
+  printf '\n`backend/src/local-only.json`\n' >> "$FIXTURE/CLAUDE.md"
+  git -C "$FIXTURE" add -A
+  printf '{}\n' > "$FIXTURE/backend/src/local-only.json"
+  run node "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing path backend/src/local-only.json"* ]]
+}
+
+@test "tracked directory prefixes pass but untracked subdirectories fail" {
+  printf '{}\n' > "$FIXTURE/backend/src/present.json"
+  printf '\n`backend/src/`\n' >> "$FIXTURE/CLAUDE.md"
+  run_checker
+  [ "$status" -eq 0 ]
+  mkdir "$FIXTURE/backend/src/local-only"
+  printf '\n`backend/src/local-only/`\n' >> "$FIXTURE/CLAUDE.md"
+  run node "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing path backend/src/local-only/"* ]]
+}
+
+@test "an untracked root file cannot mask a missing app configuration" {
+  printf '\n`tsconfig.build.json`\n' >> "$FIXTURE/CLAUDE.md"
+  git -C "$FIXTURE" add -A
+  printf '{}\n' > "$FIXTURE/tsconfig.build.json"
+  run node "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing path tsconfig.build.json"* ]]
 }

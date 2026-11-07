@@ -1,4 +1,4 @@
-# Exact repository-relative paths intentionally mentioned as absent or removed.
+# Exact repository-relative paths intentionally mentioned as absent, removed or local-only.
 # Playwright infrastructure removed in #1223 (docs/frontend/printing.md).
 frontend/e2e
 playwright.config.ts
@@ -8,3 +8,8 @@ GLOSSARY-MAP.md
 GLOSSARY.md
 # Optional architecture directory (docs/agents/domain.md).
 docs/adr
+# Local environment file copied from .env.example (README.md).
+.env
+# Ignored QA artifacts and locally installed browser tooling (docs/modules/accounting/STATEMENT_THEME_QA.md).
+docs/test
+frontend/node_modules

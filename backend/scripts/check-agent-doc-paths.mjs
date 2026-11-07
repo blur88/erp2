@@ -1,15 +1,31 @@
 #!/usr/bin/env node
 // Agent document pointer validation (#1705).
-// Backticked paths are repository-relative; Markdown destinations are document-relative.
+// Recognized backticked paths are repository-relative; Markdown destinations are document-relative.
 // Bare source filenames and app-relative imports (src/, test/, etc.) are not repo pointers.
 // Unqualified names are checked in the repo root, app roots, backend/scripts and .github/workflows.
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(process.argv[2] ?? fileURLToPath(new URL('../../', import.meta.url)));
+// Use the index so ignored/untracked local files cannot make a broken pointer pass.
+const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' }).trim();
+if (path.resolve(gitRoot) !== root) throw new Error('The checked root must be a Git repository root.');
+const trackedPaths = new Set();
+for (const filename of execFileSync('git', ['ls-files', '--cached', '-z'], { cwd: root, encoding: 'utf8' }).split('\0')) {
+  if (!filename) continue;
+  trackedPaths.add(''); // The repository root is also a tracked directory prefix.
+  trackedPaths.add(filename);
+  let directory = path.posix.dirname(filename);
+  while (directory !== '.') {
+    trackedPaths.add(directory);
+    directory = path.posix.dirname(directory);
+  }
+}
+const trackedPathExists = target => trackedPaths.has(path.relative(root, target).split(path.sep).join('/')) && existsSync(target);
 const allowlistPath = path.join(root, 'backend/scripts/agent-doc-paths.allowlist');
-const allowlist = new Set((existsSync(allowlistPath) ? readFileSync(allowlistPath, 'utf8') : '')
+const allowlist = new Set((trackedPathExists(allowlistPath) ? readFileSync(allowlistPath, 'utf8') : '')
   .split('\n').map(line => line.split('#')[0].trim().replace(/\/$/, '')).filter(Boolean));
 const appRelativePath = /^(?:@|src\/|test\/|config\/|styles\/|components\/|dist\/|node_modules\/|tsconfig-paths\/)/;
 const repoDirectoryPath = /^(?:backend|frontend|docs|nginx|\.github|\.husky)\//;
@@ -52,7 +68,7 @@ function anchors(text) {
 
 function pathExistsOrReport(target, source, reference) {
   const name = relative(target);
-  if (existsSync(target)) return true;
+  if (trackedPathExists(target)) return true;
   if (!allowlist.has(name)) errors.push(`${relative(source)}: missing path ${reference} (${name})`);
   return false;
 }
@@ -77,9 +93,9 @@ function visit(document) {
     if (!qualified && !rootFile) continue;
     let target = path.resolve(root, value);
     // Unqualified configuration/script names may refer to either app or CI tooling.
-    if (!qualified && !existsSync(target)) {
+    if (!qualified && !trackedPathExists(target)) {
       target = unqualifiedFileDirectories.map(directory => path.join(root, directory, value))
-        .find(candidate => existsSync(candidate)) ?? target;
+        .find(candidate => trackedPathExists(candidate)) ?? target;
     }
     pathExistsOrReport(target, document, code);
   }
