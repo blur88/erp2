@@ -10,7 +10,8 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Make an issue a sub-issue of a parent**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>` (database id, as in **Blocking** below). Without sub-issues, put `Part of #<parent>` at the top of the child body.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **Close**: never with `gh issue close` directly. Issues close through the PR that resolves them.
+- **Close**: never with `gh issue close` directly unless the owner explicitly requests it. Issues close through the PR that resolves them.
+  - External-only work uses a completion-record PR with `Closes #<n>`; follow the [external-file workflow](external-files.md). Close by hand with an evidence comment only on the owner’s explicit request.
 - **Referencing issues from a PR**:
   - `Closes #<n>`: only when the PR fully resolves the issue. GitHub closes it on merge.
   - `Refs #<n>`: when the PR covers part of the issue. The issue stays open.

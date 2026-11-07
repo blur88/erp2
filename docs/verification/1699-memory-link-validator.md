@@ -27,46 +27,19 @@ and 14 broken memory links. The final directory exits 0:
 OK — 113 memories, 143 links, 113 index rows; all resolve, no duplicates
 ```
 
-The following command copies only the validator into a temporary fixture
-directory, plants missing links, and checks normalization and exclusions.
-It then validates the actual memory directory. It leaves the original files
-unchanged. All nine fixture checks and the current-directory check passed.
+All nine fixture checks and the live-directory check passed on 2026-11-06.
+The fixtures covered missing angle links, punctuated line references, missing
+relative paths, existing angle links with anchors, column suffixes, globs,
+relative placeholders, absolute placeholders, and allowlisted paths.
 
-```bash
-python3 - <<'PY'
-from pathlib import Path
-import shutil
-import subprocess
-import tempfile
+### Current regression check (added for #1710)
 
-source = Path.home() / '.claude/projects/-home-blur-erp2/memory/validate-links.py'
-cases = [
-    ('missing angle link', '[missing](</home/blur/erp2/docs/__1699_missing__.md>)', 1),
-    ('punctuated line', '/home/blur/erp2/README.md:42.', 0),
-    ('missing relative', '`docs/__1699_missing__.md:42`', 1),
-    ('existing angle anchor', '[exists](</home/blur/erp2/README.md#heading>)', 0),
-    ('existing column', '`backend/package.json:42:3`', 0),
-    ('glob', '`docs/__1699_missing__/*.md`', 0),
-    ('relative placeholder', '`docs/<topic>/file.md`', 0),
-    ('absolute placeholder', '[placeholder](/home/blur/erp2/docs/<topic>/file.md)', 0),
-    ('allowlist', '`frontend/e2e/`', 0),
-]
-with tempfile.TemporaryDirectory(prefix='review1699-') as temporary:
-    fixture = Path(temporary)
-    shutil.copy(source, fixture / 'validate-links.py')
-    (fixture / 'MEMORY.md').write_text('[probe](probe.md)\n')
-    for label, body, expected in cases:
-        (fixture / 'probe.md').write_text('---\nname: probe\n---\n' + body + '\n')
-        result = subprocess.run(
-            ['python3', 'validate-links.py'], cwd=fixture,
-            text=True, capture_output=True,
-        )
-        print(f'{label}: exit {result.returncode}, expected {expected}')
-        assert result.returncode == expected, result.stdout + result.stderr
-result = subprocess.run(['python3', 'validate-links.py'], cwd=source.parent)
-assert result.returncode == 0
-PY
-```
+The persistent suite is beside the external validator at
+`~/.claude/projects/-home-blur-erp2/memory/test_validate_links.py`.
+Run `cd ~/.claude/projects/-home-blur-erp2/memory && python3 -m unittest test_validate_links`.
+This is the current regression command, not a command run on 2026-11-06.
+For environment requirements and live validation, follow the external
+`project_memory_link_hygiene.md` note.
 
 ## Review and limits
 
