@@ -41,6 +41,94 @@ docker compose build frontend && docker compose up -d frontend
 Have a Sales Orders or Purchase Orders list page open in the same session
 for the comparison checks (ST-6).
 
+## Preflight — run this FIRST
+
+Every ST step queries the DOM. A renamed or dropped hook makes
+`querySelector` return `null`, and `querySelectorAll` return an EMPTY NodeList
+that iterates zero times **without throwing** — so a sweep over "every figure
+cell" silently checks nothing and reads as a pass.
+
+Open the statement page, open the browser console, and paste this **verbatim**.
+It is self-contained plain JavaScript: nothing to import, no build step.
+
+```js
+var QA_REQUIRED_HOOKS = [
+  { selector: "[data-role=\"statement-root\"]", min: 1, role: "statement root (Paper frame)" },
+  { selector: "[data-testid=\"statement-scroller\"]", min: 1, role: "scroll container" },
+  { selector: "[data-role=\"col-head\"]", min: 2, role: "column header cells" },
+  { selector: "[data-role=\"figure\"]", min: 1, role: "figure cells (blank cells excluded)" },
+  { selector: "[data-role=\"paren-spacer\"]", min: 1, role: "paren spacer (generated content, positive figures only)" },
+  { selector: "[data-a11y=\"statement-value\"]", min: 1, role: "complete value, visually hidden" },
+];
+
+function runQaPreflight(root) {
+  root = root || document;
+  var results = QA_REQUIRED_HOOKS.map(function (h) {
+    return {
+      selector: h.selector,
+      role: h.role,
+      min: h.min,
+      found: root.querySelectorAll(h.selector).length,
+    };
+  });
+  var missing = results.filter(function (r) { return r.found < r.min; });
+  if (missing.length > 0) {
+    throw new Error(
+      'STATEMENT_THEME_QA preflight FAILED — ' + missing.length + ' hook(s) unusable.\n' +
+      missing.map(function (r) {
+        return '  ' + r.selector + ' (' + r.role + '): found ' + r.found + ', need >= ' + r.min;
+      }).join('\n') +
+      '\n\nThe QA steps that query these return null or an empty collection and ' +
+      'would record a silent pass. Update the selectors in the QA document and ' +
+      'Statement/qaPreflight.ts together, then re-run.'
+    );
+  }
+  console.table(results);
+  return results;
+}
+
+runQaPreflight();
+```
+
+It prints a table of match counts and **throws**, naming the hook, if any
+selector is unusable. **Do not record results from a session where it throws** —
+update the selectors in this document and in
+`frontend/src/components/accounting/Statement/qaPreflight.ts` together, then
+start over.
+
+This block is not hand-maintained: `qaPreflight.ts` generates it via
+`qaPreflightSnippet()`, and `qaSelectorContract.test.tsx` both EXECUTES the
+snippet and asserts this document still contains it verbatim. A hook added to
+the module without regenerating this block fails the suite.
+
+## Selector reference
+
+When changing this QA guidance, run the selector contract test (incident: #1698 / PR #1708):
+
+```bash
+cd frontend && npx vitest run src/components/accounting/Statement/__tests__/qaSelectorContract.test.tsx
+```
+
+Every query below addresses a DOM hook the component renders deliberately. They
+are asserted by the selector contract test above, so renaming
+or dropping one turns the Vitest suite red and names this document — rather
+than leaving these steps silently returning `null`, which reads as a pass.
+
+| Hook | Selector |
+|---|---|
+| Statement root (Paper frame) | `[data-role="statement-root"]` |
+| Scroll container | `[data-testid="statement-scroller"]` |
+| Column header cell | `[data-role="col-head"]` |
+| Figure cell (blank cells excluded) | `[data-role="figure"]` |
+| Paren spacer (generated content) | `[data-role="paren-spacer"]` |
+| Complete value, visually hidden | `[data-a11y="statement-value"]` |
+
+```js
+// Scroll container and the accessible complete value:
+document.querySelector('[data-testid="statement-scroller"]')
+document.querySelectorAll('[data-a11y="statement-value"]')
+```
+
 ## ST-1 — Decimal alignment across sign and row kind
 
 **Precondition:** A Profit & Loss for a year containing at least one negative
@@ -239,94 +327,6 @@ A sharper form of ST-1, stated as a measurement rather than a judgement.
   divergence from the other reports is a known, accepted non-goal.
 
 ---
-
-## Preflight — run this FIRST
-
-Every step below queries the DOM. A renamed or dropped hook makes
-`querySelector` return `null`, and `querySelectorAll` return an EMPTY NodeList
-that iterates zero times **without throwing** — so a sweep over "every figure
-cell" silently checks nothing and reads as a pass.
-
-Open the statement page, open the browser console, and paste this **verbatim**.
-It is self-contained plain JavaScript: nothing to import, no build step.
-
-```js
-var QA_REQUIRED_HOOKS = [
-  { selector: "[data-role=\"statement-root\"]", min: 1, role: "statement root (Paper frame)" },
-  { selector: "[data-testid=\"statement-scroller\"]", min: 1, role: "scroll container" },
-  { selector: "[data-role=\"col-head\"]", min: 2, role: "column header cells" },
-  { selector: "[data-role=\"figure\"]", min: 1, role: "figure cells (blank cells excluded)" },
-  { selector: "[data-role=\"paren-spacer\"]", min: 1, role: "paren spacer (generated content, positive figures only)" },
-  { selector: "[data-a11y=\"statement-value\"]", min: 1, role: "complete value, visually hidden" },
-];
-
-function runQaPreflight(root) {
-  root = root || document;
-  var results = QA_REQUIRED_HOOKS.map(function (h) {
-    return {
-      selector: h.selector,
-      role: h.role,
-      min: h.min,
-      found: root.querySelectorAll(h.selector).length,
-    };
-  });
-  var missing = results.filter(function (r) { return r.found < r.min; });
-  if (missing.length > 0) {
-    throw new Error(
-      'STATEMENT_THEME_QA preflight FAILED — ' + missing.length + ' hook(s) unusable.\n' +
-      missing.map(function (r) {
-        return '  ' + r.selector + ' (' + r.role + '): found ' + r.found + ', need >= ' + r.min;
-      }).join('\n') +
-      '\n\nThe QA steps that query these return null or an empty collection and ' +
-      'would record a silent pass. Update the selectors in the QA document and ' +
-      'Statement/qaPreflight.ts together, then re-run.'
-    );
-  }
-  console.table(results);
-  return results;
-}
-
-runQaPreflight();
-```
-
-It prints a table of match counts and **throws**, naming the hook, if any
-selector is unusable. **Do not record results from a session where it throws** —
-update the selectors in this document and in
-`frontend/src/components/accounting/Statement/qaPreflight.ts` together, then
-start over.
-
-This block is not hand-maintained: `qaPreflight.ts` generates it via
-`qaPreflightSnippet()`, and `qaSelectorContract.test.tsx` both EXECUTES the
-snippet and asserts this document still contains it verbatim. A hook added to
-the module without regenerating this block fails the suite.
-
-## Selector reference
-
-When changing this QA guidance, run the selector contract test (incident: #1698 / PR #1708):
-
-```bash
-cd frontend && npx vitest run src/components/accounting/Statement/__tests__/qaSelectorContract.test.tsx
-```
-
-Every query below addresses a DOM hook the component renders deliberately. They
-are asserted by the selector contract test above, so renaming
-or dropping one turns the Vitest suite red and names this document — rather
-than leaving these steps silently returning `null`, which reads as a pass.
-
-| Hook | Selector |
-|---|---|
-| Statement root (Paper frame) | `[data-role="statement-root"]` |
-| Scroll container | `[data-testid="statement-scroller"]` |
-| Column header cell | `[data-role="col-head"]` |
-| Figure cell (blank cells excluded) | `[data-role="figure"]` |
-| Paren spacer (generated content) | `[data-role="paren-spacer"]` |
-| Complete value, visually hidden | `[data-a11y="statement-value"]` |
-
-```js
-// Scroll container and the accessible complete value:
-document.querySelector('[data-testid="statement-scroller"]')
-document.querySelectorAll('[data-a11y="statement-value"]')
-```
 
 # Recorded run — 2026-09-11
 
