@@ -57,17 +57,22 @@ See #1728 for rules governing claims in commit and PR bodies.
 
 ## Resolving shared scratch storage
 
-Run from the checkout; record the printed absolute path in the ledger:
+Run from the primary checkout once before using linked worktrees; the shared local Git configuration preserves the resolved absolute root for every worktree. A linked checkout without that configuration stops rather than guessing the primary checkout from Git storage paths. Record the printed absolute path in the ledger:
 
 ```bash
 common=$(git rev-parse --path-format=absolute --git-common-dir)
-owner=$(git --git-dir="$common" config --get core.worktree || true)
-if [ "$(git --git-dir="$common" rev-parse --is-bare-repository)" = false ] &&
-   [ "$(basename "$common")" = .git ] && [ -z "$owner" ] &&
-   [ "$(git -C "$(dirname "$common")" rev-parse --show-toplevel 2>/dev/null)" = "$(dirname "$common")" ]; then
-  scratch="$(dirname "$common")/.scratch"
-else
-  scratch="$common/review-scratch"
+scratch=$(git config --local --get review.scratchRoot || true)
+if [ -z "$scratch" ]; then
+  top=$(git rev-parse --show-toplevel 2>/dev/null || true)
+  if [ -n "$top" ] && [ "$common" = "$top/.git" ] && [ -d "$top/.git" ]; then
+    scratch="$top/.scratch"
+  elif [ "$(git rev-parse --path-format=absolute --git-dir)" != "$common" ]; then
+    echo 'Resolve and configure review.scratchRoot from the primary checkout first.' >&2
+    exit 1
+  else
+    scratch="$common/review-scratch"
+  fi
+  git config --local review.scratchRoot "$scratch"
 fi
 printf '%s\n' "$scratch"
 ```
