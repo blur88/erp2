@@ -91,7 +91,7 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 **Migration baseline**: the chain starts from a single `InitialSchema` genesis migration (#950). `npm run migration:run` works against an empty database, so a new migration can be validated end-to-end locally. Migration failure is fatal — there is no `schema:sync` fallback in the entrypoint or E2E setup. Verify a schema change with `backend/scripts/verify-baseline.sh` and `backend/scripts/verify-seeds.sh`.
 
 
-**Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). A regular `git pull` with `merge.ff = false` creates a merge commit that re-triggers the Release workflow unnecessarily.
+**Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). This prevents accidental local merge commits when synchronizing main.
 
 ## Pull requests
 
@@ -102,5 +102,3 @@ For stacked PRs, `gh pr merge --delete-branch` on the base PR closes the stacked
 ## Release versions and verification
 
 Committed backend/frontend manifest versions are baseline values. Local builds use the manifest version; Vite embeds it as the displayed frontend version. Release Docker builds check out the release tag and stamp both app manifests and lockfiles with the semantic-release version in the build workspace. The backend image ships that package version. These changes are never committed or pushed to main. Semantic-release creates tags and GitHub Releases without a version commit; Docker publishes the matching versioned images and rolling tags.
-
-For #1704, keep the issue open after the release-workflow PR merges. A patch release is expected if semantic-release includes its `fix(release)` commit; verify the live outcome rather than assuming it. Verify the release tag, GitHub Release, Docker publication, and displayed frontend version. If release authentication fails, fix it before closing. Then open a short documentation PR recording the evidence with `Closes #1704`.
