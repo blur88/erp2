@@ -240,62 +240,6 @@ A sharper form of ST-1, stated as a measurement rather than a judgement.
 
 ---
 
-# Recorded run — 2026-09-11
-
-**Result: ST-1 … ST-9 all pass.** One item remains unverified; see
-"Screen-reader announcement" below.
-
-## How this run was performed
-
-**Scripted headless Chromium, not a human at a screen.** Every value below was
-measured by script (`getBoundingClientRect`, `getComputedStyle`, `scrollTop`)
-and the screenshots were captured in the same sessions. This is stronger than
-eyeballing for the geometric checks — a decimal-separator x position is measured
-to 0.01px rather than judged — and weaker for anything requiring human
-perception. Where a check needs a person, it is called out rather than claimed.
-
-| | |
-|---|---|
-| Browser | **Google Chrome for Testing 153.0.8010.12** (Playwright chromium-1243) |
-| Driver | `playwright-core` 1.63.0 (transitive; no Playwright config, spec or CI job was added — see #1223) |
-| Viewports | **1440×900** (primary), **1440×600** (to force P&L overflow), **1024×900** and **768×900** (ST-2) |
-| Theme | dark (application default) |
-| App under test | `http://localhost` via `erp_nginx`, frontend image built 2026-09-11T22:48:48+08:00 |
-| Branch | `feat/1224-statement-theme-alignment` @ `bd40f28f7` |
-
-**The served bundle was confirmed to contain this branch's code before any
-check ran** — otherwise the whole pass is vacuous. The accounting pages are
-lazy-loaded, so the entry chunks do not contain statement markup; the check must
-target the lazy chunk:
-
-```
-/usr/share/nginx/html/assets/Statement-C3WfDAul.js
-  statement-scroller 1 · paren-spacer 1 · "Description" 1
-  stmt-cell-figure-int 0 · stmt-cell-figure-frac 0   ← old two-cell markup absent
-```
-
-## Results
-
-### ST-1 — Decimal alignment ✅
-
-Decimal-separator x position measured per figure with a `Range` over the
-separator character, across every figure on each report:
-
-| Report | Distinct x positions | Value |
-|---|---|---|
-| Balance Sheet | **1** | 1368.42 |
-| P&L (Accounting) | **1** | 1368.42 |
-| Form B | **1** | 1368.42 |
-
-One position across positive, negative, `subtotal` and `bottomLine` rows —
-e.g. `200.00`, `(360.00)`, `(180.00)`, `1,000.00`, `(620.00)` all landing on
-1368.42. Computed font `Roboto, sans-serif` with
-`font-variant-numeric: tabular-nums` active.
-
-Note: the app's CSP blocks the Google Fonts stylesheet, so Roboto resolves from
-the local system rather than the network. Alignment holds regardless — the
-fallback face is still Roboto here. A host without a local Roboto is untested.
-
 ## Preflight — run this FIRST
 
 Every step below queries the DOM. A renamed or dropped hook makes
@@ -365,7 +309,7 @@ cd frontend && npx vitest run src/components/accounting/Statement/__tests__/qaSe
 ```
 
 Every query below addresses a DOM hook the component renders deliberately. They
-are asserted by `frontend/src/components/accounting/Statement/__tests__/qaSelectorContract.test.tsx`, so renaming
+are asserted by the selector contract test above, so renaming
 or dropping one turns the Vitest suite red and names this document — rather
 than leaving these steps silently returning `null`, which reads as a pass.
 
@@ -383,6 +327,62 @@ than leaving these steps silently returning `null`, which reads as a pass.
 document.querySelector('[data-testid="statement-scroller"]')
 document.querySelectorAll('[data-a11y="statement-value"]')
 ```
+
+# Recorded run — 2026-09-11
+
+**Result: ST-1 … ST-9 all pass.** One item remains unverified; see
+"Screen-reader announcement" below.
+
+## How this run was performed
+
+**Scripted headless Chromium, not a human at a screen.** Every value below was
+measured by script (`getBoundingClientRect`, `getComputedStyle`, `scrollTop`)
+and the screenshots were captured in the same sessions. This is stronger than
+eyeballing for the geometric checks — a decimal-separator x position is measured
+to 0.01px rather than judged — and weaker for anything requiring human
+perception. Where a check needs a person, it is called out rather than claimed.
+
+| | |
+|---|---|
+| Browser | **Google Chrome for Testing 153.0.8010.12** (Playwright chromium-1243) |
+| Driver | `playwright-core` 1.63.0 (transitive; no Playwright config, spec or CI job was added — see #1223) |
+| Viewports | **1440×900** (primary), **1440×600** (to force P&L overflow), **1024×900** and **768×900** (ST-2) |
+| Theme | dark (application default) |
+| App under test | `http://localhost` via `erp_nginx`, frontend image built 2026-09-11T22:48:48+08:00 |
+| Branch | `feat/1224-statement-theme-alignment` @ `bd40f28f7` |
+
+**The served bundle was confirmed to contain this branch's code before any
+check ran** — otherwise the whole pass is vacuous. The accounting pages are
+lazy-loaded, so the entry chunks do not contain statement markup; the check must
+target the lazy chunk:
+
+```
+/usr/share/nginx/html/assets/Statement-C3WfDAul.js
+  statement-scroller 1 · paren-spacer 1 · "Description" 1
+  stmt-cell-figure-int 0 · stmt-cell-figure-frac 0   ← old two-cell markup absent
+```
+
+## Results
+
+### ST-1 — Decimal alignment ✅
+
+Decimal-separator x position measured per figure with a `Range` over the
+separator character, across every figure on each report:
+
+| Report | Distinct x positions | Value |
+|---|---|---|
+| Balance Sheet | **1** | 1368.42 |
+| P&L (Accounting) | **1** | 1368.42 |
+| Form B | **1** | 1368.42 |
+
+One position across positive, negative, `subtotal` and `bottomLine` rows —
+e.g. `200.00`, `(360.00)`, `(180.00)`, `1,000.00`, `(620.00)` all landing on
+1368.42. Computed font `Roboto, sans-serif` with
+`font-variant-numeric: tabular-nums` active.
+
+Note: the app's CSP blocks the Google Fonts stylesheet, so Roboto resolves from
+the local system rather than the network. Alignment holds regardless — the
+fallback face is still Roboto here. A host without a local Roboto is untested.
 
 ### ST-2 — Parentheses not clipped ✅
 

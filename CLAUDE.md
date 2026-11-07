@@ -20,14 +20,13 @@ Backend Jest requires `NODE_OPTIONS=--experimental-vm-modules`; use the npm test
 
 ## Read when relevant
 
-- Writing or reviewing code or agent guidance → read [coding standards](CODING_STANDARDS.md).
-
+- Reviewing a diff → read [coding standards](CODING_STANDARDS.md).
 - Opening, stacking or merging a PR, starting development, changing architecture or deployment configuration, running migrations, sweeping dead code, or updating main → read [development reference](docs/agents/development-reference.md).
 - Working with GitHub issues or PR issue-closing semantics → read [issue tracker guidance](docs/agents/issue-tracker.md).
 - Defining domain terminology or recording architectural decisions → read [domain documentation guidance](docs/agents/domain.md).
 - Changing authentication or diagnosing lockout expiry → read [account lockout clock](docs/backend/auth-lockout.md).
 - Changing printing or adding browser print coverage → read [printing constraints](docs/frontend/printing.md).
-- Changing accounting statement styles or QA guidance, or assessing jsdom visual assertions → read [statement theme QA and measurement evidence](docs/modules/accounting/STATEMENT_THEME_QA.md).
+- Changing accounting statement styles or statement theme QA guidance, or assessing jsdom visual assertions → read [statement theme QA and measurement evidence](docs/modules/accounting/STATEMENT_THEME_QA.md).
 - Changing CLI imports, build configuration, or diagnosing built-artifact module loading → read [CLI build alias constraints](docs/backend/cli-build.md).
 - Changing Redis policy, sizing, monitoring, or rolling out Redis configuration → read [Redis memory pressure runbook](docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md).
 - Changing backend test configuration, TypeScript checks, Jest hooks, or ESM dependencies → read [backend testing rationale](docs/backend/testing.md).
