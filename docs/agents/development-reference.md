@@ -98,3 +98,9 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 Follow the [Quick Start](../../README.md#quick-start) to enable the local commit and push guards. They block commits on `main` and pushes targeting `main`, including pushes from another branch. Push a feature branch and open a PR. These local hooks do not affect merges performed on GitHub by `gh pr merge`.
 
 For stacked PRs, `gh pr merge --delete-branch` on the base PR closes the stacked PR; GitHub refuses to retarget or reopen it afterward. Retarget the stacked PR to `main` first, or merge the base PR without `--delete-branch`.
+
+## Release versions and verification
+
+Committed backend/frontend manifest versions are baseline values. Local builds use the manifest version; Vite embeds it as the displayed frontend version. Release Docker builds check out the release tag and stamp both app manifests and lockfiles with the semantic-release version in the build workspace. The backend image ships that package version. These changes are never committed or pushed to main. Semantic-release creates tags and GitHub Releases without a version commit; Docker publishes the matching versioned images and rolling tags.
+
+For #1704, keep the issue open after the release-workflow PR merges. A patch release is expected if semantic-release includes its `fix(release)` commit; verify the live outcome rather than assuming it. Verify the release tag, GitHub Release, Docker publication, and displayed frontend version. If release authentication fails, fix it before closing. Then open a short documentation PR recording the evidence with `Closes #1704`.

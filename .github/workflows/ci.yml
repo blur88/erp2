@@ -21,6 +21,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test-root-scripts:
+    name: Root script tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Test root scripts
+        run: node --test scripts/__tests__/*.test.js
+
   test-git-hooks:
     name: Git hook integration tests
     runs-on: ubuntu-latest
