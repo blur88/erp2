@@ -211,3 +211,25 @@ test('redirection targets and hash words remain separate from refspecs', () => {
   assert.equal(release.status, 1);
   assert.match(release.stderr, /release.config.cjs.*push/);
 });
+
+test('numeric remote words are not file descriptors', () => {
+  for (const remote of ['123 ', '"123"', '\\123']) {
+    const run = `git push --tags ${remote}>push.log main`;
+    const result = check({ run });
+    assert.equal(result.status, 1, run);
+    assert.match(result.stderr, /push/);
+  }
+  const result = check({ release: `module.exports = { publishCmd: 'git push --tags 123 >push.log main' }` });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /release.config.cjs.*push/);
+});
+
+test('only shell whitespace separates words and starts comments', () => {
+  for (const space of ['\u000b', '\u00a0', '\u2003']) {
+    for (const run of [`git push --tags origin${space}#x main`, `git push origin${space}remote`]) {
+      const result = check({ run });
+      assert.equal(result.status, 1, JSON.stringify(run));
+      assert.match(result.stderr, /push/);
+    }
+  }
+});

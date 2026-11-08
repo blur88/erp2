@@ -26,6 +26,7 @@ function* shellLines(text) {
   let ansiQuote = false;
   let comment = false;
   let wordStart = true;
+  let wordOffset = 0;
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
     if (comment) {
@@ -53,13 +54,25 @@ function* shellLines(text) {
       // that parser when the shell would keep it inside an existing word.
       else line += '\\#';
       continue;
+    } else if (/\s/.test(char) && !/[ \t\r\n]/.test(char)) {
+      // Bash keeps these characters inside words, unlike shell-quote's \s.
+      line += `'${char}'`;
+      wordStart = false;
+      continue;
     } else {
-      wordStart = /[\s;&|()<>]/.test(char);
+      // Strip only a raw descriptor attached directly to its redirect. A
+      // numeric word separated by whitespace or quotes remains ordinary argv.
+      if ((char === '>' || char === '<') && /^(?:\d+|\{[a-zA-Z_]\w*\})$/.test(line.slice(wordOffset))) {
+        line = line.slice(0, wordOffset);
+      }
+      wordStart = /[ \t\r\n;&|()<>]/.test(char);
+      if (wordStart) wordOffset = line.length + 1;
     }
     if (char === '\n' && !quote) {
       yield line;
       line = '';
       wordStart = true;
+      wordOffset = 0;
     } else line += char;
   }
   yield line;
@@ -79,9 +92,8 @@ function checkPushes(text, location) {
       if (tokens[j]?.op === 'glob') command.push(tokens[j].pattern);
       else if (typeof tokens[j] === 'string') command.push(tokens[j]);
       else if (['>', '>>', '<', '<>', '>&', '<&', '>|', '&>', '&>>', '<<', '<<-', '<<<'].includes(tokens[j]?.op)) {
-        // Redirections consume an optional descriptor and a target, not the
-        // remaining argv. Continue inspecting refspecs after the redirect.
-        if (/^\d+$/.test(command.at(-1))) command.pop();
+        // Descriptors were removed before tokenization, while adjacency and
+        // quoting were still available. Only the redirect target is skipped.
         j++;
       } else break;
     }
