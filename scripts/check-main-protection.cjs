@@ -6,6 +6,7 @@ const { execFileSync } = require('node:child_process');
 const { isDeepStrictEqual, inspect } = require('node:util');
 const YAML = require('yaml');
 const shellQuote = require('shell-quote');
+const { parse } = require('acorn');
 
 // GitHub's export/import fields. Server ids, timestamps, links and source metadata
 // are deliberately excluded; every editable field remains part of the comparison.
@@ -53,10 +54,25 @@ function checkPushes(text, location) {
     if (refs.length === 0 && !tags) throw new Error(`${location}: implicit git push destination cannot be checked; use explicit refspecs`);
     for (const ref of refs) {
       const destination = ref.slice(ref.lastIndexOf(':') + 1).replace(/^\+/, '');
-      if (!destination || /[$`*?]/.test(destination) || /^(refs\/heads\/)?main$/.test(destination) || destination === 'HEAD') {
+      if (!destination || /[$`*?]/.test(destination) || /^(?:refs\/heads\/|heads\/)?main$/.test(destination) || ['HEAD', '@'].includes(destination)) {
         throw new Error(`${location}: git push may write main (${ref}); use PR merges`);
       }
     }
+  }
+}
+
+function checkReleaseCommands(node) {
+  if (!node || typeof node !== 'object') return;
+  if (node.type === 'Literal' && typeof node.value === 'string') {
+    checkPushes(node.value, 'release.config.cjs');
+  } else if (node.type === 'TemplateLiteral') {
+    // Keep interpolation unresolved, as with variables in workflow commands.
+    const command = node.quasis.map(part => part.value.cooked ?? part.value.raw).join('$UNRESOLVED');
+    checkPushes(command, 'release.config.cjs');
+  }
+  for (const value of Object.values(node)) {
+    if (Array.isArray(value)) value.forEach(checkReleaseCommands);
+    else if (value && typeof value === 'object') checkReleaseCommands(value);
   }
 }
 
@@ -84,11 +100,9 @@ function checkRepository(root) {
   }
   const release = readFileSync(join(root, 'release.config.cjs'), 'utf8');
   if (/@semantic-release\/git(?:['"\s/]|$)/.test(release)) throw new Error('release.config.cjs: @semantic-release/git writes a branch commit; use tag-only releases');
-  // Release configuration is JavaScript, not a shell program. Inspect literal
-  // git commands without interpreting unrelated template strings as shell.
-  for (const command of release.matchAll(/\bgit\s+(?:-[^'"`\n;]+\s+)?push\b[^'"`\n;]*/g)) {
-    checkPushes(command[0], 'release.config.cjs');
-  }
+  // Parse without executing the config. Decoded literals preserve shell quoting,
+  // escapes and continuations; JavaScript comments are excluded by the parser.
+  checkReleaseCommands(parse(release, { ecmaVersion: 'latest', sourceType: 'script' }));
   return snapshot;
 }
 

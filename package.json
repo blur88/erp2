@@ -6,8 +6,9 @@
     "test": "node scripts/run-node-tests.mjs scripts/__tests__"
   },
   "devDependencies": {
+    "acorn": "8.19.0",
     "conventional-changelog-angular": "8.1.0",
-    "shell-quote": "^1.12.0",
-    "yaml": "^2.9.1"
+    "shell-quote": "1.12.0",
+    "yaml": "2.9.1"
   }
 }

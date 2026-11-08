@@ -71,3 +71,41 @@ test('permits comments and reports unresolved workflow expressions', () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /push/);
 });
+
+for (const run of ['git push origin @', 'git push origin HEAD:heads/main']) {
+  test(`rejects main destination alias: ${run}`, () => {
+    const result = check({ run });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /push/);
+  });
+}
+test('inspects quoted refspecs inside release command strings', () => {
+  const result = check({ release: `module.exports = { publishCmd: 'git push --tags origin "HEAD:main"' }` });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /release.config.cjs.*push/);
+});
+
+test('release strings preserve shell quotes and JavaScript escapes', () => {
+  const releases = [
+    String.raw`module.exports = { publishCmd: "git push --tags origin \"HEAD:main\"" }`,
+    String.raw`module.exports = { publishCmd: 'git push --tags origin HEAD:\u006dain' }`,
+    'module.exports = { publishCmd: `git push --tags origin "HEAD:main"` }',
+    'module.exports = { publishCmd: `git push --tags origin HEAD:${branch}` }',
+  ];
+  for (const release of releases) {
+    const result = check({ release });
+    assert.equal(result.status, 1, release);
+    assert.match(result.stderr, /release.config.cjs.*push/);
+  }
+});
+
+test('accepts safe release literals and skips JavaScript command comments', () => {
+  for (const release of [
+    `module.exports = { publishCmd: 'git push origin "refs/tags/v1"' }`,
+    'module.exports = { publishCmd: `git push origin refs/tags/v1` }',
+    '// git push origin main\nmodule.exports = {}',
+  ]) {
+    const result = check({ release });
+    assert.equal(result.status, 0, result.stderr);
+  }
+});
