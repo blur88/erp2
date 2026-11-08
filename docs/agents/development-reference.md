@@ -112,6 +112,12 @@ Delete the disposable database and checkout after capturing the result. CI migra
 
 ## Pull requests
 
+Main protection is tracked in [the ruleset snapshot](../../.github/rulesets/main-protection.json). To change protection, edit that snapshot of the editable ruleset fields (it omits export metadata such as `id`, `source_type` and `source`), apply it with an administrator token (`gh api --method PUT repos/blur88/erp2/rulesets/15609777 --input .github/rulesets/main-protection.json`), then run `node scripts/check-main-protection.cjs --drift` with an administrator token so GitHub includes `bypass_actors`. The drift mode is read-only; it compares all editable export fields and excludes server-managed metadata. Review and commit the snapshot through a PR.
+
+`node scripts/check-main-protection.cjs` runs without a token in the existing Root script tests CI job. Required contexts must match exact job names in `ci.yml`. Explicit Git pushes are forbidden in workflow `run` blocks and release-config strings, including tag pushes; use PR merges for branches and semantic-release for tags. There is no explicit tag-push exception. The check also forbids `@semantic-release/git` in those inputs.
+
+This is a conservative text policy, not a shell interpreter: workflow blocks containing `git` followed by `push` are rejected even in comments, echoed text, or unrelated commands. The text match strips literal quote marks and backslashes without decoding ANSI-C escapes. Release configuration is parsed without execution: JavaScript comments are skipped, string escapes are decoded, and constant string concatenations and template literals are inspected. ANSI-C escapes, dynamically assembled commands or plugin names, alternate release config files, called scripts, third-party actions, job-level reusable workflows and API-based ref updates still require review. For offline comparisons use `--compare <ruleset-response.json>`; `--root <checkout>` supports regression fixtures.
+
 Follow the [Quick Start](../../README.md#quick-start) to enable the local commit and push guards. They block commits on `main` and pushes targeting `main`, including pushes from another branch. Push a feature branch and open a PR. These local hooks do not affect merges performed on GitHub by `gh pr merge`.
 
 Merge with `gh pr merge <n> --match-head-commit <reviewed head>`; the flag refuses a push that lands between review and merge. For the reviewed head and merge-readiness requirements, follow the [review convention](code-review.md).
