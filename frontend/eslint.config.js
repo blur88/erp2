@@ -4,6 +4,18 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import { reactRefresh } from 'eslint-plugin-react-refresh';
 
+// Keep API response guards active even in PageHeader exception files.
+const apiResponseRestrictions = [
+  {
+    selector: "CallExpression[callee.type='MemberExpression'][callee.object.name='ApiService'] > TSTypeParameterInstantiation > TSAnyKeyword",
+    message: 'Type ApiService calls with the backend response shape instead of any.',
+  },
+  {
+    selector: "MemberExpression > TSAsExpression.object[typeAnnotation.type='TSAnyKeyword'][expression.name='response']",
+    message: 'Read the typed API response directly instead of casting response to any.',
+  },
+];
+
 export default tseslint.config(
   { ignores: ['dist'] },
   {
@@ -73,7 +85,8 @@ export default tseslint.config(
     files: ['**/*.ts', '**/*.tsx'],
     rules: {
       'no-restricted-syntax': [
-        'warn',
+        'error',
+        ...apiResponseRestrictions,
         {
           selector: "MemberExpression[object.name='TYPOGRAPHY_STYLES'][property.name='pageHeader']",
           message: "Use <PageHeader> for standard CRUD/list/form pages instead of TYPOGRAPHY_STYLES.pageHeader. See docs/ui.md for usage rules and exception categories.",
@@ -85,7 +98,7 @@ export default tseslint.config(
       ],
     },
   },
-  // Known exceptions/deferred — no-restricted-syntax disabled for these files only
+  // Known exceptions/deferred — only the PageHeader restrictions are omitted.
   {
     files: [
       // Permanent exceptions (reports, dashboards, tree/hierarchy, audit, auth)
@@ -121,7 +134,7 @@ export default tseslint.config(
       'src/pages/sales/components/SalesStatsCards.tsx',
     ],
     rules: {
-      'no-restricted-syntax': 'off',
+      'no-restricted-syntax': ['error', ...apiResponseRestrictions],
     },
   },
   // TablePagination guard — use <PagePagination> for a consistent pagination UI.
