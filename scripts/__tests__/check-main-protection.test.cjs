@@ -85,7 +85,9 @@ test('rejects parsed Git plugin names, but permits GitHub plugin and JavaScript 
 });
 
 test('rejects the Git release plugin in workflow commands', () => {
-  fixture({ run: 'npx semantic-release --plugins @semantic-release/git' }, root => assert.throws(() => checkRepository(root), /@semantic-release\/git is forbidden/));
+  for (const name of ['@semantic-release/git', "@semantic-release/'git'", '@semantic-release/gi\\t']) {
+    fixture({ run: `npx semantic-release --plugins ${name}` }, root => assert.throws(() => checkRepository(root), /@semantic-release\/git is forbidden/));
+  }
 });
 
 test('CLI fails deliberately broken fixtures', () => {

@@ -29,7 +29,7 @@ function checkWriterText(text, location) {
   if (/\bgit\b[\s\S]*?\bpush\b/.test(spelling)) {
     throw new Error(`${location}: explicit git push is forbidden; use PR merges and semantic-release for tags`);
   }
-  if (/@semantic-release\/git(?:$|[^\w-])/.test(text)) {
+  if (/@semantic-release\/git(?:$|[^\w-])/.test(spelling)) {
     throw new Error(`${location}: @semantic-release/git is forbidden because it writes branch commits`);
   }
 }
