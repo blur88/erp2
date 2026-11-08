@@ -112,6 +112,10 @@ Delete the disposable database and checkout after capturing the result. CI migra
 
 ## Pull requests
 
+Main protection is tracked in [the ruleset snapshot](../../.github/rulesets/main-protection.json). To change protection, edit that export-format snapshot, apply it with an administrator token (`gh api --method PUT repos/blur88/erp2/rulesets/15609777 --input .github/rulesets/main-protection.json`), then run `node scripts/check-main-protection.cjs --drift` with a token allowed to read repository rulesets. The drift mode is read-only; it compares all editable export fields and excludes server-managed metadata. Review and commit the snapshot through a PR.
+
+`node scripts/check-main-protection.cjs` runs without a token in the existing Root script tests CI job. It checks required contexts against exact job names in `ci.yml`, literal Git push commands in workflow `run` steps and release configuration, and the release Git plugin. Explicit tag pushes are allowed; implicit, dynamic and branch-wide destinations are rejected because their target cannot be proved safe. This is a static guard, not a shell interpreter: indirect commands, called scripts and third-party actions still need review. For offline comparisons use `--compare <ruleset-response.json>`; `--root <checkout>` supports regression fixtures.
+
 Follow the [Quick Start](../../README.md#quick-start) to enable the local commit and push guards. They block commits on `main` and pushes targeting `main`, including pushes from another branch. Push a feature branch and open a PR. These local hooks do not affect merges performed on GitHub by `gh pr merge`.
 
 Merge with `gh pr merge <n> --match-head-commit <reviewed head>`; the flag refuses a push that lands between review and merge. For the reviewed head and merge-readiness requirements, follow the [review convention](code-review.md).
