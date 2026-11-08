@@ -15,8 +15,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Referencing issues from a PR**:
   - `Closes #<n>`: only when the PR fully resolves the issue. GitHub closes it on merge.
   - `Refs #<n>`: when the PR covers part of the issue. The issue stays open.
-  - `/pr` guidance: write `Refs #<n>` for issues this PR must not close; never write a sentence about not closing. Intentional closing references must occupy an entire line exactly as `Closes #<n>`, `Fixes #<n>`, or `Resolves #<n>`. The independent PR body workflow checks this on body edits as well as new commits; its check is advisory until added deliberately to the ruleset.
-  - GitHub ignores negation. "does NOT close #<n>" still closes the issue, so use only `Refs` when a PR touches an issue it must not close, and never put a closing keyword (`close`, `fixes`, `resolves`, etc.) next to that issue number.
+  - `/pr` guidance: write `Refs #<n>` for issues this PR must not close; never write a sentence about not closing, because GitHub ignores negation. Intentional closing references must occupy an entire line exactly as `Closes #<n>`, `Fixes #<n>`, or `Resolves #<n>`. The independent PR body workflow rejects other lines containing a closing keyword adjacent to a local issue number, an `owner/repo#<n>` reference, or a full GitHub issue URL, including optional colons and omitted spaces. It runs on body edits as well as new commits.
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
