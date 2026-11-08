@@ -39,7 +39,10 @@ function* shellLines(text) {
       if (text[i + 1] === '\n') i++;
       else if (text[i + 1] === '\r' && text[i + 2] === '\n') i += 2;
       else {
-        line += char + (text[++i] ?? '');
+        const escaped = text[++i] ?? '';
+        line += !quote && /\s/.test(escaped) && !/[ \t\n]/.test(escaped)
+          ? `'${escaped}'`
+          : char + escaped;
         wordStart = false;
       }
       continue;

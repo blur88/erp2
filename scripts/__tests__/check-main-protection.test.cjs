@@ -243,3 +243,11 @@ test('preserves bare carriage returns inside shell words', () => {
   assert.equal(release.status, 1);
   assert.match(release.stderr, /release.config.cjs.*push/);
 });
+
+test('escaped non-shell whitespace stays inside one remote word', () => {
+  for (const space of ['\u000b', '\u00a0', '\r']) {
+    const result = check({ run: `git push origin\\${space}repo` });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /implicit git push/);
+  }
+});
