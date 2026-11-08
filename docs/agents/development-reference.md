@@ -60,6 +60,15 @@ cd frontend && npm run lint
 # Maintenance menu (outdated deps, audit, knip, jscpd, docker rebuild)
 ./maintain.sh
 
+# Audit root tooling dependencies
+npm audit
+
+# Audit frontend dependencies
+npm --prefix frontend audit
+
+# Audit backend dependencies
+npm --prefix backend audit
+
 # Deploy
 ./deploy.sh          # start
 ./deploy.sh restart  # restart

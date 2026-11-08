@@ -31,6 +31,8 @@ When set to `yes`, PRs run through the same labels and states as issues, using t
 
 GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42` and fall back to `gh issue view 42`.
 
+Dependabot alert numbers use a separate namespace from issue and PR numbers. For a security alert URL or alert ID, fetch the alert with `gh api repos/<owner>/<repo>/dependabot/alerts/<alert-number>`; do not treat the alert number as an issue or PR number or apply issue labels to it. The alert ID can match an unrelated issue or PR number.
+
 ## When a skill says "publish to the issue tracker"
 
 Create a GitHub issue.
