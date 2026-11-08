@@ -1,17 +1,30 @@
 #!/usr/bin/env bash
 # Shared harness for the gate-script specs.
 #
-# These specs run the REAL scripts. Postgres, Docker, and TypeORM are replaced
-# by PATH stubs so the specs assert the scripts' observable contract — command
-# ordering, early exit, diagnostics, and suppression of psql noise — without a
-# live stack.
+# Specs run the real scripts. setup_harness installs PATH stubs for Postgres,
+# Docker, and TypeORM to check command ordering, diagnostics, and output without
+# a live stack. Specs needing real tools can call reset_developer_env alone.
 
 SENTINEL_PASSWORD='s3ntinel-do-not-print'
 
 # Absolute path to backend/scripts (the directory under test).
 SCRIPTS_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 
+# Isolate real-tool specs as well as specs that install PATH stubs.
+reset_developer_env() {
+  # Inherited PG connection settings would trip the TCP conflict check in
+  # specs unrelated to connection configuration.
+  unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE
+  # Clear repository/index selectors and injected Git configuration, including
+  # numbered GIT_CONFIG_KEY/VALUE entries and future Git environment controls.
+  local variable
+  for variable in ${!GIT_@}; do
+    unset "$variable"
+  done
+}
+
 setup_harness() {
+  reset_developer_env
   TEST_TMP="$(mktemp -d)"
   STUB_LOG="$TEST_TMP/calls.log"
   : > "$STUB_LOG"
@@ -29,11 +42,6 @@ setup_harness() {
   export STUB_NODE_EXIT=0
   export STUB_PGDUMP_VERSION=18.3
   export STUB_COMPOSE_READY=1
-
-  # The harness must be hermetic against the DEVELOPER's environment. A real
-  # PGHOST/PGPORT/PGUSER exported in their shell would trip the tcp conflict
-  # check and fail specs that have nothing to do with it.
-  unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE
 }
 
 teardown_harness() {

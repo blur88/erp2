@@ -1,7 +1,10 @@
 #!/usr/bin/env bats
 # Guard repository paths and Markdown pointers in agent guidance (#1705).
 
+load helpers/load
+
 setup() {
+  reset_developer_env
   CHECKER="${BATS_TEST_DIRNAME}/../check-agent-doc-paths.mjs"
   REPO_DIR="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
   FIXTURE="${BATS_TEST_TMPDIR}/repo"
@@ -261,4 +264,74 @@ DOC
   run_checker
   [ "$status" -eq 1 ]
   [[ "$output" == *"missing anchor #see-the-wrong-guide"* ]]
+}
+
+@test "environment reset isolates fixtures without installing stubs" {
+  local original_path="$PATH"
+  export PGHOST=foreign PGPORT=1234 PGUSER=foreign PGPASSWORD=foreign PGDATABASE=foreign
+  export GIT_DIR=/missing/repo GIT_WORK_TREE=/missing/tree
+  export GIT_INDEX_FILE="${BATS_TEST_TMPDIR}/unrelated-index"
+  export GIT_COMMON_DIR=/missing/common GIT_OBJECT_DIRECTORY=/missing/objects
+  export GIT_ALTERNATE_OBJECT_DIRECTORIES=/missing/alternates
+  export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.bare GIT_CONFIG_VALUE_0=true
+  setup
+  [ "$PATH" = "$original_path" ]
+  for variable in PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0; do
+    [ -z "${!variable+x}" ]
+  done
+  run_checker
+  [ "$status" -eq 0 ]
+  [ ! -e "${BATS_TEST_TMPDIR}/unrelated-index" ]
+  [[ "$output" == *"2 agent documents"* ]]
+}
+
+@test "a non-repository root reports a one-line setup error" {
+  local directory="${BATS_TEST_TMPDIR}/not-a-repo"
+  mkdir "$directory"
+  run node "$CHECKER" "$directory"
+  [ "$status" -eq 2 ]
+  [ "$output" = "not a Git repository root: $directory" ]
+}
+
+@test "a repository subdirectory reports a setup error" {
+  run node "$CHECKER" "$FIXTURE/docs"
+  [ "$status" -eq 2 ]
+  [ "$output" = "not a Git repository root: $FIXTURE/docs" ]
+}
+
+@test "missing git reports a one-line setup error" {
+  local node_binary
+  node_binary="$(command -v node)"
+  mkdir "${BATS_TEST_TMPDIR}/empty-bin"
+  PATH="${BATS_TEST_TMPDIR}/empty-bin" run "$node_binary" "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 2 ]
+  [ "$output" = "git not found" ]
+}
+
+@test "a symlink to a repository root passes" {
+  git -C "$FIXTURE" add -A
+  ln -s "$FIXTURE" "${BATS_TEST_TMPDIR}/linked-repo"
+  run node "$CHECKER" "${BATS_TEST_TMPDIR}/linked-repo"
+  [ "$status" -eq 0 ]
+}
+
+@test "a nonexistent root reports a one-line setup error" {
+  run node "$CHECKER" "${BATS_TEST_TMPDIR}/missing"
+  [ "$status" -eq 2 ]
+  [ "$output" = "not a Git repository root: ${BATS_TEST_TMPDIR}/missing" ]
+}
+
+@test "an unreadable index reports a one-line setup error" {
+  printf 'invalid index' > "$FIXTURE/.git/index"
+  run node "$CHECKER" "$FIXTURE"
+  [ "$status" -eq 2 ]
+  [ "$output" = "cannot read Git index: $FIXTURE" ]
+}
+
+@test "setup diagnostics stay on one line for paths containing newlines" {
+  local directory="$FIXTURE/"$'line\nbreak'
+  mkdir "$directory"
+  run node "$CHECKER" "$directory"
+  [ "$status" -eq 2 ]
+  [ "$output" = "not a Git repository root: $FIXTURE/line break" ]
 }

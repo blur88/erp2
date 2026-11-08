@@ -4,16 +4,35 @@
 // Bare source filenames and app-relative imports (src/, test/, etc.) are not repo pointers.
 // Unqualified names are checked in the repo root, app roots, backend/scripts and .github/workflows.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(process.argv[2] ?? fileURLToPath(new URL('../../', import.meta.url)));
 // Use the index so ignored/untracked local files cannot make a broken pointer pass.
-const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' }).trim();
-if (path.resolve(gitRoot) !== root) throw new Error('The checked root must be a Git repository root.');
+const gitOptions = { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
+function failSetup(message) {
+  console.error(message.replace(/[\r\n]+/g, ' '));
+  process.exit(2);
+}
+
+const invalidRootMessage = `not a Git repository root: ${root}`;
+try {
+  const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], gitOptions).trim();
+  if (realpathSync(gitRoot) !== realpathSync(root)) failSetup(invalidRootMessage);
+} catch (error) {
+  // Node also reports ENOENT on git when the working directory is missing.
+  if (error.code === 'ENOENT' && error.path === 'git' && existsSync(root)) failSetup('git not found');
+  failSetup(invalidRootMessage);
+}
+let filenames;
+try {
+  filenames = execFileSync('git', ['ls-files', '--cached', '-z'], gitOptions);
+} catch {
+  failSetup(`cannot read Git index: ${root}`);
+}
 const trackedPaths = new Set();
-for (const filename of execFileSync('git', ['ls-files', '--cached', '-z'], { cwd: root, encoding: 'utf8' }).split('\0')) {
+for (const filename of filenames.split('\0')) {
   if (!filename) continue;
   trackedPaths.add(''); // The repository root is also a tracked directory prefix.
   trackedPaths.add(filename);
