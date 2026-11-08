@@ -11,22 +11,25 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(process.argv[2] ?? fileURLToPath(new URL('../../', import.meta.url)));
 // Use the index so ignored/untracked local files cannot make a broken pointer pass.
 const gitOptions = { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
-let filenames;
-let setupStage = 'root';
-try {
-  const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], gitOptions).trim();
-  if (realpathSync(gitRoot) !== realpathSync(root)) {
-    console.error(`not a Git repository root: ${root}`.replace(/[\r\n]+/g, ' '));
-    process.exit(2);
-  }
-  setupStage = 'index';
-  filenames = execFileSync('git', ['ls-files', '--cached', '-z'], gitOptions);
-} catch (error) {
-  const message = error.code === 'ENOENT' && error.path === 'git' && existsSync(root)
-    ? 'git not found'
-    : setupStage === 'root' ? `not a Git repository root: ${root}` : `cannot read Git index: ${root}`;
+function failSetup(message) {
   console.error(message.replace(/[\r\n]+/g, ' '));
   process.exit(2);
+}
+
+const invalidRootMessage = `not a Git repository root: ${root}`;
+try {
+  const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], gitOptions).trim();
+  if (realpathSync(gitRoot) !== realpathSync(root)) failSetup(invalidRootMessage);
+} catch (error) {
+  // Node also reports ENOENT on git when the working directory is missing.
+  if (error.code === 'ENOENT' && error.path === 'git' && existsSync(root)) failSetup('git not found');
+  failSetup(invalidRootMessage);
+}
+let filenames;
+try {
+  filenames = execFileSync('git', ['ls-files', '--cached', '-z'], gitOptions);
+} catch {
+  failSetup(`cannot read Git index: ${root}`);
 }
 const trackedPaths = new Set();
 for (const filename of filenames.split('\0')) {

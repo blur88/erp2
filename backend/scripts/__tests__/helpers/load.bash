@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Shared harness for the gate-script specs.
 #
-# These specs run the REAL scripts. Postgres, Docker, and TypeORM are replaced
-# by PATH stubs so the specs assert the scripts' observable contract — command
-# ordering, early exit, diagnostics, and suppression of psql noise — without a
-# live stack.
+# Specs run the real scripts. setup_harness installs PATH stubs for Postgres,
+# Docker, and TypeORM to check command ordering, diagnostics, and output without
+# a live stack. Specs needing real tools can call reset_developer_env alone.
 
 SENTINEL_PASSWORD='s3ntinel-do-not-print'
 
@@ -13,6 +12,8 @@ SCRIPTS_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 
 # Isolate real-tool specs as well as specs that install PATH stubs.
 reset_developer_env() {
+  # Inherited PG connection settings would trip the TCP conflict check in
+  # specs unrelated to connection configuration.
   unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE
   # Clear repository/index selectors and injected Git configuration, including
   # numbered GIT_CONFIG_KEY/VALUE entries and future Git environment controls.
