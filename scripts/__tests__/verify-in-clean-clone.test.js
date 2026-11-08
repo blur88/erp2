@@ -7,10 +7,10 @@ const { spawnSync, execFileSync } = require('node:child_process');
 
 const script = path.resolve(__dirname, '../verify-in-clean-clone.sh');
 
-function fixture(t) {
+function fixture(t, repoName = 'repo with spaces') {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clean-clone-test-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const repo = path.join(directory, 'repo with spaces');
+  const repo = path.join(directory, repoName);
   const bin = path.join(directory, 'bin');
   const temporary = path.join(directory, 'tmp');
   for (const dir of [repo, bin, temporary]) fs.mkdirSync(dir);
@@ -92,5 +92,14 @@ test('installation failure prevents the command and removes the clone', (t) => {
   const result = f.run('sh', '-c', 'echo SHOULD_NOT_RUN');
   assert.equal(result.status, 42, result.stderr);
   assert.doesNotMatch(result.stdout, /SHOULD_NOT_RUN/);
+  assert.deepEqual(fs.readdirSync(f.temporary), []);
+});
+
+test('clones a repository whose path contains literal percent sequences', (t) => {
+  const f = fixture(t, 'repo p%41q %25 with spaces');
+  const result = f.run('true');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, new RegExp(`Cloned SHA: ${f.git('rev-parse', 'HEAD')}`));
+  assert.match(result.stdout, /Shallow: true/);
   assert.deepEqual(fs.readdirSync(f.temporary), []);
 });

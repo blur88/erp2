@@ -18,7 +18,9 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-git clone --depth 1 "file://$repo" "$temporary/repo"
+# Git decodes percent escapes in file URLs; preserve literal percent signs.
+repo_url=$(printf '%s\n' "$repo" | sed 's/%/%25/g')
+git clone --depth 1 "file://$repo_url" "$temporary/repo"
 cd "$temporary/repo"
 printf 'Cloned SHA: %s\n' "$(git rev-parse HEAD)"
 printf 'Shallow: %s\n' "$(git rev-parse --is-shallow-repository)"
