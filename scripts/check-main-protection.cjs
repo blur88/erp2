@@ -24,7 +24,11 @@ function checkPushes(text, location) {
   for (let i = 0; i < tokens.length; i++) {
     if (tokens[i] !== 'git') continue;
     const command = [];
-    for (let j = i + 1; j < tokens.length && typeof tokens[j] === 'string'; j++) command.push(tokens[j]);
+    for (let j = i + 1; j < tokens.length; j++) {
+      if (tokens[j]?.op === 'glob') command.push(tokens[j].pattern);
+      else if (typeof tokens[j] === 'string') command.push(tokens[j]);
+      else break;
+    }
     // Git global options may precede the subcommand (e.g. git -C repo push).
     const push = command.indexOf('push');
     if (push < 0) continue;
@@ -33,6 +37,7 @@ function checkPushes(text, location) {
     let tags = false;
     for (let j = 0; j < args.length; j++) {
       const arg = args[j];
+      if (arg.startsWith('--repo=')) { positional.unshift(arg.slice('--repo='.length)); continue; }
       if (arg === '--tags') { tags = true; continue; }
       if (['--repo', '--receive-pack', '--exec', '-o', '--push-option'].includes(arg)) {
         // --repo supplies the remote instead of a positional argument.

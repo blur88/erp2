@@ -39,7 +39,7 @@ test('rejects renamed required jobs and nonexistent contexts', () => {
   }
 });
 test('rejects branch writers including multiline commands, options, refspecs and implicit pushes', () => {
-  for (const run of ['git push origin main', 'git push origin HEAD:refs/heads/main', 'git -C repo push --force origin HEAD:main', 'git push \\\n origin main', 'git push origin +HEAD:main', 'git push', 'git push --mirror', 'git push origin "$TARGET"']) {
+  for (const run of ['git push origin main', 'git push origin HEAD:refs/heads/main', 'git -C repo push --force origin HEAD:main', 'git push \\\n origin main', 'git push origin +HEAD:main', 'git push', 'git push --mirror', 'git push origin "$TARGET"', 'git push --tags --repo=origin main', 'git push --tags origin refs/tags/* main']) {
     const result = check({ run });
     assert.equal(result.status, 1, run);
     assert.match(result.stderr, /push/);
