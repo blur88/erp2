@@ -137,6 +137,6 @@ describe('SidebarUserMenu', () => {
     expect(styles.marginLeft).toBe('8px')
     expect(styles.marginRight).toBe('8px')
     expect(styles.marginBottom).toBe('4px')
-    expect(styles.transform).toBe('translateX(0)')
+    expect(styles.transform).toBe('translateX(0px)')
   })
 })
