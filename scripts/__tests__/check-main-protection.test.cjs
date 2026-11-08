@@ -4,9 +4,10 @@ const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { checkRepository } = require('../check-main-protection.cjs');
 
 const script = resolve(__dirname, '../check-main-protection.cjs');
-function check({ context = 'Required', job = 'Required', run = 'echo ok', release = 'module.exports = {}', live, otherWorkflow } = {}) {
+function fixture({ context = 'Required', job = 'Required', run = 'echo ok', release = 'module.exports = {}', otherWorkflow } = {}, inspect) {
   const root = mkdtempSync(join(tmpdir(), 'main-protection-'));
   try {
     mkdirSync(join(root, '.github/workflows'), { recursive: true });
@@ -16,238 +17,98 @@ function check({ context = 'Required', job = 'Required', run = 'echo ok', releas
     writeFileSync(join(root, '.github/workflows/ci.yml'), `jobs:\n  test:\n    name: ${JSON.stringify(job)}\n    steps:\n      - run: ${JSON.stringify(run)}\n`);
     writeFileSync(join(root, 'release.config.cjs'), release);
     if (otherWorkflow) writeFileSync(join(root, '.github/workflows/release.yaml'), otherWorkflow);
-    const args = [script, '--root', root];
-    if (live) {
-      writeFileSync(join(root, 'live.json'), JSON.stringify(live(snapshot)));
-      args.push('--compare', join(root, 'live.json'));
-    }
-    return spawnSync(process.execPath, args, { encoding: 'utf8' });
+    return inspect(root, snapshot);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 }
-test('accepts matching jobs and tag pushes', () => {
-  for (const run of ['echo ok', 'git push origin --tags', 'git push origin refs/tags/v1', 'git push origin HEAD:refs/heads/feature']) {
-    assert.equal(check({ run }).status, 0, run);
-  }
+
+test('accepts matching jobs, ordinary Git reads and semantic-release publishing', () => {
+  fixture({ run: 'git fetch --tags\nnpx semantic-release', release: "module.exports = { plugins: ['@semantic-release/github'] }" }, root => {
+    assert.doesNotThrow(() => checkRepository(root));
+  });
 });
-test('rejects renamed required jobs and nonexistent contexts', () => {
+
+test('rejects renamed required jobs and missing contexts', () => {
   for (const input of [{ job: 'Renamed' }, { context: 'Missing' }]) {
-    const result = check(input);
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /required check/);
+    fixture(input, root => assert.throws(() => checkRepository(root), /required check/));
   }
 });
-test('rejects branch writers including multiline commands, options, refspecs and implicit pushes', () => {
-  for (const run of ['git push origin main', 'git push origin HEAD:refs/heads/main', 'git -C repo push --force origin HEAD:main', 'git push \\\n origin main', 'git push origin +HEAD:main', 'git push', 'git push --mirror', 'git push origin "$TARGET"', 'git push --tags --repo=origin main', 'git push --tags origin refs/tags/* main']) {
-    const result = check({ run });
-    assert.equal(result.status, 1, run);
-    assert.match(result.stderr, /push/);
-  }
-});
-test('rejects semantic-release git plugin', () => {
-  const result = check({ release: "module.exports = { plugins: ['@semantic-release/git'] }" });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /@semantic-release\/git/);
-});
-test('drift ignores server metadata and object key order but catches policy changes', () => {
-  assert.equal(check({ live: snapshot => ({ id: 123, updated_at: 'today', ...snapshot }) }).status, 0);
-  const result = check({ live: snapshot => ({ ...snapshot, enforcement: 'disabled' }) });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /drift/);
-});
 
-test('checks other workflows and literal release push commands', () => {
-  const workflow = check({ otherWorkflow: 'jobs: {release: {steps: [{run: "git push origin main"}]}}' });
-  assert.equal(workflow.status, 1);
-  assert.match(workflow.stderr, /release.yaml.*push/);
-  const release = check({ release: `module.exports = { prepareCmd: 'git push origin HEAD:main' }` });
-  assert.equal(release.status, 1);
-  assert.match(release.stderr, /release.config.cjs.*push/);
-});
-test('permits comments and reports unresolved workflow expressions', () => {
-  assert.equal(check({ run: '# git push origin main\necho ok' }).status, 0);
-  const result = check({ run: 'git push origin HEAD:${{ github.ref }}' });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /push/);
-});
-
-for (const run of ['git push origin @', 'git push origin HEAD:heads/main']) {
-  test(`rejects main destination alias: ${run}`, () => {
-    const result = check({ run });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /push/);
-  });
-}
-test('inspects quoted refspecs inside release command strings', () => {
-  const result = check({ release: `module.exports = { publishCmd: 'git push --tags origin "HEAD:main"' }` });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /release.config.cjs.*push/);
-});
-
-test('release strings preserve shell quotes and JavaScript escapes', () => {
-  const releases = [
-    String.raw`module.exports = { publishCmd: "git push --tags origin \"HEAD:main\"" }`,
-    String.raw`module.exports = { publishCmd: 'git push --tags origin HEAD:\u006dain' }`,
-    'module.exports = { publishCmd: `git push --tags origin "HEAD:main"` }',
-    'module.exports = { publishCmd: `git push --tags origin HEAD:${branch}` }',
+test('forbids every explicit push irrespective of destination or shell expansion', () => {
+  const commands = [
+    'git push origin x:{main,foo}', 'git push origin {HEAD:main,x}',
+    'git push', 'git push --force\necho pushed', 'git push origin @',
+    'git push origin HEAD:heads/main', 'git push origin main',
+    'git push --tags', 'git push origin refs/tags/v1', 'git push origin HEAD:feature',
+    'git push --tags --repo=origin main', 'git push origin "$TARGET"',
+    'git push --tags >push.log origin main', 'git push --tags 123 >push.log main',
+    'git push --tags origin#release main', 'git push --tags origin\r#x main',
+    'git push origin\\\u00a0repo', 'git -C repo push --force origin main',
+    'git \\\n push origin main', '/usr/bin/git push origin main',
+    '"/usr/bin/git" push origin main', "g'it' p'ush' origin main",
   ];
-  for (const release of releases) {
-    const result = check({ release });
-    assert.equal(result.status, 1, release);
-    assert.match(result.stderr, /release.config.cjs.*push/);
+  for (const run of commands) {
+    fixture({ run }, root => assert.throws(() => checkRepository(root), /explicit git push is forbidden/, run));
   }
 });
 
-test('accepts safe release literals and skips JavaScript command comments', () => {
+test('conservatively rejects matching text even in comments, echo or unrelated commands', () => {
+  for (const run of ['# git push origin main', 'echo git push', 'git fetch\necho push', "cat <<'EOF'\ngit push origin main\nEOF"]) {
+    fixture({ run }, root => assert.throws(() => checkRepository(root), /explicit git push is forbidden/));
+  }
+});
+
+test('checks block scalars in other workflow files', () => {
+  const otherWorkflow = 'jobs:\n  release:\n    steps:\n      - run: |\n          git push\n          echo done\n';
+  fixture({ otherWorkflow }, root => assert.throws(() => checkRepository(root), /release.yaml.*explicit git push/));
+});
+
+test('checks decoded release strings, templates and constant concatenations without execution', () => {
   for (const release of [
-    `module.exports = { publishCmd: 'git push origin "refs/tags/v1"' }`,
-    'module.exports = { publishCmd: `git push origin refs/tags/v1` }',
-    '// git push origin main\nmodule.exports = {}',
+    `module.exports = { publishCmd: 'git push --tags origin "HEAD:main"' }`,
+    'module.exports = { publishCmd: `git push origin x:{main,foo}` }',
+    "module.exports = { publishCmd: 'git ' + 'push origin main' }",
+    String.raw`module.exports = { publishCmd: 'g\u0069t push origin main' }`,
+    'module.exports = { publishCmd: `git ${options} push ${target}` }',
   ]) {
-    const result = check({ release });
-    assert.equal(result.status, 0, result.stderr);
+    fixture({ release }, root => assert.throws(() => checkRepository(root), /release.config.cjs.*explicit git push/));
+  }
+  fixture({ release: "throw new Error('must not execute config'); module.exports = {};" }, root => assert.doesNotThrow(() => checkRepository(root)));
+});
+
+test('rejects parsed Git plugin names, but permits GitHub plugin and JavaScript comments', () => {
+  for (const name of ["'@semantic-release/git'", '`@semantic-release/git`', String.raw`'\u0040semantic-release/git'`, "'@semantic-release/' + 'git'", "`@semantic-release/${'git'}`"]) {
+    fixture({ release: `module.exports = { plugins: [${name}] }` }, root => assert.throws(() => checkRepository(root), /@semantic-release\/git is forbidden/));
+  }
+  fixture({ release: "// @semantic-release/git and git push are forbidden\nmodule.exports = { plugins: ['@semantic-release/github'] };" }, root => assert.doesNotThrow(() => checkRepository(root)));
+});
+
+test('rejects the Git release plugin in workflow commands', () => {
+  fixture({ run: 'npx semantic-release --plugins @semantic-release/git' }, root => assert.throws(() => checkRepository(root), /@semantic-release\/git is forbidden/));
+});
+
+test('CLI fails deliberately broken fixtures', () => {
+  for (const [input, diagnostic] of [[{ job: 'Renamed' }, /required check/], [{ run: 'git push origin x:{main,foo}' }, /explicit git push/]]) {
+    fixture(input, root => {
+      const result = spawnSync(process.execPath, [script, '--root', root], { encoding: 'utf8' });
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, diagnostic);
+    });
   }
 });
 
-for (const run of ['git push\necho done', 'git push --force\necho pushed']) {
-  test(`rejects implicit push in a YAML block scalar: ${JSON.stringify(run)}`, () => {
-    const otherWorkflow = `jobs:\n  release:\n    steps:\n      - run: |\n${run.split('\n').map(line => `          ${line}\n`).join('')}`;
-    const result = check({ otherWorkflow });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /release.yaml.*implicit git push/);
-  });
-}
-
-test('does not read the next command as push arguments', () => {
-  const result = check({ run: 'git push origin v1\ngit checkout main' });
-  assert.equal(result.status, 0, result.stderr);
-});
-
-test('inspects full-path Git commands', () => {
-  for (const run of ['/usr/bin/git push origin main', '"/usr/bin/git" push origin main', './git push origin main']) {
-    const result = check({ run });
-    assert.equal(result.status, 1, run);
-    assert.match(result.stderr, /push/);
-  }
-});
-
-test('comments do not hide commands on following lines', () => {
-  for (const run of ['# release\ngit push origin main', 'echo done # release\ngit push origin main']) {
-    const result = check({ run });
-    assert.equal(result.status, 1, run);
-    assert.match(result.stderr, /push/);
-  }
-});
-
-test('keeps pushes separate across shell command separators', () => {
-  for (const separator of ['\n', '\r\n', '; ', ' && ', ' || ', ' | ', ' & ']) {
-    const result = check({ run: `git push${separator}echo done` });
-    assert.equal(result.status, 1, JSON.stringify(separator));
-    assert.match(result.stderr, /implicit git push/);
-    const safe = check({ run: `git push origin refs/tags/v1${separator}git checkout main` });
-    assert.equal(safe.status, 0, safe.stderr);
-  }
-});
-
-test('preserves quoting and continuations while separating lines', () => {
-  const safeCommands = [
-    "printf '%s' 'release notes\ngit push origin main\n'",
-    'git push \\\n origin --tags\ngit checkout main',
-    'git push \\\r\n origin --tags\r\ngit checkout main',
-    'git push origin "refs/tags/v1;main"\ngit checkout main',
-    'echo "# release"\ngit push origin refs/tags/v1',
-    "echo $'escaped\\\' quote\ngit push origin main'",
-  ];
-  for (const run of safeCommands) {
-    const result = check({ run });
-    assert.equal(result.status, 0, result.stderr);
-  }
-  for (const run of ['git \\\n push\necho done', 'echo done # "comment\ngit push', 'git push # comment\necho done']) {
-    const result = check({ run });
-    assert.equal(result.status, 1, run);
-    assert.match(result.stderr, /implicit git push/);
-  }
-});
-
-test('checks multiline release command strings with the same command boundaries', () => {
-  const result = check({ release: 'module.exports = { publishCmd: `git push\necho done` }' });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /release.config.cjs.*implicit git push/);
-});
-
-test('redirections do not hide later push arguments', () => {
-  for (const run of [
-    'git push --tags >push.log origin main',
-    'git push --tags 2>/dev/null origin HEAD:main',
-    'git push --tags origin >push.log HEAD:main',
-  ]) {
-    const result = check({ run });
-    assert.equal(result.status, 1, run);
-    assert.match(result.stderr, /push/);
-  }
-});
-
-test('hash characters inside words do not start comments', () => {
-  for (const run of ['git push --tags origin#release main', 'git push origin refs/tags/v1#x main']) {
-    const result = check({ run });
-    assert.equal(result.status, 1, run);
-    assert.match(result.stderr, /push/);
-  }
-});
-
-test('redirection targets and hash words remain separate from refspecs', () => {
-  for (const run of [
-    'git push --tags >main origin',
-    'git push origin refs/tags/v1 2>main',
-    'git push --tags origin#release',
-    'git push origin refs/tags/v1#release',
-    'git push origin refs/tags/v1 # main',
-  ]) {
-    const result = check({ run });
-    assert.equal(result.status, 0, result.stderr);
-  }
-  const release = check({ release: `module.exports = { publishCmd: 'git push --tags >push.log origin main' }` });
-  assert.equal(release.status, 1);
-  assert.match(release.stderr, /release.config.cjs.*push/);
-});
-
-test('numeric remote words are not file descriptors', () => {
-  for (const remote of ['123 ', '"123"', '\\123']) {
-    const run = `git push --tags ${remote}>push.log main`;
-    const result = check({ run });
-    assert.equal(result.status, 1, run);
-    assert.match(result.stderr, /push/);
-  }
-  const result = check({ release: `module.exports = { publishCmd: 'git push --tags 123 >push.log main' }` });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /release.config.cjs.*push/);
-});
-
-test('only shell whitespace separates words and starts comments', () => {
-  for (const space of ['\u000b', '\u00a0', '\u2003']) {
-    for (const run of [`git push --tags origin${space}#x main`, `git push origin${space}remote`]) {
-      const result = check({ run });
-      assert.equal(result.status, 1, JSON.stringify(run));
-      assert.match(result.stderr, /push/);
+test('drift ignores server metadata but reports policy changes', () => {
+  fixture({}, (root, snapshot) => {
+    const live = join(root, 'live.json');
+    for (const [value, status, diagnostic] of [
+      [{ id: 123, updated_at: 'today', ...snapshot }, 0, /No ruleset drift/],
+      [{ ...snapshot, enforcement: 'disabled' }, 1, /Ruleset drift detected/],
+    ]) {
+      writeFileSync(live, JSON.stringify(value));
+      const result = spawnSync(process.execPath, [script, '--root', root, '--compare', live], { encoding: 'utf8' });
+      assert.equal(result.status, status);
+      assert.match(result.stdout + result.stderr, diagnostic);
     }
-  }
-});
-
-test('preserves bare carriage returns inside shell words', () => {
-  const run = 'git push --tags origin\r#x main';
-  const workflow = check({ run });
-  assert.equal(workflow.status, 1);
-  assert.match(workflow.stderr, /push/);
-  const release = check({ release: `module.exports = { publishCmd: ${JSON.stringify(run)} }` });
-  assert.equal(release.status, 1);
-  assert.match(release.stderr, /release.config.cjs.*push/);
-});
-
-test('escaped non-shell whitespace stays inside one remote word', () => {
-  for (const space of ['\u000b', '\u00a0', '\r']) {
-    const result = check({ run: `git push origin\\${space}repo` });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /implicit git push/);
-  }
+  });
 });

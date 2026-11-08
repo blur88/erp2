@@ -5,7 +5,6 @@ const { resolve, join } = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { isDeepStrictEqual, inspect } = require('node:util');
 const YAML = require('yaml');
-const shellQuote = require('shell-quote');
 const { parse } = require('acorn');
 
 // GitHub's export/import fields. Server ids, timestamps, links and source metadata
@@ -18,132 +17,45 @@ function policy(value) {
   }));
 }
 
-// shell-quote treats newlines as spaces and comments as extending to EOF.
-// Feed it one logical line at a time, retaining newlines inside quoted words.
-function* shellLines(text) {
-  text = text.replace(/\r\n/g, '\n');
-  let line = '';
-  let quote;
-  let ansiQuote = false;
-  let comment = false;
-  let wordStart = true;
-  let wordOffset = 0;
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (comment) {
-      if (char !== '\n') continue;
-      comment = false;
-    } else if (char === '\\' && (quote !== "'" || ansiQuote)) {
-      // Continuations do not end commands. Other escapes must reach shell-quote
-      // unchanged so escaped quotes and comment markers keep their meaning.
-      if (text[i + 1] === '\n') i++;
-      else if (text[i + 1] === '\r' && text[i + 2] === '\n') i += 2;
-      else {
-        const escaped = text[++i] ?? '';
-        line += !quote && /\s/.test(escaped) && !/[ \t\n]/.test(escaped)
-          ? `'${escaped}'`
-          : char + escaped;
-        wordStart = false;
-      }
-      continue;
-    } else if (quote) {
-      if (char === quote) quote = undefined;
-    } else if (char === "'" || char === '"') {
-      quote = char;
-      ansiQuote = char === "'" && text[i - 1] === '$';
-      wordStart = false;
-    } else if (char === '#') {
-      if (wordStart) comment = true;
-      // shell-quote treats even an embedded # as a comment; escape it for
-      // that parser when the shell would keep it inside an existing word.
-      else line += '\\#';
-      continue;
-    } else if (/\s/.test(char) && !/[ \t\n]/.test(char)) {
-      // Bash keeps these characters inside words, unlike shell-quote's \s.
-      line += `'${char}'`;
-      wordStart = false;
-      continue;
-    } else {
-      // Strip only a raw descriptor attached directly to its redirect. A
-      // numeric word separated by whitespace or quotes remains ordinary argv.
-      if ((char === '>' || char === '<') && /^(?:\d+|\{[a-zA-Z_]\w*\})$/.test(line.slice(wordOffset))) {
-        line = line.slice(0, wordOffset);
-      }
-      wordStart = /[ \t\n;&|()<>]/.test(char);
-      if (wordStart) wordOffset = line.length + 1;
-    }
-    if (char === '\n' && !quote) {
-      yield line;
-      line = '';
-      wordStart = true;
-      wordOffset = 0;
-    } else line += char;
+// Intentionally conservative text policy, not a shell parser: workflows have
+// no reason to invoke git push. Reject git followed by push anywhere in the
+// same run block, even in comments/echo, regardless of destination or options.
+// Strip shell quote/escape spelling before matching, but never execute text.
+// Dynamically assembled names, external scripts/actions and alternate release
+// config files still require review. Semantic-release's internal tag push is
+// unaffected; no explicit tag-push exception is currently needed.
+function checkWriterText(text, location) {
+  const spelling = text.replace(/\\\r?\n/g, '').replace(/['"`\\]/g, '');
+  if (/\bgit\b[\s\S]*?\bpush\b/.test(spelling)) {
+    throw new Error(`${location}: explicit git push is forbidden; use PR merges and semantic-release for tags`);
   }
-  yield line;
-}
-
-function checkPushes(text, location) {
-  // Unknown variables remain visible so unresolved destinations are rejected.
-  const source = text.replace(/\$\{\{[\s\S]*?\}\}/g, '$UNRESOLVED');
-  const tokens = [];
-  for (const line of shellLines(source)) {
-    tokens.push(...shellQuote.parse(line, key => `$${key}`), { op: ';' });
-  }
-  for (let i = 0; i < tokens.length; i++) {
-    if (typeof tokens[i] !== 'string' || !/^(?:.*\/)?git$/.test(tokens[i])) continue;
-    const command = [];
-    for (let j = i + 1; j < tokens.length; j++) {
-      if (tokens[j]?.op === 'glob') command.push(tokens[j].pattern);
-      else if (typeof tokens[j] === 'string') command.push(tokens[j]);
-      else if (['>', '>>', '<', '<>', '>&', '<&', '>|', '&>', '&>>', '<<', '<<-', '<<<'].includes(tokens[j]?.op)) {
-        // Descriptors were removed before tokenization, while adjacency and
-        // quoting were still available. Only the redirect target is skipped.
-        j++;
-      } else break;
-    }
-    // Git global options may precede the subcommand (e.g. git -C repo push).
-    const push = command.indexOf('push');
-    if (push < 0) continue;
-    const args = command.slice(push + 1);
-    const positional = [];
-    let tags = false;
-    for (let j = 0; j < args.length; j++) {
-      const arg = args[j];
-      if (arg.startsWith('--repo=')) { positional.unshift(arg.slice('--repo='.length)); continue; }
-      if (arg === '--tags') { tags = true; continue; }
-      if (['--repo', '--receive-pack', '--exec', '-o', '--push-option'].includes(arg)) {
-        // --repo supplies the remote instead of a positional argument.
-        if (arg === '--repo') positional.unshift(args[j + 1]);
-        j++;
-        continue;
-      }
-      if (['--all', '--mirror', '--branches'].includes(arg)) throw new Error(`${location}: branch-wide git push is forbidden`);
-      if (arg.startsWith('-') && !arg.startsWith('+')) continue;
-      positional.push(arg);
-    }
-    const refs = positional.slice(1);
-    if (refs.length === 0 && !tags) throw new Error(`${location}: implicit git push destination cannot be checked; use explicit refspecs`);
-    for (const ref of refs) {
-      const destination = ref.slice(ref.lastIndexOf(':') + 1).replace(/^\+/, '');
-      if (!destination || /[$`*?]/.test(destination) || /^(?:refs\/heads\/|heads\/)?main$/.test(destination) || ['HEAD', '@'].includes(destination)) {
-        throw new Error(`${location}: git push may write main (${ref}); use PR merges`);
-      }
-    }
+  if (/@semantic-release\/git(?:$|[^\w-])/.test(text)) {
+    throw new Error(`${location}: @semantic-release/git is forbidden because it writes branch commits`);
   }
 }
 
-function checkReleaseCommands(node) {
+// Only resolve string literals, templates and string concatenations. This is
+// not configuration execution: dynamic values remain unresolved.
+function stringValue(node) {
+  if (node.type === 'Literal' && typeof node.value === 'string') return node.value;
+  if (node.type === 'TemplateLiteral') {
+    return node.quasis.map((part, index) => (part.value.cooked ?? part.value.raw)
+      + (index < node.expressions.length ? stringValue(node.expressions[index]) ?? '$UNRESOLVED' : '')).join('');
+  }
+  if (node.type === 'BinaryExpression' && node.operator === '+') {
+    const left = stringValue(node.left);
+    const right = stringValue(node.right);
+    if (left !== undefined && right !== undefined) return left + right;
+  }
+}
+
+function checkReleaseStrings(node) {
   if (!node || typeof node !== 'object') return;
-  if (node.type === 'Literal' && typeof node.value === 'string') {
-    checkPushes(node.value, 'release.config.cjs');
-  } else if (node.type === 'TemplateLiteral') {
-    // Keep interpolation unresolved, as with variables in workflow commands.
-    const command = node.quasis.map(part => part.value.cooked ?? part.value.raw).join('$UNRESOLVED');
-    checkPushes(command, 'release.config.cjs');
-  }
-  for (const value of Object.values(node)) {
-    if (Array.isArray(value)) value.forEach(checkReleaseCommands);
-    else if (value && typeof value === 'object') checkReleaseCommands(value);
+  const value = stringValue(node);
+  if (value !== undefined) checkWriterText(value, 'release.config.cjs');
+  for (const child of Object.values(node)) {
+    if (Array.isArray(child)) child.forEach(checkReleaseStrings);
+    else if (child && typeof child === 'object') checkReleaseStrings(child);
   }
 }
 
@@ -156,7 +68,7 @@ function checkRepository(root) {
     if (file === 'ci.yml') ci = workflow;
     for (const [id, job] of Object.entries(workflow.jobs || {})) {
       for (const step of job.steps || []) {
-        if (typeof step.run === 'string') checkPushes(step.run, `${file}: ${id}/${step.name || 'run'}`);
+        if (typeof step.run === 'string') checkWriterText(step.run, `${file}: ${id}/${step.name || 'run'}`);
       }
     }
   }
@@ -170,10 +82,8 @@ function checkRepository(root) {
     }
   }
   const release = readFileSync(join(root, 'release.config.cjs'), 'utf8');
-  if (/@semantic-release\/git(?:['"\s/]|$)/.test(release)) throw new Error('release.config.cjs: @semantic-release/git writes a branch commit; use tag-only releases');
-  // Parse without executing the config. Decoded literals preserve shell quoting,
-  // escapes and continuations; JavaScript comments are excluded by the parser.
-  checkReleaseCommands(parse(release, { ecmaVersion: 'latest', sourceType: 'script' }));
+  // JavaScript comments are excluded; escapes and constant strings are decoded.
+  checkReleaseStrings(parse(release, { ecmaVersion: 'latest', sourceType: 'script' }));
   return snapshot;
 }
 
@@ -204,9 +114,13 @@ function main() {
   console.log('Main protection checks passed');
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error.message);
-  process.exitCode = 1;
+if (require.main === module) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }
+
+module.exports = { checkRepository };
