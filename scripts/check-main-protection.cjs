@@ -18,12 +18,51 @@ function policy(value) {
   }));
 }
 
+// shell-quote treats newlines as spaces and comments as extending to EOF.
+// Feed it one logical line at a time, retaining newlines inside quoted words.
+function* shellLines(text) {
+  let line = '';
+  let quote;
+  let ansiQuote = false;
+  let comment = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (comment) {
+      if (char !== '\n') continue;
+      comment = false;
+    } else if (char === '\\' && (quote !== "'" || ansiQuote)) {
+      // Continuations do not end commands. Other escapes must reach shell-quote
+      // unchanged so escaped quotes and comment markers keep their meaning.
+      if (text[i + 1] === '\n') i++;
+      else if (text[i + 1] === '\r' && text[i + 2] === '\n') i += 2;
+      else { line += char + (text[++i] ?? ''); }
+      continue;
+    } else if (quote) {
+      if (char === quote) quote = undefined;
+    } else if (char === "'" || char === '"') {
+      quote = char;
+      ansiQuote = char === "'" && text[i - 1] === '$';
+    } else if (char === '#') {
+      comment = true;
+      continue;
+    }
+    if (char === '\n' && !quote) {
+      yield line;
+      line = '';
+    } else line += char;
+  }
+  yield line;
+}
+
 function checkPushes(text, location) {
-  // Expand continuations before tokenizing. Unknown variables remain visible so
-  // an unresolved destination cannot accidentally be treated as a safe branch.
-  const tokens = shellQuote.parse(text.replace(/\\\r?\n/g, '').replace(/\$\{\{[\s\S]*?\}\}/g, '$UNRESOLVED'), key => `$${key}`);
+  // Unknown variables remain visible so unresolved destinations are rejected.
+  const source = text.replace(/\$\{\{[\s\S]*?\}\}/g, '$UNRESOLVED');
+  const tokens = [];
+  for (const line of shellLines(source)) {
+    tokens.push(...shellQuote.parse(line, key => `$${key}`), { op: ';' });
+  }
   for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i] !== 'git') continue;
+    if (typeof tokens[i] !== 'string' || !/^(?:.*\/)?git$/.test(tokens[i])) continue;
     const command = [];
     for (let j = i + 1; j < tokens.length; j++) {
       if (tokens[j]?.op === 'glob') command.push(tokens[j].pattern);

@@ -109,3 +109,69 @@ test('accepts safe release literals and skips JavaScript command comments', () =
     assert.equal(result.status, 0, result.stderr);
   }
 });
+
+for (const run of ['git push\necho done', 'git push --force\necho pushed']) {
+  test(`rejects implicit push in a YAML block scalar: ${JSON.stringify(run)}`, () => {
+    const otherWorkflow = `jobs:\n  release:\n    steps:\n      - run: |\n${run.split('\n').map(line => `          ${line}\n`).join('')}`;
+    const result = check({ otherWorkflow });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /release.yaml.*implicit git push/);
+  });
+}
+
+test('does not read the next command as push arguments', () => {
+  const result = check({ run: 'git push origin v1\ngit checkout main' });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('inspects full-path Git commands', () => {
+  for (const run of ['/usr/bin/git push origin main', '"/usr/bin/git" push origin main', './git push origin main']) {
+    const result = check({ run });
+    assert.equal(result.status, 1, run);
+    assert.match(result.stderr, /push/);
+  }
+});
+
+test('comments do not hide commands on following lines', () => {
+  for (const run of ['# release\ngit push origin main', 'echo done # release\ngit push origin main']) {
+    const result = check({ run });
+    assert.equal(result.status, 1, run);
+    assert.match(result.stderr, /push/);
+  }
+});
+
+test('keeps pushes separate across shell command separators', () => {
+  for (const separator of ['\n', '\r\n', '; ', ' && ', ' || ', ' | ', ' & ']) {
+    const result = check({ run: `git push${separator}echo done` });
+    assert.equal(result.status, 1, JSON.stringify(separator));
+    assert.match(result.stderr, /implicit git push/);
+    const safe = check({ run: `git push origin refs/tags/v1${separator}git checkout main` });
+    assert.equal(safe.status, 0, safe.stderr);
+  }
+});
+
+test('preserves quoting and continuations while separating lines', () => {
+  const safeCommands = [
+    "printf '%s' 'release notes\ngit push origin main\n'",
+    'git push \\\n origin --tags\ngit checkout main',
+    'git push \\\r\n origin --tags\r\ngit checkout main',
+    'git push origin "refs/tags/v1;main"\ngit checkout main',
+    'echo "# release"\ngit push origin refs/tags/v1',
+    "echo $'escaped\\\' quote\ngit push origin main'",
+  ];
+  for (const run of safeCommands) {
+    const result = check({ run });
+    assert.equal(result.status, 0, result.stderr);
+  }
+  for (const run of ['git \\\n push\necho done', 'echo done # "comment\ngit push', 'git push # comment\necho done']) {
+    const result = check({ run });
+    assert.equal(result.status, 1, run);
+    assert.match(result.stderr, /implicit git push/);
+  }
+});
+
+test('checks multiline release command strings with the same command boundaries', () => {
+  const result = check({ release: 'module.exports = { publishCmd: `git push\necho done` }' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /release.config.cjs.*implicit git push/);
+});
