@@ -1,0 +1,21 @@
+name: PR body
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  check-pr-body:
+    # Advisory until deliberately added to the repository ruleset.
+    name: PR body closing references
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Check closing references
+        run: node scripts/check-pr-body.cjs
