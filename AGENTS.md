@@ -49,7 +49,7 @@ Run each command from its listed directory, after `npm ci` there when that direc
 | `frontend/src/**` | `npm run lint && npm run type-check && npm run test:coverage` (`frontend/`) | `npm run test:coverage`: Frontend - Lint, Type Check, Tests / Tests with coverage |
 | Cross-app contracts (API DTOs/interfaces used by both apps) | Union of backend source and frontend source rows | As in those rows |
 | `backend/scripts/**`, agent guidance (`AGENTS.md`, `CLAUDE.md`), or linked topic documentation | `npm run test:scripts` (`backend/`) | `npm run test:scripts`: Backend - Lint, Type Check, Unit Tests, E2E Tests / Gate script tests |
-| `release.config.cjs`, root `scripts/**`, `.github/workflows/**` | `npm ci && node --test scripts/__tests__/*.test.js && sh scripts/tests/git-hooks.sh` (repo root); report the two suites separately | `node --test scripts/__tests__/*.test.js`: Root script tests / Test root scripts; `sh scripts/tests/git-hooks.sh`: Git hook integration tests / Test local main guards |
+| `release.config.cjs`, root `scripts/**`, `.github/workflows/**` | `npm ci && npm test && sh scripts/tests/git-hooks.sh` (repo root); report the two suites separately | `npm test`: Root script tests / Test root scripts; `sh scripts/tests/git-hooks.sh`: Git hook integration tests / Test local main guards |
 
 Frontend `npm run test:coverage` executes the full suite with coverage and satisfies both full-suite test and coverage requirements.
 
