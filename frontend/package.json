@@ -76,6 +76,7 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "flatted": "3.4.2",
     "rolldown": "1.0.0-rc.16",
-    "ws": ">=8.20.1"
+    "ws": ">=8.20.1",
+    "minimatch": "11.0.1"
   }
 }
