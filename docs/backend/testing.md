@@ -20,9 +20,11 @@ Invariants that replaced it:
   - The Dockerfile pins `node:24.16.0-alpine3.23` — older 24.x lacks the `require(esm)` export-condition fallback that the import-only maps of the remaining packages need.
   `backend/scripts/verify-dist-runtime.sh` is the gate: it loads `dist/main.js` and now fails on both `MODULE_NOT_FOUND` and `ERR_PACKAGE_PATH_NOT_EXPORTED`. A bare `node dist/main.js` boot check remains the definitive test.
 
-## Agent document pointer checks
+## Clean-clone verification
 
 When changing a check that reads repository state (tracked files, gitignored paths, or checkout layout), commit the changes and verify with `scripts/verify-in-clean-clone.sh <command…>` from inside the repository. For example: `scripts/verify-in-clean-clone.sh node backend/scripts/check-agent-doc-paths.mjs`. The runner refuses uncommitted changes, clones HEAD at depth 1, prints the cloned SHA and shallow status, installs backend dependencies with `npm ci`, runs the command from the clone root, and removes the clone on exit. It does not install frontend dependencies; include any additional setup in the wrapped command when needed.
+
+## Agent document pointer checks
 
 Agent document pointers are checked by `node backend/scripts/check-agent-doc-paths.mjs` from the repository root. Run `npm run test:scripts` from the backend directory for regression coverage. The checked root must be a Git repository root. Symlinked roots are supported. Exit codes are 0 for valid pointers, 1 for pointer validation failures, and 2 for Git setup errors (such as a non-repository root, missing Git executable, or unreadable index). Git setup errors produce a single diagnostic line without a stack trace. Unexpected errors during document traversal remain uncaught and may also exit 1 with a stack trace. Existence requires a Git-index entry (or a directory prefix of one) and a path on disk, so ignored or untracked local files cannot hide broken pointers. Stage new referenced files before running the checker. Fixture roots use their own optional `backend/scripts/agent-doc-paths.allowlist`; entries are exact repository-relative paths. References to intentionally local-only or gitignored paths need an allowlist entry, even when those paths exist on the developer's machine.
 
