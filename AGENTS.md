@@ -88,4 +88,5 @@ PRs should include:
 
 ## Agent Guidance
 - Working with GitHub issues or PR issue-closing semantics → read [issue tracker guidance](docs/agents/issue-tracker.md).
+- Auditing dependencies or triaging a Dependabot alert → use the scoped commands and alert lookup in [development reference](docs/agents/development-reference.md#key-commands) and [issue tracker guidance](docs/agents/issue-tracker.md).
 - Defining domain terminology or recording architectural decisions → read [domain documentation guidance](docs/agents/domain.md).
