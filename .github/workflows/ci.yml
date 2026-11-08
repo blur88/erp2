@@ -35,7 +35,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Test root scripts
-        run: node --test scripts/__tests__/*.test.js
+        run: npm test
 
   test-git-hooks:
     name: Git hook integration tests
