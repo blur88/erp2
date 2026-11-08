@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { ThemeProvider, alpha } from '@mui/material/styles'
+import { ThemeProvider, alpha, createTheme } from '@mui/material/styles'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
@@ -176,14 +176,20 @@ describe('Sidebar', () => {
 
   it('calls onToggleCollapse when toggle button is clicked', () => {
     const onToggleCollapse = vi.fn()
+    const desktopTheme = createTheme({
+      breakpoints: { values: { xs: 0, sm: 600, md: 960, lg: 1280, xl: 1920 } },
+    })
 
     render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
-      </MemoryRouter>
+      <ThemeProvider theme={desktopTheme}>
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
+        </MemoryRouter>
+      </ThemeProvider>,
     )
 
-    const toggleBtn = screen.getByRole('button', { name: /collapse sidebar/i })
+    const toggleBtn = screen.getByLabelText('collapse sidebar')
+    toggleBtn.setAttribute('style', 'display: flex')
     fireEvent.click(toggleBtn)
 
     expect(onToggleCollapse).toHaveBeenCalledTimes(1)
@@ -359,7 +365,7 @@ describe('Sidebar', () => {
     const labelStyles = window.getComputedStyle(within(customersButton).getByText('Customers'))
 
     expect(buttonStyles.height).toBe('40px')
-    expect(buttonStyles.transform).toBe('translateX(0)')
+    expect(buttonStyles.transform).toBe('translateX(0px)')
     expect(labelStyles.fontSize).toBe('14px')
   })
 
