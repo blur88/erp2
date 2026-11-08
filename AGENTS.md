@@ -39,6 +39,8 @@ Before merge, every applicable gate needs qualifying evidence on the exact final
 
 Matching rows are cumulative. Run a command shared by several rows once per qualifying SHA.
 
+Run each command from its listed directory, after `npm ci` there when that directory has no `node_modules` (a fresh checkout or worktree).
+
 | Files changed | Commands (run from) | CI may supply |
 |---|---|---|
 | `backend/src/**` | `npm run lint && npm run type-check && npm run test && npm run test:e2e` (`backend/`) | `npm run test`: Backend - Lint, Type Check, Unit Tests, E2E Tests / Unit tests; `npm run test:e2e`: Backend - Lint, Type Check, Unit Tests, E2E Tests / E2E tests |
