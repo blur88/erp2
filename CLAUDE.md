@@ -47,4 +47,4 @@ Categories use `bug` and `enhancement`; states use the five default labels. See 
 
 ### Domain docs
 
-Use the single-context layout with a root `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
+Follow `docs/agents/domain.md` when defining domain terms or recording architectural decisions.
