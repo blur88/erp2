@@ -21,6 +21,7 @@ function policy(value) {
 // shell-quote treats newlines as spaces and comments as extending to EOF.
 // Feed it one logical line at a time, retaining newlines inside quoted words.
 function* shellLines(text) {
+  text = text.replace(/\r\n/g, '\n');
   let line = '';
   let quote;
   let ansiQuote = false;
@@ -54,7 +55,7 @@ function* shellLines(text) {
       // that parser when the shell would keep it inside an existing word.
       else line += '\\#';
       continue;
-    } else if (/\s/.test(char) && !/[ \t\r\n]/.test(char)) {
+    } else if (/\s/.test(char) && !/[ \t\n]/.test(char)) {
       // Bash keeps these characters inside words, unlike shell-quote's \s.
       line += `'${char}'`;
       wordStart = false;
@@ -65,7 +66,7 @@ function* shellLines(text) {
       if ((char === '>' || char === '<') && /^(?:\d+|\{[a-zA-Z_]\w*\})$/.test(line.slice(wordOffset))) {
         line = line.slice(0, wordOffset);
       }
-      wordStart = /[ \t\r\n;&|()<>]/.test(char);
+      wordStart = /[ \t\n;&|()<>]/.test(char);
       if (wordStart) wordOffset = line.length + 1;
     }
     if (char === '\n' && !quote) {

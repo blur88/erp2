@@ -233,3 +233,13 @@ test('only shell whitespace separates words and starts comments', () => {
     }
   }
 });
+
+test('preserves bare carriage returns inside shell words', () => {
+  const run = 'git push --tags origin\r#x main';
+  const workflow = check({ run });
+  assert.equal(workflow.status, 1);
+  assert.match(workflow.stderr, /push/);
+  const release = check({ release: `module.exports = { publishCmd: ${JSON.stringify(run)} }` });
+  assert.equal(release.status, 1);
+  assert.match(release.stderr, /release.config.cjs.*push/);
+});
