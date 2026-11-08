@@ -175,3 +175,39 @@ test('checks multiline release command strings with the same command boundaries'
   assert.equal(result.status, 1);
   assert.match(result.stderr, /release.config.cjs.*implicit git push/);
 });
+
+test('redirections do not hide later push arguments', () => {
+  for (const run of [
+    'git push --tags >push.log origin main',
+    'git push --tags 2>/dev/null origin HEAD:main',
+    'git push --tags origin >push.log HEAD:main',
+  ]) {
+    const result = check({ run });
+    assert.equal(result.status, 1, run);
+    assert.match(result.stderr, /push/);
+  }
+});
+
+test('hash characters inside words do not start comments', () => {
+  for (const run of ['git push --tags origin#release main', 'git push origin refs/tags/v1#x main']) {
+    const result = check({ run });
+    assert.equal(result.status, 1, run);
+    assert.match(result.stderr, /push/);
+  }
+});
+
+test('redirection targets and hash words remain separate from refspecs', () => {
+  for (const run of [
+    'git push --tags >main origin',
+    'git push origin refs/tags/v1 2>main',
+    'git push --tags origin#release',
+    'git push origin refs/tags/v1#release',
+    'git push origin refs/tags/v1 # main',
+  ]) {
+    const result = check({ run });
+    assert.equal(result.status, 0, result.stderr);
+  }
+  const release = check({ release: `module.exports = { publishCmd: 'git push --tags >push.log origin main' }` });
+  assert.equal(release.status, 1);
+  assert.match(release.stderr, /release.config.cjs.*push/);
+});

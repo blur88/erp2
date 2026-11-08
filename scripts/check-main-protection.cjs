@@ -25,6 +25,7 @@ function* shellLines(text) {
   let quote;
   let ansiQuote = false;
   let comment = false;
+  let wordStart = true;
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
     if (comment) {
@@ -35,20 +36,30 @@ function* shellLines(text) {
       // unchanged so escaped quotes and comment markers keep their meaning.
       if (text[i + 1] === '\n') i++;
       else if (text[i + 1] === '\r' && text[i + 2] === '\n') i += 2;
-      else { line += char + (text[++i] ?? ''); }
+      else {
+        line += char + (text[++i] ?? '');
+        wordStart = false;
+      }
       continue;
     } else if (quote) {
       if (char === quote) quote = undefined;
     } else if (char === "'" || char === '"') {
       quote = char;
       ansiQuote = char === "'" && text[i - 1] === '$';
+      wordStart = false;
     } else if (char === '#') {
-      comment = true;
+      if (wordStart) comment = true;
+      // shell-quote treats even an embedded # as a comment; escape it for
+      // that parser when the shell would keep it inside an existing word.
+      else line += '\\#';
       continue;
+    } else {
+      wordStart = /[\s;&|()<>]/.test(char);
     }
     if (char === '\n' && !quote) {
       yield line;
       line = '';
+      wordStart = true;
     } else line += char;
   }
   yield line;
@@ -67,7 +78,12 @@ function checkPushes(text, location) {
     for (let j = i + 1; j < tokens.length; j++) {
       if (tokens[j]?.op === 'glob') command.push(tokens[j].pattern);
       else if (typeof tokens[j] === 'string') command.push(tokens[j]);
-      else break;
+      else if (['>', '>>', '<', '<>', '>&', '<&', '>|', '&>', '&>>', '<<', '<<-', '<<<'].includes(tokens[j]?.op)) {
+        // Redirections consume an optional descriptor and a target, not the
+        // remaining argv. Continue inspecting refspecs after the redirect.
+        if (/^\d+$/.test(command.at(-1))) command.pop();
+        j++;
+      } else break;
     }
     // Git global options may precede the subcommand (e.g. git -C repo push).
     const push = command.indexOf('push');
