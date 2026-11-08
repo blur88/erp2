@@ -34,3 +34,17 @@ Backend Jest requires `NODE_OPTIONS=--experimental-vm-modules`; use the npm test
 - Adding e2e fixtures, audited requests, cron tests, or investigating retained database drift → read [e2e leak checks](docs/backend/e2e-leak-check.md).
 - Changing Redis clients, BullMQ, backup schedulers, or running real-Redis tests or scheduler reconciliation → read [Redis and BullMQ operations](docs/backend/redis-bullmq.md).
 - Changing bank reconciliation schemas, locking, conflicts, fixtures, or form drafts → read [bank reconciliation engineering constraints](docs/modules/accounting/BANK_RECONCILIATION_ENGINEERING.md).
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `blur88/erp2`, using `gh`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Categories use `bug` and `enhancement`; states use the five default labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use the single-context layout with a root `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
