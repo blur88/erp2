@@ -16,7 +16,7 @@ let setupStage = 'root';
 try {
   const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], gitOptions).trim();
   if (realpathSync(gitRoot) !== realpathSync(root)) {
-    console.error(`not a Git repository root: ${root}`);
+    console.error(`not a Git repository root: ${root}`.replace(/[\r\n]+/g, ' '));
     process.exit(2);
   }
   setupStage = 'index';

@@ -327,3 +327,11 @@ DOC
   [ "$status" -eq 2 ]
   [ "$output" = "cannot read Git index: $FIXTURE" ]
 }
+
+@test "setup diagnostics stay on one line for paths containing newlines" {
+  local directory="$FIXTURE/"$'line\nbreak'
+  mkdir "$directory"
+  run node "$CHECKER" "$directory"
+  [ "$status" -eq 2 ]
+  [ "$output" = "not a Git repository root: $FIXTURE/line break" ]
+}
