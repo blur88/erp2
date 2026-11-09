@@ -42,7 +42,7 @@ export function snapshot(keyDirectory, round, baseline, ...selectedPaths) {
     const env = { ...process.env, GIT_INDEX_FILE: join(temporary, 'index'), GIT_LITERAL_PATHSPECS: '1' };
     const run = (...args) => execFileSync('git', args, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
     run('read-tree', head);
-    run('add', '-u', '--', '.');
+    run('add', '-u');
     if (paths.length) run('add', '--', ...paths);
     const tree = run('write-tree').toString('utf8').trim();
     const patch = run('diff', '--cached', '--binary', '--full-index', '--no-ext-diff', '--no-textconv', baselineSha, '--');

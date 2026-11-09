@@ -297,3 +297,15 @@ for (const suffix of [' ', '\n']) test(`snapshot preserves significant trailing 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(repo, 'records', 'review-round-01.snapshot.json'))).newFiles, ['selected']);
 });
+test('snapshot accepts an empty tracked index with a selected new file', (t) => {
+  const f = fixture(t);
+  assert.equal(f.run('reserve', f.key).status, 0);
+  fs.writeFileSync(path.join(f.repo, 'selected-only.txt'), 'new file\n');
+  const result = f.run('snapshot', f.key, '1', f.head, 'selected-only.txt');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const patch = fs.readFileSync(path.join(f.key, 'review-round-01.patch'), 'utf8');
+  assert.match(patch, /new file mode 100644/);
+  assert.ok(patch.includes('+new file'));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(f.key, 'review-round-01.snapshot.json'))).newFiles, ['selected-only.txt']);
+  assert.equal(f.git('diff', '--cached'), '');
+});
