@@ -50,7 +50,7 @@ Outcome: complete
 test('record copies marker identity, note stays outside the ledger, compare checks actual bytes', (t) => {
   const f = fixture(t), { marker } = reviewed(f);
   assert.equal(f.run(f.key).status, 0);
-  assert.match(fs.readFileSync(path.join(f.key, 'reviews.md'), 'utf8'), new RegExp(marker.started.replace(/[+.]/g, '\\$&')));
+  assert.ok(fs.readFileSync(path.join(f.key, 'reviews.md'), 'utf8').includes(marker.started));
   assert.equal(f.run('note', f.key, 'verification completed').status, 0);
   assert.ok(fs.readFileSync(path.join(f.key, 'notes.md'), 'utf8').includes(f.head));
   const patch = path.join(f.repo, 'saved.patch'); fs.writeFileSync(patch, '');
