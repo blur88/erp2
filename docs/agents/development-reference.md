@@ -112,6 +112,8 @@ Delete the disposable database and checkout after capturing the result. CI migra
 
 ## Pull requests
 
+For issue references, follow the `/pr` guidance in [issue tracker conventions](issue-tracker.md#conventions); for verification rows, use the [AGENTS.md report statuses](../../AGENTS.md#change-scoped-verification-required-before-merge). Incident: #1724, PR #1756 (the PR body rules were collected from three unlinked places).
+
 Main protection is tracked in [the ruleset snapshot](../../.github/rulesets/main-protection.json). To change protection, edit that snapshot of the editable ruleset fields (it omits export metadata such as `id`, `source_type` and `source`), apply it with an administrator token (`gh api --method PUT repos/blur88/erp2/rulesets/15609777 --input .github/rulesets/main-protection.json`), then run `node scripts/check-main-protection.cjs --drift` with an administrator token so GitHub includes `bypass_actors`. The drift mode is read-only; it compares all editable export fields and excludes server-managed metadata. Review and commit the snapshot through a PR.
 
 `node scripts/check-main-protection.cjs` runs without a token in the existing Root script tests CI job. Required contexts must match exact job names in `ci.yml`. Explicit Git pushes are forbidden in workflow `run` blocks and release-config strings, including tag pushes; use PR merges for branches and semantic-release for tags. There is no explicit tag-push exception. The check also forbids `@semantic-release/git` in those inputs.
