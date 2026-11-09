@@ -33,12 +33,13 @@ For external review subjects, follow the [external-file workflow](external-files
 
 ## Subagent briefs
 
-Each subagent brief requires saving probe fixtures, probe output and test output under `<scratch-root>/<key>/evidence/`, using the resolved absolute key directory from [state and reports](#state-and-reports). Cleanup leaves that evidence directory in place. The pre-merge Spec brief names the ledger as a source for review-citation claims in the PR body, alongside the saved evidence for the reviewed head. Incidents: #1724, PR #1756; #1725, PR #1757.
+Each subagent brief requires saving probe fixtures, probe output and test output in the [evidence directory](#state-and-reports), using its resolved absolute path. The pre-merge Spec brief names the ledger as a source for review-citation claims in the PR body, alongside the saved evidence for the reviewed head. Incidents: #1724, PR #1756; #1725, PR #1757.
 
 ## State and reports
 
 - **Scratch root**: one shared root for all worktrees. Resolve it using the absolute Git common directory and the shared local `review.scratchRoot` configuration described below. A standard checkout selects `<parent of git-common-dir>/.scratch/`; bare repositories and separate Git directories select `<git-common-dir>/review-scratch/`. Record the resolved absolute path.
 - **Key directory**, in order: `<scratch-root>/<issue-number>/`, then `<scratch-root>/pr-<pr-number>/`, then `<scratch-root>/branch-<sanitized-branch>/`. Keep the chosen directory for the whole sequence even if an issue or PR appears later, and record those identifiers in the ledger.
+- **Evidence directory**: `<scratch-root>/<key>/evidence/` holds every probe fixture, probe output and test output quoted as evidence, whether a reviewer or the implementer produced it. Cleanup leaves it in place.
 - **Ledger**: reviews.md, an append-only Markdown table. Each row is immutable and is appended when the round completes or is declared partial/aborted, not when it starts. Columns:
   `round | kind (committed / working-tree / pre-merge / scope-reset) | started (ISO 8601) | PR baseline | delta base | reviewed head | mode | outcome | blocking findings | report`. Use N/A where a field doesn't apply.
 - **Reusing state**: before reusing it, check that the report exists, the PR baseline matches, and the last reviewed commit is an ancestor of HEAD. If any check fails (for example after a rebase), append a *scope-reset* row, put the reason in its linked report, and treat earlier baseline state as invalid. Recover the last reviewed commit only from rows after the latest reset. Neither scope-reset nor pre-merge rows move the last reviewed commit forward.
