@@ -205,6 +205,76 @@ function record(key, number, json) {
   } finally { unlinkSync(lock); }
 
 }
+function report(key, number, inputPath) {
+  if (!/^\d+$/.test(number) || Number(number) < 1) throw Error('report requires a reserved round number');
+  const input = JSON.parse(read(inputPath));
+  const start = marker(join(key, `round-${nn(number)}.started`));
+  const history = existsSync(join(key, 'reviews.md')) ? check(key) : { rows: [], errors: [] };
+  if (history.errors.length) throw Error(`invalid existing ledger: ${history.errors.join('; ')}`);
+  if (history.rows.some(row => Number(row.round) >= Number(number))) throw Error('report round must follow recorded rounds');
+  const priorRow = history.rows.findLast(row => row.kind !== 'scope-reset');
+  const prior = priorRow ? JSON.parse(read(resolve(key, target(priorRow.report))).match(/```review-state\n([\s\S]*?)\n```/)[1]) : {};
+  const reset = history.rows.at(-1)?.kind === 'scope-reset';
+  const supplied = input.state ?? {};
+  const merge = (old, updates) => {
+    if (!Array.isArray(updates) || new Set(updates.map(item => item.id)).size !== updates.length) throw Error('report updates must be arrays with unique IDs');
+    return [...old.map(item => ({ ...item, ...updates.find(update => update.id === item.id) })), ...updates.filter(item => !old.some(previous => previous.id === item.id))];
+  };
+  const requiredCriteria = supplied.requiredCriteria ?? (reset ? [] : prior.requiredCriteria) ?? [];
+  const touchedCriteria = supplied.touchedCriteria ?? [];
+  const wanted = supplied.scope === 'full PR' ? requiredCriteria : [...new Set([...touchedCriteria, ...(reset ? [] : prior.criteria ?? []).filter(c => c.status === 'unmet').map(c => c.id)])];
+  const criteria = merge(wanted.map(id => ({ id, status: 'unmet', reason: 'Not assessed in this round' })), supplied.criteria ?? []);
+  for (const criterion of criteria) if (criterion.status === 'met') delete criterion.reason;
+  const state = { ...supplied, requiredCriteria, touchedCriteria, criteria, findings: merge(prior.findings ?? [], supplied.findings ?? []), evidenceComplete: supplied.evidenceComplete ?? false, checks: supplied.checks ?? [] };
+  const kind = input.kind;
+  if (!['committed', 'working-tree', 'pre-merge', 'scope-reset'].includes(kind)) throw Error('invalid report kind');
+  const head = start.head + (kind === 'working-tree' ? ' + working tree' : '');
+  const plain = `review-${head}.md`;
+  const filename = kind === 'committed' ? (existsSync(join(key, plain)) ? `review-${head}-round-${nn(number)}.md` : plain) : `review-round-${nn(number)}.md`;
+  const row = { kind, 'PR baseline': input['PR baseline'] ?? history.rows.at(-1)?.['PR baseline'], 'delta base': input['delta base'] ?? (state.scope === 'delta' ? history.lastReviewedCommit : 'N/A'), mode: input.mode, outcome: input.outcome ?? 'partial', 'blocking findings': String(state.findings.filter(f => f.blocking && f.status === 'open').length), report: filename };
+  for (const value of [input.issue, input.pr, input.mode, state.scope, row['PR baseline'], row['delta base']]) if (typeof value !== 'string' || /[\n\r|]/.test(value) || !value.trim()) throw Error('report header fields must be nonempty single-line strings');
+  if (!['complete', 'partial', 'aborted'].includes(row.outcome)) throw Error('report outcome must be complete, partial or aborted');
+  if (row.outcome === 'complete' && (!input.standards?.trim() || !input.spec?.trim())) throw Error('complete report requires explicit Standards and Spec assessments');
+  const snapshot = kind === 'working-tree' ? JSON.parse(read(join(key, `review-round-${nn(number)}.snapshot.json`))) : undefined;
+  const verification = state.checks.map(c => `- ${c.command}: ${c.status}; evidence: ${c.evidence}`).join('\n') || 'not run — no verification supplied';
+  const text = `# Review round ${nn(number)}
+Issue / PR / key: ${input.issue} / ${input.pr} / ${basename(resolve(key))}
+Kind: ${kind}
+Started: ${start.started}
+Reservation session: ${start.session}
+Reservation harness: ${start.harness ?? 'unknown'}
+PR baseline: ${row['PR baseline']}
+Delta base: ${row['delta base']}
+Reviewed head: ${head}
+Working tree included: ${kind === 'working-tree' ? 'yes' : 'no'}
+Scope: ${state.scope}; mode: ${row.mode}
+Previous round: ${history.rows.at(-1)?.round ?? 'N/A'}
+${snapshot ? `Snapshot: review-round-${nn(number)}.patch; untracked files: ${JSON.stringify(snapshot.newFiles)}` : ''}
+## Standards
+${input.standards ?? 'Not assessed in this round.'}
+## Spec
+${input.spec ?? 'Not assessed in this round.'}
+## Verification
+${verification}
+Outcome: ${row.outcome}
+Blocking findings: ${row['blocking findings']}
+\`\`\`review-state
+${JSON.stringify(state, null, 2)}
+\`\`\`
+`;
+  if ([...text.matchAll(/```review-state\n/g)].length !== 1) throw Error('report narrative cannot add structured state blocks');
+  const file = join(key, filename);
+  writeFileSync(file, text, { flag: 'wx' });
+  try {
+    const before = existsSync(join(key, 'reviews.md')) ? read(join(key, 'reviews.md')) : `| ${columns.join(' | ')} |\n|${columns.map(() => '---').join('|')}|\n`;
+    const candidate = { ...row, round: nn(number), started: start.started, 'reviewed head': head };
+    const values = columns.map(name => candidate[name]);
+    if (values.some(value => /[|\n\r]/.test(String(value)))) throw Error('report row cannot contain pipes or newlines');
+    const result = check(key, before + `| ${values.join(' | ')} |\n`);
+    if (result.errors.length) throw Error(`invalid report: ${result.errors.join('; ')}`);
+  } catch (error) { unlinkSync(file); throw error; }
+  console.log(JSON.stringify(row));
+}
 function keyDirectory() {
   const common = git('rev-parse', '--path-format=absolute', '--git-common-dir');
   const layout = git('config', '--local', '--get', 'review.scratchRoot');
@@ -233,6 +303,7 @@ function merge(pr, ...flags) {
 export function main([command, ...args]) {
   if (command === 'reserve') reserve(...args);
   else if (command === 'snapshot') snapshot(...args);
+  else if (command === 'report') report(...args);
   else if (command === 'record') record(...args);
   else if (command === 'state') { const result = check(args[0]); console.log(JSON.stringify(result)); if (result.errors.length) process.exitCode = 1; }
   else if (command === 'status') printCheck({ ...check(args[0]), errors: [], warnings: [] });
@@ -244,7 +315,7 @@ export function main([command, ...args]) {
   } else if (command === 'gate-create') gateCreate();
   else if (command === 'merge') merge(...args);
   else if (command) { const result = check(command); printCheck(result); if (result.errors.length) process.exitCode = 1; }
-  else throw Error('Usage: check-review-ledger.mjs <key-dir> | reserve|snapshot|status|note|record|compare|gate-create|merge ...');
+  else throw Error('Usage: check-review-ledger.mjs <key-dir> | reserve|snapshot|status|state|note|report|record|compare|gate-create|merge ...');
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { main(process.argv.slice(2)); } catch (error) { console.error(`review-ledger: ${error.message}`); process.exitCode = 1; }
