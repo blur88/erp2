@@ -131,36 +131,14 @@ The only merge path is `node scripts/check-review-ledger.mjs merge <n> --match-h
 
 ## Resolving shared scratch storage
 
-Initialize from the primary checkout, or from the Git directory for a bare repository, before using linked worktrees. The command below reads shared local `review.scratchRoot` first. When absent, it selects the layout from the current primary checkout or bare repository and writes that setting. An unconfigured linked worktree fails with an instruction to initialize from the primary location; its metadata alone cannot distinguish a primary checkout from separate storage named .git. This is a local configuration write, shared by worktrees, not a read-only lookup.
+Initialize from the primary checkout, or from the Git directory for a bare repository, before using linked worktrees. The script reads shared local `review.scratchRoot` first. When absent, it selects the layout from the current primary checkout or bare repository and writes that setting. An unconfigured linked worktree fails with an instruction to initialize from the primary location; its metadata alone cannot distinguish a primary checkout from separate storage named .git. This is a local configuration write, shared by worktrees, not a read-only lookup.
 
 Store only "../.scratch" or "review-scratch", relative to the common directory, so moving or copying the repository preserves the layout. Absolute settings from earlier versions are rejected. To change the layout or replace an old setting, run `git config --local --unset review.scratchRoot` from a repository location, initialize again from the primary location, and move existing review state to the resulting root before reusing it. Moving an individual linked worktree does not change the common root.
 
-Run this subshell command and record its output. Errors return nonzero without exiting the calling shell; outside a repository it fails before reading or writing configuration.
+Run the script and record its output. Errors return nonzero without exiting the calling shell; outside a repository it fails before reading or writing configuration.
 
-```bash
-(
-  common=$(git rev-parse --path-format=absolute --git-common-dir) || exit 1
-  layout=$(git config --local --get review.scratchRoot || true)
-  if [ -z "$layout" ]; then
-    top=$(git rev-parse --show-toplevel 2>/dev/null || true)
-    if [ -n "$top" ] && [ "$common" = "$top/.git" ] && [ -d "$top/.git" ]; then
-      layout=../.scratch
-    elif [ "$(git rev-parse --path-format=absolute --git-dir)" != "$common" ]; then
-      echo 'Initialize review.scratchRoot from the primary checkout or bare repository first.' >&2
-      exit 1
-    else
-      layout=review-scratch
-    fi
-    git config --local review.scratchRoot "$layout" || exit 1
-  fi
-  case "$layout" in
-    ../.scratch) scratch="$(dirname "$common")/.scratch" ;;
-    review-scratch) scratch="$common/review-scratch" ;;
-    *) echo 'Unsupported review.scratchRoot; reset it from the primary location.' >&2; exit 1 ;;
-  esac
-  printf '%s\n' "$scratch"
-)
-```
+Run [`scripts/review-scratch-root.sh`](../../scripts/review-scratch-root.sh).
+
 
 ## Capturing working-tree state
 
