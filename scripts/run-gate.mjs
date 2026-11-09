@@ -2,9 +2,17 @@
 // Runs one gate command and saves a self-describing evidence log (#1774).
 // Usage: node scripts/run-gate.mjs <log> -- <command> [args...]
 // The command runs from the current directory without a shell; wrap it in `sh -c` to use shell syntax.
-// The log header records HEAD, tree state, cwd, argv and start time; the footer records the finish time,
-// unindented TAP plan/ok/not-ok counts and EXIT=<status>. The wrapper exits with that status.
-// Wrapper errors (usage, an existing log) exit 125 and never overwrite evidence.
+//
+// Log layout:
+//   header  HEAD, TREE (git status before the command runs), CWD and ARGV (JSON-encoded), STARTED
+//   output  combined stdout/stderr bytes, between `--- output ---` and the last `--- end output ---`
+//   footer  optional SIGNAL= or a start-failure note, then FINISHED, TAP, and EXIT as the final line
+// Read the footer after the last `--- end output ---`: the command's own output can contain any text.
+// TAP counts unindented `ok`/`not ok`/`1..N` lines of stdout only, so stderr can't split or add to them.
+// The wrapper exits with the command's status: 128 + n for signal n, 127 when the command is missing,
+// 126 when it can't be started. Wrapper errors (usage, an existing or uncreatable log) print `run-gate:`
+// or `Usage:` on stderr, exit 125 and create no log. SIGINT/SIGTERM sent to the wrapper are forwarded.
+// HEAD and TREE describe the repository Git resolves from the current directory (including GIT_DIR).
 import { execFileSync, spawn } from 'node:child_process';
 import { closeSync, openSync, writeSync } from 'node:fs';
 import { constants } from 'node:os';
@@ -25,7 +33,7 @@ function git(...gitArgs) {
 }
 
 const head = git('rev-parse', 'HEAD') ?? 'unknown';
-const status = git('status', '--porcelain');
+const status = git('status', '--porcelain', '--untracked-files=all');
 const tree = status === null ? 'unknown' : status === '' ? 'clean' : `dirty (${status.split('\n').length} paths)`;
 
 let fd;
@@ -37,17 +45,34 @@ try {
   process.exit(WRAPPER_ERROR);
 }
 
-const write = (text) => writeSync(fd, text);
-write(`# run-gate\nHEAD=${head}\nTREE=${tree}\nCWD=${process.cwd()}\nARGV=${JSON.stringify([command, ...args])}\n`);
-write(`STARTED=${new Date().toISOString()}\n--- output ---\n`);
+const write = (data) => writeSync(fd, data);
+write(`# run-gate\nHEAD=${head}\nTREE=${tree}\nCWD=${JSON.stringify(process.cwd())}\n`);
+write(`ARGV=${JSON.stringify([command, ...args])}\nSTARTED=${new Date().toISOString()}\n--- output ---\n`);
 
-// Decode once at the end so a multibyte character split across chunks stays intact.
-const chunks = [];
-function capture(stream) {
+// A caller that stops reading (for example `| head`) must not cost the log its footer.
+for (const stream of [process.stdout, process.stderr]) stream.on('error', () => {});
+
+const tap = { plans: [], ok: 0, notOk: 0 };
+let pendingLine = '';
+function countTapLine(line) {
+  if (/^1\.\.\d+\s*$/.test(line)) tap.plans.push(line.trim());
+  else if (/^ok(?:\s|$)/.test(line)) tap.ok += 1;
+  else if (/^not ok(?:\s|$)/.test(line)) tap.notOk += 1;
+}
+function countTap(text) {
+  const lines = (pendingLine + text).split('\n');
+  pendingLine = lines.pop();
+  for (const line of lines) countTapLine(line);
+}
+
+let lastByte = 0x0a;
+function capture(stream, parse) {
   return (chunk) => {
-    chunks.push(chunk);
     write(chunk);
-    stream.write(chunk);
+    lastByte = chunk[chunk.length - 1];
+    // latin1 maps bytes 1:1, so a multibyte character split across chunks can't disturb line starts.
+    if (parse) countTap(chunk.toString('latin1'));
+    if (!stream.destroyed) stream.write(chunk);
   };
 }
 
@@ -56,22 +81,20 @@ function finish(exitStatus, note) {
   // A failed spawn emits 'error' and may also emit 'close'; record only the first outcome.
   if (finished) return;
   finished = true;
-  const output = Buffer.concat(chunks).toString('utf8');
-  if (output && !output.endsWith('\n')) write('\n');
+  if (pendingLine) countTapLine(pendingLine);
+  if (lastByte !== 0x0a) write('\n');
   write('--- end output ---\n');
   if (note) write(`${note}\n`);
-  const plans = output.match(/^1\.\.\d+/gm) ?? [];
-  const ok = output.match(/^ok\b/gm)?.length ?? 0;
-  const notOk = output.match(/^not ok\b/gm)?.length ?? 0;
-  const tap = plans.length ? `${plans.join(',')} ok=${ok} not_ok=${notOk}` : 'none';
-  write(`FINISHED=${new Date().toISOString()}\nTAP=${tap}\nEXIT=${exitStatus}\n`);
+  const summary = tap.plans.length ? `${tap.plans.join(',')} ok=${tap.ok} not_ok=${tap.notOk}` : 'none';
+  write(`FINISHED=${new Date().toISOString()}\nTAP=${summary}\nEXIT=${exitStatus}\n`);
   closeSync(fd);
   process.exitCode = exitStatus;
 }
 
 const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-child.stdout.on('data', capture(process.stdout));
-child.stderr.on('data', capture(process.stderr));
+child.stdout.on('data', capture(process.stdout, true));
+child.stderr.on('data', capture(process.stderr, false));
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));
 child.on('error', (error) => {
   const message = `run-gate: cannot run ${command}: ${error.message}`;
   console.error(message);
