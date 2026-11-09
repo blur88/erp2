@@ -33,7 +33,7 @@ For external review subjects, follow the [external-file workflow](external-files
 
 ## Subagent briefs
 
-Every reviewer brief requires saving probe fixtures, probe output and test output under `<scratch-root>/<key>/evidence/`, using the resolved absolute key directory from [state and reports](#state-and-reports). Cleanup leaves `evidence/` in place. The pre-merge Spec brief names the ledger as a source for review-citation claims in the PR body, alongside the saved evidence for the reviewed head. Incidents: #1724, PR #1756; #1725, PR #1757.
+Every reviewer brief requires saving probe fixtures, probe output and test output under `<scratch-root>/<key>/evidence/`, using the resolved absolute key directory from [state and reports](#state-and-reports). Cleanup leaves that evidence directory in place. The pre-merge Spec brief names the ledger as a source for review-citation claims in the PR body, alongside the saved evidence for the reviewed head. Incidents: #1724, PR #1756; #1725, PR #1757.
 
 ## State and reports
 
