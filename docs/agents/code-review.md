@@ -100,11 +100,22 @@ Use `node scripts/check-review-ledger.mjs` with these arguments:
 - `reserve <key-dir>` atomically reserves the next number, recording harness identity, native session/thread ID when exposed, hostname, PID, start time and full HEAD.
 - `snapshot <key-dir> <round> <baseline> [selected-new-path ...]` saves the working-tree state and selected-file manifest before reviewers start; see [capturing working-tree state](#capturing-working-tree-state).
 - `status <key-dir>` lists reservations without rows. It does not determine whether an owning session has ended.
+- `report <key-dir> <round> <input.json>` assembles a report for a reserved round and prints the JSON accepted by `record`. It does not append a ledger row. See [assembling reports](#assembling-reports).
 - `record <key-dir> <round> '<JSON>'` validates and appends a row. JSON keys are the ledger column names, excluding round, started and reviewed head, which come from the reservation. Working-tree rows add ` + working tree` to the reserved head. Writers serialize with <key-dir>/.record.lock; after a crashed writer, confirm it ended before removing that lock.
 - `compare <saved-patch> <baseline> <commit>` compares bytes using the patch options below.
 - `note <key-dir> <text>` appends a timestamped entry with full HEAD to <key-dir>/notes.md.
 
 The Claude Code Bash PreToolUse hook conservatively checks commands mentioning `gh`, `pr` and `create`, including compound commands and quoted words. It blocks unless the checker passes and a complete committed row reviews HEAD. It resolves the configured shared scratch root, then the issue number in the branch name, otherwise `branch-<sanitized-branch>`. Other harnesses must run the checker themselves; this hook does not intercept their tools. The merge command checks the latest row and the live PR head, watches required checks and all checks, then passes the exact `--match-head-commit` to GitHub. Shell aliases or dynamically constructed commands are outside the create hook's command matching.
+
+## Assembling reports
+
+Use `report` after saving the independent reviewers' assessments and probe evidence. Supply a JSON file with `issue`, `pr` (use `N/A` when absent), `kind`, `mode`, and `state` using the [structured evidence format](#structured-review-evidence-and-four-states). Supply `PR baseline` for the first round; later rounds inherit it from the latest ledger row unless explicitly supplied. `delta base` defaults to the last reviewed commit for a delta, otherwise `N/A`.
+
+The writer copies the reservation's round, start time, head, session and harness into the header, chooses a convention-compliant unused filename, and derives the working-tree file list from the saved snapshot. It carries every earlier finding; `state.findings` supplies additions or updates by ID, so an empty array removes nothing. Finding severity and blocking classification remain protected by the existing checker. It inherits the criterion inventory except after a scope reset. Full reports start every required criterion as unmet; delta reports retain touched and earlier-unmet IDs as unmet. Supply fresh `state.criteria` assessments and evidence to mark them met. The writer never upgrades copied evidence into a fresh assessment.
+
+`outcome` defaults to `partial`; `state.evidenceComplete` defaults to false and `state.checks` to an empty array. Completion requires explicit `outcome: "complete"`, evidence completeness, and `standards` and `spec` assessment text, plus the existing checker's scope, evidence and independence validation. Supply implementing and reviewer execution identities and saved reviewer-report paths explicitly; the reservation identity identifies the reserving session, which may differ from either reviewer. The writer does not execute reviews or infer independence from the reservation.
+
+Reports are created exclusively; existing files remain unchanged. The writer validates the assembled report as a candidate ledger row, rejects invalid existing ledgers and invalid candidate evidence, and removes only its newly generated file on validation failure. Successful output is the row JSON; append it using the existing `record` command once the report is ready to enter the immutable ledger. Verification output still comes from `run-gate`, and neither command changes the merge gate or reuse rules.
 
 ## Citations
 
