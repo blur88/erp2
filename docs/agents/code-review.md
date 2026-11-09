@@ -70,15 +70,30 @@ Delegated briefs must include these requirements and the resolved absolute evide
 
   Then `## Standards`, `## Spec`, and an outcome (complete / partial / aborted), recorded separately from unresolved blocking findings.
 
+## Writer commands
+
+Use `node scripts/check-review-ledger.mjs` with these arguments:
+
+- `<key-dir>` checks the ledger; reservations without rows are informational and fast subagent rounds produce warnings.
+- `reserve <key-dir>` atomically reserves the next number, recording harness identity, native session/thread ID when exposed, hostname, PID, start time and full HEAD.
+- `status <key-dir>` lists reservations without rows. It does not determine whether an owning session has ended.
+- `record <key-dir> <round> '<JSON>'` validates and appends a row. JSON keys are the ledger column names, excluding round, started and reviewed head, which come from the reservation. Working-tree rows add ` + working tree` to the reserved head. Writers serialize with <key-dir>/.record.lock; after a crashed writer, confirm it ended before removing that lock.
+- `compare <saved-patch> <baseline> <commit>` compares bytes using the patch options below.
+- `note <key-dir> <text>` appends a timestamped entry with full HEAD to <key-dir>/notes.md.
+
+The Claude Code Bash PreToolUse hook conservatively checks commands mentioning `gh`, `pr` and `create`, including compound commands and quoted words. It blocks unless the checker passes and a complete committed row reviews HEAD. It resolves the configured shared scratch root, then the issue number in the branch name, otherwise `branch-<sanitized-branch>`. Other harnesses must run the checker themselves; this hook does not intercept their tools. The merge command checks the latest row and the live PR head, watches required checks and all checks, then passes the exact `--match-head-commit` to GitHub. Shell aliases or dynamically constructed commands are outside the create hook's command matching.
+
 ## Citations
 
-- Commit and PR bodies cite the ledger key and round numbers instead of reconstructing review evidence. A commit body can cite only rounds that already exist. Record post-commit verification in the ledger and cite it in the PR body; don't amend a commit just to add a citation, because that changes the reviewed SHA.
+- Commit and PR bodies cite the ledger key and round numbers instead of reconstructing review evidence. A commit body can cite only rounds that already exist. Record implementation responses and post-commit verification only in <key-dir>/notes.md in the key directory and cite it in the PR body; don't amend a commit just to add a citation, because that changes the reviewed SHA.
+
+Run `node scripts/check-review-ledger.mjs <key-dir>` before citing rounds in a commit or PR body.
 
 For claims in commit and PR bodies, follow the traceable-evidence rule in [coding standards](../../CODING_STANDARDS.md).
 
 ## Merge gate
 
-Merge with `gh pr merge <n> --match-head-commit <reviewed head>`, using the reviewed head recorded by the completed pre-merge round. Merge only when blocking findings are resolved and required verification has passed. Immediately before merging, run `gh pr checks <n> --watch` and confirm it exits 0. Watch all checks: the PR body check is advisory, so `--required` skips it. Editing the PR body re-runs that check, so record that check's `startedAt` from `gh pr checks <n> --json name,startedAt` before the edit, and after it wait until a later run appears. If HEAD changes after that round, complete the pre-merge gate again for the new HEAD.
+The only merge path is `node scripts/check-review-ledger.mjs merge <n> --match-head-commit <reviewed head>`, using the reviewed head recorded by the completed pre-merge round. Merge only when blocking findings are resolved and required verification has passed. Immediately before merging, run `gh pr checks <n> --watch` and confirm it exits 0. Watch all checks: the PR body check is advisory, so `--required` skips it. Editing the PR body re-runs that check, so record that check's `startedAt` from `gh pr checks <n> --json name,startedAt` before the edit, and after it wait until a later run appears. If HEAD changes after that round, complete the pre-merge gate again for the new HEAD.
 
 ## Resolving shared scratch storage
 
