@@ -28,6 +28,7 @@
     "test:debug": "NODE_OPTIONS=--experimental-vm-modules node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "NODE_ENV=test NODE_OPTIONS=\"--max-old-space-size=4096 --experimental-vm-modules\" jest --config ./test/jest-e2e.json",
     "test:redis": "./scripts/preflight-redis-test.sh && NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-redis.json",
+    "pretest:scripts": "node scripts/check-agent-doc-paths.mjs",
     "test:scripts": "bats scripts/__tests__",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "npm run typeorm -- -d ./src/config/database.config.ts migration:generate ./src/database/migrations/$npm_config_name",

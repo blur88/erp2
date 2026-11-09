@@ -30,6 +30,7 @@ For external review subjects, follow the [external-file workflow](external-files
   - Standards: "No delta since round <nn>", unless the delta-round broadening rule applies.
   - Evidence check: verify every PR-body claim (verification rows, demo output and review citations) against the ledger and saved evidence for the reviewed head. The PR body's verification table must cite the passing run/job for each CI command on the reviewed head, replacing each `pending` CI row with qualifying evidence under the [AGENTS.md evidence rules](../../AGENTS.md#change-scoped-verification-required-before-merge). Say which claims were verified against the final SHA and record every gap explicitly. A gap doesn't waive a required check or make the PR merge-ready. Incidents: #1719, PR #1752; #1725, PR #1757.
   - Doesn't move the last reviewed commit forward. Must be redone if HEAD moves.
+- **Verification ownership**: assign one executor to each full-suite command for each candidate state. Reviewers independently audit the saved command, SHA, tree state, output and exit status, and execute focused probes required below. Repeat a full suite when the candidate changes or its evidence is missing, failed, or insufficient; retain the final-head requirements in [AGENTS.md](../../AGENTS.md#change-scoped-verification-required-before-merge).
 - **Verification**: rounds stay incremental; the pre-merge round follows the final-head rule in [AGENTS.md](../../AGENTS.md#change-scoped-verification-required-before-merge). Reproduce checks that depend on a clean checkout with `scripts/verify-in-clean-clone.sh` ([agent document pointer checks](../backend/testing.md#agent-document-pointer-checks)), or record them as verification gaps.
 
 ## Subagent briefs
@@ -39,6 +40,8 @@ Each subagent brief requires the reviewer to save its probe fixtures and output 
 ## Checker execution evidence
 
 When the reviewed scope changes a checker, validator, hook, lint rule, CI gate, or executable review tooling, each reviewer executes documented probes against the reviewed state. Include valid inputs, invalid inputs, edge cases, and adversarial bypass attempts. Commands these review conventions tell agents to run, such as the [scratch-root command](#resolving-shared-scratch-storage), count as executable review tooling; prose-only edits to review conventions are reviewed as documentation. Choose cases from the changed behavior and its surrounding safeguards; explain what each case tests. Existing test results can support a probe only when its exact input and execution records are available.
+
+For real-Git probes, use [`scripts/helpers/git-fixture.cjs`](../../scripts/helpers/git-fixture.cjs): `createGitFixture({ parent: evidenceDirectory })` returns an isolated `root`, `env`, `run`, and `git`. It clears inherited Git variables, disables global/system config, and stops discovery before the fixture parent. Keep review fixtures in the evidence directory; call `cleanup()` only for disposable test fixtures. Capture `run()` results or the probe program through `run-gate` below.
 
 Save each input or fixture and the actual combined stdout/stderr in the shared evidence directory above. Each reviewer report names its saved report path and includes a table with one row per execution:
 
