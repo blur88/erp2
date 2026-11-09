@@ -10,10 +10,22 @@ function fixture(t) {
   t.after(() => fs.rmSync(repo, { recursive: true, force: true }));
   const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
   git('init', '-q'); git('config', 'user.name', 'Fixture'); git('config', 'user.email', 'fixture@example.invalid');
-  git('commit', '-qm', 'initial', '--allow-empty');
+  fs.writeFileSync(path.join(repo, 'criterion.txt'), 'fixture evidence\n');
+  git('add', 'criterion.txt'); git('commit', '-qm', 'initial');
   const head = git('rev-parse', 'HEAD');
   const key = path.join(repo, 'records'); fs.mkdirSync(key);
-  const run = (...args) => spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8' });
+  const run = (...args) => {
+    if (args[0] === 'record') {
+      const row = JSON.parse(args[3]);
+      const file = path.join(args[1], row.report);
+      if (fs.existsSync(file) && !fs.readFileSync(file, 'utf8').includes('```review-state')) {
+        fs.writeFileSync(path.join(args[1], 'checks.log'), 'EXIT=0\n');
+        const data = { scope: 'full PR', implementer: 'fixture-implementer', reviewers: [{ session: 'fixture-reviewer', report: row.report }], requiredCriteria: ['fixture'], criteria: [{ id: 'fixture', status: 'met', file: 'criterion.txt', line: 1, quote: 'fixture evidence' }], findings: Number(row['blocking findings']) > 0 ? [{ id: 'F1', severity: 'high', blocking: true, status: 'open' }] : [], evidenceComplete: row.outcome === 'complete', checks: [{ command: 'fixture', status: 'passed (local)', evidence: 'checks.log' }] };
+        fs.appendFileSync(file, '\n```review-state\n' + JSON.stringify(data) + '\n```\n');
+      }
+    }
+    return spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8' });
+  };
   return { repo, key, head, git, run };
 }
 test('reserve and status preserve a reservation without treating it as a failed round', (t) => {
@@ -45,7 +57,7 @@ Outcome: complete
   fs.writeFileSync(path.join(f.key, report), text);
   const row = { kind: 'committed', 'PR baseline': f.head, 'delta base': 'N/A', mode: 'inline (fixture)', outcome: 'complete', 'blocking findings': 'none', report };
   assert.equal(f.run('record', f.key, '1', JSON.stringify(row)).status, 0);
-  return { marker, report, text, row };
+  return { marker, report, text: fs.readFileSync(path.join(f.key, report), 'utf8'), row };
 }
 test('record copies marker identity, note stays outside the ledger, compare checks actual bytes', (t) => {
   const f = fixture(t), { marker } = reviewed(f);
@@ -93,6 +105,7 @@ function nextRound(f, kind, outcome = 'complete', blocking = 'none') {
   const reserve = f.run('reserve', f.key); assert.equal(reserve.status, 0, reserve.stderr);
   const n = reserve.stdout.split(' ')[0];
   const report = `review-round-${n}.md`;
+  if (kind === 'working-tree') assert.equal(f.run('snapshot', f.key, n, f.head).status, 0);
   fs.writeFileSync(path.join(f.key, report), `# Review round ${n}
 Issue / PR / key: #1731 / 42 / records
 Kind: ${kind}
@@ -202,6 +215,9 @@ test('committed reconciliation can reference its byte-identical working-tree rep
   const row = { kind: 'committed', 'PR baseline': f.head, 'delta base': 'round-01 saved state', mode: 'inline', outcome: 'complete', 'blocking findings': 'none', report: 'review-round-01.md' };
   const result = f.run('record', f.key, '2', JSON.stringify(row));
   assert.equal(result.status, 0, result.stdout + result.stderr);
+  const state = JSON.parse(f.run('state', f.key).stdout);
+  assert.equal(state.rounds.at(-1).coverage.scope, 'inherited');
+  assert.equal(state.rounds.at(-1).reuseEligible, false);
   editLedger(f, (s) => s.replace('| none | review-round-01.md |', '| 1 | review-round-01.md |'));
   assert.match(f.run(f.key).stdout, /carry working-tree blocking findings/);
   fs.writeFileSync(path.join(f.key, 'review-round-01.patch'), 'different');
@@ -290,7 +306,18 @@ test('snapshot rejects separate Git storage and directories containing it', (t) 
 for (const suffix of [' ', '\n']) test(`snapshot preserves significant trailing root whitespace ${JSON.stringify(suffix)}`, (t) => {
   const f = fixture(t), repo = f.repo + suffix;
   fs.renameSync(f.repo, repo); t.after(() => fs.rmSync(repo, { recursive: true, force: true }));
-  const run = (...args) => spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8' });
+  const run = (...args) => {
+    if (args[0] === 'record') {
+      const row = JSON.parse(args[3]);
+      const file = path.join(args[1], row.report);
+      if (fs.existsSync(file) && !fs.readFileSync(file, 'utf8').includes('```review-state')) {
+        fs.writeFileSync(path.join(args[1], 'checks.log'), 'EXIT=0\n');
+        const data = { scope: 'full PR', implementer: 'fixture-implementer', reviewers: [{ session: 'fixture-reviewer', report: row.report }], requiredCriteria: ['fixture'], criteria: [{ id: 'fixture', status: 'met', file: 'criterion.txt', line: 1, quote: 'fixture evidence' }], findings: Number(row['blocking findings']) > 0 ? [{ id: 'F1', severity: 'high', blocking: true, status: 'open' }] : [], evidenceComplete: row.outcome === 'complete', checks: [{ command: 'fixture', status: 'passed (local)', evidence: 'checks.log' }] };
+        fs.appendFileSync(file, '\n```review-state\n' + JSON.stringify(data) + '\n```\n');
+      }
+    }
+    return spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8' });
+  };
   assert.equal(run('reserve', 'records').status, 0);
   fs.writeFileSync(path.join(repo, 'selected'), 'new\n');
   const result = run('snapshot', 'records', '1', f.head, 'selected');

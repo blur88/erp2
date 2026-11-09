@@ -5,6 +5,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import { hostname } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { reviewState } from './review-state.mjs';
 import { snapshot } from './review-snapshot.mjs';
 
 const columns = ['round', 'kind', 'started', 'PR baseline', 'delta base', 'reviewed head', 'mode', 'outcome', 'blocking findings', 'report'];
@@ -49,8 +50,11 @@ function field(report, name) {
 }
 export function check(key, content) {
   const { rows, errors } = ledger(key, content), warnings = [];
-  let last, previous = 0;
+  let last, previous = 0, previousState;
+  const states = [];
+  const tableValid = errors.length === 0;
   for (const row of rows) {
+    const errorStart = errors.length;
     const fail = (rule) => errors.push(`round ${row.round}: ${rule}`);
     const number = Number(row.round);
     if (number <= previous) fail('round numbers must be unique and increasing');
@@ -74,7 +78,9 @@ export function check(key, content) {
     const reportPath = resolve(key, target(row.report));
     if (!existsSync(reportPath)) { fail('report missing'); continue; }
     const report = read(reportPath);
-    const priorWorking = rows.slice(0, rows.indexOf(row)).find((item) => item.kind === 'working-tree' && complete(item) && target(item.report) === target(row.report));
+    const history = rows.slice(0, rows.indexOf(row));
+    const currentScope = history.slice(history.findLastIndex(r => r.kind === 'scope-reset') + 1);
+    const priorWorking = currentScope.find((item) => item.kind === 'working-tree' && complete(item) && target(item.report) === target(row.report));
     let reconciled = false;
     if (row.kind === 'committed' && priorWorking) {
       const patch = join(key, `review-round-${nn(priorWorking.round)}.patch`);
@@ -83,6 +89,7 @@ export function check(key, content) {
         reconciled = priorWorking['PR baseline'] === row['PR baseline'] && readFileSync(patch).equals(committed);
       } catch { /* A missing patch or unresolved commit cannot establish reconciliation. */ }
       if (!reconciled) fail('committed reconciliation must match saved working-tree patch');
+      if (!states.find(s => s.round === priorWorking.round)?.valid) fail('reconciliation requires a valid working-tree review');
       if (row['blocking findings'] !== priorWorking['blocking findings']) fail('committed reconciliation must carry working-tree blocking findings verbatim');
     }
     const plain = `review-${row['reviewed head']}.md`;
@@ -125,16 +132,42 @@ export function check(key, content) {
       }
     }
     if (row.kind === 'pre-merge') {
+      if (last && row['PR baseline'] !== last['PR baseline']) fail('pre-merge baseline differs from committed review');
       if (!last || row['reviewed head'] !== last['reviewed head']) fail('pre-merge head must equal last reviewed commit');
       if (!/full PR|whole.PR/i.test(field(report, 'scope') ?? '')) fail('pre-merge scope must be full PR');
       if (start && last && Date.parse(start.started) < statSync(resolve(key, target(last.report))).mtimeMs) fail('pre-merge started before committed review completed');
     }
-    if (row.kind === 'scope-reset') last = undefined;
-    if (row.kind === 'committed' && complete(row)) last = row;
+    const state = row.kind === 'scope-reset' ? undefined : reviewState({ key, row, report, previous: previousState, fail, reconciled, snapshotRound: priorWorking?.round });
+    let inherited = reconciled;
+    if (state?.scope === 'inherited' && !reconciled) {
+      const origin = currentScope.find(r => Number(r.round) === state.inheritance?.round && r.kind === 'working-tree');
+      const originState = states.find(s => s.round === origin?.round);
+      try {
+        if (!originState?.valid || !originState.coverage.complete || originState.coverage.scope !== 'full PR' || origin['PR baseline'] !== row['PR baseline']) throw Error();
+        const snapshot = JSON.parse(read(join(key, `review-round-${nn(origin.round)}.snapshot.json`)));
+        const patch = execFileSync('git', ['diff', '--binary', '--full-index', '--no-ext-diff', '--no-textconv', row['PR baseline'], snapshot.tree, '--']);
+        if (!patch.equals(readFileSync(join(key, `review-round-${nn(origin.round)}.patch`)))) throw Error();
+        const difference = execFileSync('git', ['diff', '--binary', '--full-index', '--no-ext-diff', '--no-textconv', snapshot.tree, row['reviewed head'], '--']);
+        if (!difference.equals(readFileSync(resolve(key, state.inheritance.comparison)))) throw Error();
+        inherited = true;
+      } catch { fail('inherited coverage requires a valid full working-tree review and exact saved comparison'); }
+    }
+    if (state && !last && !inherited && state.scope !== 'full PR') fail('initial review requires full PR coverage');
+    if (row.kind === 'committed' && last) {
+      if (row['PR baseline'] !== last['PR baseline']) fail('baseline changed without scope reset');
+      try { git('merge-base', '--is-ancestor', last['reviewed head'], row['reviewed head']); } catch { fail('last reviewed commit is not an ancestor'); }
+      if (row['reviewed head'] === last['reviewed head'] && !reconciled && (!state?.rereview || String(state.rereview.round) !== String(Number(last.round)) || !state.rereview.authorization || !existsSync(resolve(key, state.rereview.authorization)))) fail('same-head re-review needs owner request and previous round');
+      if (state?.scope === 'delta' && row['delta base'] !== last['reviewed head']) fail('delta base must equal last reviewed commit');
+    }
+    const valid = tableValid && errors.length === errorStart;
+    states.push({ round: row.round, valid, completion: state?.completion ?? 'partial', coverage: state?.coverage ?? { scope: 'unknown', complete: false }, reuseEligible: valid && !!state?.reuseEligible, mergeEligible: valid && !!state?.mergeEligible });
+    if (row.kind === 'scope-reset') { last = undefined; if (previousState) previousState = { findings: previousState.findings }; }
+    if (valid && state && row.kind !== 'scope-reset') previousState = state;
+    if (valid && state?.completion === 'complete' && row.kind === 'committed' && row['reviewed head'] !== last?.['reviewed head']) last = row;
   }
   let reserved = [];
   try { reserved = reservations(key).filter((item) => !rows.some((row) => Number(row.round) === item.number)); } catch (error) { errors.push(`round N/A: invalid reservation: ${error.message}`); }
-  return { rows, errors, warnings, reserved };
+  return { rows, errors, warnings, reserved, rounds: states, lastReviewedCommit: last?.['reviewed head'] ?? null };
 }
 function reserve(key) {
   mkdirSync(key, { recursive: true });
@@ -182,7 +215,7 @@ function keyDirectory() {
 }
 function gateCreate() {
   const result = check(keyDirectory()); printCheck(result);
-  if (result.errors.length || !result.rows.some((row) => row.kind === 'committed' && complete(row) && row['reviewed head'] === git('rev-parse', 'HEAD'))) throw Error('missing valid complete committed review for HEAD; docs/agents/code-review.md');
+  if (result.errors.length || result.lastReviewedCommit !== git('rev-parse', 'HEAD')) throw Error('missing valid complete committed review for HEAD; docs/agents/code-review.md');
 }
 function merge(pr, ...flags) {
   if (!/^\d+$/.test(pr ?? '')) throw Error('merge requires a PR number');
@@ -192,7 +225,7 @@ function merge(pr, ...flags) {
   if (index < 0 || flags[index + 1] !== head) throw Error('merge requires --match-head-commit with current PR head');
   const result = check(keyDirectory()); printCheck(result);
   const row = result.rows.at(-1);
-  if (result.errors.length || row?.kind !== 'pre-merge' || !complete(row) || !noBlocking(row['blocking findings']) || row['reviewed head'] !== head) throw Error('missing complete pre-merge review without blocking findings for current PR head; docs/agents/code-review.md');
+  if (result.errors.length || row?.kind !== 'pre-merge' || !complete(row) || !noBlocking(row['blocking findings']) || !result.rounds.at(-1)?.mergeEligible || row['reviewed head'] !== head) throw Error('missing complete pre-merge review without blocking findings for current PR head; docs/agents/code-review.md');
   execFileSync('gh', ['pr', 'checks', pr, '--required', '--watch'], { stdio: 'inherit' });
   execFileSync('gh', ['pr', 'checks', pr, '--watch'], { stdio: 'inherit' });
   execFileSync('gh', ['pr', 'merge', pr, ...flags], { stdio: 'inherit' });
@@ -201,6 +234,7 @@ export function main([command, ...args]) {
   if (command === 'reserve') reserve(...args);
   else if (command === 'snapshot') snapshot(...args);
   else if (command === 'record') record(...args);
+  else if (command === 'state') { const result = check(args[0]); console.log(JSON.stringify(result)); if (result.errors.length) process.exitCode = 1; }
   else if (command === 'status') printCheck({ ...check(args[0]), errors: [], warnings: [] });
   else if (command === 'note') appendFileSync(join(args[0], 'notes.md'), `\n- ${new Date().toISOString()} HEAD=${git('rev-parse', 'HEAD')}: ${args.slice(1).join(' ')}\n`);
   else if (command === 'compare') {

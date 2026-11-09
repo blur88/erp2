@@ -7,7 +7,7 @@ For external review subjects, follow the [external-file workflow](external-files
 ## Terms
 
 - **PR baseline**: merge-base of HEAD with the PR's actual base branch (`main` by default; the real base for a stacked PR). Ask only when repository and PR metadata can't settle it unambiguously; a detached HEAD or unpushed base alone doesn't require a question. It stays fixed across normal rounds; a scope reset may set and record a new baseline.
-- **Last reviewed commit**: the reviewed head of the latest *complete* round of kind *committed* after the latest scope reset. It's unset if there is none. It moves forward only when a round completes, never when one starts.
+- **Last reviewed commit**: the reviewed head of the latest valid, independent, complete round of kind *committed* with all required scope evidence after the latest scope reset. It's unset if there is none. It moves forward only when a round completes, never when one starts.
 
 ## Rounds
 
@@ -19,7 +19,8 @@ For external review subjects, follow the [external-file workflow](external-files
   - no contract change (API/DTO, schema/migration, auth, CI/workflow, dependency manifest);
   - doesn't invalidate earlier conclusions beyond resolving recorded findings.
 
-  The report records the mode and why. Inline rounds keep separate `## Standards` sections (CODING_STANDARDS.md + the `mattpocock-skills:code-review` skill's smell baseline) and `## Spec` sections (the issue), using the same sources as delegated rounds. Each section lists findings or says explicitly that none were found in the reviewed scope.
+  The reviewer runs in a different execution session from the implementer, with both identities recorded and independently verifiable. The report records the mode and why. Inline rounds keep separate `## Standards` sections (CODING_STANDARDS.md + the `mattpocock-skills:code-review` skill's smell baseline) and `## Spec` sections (the issue), using the same sources as delegated rounds. Each section lists findings or says explicitly that none were found in the reviewed scope.
+- **Owner-requested re-review**: at an already-reviewed head, run the requested full-PR or named-delta scope even when the delta is empty. Cite the previous progression round and saved owner request in `rereview`. Preserve the last reviewed commit and its progression round.
 - **Working-tree round**: recorded as `<HEAD SHA> + working tree`, covering tracked changes and relevant untracked files. Save the full reviewed state as `review-round-<nn>.patch`, including untracked files, binary changes and file modes, and generate both patches with consistent options. Such a round never moves the last reviewed commit forward and is never the merge gate. After committing, compare the saved state with the new commit:
   - **Identical**: append a complete *committed* row for the new SHA that references the working-tree report and patch. Carry its findings forward; matching content doesn't resolve them.
   - **Different**: review the difference between the saved state and the new commit, including anything removed or reverted. The report names the saved state as the comparison base, not as the last reviewed commit. The last reviewed commit moves forward only after that review completes.
@@ -69,6 +70,27 @@ Delegated briefs must include these requirements and the resolved absolute evide
   - verification re-run (commands + results using the [AGENTS.md report statuses](../../AGENTS.md#change-scoped-verification-required-before-merge)) and verification gaps.
 
   Then `## Standards`, `## Spec`, and an outcome (complete / partial / aborted), recorded separately from unresolved blocking findings.
+
+## Structured review evidence and four states
+
+Every reviewer report names its saved path. Full-PR Spec reports enumerate every issue-body acceptance criterion, with a stable ID and verified file:line plus quoted evidence, or an explicit unmet reason. Delta reports retain touched criteria and every earlier unmet criterion. Every later report carries every earlier finding, including severity and disposition: open; resolved with file:line and saved evidence; or declined with saved owner authorization, decision-maker and justification. “No remaining findings” requires zero open rows.
+
+Each report includes one fenced `review-state` JSON block. It belongs to the immutable report indexed by the ledger, not a competing ledger. Required fields:
+
+- `scope`: `full PR`, `delta`, or `inherited`; `implementer`: execution session ID; `reviewers`: nonempty array of `{session, report}` with independent session IDs and saved report paths relative to the key directory.
+- `requiredCriteria`: complete ordered array of stable issue-body criterion IDs, retained until a scope reset; `touchedCriteria`: IDs assessed by a delta; `criteria`: array of `{id, status: "met", file, line, quote}` or `{id, status: "unmet", reason}`. Committed quotes are checked against Git at the exact reviewed SHA; working-tree quotes use the captured tree in the saved snapshot manifest. The reviewer verifies the inventory against the issue and the meaning of the evidence; the checker cannot establish semantic completeness from self-reported IDs.
+- `findings`: array of `{id, severity, blocking, status}`. Resolved rows add `location` (`file:line`) and `evidence` (saved artifact path). Declined rows add `authorization` (saved owner request), `decisionMaker`, and `justification`. Keep IDs, severity and blocking classification across rounds.
+- `evidenceComplete`: boolean covering all required scope evidence, including executed checker probes where applicable. Missing required evidence makes a round partial. `checks`: array of `{command, status, evidence}` using AGENTS.md statuses and saved log paths. A reviewer verifies applicability, provenance, exact state and log contents; the checker rejects missing artifacts and failed exit evidence.
+- For requested same-head reviews, `rereview: {round, authorization}` names the progression round and saved owner request.
+
+`node scripts/check-review-ledger.mjs state <key-dir>` exposes four distinct states for each round and `lastReviewedCommit`:
+
+1. `completion`: complete, partial or aborted for the declared scope; validation errors separately make the record invalid. Only valid independent complete committed records advance progression, even with findings.
+2. `coverage: {scope, complete}`: complete delta coverage does not assert full-PR coverage. Byte-identical working-tree reconciliation is inherited coverage. For a committed difference review, add `inheritance: {round, comparison}` naming the valid full-PR working-tree round and saved binary/full-index diff from its captured tree to the committed head. The checker verifies the original patch against that tree and the comparison byte for byte; the independent reviewer assesses every difference and its effect on prior conclusions. Inherited working-tree-plus-difference coverage never becomes a reusable committed full-PR Spec result.
+3. `reuseEligible`: a candidate full-PR committed result with complete criterion evidence, no blockers or unmet criteria, and passing saved checks. This does not authorize reuse: the fresh independent third-context check of unchanged SHA, baseline, criteria, conventions, evidence and current CI remains required by parent #1729 Q2/Q6. Until that check is implemented and evidenced, use a fresh independent whole-PR pre-merge Spec pass.
+4. `mergeEligible`: a valid complete full-PR pre-merge record with no blockers, unmet criteria, missing evidence or failed/pending checks. The guarded merge still watches live required and advisory checks and matches the exact head.
+
+Legacy reports without structured evidence remain preserved but fail validation and cannot advance progression or satisfy gates. The writer validates the entire ledger, so it cannot append a qualifying row to a legacy ledger. Preserve that sequence as historical evidence. Automatic migration and selection of an alternate sequence through the guarded PR commands are not supported; do not rewrite old reports to fabricate evidence. Existing legacy keys require a separately designed migration before those commands can use them. Scope resets invalidate earlier baseline coverage while retaining prior finding dispositions in subsequent reports.
 
 ## Writer commands
 
