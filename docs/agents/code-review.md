@@ -35,6 +35,20 @@ For external review subjects, follow the [external-file workflow](external-files
 
 Each subagent brief requires the reviewer to save its probe fixtures and output in the [evidence directory](#state-and-reports), using its resolved absolute path. The pre-merge Spec brief names the ledger as a source for review-citation claims in the PR body, alongside the saved evidence for the reviewed head. Incidents: #1724, PR #1756; #1725, PR #1757.
 
+## Checker execution evidence
+
+When the reviewed scope changes a checker, validator, hook, lint rule, or CI gate (including supporting review infrastructure), each reviewer executes documented probes against the reviewed state. Include valid inputs, invalid inputs, edge cases, and adversarial bypass attempts. Choose cases from the changed behavior and its surrounding safeguards; explain what each case tests. Existing test results can support a probe only when its exact input and execution records are available.
+
+Save each input or fixture and the actual combined stdout/stderr in the shared evidence directory above. Each reviewer report names its saved report path and includes a table with one row per execution:
+
+`category | behavior / command | fixture path | expected result and exit status | actual result | actual exit status | output path`
+
+Record the reviewed SHA or working-tree snapshot and execution environment needed to reproduce the commands. Preserve failing executions as well as successful ones; an empty output file is valid evidence of silence. Expected rejection with a nonzero exit can be a passing probe when it matches the expectation. A narrative claim, a proposed command, or an implementer-only run does not replace reviewer execution.
+
+Before reporting coverage complete, verify that all four categories have executed rows, every fixture and output exists and matches the report, and expected versus actual behavior is assessed. Missing execution, category, fixture, output, exit status, or reproducible state is an explicit **coverage gap**. Record coverage as incomplete and the round as partial until the required probes are executed and saved; it cannot advance the last reviewed commit or satisfy the merge gate. An executed probe exposing a bug is a finding, not missing coverage; completion remains separate from merge readiness.
+
+Delegated briefs must include these requirements and the resolved absolute evidence directory. Inline reviewers follow the same requirements. Pre-merge reports verify required probe evidence for the reviewed state and explicitly report any gaps. Controlled convention examples are documented in [checker review examples](checker-review-examples.md); they validate reporting behavior only and do not establish parent #1729's real-PR D4 demonstration.
+
 ## State and reports
 
 - **Scratch root**: one shared root for all worktrees. Resolve it using the absolute Git common directory and the shared local `review.scratchRoot` configuration described below. A standard checkout selects `<parent of git-common-dir>/.scratch/`; bare repositories and separate Git directories select `<git-common-dir>/review-scratch/`. Record the resolved absolute path.
