@@ -2,5 +2,18 @@
   "attribution": {
     "pr": "",
     "sessionUrl": false
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/review-pr-hook.mjs\""
+          }
+        ]
+      }
+    ]
   }
 }
