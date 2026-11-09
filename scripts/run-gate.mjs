@@ -8,10 +8,10 @@
 //   output  combined stdout/stderr bytes, between `--- output ---` and the last `--- end output ---`
 //   footer  optional SIGNAL= or a start-failure note, then FINISHED, TAP, and EXIT as the final line
 // Read the footer after the last `--- end output ---`: the command's own output can contain any text.
-// TAP counts unindented `ok`/`not ok`/`1..N` lines of stdout only, so stderr can't split or add to them.
+// TAP counts unindented `ok`/`not ok`/`1..N` (including `1..0 # SKIP`) lines of stdout only, so stderr can't split or add to them.
 // The wrapper exits with the command's status: 128 + n for signal n, 127 when the command is missing,
 // 126 when it can't be started. Wrapper errors (usage, an existing or uncreatable log) print `run-gate:`
-// or `Usage:` on stderr, exit 125 and create no log. SIGINT/SIGTERM sent to the wrapper are forwarded.
+// or `Usage:` on stderr, exit 125 and create no log. SIGHUP/SIGINT/SIGTERM sent to the wrapper are forwarded to the command.
 // HEAD and TREE describe the repository Git resolves from the current directory (including GIT_DIR).
 import { execFileSync, spawn } from 'node:child_process';
 import { closeSync, openSync, writeSync } from 'node:fs';
@@ -55,13 +55,14 @@ for (const stream of [process.stdout, process.stderr]) stream.on('error', () => 
 const tap = { plans: [], ok: 0, notOk: 0 };
 let pendingLine = '';
 function countTapLine(line) {
-  if (/^1\.\.\d+\s*$/.test(line)) tap.plans.push(line.trim());
+  if (/^1\.\.\d+(?:\s|$)/.test(line)) tap.plans.push(line.trimEnd());
   else if (/^ok(?:\s|$)/.test(line)) tap.ok += 1;
   else if (/^not ok(?:\s|$)/.test(line)) tap.notOk += 1;
 }
 function countTap(text) {
   const lines = (pendingLine + text).split('\n');
-  pendingLine = lines.pop();
+  // Only a line's start can match, so a long unterminated line keeps a short prefix.
+  pendingLine = lines.pop().slice(0, 64);
   for (const line of lines) countTapLine(line);
 }
 
@@ -94,7 +95,7 @@ function finish(exitStatus, note) {
 const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 child.stdout.on('data', capture(process.stdout, true));
 child.stderr.on('data', capture(process.stderr, false));
-for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));
+for (const signal of ['SIGHUP', 'SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));
 child.on('error', (error) => {
   const message = `run-gate: cannot run ${command}: ${error.message}`;
   console.error(message);

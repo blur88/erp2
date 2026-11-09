@@ -83,6 +83,13 @@ test('a final TAP line without a trailing newline is still counted', (t) => {
   assert.match(f.read(), /^TAP=1\.\.1 ok=1 not_ok=0$/m);
 });
 
+test('a skip plan is recorded as a plan', (t) => {
+  const f = fixture(t);
+  const result = f.run(f.log, ...node("console.log('1..0 # SKIP no tests')"));
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(f.read(), /^TAP=1\.\.0 # SKIP no tests ok=0 not_ok=0$/m);
+});
+
 test('an existing log is never overwritten and the command does not run', (t) => {
   const f = fixture(t);
   fs.writeFileSync(f.log, 'earlier evidence\n');
