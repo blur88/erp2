@@ -37,7 +37,7 @@ Each subagent brief requires the reviewer to save its probe fixtures and output 
 
 ## Checker execution evidence
 
-When the reviewed scope changes a checker, validator, hook, lint rule, or CI gate (including supporting review infrastructure), each reviewer executes documented probes against the reviewed state. Include valid inputs, invalid inputs, edge cases, and adversarial bypass attempts. Choose cases from the changed behavior and its surrounding safeguards; explain what each case tests. Existing test results can support a probe only when its exact input and execution records are available.
+When the reviewed scope changes a checker, validator, hook, lint rule, CI gate, or executable review tooling, each reviewer executes documented probes against the reviewed state. Include valid inputs, invalid inputs, edge cases, and adversarial bypass attempts. Commands these review conventions tell agents to run, such as the [scratch-root command](#resolving-shared-scratch-storage), count as executable review tooling; prose-only edits to review conventions are reviewed as documentation. Choose cases from the changed behavior and its surrounding safeguards; explain what each case tests. Existing test results can support a probe only when its exact input and execution records are available.
 
 Save each input or fixture and the actual combined stdout/stderr in the shared evidence directory above. Each reviewer report names its saved report path and includes a table with one row per execution:
 
@@ -53,7 +53,7 @@ Delegated briefs must include these requirements and the resolved absolute evide
 
 - **Scratch root**: one shared root for all worktrees. Resolve it using the absolute Git common directory and the shared local `review.scratchRoot` configuration described below. A standard checkout selects `<parent of git-common-dir>/.scratch/`; bare repositories and separate Git directories select `<git-common-dir>/review-scratch/`. Record the resolved absolute path.
 - **Key directory**, in order: `<scratch-root>/<issue-number>/`, then `<scratch-root>/pr-<pr-number>/`, then `<scratch-root>/branch-<sanitized-branch>/`. Keep the chosen directory for the whole sequence even if an issue or PR appears later, and record those identifiers in the ledger.
-- **Evidence directory**: `<scratch-root>/<key>/evidence/` holds every probe fixture, probe output and test output, whether a reviewer or the implementer produced it. Cleanup leaves it in place.
+- **Evidence directory**: `<scratch-root>/<key>/evidence/` holds every probe fixture, probe output and test output, whether a reviewer or the implementer produced it. Capture test output with [`scripts/run-gate.mjs`](../../scripts/run-gate.mjs) (`node <repo>/scripts/run-gate.mjs <log> -- <command>`, from the command's directory); its log records the head SHA, tree state, argv, TAP counts and `EXIT=` status. Cite the footer after the last `--- end output ---`, where `EXIT=` is the final line; the command's own output can contain any text. The log is evidence against the command's output, not against a command that writes to the log file itself. Cleanup leaves it in place.
 - **Ledger**: reviews.md, an append-only Markdown table. Each row is immutable and is appended when the round completes or is declared partial/aborted, not when it starts. Columns:
   `round | kind (committed / working-tree / pre-merge / scope-reset) | started (ISO 8601) | PR baseline | delta base | reviewed head | mode | outcome | blocking findings | report`. Use N/A where a field doesn't apply.
 - **Reusing state**: before reusing it, check that the report exists, the PR baseline matches, and the last reviewed commit is an ancestor of HEAD. If any check fails (for example after a rebase), append a *scope-reset* row, put the reason in its linked report, and treat earlier baseline state as invalid. Recover the last reviewed commit only from rows after the latest reset. Neither scope-reset nor pre-merge rows move the last reviewed commit forward.
@@ -78,7 +78,7 @@ For claims in commit and PR bodies, follow the traceable-evidence rule in [codin
 
 ## Merge gate
 
-Merge with `gh pr merge <n> --match-head-commit <reviewed head>`, using the reviewed head recorded by the completed pre-merge round. Merge only when blocking findings are resolved and required verification has passed. If HEAD changes after that round, complete the pre-merge gate again for the new HEAD.
+Merge with `gh pr merge <n> --match-head-commit <reviewed head>`, using the reviewed head recorded by the completed pre-merge round. Merge only when blocking findings are resolved and required verification has passed. Immediately before merging, run `gh pr checks <n> --watch` and confirm it exits 0. Watch all checks: the PR body check is advisory, so `--required` skips it. Editing the PR body re-runs that check, so record that check's `startedAt` from `gh pr checks <n> --json name,startedAt` before the edit, and after it wait until a later run appears. If HEAD changes after that round, complete the pre-merge gate again for the new HEAD.
 
 ## Resolving shared scratch storage
 
