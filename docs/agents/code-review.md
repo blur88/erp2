@@ -29,7 +29,7 @@ For external review subjects, follow the [external-file workflow](external-files
   - Standards: "No delta since round <nn>", unless the delta-round broadening rule applies.
   - Evidence check: say which claims were verified against the final SHA and record every gap explicitly. A gap doesn't waive a required check or make the PR merge-ready.
   - Doesn't move the last reviewed commit forward. Must be redone if HEAD moves.
-- **Verification**: rounds stay incremental; the pre-merge round follows the final-head rule in [AGENTS.md](../../AGENTS.md#change-scoped-verification-required-before-merge). Reproduce checks that depend on a clean checkout in a clean checkout, using a runner or by hand, or record them as verification gaps.
+- **Verification**: rounds stay incremental; the pre-merge round follows the final-head rule in [AGENTS.md](../../AGENTS.md#change-scoped-verification-required-before-merge). Reproduce checks that depend on a clean checkout with `scripts/verify-in-clean-clone.sh` ([agent document pointer checks](../backend/testing.md#agent-document-pointer-checks)), or record them as verification gaps.
 
 ## State and reports
 
