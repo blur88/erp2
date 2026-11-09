@@ -24,12 +24,16 @@ For external review subjects, follow the [external-file workflow](external-files
   - **Identical**: append a complete *committed* row for the new SHA that references the working-tree report and patch. Carry its findings forward; matching content doesn't resolve them.
   - **Different**: review the difference between the saved state and the new commit, including anything removed or reverted. The report names the saved state as the comparison base, not as the last reviewed commit. The last reviewed commit moves forward only after that review completes.
   - Leave the original working-tree row unchanged.
-- **Pre-merge round**: may start only when HEAD == last reviewed commit. If not, first complete a committed review: a delta review if the baseline is still valid, or a full review after a scope reset.
+- **Pre-merge round**: may start only when the PR is open and HEAD == last reviewed commit. If not, first complete a committed review: a delta review if the baseline is still valid, or a full review after a scope reset.
   - Spec: a whole-PR pass over `<PR baseline>...<head>`, using inline mode only when the entire PR meets every inline criterion (including the line and file limits), otherwise using subagents. Record the final committed SHA assessed.
   - Standards: "No delta since round <nn>", unless the delta-round broadening rule applies.
-  - Evidence check: say which claims were verified against the final SHA and record every gap explicitly. A gap doesn't waive a required check or make the PR merge-ready.
+  - Evidence check: verify every PR-body claim (verification rows, demo output and review citations) against the ledger and saved evidence for the reviewed head. The PR body's verification table must cite the passing CI run on that head, replacing any `pending` row. Say which claims were verified against the final SHA and record every gap explicitly. Incidents: #1719, PR #1752; #1725, PR #1757. A gap doesn't waive a required check or make the PR merge-ready.
   - Doesn't move the last reviewed commit forward. Must be redone if HEAD moves.
 - **Verification**: rounds stay incremental; the pre-merge round follows the final-head rule in [AGENTS.md](../../AGENTS.md#change-scoped-verification-required-before-merge). Reproduce checks that depend on a clean checkout with `scripts/verify-in-clean-clone.sh` ([agent document pointer checks](../backend/testing.md#agent-document-pointer-checks)), or record them as verification gaps.
+
+## Subagent briefs
+
+Every reviewer brief requires saving probe fixtures, probe output and test output under `<scratch-root>/<key>/evidence/`, using the resolved absolute key directory from [state and reports](#state-and-reports). Cleanup leaves `evidence/` in place. The pre-merge Spec brief names the ledger as a source for review-citation claims in the PR body, alongside the saved evidence for the reviewed head. Incidents: #1724, PR #1756; #1725, PR #1757.
 
 ## State and reports
 
@@ -55,7 +59,7 @@ For external review subjects, follow the [external-file workflow](external-files
 
 - Commit and PR bodies cite the ledger key and round numbers instead of reconstructing review evidence. A commit body can cite only rounds that already exist. Record post-commit verification in the ledger and cite it in the PR body; don't amend a commit just to add a citation, because that changes the reviewed SHA.
 
-See #1728 for rules governing claims in commit and PR bodies.
+For claims in commit and PR bodies, follow the traceable-evidence rule in [coding standards](../../CODING_STANDARDS.md).
 
 ## Merge gate
 
