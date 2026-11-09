@@ -27,13 +27,13 @@ For external review subjects, follow the [external-file workflow](external-files
 - **Pre-merge round**: may start only when the PR is open and HEAD == last reviewed commit. If not, first complete a committed review: a delta review if the baseline is still valid, or a full review after a scope reset.
   - Spec: a whole-PR pass over `<PR baseline>...<head>`, using inline mode only when the entire PR meets every inline criterion (including the line and file limits), otherwise using subagents. Record the final committed SHA assessed.
   - Standards: "No delta since round <nn>", unless the delta-round broadening rule applies.
-  - Evidence check: verify every PR-body claim (verification rows, demo output and review citations) against the ledger and saved evidence for the reviewed head. The PR body's verification table must cite the passing CI run on that head, replacing any `pending` row. Say which claims were verified against the final SHA and record every gap explicitly. Incidents: #1719, PR #1752; #1725, PR #1757. A gap doesn't waive a required check or make the PR merge-ready.
+  - Evidence check: verify every PR-body claim (verification rows, demo output and review citations) against the ledger and saved evidence for the reviewed head. The PR body's verification table must cite the passing run/job for each CI command on the reviewed head, replacing each `pending` CI row with qualifying evidence under the [AGENTS.md evidence rules](../../AGENTS.md#change-scoped-verification-required-before-merge). Say which claims were verified against the final SHA and record every gap explicitly. A gap doesn't waive a required check or make the PR merge-ready. Incidents: #1719, PR #1752; #1725, PR #1757.
   - Doesn't move the last reviewed commit forward. Must be redone if HEAD moves.
 - **Verification**: rounds stay incremental; the pre-merge round follows the final-head rule in [AGENTS.md](../../AGENTS.md#change-scoped-verification-required-before-merge). Reproduce checks that depend on a clean checkout with `scripts/verify-in-clean-clone.sh` ([agent document pointer checks](../backend/testing.md#agent-document-pointer-checks)), or record them as verification gaps.
 
 ## Subagent briefs
 
-Every reviewer brief requires saving probe fixtures, probe output and test output under `<scratch-root>/<key>/evidence/`, using the resolved absolute key directory from [state and reports](#state-and-reports). Cleanup leaves that evidence directory in place. The pre-merge Spec brief names the ledger as a source for review-citation claims in the PR body, alongside the saved evidence for the reviewed head. Incidents: #1724, PR #1756; #1725, PR #1757.
+Each subagent brief requires saving probe fixtures, probe output and test output under `<scratch-root>/<key>/evidence/`, using the resolved absolute key directory from [state and reports](#state-and-reports). Cleanup leaves that evidence directory in place. The pre-merge Spec brief names the ledger as a source for review-citation claims in the PR body, alongside the saved evidence for the reviewed head. Incidents: #1724, PR #1756; #1725, PR #1757.
 
 ## State and reports
 

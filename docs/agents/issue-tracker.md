@@ -6,7 +6,6 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 - **Owner decisions**: a choice an issue reserves for the owner is decided in an issue comment before implementation. An issue with an open owner decision is `ready-for-human`, not `ready-for-agent`; adding such a question to a `ready-for-agent` issue moves it back. When a `/grill-with-docs` or `/grilling` session settles decisions for an issue, post them as one issue comment, one line per decision, before implementation starts. Incident: #1710, PR #1733.
 - **Adding scope**: edit the issue body's acceptance criteria when a follow-up adds scope; the comment explains why. The body stays the spec.
-
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
 - **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
