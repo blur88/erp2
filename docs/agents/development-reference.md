@@ -120,11 +120,11 @@ Main protection is tracked in [the ruleset snapshot](../../.github/rulesets/main
 
 This is a conservative text policy, not a shell interpreter: workflow blocks containing `git` followed by `push` are rejected even in comments, echoed text, or unrelated commands. The text match strips literal quote marks and backslashes without decoding ANSI-C escapes. Release configuration is parsed without execution: JavaScript comments are skipped, string escapes are decoded, and constant string concatenations and template literals are inspected. ANSI-C escapes, dynamically assembled commands or plugin names, alternate release config files, called scripts, third-party actions, job-level reusable workflows and API-based ref updates still require review. For offline comparisons use `--compare <ruleset-response.json>`; `--root <checkout>` supports regression fixtures.
 
-Follow the [Quick Start](../../README.md#quick-start) to enable the local commit and push guards. They block commits on `main` and pushes targeting `main`, including pushes from another branch. Push a feature branch and open a PR. These local hooks do not affect merges performed on GitHub by `gh pr merge`.
+Follow the [Quick Start](../../README.md#quick-start) to enable the local commit and push guards. They block commits on `main` and pushes targeting `main`, including pushes from another branch. Push a feature branch and open a PR. These local hooks do not affect merges performed on GitHub.
 
-Merge with `gh pr merge <n> --match-head-commit <reviewed head>`; the flag refuses a push that lands between review and merge. For the reviewed head and merge-readiness requirements, follow the [review convention](code-review.md).
+For the merge command, reviewed head and merge-readiness requirements, follow the [guarded merge convention](code-review.md#merge-gate).
 
-For stacked PRs, `gh pr merge --delete-branch` on the base PR closes the stacked PR; GitHub refuses to retarget or reopen it afterward. Retarget the stacked PR to `main` first, or merge the base PR without `--delete-branch`.
+For stacked PRs, deleting the base branch during merge closes the stacked PR; GitHub refuses to retarget or reopen it afterward. Retarget the stacked PR to `main` first, or merge the base PR without `--delete-branch`.
 
 ## Release versions and verification
 

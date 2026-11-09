@@ -207,3 +207,93 @@ test('committed reconciliation can reference its byte-identical working-tree rep
   fs.writeFileSync(path.join(f.key, 'review-round-01.patch'), 'different');
   assert.match(f.run(f.key).stdout, /reconciliation must match/);
 });
+test('snapshot preserves binaries, deletions, modes and selected new files without changing the real index', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.repo, 'remove.txt'), 'old\n');
+  fs.writeFileSync(path.join(f.repo, 'run.sh'), '#!/bin/sh\n');
+  fs.writeFileSync(path.join(f.repo, 'binary.dat'), Buffer.from([0, 1, 2]));
+  f.git('add', '.'); f.git('commit', '-qm', 'tracked state');
+  const head = f.git('rev-parse', 'HEAD');
+  assert.equal(f.run('reserve', f.key).status, 0);
+  fs.unlinkSync(path.join(f.repo, 'remove.txt'));
+  fs.chmodSync(path.join(f.repo, 'run.sh'), 0o755);
+  fs.writeFileSync(path.join(f.repo, 'binary.dat'), Buffer.from([0, 255, 3]));
+  fs.writeFileSync(path.join(f.repo, 'new [literal].txt'), 'selected\n');
+  fs.writeFileSync(path.join(f.repo, 'excluded.txt'), 'not selected\n');
+  const before = f.git('diff', '--cached', '--binary');
+  const result = f.run('snapshot', f.key, '1', head, 'new [literal].txt');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const patchPath = path.join(f.key, 'review-round-01.patch');
+  const patch = fs.readFileSync(patchPath, 'utf8');
+  assert.match(patch, /GIT binary patch/); assert.match(patch, /deleted file mode/); assert.match(patch, /new mode 100755/);
+  assert.ok(patch.includes('new [literal].txt')); assert.ok(!patch.includes('excluded.txt'));
+  const manifest = JSON.parse(fs.readFileSync(path.join(f.key, 'review-round-01.snapshot.json')));
+  assert.equal(manifest.head, head); assert.equal(manifest.baseline, head);
+  assert.deepEqual(manifest.selectedPaths, ['new [literal].txt']);
+  assert.deepEqual(manifest.newFiles, ['new [literal].txt']);
+  assert.equal(f.git('diff', '--cached', '--binary'), before);
+  assert.equal(f.run('snapshot', f.key, '1', head, 'new [literal].txt').status, 1);
+  assert.equal(fs.readFileSync(patchPath, 'utf8'), patch);
+  // Commit exactly the state captured, then use the public comparison command.
+  f.git('add', '-u'); f.git('add', '--', 'new [literal].txt'); f.git('commit', '-qm', 'snapshot state');
+  assert.equal(f.run('compare', patchPath, head, 'HEAD').status, 0);
+});
+for (const scenario of ['missing reservation', 'stale head', 'bad baseline', 'outside path', 'review storage', 'missing selected file']) test(`snapshot refuses ${scenario} without publishing artifacts`, (t) => {
+  const f = fixture(t);
+  if (scenario !== 'missing reservation') assert.equal(f.run('reserve', f.key).status, 0);
+  if (scenario === 'stale head') f.git('commit', '-qm', 'moved', '--allow-empty');
+  const baseline = scenario === 'bad baseline' ? 'no-such-ref' : f.head;
+  const paths = scenario === 'outside path' ? ['../outside'] : scenario === 'review storage' ? ['records'] : scenario === 'missing selected file' ? ['missing'] : [];
+  const result = f.run('snapshot', f.key, '1', baseline, ...paths);
+  assert.equal(result.status, 1, result.stdout);
+  assert.equal(fs.existsSync(path.join(f.key, 'review-round-01.patch')), false);
+  assert.equal(fs.existsSync(path.join(f.key, 'review-round-01.snapshot.json')), false);
+});
+test('snapshot captures final disk content and excludes unselected staged additions', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.repo, 'tracked'), 'original\n');
+  f.git('add', 'tracked'); f.git('commit', '-qm', 'tracked');
+  const baseline = f.git('rev-parse', 'HEAD');
+  f.run('reserve', f.key);
+  fs.writeFileSync(path.join(f.repo, 'tracked'), 'staged\n');
+  fs.writeFileSync(path.join(f.repo, 'staged-new'), 'new\n');
+  f.git('add', 'tracked', 'staged-new');
+  fs.writeFileSync(path.join(f.repo, 'tracked'), 'final disk\n');
+  const index = f.git('write-tree');
+  const result = f.run('snapshot', f.key, '1', baseline);
+  assert.equal(result.status, 0, result.stderr);
+  const patch = fs.readFileSync(path.join(f.key, 'review-round-01.patch'), 'utf8');
+  assert.match(patch, /\+final disk/); assert.ok(!patch.includes('staged-new'));
+  assert.equal(f.git('write-tree'), index);
+});
+test('snapshot publication race preserves one complete patch and manifest', async (t) => {
+  const f = fixture(t); f.run('reserve', f.key);
+  const { spawn } = require('node:child_process'); const { once } = require('node:events');
+  const children = Array.from({ length: 4 }, () => spawn(process.execPath, [script, 'snapshot', f.key, '1', f.head], { cwd: f.repo }));
+  const codes = await Promise.all(children.map(async (child) => (await once(child, 'close'))[0]));
+  assert.equal(codes.filter((code) => code === 0).length, 1);
+  assert.equal(codes.filter((code) => code === 1).length, 3);
+  assert.equal(fs.readFileSync(path.join(f.key, 'review-round-01.patch'), 'utf8'), '');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.key, 'review-round-01.snapshot.json'))).head, f.head);
+});
+test('snapshot rejects separate Git storage and directories containing it', (t) => {
+  const f = fixture(t);
+  fs.mkdirSync(path.join(f.repo, 'storage'));
+  f.git('init', '--separate-git-dir', path.join(f.repo, 'storage', 'git'));
+  assert.equal(f.run('reserve', f.key).status, 0);
+  for (const selected of ['storage/git/config', 'storage']) {
+    const result = f.run('snapshot', f.key, '1', f.head, selected);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.equal(fs.existsSync(path.join(f.key, 'review-round-01.patch')), false);
+  }
+});
+for (const suffix of [' ', '\n']) test(`snapshot preserves significant trailing root whitespace ${JSON.stringify(suffix)}`, (t) => {
+  const f = fixture(t), repo = f.repo + suffix;
+  fs.renameSync(f.repo, repo); t.after(() => fs.rmSync(repo, { recursive: true, force: true }));
+  const run = (...args) => spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8' });
+  assert.equal(run('reserve', 'records').status, 0);
+  fs.writeFileSync(path.join(repo, 'selected'), 'new\n');
+  const result = run('snapshot', 'records', '1', f.head, 'selected');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(repo, 'records', 'review-round-01.snapshot.json'))).newFiles, ['selected']);
+});
