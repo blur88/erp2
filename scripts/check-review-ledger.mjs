@@ -5,6 +5,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import { hostname } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { snapshot } from './review-snapshot.mjs';
 
 const columns = ['round', 'kind', 'started', 'PR baseline', 'delta base', 'reviewed head', 'mode', 'outcome', 'blocking findings', 'report'];
 const sha = /^[a-f0-9]{40}$/;
@@ -198,6 +199,7 @@ function merge(pr, ...flags) {
 }
 export function main([command, ...args]) {
   if (command === 'reserve') reserve(...args);
+  else if (command === 'snapshot') snapshot(...args);
   else if (command === 'record') record(...args);
   else if (command === 'status') printCheck({ ...check(args[0]), errors: [], warnings: [] });
   else if (command === 'note') appendFileSync(join(args[0], 'notes.md'), `\n- ${new Date().toISOString()} HEAD=${git('rev-parse', 'HEAD')}: ${args.slice(1).join(' ')}\n`);
@@ -208,7 +210,7 @@ export function main([command, ...args]) {
   } else if (command === 'gate-create') gateCreate();
   else if (command === 'merge') merge(...args);
   else if (command) { const result = check(command); printCheck(result); if (result.errors.length) process.exitCode = 1; }
-  else throw Error('Usage: check-review-ledger.mjs <key-dir> | reserve|status|note|record|compare|gate-create|merge ...');
+  else throw Error('Usage: check-review-ledger.mjs <key-dir> | reserve|snapshot|status|note|record|compare|gate-create|merge ...');
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { main(process.argv.slice(2)); } catch (error) { console.error(`review-ledger: ${error.message}`); process.exitCode = 1; }
