@@ -263,7 +263,7 @@ redis_cli INFO memory | grep -E "^used_memory_human:|^used_memory_peak_human:|^m
 # What is in the instance — queue keys only
 redis_cli INFO keyspace
 
-# Queue depth (the established inspection from CLAUDE.md)
+# Queue depth (see Preflight and guarded CLI above)
 redis_cli ZCARD bull:backup-queue:delayed
 redis_cli ZRANGE bull:backup-queue:delayed 0 -1
 redis_cli ZRANGE bull:backup-queue:repeat 0 -1 WITHSCORES
