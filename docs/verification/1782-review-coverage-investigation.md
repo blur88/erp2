@@ -11,13 +11,16 @@ exit 0).
 ## Scope
 
 This is a read-only investigation. Nothing in this record changes, removes or bypasses
-a review or merge safeguard. Every GitHub fact below comes from a `gh api` call run
-on 2026-11-10. The original investigation pass did not save the raw responses. During
+a review or merge safeguard. Every GitHub API fact below (pull request, check, workflow,
+code-scanning, ruleset and repository data) comes from a `gh api` or GraphQL call run on
+2026-11-10. Facts taken from issue threads instead link the issue or comment that holds
+them. The original investigation pass did not save the raw responses. During
 the #1782 documentation PR review (Standards finding S1), the same calls were run again
 on 2026-11-10 and saved through `scripts/run-gate.mjs` under
 `.scratch/1782/evidence/s1/api/`. Those logs are **newly captured evidence**, not
 contemporaneous records of the original pass, and they live only on this machine
-(gitignored). The re-capture covers every `gh api` and GraphQL call listed in section 10, and each GitHub fact below matched it. Local ledger facts come from the
+(gitignored). The re-capture covers every `gh api` and GraphQL call listed in section 10,
+and each GitHub API fact below matched it. Local ledger facts come from the
 gitignored key directory `.scratch/branch-chore-retro-1780-tooling/`, which exists
 only on this machine. Overhead figures come from local harness session logs outside
 Git (see [Overhead measurement](#6-overhead-measurement)).
