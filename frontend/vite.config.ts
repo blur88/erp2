@@ -107,6 +107,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
+      // Match Vitest's defaults, except use default instead of minimal for coding agents.
+      reporters: ['default', ...(process.env.GITHUB_ACTIONS === 'true' ? ['github-actions'] : [])],
       globals: true,
       server: {
         deps: {
