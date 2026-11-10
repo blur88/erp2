@@ -17,7 +17,7 @@ the #1782 documentation PR review (Standards finding S1), the same calls were ru
 on 2026-11-10 and saved through `scripts/run-gate.mjs` under
 `.scratch/1782/evidence/s1/api/`. Those logs are **newly captured evidence**, not
 contemporaneous records of the original pass, and they live only on this machine
-(gitignored). Each GitHub fact below matched that re-capture. Local ledger facts come from the
+(gitignored). The re-capture covers every `gh api` and GraphQL call listed in section 10, and each GitHub fact below matched it. Local ledger facts come from the
 gitignored key directory `.scratch/branch-chore-retro-1780-tooling/`, which exists
 only on this machine. Overhead figures come from local harness session logs outside
 Git (see [Overhead measurement](#6-overhead-measurement)).
@@ -58,7 +58,7 @@ All rows are for PR #1781 at `9bd7bf3216753c14f226f89fe99d7405cc187c85` unless s
 | GitHub PR review submissions | Human or app reviews (APPROVE / COMMENT / REQUEST_CHANGES) | `gh api repos/blur88/erp2/pulls/1781/reviews` → `[]`. GraphQL `pullRequest(number:1781){reviewDecision reviews{totalCount} reviewRequests{totalCount}}` → `reviewDecision: null`, `reviews.totalCount: 0`, `reviewRequests.totalCount: 0`. `pulls/1781` → `requested_reviewers: []`, `requested_teams: []`. |
 | GitHub PR review comments | Inline diff comments, including bot alert comments | `gh api repos/blur88/erp2/pulls/1781/comments` → `[]`. |
 | Issue comments on the PR | Conversation comments | `gh api repos/blur88/erp2/issues/1781/comments` → 1 comment, `user.login: blur88`, `created_at: 2026-11-10T01:29:48Z`, after `merged_at: 2026-11-10T01:29:12Z`. Its text is the semantic-release "included in version 3.24.2" notice, not a review. |
-| Copilot or other review apps | Automated semantic code review | None observed. The check suites list only the apps `github-actions` and `github-advanced-security` (row below). No reviews from any Copilot account on PR #1781. Across the 30 most recent merged PRs (newly captured by `sh recent-merged-reviewers.sh`, saved with its log `recent-merged-reviewers.log` in `.scratch/1782/evidence/s1/api/`: 26 PRs with no reviews), the only reviewer is `github-advanced-security[bot]`, on #1780, #1776, #1775 and #1723. Those reviews are `COMMENTED` with empty bodies, which is how CodeQL posts alert comments. The ruleset has no Copilot review rule (row below). The repository has no `.github/copilot-instructions.md`, `CODEOWNERS`, `.coderabbit*` or `dependabot.yml`. |
+| Copilot or other review apps | Automated semantic code review | None observed. The check suites list only the apps `github-actions` and `github-advanced-security` (row below). No reviews from any Copilot account on PR #1781. Across the 30 most recent merged PRs (newly captured by `sh recent-merged-reviewers.sh`, saved with its log `recent-merged-reviewers.log` in `.scratch/1782/evidence/s1/api/`: 26 PRs with no reviews), the only reviewer is `github-advanced-security[bot]`, on #1780, #1776, #1775 and #1723. Those reviews are `COMMENTED` with empty bodies (`body_length=0`, newly captured by `sh recent-merged-review-states.sh` with its log in the same directory), which is how CodeQL posts alert comments. The ruleset has no Copilot review rule (row below). The repository has no `.github/copilot-instructions.md`, `CODEOWNERS`, `.coderabbit*` or `dependabot.yml`. |
 | Check suites (all apps) | Which apps ran checks on the SHA | `gh api repos/blur88/erp2/commits/9bd7…/check-suites` → `total_count: 5`: four `github-actions` suites and one `github-advanced-security` suite (115728829070), all `completed/success`. |
 | Commit statuses (legacy status API) | Third-party status contexts | `gh api repos/blur88/erp2/commits/9bd7…/status` → `total_count: 0`, `statuses: []`. GitHub reports `state: pending` when no statuses exist. |
 | CI workflow `.github/workflows/ci.yml`, run [42729579275](https://github.com/blur88/erp2/actions/runs/42729579275) | Six jobs: Root script tests (main-protection contract check plus `npm test`); Git hook integration tests (`sh scripts/tests/git-hooks.sh`); Backend (eslint, type-check, `type-check:spec`, unit, e2e, `test:redis`, `test:scripts`, `verify:baseline`, `verify:seeds`); Frontend (lint, type-check, `test:coverage`); Production Image – Fresh Database Migrations; Production Image – TLS Database Connection. | Event `pull_request`, attempt 1, `success`; all six jobs `success` with `head_sha` = reviewed head. `gh api repos/blur88/erp2/actions/runs/42729579275/jobs`. Job IDs: [129543889893](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889893), [129543889565](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889565), [129543889599](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889599), [129543889496](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889496), [129543889262](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889262), [129543889541](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889541). Artifacts (`…/runs/42729579275/artifacts`): one, `frontend-coverage`. |
@@ -227,8 +227,10 @@ issue's "about 7.32 million". The 1% / 4% / 15% observations match the `rate_lim
 ### Counts (turns 8–11 unless stated)
 
 - **Subagent spawns: 3.** Turn 8: `retro_standards`, `retro_spec`. Turn 11:
-  `retro_premerge`. Every `spawn_agent` call omitted `fork_turns`. The tool schema in
-  the rollout says "Defaults to `all`", so each reviewer inherited the implementer's
+  `retro_premerge`. Every `spawn_agent` call omitted `fork_turns`. The tool
+  documentation in the rollout says "Full-history forks (`fork_turns` omitted or
+  `"all"`) inherit the parent model and reasoning effort" (`derived.spawn_agent_fork_turns_schema`
+  in `codex-counts.log`, rollout ordinal 5), so each reviewer inherited the implementer's
   full history. Each reviewer rollout records `forked_from_id` = the implementer
   thread. The copied history comes before `subagent_history_start_ordinal` (422 for
   round 03). Every reviewer model call therefore carried about 160–211K input tokens:
@@ -238,8 +240,9 @@ issue's "about 7.32 million". The 1% / 4% / 15% observations match the `rate_lim
 - **Polling in turn 11:** 5 `sleep` (10–20 s), 4 `wait_agent` (10 s timeout) and 3
   `ls .scratch/…premerge03*` checks. These are 12 of the 27 model calls and
   2,173,944 input tokens: 905,677 after `sleep`, 724,646 after `wait_agent`, 543,621
-  after `ls` (each usage record attributed to the preceding tool call). Turn 8
-  added 2 `sleep` and 1 `wait_agent` (478K).
+  after `ls` (each usage record attributed to the preceding tool call; the total is
+  `derived.turn11_polling` in `codex-counts.log`). Turn 8 added 2 `sleep` and 1
+  `wait_agent`, 477,894 input tokens (`derived.turn8_polling`).
 - **`gh pr checks`:**
   - turn 10: 1 plain;
   - turn 11: 1 plain, 2 `--json name,startedAt[…]` (before and after the body edit,
@@ -267,7 +270,7 @@ issue's "about 7.32 million". The 1% / 4% / 15% observations match the `rate_lim
   suites ran locally by the implementer and in CI, on the same SHA.
 - **Failed merge retry:** the guarded merge inferred the key `1780` from the branch
   `chore/retro-1780-tooling` (`keyDirectory()`, `scripts/check-review-ledger.mjs`
-  lines 278–284), not the existing `branch-chore-retro-1780-tooling`. The workaround
+  lines 278–285), not the existing `branch-chore-retro-1780-tooling`. The workaround
   was the `.scratch/1780` symlink (`notes.md`, 01:29:03Z).
 
 ### Policy-required versus execution inefficiency
@@ -290,7 +293,8 @@ issue's "about 7.32 million". The 1% / 4% / 15% observations match the `rate_lim
   and the window are logged);
 - other account-wide usage during the window;
 - what a fresh-context reviewer would actually cost, since none was run. The
-  implementer's first call in turn 2 used 20,548 input tokens, which suggests a fresh
+  implementer's first call in turn 2 used 20,548 input tokens
+  (`derived.turn2_first_call_input_tokens` in `codex-counts.log`), which suggests a fresh
   start is roughly one tenth of the inherited 186K, but that is an inference, not a
   measurement.
 
@@ -479,10 +483,13 @@ in every item, and none is closed by the #1782 documentation PR.
 - Newly captured evidence (gitignored, 2026-11-10, documentation PR review), under
   `.scratch/1782/evidence/s1/`:
   - `codex-counts.py` and `codex-counts.log` (section 6 figures);
-  - `api/*.log`: `run-gate` captures of the `gh api` calls listed above, including the
-    expected 404/401/403 failures for branch protection, `installation` and
-    `/user/installations`;
-  - `api/recent-merged-reviewers.sh` and its log.
+  - `api/*.log`: `run-gate` captures of every `gh api` call listed above, including the
+    repository settings, code-scanning alerts, the four runs' jobs and artifacts, the
+    timeline and rulesets, and the expected 404/401/403 failures for branch protection,
+    `installation` and `/user/installations`;
+  - `api/graphql-1781-reviews.log` and `api/graphql-1781-body-edits.log` (the GraphQL
+    review and `userContentEdits` queries);
+  - `api/recent-merged-reviewers.sh`, `api/recent-merged-review-states.sh` and their logs.
 - Local ledger (gitignored), under `.scratch/branch-chore-retro-1780-tooling/`:
   - `reviews.md`, `round-0{1,2,3}.started`;
   - `review-round-01.md`, `.patch`, `.snapshot.json`;
