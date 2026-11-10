@@ -29,6 +29,18 @@ Primary language is TypeScript.
 - Naming: `PascalCase` for React components/classes, `camelCase` for variables/functions, `kebab-case` for filenames where established.
 - Keep DTOs/entities/services grouped by module in backend.
 
+### Theme
+
+- Use `frontend/src/styles/theme.ts` as the single source of truth for typography, palette, spacing and border radius.
+- Use typography variants, including `bodySmall` (0.8rem, weight 400, line height 1.5), instead of hand-set text `fontSize`.
+- When migrating text, compare weight and line height too; preserve differing values as explicit overrides on the variant.
+- Use palette tokens instead of hex colours, and theme spacing and radius for layout and corners.
+- Every page uses `PageHeader`; use the existing list/detail shells where appropriate.
+- The text-size rule applies to text only. Prefer MUI's built-in icon sizes; numeric icon sizes are allowed when needed.
+- Justified hand-set exceptions need a specific one-line comment explaining the reason.
+- Apply this standard to new and modified code only; leave untouched legacy styling for gradual migration.
+- Enforce through normal code review.
+
 ## Testing Guidelines
 - Backend: Jest (`*.spec.ts`) and e2e under `backend/test/e2e`.
 - Frontend: Vitest + Testing Library; co-locate tests in `__tests__` or `*.test.ts(x)`.

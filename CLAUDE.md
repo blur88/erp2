@@ -96,6 +96,8 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 ## Gotchas
 
+**Frontend styling**: Follow the [Theme standard in AGENTS.md](AGENTS.md#theme) when adding or modifying frontend styles.
+
 **NestJS route order**: Specific routes (`/products/deleted`) MUST be declared before parameterized routes (`/products/:id`) in controllers, or NestJS will try to treat `"deleted"` as a UUID and fail.
 
 **Soft delete**: Always use TypeORM's `softDelete(id)` method — it sets the `deletedAt` timestamp. Setting `isActive = false` manually does NOT set `deletedAt`, breaking `withDeleted` queries and the restore flow.
