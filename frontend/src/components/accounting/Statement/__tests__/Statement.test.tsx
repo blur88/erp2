@@ -257,14 +257,13 @@ describe('Statement frame and header', () => {
      * sets inline at EntityTable.tsx:336-343.
      *
      * The trap this guards: `variant="tableHeader"` alone computes 0.75rem /
-     * 0.08em (theme.ts:205), NOT what SO/PO renders. jsdom 30 normalizes rem to
+     * 0.08em in darkTheme, NOT what SO/PO renders. jsdom 30 normalizes rem to
      * px, so 0.8rem reads as 12.8px.
      *
      * ONE THEME, deliberately: the app has exactly one. main.tsx wraps
      * everything in ThemeWrapper, which provides darkTheme unconditionally, and
-     * theme.ts exports no other. darkTheme spreads baseThemeOptions and
-     * redefines neither `typography` nor `MuiTableHead`, so the variant and the
-     * cell override reach it intact. A light-theme case would have to invent a
+     * theme.ts exports no other. Its single definition supplies both the
+     * tableHeader typography variant and the MuiTableHead cell override. A light-theme case would have to invent a
      * theme no user ever sees.
      */
     const { container } = render(

@@ -1,4 +1,4 @@
-import { createTheme, ThemeOptions } from '@mui/material/styles'
+import { createTheme } from '@mui/material/styles'
 import { alpha } from '@mui/material/styles'
 import type {} from '@mui/x-date-pickers/themeAugmentation'
 
@@ -10,16 +10,19 @@ declare module '@mui/material/styles' {
 
 declare module '@mui/material/styles' {
   interface TypographyVariants {
+    bodySmall: React.CSSProperties
     tableHeader: React.CSSProperties
     tableCaption: React.CSSProperties
   }
   interface TypographyVariantsOptions {
+    bodySmall?: React.CSSProperties
     tableHeader?: React.CSSProperties
     tableCaption?: React.CSSProperties
   }
 }
 declare module '@mui/material/Typography' {
   interface TypographyPropsVariantOverrides {
+    bodySmall: true
     tableHeader: true
     tableCaption: true
   }
@@ -131,8 +134,8 @@ const colors = {
   },
 }
 
-// Common theme options
-const baseThemeOptions: ThemeOptions = {
+// Application theme
+const darkTheme = createTheme({
   typography: {
     fontFamily: '"Roboto", sans-serif',
     h1: {
@@ -202,6 +205,11 @@ const baseThemeOptions: ThemeOptions = {
       letterSpacing: '0.08em',
       lineHeight: 1.5,
     },
+    bodySmall: {
+      fontSize: '0.8rem',
+      fontWeight: 400,
+      lineHeight: 1.5,
+    },
     tableHeader: {
       fontSize: '0.75rem',
       fontWeight: 600,
@@ -228,157 +236,6 @@ const baseThemeOptions: ThemeOptions = {
       xl: 1920,
     },
   },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          textTransform: 'none',
-          fontWeight: 500,
-          boxShadow: 'none',
-          '&:hover': {
-            boxShadow: 'none',
-          },
-        },
-        contained: {
-          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-          '&:hover': {
-            boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)',
-          },
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-          '&:hover': {
-            boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.12)',
-          },
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: 'none',
-        },
-        elevation1: {
-          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.08)',
-        },
-        elevation4: {
-          boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.12)',
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 8,
-          },
-        },
-      },
-    },
-    MuiTableHead: {
-      styleOverrides: {
-        root: {
-          '& .MuiTableCell-head': {
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            fontSize: '0.75rem',
-            letterSpacing: '0.08em',
-          },
-        },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        root: {
-          borderRadius: 6,
-        },
-      },
-    },
-    MuiDrawer: {
-      styleOverrides: {
-        paper: {
-          borderRight: 'none',
-          boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.08)',
-        },
-      },
-    },
-    MuiButtonBase: {
-      styleOverrides: {
-        root: {
-          fontFamily: 'inherit',
-        },
-      },
-    },
-    MuiOutlinedInput: {
-      styleOverrides: {
-        root: {
-          '&.MuiInputBase-sizeXs': {
-            height: 32,
-            '& .MuiOutlinedInput-input': {
-              paddingTop: '4px',
-              paddingBottom: '4px',
-            },
-          },
-        },
-      },
-    },
-    MuiInputLabel: {
-      styleOverrides: {
-        root: {
-          fontSize: '0.875rem',
-          // outlined unshrunk: MUI default is translate(14px,9px); 32px field center is 4px higher
-          '&.MuiInputLabel-outlined.MuiInputLabel-sizeXs:not(.MuiInputLabel-shrink)': {
-            transform: 'translate(14px, 5px) scale(1)',
-          },
-        },
-      },
-    },
-    MuiInputBase: {
-      styleOverrides: {
-        input: { fontSize: '0.875rem' },
-      },
-    },
-    // Select dropdown options only. SelectInput gives a Select's menu list
-    // role="listbox" (SelectInput.js:785); a plain MenuList is role="menu"
-    // (MenuList.js:241), so action menus are excluded structurally.
-    //
-    // This uses ownerState, NOT a descendant selector from the menu list. MUI
-    // merges a MenuItem's base styles AND its `sx` into ONE generated class, so
-    // both are (0,1,0) and injected after the theme's rules. No descendant rule
-    // can beat the base class while still losing to `sx` — all three variants
-    // were measured in a real browser and all are wrong:
-    //   (0,2,1) `[role] .MuiMenuItem-root`      clobbers per-item sx
-    //   (0,1,0) `:where(...) :where(...)`       loses to the base class (1rem)
-    //   (0,2,0) `[role] :where(...)`            still clobbers per-item sx
-    // Emitting from root puts the rule INSIDE that merged class, ahead of `sx`,
-    // so per-item overrides win normally and no specificity war is needed.
-    // SelectInput passes role="option" to its items; a plain <Menu>'s items get
-    // no role in ownerState, so action menus are excluded by construction.
-    MuiMenuItem: {
-      styleOverrides: {
-        root: ({ ownerState }: { ownerState?: { role?: string } }) =>
-          ownerState?.role === 'option' ? { fontSize: '0.875rem' } : {},
-      },
-    },
-    // MUI X v9 pickers render the date into MuiPickersInputBase-sectionContent
-    // spans, NOT an <input>, so .MuiInputBase-input never matched them.
-    MuiPickersInputBase: {
-      styleOverrides: {
-        root: { fontSize: '0.875rem' },
-      },
-    },
-  },
-}
-
-// Dark theme
-const darkTheme = createTheme({
-  ...baseThemeOptions,
   palette: {
     mode: 'dark',
     primary: {
@@ -435,7 +292,128 @@ const darkTheme = createTheme({
     },
   },
   components: {
-    ...baseThemeOptions.components,
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          textTransform: 'none',
+          fontWeight: 500,
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: 'none',
+          },
+        },
+        contained: {
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+          '&:hover': {
+            boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)',
+          },
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+          '&:hover': {
+            boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.12)',
+          },
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+        },
+        elevation1: {
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.08)',
+        },
+        elevation4: {
+          boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.12)',
+        },
+      },
+    },
+    MuiTableHead: {
+      styleOverrides: {
+        root: {
+          '& .MuiTableCell-head': {
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            fontSize: '0.75rem',
+            letterSpacing: '0.08em',
+          },
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+        },
+      },
+    },
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          borderRight: 'none',
+          boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.08)',
+        },
+      },
+    },
+    MuiButtonBase: {
+      styleOverrides: {
+        root: {
+          fontFamily: 'inherit',
+        },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          fontSize: '0.875rem',
+          // outlined unshrunk: MUI default is translate(14px,9px); 32px field center is 4px higher
+          '&.MuiInputLabel-outlined.MuiInputLabel-sizeXs:not(.MuiInputLabel-shrink)': {
+            transform: 'translate(14px, 5px) scale(1)',
+          },
+        },
+      },
+    },
+    MuiInputBase: {
+      styleOverrides: {
+        input: { fontSize: '0.875rem' },
+      },
+    },
+    // Select dropdown options only. SelectInput gives a Select's menu list
+    // role="listbox" (SelectInput.js:785); a plain MenuList is role="menu"
+    // (MenuList.js:241), so action menus are excluded structurally.
+    //
+    // This uses ownerState, NOT a descendant selector from the menu list. MUI
+    // merges a MenuItem's base styles AND its `sx` into ONE generated class, so
+    // both are (0,1,0) and injected after the theme's rules. No descendant rule
+    // can beat the base class while still losing to `sx` — all three variants
+    // were measured in a real browser and all are wrong:
+    //   (0,2,1) `[role] .MuiMenuItem-root`      clobbers per-item sx
+    //   (0,1,0) `:where(...) :where(...)`       loses to the base class (1rem)
+    //   (0,2,0) `[role] :where(...)`            still clobbers per-item sx
+    // Emitting from root puts the rule INSIDE that merged class, ahead of `sx`,
+    // so per-item overrides win normally and no specificity war is needed.
+    // SelectInput passes role="option" to its items; a plain <Menu>'s items get
+    // no role in ownerState, so action menus are excluded by construction.
+    MuiMenuItem: {
+      styleOverrides: {
+        root: ({ ownerState }: { ownerState?: { role?: string } }) =>
+          ownerState?.role === 'option' ? { fontSize: '0.875rem' } : {},
+      },
+    },
+    // MUI X v9 pickers render the date into MuiPickersInputBase-sectionContent
+    // spans, NOT an <input>, so .MuiInputBase-input never matched them.
+    MuiPickersInputBase: {
+      styleOverrides: {
+        root: { fontSize: '0.875rem' },
+      },
+    },
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
@@ -486,8 +464,6 @@ const darkTheme = createTheme({
         // behavior — do NOT add padding; MUI already supplies size/variant
         // padding via OutlinedInput. The :not(.MuiSelect-multiple) exclusion is
         // load-bearing: multiple Selects need height:auto to grow for chips.
-        // NOTE: this lives in darkTheme (not baseThemeOptions) because the dark
-        // block redefines MuiSelect and would shadow a base entry.
         select: {
           '&:not(.MuiSelect-multiple)': { height: '1.4375em' },
         },

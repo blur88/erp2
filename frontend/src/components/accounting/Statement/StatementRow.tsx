@@ -20,7 +20,7 @@ import type { StatementRow as Row } from './types'
  * HAND. `Statement.test.tsx`'s body-typography block is what notices drift.
  *
  * `variant="body2"` alone is NOT the SO/PO body: the theme variant is 0.875rem
- * / lineHeight 1.5 (theme.ts:183), which EntityTable overrides inline. Dropping
+ * / lineHeight 1.5 in darkTheme, which EntityTable overrides inline. Dropping
  * this sx would silently land the body back at the variant's values.
  *
  * The explicit `fontWeight: 400`, `fontSize: 0.8rem`, and `lineHeight: 1.2`

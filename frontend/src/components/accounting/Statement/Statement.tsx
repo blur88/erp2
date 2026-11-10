@@ -181,11 +181,10 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
                   overrides, so the two headers share one implementation rather
                   than two that merely computed alike.
 
-                  The variant supplies family/weight/uppercase from the theme
-                  (theme.ts:205); the sx pins size and tracking to EntityTable's
-                  inline values. The theme's MuiTableHead override (theme.ts:284
-                  — defined on baseThemeOptions, which darkTheme spreads without
-                  redefining) still dresses the CELL, and the Table `sx` above
+                  The tableHeader variant supplies family/weight/uppercase;
+                  the sx pins size and tracking to EntityTable's inline values.
+                  The single darkTheme definition's MuiTableHead override still
+                  dresses the CELL, and the Table `sx` above
                   keeps the cell's own size/tracking as a floor.
 
                   Either way the old `.stmt-col-head` rule is gone — it set

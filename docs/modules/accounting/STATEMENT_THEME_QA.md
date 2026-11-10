@@ -178,12 +178,12 @@ not the issue that caused it mentions Form B.
 
 **Why it can break:** the old `stmt-col-head` class rule (removed) set weight 500, 0.04em and
 no uppercase — the exact divergence #1228 removed. A reintroduced local rule,
-or a `darkTheme` block that shadows `MuiTableHead`, brings it back. Since #1231
+or a change to the `darkTheme` `MuiTableHead` override, brings it back. Since #1231
 there is a second route: dropping `HEADER_TYPOGRAPHY_SX` from the Typography
 (or letting EntityTable's inline values drift from it) silently returns the
 header to the theme variant's smaller size and wider tracking. Note that
-`darkTheme` currently spreads `...baseThemeOptions.components` and does not
-redefine `MuiTableHead`; if that changes, this check is what catches it.
+the single `darkTheme` definition supplies both `tableHeader` and
+`MuiTableHead`; this check catches changes to their header treatment.
 
 ## ST-11 — Sticky-header opacity under active scroll (#1228)
 
