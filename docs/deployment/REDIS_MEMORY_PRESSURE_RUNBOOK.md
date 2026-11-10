@@ -23,7 +23,7 @@ curl -s -H "Authorization: Bearer <admin-token>" \
   http://<host>/api/health/redis-memory | jq '.pressure, .history, .counters'
 ```
 
-The `redis_cli` helper from CLAUDE.md is used throughout this runbook:
+Use this `redis_cli` helper throughout this runbook:
 
 ```bash
 redis_password="$(docker compose exec -T backend printenv REDIS_PASSWORD)"
@@ -33,6 +33,116 @@ redis_cli() { docker compose exec -T -e REDISCLI_AUTH="$redis_password" redis re
 Extract the password from the container as shown — `$REDIS_PASSWORD` is
 generally *not* exported in the host shell, and an unset var makes
 `REDISCLI_AUTH=""` fail with `NOAUTH`.
+
+## Policy rollout checks
+
+Run from each environment's deployment directory, using `redis_cli` from
+[Prerequisites and access](#prerequisites-and-access). Before changing the
+policy, capture the current policy, memory, eviction count, and keyspace:
+
+```bash
+redis_cli CONFIG GET maxmemory-policy
+redis_cli INFO memory | grep -E "^used_memory_peak_human:|^maxmemory_human:"
+redis_cli INFO stats | grep -E "^evicted_keys:"
+redis_cli INFO keyspace
+```
+
+`evicted_keys` must be zero. Investigate existing eviction damage before
+changing the policy. Re-evaluate the cap against production measurements;
+the local sizing evidence below does not discharge that rollout gate.
+
+After applying the compose policy, recreate Redis and restart the backend.
+Use a restart-bounded log window so old warnings do not contaminate the
+result and an empty log cannot look like success:
+
+```bash
+docker compose up -d --force-recreate redis && docker compose restart backend
+docker compose logs backend --since 90s 2>&1 | grep -E "Initialized [0-9]+ backup schedules|Eviction policy"
+redis_cli CONFIG GET maxmemory-policy
+```
+
+Pass requires all three: `Initialized N backup schedules` is present,
+`Eviction policy` is absent from the window, and the runtime policy is
+`noeviction`. If startup takes longer than the window, repeat with a window
+covering that restart and inspect the full startup logs.
+
+## Backup scheduler remediation
+
+An orphan warning at boot means a scheduler-format repeat entry references
+no `backup_schedules` row. `reportOrphanedSchedulers()` only reports; it
+never deletes or fails boot. Missing/unparseable data or an invalid
+scheduleId is **unclassifiable**, not proof of an orphan.
+
+A **`Legacy (non-scheduler) repeat entry` boot warning** means pre-v6 state
+remains. It needs BullMQ 5's `removeRepeatableByKey`; BullMQ 6's
+`removeJobScheduler` would remove metadata but leave the delayed occurrence
+live. The retired `bullmq-v5` alias is no longer installed. Keep legacy
+remediation isolated from running v6 producers; a v5 process must never
+resume producing jobs on this Redis.
+
+### Preflight and guarded CLI
+
+Run outside deploy windows. Inspect the repeat member, its scheduleId, the
+delayed occurrences, and the referenced database row before any removal:
+
+```bash
+redis_cli ZRANGE bull:backup-queue:repeat 0 -1 WITHSCORES
+redis_cli HGETALL 'bull:backup-queue:repeat:<member>'
+redis_cli ZRANGE bull:backup-queue:delayed 0 -1
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"' sh \
+  "SELECT id FROM backup_schedules WHERE id = '<scheduleId>';"
+```
+
+Replace `<member>` and `<scheduleId>` with the inspected values. Read
+`data.scheduleId` from the scheduler metadata. A successful query returning
+zero rows is evidence of an orphan; a failed database read is not. Confirm
+the member is scheduler-format (`ic` present) before using the v6 removal
+API. Legacy entries without `ic` follow the BullMQ 5 path above.
+
+Prefer the CLI, dry-run first:
+
+```bash
+docker compose exec -T backend npm run backup:reconcile-schedulers
+docker compose exec -T backend npm run backup:reconcile-schedulers -- --execute
+```
+
+The CLI removes only confirmed `ic` scheduler orphans. Its guards are:
+
+- A failed database read aborts before any removal.
+- Zero confirmed live rows aborts execution, because a broken read can look
+  like an all-orphan queue. Use `--execute --allow-empty` only when you
+  intend to remove every remaining scheduler.
+- Legacy non-`ic` entries are never touched.
+- A mid-run failure stops and reports completed removals. Nothing rolls
+  back; rerun after resolving the failure.
+
+### Manual removal of a confirmed scheduler orphan
+
+Use this only after the preflight confirms a scheduler-format orphan. The
+manual API call bypasses the CLI's database and empty-result guards, so the
+CLI is preferred. Pass the **bare member**, not a full Redis key:
+
+```bash
+docker compose exec -T backend node -e '
+const { Queue } = require("bullmq");
+const q = new Queue("backup-queue", { connection: {
+  host: process.env.REDIS_HOST, port: +process.env.REDIS_PORT,
+  password: process.env.REDIS_PASSWORD, protocol: 2 } });
+q.removeJobScheduler(process.argv[1])
+  .then((r) => console.log("removed:", r))
+  .catch((error) => { console.error(error); process.exitCode = 1; })
+  .finally(() => q.close());
+' '<member>'
+```
+
+The public API returns a boolean: `true` means removed, `false` means already
+absent. Do not interpret it using the underlying Lua script's numeric
+convention. `q.close()` releases the connection so the command exits.
+
+Repeat the preflight Redis reads after removal. Both the member in
+`bull:backup-queue:repeat` and its `repeat:<member>:<millis>` occurrence in
+`bull:backup-queue:delayed` must be gone. Never use `ZREM` for cleanup: it
+strips the repeat member while leaving the delayed occurrence live.
 
 ## Interpreting the pressure state
 
