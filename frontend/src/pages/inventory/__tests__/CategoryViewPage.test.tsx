@@ -1,4 +1,3 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
@@ -24,8 +23,14 @@ vi.mock('@/store/api/inventoryApi', async () => {
   const actual = await vi.importActual<typeof import('@/store/api/inventoryApi')>('@/store/api/inventoryApi')
   return {
     ...actual,
+    useGetCategoryProductsQuery: () => ({ data: { data: [] }, isLoading: false, isError: false }),
     useGetCategoryBySlugQuery: () => ({ data: CATEGORY, isLoading: false, isError: false }),
   }
+})
+
+vi.mock('@/store/api/settingsApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/store/api/settingsApi')>()
+  return { ...actual, useGetRegionalSettingsQuery: () => ({ data: undefined }) }
 })
 
 import { inventoryApiSlice } from '@/store/api/inventoryApi'
@@ -33,15 +38,10 @@ import { settingsApiSlice } from '@/store/api/settingsApi'
 import { formatDate } from '@/utils/formatters'
 
 import CategoryViewPage from '../CategoryViewPage'
+import { createTestStore } from '@/test/createTestStore'
 
 function renderPage() {
-  const store = configureStore({
-    reducer: {
-      [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-      [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-    },
-    middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-  })
+  const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
   return render(
     <Provider store={store}>
       <MemoryRouter initialEntries={['/inventory/categories/old/view']}>
@@ -95,13 +95,7 @@ describe('CategoryViewPage', () => {
       return <span data-testid="probe-search">{location.search}</span>
     }
 
-    const store = configureStore({
-      reducer: {
-        [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-      },
-      middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-    })
+    const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
     window.history.replaceState(null, '', '/inventory/categories/old/view?tab=0&probe=keepme')
     render(
       <Provider store={store}>
@@ -123,3 +117,16 @@ describe('CategoryViewPage', () => {
     expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
 })
+
+// This test owns its store; transitive imports must not evaluate the singleton.
+vi.mock('@/store', () => ({
+  store: {
+    getState: () => ({ auth: { isAuthenticated: false, accessToken: null, refreshToken: null } }),
+    dispatch: vi.fn(),
+  },
+  persistor: {
+    getState: () => ({ bootstrapped: true }),
+    subscribe: () => () => {},
+    purge: vi.fn().mockResolvedValue(undefined),
+  },
+}))

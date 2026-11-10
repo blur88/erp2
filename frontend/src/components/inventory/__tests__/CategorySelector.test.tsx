@@ -62,14 +62,7 @@ describe('CategorySelector', () => {
     const user = userEvent.setup()
 
     const mockGet = ApiService.get as ReturnType<typeof vi.fn>
-    mockGet.mockResolvedValue({
-      data: [enabledA, disabledCurrent, disabledOther],
-      meta: {
-        totalCategories: 3,
-        maxDepth: 0,
-        rootCategories: 3,
-      },
-    })
+    mockGet.mockResolvedValue([enabledA, disabledCurrent, disabledOther])
 
     render(
       <CategorySelector

@@ -120,25 +120,7 @@ describe('TopBar breadcrumbs', () => {
 describe('TopBar search', () => {
   it('opens search modal when search trigger is clicked', () => {
     mockUseMatches.mockReturnValue([{ handle: { title: 'Dashboard' } }])
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: !query.includes('max-width'),
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    })
-    const { container } = renderTopBar('/dashboard')
-    const searchTrigger = container.querySelector('[aria-label="Open global search"]')
-    expect(searchTrigger).not.toBeNull()
-    if (searchTrigger) {
-      searchTrigger.setAttribute('style', 'display: flex')
-    }
+    renderTopBar('/dashboard')
     fireEvent.click(screen.getByRole('button', { name: /open global search/i }))
     expect(screen.getByTestId('search-modal')).toBeInTheDocument()
   })

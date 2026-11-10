@@ -36,7 +36,7 @@ export DB_PASSWORD
 # Transport selection (#1260). Sourced AFTER the env file so PG_TRANSPORT and
 # DB_* can both come from it, and AFTER the DB_PASSWORD check so a missing
 # password still reports its own specific error first.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/pg-transport.sh
 . "$SCRIPT_DIR/lib/pg-transport.sh"
 

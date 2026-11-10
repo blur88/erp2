@@ -251,7 +251,8 @@ describe('Statement frame and header', () => {
 
   it('gives header Typography the four SO/PO parity values', () => {
     /*
-     * The measured half of #1228/#1231 that IS reachable here. Per CLAUDE.md,
+     * The measured half of #1228/#1231 that IS reachable here. See
+     * docs/frontend/testing-and-print.md, "What jsdom can observe" section:
      * `sx` on the asserted element itself IS observable through toHaveStyle
      * when rendered under a ThemeProvider — these are the values EntityTable
      * sets inline at EntityTable.tsx:336-343.
@@ -342,7 +343,7 @@ describe('Statement body typography', () => {
       expect(typography).toHaveStyle({
         fontWeight: '400',
         fontSize: '12.8px',
-        lineHeight: '15.36px',
+        lineHeight: '1.2',
       })
     }
   })
@@ -394,7 +395,7 @@ describe('Statement body typography', () => {
       expect(typography).toHaveStyle({
         fontWeight: '700',
         fontSize: '12.8px',
-        lineHeight: '15.36px',
+        lineHeight: '1.2',
       })
     }
   })

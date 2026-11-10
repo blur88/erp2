@@ -11,6 +11,7 @@ export interface JwtPayload {
   username: string;
   email: string;
   role: string;
+  tokenVersion: number;
   iat?: number;
   exp?: number;
 }
@@ -39,6 +40,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    if (
+      !Number.isInteger(payload.tokenVersion) ||
+      payload.tokenVersion !== user.tokenVersion
+    ) {
+      throw new UnauthorizedException('Session has ended');
     }
 
     // Check if user is active

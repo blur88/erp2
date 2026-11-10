@@ -6,6 +6,8 @@ import { MemoryRouter, useSearchParams } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BankReconciliationDetailDto, ReconciliationLineDto } from '@/types'
 import { draftKey, loadDraft, saveDraft } from '../reconciliationDraftStorage'
+
+vi.mock('@/services/session', () => ({ sessionCoordinator: { getSnapshot: () => ({ id: 'session-1' }) } }))
 import BankReconciliationDetailView from '../BankReconciliationDetailView'
 
 const mockNavigate = vi.fn()
@@ -41,7 +43,7 @@ vi.mock('@/hooks/useNotification', () => ({
   }),
 }))
 
-const trigger = (fn: ReturnType<typeof vi.fn>) => (args: any) => ({
+const trigger = (fn: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>>) => (args: any) => ({
   unwrap: () => fn(args),
 })
 
@@ -79,7 +81,6 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
     sequenceNo: 1,
     bankAccountId: 'ba-1',
     bankAccount: {
-      id: 'ba-1',
       code: '1200',
       name: 'CIMB Bank',
       isBankAccount: true,
@@ -87,9 +88,7 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
     },
     periodFrom: '2026-01-01',
     periodTo: '2026-01-31',
-    openingBalance: '1000.00',
-    closingBalance: '1100.00',
-    status: 'DRAFT',
+    status: 'DRAFT' as const,
     reopened: false,
     currentVersionNo: null,
     lockVersion: 1,
@@ -100,20 +99,13 @@ function makeDetail(over: Partial<BankReconciliationDetailDto> = {}): BankReconc
     summary: {
       openingBalance: '1000.00',
       closingBalance: '1100.00',
-      matchedMoneyIn: '100.00',
-      matchedMoneyOut: '0.00',
+      moneyIn: '100.00',
+      moneyOut: '0.00',
       calculatedClosingBalance: '1100.00',
       difference: '0.00',
+      openingClearedNet: null,
       openingBalanceDifference: '0.00',
       unclassifiedCount: 0,
-    },
-    setupSummary: {
-      prePeriodTotal: 1,
-      unclassifiedCount: 0,
-      clearedCount: 1,
-      outstandingCount: 0,
-      openingClearedNet: '100.00',
-      openingBalanceDifference: '0.00',
     },
     matched: [makeLine()],
     classified: [],
@@ -309,6 +301,7 @@ describe('BankReconciliationDetailView', () => {
     const key = draftKey('u-1', { reconciliationId: 'r-1' })
     saveDraft(key, {
       v: 1,
+      sessionId: 'session-1',
       lockVersion: 1,
       form: { ...makeDetail() } as any,
       picker: { checklist: { page: 1, search: '' }, setup: { page: 1, search: '', filter: 'ALL' } },
@@ -323,7 +316,7 @@ describe('BankReconciliationDetailView', () => {
     await userEvent.click(confirmBtn)
 
     expect(mockShowError).toHaveBeenCalledWith('Server error')
-    expect(loadDraft(key)).not.toBeNull()
+    expect(loadDraft(key, 'session-1')).not.toBeNull()
     unmount()
 
     // Now test successful complete clears draft
@@ -333,7 +326,7 @@ describe('BankReconciliationDetailView', () => {
 
     await waitFor(() => {
       expect(mockShowSuccess).toHaveBeenCalledWith('Reconciliation completed')
-      expect(loadDraft(key)).toBeNull()
+      expect(loadDraft(key, 'session-1')).toBeNull()
     })
   })
 

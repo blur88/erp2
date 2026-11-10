@@ -7,6 +7,7 @@ import { formatCurrency } from '@/utils/formatters'
 
 const baseCustomer = {
   id: 'customer-1',
+  slug: 'customer-1',
   type: CustomerType.BUSINESS,
   name: 'Acme Supplies',
   phone: '555-0100',

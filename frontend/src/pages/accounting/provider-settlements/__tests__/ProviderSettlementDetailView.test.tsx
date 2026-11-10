@@ -21,7 +21,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 // Each trigger returns { unwrap } like an RTK Query mutation.
-const trigger = (fn: ReturnType<typeof vi.fn>) => (id: string) => ({ unwrap: () => fn(id) })
+const trigger = (fn: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>>) => (id: string) => ({ unwrap: () => fn(id) })
 
 vi.mock('@/store/api/accountingApi', () => ({
   usePostProviderSettlementMutation: () => [trigger(mockPost), { isLoading: pending.post }],

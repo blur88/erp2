@@ -120,8 +120,9 @@ export class AddOwnerEquity1786862759868 implements MigrationInterface {
      *    longer exist.
      *
      * To unwind Owner Equity, restore from a backup taken before this migration
-     * ran. See CLAUDE.md on the migration baseline: the chain runs from the
-     * genesis migration and migration failure is fatal by design.
+     * ran. See AGENTS.md, "Critical rules and traps", "Migrations only" bullet:
+     * the chain starts from the genesis migration and migration failure is
+     * fatal.
      */
     public async down(): Promise<void> {
         throw new Error(

@@ -4,8 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { Provider } from 'react-redux'
 
-import { store } from '@/store'
+import { createTestStore } from '@/test/createTestStore'
 import ChartOfAccountsPage from '@/pages/accounting/ChartOfAccountsPage'
+import authReducer from '@/store/slices/authSlice'
 import * as accountingApi from '@/store/api/accountingApi'
 
 const treeSpy = vi.fn()
@@ -25,6 +26,7 @@ vi.mock('@/store/api/accountingApi', async () => {
 })
 
 function renderPage() {
+  const store = createTestStore({ apis: [accountingApi.accountingApiSlice], reducer: { auth: authReducer } })
   render(
     <Provider store={store}>
       <MemoryRouter>

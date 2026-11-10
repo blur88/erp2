@@ -26,9 +26,7 @@ describe('formatNum (#1241)', () => {
 
   it('returns an empty string for empty or nullish input', () => {
     expect(formatNum('')).toBe('')
-    // @ts-expect-error runtime nullish guard
     expect(formatNum(null)).toBe('')
-    // @ts-expect-error runtime nullish guard
     expect(formatNum(undefined)).toBe('')
   })
 })

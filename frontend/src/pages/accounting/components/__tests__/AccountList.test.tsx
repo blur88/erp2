@@ -20,6 +20,7 @@ const group = {
   type: 'Asset' as const,
   parentId: null,
   description: null,
+  createdBy: null,
   isActive: true,
   isSystem: false,
   isPostable: false,

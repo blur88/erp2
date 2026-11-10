@@ -19,7 +19,8 @@
  *
  * Lives in test/ deliberately: tsconfig.cli.json includes everything under
  * src/database/cli/, and an entry there would drag AppModule into the
- * plain-tsc pass that overwrites nest build's dist/ output (see CLAUDE.md).
+ * plain-tsc pass that overwrites nest build's dist/ output (see
+ * docs/backend/build.md, "Two compilers write to `dist/`").
  */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';

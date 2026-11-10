@@ -1,9 +1,9 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import api from '@/services/api'
 import { accountingApiSlice } from '@/store/api/accountingApi'
 import { salesApiSlice } from '@/store/api/salesApi'
+import { createTestStore } from '@/test/createTestStore'
 
 vi.mock('@/services/api', () => ({
   default: vi.fn(),
@@ -43,16 +43,7 @@ function countEligibleGets(): number {
 }
 
 function makeStore() {
-  return configureStore({
-    reducer: {
-      [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
-      [salesApiSlice.reducerPath]: salesApiSlice.reducer,
-    },
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware()
-        .concat(accountingApiSlice.middleware)
-        .concat(salesApiSlice.middleware),
-  })
+  return createTestStore({ apis: [accountingApiSlice, salesApiSlice] })
 }
 
 const ARGS = { settlementDate: '2026-09-26', page: 1, limit: 25 }
@@ -87,7 +78,9 @@ describe('Provider settlement eligible rows cross-slice invalidation', () => {
       expect(selectRows(store)).toEqual([])
 
       rows = [ATOME_ROW]
-      await store.dispatch(MUTATIONS[name]())
+      if (name === 'recordOrderPayments') await store.dispatch(MUTATIONS.recordOrderPayments())
+      else if (name === 'recordOrderRefunds') await store.dispatch(MUTATIONS.recordOrderRefunds())
+      else await store.dispatch(MUTATIONS.unpaySalesOrder())
 
       await vi.waitFor(() => expect(countEligibleGets()).toBe(2))
       await vi.waitFor(() => expect(selectRows(store)).toEqual([ATOME_ROW]))

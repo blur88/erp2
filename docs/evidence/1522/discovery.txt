@@ -1,0 +1,25 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./src/test/appStoreRuntimeGuard" without a file extension (vite.config.ts:5:38). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.3 /home/blur/erp2/frontend
+
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+
+ Test Files  265 passed (265)
+      Tests  2977 passed (2977)
+   Start at  23:12:50
+   Duration  1220.94s (tests 49%, import 19%, environment 17%, transform 7%, setup 7%)
+
+    Isolate  265 workers spawned · ~2.64s startup each (spawn + environment, per file)
+             at least ~230.76s faster with isolate: false — reuses workers across files instead of one per file
+

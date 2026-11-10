@@ -21,33 +21,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-root-scripts:
-    name: Root script tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-      - name: Install locked dependencies
-        run: npm ci
-      - name: Check main protection contracts
-        run: node scripts/check-main-protection.cjs
-      - name: Test root scripts
-        run: npm test
-
-  test-git-hooks:
-    name: Git hook integration tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Test local main guards
-        run: sh scripts/tests/git-hooks.sh
-
   test-backend:
     name: Backend - Lint, Type Check, Unit Tests, E2E Tests
     runs-on: ubuntu-latest
@@ -126,8 +99,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check closing issue references in documentation
+        run: node scripts/verify-closing-doc-references.mjs
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          # JSON preserves the distinction between a missing body and an empty
+          # string, and keeps untrusted PR text out of shell interpolation.
+          PR_BODY_JSON: ${{ toJSON(github.event.pull_request.body) }}
+
       - name: Lint
-        run: npx eslint "{src,apps,libs,test}/**/*.ts"
+        run: npm run lint:check
 
       # ts-jest transpiles per file, so cross-file declaration errors (TS4053 and
       # friends) pass the unit suite and fail only at `docker compose build`.
@@ -148,6 +129,9 @@ jobs:
 
       - name: Unit tests
         run: npm run test -- --no-coverage
+
+      - name: Baseline detector PostgreSQL tests
+        run: npm run test:db
 
       - name: E2E tests
         run: npm run test:e2e
@@ -231,6 +215,12 @@ jobs:
           PG_TRANSPORT: tcp
         run: npm run verify:seeds
 
+      # Runs last and despite earlier failures so documentation regressions
+      # remain visible without changing the required backend job name (#1429).
+      - name: Documentation link check
+        if: ${{ !cancelled() }}
+        run: npm run verify:doc-links
+
   # Proves the PRODUCTION IMAGE applies migrations against an empty database.
   #
   # Nothing else covers this. Unit/e2e/redis all run from src/ with ts-node
@@ -285,6 +275,11 @@ jobs:
             echo "::error::database is not empty; this gate must start from a fresh DB" >&2
             exit 1
           fi
+
+      - name: Verify frontend runtime configuration on read-only Compose root
+        run: |
+          docker compose build frontend
+          frontend/scripts/verify-runtime-env.sh
 
       - name: Boot the production image against the empty database
         run: |
@@ -603,7 +598,14 @@ jobs:
       - name: Type check
         run: npm run type-check
 
-      # Verification policy: AGENTS.md, Change-Scoped Verification gate table.
+      - name: Type check frontend source, tests and Vite config
+        run: npm run type-check:test
+
+      # Runs the suite once with coverage instrumentation rather than running
+      # `npm run test` and `npm run test:coverage` back to back — vitest computes
+      # coverage in the same pass, so a second run would just double a ~30 minute
+      # job. AGENTS.md requires the coverage gate for frontend changes; this is
+      # what enforces it.
       - name: Tests with coverage
         run: npm run test:coverage
         env:

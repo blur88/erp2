@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { Job } from 'bullmq';
+import type { Job } from 'bullmq';
 import { BackupProcessor } from './backup.processor';
 import { BackupService } from './backup.service';
 

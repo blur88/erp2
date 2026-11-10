@@ -39,6 +39,11 @@ export enum UserStatus {
 @Index(['role', 'status'])
 @Index(['isActive', 'status'])
 export class User extends BaseEntity {
+  // Exclude from save(): a stale entity must never undo Sign out. Query-builder
+  // increments also skip update:false; revocation must use parameterized SQL.
+  @Column({ type: 'integer', default: 0, update: false })
+  tokenVersion: number;
+
   @Column({
     type: 'varchar',
     length: 50,

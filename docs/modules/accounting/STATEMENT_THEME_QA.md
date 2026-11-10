@@ -16,7 +16,11 @@ Imported stylesheet rules are stubbed in this setup as well: Vitest does not
 inject `statement.css`, so its sticky, `text-align` and `tabular-nums` rules
 never reach `getComputedStyle`.
 
-For Emotion `sx` and theme override assertability, consult the [measured boundary](#theme-and-jsdom-assertability-evidence).
+Emotion styles behave differently: MUI `sx` DOES reach
+`getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 (see
+`MainLayout.test.tsx:40`); theme `styleOverrides` use the same Emotion
+pipeline. Theme colours applied via `sx` are assertable; the Statement suite
+does not rely on that.
 
 The Vitest suite therefore proves **structure and themed `sx` values only**:
 one cell per figure, a single `amountHook` node, the complete signed
@@ -40,94 +44,6 @@ docker compose build frontend && docker compose up -d frontend
 
 Have a Sales Orders or Purchase Orders list page open in the same session
 for the comparison checks (ST-6).
-
-## Preflight — run this FIRST
-
-Every ST step queries the DOM. A renamed or dropped hook makes
-`querySelector` return `null`, and `querySelectorAll` return an EMPTY NodeList
-that iterates zero times **without throwing** — so a sweep over "every figure
-cell" silently checks nothing and reads as a pass.
-
-Open the statement page, open the browser console, and paste this **verbatim**.
-It is self-contained plain JavaScript: nothing to import, no build step.
-
-```js
-var QA_REQUIRED_HOOKS = [
-  { selector: "[data-role=\"statement-root\"]", min: 1, role: "statement root (Paper frame)" },
-  { selector: "[data-testid=\"statement-scroller\"]", min: 1, role: "scroll container" },
-  { selector: "[data-role=\"col-head\"]", min: 2, role: "column header cells" },
-  { selector: "[data-role=\"figure\"]", min: 1, role: "figure cells (blank cells excluded)" },
-  { selector: "[data-role=\"paren-spacer\"]", min: 1, role: "paren spacer (generated content, positive figures only)" },
-  { selector: "[data-a11y=\"statement-value\"]", min: 1, role: "complete value, visually hidden" },
-];
-
-function runQaPreflight(root) {
-  root = root || document;
-  var results = QA_REQUIRED_HOOKS.map(function (h) {
-    return {
-      selector: h.selector,
-      role: h.role,
-      min: h.min,
-      found: root.querySelectorAll(h.selector).length,
-    };
-  });
-  var missing = results.filter(function (r) { return r.found < r.min; });
-  if (missing.length > 0) {
-    throw new Error(
-      'STATEMENT_THEME_QA preflight FAILED — ' + missing.length + ' hook(s) unusable.\n' +
-      missing.map(function (r) {
-        return '  ' + r.selector + ' (' + r.role + '): found ' + r.found + ', need >= ' + r.min;
-      }).join('\n') +
-      '\n\nThe QA steps that query these return null or an empty collection and ' +
-      'would record a silent pass. Update the selectors in the QA document and ' +
-      'Statement/qaPreflight.ts together, then re-run.'
-    );
-  }
-  console.table(results);
-  return results;
-}
-
-runQaPreflight();
-```
-
-It prints a table of match counts and **throws**, naming the hook, if any
-selector is unusable. **Do not record results from a session where it throws** —
-update the selectors in this document and in
-`frontend/src/components/accounting/Statement/qaPreflight.ts` together, then
-start over.
-
-This block is not hand-maintained: `qaPreflight.ts` generates it via
-`qaPreflightSnippet()`, and `qaSelectorContract.test.tsx` both EXECUTES the
-snippet and asserts this document still contains it verbatim. A hook added to
-the module without regenerating this block fails the suite.
-
-## Selector reference
-
-When changing this QA guidance, run the selector contract test (incident: #1698 / PR #1708):
-
-```bash
-cd frontend && npx vitest run src/components/accounting/Statement/__tests__/qaSelectorContract.test.tsx
-```
-
-Every query below addresses a DOM hook the component renders deliberately. They
-are asserted by the selector contract test above, so renaming
-or dropping one turns the Vitest suite red and names this document — rather
-than leaving these steps silently returning `null`, which reads as a pass.
-
-| Hook | Selector |
-|---|---|
-| Statement root (Paper frame) | `[data-role="statement-root"]` |
-| Scroll container | `[data-testid="statement-scroller"]` |
-| Column header cell | `[data-role="col-head"]` |
-| Figure cell (blank cells excluded) | `[data-role="figure"]` |
-| Paren spacer (generated content) | `[data-role="paren-spacer"]` |
-| Complete value, visually hidden | `[data-a11y="statement-value"]` |
-
-```js
-// Scroll container and the accessible complete value:
-document.querySelector('[data-testid="statement-scroller"]')
-document.querySelectorAll('[data-a11y="statement-value"]')
-```
 
 ## ST-1 — Decimal alignment across sign and row kind
 
@@ -297,7 +213,8 @@ row would scroll away and leave the labels floating over the data.
 **Why it matters:** a larger bottom-line figure places its decimal separator at
 a different x position from every other row — the exact misalignment the old
 two-cell integer/fraction split existed to prevent. The bottom-line *label* may
-be larger (`1rem`); the *figure* may not. See the [invariants the suite cannot protect](#theme-and-jsdom-assertability-evidence).
+be larger (`1rem`); the *figure* may not. `docs/frontend/testing-and-print.md`
+records this as an invariant the suite cannot protect.
 
 ## ST-13 — Paren alignment across the sign boundary (#1228)
 
@@ -383,6 +300,88 @@ e.g. `200.00`, `(360.00)`, `(180.00)`, `1,000.00`, `(620.00)` all landing on
 Note: the app's CSP blocks the Google Fonts stylesheet, so Roboto resolves from
 the local system rather than the network. Alignment holds regardless — the
 fallback face is still Roboto here. A host without a local Roboto is untested.
+
+## Preflight — run this FIRST
+
+Every step below queries the DOM. A renamed or dropped hook makes
+`querySelector` return `null`, and `querySelectorAll` return an EMPTY NodeList
+that iterates zero times **without throwing** — so a sweep over "every figure
+cell" silently checks nothing and reads as a pass.
+
+Open the statement page, open the browser console, and paste this **verbatim**.
+It is self-contained plain JavaScript: nothing to import, no build step.
+
+```js
+var QA_REQUIRED_HOOKS = [
+  { selector: "[data-role=\"statement-root\"]", min: 1, role: "statement root (Paper frame)" },
+  { selector: "[data-testid=\"statement-scroller\"]", min: 1, role: "scroll container" },
+  { selector: "[data-role=\"col-head\"]", min: 2, role: "column header cells" },
+  { selector: "[data-role=\"figure\"]", min: 1, role: "figure cells (blank cells excluded)" },
+  { selector: "[data-role=\"paren-spacer\"]", min: 1, role: "paren spacer (generated content, positive figures only)" },
+  { selector: "[data-a11y=\"statement-value\"]", min: 1, role: "complete value, visually hidden" },
+];
+
+function runQaPreflight(root) {
+  root = root || document;
+  var results = QA_REQUIRED_HOOKS.map(function (h) {
+    return {
+      selector: h.selector,
+      role: h.role,
+      min: h.min,
+      found: root.querySelectorAll(h.selector).length,
+    };
+  });
+  var missing = results.filter(function (r) { return r.found < r.min; });
+  if (missing.length > 0) {
+    throw new Error(
+      'STATEMENT_THEME_QA preflight FAILED — ' + missing.length + ' hook(s) unusable.\n' +
+      missing.map(function (r) {
+        return '  ' + r.selector + ' (' + r.role + '): found ' + r.found + ', need >= ' + r.min;
+      }).join('\n') +
+      '\n\nThe QA steps that query these return null or an empty collection and ' +
+      'would record a silent pass. Update the selectors in the QA document and ' +
+      'Statement/qaPreflight.ts together, then re-run.'
+    );
+  }
+  console.table(results);
+  return results;
+}
+
+runQaPreflight();
+```
+
+It prints a table of match counts and **throws**, naming the hook, if any
+selector is unusable. **Do not record results from a session where it throws** —
+update the selectors in this document and in
+`frontend/src/components/accounting/Statement/qaPreflight.ts` together, then
+start over.
+
+This block is not hand-maintained: `qaPreflight.ts` generates it via
+`qaPreflightSnippet()`, and `qaSelectorContract.test.tsx` both EXECUTES the
+snippet and asserts this document still contains it verbatim. A hook added to
+the module without regenerating this block fails the suite.
+
+## Selector reference
+
+Every query below addresses a DOM hook the component renders deliberately. They
+are asserted by `Statement/__tests__/qaSelectorContract.test.tsx`, so renaming
+or dropping one turns the Vitest suite red and names this document — rather
+than leaving these steps silently returning `null`, which reads as a pass.
+
+| Hook | Selector |
+|---|---|
+| Statement root (Paper frame) | `[data-role="statement-root"]` |
+| Scroll container | `[data-testid="statement-scroller"]` |
+| Column header cell | `[data-role="col-head"]` |
+| Figure cell (blank cells excluded) | `[data-role="figure"]` |
+| Paren spacer (generated content) | `[data-role="paren-spacer"]` |
+| Complete value, visually hidden | `[data-a11y="statement-value"]` |
+
+```js
+// Scroll container and the accessible complete value:
+document.querySelector('[data-testid="statement-scroller"]')
+document.querySelectorAll('[data-a11y="statement-value"]')
+```
 
 ### ST-2 — Parentheses not clipped ✅
 
@@ -626,43 +625,3 @@ rather than trivially satisfied. Spacer read from the **pseudo-element**:
 - Screen-reader announcement remains **unverified**, as recorded in the
   2026-09-11 run. Nothing in this change affects the accessible-value
   structure.
-
-## Theme and jsdom assertability evidence
-
-**Statement (P&L / Balance Sheet / Form B) has limited automated visual coverage**: `components/accounting/Statement/` was aligned to the app theme in #1224 — MUI `Paper` frame, theme palette, sticky header, and one right-aligned figure cell per column in place of the integer/fraction split.
-
-Emotion styles are a different story, and the boundary was **measured**, not
-inferred from the shared pipeline. Probed 2026-09-11 against
-**@mui/material 9.4.0, jsdom 30.0.1, vitest 5.0.0**, each case asserting the
-correct value *and* a deliberately wrong one:
-
-| Applied via | Observable through `toHaveStyle`? |
-|---|---|
-| `sx` on the asserted element itself | **yes** (`MainLayout.test.tsx` reads `sx={{ pt: 11 }}` as `paddingTop: 88px`) |
-| `sx` descendant selector (`'& .stmt-cell-code'`) | **yes** — measured on `Statement` itself: `.stmt-figure-negative` computes `rgb(239, 83, 80)`, `.stmt-cell-code` computes `rgb(189, 189, 189)` |
-| theme `styleOverrides` on a themeable slot | **yes** (`MuiButton` root `paddingTop` computes `88px`) |
-| an imported stylesheet (`statement.css`) | **no** — Vitest does not inject it |
-
-So Statement's themed colours *are* assertable, including the descendant-selector
-ones; the current suite simply does not assert them. What stays out of reach is
-the imported stylesheet and anything needing layout.
-
-Two measurement traps, both of which produced false negatives on the first pass
-here:
-
-- **Render through a `ThemeProvider`.** A component rendered bare computes no
-  themed colour, which reads as "Emotion is unobservable" when it only means the
-  theme was absent.
-- **`toHaveStyle` failing on a wrong value proves nothing by itself.** An element
-  with no rule at all computes `rgb(0, 0, 0)`, so a wrong-colour assertion
-  "fails" there too. Read the actual computed value before concluding a rule did
-  not apply.
-
-An older note (#1098, measured on MUI 9.3.1 / vitest 4.1.10) recorded that a
-pure-`sx` control failed. That does not reproduce on the versions above; treat
-it as superseded rather than as a live constraint.
-
-Two invariants the suite *cannot* protect, so change them only deliberately:
-
-- **The paren spacer must stay CSS generated content** (`[data-role="paren-spacer"]`, whose `parenSpacerSx` supplies `&::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser. Note that `toHaveTextContent('56,800.00')` is a substring assertion — it would still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
-- **Every figure must render at the same font size.** The bottom line is distinguished by weight and its double rule. A larger bottom-line figure places its decimal separator at a different x position from every other row, which is the exact misalignment the old two-cell split existed to prevent.

@@ -4,22 +4,30 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 ## Conventions
 
-- **Owner decisions**: a choice an issue reserves for the owner is decided in an issue comment before implementation. An issue with an open owner decision is `ready-for-human`, not `ready-for-agent`; adding such a question to a `ready-for-agent` issue moves it back. When a `/grill-with-docs` or `/grilling` session settles decisions for an issue, post them as one issue comment, one line per decision, before implementation starts. Incident: #1710, PR #1733.
-- **Adding scope**: edit the issue body's acceptance criteria when a follow-up adds scope; the comment explains why. The body stays the spec.
+- Use `Closes #N` only when the PR finishes every open item in #N. Otherwise use `Refs #N` and keep #N open, or move the remaining items to a new linked issue first.
+
+- **Guard or analyser issues**: include an acceptance criterion that every exclusion introduced by the implementation is named in a comment and pinned by a test case, following the test-coverage rule in [Tracked guard cases](../../CODING_STANDARDS.md#tracked-guard-cases).
+
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
+- **Cross-link overlapping issues**: when a new issue edits a file that another open issue targets, link both ways: add `Related: #<n>` with one line on the overlap to the new issue's body, and comment the same on the other issue. Name the conflicting requirement when you know it. A shared file means the two need comparing, not that they conflict.
 - **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Make an issue a sub-issue of a parent**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>` (database id, as in **Blocking** below). Without sub-issues, put `Part of #<parent>` at the top of the child body.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **Close**: never with `gh issue close` directly unless the owner explicitly requests it. Issues close through the PR that resolves them.
-  - External-only work uses a completion-record PR with `Closes #<n>`; follow the [external-file workflow](external-files.md). Close by hand with an evidence comment only on the owner’s explicit request.
-- **Referencing issues from a PR**:
-  - `Closes #<n>`: only when the PR fully resolves the issue. GitHub closes it on merge.
-  - `Refs #<n>`: when the PR covers part of the issue. The issue stays open.
-  - `/pr` guidance: use only `Refs #<n>` for issues this PR must not close. Never put a closing keyword next to an issue number this PR must not close, including URL and Markdown reference forms. Never write a sentence about not closing, because GitHub ignores negation. Intentional closing references must occupy an entire line exactly as `Closes #<n>`, `Fixes #<n>`, or `Resolves #<n>`. The independent PR body workflow rejects other lines containing a closing keyword adjacent to a local issue number, an `owner/repo#<n>` reference, or an `https://github.com/<owner>/<repo>/issues/<n>` URL, including optional colons and omitted spaces. It runs on body edits as well as new commits.
+- **Close**: `gh issue close <number> --comment "..."`
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
+
+## Writing an agent brief
+
+Before posting a brief for issue #N, substitute its number and run:
+
+```bash
+git grep -nE '#N\b|issues/N\b' -- ':!docs/archive'
+```
+
+Every hit that hands unfinished work to the issue becomes an acceptance criterion that applies whichever way the work goes: either do the work, or reword the line to describe the resulting decision. Do not make pointer cleanup optional when the implementation is optional.
 
 ## Pull requests as a triage surface
 
@@ -33,15 +41,34 @@ When set to `yes`, PRs run through the same labels and states as issues, using t
 
 GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42` and fall back to `gh issue view 42`.
 
-Dependabot alert numbers use a separate namespace from issue and PR numbers. For a security alert URL or alert ID, fetch the alert with `gh api repos/<owner>/<repo>/dependabot/alerts/<alert-number>`; do not treat the alert number as an issue or PR number or apply issue labels to it. The alert ID can match an unrelated issue or PR number.
-
 ## When a skill says "publish to the issue tracker"
 
 Create a GitHub issue.
 
+## When a planning session hands off a ticket
+
+Before handing off, post the complete handoff to the ticket: every settled decision, each labelled **requirement** or **implementation choice**. Each decision carries the chosen option's concrete values (paths, names, commands) as the answer stated them: "back up to `~/.agents/skills-replaced/`", not "a collision-safe backup path". Where a decision replaces one recorded earlier on the ticket, name the one it supersedes. Unrecorded decisions cannot be relied on during implementation or review.
+
 ## When a skill says "fetch the relevant ticket"
 
-Read it as in **Read an issue** above.
+Read it as in **Read an issue** above, adding `createdAt` to the `--json` fields. Then run a **scope checkpoint** before editing:
+
+1. List candidate commits: `git log --oneline --since=<createdAt> -- <files the ticket names>`. This only finds candidates.
+2. Read each candidate's diff (`git show <sha> -- <file>`) against the ticket's targets and criteria. A conflict is a line-level fact: a target already changed, or a merged change a criterion would undo.
+3. Post a comment on the ticket, before the first edit, recording:
+   - the affected criteria and how each is now read;
+   - work later commits already completed;
+   - your proposed scope;
+   - every scope interpretation raised while planning (sections in or out, how a rule's term is read), even when no later commit prompted it.
+
+   Skip the comment only when step 2 found nothing and planning raised no interpretation.
+4. If the work would reverse a merged decision, ask the ticket's owner and wait on that part. Proceed with the rest.
+
+Implementers read only the ticket's body and comments, so a decision settled anywhere else is lost unless it lands here.
+
+## When a ticket asks for red-first evidence
+
+Before planting a fault, name the test case or assertion expected to fail; record that it failed there, then remove the fault and confirm the full suite passes.
 
 ## Wayfinding operations
 

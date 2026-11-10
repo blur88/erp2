@@ -1,7 +1,8 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type ViteUserConfig } from 'vitest/config'
 import { createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { appStoreRuntimeGuard } from './src/test/appStoreRuntimeGuard'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -59,11 +60,6 @@ export default defineConfig(({ mode }) => {
               target: 'http://localhost:3001',
               changeOrigin: true,
               secure: false,
-            },
-            '/socket.io': {
-              target: 'http://localhost:3001',
-              changeOrigin: true,
-              ws: true,
             },
           },
         },
@@ -133,13 +129,15 @@ export default defineConfig(({ mode }) => {
       projects: [
         {
           extends: true,
+          plugins: [appStoreRuntimeGuard()],
           test: { name: 'node', include: ['src/**/*.test.ts'], environment: 'node' },
         },
         {
           extends: true,
+          plugins: [appStoreRuntimeGuard()],
           test: { name: 'jsdom', include: ['src/**/*.test.tsx'], environment: 'jsdom' },
         },
       ],
     },
-  }
+  } satisfies ViteUserConfig
 })

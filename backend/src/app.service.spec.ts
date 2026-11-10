@@ -9,6 +9,7 @@ const redisMock = {
   info: (jest.fn as unknown as any)(),
   disconnect: (jest.fn as unknown as any)(),
 };
+const redisConstructor = (jest.fn as unknown as any)(() => redisMock);
 
 const samplerMock = {
   getHealthView: (jest.fn as unknown as any)(),
@@ -20,7 +21,7 @@ let RedisMemorySamplerService: any;
 beforeAll(async () => {
   jest.unstable_mockModule('ioredis', () => ({
     __esModule: true,
-    default: (jest.fn as unknown as any)(() => redisMock),
+    default: redisConstructor,
   }));
   const appMod = await import('./app.service');
   AppService = appMod.AppService;
@@ -66,6 +67,13 @@ describe('AppService', () => {
     }).compile();
 
     service = module.get(AppService);
+  });
+
+  it('constructs its health-check Redis client with RESP2', () => {
+    expect(redisConstructor).toHaveBeenCalledTimes(1);
+    expect(redisConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({ protocol: 2 }),
+    );
   });
 
   describe('getHealth — Redis memory pressure state mapping', () => {

@@ -21,9 +21,11 @@
 # runtime. When the file is also in app.module's require chain, the whole
 # application fails to boot.
 #
-# Two checks, cheapest first:
-#   1. static  - no unresolved path aliases anywhere in dist/
-#   2. runtime - dist/main.js actually loads (the definitive check)
+# Before these checks, reject output older than sibling TypeScript source.
+# Three checks, in order:
+#   1. static     - no unresolved path aliases anywhere in dist/
+#   2. runtime    - dist/main.js actually loads (the definitive check)
+#   3. migrations - the compiled datasource resolves migrations from dist/
 #
 # Usage: ./scripts/verify-dist-runtime.sh [dist_dir]
 
@@ -39,6 +41,22 @@ fi
 if [ ! -f "$DIST_DIR/main.js" ]; then
   echo "FAIL: '$DIST_DIR/main.js' not found — build output is incomplete." >&2
   exit 1
+fi
+
+# Resolve from the selected output directory, including custom paths and paths
+# ending in a slash. Runtime images can omit src/ entirely.
+SRC_DIR="$(CDPATH= cd -- "$DIST_DIR" && pwd)/../src"
+if [ -d "$SRC_DIR" ]; then
+  if newer=$(find "$SRC_DIR" -type f -name '*.ts' -newer "$DIST_DIR/main.js" -print -quit); then
+    if [ -n "$newer" ]; then
+      echo "FAIL: stale dist/ — run npm run build:all" >&2
+      exit 1
+    fi
+  else
+    find_status=$?
+    echo "FAIL: could not check dist/ freshness — find exited $find_status" >&2
+    exit 1
+  fi
 fi
 
 # Keep in sync with the "paths" block in tsconfig.json. A new alias added there

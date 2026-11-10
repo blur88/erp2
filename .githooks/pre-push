@@ -1,9 +1,81 @@
 #!/bin/sh
-set -eu
+# Refuses pushing a branch that does not contain the remote's current main.
+# A releasing merge adds a chore(release) commit to main, so a branch cut from
+# a stale local main opens its PR already behind; the ruleset then demands a
+# rebase and a second full CI run. Activated by core.hooksPath like pre-commit.
+#
+# core.hooksPath replaces .git/hooks, so a clone-local pre-push hook is
+# chained below, fed the same ref lines on stdin, to keep its behaviour.
 
-while read -r local_ref local_sha remote_ref remote_sha; do
-  if [ "$remote_ref" = refs/heads/main ]; then
-    echo 'Pushes to main are blocked. Push a feature branch and open a PR.' >&2
+remote=$1
+lines=$(cat)
+main=
+zero=0000000000000000000000000000000000000000
+
+# A failed fetch skips only ancestry checking: the remote may have no main
+# yet, or be unreachable, in which case the push itself fails next.
+if ! git fetch -q "$remote" main 2>/dev/null; then
+  echo "pre-push: could not fetch main from $remote; skipping the up-to-date check" >&2
+else
+  main=$(git rev-parse FETCH_HEAD)
+  zero=0000000000000000000000000000000000000000
+  behind=""
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$local_ref" in refs/heads/*) ;; *) continue ;; esac
+    [ "$local_sha" = "$zero" ] && continue
+    if ! git merge-base --is-ancestor "$main" "$local_sha"; then
+      behind="$behind ${local_ref#refs/heads/}"
+    fi
+  done <<EOF
+$lines
+EOF
+  if [ -n "$behind" ]; then
+    for branch in $behind; do
+      echo "pre-push: $branch does not contain $remote's current main." >&2
+    done
+    echo "Rebase first: git rebase $remote/main, then push again." >&2
     exit 1
   fi
-done
+fi
+
+# Inspect each pushed commit (even changes later reverted), rather than only
+# the net diff. Deletions have no code to test; non-script paths are excluded.
+needs_scripts=false
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_sha" ] && continue
+  [ "$local_sha" = "$zero" ] && continue
+  base=$remote_sha
+  [ "$base" != "$zero" ] || base=$main
+  if [ -n "$base" ]; then
+    range="$base..$local_sha"
+  else
+    range=$local_sha
+  fi
+  if ! changed=$(git log --full-history --sparse -m --format= --name-only "$range" -- '*.sh' '*.bash' '*.bats' 'backend/scripts/**' '.githooks/pre-push' '.githooks/pre-commit'); then
+    echo "pre-push: could not inspect pushed commits" >&2
+    exit 1
+  fi
+  [ -n "$changed" ] || continue
+  if [ "$local_sha" != "$(git rev-parse HEAD)" ]; then
+    echo "pre-push: check out the pushed script commit before pushing" >&2
+    exit 1
+  fi
+  needs_scripts=true
+done <<EOF
+$lines
+EOF
+if [ "$needs_scripts" = true ]; then
+  if ! git diff --quiet -- || ! git diff --cached --quiet HEAD --; then
+    echo "pre-push: commit or stash tracked changes before testing pushed scripts" >&2
+    exit 1
+  fi
+  if ! (cd "$(git rev-parse --show-toplevel)/backend" && npm run test:scripts); then
+    echo "pre-push: script suite failed; push refused" >&2
+    exit 1
+  fi
+fi
+
+local_hook="$(git rev-parse --git-common-dir)/hooks/pre-push"
+if [ -x "$local_hook" ]; then
+  printf '%s\n' "$lines" | exec "$local_hook" "$@"
+fi

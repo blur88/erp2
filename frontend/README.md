@@ -5,44 +5,41 @@ A modern, comprehensive React frontend application for the ERP system built with
 ## Features
 
 ### 🚀 Core Features
-- **Modern React Architecture** - React 18.3.1 with TypeScript, hooks, and context API
-- **Responsive Design** - Mobile-first approach with Material-UI v7 components
+- **Modern React Architecture** - React with TypeScript, hooks, and context API
+- **Responsive Design** - Material-UI components with responsive breakpoints
 - **State Management** - Redux Toolkit for predictable state management
-- **Public Access** - Authentication system completely removed for rapid development
-- **Real-time Updates** - WebSocket integration for live data updates
+- **Authentication** - Login and protected application routes
 - **Module-based Navigation** - Sidebar navigation for different ERP modules
 
 ### 📱 UI/UX Features
-- **Responsive layout** that works on desktop, tablet, and mobile
-- **Dark/light theme** support with theme switching
-- **Internationalization** support (i18n) ready
-- **Loading states** and comprehensive error handling
+- **Responsive navigation** with a temporary drawer on smaller screens and a permanent sidebar on larger screens
+- **Dark theme** applied throughout the app
+- **Loading states** and error notifications
 - **Data tables** with sorting, filtering, and pagination
-- **Form validation** with real-time feedback
-- **Charts and visualizations** for dashboard and reports
-- **Export functionality** (Excel, PDF, CSV) ready
+- **Form validation** with field-level error messages
+- **Charts and visualizations** for the dashboard
+- **Audit log exports** in Excel, PDF, and CSV formats
 
 ### 🛠 Technical Features
 - **API integration** with the NestJS backend
 - **Error handling** with proper user feedback
-- **Performance optimization** with lazy loading and code splitting
-- **Accessibility** compliance (WCAG guidelines)
-- **Progressive Web App** features ready
+- **Lazy loading** and build-time code splitting
 - **TypeScript** for type safety and better developer experience
 
 ## Tech Stack
 
-- **React 18.3.1** - Modern React with concurrent features
+See [`frontend/package.json`](package.json) for dependency versions.
+
+- **React** - Component-based UI
 - **TypeScript** - Type-safe JavaScript (relaxed mode: `"strict": false`)
-- **Material-UI v7** - Comprehensive UI component library (v7.3.6)
+- **Material-UI** - Comprehensive UI component library
 - **Redux Toolkit** - State management with Redux best practices
-- **React Router v6** - Client-side routing
+- **React Router** - Client-side routing
 - **Vite** - Fast build tool and dev server
 - **React Hook Form** - Performant forms with easy validation
 - **Yup** - Schema validation
 - **Axios** - HTTP client with interceptors
-- **Chart.js & Recharts** - Data visualization
-- **Socket.io Client** - Real-time communication
+- **Chart.js** - Data visualization
 - **Date-fns** - Date manipulation library
 
 ## Project Structure
@@ -105,7 +102,6 @@ A modern, comprehensive React frontend application for the ERP system built with
    Edit `.env` with your configuration:
    ```env
    VITE_API_BASE_URL=http://localhost:3001/api
-   VITE_SOCKET_URL=http://localhost:3001
    ```
 
 4. **Start development server**
@@ -126,6 +122,7 @@ npm run preview          # Preview production build locally
 # Code Quality
 npm run lint             # Run ESLint
 npm run type-check       # Run TypeScript compiler check
+npm run type-check:test
 
 # Testing
 npm run test             # Run tests
@@ -170,7 +167,7 @@ npm run test:coverage    # Run tests with coverage report
 - **Price & Costing Settings** - AVERAGE, FIFO, LIFO, and STANDARD costing methods
 - **Print Settings** - Print templates and printing configuration
 - **User Management** - Basic user CRUD operations (no authentication)
-- **Theme Customization** - Light/dark mode, color schemes
+- **Theme** - Single dark theme defined in `src/styles/theme.ts`
 
 ## Security Status
 
@@ -199,11 +196,6 @@ npm run test:coverage    # Run tests with coverage report
 ### Redux Store Structure
 ```typescript
 {
-  theme: {
-    mode: 'light' | 'dark',
-    primaryColor: string,
-    secondaryColor: string
-  },
   inventory: {
     products: Product[],
     categories: Category[],
@@ -222,12 +214,6 @@ npm run test:coverage    # Run tests with coverage report
 ```
 
 **Note**: No auth state - authentication system completely removed
-
-### Real-time Updates
-- **WebSocket integration** - Live data synchronization
-- **Optimistic updates** - Immediate UI feedback
-- **Conflict resolution** - Handling concurrent modifications
-- **Offline support** - Queue operations when offline
 
 ## API Integration
 
@@ -278,7 +264,6 @@ npm run build:analyze    # Analyze bundle size and dependencies
    ```bash
    docker run -p 80:80 \
      -e VITE_API_BASE_URL=https://api.yourdomain.com/api \
-     -e VITE_SOCKET_URL=https://api.yourdomain.com \
      erp-frontend
    ```
 
@@ -298,7 +283,6 @@ The build includes:
 Production environment variables:
 ```env
 VITE_API_BASE_URL=https://your-api-domain.com/api
-VITE_SOCKET_URL=https://your-api-domain.com
 VITE_APP_NAME=Your Company ERP
 VITE_APP_VERSION=1.0.0
 ```
@@ -365,34 +349,10 @@ This project is licensed under the MIT License - see the [LICENSE](../LICENSE) f
 ## Support
 
 For support, please:
-1. Check the [documentation](docs/)
-2. Search [existing issues](https://github.com/yourorg/erp-system/issues)
-3. Create a [new issue](https://github.com/yourorg/erp-system/issues/new) if needed
-
-## Recent Updates
-
-### December 2025
-- ✅ **Material-UI v7 Upgrade** - Upgraded from v5 to v7.3.6
-- ✅ **React 18.3.1 Upgrade** - Latest React version
-- ✅ **PostgreSQL 18.1** - Backend database upgrade
-- ✅ **Redis 8.4** - Cache and queue system upgrade
-
-### November 2025
-- ✅ **Module-Embedded Reports** - Reports integrated into business modules
-- ✅ **Flexible Costing Methods** - AVERAGE, FIFO, LIFO, STANDARD support
-- ✅ **Settings Module** - Company settings and print configuration
-
-### October 2025
-- ✅ **Product Fields Modernization** - Simplified product model
-- ✅ **Soft-Delete Management** - View and restore deleted records
-- ✅ **Purchasing Module Re-enabled** - Full purchasing functionality
-- ✅ **Sales Order Enhancements** - Advanced filtering and payment handling
-
-### Pre-September 2025
-- ✅ **Authentication Removal** - Complete auth system removal for rapid development
-- ✅ **NestJS 11 Upgrade** - Backend framework upgrade
-- ✅ **Node.js 24** - Docker base image upgrade
+1. Check the [documentation](../docs/README.md)
+2. Search [existing issues](https://github.com/blur88/erp2/issues)
+3. Create a [new issue](https://github.com/blur88/erp2/issues/new) if needed
 
 ---
 
-**For complete system documentation, see**: `/CLAUDE.md` in the repository root.
+**For project documentation, see**: `/AGENTS.md` in the repository root, which links to the detailed docs.

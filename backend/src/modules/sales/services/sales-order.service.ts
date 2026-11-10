@@ -34,7 +34,6 @@ import {
   BOOST_TRANSACTION,
   BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
-import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import {
   ValidationUtil,
@@ -73,7 +72,6 @@ export class SalesOrderService extends BaseCrudService<
     private readonly userRepository: Repository<User>,
     @InjectRepository(PriceListItem)
     private readonly priceListItemRepository: Repository<PriceListItem>,
-    private readonly customerService: CustomerService,
     private readonly inventoryIntegrationService: InventoryIntegrationService,
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
@@ -591,22 +589,6 @@ export class SalesOrderService extends BaseCrudService<
   }
 
   // Helper methods
-
-  private async triggerMetricUpdate(customerId: string, context: string): Promise<void> {
-    try {
-      await this.customerService.updateCustomerMetrics(customerId);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        this.logger.warn(
-          `Customer not found for metric update after ${context} — possible orphaned order (customerId: ${customerId})`,
-        );
-      } else {
-        this.logger.error(
-          `Failed to update customer metrics after ${context} (customerId: ${customerId}): ${error.message}`,
-        );
-      }
-    }
-  }
 
   /**
    * Build the normalized before/after value snapshot logged on an order edit. Kept in

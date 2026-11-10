@@ -1,4 +1,3 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { render, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { Provider } from 'react-redux'
@@ -8,6 +7,7 @@ import api from '@/services/api'
 import { priceListApiSlice } from '@/store/api/priceListApi'
 
 import PriceListSelector from './PriceListSelector'
+import { createTestStore } from '@/test/createTestStore'
 
 // Only the Axios transport is mocked: the real priceListApi slice and
 // axiosBaseQuery run, so a request the server would reject fails here too.
@@ -41,10 +41,7 @@ function serveLikeBackend() {
 
 // A fresh store per render so no cached response can mask a failed request.
 function renderWithStore(ui: ReactElement) {
-  const store = configureStore({
-    reducer: { [priceListApiSlice.reducerPath]: priceListApiSlice.reducer },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(priceListApiSlice.middleware),
-  })
+  const store = createTestStore({ apis: [priceListApiSlice] })
   return render(<Provider store={store}>{ui}</Provider>)
 }
 

@@ -1,10 +1,14 @@
 /**
  * Executable preflight for `docs/modules/accounting/STATEMENT_THEME_QA.md`.
  *
- * CLAUDE.md designates that document as the substitute for the browser gate
- * removed in #1223. Its failure mode is silent: every step is a
- * `document.querySelector(...)` in a browser console, and when a selector is
- * renamed or dropped the query returns `null` — or, worse,
+ * `docs/modules/accounting/STATEMENT_THEME_QA.md` is the tracked substitute
+ * for the browser gate removed in #1223 (see
+ * `docs/frontend/testing-and-print.md`, "Statement (P&L / Balance Sheet / Form B)").
+ * Results go in the PR.
+ *
+ * Its failure mode is silent: each step runs `document.querySelector(...)` in
+ * a browser console. If a selector is renamed or dropped, the query returns
+ * `null` — or, worse,
  * `querySelectorAll` returns an EMPTY NodeList, which iterates zero times
  * without throwing. A loop over zero figure cells "finds no mismatch", which a
  * careless run records as a pass.

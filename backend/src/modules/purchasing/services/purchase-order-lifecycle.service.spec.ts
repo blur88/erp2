@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { Product } from '../../../database/entities/product.entity';
 
 import {
   PurchaseOrder,
@@ -239,6 +240,9 @@ describe('PurchaseOrderLifecycleService', () => {
         dataSource.transaction.mockImplementation(async (cb: any) =>
           cb({
             getRepository: (entity: any) => {
+              if (entity === Product) {
+                return { findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }) };
+              }
               if (entity === PurchaseOrder) return poRepo;
               if (entity === PurchaseOrderItem) return itemRepo;
               return {};
@@ -324,6 +328,11 @@ describe('PurchaseOrderLifecycleService', () => {
           getRepository: (entity: any) => {
             if (entity === PurchaseOrder) return poRepo;
             if (entity === PurchaseOrderItem) return itemRepo;
+            if (entity === Product) {
+              return {
+                findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }),
+              };
+            }
             return {};
           },
         }),
@@ -402,6 +411,11 @@ describe('PurchaseOrderLifecycleService', () => {
           getRepository: (entity: any) => {
             if (entity === PurchaseOrder) return poRepo;
             if (entity === PurchaseOrderItem) return itemRepo;
+            if (entity === Product) {
+              return {
+                findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }),
+              };
+            }
             return {};
           },
         }),
@@ -455,8 +469,16 @@ describe('PurchaseOrderLifecycleService', () => {
       dataSource.transaction.mockImplementation(async (cb: any) =>
         cb({
           getRepository: (entity: any) => {
+            if (entity === Product) {
+              return { findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }) };
+            }
             if (entity === PurchaseOrder) return poRepo;
             if (entity === PurchaseOrderItem) return itemRepo;
+            if (entity === Product) {
+              return {
+                findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }),
+              };
+            }
             return {};
           },
         }),

@@ -1,94 +1,131 @@
-# Repository Guidelines
+# Agent Brief
 
-## Project Structure & Module Organization
-This repository is a full-stack ERP monorepo.
-- `backend/`: NestJS API, TypeORM entities/migrations, Jest unit + e2e tests (`backend/test`).
-- `frontend/`: React + TypeScript + Vite app, Vitest tests, reusable UI in `frontend/src/components`.
-- `docs/`: operational and feature documentation.
-- Root infra: `docker-compose.yml`, `deploy.sh`, `.env.example`, `nginx/`.
+ERP monorepo: NestJS 11 backend and React 19 / TypeScript 6 / Material-UI v9 frontend, served through NGINX in Docker.
 
-Keep domain logic inside module folders (for example `backend/src/modules/auth`, `frontend/src/pages/*`).
+- **Data**: PostgreSQL 18.3 via TypeORM. Redis 8.6 is the BullMQ queue store only.
+- **Tests**: Jest (backend, ESM mode) and Vitest (frontend).
+- **Default admin**: `admin / Admin@123!` — change on first login.
+- **Vocabulary**: domain terms are defined in [`GLOSSARY.md`](GLOSSARY.md). Use them as defined there.
+- **Environments**: no production deployment exists yet; the local Compose stack is the only running environment. `docker-compose.prod.yml`, `NODE_ENV=production` and the built Docker image are real and testable today, but requirements marked **"Required when a production host is created"** have never been exercised on a production host. Never present development results as production evidence.
 
-## Build, Test, and Development Commands
-Use Docker for full-stack runs, or run each app locally.
-- `docker-compose up -d`: start full stack.
-- `./deploy.sh restart|logs|status`: common operational workflows.
-- `cd backend && npm run start:dev`: run API in watch mode.
-- `cd frontend && npm run dev`: run Vite dev server.
-- `cd backend && npm run build`: compile backend.
-- `cd frontend && npm run build`: produce frontend production bundle.
+## Layout and architecture
 
-## Coding Style & Naming Conventions
-Primary language is TypeScript.
-- Follow ESLint + Prettier in backend; ESLint + TypeScript checks in frontend.
-- Use 2-space indentation and keep imports organized by feature/domain.
-- Naming: `PascalCase` for React components/classes, `camelCase` for variables/functions, `kebab-case` for filenames where established.
-- Keep DTOs/entities/services grouped by module in backend.
+- `backend/` — NestJS API, TypeORM entities and migrations, Jest unit (`*.spec.ts`) and e2e (`backend/test`) tests.
+- `frontend/` — React + Vite app, Vitest + Testing Library tests in `__tests__/` or `*.test.ts(x)`, reusable UI in `frontend/src/components`.
+- `docs/` — technical, module and operational docs. `docs/archive/` is historical only.
+- Root infra: `docker-compose.yml`, `docker-compose.prod.yml`, `deploy.sh`, `.env.example`, `nginx/`.
 
-## Testing Guidelines
-- Backend: Jest (`*.spec.ts`) and e2e under `backend/test/e2e`.
-- Frontend: Vitest + Testing Library; co-locate tests in `__tests__` or `*.test.ts(x)`.
+Registered backend modules are whatever `backend/src/app.module.ts` imports — read it rather than relying on a list. `ErrorManagementModule` (`backend/src/common/error-management`) is registered ahead of the business modules. Reports are not a module: sales, purchasing and inventory reports are routes inside the respective `*-analytics` controllers and services, which also serve the dashboards.
 
-Add or update tests for any behavior change.
+Non-obvious decisions:
 
-## Change-Scoped Verification (Required Before Merge)
+- TypeScript `strict: false`; use `as any` where TypeORM types resist.
+- The database connection forces IPv4 (`family: 4`). Database SSL is opt-in via `DB_SSL=true` in **every** environment (#1158); `NODE_ENV` is deliberately not consulted, because the in-Compose Postgres serves no TLS. `ssl.config.spec.ts` asserts the result is identical across environments.
+- Frontend runtime configuration is written to `/var/run/env-config.js` on tmpfs and served through the edge NGINX with `no-store` through the versioned `/env-config.js?v=2` script URL, populating `window.__ENV__` with the root filesystem read-only, so one image works in every environment.
+- Path aliases: frontend `@/` → `src/`; backend `@/*`, `@modules/*`, `@common/*`, `@config/*`, `@database/*` → the matching `src/` directories (but see the path-alias trap below).
+- Frontend API calls use RTK Query (`frontend/src/store/api/`) over the Axios `ApiService` transport.
 
-Before opening the PR, pass applicable local-only checks locally: lint, type-check, `type-check:spec`, targeted regression tests, and `migration:run`.
+## Commands
 
-Before merge, every applicable gate needs qualifying evidence on the exact final head SHA. Any new commit, including docs-only changes, invalidates earlier evidence. There is no “unrelated change” exemption. Rerun local-only checks and obtain fresh evidence for CI-eligible commands.
+```bash
+docker compose up -d                       # full stack
+cd backend && npm run start:dev            # backend, hot reload, no Docker
+cd frontend && npm run dev                 # frontend dev server, no Docker
+cd backend && npm run migration:generate --name=DescriptiveName
+cd backend && npm run migration:run        # / migration:revert
+cd backend && npm run lint && npm run format
+./deploy.sh [restart|logs|status]
+./maintain.sh                              # maintenance menu
+```
 
-Matching rows are cumulative. Run a command shared by several rows once per qualifying SHA.
+Single test files:
 
-Run each command from its listed directory, after `npm ci` there when that directory has no `node_modules` (a fresh checkout or worktree).
+```bash
+cd backend && NODE_OPTIONS=--experimental-vm-modules npx jest src/path/to/file.spec.ts --no-coverage
+cd frontend && npx vitest run src/path/to/file.test.tsx
+cd backend && npx bats scripts/__tests__/file.bats
+```
 
-| Files changed | Commands (run from) | CI may supply |
-|---|---|---|
-| `backend/src/**` | `npm run lint && npm run type-check && npm run test && npm run test:e2e` (`backend/`) | `npm run test`: Backend - Lint, Type Check, Unit Tests, E2E Tests / Unit tests; `npm run test:e2e`: Backend - Lint, Type Check, Unit Tests, E2E Tests / E2E tests |
-| `backend/test/**` | `npm run type-check:spec && npm run test:e2e` (`backend/`) | `npm run test:e2e`: Backend - Lint, Type Check, Unit Tests, E2E Tests / E2E tests |
-| Backend entities/migrations | `npm run migration:run && npm run test:e2e` (`backend/`); local migration must pass before e2e | `npm run test:e2e`: Backend - Lint, Type Check, Unit Tests, E2E Tests / E2E tests |
-| `frontend/src/**` | `npm run lint && npm run type-check && npm run test:coverage` (`frontend/`) | `npm run test:coverage`: Frontend - Lint, Type Check, Tests / Tests with coverage |
-| Cross-app contracts (API DTOs/interfaces used by both apps) | Union of backend source and frontend source rows | As in those rows |
-| `backend/scripts/**`, agent guidance (`AGENTS.md`, `CLAUDE.md`), or linked topic documentation | `npm run test:scripts` (`backend/`) | `npm run test:scripts`: Backend - Lint, Type Check, Unit Tests, E2E Tests / Gate script tests |
-| `release.config.cjs`, root `scripts/**`, `.github/workflows/**` | `npm ci && npm test && sh scripts/tests/git-hooks.sh` (repo root); report the two suites separately | `npm test`: Root script tests / Test root scripts; `sh scripts/tests/git-hooks.sh`: Git hook integration tests / Test local main guards |
+The full frontend suite takes tens of minutes; it is not hung.
 
-Frontend `npm run test:coverage` executes the full suite with coverage and satisfies both full-suite test and coverage requirements.
+## Pre-PR verification (authoritative)
 
-Backend `type-check:spec` catches `test/**`, excluded by the build configuration, and checks `src/**` under the test configuration. For guidance pointer rules and limitations, read [agent document pointer checks](docs/backend/testing.md#agent-document-pointer-checks).
+Run the checks for every area your change touches. When scopes overlap, run each check once. PRs paste the raw output of each command run locally, with `git rev-parse HEAD` and `echo "exit=$?"` around it ([Recorded results are preserved](CODING_STANDARDS.md#recorded-results-are-preserved)).
 
-Backend CI's `npm run test -- --no-coverage` is equivalent to backend `npm run test`; any other substitution needs an explicit equivalence rule. The local-only checks listed above always stay local. CI's fresh-database migration check does not replace the [disposable-clone migration procedure](docs/agents/development-reference.md#disposable-clone-migration-verification).
+| Files touched | Required |
+|---|---|
+| Every PR | `cd backend && npm run verify:doc-links` |
+| `backend/src/**` | `cd backend && npm run lint:check && npm run type-check && npm run test && npm run test:e2e` |
+| `backend/test/**` | `cd backend && npm run type-check:spec && npm run test:e2e` |
+| `backend/src/database/check-baseline.ts`, `backend/src/config/**`, `backend/test/*db*`, `backend/package.json`, build tsconfigs/`nest-cli.json`, or `backend/scripts/verify-dist-runtime.sh` | additionally `cd backend && npm run test:db` |
+| Entities or migrations | additionally `cd backend && npm run migration:run`, before `test:e2e` |
+| `frontend/src/**` | `cd frontend && npm run lint && npm run type-check && npm run type-check:test && npm run test:coverage` |
+| API DTOs/interfaces used by both apps | both the `backend/src/**` and `frontend/src/**` rows |
 
-CI evidence qualifies only when the same command finished with status `success` on the exact SHA being reported or merged. Record the run/job link, head SHA, exact command, and result. A push alone is not evidence.
+- `test:coverage` runs the full frontend suite, so it replaces `npm run test`; do not run both.
+- A green CI job satisfies the suite commands it runs when its run's head commit is the PR's current head commit: **Frontend - Lint, Type Check, Tests** for `test:coverage`, and **Backend - Lint, Type Check, Unit Tests, E2E Tests** for `npm run test` and `npm run test:e2e` ([parity](docs/backend/testing.md#ci-substitution-for-backend-suites-1514)). Cite the run URL and that commit in the PR. Local lint and type checks stay required, as do `migration:run` and `test:db` where their rows apply. Changes not yet pushed need the local suite runs.
+- A PR is complete only when `gh pr checks <PR>` exits 0 at the PR's current head commit; cite that result and the head SHA in the PR. Run one `gh pr checks <PR> --watch --fail-fast`: use background completion notifications where available; otherwise wait in the foreground as long as the harness allows, resuming the same watch when it yields. It also covers checks outside `ci.yml` and the ruleset: the **CodeQL** check fails on a new code-scanning alert even when every `Analyze` job passes ([PR #1500](https://github.com/blur88/erp2/pull/1500)).
+- Run the documentation link check on every PR: heading changes and moved or deleted files can break links.
+- Backend `type-check` covers `src/**` (including specs there) under the build config; only backend `type-check:spec` checks `backend/test/**`. See [frontend type-checking](docs/frontend/testing-and-print.md#frontend-type-checking). Backend `npm run test` alone misses cross-file type errors.
+- `test:e2e` is required for every backend change because unit tests mock the database; e2e is the only gate that exercises SQL, triggers and the full module graph.
 
-Every verification report (PR body, review-round ledger, or chat completion summary) must account for every applicable required command, with its exact command and one status per execution:
+CI (`ci.yml`) runs on `pull_request` and `workflow_dispatch` only — merging never produces a run on `main`; validate main with `gh workflow run ci.yml --ref main`. Ruleset 15609777 matches required checks by **job-name string**, so renaming or adding a CI job blocks every open PR until the ruleset is updated. Details: [Backend testing](docs/backend/testing.md).
 
-- **passed (local)**
-- **passed (CI)** — include run/job URL and head SHA
-- **failed**
-- **pending**
-- **cancelled**
-- **not run** — include a reason
+## Critical rules and traps
 
-Only the two passed statuses satisfy a gate. Report cancelled duplicates as cancelled alongside the qualifying passing run.
+**Backend**
 
-When no row matches, report “No change-scoped gates apply” and list the changed files. This does not waive the main ruleset's required CI checks, which must still pass on the final head SHA.
+- **Route order.** Fixed routes precede parameterized routes, e.g. `/products/deleted` before `/products/:id`. See [route-order guidance](CODING_STANDARDS.md#route-order).
+- **Soft delete.** Use TypeORM `softDelete(id)`, not `isActive = false`, for soft-deletable entities; hard-delete reconciliation lines/setup marks, and headers only when discarding a never-completed draft. See [soft-delete guidance](CODING_STANDARDS.md#soft-delete).
+- **API response shape.** Read `response.data`/`response.meta` for pages and category trees; chart-of-accounts trees return arrays on `response`. Wrong page access silently empties lists. See [API response-shape guidance](CODING_STANDARDS.md#api-response-shape).
+- **Error details inside `message`.** Keep client-visible structured details in `message`; put machine-readable codes in top-level `code`. See [exception-payload guidance](CODING_STANDARDS.md#error-details-inside-message).
+- **Lockout clock.** Expiry uses Node `new Date()`, not SQL `NOW()` (#710); do not change these comparisons. If a lockout looks wrong, suspect container clock drift; run `docker compose restart backend`. See [lockout-clock guidance](CODING_STANDARDS.md#lockout-clock).
+- **Migrations only.** `DB_SYNCHRONIZE` is off everywhere and there is no `schema:sync` fallback; migration failure is fatal. The chain starts from one `InitialSchema` genesis migration (#950) and runs against an empty database. Verify schema changes with `backend/scripts/verify-baseline.sh` and `verify-seeds.sh`.
+- **Path aliases.** Files reachable from `tsconfig.cli.json`'s `include` must use relative imports. The Docker build's second `tsc` pass writes them into `dist/` with aliases unresolved; this previously made a built image crash-loop. `tsconfig-paths/register` lets `ts-node` CLI scripts run aliased imports from source but does not fix the built image. Gate: `npm run build:all` (builds, then runs `verify:dist`). Details: [Build](docs/backend/build.md).
+- **Docker rebuilds.** There is no live-reload mount: backend or frontend source changes need `docker compose build <service> && docker compose up -d <service>`.
+- **Dead-code sweeps.** `maintain.sh`'s knip step always exits 0; run `npx knip` directly for pass/fail. Knip flags service methods called only by sibling services — grep `backend/src` before deleting.
 
-## Commit & Pull Request Guidelines
-Git history follows Conventional Commit style:
-- Examples: `feat(accounting): ...`, `fix(accounting): ...`, `test(price-lists): ...`, `chore: ...`.
+**Redis and queues**
 
-PRs should include:
-- Clear summary and impacted modules.
-- Linked issue/ticket.
-- Test evidence (commands run and results).
-- UI screenshots for frontend changes.
-- Notes for migrations/env changes when applicable.
+- **`noeviction`, queue keys only.** Eviction silently destroys queue state. Never add cache or session keys to this instance — [Redis](docs/backend/redis.md#noeviction-is-a-correctness-requirement-1036).
+- **RESP2 is pinned.** RESP3 silently changes reply shapes — [protocol constraints](docs/backend/redis.md#ioredis-6-with-resp2-pinned-1069).
+- **Scheduler safety.** Nothing in the codebase cleans up v5 repeatables any more, so a v5 process must never write to this Redis again. Scheduler removal: never `ZREM` — [safe reconciliation](docs/backend/bullmq-backup-schedulers.md#removing-orphans-the-reconcile-cli).
 
-## Security & Configuration Tips
-- Never commit real secrets; copy from `.env.example`.
-- Rotate default credentials in non-dev environments.
-- Validate DB changes with migrations (`npm run migration:run`) instead of manual schema edits.
+**Tests**
 
-## Agent Guidance
-- Working with GitHub issues or PR issue-closing semantics → read [issue tracker guidance](docs/agents/issue-tracker.md).
-- Auditing dependencies or triaging a Dependabot alert → use the scoped commands and alert lookup in [development reference](docs/agents/development-reference.md#key-commands) and [issue tracker guidance](docs/agents/issue-tracker.md).
-- Defining domain terminology or recording architectural decisions → read [domain documentation guidance](docs/agents/domain.md).
+- **Jest needs `NODE_OPTIONS=--experimental-vm-modules`.** Bare `npx jest` runs everything as CommonJS and fails with `Must use import to load ES Module`. Use the npm scripts.
+- **Zero tests is a failure.** `Tests: 0 total` means a suite failed to load or the run used the wrong module mode. Never add `--passWithNoTests` (a bats test enforces this).
+- **E2E suites clean their own exhaust**: `removeSuiteTraces` removes owned `audit_logs`/`search_queries`; the nightly `test:e2e:leakcheck` catches leaks. See [e2e request-trace cleanup guidance](CODING_STANDARDS.md#e2e-request-trace-cleanup).
+- **Cron is off in test apps** (`NODE_ENV=test`); call handler methods directly. BullMQ repeatable jobs still run.
+- **`test:redis` writes to Redis** and requires `REDIS_TEST_ALLOW_WRITES=1`; point it only at a disposable instance.
+
+**Frontend**
+
+- **Tests never evaluate the application store.** Runtime evaluation fails tests — [store isolation](docs/frontend/testing-and-print.md#tests-never-evaluate-the-application-store).
+- **Printing is portal-only.** Print content inside `#root` is hidden — [printing](docs/frontend/testing-and-print.md#printing-is-portal-only).
+- **jsdom cannot test layout or print.** `tests/session/` covers neither printing nor layout — [testing limits](docs/frontend/testing-and-print.md#manual-browser-harness).
+
+**Bank reconciliation**
+
+- **Only the working set reserves journal lines.** Versions reserve nothing — [reservations](docs/modules/accounting/BANK_RECONCILIATION.md#storage).
+- **Versions are immutable.** Nothing under `backend/src/` may disable `trg_bsr_*` triggers; outside migrations, nothing under `backend/src/` may drop `UQ_bsr_one_draft_per_account` — [immutability](docs/modules/accounting/BANK_RECONCILIATION.md#versions-are-immutable-with-no-bypass).
+- **Lock order.** Inconsistent acquisition order risks deadlocks — [lock order](CODING_STANDARDS.md#reconciliation-lock-order).
+
+**Documentation**
+
+- **Docs that describe code are claims.** Claims match the code they name, each rule has one owner that you change first, and a stated reason cites a recorded source, never an untracked file. See [documentation rules](CODING_STANDARDS.md#documentation).
+
+## Git and pull requests
+
+- Commit on a branch. Run `git config core.hooksPath .githooks` once per clone; its pre-commit hook refuses commits on `main`, its pre-push hook refuses a branch that lacks the remote's current `main` (a releasing merge adds a `chore(release)` commit to `main`, so branch from a freshly pulled `main`), and each chains its `.git/hooks/` counterpart.
+- Pull `main` with `git pull --ff-only`; a merge commit re-triggers the Release workflow.
+- Commits follow Conventional Commits (`feat(accounting): …`, `fix(…): …`, `test(…): …`, `chore: …`).
+- PRs include a summary of impacted modules, the linked issue, verification commands and results, UI screenshots for frontend changes, and notes for migrations or env changes.
+- Merge with `gh pr merge <n> --merge --delete-branch`; the repo allows only merge commits. The ruleset requires an up-to-date branch, so when a merge is refused as behind: `gh pr update-branch <n> --rebase`, wait for `gh pr checks <n> --watch --fail-fast`, then merge. Never `--admin`.
+- Issues live in GitHub Issues for `blur88/erp2` (`gh` CLI); see `docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md` and `docs/agents/domain.md`.
+
+## Security and configuration
+
+- Never commit secrets; start from `.env.example`.
+- Rotate default credentials outside development.
+- Change the schema only through migrations.

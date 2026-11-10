@@ -54,6 +54,8 @@ const account = (id: string, code: string, name: string): Account => ({
   createdBy: null,
   isSystem: false,
   isPostable: true,
+  isProviderClearing: false,
+  isBankAccount: false,
   openingBalance: '0.0000',
   createdAt: '',
   updatedAt: '',

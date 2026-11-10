@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { Queue } from 'bullmq';
+import type { Queue } from 'bullmq';
 import { In, Repository } from 'typeorm';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import { OrphanedSchedulerReconciler } from './orphaned-scheduler-reconciler.service';

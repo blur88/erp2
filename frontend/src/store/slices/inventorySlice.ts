@@ -39,5 +39,5 @@ export const {
   setCategoryFilters,
 } = inventorySlice.actions
 
-export const selectSelectedCategory = (state: RootState) => state.inventory.selectedCategory
+export const selectSelectedCategory = (state: Pick<RootState, 'inventory'>) => state.inventory.selectedCategory
 export default inventorySlice.reducer

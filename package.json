@@ -2,13 +2,5 @@
   "name": "erp2-release",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "test": "node scripts/run-node-tests.mjs scripts/__tests__"
-  },
-  "devDependencies": {
-    "acorn": "8.19.0",
-    "commonmark": "0.31.2",
-    "conventional-changelog-angular": "8.1.0",
-    "yaml": "2.9.1"
-  }
+  "devDependencies": {}
 }

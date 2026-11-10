@@ -110,6 +110,7 @@ coverage/
 junit.xml
 test-results/
 .vitest/
+frontend/.msw-guard-*/
 htmlcov/
 .pytest_cache/
 
@@ -153,10 +154,8 @@ frontend/exports/
 dump.rdb
 
 # Claude Code artifacts (temporary files only)
-.claude/*
-# Shared project settings are tracked (e.g. PR attribution, #1745)
-!.claude/settings.json
-# NOTE: CLAUDE.md is NOT ignored - it's the authoritative project documentation
+.claude/
+# NOTE: CLAUDE.md is NOT ignored - it imports AGENTS.md, the authoritative project instructions
 
 # Binaries and executables
 code
@@ -210,6 +209,7 @@ docs/test/
 # Agent/CLI tool scratch dirs (local-only)
 .agents/
 .antigravitycli/
-.scratch/
 .superpowers/
 backend/leakcheck-reports/
+# Generated only for the local cross-tab browser run.
+/tests/session/nginx.test.conf

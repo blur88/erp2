@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '@/services/authApi';
 import type { RootState } from '@/store';
+import { sessionCoordinator } from '@/services/session';
 
 // Auth-specific User interface matching backend
 export interface AuthUser {
@@ -80,14 +81,20 @@ const initialState: AuthState = {
 };
 
 // Async thunks
-export const login = createAsyncThunk(
+export const login = createAsyncThunk<AuthResponse & { id: string; rememberMe: boolean }, LoginCredentials, {
+  rejectValue: string; rejectedMeta: { sessionId: string | undefined };
+}>(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
+    const sessionId = sessionCoordinator.getSnapshot()?.id;
     try {
+      const context = await sessionCoordinator.beginSignIn();
       const response = await authApi.login(credentials);
-      return response.data;
+      const session = await sessionCoordinator.signIn(response.data, credentials.rememberMe ?? false, context);
+      if (!session) throw new Error('Session ended during sign-in');
+      return { ...response.data, ...session };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
+      return rejectWithValue(error.response?.data?.message || error.message || 'Login failed', { sessionId });
     }
   }
 );
@@ -105,14 +112,22 @@ export const logout = createAsyncThunk(
   }
 );
 
-export const getCurrentUser = createAsyncThunk(
+export const getCurrentUser = createAsyncThunk<AuthUser | null, void, {
+  fulfilledMeta: { sessionId: string | undefined };
+  rejectedMeta: { sessionId: string | undefined };
+}>(
   'auth/getCurrentUser',
-  async (_, { rejectWithValue }) => {
+  async (_, { dispatch, rejectWithValue, fulfillWithValue }) => {
+    const id = sessionCoordinator.getSnapshot()?.id;
     try {
       const response = await authApi.getCurrentUser();
-      return response.data;
+      if (id !== sessionCoordinator.getSnapshot()?.id) return fulfillWithValue(null, { sessionId: id });
+      return fulfillWithValue(response.data, { sessionId: id });
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to get current user');
+      if (id !== sessionCoordinator.getSnapshot()?.id) return fulfillWithValue(null, { sessionId: id });
+      const { clearLocalSessionForRouteCheck } = await import('@/services/auth/signOut');
+      await clearLocalSessionForRouteCheck(dispatch as any, id);
+      return rejectWithValue(error.response?.data?.message || 'Failed to get current user', { sessionId: id });
     }
   }
 );
@@ -139,6 +154,7 @@ const authSlice = createSlice({
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
+      state.loading = false;
       state.error = null;
       state.lastActivityTime = Date.now();
       if (action.payload.rememberMe !== undefined) {
@@ -153,6 +169,7 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.refreshToken = null;
       state.isAuthenticated = false;
+      state.loading = false;
       state.error = null;
       state.lastActivityTime = null;
       state.rememberMe = false;
@@ -169,7 +186,8 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
-        if (action.payload) {
+        state.loading = false;
+        if (action.payload && sessionCoordinator.getSnapshot()?.id === action.payload.id) {
           state.user = action.payload.user;
           state.accessToken = action.payload.accessToken;
           state.refreshToken = action.payload.refreshToken;
@@ -182,6 +200,7 @@ const authSlice = createSlice({
         }
       })
       .addCase(login.rejected, (state, action) => {
+        if (action.meta.sessionId !== sessionCoordinator.getSnapshot()?.id) return;
         state.loading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
@@ -203,13 +222,16 @@ const authSlice = createSlice({
         state.loading = true;
       })
       .addCase(getCurrentUser.fulfilled, (state, action) => {
+        if (action.meta.sessionId !== sessionCoordinator.getSnapshot()?.id) return;
+        state.loading = false;
         if (action.payload) {
           state.user = action.payload;
           state.isAuthenticated = true;
           state.loading = false;
         }
       })
-      .addCase(getCurrentUser.rejected, (state) => {
+      .addCase(getCurrentUser.rejected, (state, action) => {
+        if (action.meta.sessionId !== sessionCoordinator.getSnapshot()?.id) return;
         state.loading = false;
         state.user = null;
         state.accessToken = null;
@@ -240,10 +262,10 @@ const authSlice = createSlice({
 
 export const { setCredentials, setAccessToken, clearAuth, clearError } = authSlice.actions;
 
-export const selectCurrentUser = (state: RootState) => state.auth.user;
-export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenticated;
-export const selectAccessToken = (state: RootState) => state.auth.accessToken;
-export const selectRefreshToken = (state: RootState) => state.auth.refreshToken;
-export const selectRememberMe = (state: RootState) => state.auth.rememberMe;
+export const selectCurrentUser = (state: Pick<RootState, 'auth'>) => state.auth.user;
+export const selectIsAuthenticated = (state: Pick<RootState, 'auth'>) => state.auth.isAuthenticated;
+export const selectAccessToken = (state: Pick<RootState, 'auth'>) => state.auth.accessToken;
+export const selectRefreshToken = (state: Pick<RootState, 'auth'>) => state.auth.refreshToken;
+export const selectRememberMe = (state: Pick<RootState, 'auth'>) => state.auth.rememberMe;
 
 export default authSlice.reducer;

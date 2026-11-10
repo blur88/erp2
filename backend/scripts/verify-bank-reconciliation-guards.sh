@@ -26,7 +26,7 @@ if [ -z "${DB_PASSWORD:-}" ]; then
 fi
 export DB_PASSWORD
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/pg-transport.sh
 . "$SCRIPT_DIR/lib/pg-transport.sh"
 

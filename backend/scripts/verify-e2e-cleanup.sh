@@ -17,8 +17,8 @@
 # that a red pass 1 still produces a pass-2 result and both snapshots.
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 HELPER="$SCRIPT_DIR/e2e-leakcheck.mjs"
 
 LEAKCHECK_DB="erp_db_leakcheck_test"

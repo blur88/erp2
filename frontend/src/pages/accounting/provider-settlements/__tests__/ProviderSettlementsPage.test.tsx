@@ -24,7 +24,7 @@ vi.mock('@/hooks/useNotification', () => ({
 }))
 
 // Each trigger returns { unwrap } like an RTK Query mutation.
-const trigger = (fn: ReturnType<typeof vi.fn>) => (id: string) => ({ unwrap: () => fn(id) })
+const trigger = (fn: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>>) => (id: string) => ({ unwrap: () => fn(id) })
 
 vi.mock('@/store/api/accountingApi', () => ({
   useGetProviderSettlementsQuery: (...args: unknown[]) => mockList(...args),

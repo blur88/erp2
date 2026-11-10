@@ -15,12 +15,12 @@
 # in CI. It is absent from this repo today; these tests keep it absent, in
 # every place a Jest run is configured or invoked.
 #
-# This is why CLAUDE.md no longer records exact suite/test counts: the counts
-# went stale on every commit that added a spec, while the property that
-# actually matters is the one asserted here.
+# See docs/backend/testing.md, "Jest runs in ESM mode": exact suite/test counts
+# are deliberately omitted because stale counts train readers to wave
+# mismatches through; the property that matters is asserted here.
 
-BACKEND_DIR="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
-REPO_DIR="$(cd "${BACKEND_DIR}/.." && pwd)"
+BACKEND_DIR="$(CDPATH= cd -- "${BATS_TEST_DIRNAME}/../.." && pwd)"
+REPO_DIR="$(CDPATH= cd -- "${BACKEND_DIR}/.." && pwd)"
 
 # Every file that configures or invokes a Jest run. A new Jest config or a new
 # workflow that runs Jest must be added here, or it is unguarded.

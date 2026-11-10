@@ -1,11 +1,18 @@
+import { createTestSession } from '@/test/createTestSession'
+import { afterEach } from 'vitest'
+const sessionHolder = vi.hoisted(() => ({ coordinator: null as any }))
+vi.mock('@/services/session', () => ({ get sessionCoordinator() { return sessionHolder.coordinator } }))
+afterEach(() => sessionHolder.coordinator?.dispose())
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter, MemoryRouter, Routes, Route } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, type Middleware } from '@reduxjs/toolkit';
 import '@testing-library/jest-dom/vitest';
 import ProtectedRoute from '../ProtectedRoute';
-import authReducer from '../../../store/slices/authSlice';
+import authReducer, { setAccessToken, setCredentials, clearAuth } from '../../../store/slices/authSlice';
+import { authApi } from '@/services/authApi';
+vi.mock('@/services/authApi', () => ({ authApi: { getCurrentUser: vi.fn(() => new Promise(() => {})), logout: vi.fn() } }));
 
 // Mock navigate
 const mockNavigate = vi.fn();
@@ -13,8 +20,8 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    Navigate: ({ to }: { to: string }) => {
-      mockNavigate(to);
+    Navigate: ({ to, state, replace }: { to: string; state?: unknown; replace?: boolean }) => {
+      mockNavigate(to, { state, replace });
       return <div>Redirected to {to}</div>;
     },
   };
@@ -23,9 +30,127 @@ vi.mock('react-router-dom', async () => {
 describe('ProtectedRoute', () => {
   const TestComponent = () => <div>Protected Content</div>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    sessionHolder.coordinator = await createTestSession()
     vi.clearAllMocks();
   });
+
+  function renderPendingVerification() {
+    let rejectVerification!: (error: Error) => void;
+    const verification = new Promise((_, reject) => { rejectVerification = reject; });
+    // A dispatch-level rejection reaches the component's catch; RTK rejected actions
+    // normally resolve dispatch promises and do not exercise that branch.
+    const pendingVerification: Middleware = () => next => action =>
+      typeof action === 'function' ? verification : next(action);
+    const initial = authReducer(undefined, { type: 'init' });
+    const store = configureStore({
+      reducer: { auth: authReducer },
+      middleware: getDefault => getDefault().prepend(pendingVerification),
+      preloadedState: { auth: { ...initial, accessToken: 'unverified', refreshToken: 'refresh' } },
+    });
+    render(<Provider store={store}><MemoryRouter initialEntries={['/dashboard?tab=1']}>
+      <ProtectedRoute><TestComponent /></ProtectedRoute>
+    </MemoryRouter></Provider>);
+    return { store, rejectVerification };
+  }
+
+  function expectLocalClearAndReturnLocation(store: ReturnType<typeof renderPendingVerification>['store']) {
+    expect(store.getState().auth).toMatchObject({
+      accessToken: null, refreshToken: null, user: null, isAuthenticated: false,
+    });
+    expect(authApi.logout).not.toHaveBeenCalled();
+    expect(screen.getByText('Redirected to /login')).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenLastCalledWith('/login', {
+      replace: true,
+      state: { from: expect.objectContaining({ pathname: '/dashboard', search: '?tab=1' }) },
+    });
+  }
+
+  it('current-user API rejection clears auth through the reducer and redirects with state.from', async () => {
+    vi.mocked(authApi.getCurrentUser).mockRejectedValueOnce(new Error('session expired'));
+    const initial = authReducer(undefined, { type: 'init' });
+    const store = configureStore({
+      reducer: { auth: authReducer },
+      preloadedState: { auth: { ...initial, accessToken: 'unverified', refreshToken: 'refresh' } },
+    });
+    render(<Provider store={store}><MemoryRouter initialEntries={['/dashboard?tab=1']}>
+      <ProtectedRoute><TestComponent /></ProtectedRoute>
+    </MemoryRouter></Provider>);
+    await waitFor(() => expect(store.getState().auth.loading).toBe(false));
+    expect(authApi.getCurrentUser).toHaveBeenCalledOnce();
+    expectLocalClearAndReturnLocation(store);
+  });
+
+  it('verification dispatch rejection clears local auth and redirects with state.from', async () => {
+    const { store, rejectVerification } = renderPendingVerification();
+    mockNavigate.mockClear();
+    await act(async () => { rejectVerification(new Error('verification dispatch failed')); });
+    await waitFor(() => expectLocalClearAndReturnLocation(store));
+  });
+
+  it('already-attempted verification clears local auth and redirects with state.from', async () => {
+    const { store, rejectVerification } = renderPendingVerification();
+    mockNavigate.mockClear();
+    await act(async () => { store.dispatch(setAccessToken('replacement-unverified')); });
+    await waitFor(() => expectLocalClearAndReturnLocation(store));
+    // Settle the original verification to release its timeout after observing this branch.
+    await act(async () => { rejectVerification(new Error('verification finished')); });
+  });
+
+  it('verification timeout clears local auth without backend logout while verification remains pending', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const initial = authReducer(undefined, { type: 'init' });
+      const store = configureStore({ reducer: { auth: authReducer }, preloadedState: {
+        auth: { ...initial, accessToken: 'unverified', refreshToken: 'refresh' },
+      } });
+      render(<Provider store={store}><MemoryRouter initialEntries={['/dashboard']}>
+        <ProtectedRoute><TestComponent /></ProtectedRoute>
+      </MemoryRouter></Provider>);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+        await vi.waitFor(() => expect(store.getState().auth.accessToken).toBeNull());
+      });
+      expect(store.getState().auth).toMatchObject({ accessToken: null, refreshToken: null, isAuthenticated: false });
+      expect(authApi.logout).not.toHaveBeenCalled();
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      expect(screen.getByText('Redirected to /login')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(['resolve', 'reject'] as const)('a mirrored Session survives old verification %s and its timeout', async outcome => {
+    let resolve!: (value: any) => void
+    let reject!: (error: Error) => void
+    vi.mocked(authApi.getCurrentUser).mockImplementationOnce(() => new Promise((yes, no) => { resolve = yes; reject = no }))
+    const initial = authReducer(undefined, { type: 'init' })
+    const store = configureStore({ reducer: { auth: authReducer }, preloadedState: {
+      auth: { ...initial, accessToken: 'unverified', refreshToken: 'refresh' },
+    } })
+    sessionHolder.coordinator.setCleanup(() => store.dispatch(clearAuth()))
+    sessionHolder.coordinator.subscribe((session: any) => {
+      if (session) store.dispatch(setCredentials({ ...session, expiresIn: 900 }))
+    })
+    render(<Provider store={store}><MemoryRouter initialEntries={['/dashboard']}>
+      <ProtectedRoute><TestComponent /></ProtectedRoute>
+    </MemoryRouter></Provider>)
+    await waitFor(() => expect(authApi.getCurrentUser).toHaveBeenCalledOnce())
+    let newer: any
+    await act(async () => {
+      newer = await sessionHolder.coordinator.signIn({ accessToken: 'bob', refreshToken: 'bob-refresh', user: { id: 'bob' }, expiresIn: 900 })
+    })
+    // Leave A's request pending beyond its old verification timeout.
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 3100)) })
+    expect((await sessionHolder.coordinator.credentialsForRequest())?.id).toBe(newer.id)
+    await act(async () => {
+      if (outcome === 'resolve') resolve({ data: { id: 'alice' } })
+      else reject(new Error('old request failed'))
+    })
+    expect(store.getState().auth).toMatchObject({ user: { id: 'bob' }, accessToken: 'bob', isAuthenticated: true, loading: false })
+    expect(screen.getByText('Protected Content')).toBeInTheDocument()
+    expect(authApi.logout).not.toHaveBeenCalled()
+  })
 
   it('should render children when user is authenticated', () => {
     const store = configureStore({

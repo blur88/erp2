@@ -44,6 +44,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
   let v6: QueueV6;
   let service: BackupSchedulerService;
   let schedule: BackupSchedule;
+  let scheduleRepository: Repository<BackupSchedule>;
   // Declared here so afterEach can always close it — an assertion that throws
   // mid-test would otherwise leak the worker and hang Jest.
   let worker: Worker | undefined;
@@ -65,15 +66,17 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
       includeSettings: true,
     } as BackupSchedule;
 
-    const repo = {
+    scheduleRepository = {
       find: (jest.fn as unknown as any)().mockResolvedValue([schedule]),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(schedule),
+      remove: (jest.fn as unknown as any)().mockResolvedValue(undefined),
     } as unknown as Repository<BackupSchedule>;
 
     service = new BackupSchedulerService(
-      repo,
+      scheduleRepository,
       v6 as any,
       {} as BackupService,
-      new OrphanedSchedulerReconciler(repo, v6 as any),
+      new OrphanedSchedulerReconciler(scheduleRepository, v6 as any),
     );
   });
 
@@ -200,6 +203,41 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     // The deleted schedule's backup must never run again. The pre-fix
     // behavior fired ~4x in this window.
     expect(fired).not.toContain(ORPHAN_SCHEDULE_ID);
+  });
+
+  /** Issue #1432 contract: schedule deletion must remove repeat and delayed state through BullMQ. */
+  it('schedule deletion removes its repeat member and delayed occurrence', async () => {
+    const schedulerId = `schedule-${schedule.id}`;
+    const repeatKey = `${prefix}:${QUEUE}:repeat`;
+    const delayedKey = `${prefix}:${QUEUE}:delayed`;
+    const client = await testClient(v6);
+
+    await v6.upsertJobScheduler(
+      schedulerId,
+      { pattern: '00 02 * * *' },
+      {
+        name: 'create-backup',
+        data: { scheduleId: schedule.id, type: 'full' },
+      },
+    );
+
+    const delayedBefore = (await client.zrange(delayedKey, 0, -1)).filter((jobId) =>
+      jobId.startsWith(`repeat:${schedulerId}:`),
+    );
+    expect(await client.zrange(repeatKey, 0, -1)).toContain(schedulerId);
+    expect(await client.hexists(`${repeatKey}:${schedulerId}`, 'ic')).toBe(1);
+    expect(delayedBefore).toHaveLength(1);
+    expect(await client.exists(`${prefix}:${QUEUE}:${delayedBefore[0]}`)).toBe(1);
+
+    await service.remove(schedule.id);
+
+    const delayedAfter = (await client.zrange(delayedKey, 0, -1)).filter((jobId) =>
+      jobId.startsWith(`repeat:${schedulerId}:`),
+    );
+    expect(await client.zrange(repeatKey, 0, -1)).not.toContain(schedulerId);
+    expect(delayedAfter).toEqual([]);
+    expect(await client.exists(`${repeatKey}:${schedulerId}`)).toBe(0);
+    expect(await client.exists(`${prefix}:${QUEUE}:${delayedBefore[0]}`)).toBe(0);
   });
 
   describe('OrphanedSchedulerReconciler (issue #1045)', () => {

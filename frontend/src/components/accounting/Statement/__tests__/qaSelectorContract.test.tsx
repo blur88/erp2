@@ -13,10 +13,11 @@ import { darkTheme } from '@/styles/theme'
 /**
  * Keeps `docs/modules/accounting/STATEMENT_THEME_QA.md` HONEST.
  *
- * CLAUDE.md designates that document as the substitute for the browser gate
- * removed in #1223 — a tracked manual procedure whose results go in the PR. It
- * is the only remaining check on the invariants jsdom cannot see: real decimal
- * alignment, sticky scrolling, clipping, font loading.
+ * See docs/frontend/testing-and-print.md, "Statement (P&L / Balance Sheet / Form B)":
+ * `docs/modules/accounting/STATEMENT_THEME_QA.md` is the tracked substitute
+ * for the browser gate removed in #1223. It is the only remaining check on the
+ * invariants jsdom cannot see: real decimal alignment, sticky scrolling,
+ * clipping, and font loading. Its results go in the PR.
  *
  * Its failure mode is silent and total. Every step is a
  * `document.querySelector(...)` in a browser console; when a selector is
@@ -285,9 +286,10 @@ describe('qaPreflightSnippet — what the QA reader actually pastes', () => {
 
 describe('Statement paren spacer', () => {
   it('renders as generated content, not a text node', () => {
-    // The invariant CLAUDE.md calls out: a real ')' would reserve the same
-    // width and look identical in a browser, so only the DOM can tell them
-    // apart. `toHaveTextContent` is a substring match and would NOT catch it.
+    // See docs/frontend/testing-and-print.md,
+    // "Statement (P&L / Balance Sheet / Form B)": a real ')' reserves the same
+    // width and looks identical in a browser, so only the DOM distinguishes it.
+    // `toHaveTextContent` is a substring match and would NOT catch it.
     renderStatement()
     const figure = screen.getByTestId('row-r-fig0')
     // The cell holds TWO text sources: the visually-hidden complete value and

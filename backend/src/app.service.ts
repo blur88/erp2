@@ -48,7 +48,8 @@ export class AppService implements OnModuleDestroy {
       lazyConnect: true, // Don't connect immediately
       // ioredis 6 defaults to RESP3 (`protocol: 3`); v5 used RESP2. Pinned to 2
       // so the ioredis 6 upgrade changed only the dependency, not the wire
-      // protocol. See the RESP3 note in CLAUDE.md before removing this.
+      // protocol. See docs/backend/redis.md,
+      // "ioredis 6 with RESP2 pinned (#1069)" before removing this.
       protocol: 2,
     });
   }

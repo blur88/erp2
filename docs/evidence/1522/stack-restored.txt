@@ -1,0 +1,6 @@
+NAME           IMAGE                      COMMAND                  SERVICE    CREATED      STATUS                           PORTS
+erp_backend    erp-backend:latest         "/usr/bin/dumb-init …"   backend    3 days ago   Up 28 seconds (healthy)          0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp
+erp_frontend   erp-frontend:latest        "/docker-entrypoint.…"   frontend   3 days ago   Up 7 seconds (healthy)           0.0.0.0:3000->80/tcp, [::]:3000->80/tcp
+erp_nginx      erp-nginx:latest           "/docker-entrypoint.…"   nginx      3 days ago   Up 1 second (health: starting)   0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp
+erp_postgres   postgres:18.3-alpine3.23   "docker-entrypoint.s…"   postgres   7 days ago   Up 34 seconds (healthy)          0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+erp_redis      redis:8.6.2-alpine3.23     "docker-entrypoint.s…"   redis      7 days ago   Up 35 seconds (healthy)          0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp

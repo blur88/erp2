@@ -1,9 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import {
-  RECONCILE_QUEUE_OPTIONS,
-  ReconcileCliDatabaseConfig,
-  ReconcileSchedulersCliModule,
-} from './reconcile-schedulers.module';
+import { ReconcileCliDatabaseConfig, ReconcileSchedulersCliModule } from './reconcile-schedulers.module';
 
 describe('ReconcileCliDatabaseConfig', () => {
   const configWith = (values: Record<string, string>) =>
@@ -58,10 +54,13 @@ describe('ReconcileSchedulersCliModule', () => {
   });
 
   it('registers the backup queue with metas updates suppressed', () => {
-    // Asserted against the exported options object, not serialized module
-    // metadata: a substring check would pass for `skipMetasUpdate: false` or
-    // for the flag landing on the wrong queue.
-    expect(RECONCILE_QUEUE_OPTIONS.name).toBe('backup-queue');
-    expect(RECONCILE_QUEUE_OPTIONS.skipMetasUpdate).toBe(true);
+    const imports: any[] = Reflect.getMetadata('imports', ReconcileSchedulersCliModule) ?? [];
+    const queueOptionsProvider = imports
+      .flatMap((entry) => entry?.providers ?? [])
+      .find((provider: any) => provider.provide === 'BullMQQueueOptions_backup-queue');
+    expect(queueOptionsProvider).toBeDefined();
+    const options = queueOptionsProvider.useFactory({ getDependencyRef: () => ({}) });
+    expect(options.name).toBe('backup-queue');
+    expect(options.skipMetasUpdate).toBe(true);
   });
 });

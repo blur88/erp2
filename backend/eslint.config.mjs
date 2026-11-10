@@ -28,4 +28,62 @@ export default [
       'prettier/prettier': 'off',
     },
   },
+  {
+    files: ['src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'bullmq',
+              message: 'Use the shared Nest BullMQ wiring; import BullMQ types with `import type`.',
+              allowTypeImports: true,
+            },
+          ],
+          patterns: [
+            {
+              group: ['bullmq/*'],
+              message: 'Use the shared Nest BullMQ wiring; do not import BullMQ implementation paths.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.name='require'][arguments.0.value=/^bullmq(\\/|$)/]",
+          message: 'Use the shared Nest BullMQ wiring; do not load BullMQ at runtime.',
+        },
+        {
+          selector: "CallExpression[callee.object.name='module'][callee.property.name='require'][arguments.0.value=/^bullmq(\\/|$)/]",
+          message: 'Use the shared Nest BullMQ wiring; do not load BullMQ at runtime.',
+        },
+        {
+          selector: "VariableDeclarator[init.name='require']",
+          message: 'Avoid aliasing require; prefer explicit module imports.',
+        },
+        {
+          selector: "VariableDeclarator[init.callee.object.name='require'][init.callee.property.name='bind']",
+          message: 'Avoid binding require; prefer explicit module imports.',
+        },
+        {
+          selector: "VariableDeclarator[init.object.name='module'][init.property.name='require']",
+          message: 'Avoid aliasing module.require; prefer explicit module imports.',
+        },
+        {
+          selector: "VariableDeclarator[init.callee.object.object.name='module'][init.callee.object.property.name='require'][init.callee.property.name='bind']",
+          message: 'Avoid binding module.require; prefer explicit module imports.',
+        },
+        {
+          selector: "ImportExpression[source.value=/^bullmq(\\/|$)/]",
+          message: 'Use the shared Nest BullMQ wiring; do not load BullMQ at runtime.',
+        },
+        {
+          selector: "ImportSpecifier[imported.name='createRequire']",
+          message: 'Avoid custom Node module loaders; prefer explicit module imports.',
+        },
+      ],
+    },
+  },
 ];

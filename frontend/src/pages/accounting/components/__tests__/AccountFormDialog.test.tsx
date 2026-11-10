@@ -23,6 +23,7 @@ const { mockCreateAccount, mockUpdateAccount, mockShowError, mockTree } = vi.hoi
       isProviderClearing: false,
       isBankAccount: false,
       openingBalance: '0.0000',
+      balance: '0.0000',
       createdAt: '',
       updatedAt: '',
       children: [
@@ -40,6 +41,7 @@ const { mockCreateAccount, mockUpdateAccount, mockShowError, mockTree } = vi.hoi
           isProviderClearing: false,
           isBankAccount: false,
           openingBalance: '0.0000',
+      balance: '0.0000',
           createdAt: '',
           updatedAt: '',
           children: [],
@@ -60,6 +62,7 @@ const { mockCreateAccount, mockUpdateAccount, mockShowError, mockTree } = vi.hoi
       isProviderClearing: false,
       isBankAccount: false,
       openingBalance: '0.0000',
+      balance: '0.0000',
       createdAt: '',
       updatedAt: '',
       children: [
@@ -77,6 +80,7 @@ const { mockCreateAccount, mockUpdateAccount, mockShowError, mockTree } = vi.hoi
           isProviderClearing: false,
           isBankAccount: false,
           openingBalance: '0.0000',
+      balance: '0.0000',
           createdAt: '',
           updatedAt: '',
           children: [],
@@ -120,7 +124,7 @@ function renderDialog(props: {
   return render(
     <Provider store={store}>
       <MemoryRouter>
-        <AccountFormDialog {...props} tree={mockTree} />
+        <AccountFormDialog account={null} {...props} tree={mockTree} />
       </MemoryRouter>
     </Provider>,
   )

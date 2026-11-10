@@ -124,7 +124,11 @@ export class SalesOrder extends BaseEntity {
   })
   payments?: Payment[];
 
-  /** @deprecated Use `status === SalesOrderStatus.FULFILLED` instead. Kept for analytics/invoice query compatibility. */
+  /**
+   * @deprecated Use `status === SalesOrderStatus.FULFILLED` instead.
+   * A getter on a loaded entity only: it is not a column and cannot be used in a
+   * query (#1355).
+   */
   get isFulfilled(): boolean {
     return this.status === SalesOrderStatus.FULFILLED;
   }

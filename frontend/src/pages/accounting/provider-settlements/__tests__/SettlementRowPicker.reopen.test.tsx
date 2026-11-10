@@ -1,5 +1,4 @@
 import '@testing-library/jest-dom/vitest'
-import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -8,6 +7,7 @@ import api from '@/services/api'
 import { accountingApiSlice } from '@/store/api/accountingApi'
 
 import SettlementRowPicker from '../SettlementRowPicker'
+import { createTestStore } from '@/test/createTestStore'
 
 vi.mock('@/services/api', () => ({
   default: vi.fn(),
@@ -38,10 +38,7 @@ function countGets(url: string): number {
 }
 
 function makeStore() {
-  return configureStore({
-    reducer: { [accountingApiSlice.reducerPath]: accountingApiSlice.reducer },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(accountingApiSlice.middleware),
-  })
+  return createTestStore({ apis: [accountingApiSlice] })
 }
 
 function Picker({ store }: { store: ReturnType<typeof makeStore> }) {

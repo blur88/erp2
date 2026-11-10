@@ -8,7 +8,7 @@ GREEN='\033[0;32m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Step functions ────────────────────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ print_outdated_table() {
   local label="$1"
   local dir="$2"
   local raw
-  raw=$(cd "$dir" && npm outdated --json 2>/dev/null); [[ -z "$raw" ]] && raw="{}"
+  raw=$(CDPATH= cd -- "$dir" && npm outdated --json 2>/dev/null); [[ -z "$raw" ]] && raw="{}"
   if [[ -z "$raw" || "$raw" == "{}" ]]; then
     echo -e "  ${GREEN}All packages up to date.${RESET}"
     return
@@ -87,7 +87,7 @@ do_update() {
 print_audit_table() {
   local dir="$1"
   local raw
-  raw=$(cd "$dir" && npm audit --json 2>/dev/null) || true
+  raw=$(CDPATH= cd -- "$dir" && npm audit --json 2>/dev/null) || true
   [[ -z "$raw" ]] && raw="{}"
   echo "$raw" | python3 -c "
 import sys, json

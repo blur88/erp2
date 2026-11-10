@@ -6,8 +6,8 @@ import { Box } from '@mui/material'
  *
  * EntityTable's card is `height: 100%` + `overflow: hidden` — correct inside a
  * bounded flex pane, and collapsing to nothing when it must instead grow to
- * its content. These three class names are PRINT HOOKS as well as style hooks
- * (see CLAUDE.md): renaming one truncates every printed report.
+ * its content. These class names are style hooks for this page's height
+ * overrides; changing them can make the tables collapse.
  *
  * Extracted so the seven tables on this page share one copy rather than seven.
  *

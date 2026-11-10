@@ -20,9 +20,10 @@ const sampleTable = (
 )
 
 describe('TableCard', () => {
-  // jsdom has no layout engine and Emotion styles never reach getComputedStyle
-  // (see CLAUDE.md), so these assert composition only. Corner clipping, the
-  // header band, and maxHeight scrolling are verified in a browser.
+  // These assert composition only; they do not check the header band's sx
+  // styles. jsdom exposes themed sx values, but cannot verify layout such as
+  // clipping, scrolling, sticky positioning or alignment (see
+  // docs/frontend/testing-and-print.md, "What jsdom can observe").
   it('renders its children', () => {
     render(<TableCard>{sampleTable}</TableCard>)
     expect(screen.getByText('Header')).toBeInTheDocument()

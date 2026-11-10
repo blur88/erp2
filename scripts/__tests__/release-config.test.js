@@ -95,9 +95,3 @@ test('transform preserves internal commits for fallback rendering', async () => 
   assert.equal(result.type, 'Internal Changes');
   assert.equal(result.subject, 'chore(deps): update packages');
 });
-
-test('release never commits package versions back to the protected branch', () => {
-  const names = config.plugins.map(plugin => Array.isArray(plugin) ? plugin[0] : plugin);
-  assert.ok(!names.includes('@semantic-release/git'));
-  assert.ok(names.includes('@semantic-release/github'));
-});

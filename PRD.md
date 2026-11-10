@@ -5,7 +5,8 @@
 This document reflects the **original planning phase** from the project inception. The system has been **fully implemented and significantly evolved** beyond this initial specification.
 
 **For current system state, see:**
-- `/CLAUDE.md` - Comprehensive current system documentation
+- `/AGENTS.md` - Agent brief: architecture, commands, rules (links to detailed docs)
+- `/GLOSSARY.md` - Domain vocabulary
 - `/README.md` - System overview and quick start guide
 - `/COSTING_METHODS_GUIDE.md` - Implemented costing features
 - `/POSTGRES_UPGRADE_REPORT.md` - Latest infrastructure updates
@@ -81,7 +82,8 @@ The ERP software will serve as a **centralized platform** to manage business ope
 
 * **Reporting & Dashboard** ✅
 
-  * ✅ Sales summary with real-time WebSocket updates
+  * ✅ Sales summary
+  * ❌ Real-time (push) updates — not implemented
   * ✅ Stock movement report
   * ✅ Supplier purchase summary
   * ✅ Export reports (Excel/PDF)
@@ -104,7 +106,7 @@ The ERP software will serve as a **centralized platform** to manage business ope
 * ✅ **Flexible Costing Methods** - AVERAGE, FIFO, LIFO, STANDARD (November 2025)
 * ✅ **Module-Embedded Reports** - Comprehensive reporting in each module (November 2025)
 * ✅ **Settings Management** - Company settings and print configuration (November 2025)
-* ✅ **Real-time Dashboard** - WebSocket updates for live data
+* ❌ **Real-time Dashboard** - Not implemented.
 * ✅ **Soft-Delete Management** - View and restore deleted records
 * ✅ **Bulk Operations** - Mass operations on products, categories, customers
 * ✅ **Advanced Filtering** - Payment status, fulfillment status filters
@@ -206,7 +208,7 @@ This document served as the initial planning guide. The implemented system:
 3. **Modernized tech stack** beyond original planning (PostgreSQL 18, Redis 8.4, Material-UI v7)
 4. **Module-based architecture** with embedded reports instead of separate reporting module
 
-**Current Documentation**: See `/CLAUDE.md` for accurate system state and development patterns.
+**Current Documentation**: See `/AGENTS.md` for accurate system state and development patterns.
 
 ---
 

@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -48,6 +49,7 @@ describe('CustomerService', () => {
           useValue: {
             findOne: (jest.fn as unknown as any)(),
             save: (jest.fn as unknown as any)(),
+            update: (jest.fn as unknown as any)(),
             find: (jest.fn as unknown as any)(),
             createQueryBuilder: (jest.fn as unknown as any)(),
           },
@@ -400,39 +402,36 @@ describe('CustomerService', () => {
   });
 
   describe('updateCustomerMetrics', () => {
-    it('counts only fulfilled non-deleted orders', async () => {
-      const customer = createCustomer('c1', {
-        totalOrders: 5,
-        totalSales: 500,
-      });
-      customerRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(customer);
-      customerRepository.save = (jest.fn as unknown as any)().mockResolvedValue(customer);
-
-      const salesOrderRepository: any = module.get(
-        getRepositoryToken(SalesOrder),
-      );
-
-      const qb = {
-        where: (jest.fn as unknown as any)().mockReturnThis(),
-        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
-        select: (jest.fn as unknown as any)().mockReturnThis(),
-        getRawOne: (jest.fn as unknown as any)().mockResolvedValue({
-          totalorders: '2',
-          totalsales: '300',
-          firstorderdate: new Date('2026-01-01'),
-          lastorderdate: new Date('2026-03-01'),
-        }),
+    // The SQL itself is exercised against Postgres in
+    // test/sales-fulfilled-status-queries.e2e-spec.ts; a mocked manager cannot
+    // tell a working query from a broken one (#1355).
+    function wireTransaction(lockRows: unknown[]) {
+      const query = (jest.fn as unknown as any)()
+        .mockResolvedValueOnce(lockRows)
+        .mockResolvedValue(undefined);
+      customerRepository.manager = {
+        transaction: (jest.fn as unknown as any)(async (cb: any) => cb({ query })),
       };
-      salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
+      return query;
+    }
+
+    it('locks the customer row, then recalculates from fulfilled orders', async () => {
+      const query = wireTransaction([{}]);
 
       await service.updateCustomerMetrics('c1');
 
-      expect(qb.andWhere).toHaveBeenCalledWith('order.isFulfilled = :isFulfilled', {
-        isFulfilled: true,
-      });
-      expect(customerRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ totalOrders: 2, totalSales: 300 }),
-      );
+      expect(query).toHaveBeenCalledTimes(2);
+      expect(query.mock.calls[0][0]).toContain('FOR NO KEY UPDATE');
+      expect(query.mock.calls[0][1]).toEqual(['c1']);
+      expect(query.mock.calls[1][0]).toContain('UPDATE customers');
+      expect(query.mock.calls[1][1]).toEqual(['c1', 'FULFILLED']);
+    });
+
+    it('throws NotFoundException and updates nothing when the customer is absent', async () => {
+      const query = wireTransaction([]);
+
+      await expect(service.updateCustomerMetrics('missing')).rejects.toThrow(NotFoundException);
+      expect(query).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -461,8 +460,8 @@ describe('CustomerService', () => {
 
       await service.getCustomerStatistics('c1');
 
-      expect(qb.andWhere).toHaveBeenCalledWith('order.isFulfilled = :isFulfilled', {
-        isFulfilled: true,
+      expect(qb.andWhere).toHaveBeenCalledWith('order.status = :status', {
+        status: 'FULFILLED',
       });
     });
   });
@@ -507,10 +506,12 @@ describe('CustomerService', () => {
         .mockResolvedValueOnce(existing) // findOne for update — loads the customer
         .mockResolvedValueOnce(null) // slug uniqueness check: 'new-name' is free
         .mockResolvedValue(updated);
-      customerRepository.save.mockResolvedValue(updated);
-
       const result = await service.update('c1', { name: 'New Name' });
 
+      expect(customerRepository.update).toHaveBeenCalledWith('c1', {
+        name: 'New Name',
+        slug: 'new-name',
+      });
       expect(result.slug).toBe('new-name');
     });
 
@@ -529,10 +530,12 @@ describe('CustomerService', () => {
         .mockResolvedValueOnce(collision) // 'acme-corp' taken by c2
         .mockResolvedValueOnce(null) // 'acme-corp-1' free
         .mockResolvedValue(updated);
-      customerRepository.save.mockResolvedValue(updated);
-
       const result = await service.update('c1', { name: 'Acme Corp' });
 
+      expect(customerRepository.update).toHaveBeenCalledWith('c1', {
+        name: 'Acme Corp',
+        slug: 'acme-corp-1',
+      });
       expect(result.slug).toBe('acme-corp-1');
     });
 
@@ -541,15 +544,43 @@ describe('CustomerService', () => {
         slug: 'acme-corp',
         name: 'Acme Corp',
       });
-      customerRepository.findOne
-        .mockResolvedValueOnce(existing) // findOne for update
-        .mockResolvedValueOnce(existing) // slug check: finds 'acme-corp' but id matches excludeId
-        .mockResolvedValue(existing);
-      customerRepository.save.mockResolvedValue(existing);
+      customerRepository.findOne.mockResolvedValue(existing);
 
       const result = await service.update('c1', { name: 'Acme Corp' });
 
+      // The name is unchanged, so no slug is generated or written.
+      expect(customerRepository.update).toHaveBeenCalledWith('c1', { name: 'Acme Corp' });
       expect(result.slug).toBe('acme-corp');
+    });
+  });
+
+  describe('update writes only the supplied columns (#1355)', () => {
+    it('never saves the loaded entity, and never writes the derived order metrics', async () => {
+      const existing = createCustomer('c1', { name: 'Acme', totalOrders: 5, totalSales: 500 });
+      customerRepository.findOne.mockResolvedValue(existing);
+
+      await service.update('c1', {
+        notes: 'edited',
+        email: undefined,
+        // Not in UpdateCustomerDto; refused even if a caller passes them.
+        totalOrders: 0,
+        totalSales: 0,
+        firstPurchaseDate: null,
+        lastPurchaseDate: null,
+      } as any);
+
+      expect(customerRepository.update).toHaveBeenCalledWith('c1', { notes: 'edited' });
+      expect(customerRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('writes nothing when the edit supplies nothing', async () => {
+      const existing = createCustomer('c1', { name: 'Acme' });
+      customerRepository.findOne.mockResolvedValue(existing);
+
+      await service.update('c1', {});
+
+      expect(customerRepository.update).not.toHaveBeenCalled();
+      expect(customerRepository.save).not.toHaveBeenCalled();
     });
   });
 });

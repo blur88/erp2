@@ -1,4 +1,3 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
@@ -17,6 +16,7 @@ vi.mock('@/store/api/inventoryApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/store/api/inventoryApi')>()
   return {
     ...actual,
+    useGetCategoriesQuery: () => ({ data: [] }),
     useGetProductsQuery: (params: unknown) => {
       getProductsSpy(params)
       return {
@@ -68,6 +68,7 @@ import { inventoryApiSlice } from '@/store/api/inventoryApi'
 import { settingsApiSlice } from '@/store/api/settingsApi'
 
 import ProductsPage from '../ProductsPage'
+import { createTestStore } from '@/test/createTestStore'
 
 function product(overrides: Partial<Product>): Partial<Product> {
   return {
@@ -86,13 +87,7 @@ function product(overrides: Partial<Product>): Partial<Product> {
 }
 
 function renderPage() {
-  const store = configureStore({
-    reducer: {
-      [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-      [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-    },
-    middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-  })
+  const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
   return render(
     <Provider store={store}>
       <NotificationProvider>
@@ -183,3 +178,16 @@ describe('ProductsPage', () => {
     )
   })
 })
+
+// This test owns its store; transitive imports must not evaluate the singleton.
+vi.mock('@/store', () => ({
+  store: {
+    getState: () => ({ auth: { isAuthenticated: false, accessToken: null, refreshToken: null } }),
+    dispatch: vi.fn(),
+  },
+  persistor: {
+    getState: () => ({ bootstrapped: true }),
+    subscribe: () => () => {},
+    purge: vi.fn().mockResolvedValue(undefined),
+  },
+}))

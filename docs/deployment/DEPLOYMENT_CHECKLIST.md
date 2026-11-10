@@ -1,6 +1,11 @@
 # Price List System - Deployment Checklist
 
 **Version**: 1.0
+
+Use the [current deployment guide](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md)
+for migration and recovery procedures. Only the local Compose stack currently runs;
+production-host checks remain unverified until that host exists.
+
 **Deployment Date**: _____________
 **Deployed By**: _____________
 **Start Time**: _____________
@@ -39,17 +44,11 @@
 - [ ] Backup directory created: `/backup/erp/[TIMESTAMP]`
 - [ ] Full PostgreSQL backup completed
 - [ ] Backup file size verified (non-zero)
-- [ ] Backup integrity tested (optional restore to test DB)
+- [ ] Backup integrity tested by restoring into an isolated temporary database (see the [guide](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md#verify-backup-integrity))
 - [ ] Backup copied to off-server location
 - [ ] Backup location documented: `_________________________`
 
-**Backup Commands**:
-```bash
-mkdir -p /backup/erp/$(date +%Y%m%d_%H%M%S)
-docker compose exec -T postgres pg_dump -U erp_user erp_db \
-  > /backup/erp/$(date +%Y%m%d_%H%M%S)/erp_db_backup.sql
-ls -lh /backup/erp/$(date +%Y%m%d_%H%M%S)/erp_db_backup.sql
-```
+Follow the [guide's backup and restore steps](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md#backup-procedures).
 
 **Backup Verification**:
 - [ ] File size: `_______ MB` (should be >10MB)
@@ -57,84 +56,94 @@ ls -lh /backup/erp/$(date +%Y%m%d_%H%M%S)/erp_db_backup.sql
 
 ---
 
-## Pre-Migration Validation (10 minutes)
+## Database Migration
 
-### Current State Verification
-- [ ] Product count with pricing: `_______`
-- [ ] Customer count with pricing scheme: `_______`
-- [ ] Current pricing schemes: `_______`
-- [ ] System currently operational
+- [ ] Verified backup and restoration procedure
+- [ ] Reviewed migration history and pending migrations
+- [ ] For a fresh database, confirmed the chain starts at `InitialSchema1785238045705`
+- [ ] For an existing schema without migration history, resolved the baseline diagnostic before startup
+- [ ] Applied all pending migrations through TypeORM (see the [guide](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md#migration-steps))
+- [ ] Confirmed no pending migrations or migration errors
+- [ ] Confirmed tables exist: `price_lists`, `price_list_items`
+- [ ] Compared price list, item and assigned-customer counts with the pre-deployment state
 
-**Validation Commands**:
-```bash
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) FROM products WHERE \"pricingTiers\" IS NOT NULL;
-"
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) FROM customers WHERE \"pricingScheme\" IS NOT NULL;
-"
-```
+The baseline includes the price list schema. There is no separate legacy JSONB
+conversion step or fixed number of migrated rows. In Docker, the backend entrypoint
+checks the baseline and applies compiled migrations before application startup.
 
 ---
 
-## Database Migration (15 minutes)
+### Customer order metrics backfill (#1475)
 
-### Schema Migration
-- [ ] Migration files located in `backend/src/database/migrations/`
-- [ ] Migrations pending verified: `npm run migration:show`
-- [ ] Schema migration executed: `CreatePriceListTables`
-- [ ] Tables created: `price_lists`, `price_list_items`
-- [ ] Foreign key added to `customers.priceListId`
-- [ ] Indexes created successfully
+**Required when a production host is created.**
 
-**Migration Command**:
+This procedure implements [issue #1475](https://github.com/blur88/erp2/issues/1475).
+
+Migration `RecalculateCustomerMetricsFromFulfilledOrders1793020800000` **rewrites
+customer data** using the [customer order metric rule](../backend/customer-metrics.md#metric-rule).
+`down()` does nothing: **the pre-deploy backup is the only way back to the
+previous values**, as [PR #1369](https://github.com/blur88/erp2/pull/1369) documented,
+which [issue #1475](https://github.com/blur88/erp2/issues/1475) re-applies.
+
+No production host exists yet. Measure the affected rows before deployment:
+
+- [ ] Before deploy, run the read-only preflight and record both numbers in the
+      deployment record:
+
 ```bash
-cd backend && npm run migration:run
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+SELECT count(*) AS customers,
+       count(*) FILTER (
+         WHERE (c."totalOrders", c."totalSales", c."firstPurchaseDate", c."lastPurchaseDate")
+               IS DISTINCT FROM
+               (COALESCE(s.n, 0), COALESCE(s.total, 0), s.first_date, s.last_date)
+       ) AS will_be_rewritten
+  FROM customers c
+  LEFT JOIN (
+    SELECT "customerId", count(*)::int AS n, sum("totalAmount") AS total,
+           min("orderDate")::timestamptz AS first_date,
+           max("orderDate")::timestamptz AS last_date
+      FROM sales_orders
+     WHERE "deletedAt" IS NULL AND status = 'FULFILLED'
+     GROUP BY "customerId"
+  ) s ON s."customerId" = c.id;
+SQL
 ```
 
-**Expected Output**:
-```
-Migration CreatePriceListTables1768231502083 has been executed successfully.
-```
+- [ ] After deploy, run the same query: `will_be_rewritten` must be `0`. From
+      then on fulfil and unfulfil recalculate the affected customer in their transaction.
 
-### Data Migration
-- [ ] Data migration executed: `MigratePriceListData`
-- [ ] Price lists created: `_______ lists`
-- [ ] Price list items created: `_______ items`
-- [ ] Customers linked: `_______ customers`
-- [ ] Data integrity validation: 100% PASS
+**Concurrent order writes.** Follow the
+[backfill locking requirements](../backend/customer-metrics.md#backfill-locking).
+Complete both operational checks:
 
-**Expected Output**:
-```
-Migration MigratePriceListData1768232000000 has been executed successfully.
-Migration completed. Created X price lists, Y price list items, linked Z customers.
-```
+- [ ] An open transaction that has written an order and never finishes blocks
+      the migration, and every order write queues behind it. If
+      `Running database migrations...` does not complete, look in
+      `pg_stat_activity` for an `idle in transaction` session.
+- [ ] Only **one** backend may run against the database, and it must be the new
+      image. The lock protects the migration itself; it cannot protect against
+      an older backend that keeps fulfilling orders afterwards without
+      recalculating. This is a **deployment inventory check**, not something a
+      command on one host can show: list every place a backend for this
+      database could be running (this host, any other host, a container
+      outside compose, a process outside Docker such as `npm run start:dev`
+      pointed at this database) and confirm each is stopped or on the new
+      image. What the repository itself guarantees is narrower: both compose
+      files define a single `backend` service with the fixed name
+      `erp_backend`, so within one compose project `docker compose up -d
+      backend` stops the old container before the new one runs its migrations,
+      and the only queue worker (backups) lives in that same process.
 
-### Post-Migration Verification
-- [ ] Tables exist: `price_lists`, `price_list_items`
-- [ ] Data migrated correctly (counts match expectations)
-- [ ] Legacy data preserved (JSONB fields still present)
-- [ ] No migration errors in logs
-
-**Verification Commands**:
-```bash
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) FROM price_lists;
-"
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) FROM price_list_items;
-"
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT COUNT(*) FROM customers WHERE \"priceListId\" IS NOT NULL;
-"
-```
-
----
+**Rolling back to the previous image** leaves the recalculated values in place
+and stops maintaining them again. After rolling forward, re-run the preflight;
+if it reports drift, the migration will not run a second time, so the same
+`UPDATE` has to be applied by hand.
 
 ## Application Deployment (15 minutes)
 
 ### Code Deployment
-- [ ] Latest code pulled: `git pull origin main`
+- [ ] Latest code pulled: `git pull --ff-only origin main`
 - [ ] Current commit verified: `_______________________`
 - [ ] Backend image built: `docker compose build backend`
 - [ ] Frontend image built: `docker compose build frontend`
@@ -177,30 +186,11 @@ curl http://localhost:3001/api/health
 ## Post-Deployment Validation (30 minutes)
 
 ### Database Verification
-- [ ] Price lists table populated
-- [ ] Price list items table populated
-- [ ] Customers linked to price lists
-- [ ] Data integrity check: 100% PASS
-- [ ] Indexes present and used
-
-**Data Integrity Check**:
-```bash
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT
-    p.name,
-    p.\"pricingTiers\"->>'Retail' as legacy_price,
-    pli.price as new_price,
-    CASE
-      WHEN (p.\"pricingTiers\"->>'Retail')::numeric = pli.price THEN 'MATCH'
-      ELSE 'MISMATCH'
-    END as status
-  FROM products p
-  LEFT JOIN price_list_items pli ON pli.\"productId\" = p.id
-  LEFT JOIN price_lists pl ON pl.id = pli.\"priceListId\" AND pl.code = 'RETAIL'
-  WHERE p.\"pricingTiers\" IS NOT NULL
-  LIMIT 10;
-"
-```
+- [ ] Both price list tables exist
+- [ ] Active default price list available after application startup
+- [ ] Existing prices and customer assignments preserved on upgrade
+- [ ] Fresh installation: entered required product prices and customer assignments (not seeded by migrations)
+- [ ] Recorded counts using the [guide's validation queries](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md#schema-and-data)
 
 ### API Testing
 - [ ] List price lists: `GET /api/price-lists` ✓
@@ -236,15 +226,6 @@ curl -s http://localhost:3000/api/price-lists/default \
 - [ ] Complete sales order successfully
 - [ ] Check invoice shows correct pricing
 
-### Backward Compatibility Testing
-- [ ] Find product with legacy pricing only (no price list item)
-- [ ] Create sales order with this product
-- [ ] Verify legacy price is used (fallback)
-- [ ] Check logs for "Using legacy pricing" message
-- [ ] System operates normally with mixed pricing
-
----
-
 ## Performance Verification (15 minutes)
 
 ### Response Time Checks
@@ -259,14 +240,7 @@ curl -s http://localhost:3000/api/price-lists/default \
 - [ ] No table scans on large tables
 - [ ] Connection pool healthy
 
-**Performance Check**:
-```bash
-docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT schemaname, tablename, seq_scan, idx_scan
-  FROM pg_stat_user_tables
-  WHERE tablename IN ('price_lists', 'price_list_items');
-"
-```
+Use the [database performance query in the guide](../modules/price-lists/PRICE_LIST_DEPLOYMENT_GUIDE.md#database-performance).
 
 ---
 
@@ -297,7 +271,7 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "
 ### Announcement
 - [ ] Users notified of successful deployment
 - [ ] New features announced
-- [ ] User guide shared: `docs/modules/price-lists/PRICE_LIST_USER_GUIDE.md`
+- [ ] User guide shared: [Price List User Guide](../modules/price-lists/PRICE_LIST_USER_GUIDE.md)
 - [ ] Support team notified deployment complete
 - [ ] Known issues communicated (if any)
 
@@ -324,8 +298,7 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "
 - [ ] Gather initial user feedback
 
 ### First Week
-- [ ] Review legacy fallback usage (should decrease)
-- [ ] Migrate remaining products to price lists
+- [ ] Review products missing prices in the intended price lists and enter required prices
 - [ ] Verify all customers have price list assignments
 - [ ] Optimize slow queries if found
 
@@ -391,9 +364,9 @@ _____________________________________________________________
 ## Metrics Summary
 
 ### Before Deployment
-- Products with pricing: `_______`
-- Customers with pricing: `_______`
-- Pricing schemes: `_______`
+- Price list items: `_______`
+- Customers assigned to price lists: `_______`
+- Price lists: `_______`
 
 ### After Deployment
 - Price lists: `_______`

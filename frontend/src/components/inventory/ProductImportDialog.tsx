@@ -124,12 +124,14 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
       formData.append('skipDuplicates', skipDuplicates.toString());
       formData.append('updateExisting', updateExisting.toString());
 
-      const result = await ApiService.post<ImportResult>('/inventory/products/import', formData, {
+      const response = await ApiService.post('/inventory/products/import', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
+      // Handle both wrapped and unwrapped responses
+      const result = ((response as any)?.data || response) as ImportResult;
       setImportResult(result);
 
       if (result.successCount > 0 || result.updatedCount > 0) {

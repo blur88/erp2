@@ -3,13 +3,18 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Box, LinearProgress } from '@mui/material'
 import { useAppDispatch, useAppSelector } from './hooks/useRedux'
 import { useRegionalSettings } from '@/hooks/useRegionalSettings'
-import { clearAuth, logout as logoutAction, selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
+import { selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
 import { useClearReconciliationDraftsOnSignOut } from './pages/accounting/bank-reconciliations/useClearReconciliationDraftsOnSignOut'
 
-const IDLE_TIMEOUT = 12 * 60 * 60 * 1000
-const WARNING_TIME = 5 * 60 * 1000
+import { signOutForIdle } from '@/services/auth/signOut'
+import { sessionCoordinator } from '@/services/session'
+import type { Session } from '@/services/session/storage'
+import { resolveIdleTimeout } from '@/services/session/idleTimeout'
+
+const IDLE_TIMEOUT = resolveIdleTimeout((window as any).__ENV__)
+const WARNING_TIME = Math.min(5 * 60 * 1000, IDLE_TIMEOUT / 6)
 
 const PageLoader = () => (
   <Box sx={{ width: '100%', position: 'fixed', top: 0, zIndex: 9999 }}>
@@ -25,30 +30,45 @@ export default function RootLayout() {
   const location = useLocation()
 
   const [showIdleWarning, setShowIdleWarning] = useState(false)
+  const idleSessionRef = React.useRef<Session | null>(null)
+  useEffect(() => sessionCoordinator.subscribe(session => { idleSessionRef.current = session }), [])
 
   useRegionalSettings(isAuthenticated)
   useClearReconciliationDraftsOnSignOut(isAuthenticated)
 
+  const handleSharedActivity = useCallback(async (now: number) => {
+    const session = await sessionCoordinator.credentialsForRequest()
+    if (!session) throw new Error('Session ended')
+    const updated = await sessionCoordinator.recordActivity(session.id, now)
+    if (!updated || updated.id !== session.id) throw new Error('Session ended')
+    idleSessionRef.current = updated
+  }, [])
+
+  const getSharedActivity = useCallback(async () => {
+    const session = await sessionCoordinator.credentialsForRequest()
+    return session?.lastActivity ?? null
+  }, [])
+
+  const handleIdleTimeout = useCallback(async () => {
+    const session = idleSessionRef.current ?? await sessionCoordinator.credentialsForRequest()
+    if (!session || session.rememberMe) return false
+    const ended = await sessionCoordinator.signOutIfIdle(session.id, Date.now(), IDLE_TIMEOUT)
+    if (ended) void signOutForIdle(dispatch, navigate, ended)
+    return !!ended
+  }, [dispatch, navigate])
+
   const handleAutoLogout = useCallback(async () => {
     setShowIdleWarning(false)
-    const state = (window as any).store?.getState()
-    const refreshToken = state?.auth?.refreshToken
-
-    try {
-      if (refreshToken) {
-        await dispatch(logoutAction(refreshToken)).unwrap()
-      }
-    } catch (error) {
-      console.error('Server logout failed:', error)
-    } finally {
-      dispatch(clearAuth())
-      navigate('/login', { replace: true })
-    }
+    const session = await sessionCoordinator.credentialsForRequest()
+    if (!session) return
+    const ended = await sessionCoordinator.signOut(session.id)
+    if (ended) void signOutForIdle(dispatch, navigate, ended)
   }, [dispatch, navigate])
 
   const activityEvents = useMemo(() => ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'], [])
 
   const handleIdle = useCallback(() => {
+    void sessionCoordinator.credentialsForRequest().then(session => { idleSessionRef.current = session })
     setShowIdleWarning(true)
   }, [])
 
@@ -67,12 +87,20 @@ export default function RootLayout() {
     onIdle: handleIdle,
     onTimeout: handleTimeout,
     onActive: handleActive,
+    getLastActivity: getSharedActivity,
+    onActivity: handleSharedActivity,
+    onIdleTimeout: handleIdleTimeout,
     events: activityEvents,
   })
 
-  const handleStayLoggedIn = () => {
+  const handleStayLoggedIn = async () => {
+    try {
+      await reset()
+    } catch {
+      window.alert("Unable to update session activity. This browser's storage is unavailable.")
+      return
+    }
     setShowIdleWarning(false)
-    reset()
   }
 
   useEffect(() => {

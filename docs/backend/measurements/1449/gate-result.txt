@@ -1,0 +1,17 @@
+Development gate, 2026-10-25
+Code revision: 3c8f1ec3f3f7a956f7041d325d690cddae0fae8e
+Working tree: pending documentation-only additions later committed as 8832326f4;
+backend code and test configuration matched the code revision above.
+Capture method: exec_command launched the command with stdout/stderr redirected
+to /tmp/erp2-1449-measurement/gate.log as session 71544. write_stdin observed
+completion and returned the structured field exit_code: 0. This exit status is
+transcribed from that tool result; it was not inferred from the log summary
+or captured by appending shell $? to the log.
+Command: cd backend && npm run test:e2e
+Exit status: 0
+Test Suites: 45 passed, 45 total
+Tests:       612 passed, 612 total
+Snapshots:   0 total
+Time:        430.703 s
+Ran all test suites.
+◇ injected env (0) from .env.test

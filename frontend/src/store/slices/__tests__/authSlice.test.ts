@@ -11,6 +11,14 @@ import authReducer, {
 } from '../authSlice';
 import { authApi } from '../../../services/authApi';
 
+vi.mock('@/services/session', () => ({
+  sessionCoordinator: {
+    beginSignIn: vi.fn(async () => ({ lastEndedSessionId: null })),
+    signIn: vi.fn(async (response) => ({ ...response, id: 'session' })),
+    getSnapshot: () => ({ id: 'session' }),
+  },
+}));
+
 // Mock the authApi module
 vi.mock('../../../services/authApi', () => ({
   authApi: {
@@ -283,7 +291,7 @@ describe('authSlice', () => {
 
     it('should select current user', () => {
       const state = store.getState();
-      const user = selectCurrentUser(state);
+      const user = selectCurrentUser({ ...state });
 
       expect(user).toBeDefined();
       expect(user?.username).toBe('testuser');
@@ -291,14 +299,14 @@ describe('authSlice', () => {
 
     it('should select authentication status', () => {
       const state = store.getState();
-      const isAuthenticated = selectIsAuthenticated(state);
+      const isAuthenticated = selectIsAuthenticated({ ...state });
 
       expect(isAuthenticated).toBe(true);
     });
 
     it('should select access token', () => {
       const state = store.getState();
-      const token = selectAccessToken(state);
+      const token = selectAccessToken({ ...state });
 
       expect(token).toBe('access-token');
     });

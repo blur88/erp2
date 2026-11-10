@@ -1,4 +1,3 @@
-import { configureStore } from '@reduxjs/toolkit'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
@@ -45,6 +44,22 @@ vi.mock('@/hooks/useNotification', async (importOriginal) => {
   }
 })
 
+vi.mock('@/hooks/useCurrency', () => ({
+  useCurrency: () => ({ currency: '$' }),
+}))
+
+vi.mock('@/hooks/useDuplicateCheck', () => ({
+  useDuplicateCheck: () => ({
+    checkDuplicate: vi.fn(),
+    nameError: '',
+    barcodeError: '',
+    hasNameDuplicate: false,
+    hasBarcodeDuplicate: false,
+    hasCheckedName: false,
+    hasCheckedBarcode: false,
+  }),
+}))
+
 vi.mock('@/hooks/useUnsavedChangesGuard', () => ({
   useUnsavedChangesGuard: () => ({ UnsavedChangesDialog: null }),
 }))
@@ -63,15 +78,10 @@ import { inventoryApiSlice } from '@/store/api/inventoryApi'
 import { settingsApiSlice } from '@/store/api/settingsApi'
 
 import CreateProductPage from '../CreateProductPage'
+import { createTestStore } from '@/test/createTestStore'
 
 function renderEdit() {
-  const store = configureStore({
-    reducer: {
-      [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
-      [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
-    },
-    middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
-  })
+  const store = createTestStore({ apis: [inventoryApiSlice, settingsApiSlice] })
   return render(
     <Provider store={store}>
       <NotificationProvider>
@@ -146,3 +156,16 @@ describe('CreateProductPage type change', () => {
     ).toBeInTheDocument()
   })
 })
+
+// This test owns its store; transitive imports must not evaluate the singleton.
+vi.mock('@/store', () => ({
+  store: {
+    getState: () => ({ auth: { isAuthenticated: false, accessToken: null, refreshToken: null } }),
+    dispatch: vi.fn(),
+  },
+  persistor: {
+    getState: () => ({ bootstrapped: true }),
+    subscribe: () => () => {},
+    purge: vi.fn().mockResolvedValue(undefined),
+  },
+}))

@@ -1,0 +1,10 @@
+run 1 rc=0       Tests  2 passed | 102 skipped (104)
+run 2 rc=0       Tests  2 passed | 102 skipped (104)
+run 3 rc=0       Tests  2 passed | 102 skipped (104)
+run 4 rc=0       Tests  2 passed | 102 skipped (104)
+run 5 rc=0       Tests  2 passed | 102 skipped (104)
+run 6 rc=0       Tests  2 passed | 102 skipped (104)
+RED 0 / 6 (hogs=8)
+exit=0
+
+[exited with code 0]

@@ -19,7 +19,6 @@ and role-based access control.
 - Purchasing with supplier and goods-received management
 - Double-entry accounting with bank reconciliation and financial reports
 - Price list management with effective dates and bulk operations
-- Real-time dashboard with WebSocket updates
 - Audit logging for all operations
 - Excel and PDF report exports
 
@@ -35,7 +34,9 @@ and role-based access control.
 git clone <repository-url>
 cd erp2
 
-# Enable local guards against committing or pushing to main (once per clone)
+# One-time: enable the tracked git hooks (pre-commit refuses commits on
+# main; pre-push refuses a branch behind the remote's main; existing
+# .git/hooks/ hooks still run)
 git config core.hooksPath .githooks
 
 # Start all services
@@ -75,7 +76,6 @@ JWT_REFRESH_TOKEN_EXPIRY=7d
 
 # Frontend
 VITE_API_BASE_URL=/api
-VITE_SOCKET_URL=/
 ```
 
 ## Development

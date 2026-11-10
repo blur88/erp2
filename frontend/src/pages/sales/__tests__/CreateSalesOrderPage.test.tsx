@@ -15,7 +15,7 @@ const render = (ui: ReactElement) =>
 import CreateSalesOrderPage from '../CreateSalesOrderPage'
 
 const replacementSearchTerm = 'B'
-const customersResponse = {
+const customersResponse: { data: { data: { id: string; name: string; priceListId?: string }[] } } = {
   data: { data: [{ id: 'customer-1', name: 'Test Customer' }] },
 }
 

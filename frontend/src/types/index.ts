@@ -503,19 +503,6 @@ export interface Notification {
   read: boolean;
 }
 
-// WebSocket types
-export interface WebSocketMessage {
-  type: string;
-  payload: any;
-  timestamp: Date;
-}
-
-export interface RealtimeUpdate {
-  entity: string;
-  action: 'created' | 'updated' | 'deleted';
-  data: any;
-}
-
 // Audit Log types
 export enum AuditAction {
   CREATE = 'CREATE',
