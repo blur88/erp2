@@ -74,3 +74,18 @@ test('invalid UTF-8 guidance fails rather than loading replacement characters', 
   const f = fixture(t); fs.writeFileSync(path.join(f.root, 'AGENTS.md'), Buffer.from([0xff]));
   assert.equal(f.run('load', 'request.json').status, 1);
 });
+for (const pointer of ['[rules](<missing.md>)', '[rules](missing.md "required")', '[rules][required]\n[required]: missing.md']) test(`preflight rejects unresolved Markdown pointer ${pointer}`, t => {
+  const f = fixture(t); fs.appendFileSync(path.join(f.root, 'AGENTS.md'), pointer);
+  assert.equal(f.run('load', 'request.json').status, 1);
+});
+test('preflight rejects dangling scoped guidance symlinks', t => {
+  const f = fixture(t); fs.mkdirSync(path.join(f.root, 'module'));
+  fs.writeFileSync(path.join(f.root, 'module', 'source'), 'changed');
+  f.git(['add', 'module']); f.git(['commit', '-qm', 'module']);
+  fs.symlinkSync('missing.md', path.join(f.root, 'module', 'AGENTS.md'));
+  assert.equal(f.run('load', 'request.json').status, 1);
+});
+test('literal replacement character in valid UTF-8 is readable guidance', t => {
+  const f = fixture(t); fs.appendFileSync(path.join(f.root, 'AGENTS.md'), 'Literal replacement character: \uFFFD.');
+  assert.equal(f.run('load', 'request.json').status, 0);
+});

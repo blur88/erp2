@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, realpathSync, statSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, statSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +10,17 @@ const hash = text => createHash('sha256').update(text).digest('hex');
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).replace(/\n$/, '');
 const inside = (root, path) => { const rel = relative(root, path); return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel); };
 
+function markdownPointers(content) {
+  const text = content.replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, '').replace(/(`+)[^\r\n]*?\1/g, '');
+  const destinations = [...text.matchAll(/!?\[[^\]\n]*\]\(\s*(<[^>]*>|[^\s)]*)(?:\s+['"][^\n]*?['"])?\s*\)/g)].map(match => match[1]);
+  // Definitions are loaded even when unused, so reference syntax cannot conceal a required pointer.
+  destinations.push(...[...text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(<[^>]+>|\S+)/gm)].map(match => match[2]));
+  return destinations.map(value => value.replace(/^<|>$/g, '').split('#')[0]).filter(target => target && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target) && /\.md$/i.test(target)).map(decodeURIComponent);
+}
+function present(path) {
+  try { lstatSync(path); return true; }
+  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+}
 function workingTree(selectedPaths = []) {
   const root = git('rev-parse', '--show-toplevel');
   const directory = mkdtempSync(resolve(tmpdir(), 'preflight-index-'));
@@ -35,19 +46,15 @@ export function loadPreflight(request) {
     if (seen.has(canonical)) return;
     seen.add(canonical);
     if (!statSync(canonical).isFile()) throw Error(`convention is not a file: ${path}`);
-    const bytes = readFileSync(canonical), content = bytes.toString('utf8');
-    if (!content.trim() || content.includes('\uFFFD') || /^(?:<<<<<<<|=======|>>>>>>>)(?: |$)/m.test(content)) throw Error(`empty, unreadable or conflicting conventions: ${path}`);
+    const bytes = readFileSync(canonical), content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    if (!content.trim() || /^(?:<<<<<<<|=======|>>>>>>>)(?: |$)/m.test(content)) throw Error(`empty, unreadable or conflicting conventions: ${path}`);
     conventions.push({ path: canonical, sha256: hash(bytes), content });
     // Local Markdown pointers are required once reached. External links are references, not executable guidance.
-    for (const match of content.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
-      const target = match[1].split('#')[0];
-      if (!target || /^[a-z][a-z\d+.-]*:/i.test(target) || !/\.md$/.test(target)) continue;
-      load(resolve(dirname(canonical), decodeURIComponent(target)));
-    }
+    for (const target of markdownPointers(content)) load(resolve(dirname(canonical), target));
   }
   for (const path of ['AGENTS.md', 'CLAUDE.md', 'CODING_STANDARDS.md']) load(path);
   const review = 'docs/agents/code-review.md';
-  if (existsSync(resolve(root, review))) load(review);
+  if (present(resolve(root, review))) load(review);
   const head = git('rev-parse', 'HEAD');
   const baseline = git('rev-parse', '--verify', '--end-of-options', `${request.baseline}^{commit}`);
   const target = request.kind === 'working-tree' ? request.tree : head;
@@ -59,7 +66,7 @@ export function loadPreflight(request) {
     while (directory !== '.') {
       for (const name of ['AGENTS.md', 'CLAUDE.md']) {
         const candidate = resolve(root, directory, name);
-        if (existsSync(candidate)) load(candidate);
+        if (present(candidate)) load(candidate);
       }
       directory = dirname(directory);
     }
@@ -78,10 +85,7 @@ export function validatePreflight(data, expected, live = true) {
   for (const file of ['AGENTS.md', 'CLAUDE.md', 'CODING_STANDARDS.md']) if (!saved.has(resolve(data.root, file))) throw Error('missing required convention evidence');
   for (const convention of data.conventions) {
     if (!inside(data.root, convention.path)) throw Error('convention evidence escapes repository');
-    for (const match of convention.content.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
-      const target = match[1].split('#')[0];
-      if (target && !/^[a-z][a-z\d+.-]*:/i.test(target) && /\.md$/.test(target) && !saved.has(resolve(dirname(convention.path), decodeURIComponent(target)))) throw Error('missing convention pointer evidence');
-    }
+    for (const target of markdownPointers(convention.content)) if (!saved.has(resolve(dirname(convention.path), target))) throw Error('missing convention pointer evidence');
   }
   if (!live) {
     git('cat-file', '-e', `${data.target}^{tree}`);
