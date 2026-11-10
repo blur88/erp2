@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { Parser } from 'commonmark';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync, statSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
@@ -11,30 +12,13 @@ const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['
 const inside = (root, path) => { const rel = relative(root, path); return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel); };
 
 function markdownPointers(content) {
-  const text = content.replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, '').replace(/(`+)[^\r\n]*?\1/g, '');
+  const walker = new Parser().parse(content).walker();
   const destinations = [];
-  for (const match of text.matchAll(/!?\[[^\]\n]*\]\(\s*/g)) {
-    let index = match.index + match[0].length, destination = '', depth = 0;
-    if (text[index] === '<') {
-      const end = text.indexOf('>', index + 1);
-      if (end < 0) throw Error('unverifiable Markdown destination');
-      destination = text.slice(index + 1, end);
-    } else {
-      for (; index < text.length; index++) {
-        const character = text[index];
-        if (character === '\\') { destination += text[++index] ?? ''; continue; }
-        if ((character === ')' && depth === 0) || (/\s/.test(character) && depth === 0)) break;
-        if (character === '(') depth++;
-        if (character === ')') depth--;
-        destination += character;
-      }
-      if (depth !== 0) throw Error('unverifiable Markdown destination');
-    }
-    destinations.push(destination);
+  let event;
+  while ((event = walker.next())) {
+    if (event.entering && ['link', 'image'].includes(event.node.type)) destinations.push(event.node.destination);
   }
-  // Definitions are loaded even when unused, so reference syntax cannot conceal a required pointer.
-  destinations.push(...[...text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(<[^>]+>|\S+)/gm)].map(match => match[2]));
-  return destinations.map(value => decodeURIComponent(value.replace(/^<|>$/g, '').split('#')[0])).filter(target => target && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target) && /\.md$/i.test(target));
+  return destinations.map(value => decodeURIComponent(value.split('#')[0])).filter(target => target && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target) && /\.md$/i.test(target));
 }
 function present(path) {
   try { lstatSync(path); return true; }

@@ -74,7 +74,7 @@ test('invalid UTF-8 guidance fails rather than loading replacement characters', 
   const f = fixture(t); fs.writeFileSync(path.join(f.root, 'AGENTS.md'), Buffer.from([0xff]));
   assert.equal(f.run('load', 'request.json').status, 1);
 });
-for (const pointer of ['[rules](<missing.md>)', '[rules](missing.md "required")', '[rules][required]\n[required]: missing.md']) test(`preflight rejects unresolved Markdown pointer ${pointer}`, t => {
+for (const pointer of ['[rules](<missing.md>)', '[rules](missing.md "required")', '[rules][required]\n\n[required]: missing.md']) test(`preflight rejects unresolved Markdown pointer ${pointer}`, t => {
   const f = fixture(t); fs.appendFileSync(path.join(f.root, 'AGENTS.md'), pointer);
   assert.equal(f.run('load', 'request.json').status, 1);
 });
@@ -98,4 +98,8 @@ test('preflight loads a real Markdown filename with balanced parentheses', t => 
   fs.appendFileSync(path.join(f.root, 'AGENTS.md'), '[rules](rules(extra).md)');
   const result = f.run('load', 'request.json'); assert.equal(result.status, 0, result.stderr);
   assert.ok(JSON.parse(result.stdout).conventions.some(c => c.path.endsWith('/rules(extra).md')));
+});
+for (const pointer of ['[rules [required]](missing.md)', '[required\nrules](missing.md)', '[rules](missing&period;md)', '[rules](missing.&#109;&#100;)']) test(`preflight handles CommonMark grammar ${pointer}`, t => {
+  const f = fixture(t); fs.appendFileSync(path.join(f.root, 'AGENTS.md'), pointer);
+  assert.equal(f.run('load', 'request.json').status, 1);
 });

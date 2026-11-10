@@ -7,6 +7,7 @@
   },
   "devDependencies": {
     "acorn": "8.19.0",
+    "commonmark": "0.31.2",
     "conventional-changelog-angular": "8.1.0",
     "yaml": "2.9.1"
   }
