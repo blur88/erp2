@@ -5,14 +5,19 @@ Example: [PR #1781](https://github.com/blur88/erp2/pull/1781), reviewed head
 `9bd7bf3216753c14f226f89fe99d7405cc187c85`, PR baseline
 `75e7aea945c3c4ce9e70dffb6db78ae8e6938373`, merged as
 `b48f0134ccf791197ccb0d6c028c67ae29b4c746` (an ancestor of `origin/main`, checked with
-`git merge-base --is-ancestor 9bd7bf32… origin/main`).
+`git merge-base --is-ancestor b48f0134ccf791197ccb0d6c028c67ae29b4c746 origin/main`,
+exit 0).
 
 ## Scope
 
 This is a read-only investigation. Nothing in this record changes, removes or bypasses
 a review or merge safeguard. Every GitHub fact below comes from a `gh api` call run
-on 2026-11-10; raw responses were not saved to the review evidence directory, so
-re-run the listed commands to reproduce them. Local ledger facts come from the
+on 2026-11-10. The original investigation pass did not save the raw responses. During
+the #1782 documentation PR review (Standards finding S1), the same calls were run again
+on 2026-11-10 and saved through `scripts/run-gate.mjs` under
+`.scratch/1782/evidence/s1/api/`. Those logs are **newly captured evidence**, not
+contemporaneous records of the original pass, and they live only on this machine
+(gitignored). Each GitHub fact below matched that re-capture. Local ledger facts come from the
 gitignored key directory `.scratch/branch-chore-retro-1780-tooling/`, which exists
 only on this machine. Overhead figures come from local harness session logs outside
 Git (see [Overhead measurement](#6-overhead-measurement)).
@@ -53,10 +58,10 @@ All rows are for PR #1781 at `9bd7bf3216753c14f226f89fe99d7405cc187c85` unless s
 | GitHub PR review submissions | Human or app reviews (APPROVE / COMMENT / REQUEST_CHANGES) | `gh api repos/blur88/erp2/pulls/1781/reviews` → `[]`. GraphQL `pullRequest(number:1781){reviewDecision reviews{totalCount} reviewRequests{totalCount}}` → `reviewDecision: null`, `reviews.totalCount: 0`, `reviewRequests.totalCount: 0`. `pulls/1781` → `requested_reviewers: []`, `requested_teams: []`. |
 | GitHub PR review comments | Inline diff comments, including bot alert comments | `gh api repos/blur88/erp2/pulls/1781/comments` → `[]`. |
 | Issue comments on the PR | Conversation comments | `gh api repos/blur88/erp2/issues/1781/comments` → 1 comment, `user.login: blur88`, `created_at: 2026-11-10T01:29:48Z`, after `merged_at: 2026-11-10T01:29:12Z`. Its text is the semantic-release "included in version 3.24.2" notice, not a review. |
-| Copilot or other review apps | Automated semantic code review | None observed. The check suites list only the apps `github-actions` and `github-advanced-security` (row below). No reviews from any Copilot account on PR #1781. Across the 30 most recent merged PRs (`gh pr list --state merged --limit 30` plus `pulls/<n>/reviews` for each), the only reviewer is `github-advanced-security[bot]`, on #1780, #1776, #1775 and #1723. Those reviews are `COMMENTED` with empty bodies, which is how CodeQL posts alert comments. The ruleset has no Copilot review rule (row below). The repository has no `.github/copilot-instructions.md`, `CODEOWNERS`, `.coderabbit*` or `dependabot.yml`. |
+| Copilot or other review apps | Automated semantic code review | None observed. The check suites list only the apps `github-actions` and `github-advanced-security` (row below). No reviews from any Copilot account on PR #1781. Across the 30 most recent merged PRs (newly captured by `sh recent-merged-reviewers.sh`, saved with its log `recent-merged-reviewers.log` in `.scratch/1782/evidence/s1/api/`: 26 PRs with no reviews), the only reviewer is `github-advanced-security[bot]`, on #1780, #1776, #1775 and #1723. Those reviews are `COMMENTED` with empty bodies, which is how CodeQL posts alert comments. The ruleset has no Copilot review rule (row below). The repository has no `.github/copilot-instructions.md`, `CODEOWNERS`, `.coderabbit*` or `dependabot.yml`. |
 | Check suites (all apps) | Which apps ran checks on the SHA | `gh api repos/blur88/erp2/commits/9bd7…/check-suites` → `total_count: 5`: four `github-actions` suites and one `github-advanced-security` suite (115728829070), all `completed/success`. |
 | Commit statuses (legacy status API) | Third-party status contexts | `gh api repos/blur88/erp2/commits/9bd7…/status` → `total_count: 0`, `statuses: []`. GitHub reports `state: pending` when no statuses exist. |
-| CI workflow `.github/workflows/ci.yml`, run [42729579275](https://github.com/blur88/erp2/actions/runs/42729579275) | Event `pull_request`, attempt 1, `success`. Six jobs, all `success`, `head_sha` = reviewed head: Root script tests (main-protection contract check plus `npm test`); Git hook integration tests (`sh scripts/tests/git-hooks.sh`); Backend (eslint, type-check, `type-check:spec`, unit, e2e, `test:redis`, `test:scripts`, `verify:baseline`, `verify:seeds`); Frontend (lint, type-check, `test:coverage`); Production Image – Fresh Database Migrations; Production Image – TLS Database Connection. | `gh api repos/blur88/erp2/actions/runs/42729579275/jobs`. Job IDs: [129543889893](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889893), [129543889565](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889565), [129543889599](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889599), [129543889496](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889496), [129543889262](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889262), [129543889541](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889541). Artifacts (`…/runs/42729579275/artifacts`): one, `frontend-coverage`. |
+| CI workflow `.github/workflows/ci.yml`, run [42729579275](https://github.com/blur88/erp2/actions/runs/42729579275) | Six jobs: Root script tests (main-protection contract check plus `npm test`); Git hook integration tests (`sh scripts/tests/git-hooks.sh`); Backend (eslint, type-check, `type-check:spec`, unit, e2e, `test:redis`, `test:scripts`, `verify:baseline`, `verify:seeds`); Frontend (lint, type-check, `test:coverage`); Production Image – Fresh Database Migrations; Production Image – TLS Database Connection. | Event `pull_request`, attempt 1, `success`; all six jobs `success` with `head_sha` = reviewed head. `gh api repos/blur88/erp2/actions/runs/42729579275/jobs`. Job IDs: [129543889893](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889893), [129543889565](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889565), [129543889599](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889599), [129543889496](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889496), [129543889262](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889262), [129543889541](https://github.com/blur88/erp2/actions/runs/42729579275/job/129543889541). Artifacts (`…/runs/42729579275/artifacts`): one, `frontend-coverage`. |
 | PR body workflow `.github/workflows/pr-body.yml` | Only closing-reference syntax (`scripts/check-pr-body.cjs`, `invalidClosingLineNumbers`). The job is commented "Advisory until deliberately added to the repository ruleset". | Two runs at the SHA: [42729579601](https://github.com/blur88/erp2/actions/runs/42729579601) (00:36:23Z, PR opened) and [42735639369](https://github.com/blur88/erp2/actions/runs/42735639369) (01:25:06Z, after the body edit at 01:25:03Z). Both `success`, no artifacts. The edit time comes from GraphQL `userContentEdits`. |
 | CodeQL default setup (`github-advanced-security`) | Security queries for actions, javascript-typescript and python | `gh api repos/blur88/erp2/code-scanning/default-setup` → `state: configured`, `query_suite: default`. Workflow run [42729574756](https://github.com/blur88/erp2/actions/runs/42729574756) (`dynamic/github-code-scanning/codeql`, three Analyze jobs `success`). Check run `CodeQL` [129544132914](https://github.com/blur88/erp2/runs/129544132914) `success`. `code-scanning/analyses?sha=9bd7…` filtered to `commit_sha` = reviewed head: three analyses on `refs/pull/1781/head`, each `results_count: 0`. Open alerts on `refs/pull/1781/head`: 0. |
 | Secret scanning and push protection | Credential patterns on push | `gh api repos/blur88/erp2` → `secret_scanning: enabled`, `secret_scanning_push_protection: enabled`, `dependabot_security_updates: disabled`. No per-PR check run or review is exposed. |
@@ -143,7 +148,7 @@ report written within 60 s of marker".
 - **[#1729](https://github.com/blur88/erp2/issues/1729) (parent).** Q2 and R15–R18
   already define the only approved relief: reuse of a complete independent committed
   full-PR Spec result, plus a fresh evidence check in a third execution context. Q8 and
-  R14 forbid upgrading inherited coverage. The [#1736 retro comment](https://github.com/blur88/erp2/issues/1729)
+  R14 forbid upgrading inherited coverage. The [#1736 retro comment](https://github.com/blur88/erp2/issues/1729#issuecomment-6712187503)
   (item 2) first raised this pre-merge cost. R8 and Q6 require a "separate execution
   context" and independent identities. They do not say whether a reviewer forked
   with the implementer's full history counts as one. That is a gap this
@@ -178,7 +183,20 @@ contain no `pull/1781` reference. The reservation markers record `harness: codex
 The implementer session is the Codex rollout
 `~/.codex/sessions/2026/11/10/rollout-2026-11-10T00-40-06-01a1c12e-693a-74a0-b4ff-39e881f2e19c.jsonl`
 (`originator: codex-tui`, 14 turns). Its `token_usage_record` and `token_count` events
-supply the figures below. PR #1781's lifecycle is turns 8–11:
+supply the figures below.
+
+**Evidence for the figures in this section.** The original pass did not save its
+extraction. Every table value and count below was recomputed from the unmodified
+rollouts by
+`python3 -I codex-counts.py ~/.codex/sessions/2026/11/10`, run through
+`scripts/run-gate.mjs`, with the script and its log `codex-counts.log` (`EXIT=0`) saved in
+`.scratch/1782/evidence/s1/`. That is **newly captured** evidence (2026-11-10, during the
+documentation PR review), local to this machine. The script reports only event types,
+tool names, commands and counts. It reproduced every figure in the token table and in
+the subagent, coordination, polling and `gh pr checks` counts. Facts that come from
+other sources say so where they appear: the guarded merge's own two watches are
+`scripts/check-review-ledger.mjs` lines 299–300; the refusal and the symlink workaround
+are in `notes.md`; the repeated-evidence files are in the PR #1781 key directory. PR #1781's lifecycle is turns 8–11:
 
 - turn 8: implementation, round 01 dispatch and commit;
 - turn 9: rounds 01–02 recorded;
@@ -227,9 +245,13 @@ issue's "about 7.32 million". The 1% / 4% / 15% observations match the `rate_lim
   - turn 11: 1 plain, 2 `--json name,startedAt[…]` (before and after the body edit,
     both required by the merge-gate `startedAt` rule), 3 manual `--watch` (01:25:21
     via `run-gate`, 01:28:36, 01:29:03), then 2 more inside the successful guarded
-    merge (`--required --watch` and `--watch`).
+    merge (`--required --watch` and `--watch`, run by the script itself:
+    `scripts/check-review-ledger.mjs` lines 299–300, so they don't appear as rollout
+    tool calls).
 
-  The first guarded merge attempt (01:28:36) was refused before its watches.
+  The first guarded merge attempt (01:28:36, a Python argv call to `gh pr checks 1781
+  --watch` then `merge 1781 --match-head-commit …`) was refused before its own watches
+  (`notes.md`, 01:29:03Z).
   `gh run view` ran once (01:24:48).
 - **Repeated evidence assembly:**
   - The PR body was written in turn 10 with pending CI rows, then edited in turn 11 to
@@ -284,9 +306,13 @@ issue's "about 7.32 million". The 1% / 4% / 15% observations match the `rate_lim
 4. Let the guarded merge's own watches satisfy the "watch immediately before merging"
    step.
 5. Resolve the merge key directory from an explicit argument or the existing key
-   directory.
+   directory. *Superseded by 1782-Q8: deterministic four-stage selection, see #1783.*
 
 ## 7. Recommendations
+
+The proposals in this section are kept as originally posed. Where the owner decisions
+(1782-Q1 to 1782-Q12) differ, the decision table under *Owner policy decisions* and the
+issues in section 8 govern, and each superseded line is marked inline.
 
 ### Evidence that should satisfy each obligation
 
@@ -294,7 +320,7 @@ issue's "about 7.32 million". The 1% / 4% / 15% observations match the `rate_lim
 |---|---|---|
 | Standards review | Local independent Standards report (committed or reconciled), carried by "No delta since round nn" at pre-merge | HEAD moves with a non-empty delta, or the delta-round broadening rule applies |
 | Originating-spec / AC review | Local independent full-PR Spec report with a verified criterion table. No GitHub mechanism currently supplies this, and none can while the AC live only in local files. | Always fresh at pre-merge until #1766. After #1766, fresh unless a committed full-PR round meets R15–R18 at the exact head, baseline, criteria and conventions. |
-| Executable-tooling probes | Reviewer-executed four-category probes saved in the evidence directory. CI suites support but do not replace them (convention: "Existing test results can support a probe only when its exact input and execution records are available"). | The reviewed tree changes. Byte-identical trees (e.g. `1a43acd3…`) are a candidate for reuse under #1766 only if the owner widens Q8. |
+| Executable-tooling probes | Reviewer-executed four-category probes saved in the evidence directory. CI suites support but do not replace them (convention: "Existing test results can support a probe only when its exact input and execution records are available"). | The reviewed tree changes. Byte-identical trees (e.g. `1a43acd3…`) are a candidate for reuse under #1766 only if the owner widens Q8. *Superseded by 1782-Q2: Q8 unchanged; commit before review instead (#1729 R20).* |
 | Exact-head verification | GitHub check runs on the exact SHA for CI-eligible commands (`commits/<sha>/check-runs`, `conclusion: success`, `head_sha` match); local `run-gate` logs only for local-only commands and clean-clone checks | Any new commit |
 | PR-body evidence audit | The independent pre-merge evidence check (round 03 today; the third-context check under #1766), compared against check-runs API data | Any body edit or new commit |
 | Reviewer independence | Distinct execution context recorded with session IDs, plus how it was spawned (fresh versus forked) — see owner decision 1 | Always recorded per round |
@@ -305,9 +331,12 @@ latest pre-merge row `mergeEligible`, head match, watches of required and all ch
 Add only mechanical checks that do not weaken anything:
 
 1. Resolve the key directory unambiguously (explicit argument, or refuse when several
-   candidate directories exist).
+   candidate directories exist). *Refined by 1782-Q8: same-directory aliases count once;
+   see #1783.*
 2. Confirm that every PR-body CI row cites a check run whose `head_sha` equals the
-   merged head and whose conclusion is `success`.
+   merged head and whose conclusion is `success`. *Superseded by 1782-Q3, Q9 and Q10:
+   PR-body CI rows may stay `pending`, and the merge gate verifies and saves GitHub's
+   exact-head results itself; see #1787.*
 3. After #1766, accept a reuse record only with its three distinct identities and the
    third-context evidence check, as #1766 already specifies.
 
@@ -353,8 +382,12 @@ record's proposal.
 | 7. Required PR-body and CodeQL checks | 1782-Q6, Q12: both become required. The PR-body failure is demonstrated with a malformed closing reference. CodeQL blocking stays **partially verified** until a genuine CodeQL-blocked state is observed. | The CodeQL demonstration is partial by decision, with no deliberately vulnerable code. It is tracked in #1784 and is not a #1729 demonstration (#1729 keeps D1–D6). |
 
 The key-directory fix (implementation-ready change 1 below) was also settled as
-1782-Q8. Selection is deterministic, and the PR #1781 two-directory case must refuse
-without an explicit `--key-dir`. That replaces "prefer an existing directory".
+1782-Q8 and corrected on #1783 ([correction comment](https://github.com/blur88/erp2/issues/1783#issuecomment-6758811908)).
+Selection is deterministic. Candidate names that resolve to the same canonical directory
+count once, and two genuinely distinct candidate directories must refuse without an
+explicit `--key-dir`. PR #1781 involved only one real directory. `.scratch/1780` is a
+symlink to `branch-chore-retro-1780-tooling/`, created after the first merge refused
+(section 6). That replaces "prefer an existing directory".
 
 ### Implementation-ready changes
 
@@ -363,7 +396,9 @@ These preserve every existing safeguard.
 1. Fix the merge key resolution in `scripts/check-review-ledger.mjs` (`keyDirectory()`):
    accept an explicit key directory, or prefer an existing directory and refuse when
    more than one candidate exists. Add a regression for branch names like
-   `chore/retro-1780-tooling`.
+   `chore/retro-1780-tooling`. *Superseded by 1782-Q8 (#1783): discovery, structural
+   validity, uniqueness by canonical directory and operation validation; "prefer an
+   existing directory" is dropped.*
 2. Reviewer-brief guidance in `docs/agents/code-review.md` (Subagent briefs): spawn
    with no parent history and a self-contained brief. This strengthens independence
    and does not relax anything.
@@ -411,8 +446,10 @@ in every item, and none is closed by the #1782 documentation PR.
   reports were saved. The ledger validates, but the reviewers' final messages were not
   inspected.
 - The local ledger, evidence and Codex rollouts are machine-local and gitignored or
-  outside Git. GitHub API responses were not saved to the evidence directory during
-  this read-only investigation.
+  outside Git. The original read-only pass saved no GitHub API responses. The responses
+  and the rollout extraction were captured afterwards, on 2026-11-10, under
+  `.scratch/1782/evidence/s1/` (see Scope and section 6). They are newly captured, not
+  contemporaneous, and also machine-local.
 
 ## 10. Sources
 
@@ -439,6 +476,13 @@ in every item, and none is closed by the #1782 documentation PR.
   `scripts/review-pr-hook.mjs`, `scripts/check-pr-body.cjs`;
   `docs/agents/code-review.md`, `AGENTS.md`, `CODING_STANDARDS.md`,
   `docs/agents/development-reference.md` (Pull requests).
+- Newly captured evidence (gitignored, 2026-11-10, documentation PR review), under
+  `.scratch/1782/evidence/s1/`:
+  - `codex-counts.py` and `codex-counts.log` (section 6 figures);
+  - `api/*.log`: `run-gate` captures of the `gh api` calls listed above, including the
+    expected 404/401/403 failures for branch protection, `installation` and
+    `/user/installations`;
+  - `api/recent-merged-reviewers.sh` and its log.
 - Local ledger (gitignored), under `.scratch/branch-chore-retro-1780-tooling/`:
   - `reviews.md`, `round-0{1,2,3}.started`;
   - `review-round-01.md`, `.patch`, `.snapshot.json`;
