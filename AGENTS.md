@@ -44,9 +44,7 @@ Primary language is TypeScript.
 ## Testing Guidelines
 - Backend: Jest (`*.spec.ts`) and e2e under `backend/test/e2e`.
 - Frontend: Vitest + Testing Library; co-locate tests in `__tests__` or `*.test.ts(x)`.
-- Run before PR:
-  - `cd backend && npm run test && npm run test:e2e`
-  - `cd frontend && npm run test && npm run test:coverage`
+- Before a PR, run `cd backend && npm run test && npm run test:e2e` and the applicable gates in [Change-Scoped Verification](#change-scoped-verification-required-before-pr).
 
 Add or update tests for any behavior change.
 
@@ -61,11 +59,12 @@ Run checks based on files touched (not just a default test set):
     `src/**` under the test TypeScript configuration.
 - Backend DB changes (entities/migrations):
   - `cd backend && npm run migration:run && npm run test:e2e`
-- Frontend changes (`frontend/src/**`):
-  - `cd frontend && npm run lint && npm run type-check && npm run test`
+- Frontend changes (`frontend/src/**`) or cross-app contract changes:
+  - `cd frontend && npm run lint && npm run type-check && npm run test:coverage`
+  - This matches CI: run the full suite once with coverage, without a separate `npm run test` pass.
 - Cross-app contract changes (API DTOs/interfaces used by both apps):
   - `cd backend && npm run type-check && npm run test`
-  - `cd frontend && npm run test && npm run test:coverage`
+  - Also run the frontend gate above.
 
 If multiple areas are changed, run all relevant checks.
 PRs must include the exact verification commands run and whether they passed.
