@@ -7,6 +7,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { reviewState } from './review-state.mjs';
 import { snapshot } from './review-snapshot.mjs';
+import { loadPreflight, validatePreflight } from './review-preflight.mjs';
 
 const columns = ['round', 'kind', 'started', 'PR baseline', 'delta base', 'reviewed head', 'mode', 'outcome', 'blocking findings', 'report'];
 const sha = /^[a-f0-9]{40}$/;
@@ -73,8 +74,10 @@ export function check(key, content) {
       if (!sha.test(start.head)) fail('marker head must be a full SHA');
       if (row['reviewed head'].replace(/ \+ working tree$/, '') !== start.head) fail('reviewed head differs from marker');
       if (!(uuid.test(start.session ?? '') || (/^(?:claude-code|codex)$/.test(start.harness ?? '') && /^[\w-]{16,}$/.test(start.session ?? '') && start.nativeId === start.session))) fail('marker session: invalid harness session ID or fallback identity');
+      const scope = field(read(resolve(key, target(row.report))), 'scope')?.split(';')[0].trim();
+      validatePreflight(start.preflight, { baseline: row['PR baseline'], head: start.head, kind: row.kind, scope: scope === 'inherited' ? 'full PR' : scope }, false);
       if (start.fallback && !(start.hostname && Number(start.pid) > 0 && uuid.test(start.session))) fail('marker session: fallback needs UUID, hostname and PID');
-    } catch { fail('missing or invalid marker'); }
+    } catch (error) { fail(`missing or invalid marker/preflight: ${error.message}`); }
     const reportPath = resolve(key, target(row.report));
     if (!existsSync(reportPath)) { fail('report missing'); continue; }
     const report = read(reportPath);
@@ -138,6 +141,13 @@ export function check(key, content) {
       if (start && last && Date.parse(start.started) < statSync(resolve(key, target(last.report))).mtimeMs) fail('pre-merge started before committed review completed');
     }
     const state = row.kind === 'scope-reset' ? undefined : reviewState({ key, row, report, previous: previousState, fail, reconciled, snapshotRound: priorWorking?.round });
+    if (state && !reconciled && start?.preflight?.scope !== (state.scope === 'inherited' ? 'full PR' : state.scope)) fail('preflight scope differs from structured coverage');
+    if (row.kind === 'working-tree') {
+      try {
+        const saved = JSON.parse(read(join(key, `review-round-${nn(number)}.snapshot.json`)));
+        if (saved.tree !== start.preflight.target || saved.baseline !== start.preflight.baseline) throw Error();
+      } catch { fail('preflight working-tree target differs from snapshot'); }
+    }
     let inherited = reconciled;
     if (state?.scope === 'inherited' && !reconciled) {
       const origin = currentScope.find(r => Number(r.round) === state.inheritance?.round && r.kind === 'working-tree');
@@ -169,15 +179,24 @@ export function check(key, content) {
   try { reserved = reservations(key).filter((item) => !rows.some((row) => Number(row.round) === item.number)); } catch (error) { errors.push(`round N/A: invalid reservation: ${error.message}`); }
   return { rows, errors, warnings, reserved, rounds: states, lastReviewedCommit: last?.['reviewed head'] ?? null };
 }
-function reserve(key) {
+function reserve(key, requestPath) {
+  if (!requestPath) throw Error('reserve requires a preflight request JSON; docs/agents/code-review.md');
+  const request = JSON.parse(read(requestPath));
+  let preflight;
+  try { preflight = loadPreflight(request); }
+  catch (error) {
+    mkdirSync(key, { recursive: true });
+    writeFileSync(join(key, `preflight-failed-${randomUUID()}.json`), JSON.stringify({ status: 'failed', request, error: error.message, at: new Date().toISOString() }) + '\n', { flag: 'wx' });
+    throw error;
+  }
   mkdirSync(key, { recursive: true });
   const { rows } = ledger(key);
   const metadata = readdirSync(key).filter((name) => /^review.*\.md$/.test(name)).flatMap((name) => [...read(join(key, name)).matchAll(/round\s*:?[ #]*0*(\d+)/gi)].map((match) => Number(match[1])));
   let number = 1 + Math.max(0, ...rows.map((row) => Number(row.round)), ...reservations(key).map((item) => item.number), ...metadata);
   const native = process.env.CLAUDE_CODE_SESSION_ID ?? process.env.CODEX_SESSION_ID ?? process.env.CODEX_THREAD_ID;
-  const harness = process.env.CLAUDE_CODE_SESSION_ID ? 'claude-code' : 'codex';
+  const harness = preflight.harness;
   for (;;) {
-    const data = { session: native ?? randomUUID(), harness, nativeId: native ?? null, fallback: !native, hostname: hostname(), pid: process.pid, started: new Date().toISOString(), head: git('rev-parse', 'HEAD') };
+    const data = { preflight, session: native ?? randomUUID(), harness, nativeId: native ?? null, fallback: !native, hostname: hostname(), pid: process.pid, started: new Date().toISOString(), head: git('rev-parse', 'HEAD') };
     try { writeFileSync(join(key, `round-${nn(number)}.started`), JSON.stringify(data, null, 2) + '\n', { flag: 'wx' }); console.log(`${nn(number)} ${data.started}`); return; }
     catch (error) { if (error.code !== 'EEXIST') throw error; number++; }
   }
@@ -189,6 +208,7 @@ function printCheck(result) {
 function record(key, number, json) {
   const data = JSON.parse(json), start = marker(join(key, `round-${nn(number)}.started`));
   const row = { ...data, round: nn(number), started: start.started, 'reviewed head': start.head + (data.kind === 'working-tree' ? ' + working tree' : '') };
+  validatePreflight(start.preflight, { head: start.head, baseline: row['PR baseline'], kind: row.kind });
   const values = columns.map((name) => row[name] ?? 'N/A');
   if (values.some((value) => /[|\n\r]/.test(String(value)))) throw Error('record fields cannot contain pipes or newlines');
   const file = join(key, 'reviews.md');
@@ -216,6 +236,7 @@ function report(key, number, inputPath) {
   const prior = priorRow ? JSON.parse(read(resolve(key, target(priorRow.report))).match(/```review-state\n([\s\S]*?)\n```/)[1]) : {};
   const reset = history.rows.at(-1)?.kind === 'scope-reset';
   const supplied = input.state ?? {};
+  validatePreflight(start.preflight, { head: start.head, kind: input.kind, scope: supplied.scope, baseline: input['PR baseline'] ?? history.rows.at(-1)?.['PR baseline'] });
   const merge = (old, updates) => {
     if (!Array.isArray(updates) || new Set(updates.map(item => item.id)).size !== updates.length) throw Error('report updates must be arrays with unique IDs');
     return [...old.map(item => ({ ...item, ...updates.find(update => update.id === item.id) })), ...updates.filter(item => !old.some(previous => previous.id === item.id))];
@@ -243,6 +264,7 @@ Kind: ${kind}
 Started: ${start.started}
 Reservation session: ${start.session}
 Reservation harness: ${start.harness ?? 'unknown'}
+Preflight evidence: round-${nn(number)}.started (preflight)
 PR baseline: ${row['PR baseline']}
 Delta base: ${row['delta base']}
 Reviewed head: ${head}
@@ -283,8 +305,19 @@ function keyDirectory() {
   const issue = branch.match(/(?:^|[/_-])(\d+)(?:[/_-]|$)/)?.[1];
   return resolve(common, layout, issue ?? `branch-${branch.replace(/[^a-zA-Z0-9_-]/g, '-')}`);
 }
+export function reviewerContext() {
+  const key = keyDirectory();
+  const recorded = existsSync(join(key, 'reviews.md')) ? check(key) : { rows: [], errors: [] };
+  if (recorded.errors.length) throw Error('invalid review history');
+  const pending = reservations(key).filter(r => !recorded.rows.some(row => Number(row.round) === r.number)).sort((a, b) => a.number - b.number);
+  const start = pending.at(-1);
+  if (!start) throw Error('reserve a round with preflight before starting reviewers');
+  validatePreflight(start.preflight, { head: git('rev-parse', 'HEAD'), harness: 'claude-code' });
+  return start.preflight.precedence + '\n' + start.preflight.conventions.map(c => `\n--- ${c.path} sha256=${c.sha256} ---\n${c.content}`).join('');
+}
 function gateCreate() {
   const result = check(keyDirectory()); printCheck(result);
+  if (result.rows.length) validatePreflight(marker(join(keyDirectory(), `round-${nn(Number(result.rows.at(-1).round))}.started`)).preflight, { head: git('rev-parse', 'HEAD') });
   if (result.errors.length || result.lastReviewedCommit !== git('rev-parse', 'HEAD')) throw Error('missing valid complete committed review for HEAD; docs/agents/code-review.md');
 }
 function merge(pr, ...flags) {
@@ -295,6 +328,7 @@ function merge(pr, ...flags) {
   if (index < 0 || flags[index + 1] !== head) throw Error('merge requires --match-head-commit with current PR head');
   const result = check(keyDirectory()); printCheck(result);
   const row = result.rows.at(-1);
+  if (row) validatePreflight(marker(join(keyDirectory(), `round-${nn(Number(row.round))}.started`)).preflight, { head });
   if (result.errors.length || row?.kind !== 'pre-merge' || !complete(row) || !noBlocking(row['blocking findings']) || !result.rounds.at(-1)?.mergeEligible || row['reviewed head'] !== head) throw Error('missing complete pre-merge review without blocking findings for current PR head; docs/agents/code-review.md');
   execFileSync('gh', ['pr', 'checks', pr, '--required', '--watch'], { stdio: 'inherit' });
   execFileSync('gh', ['pr', 'checks', pr, '--watch'], { stdio: 'inherit' });
@@ -302,7 +336,16 @@ function merge(pr, ...flags) {
 }
 export function main([command, ...args]) {
   if (command === 'reserve') reserve(...args);
-  else if (command === 'snapshot') snapshot(...args);
+  else if (command === 'snapshot') {
+    const [key, number, baseline] = args;
+    const file = join(key, `round-${nn(Number(number))}.started`);
+    const start = marker(file);
+    validatePreflight(start.preflight, { head: start.head, baseline });
+    snapshot(...args);
+    const saved = JSON.parse(read(join(key, `review-round-${nn(Number(number))}.snapshot.json`)));
+    start.preflight = loadPreflight({ ...start.preflight, kind: 'working-tree', tree: saved.tree, selectedPaths: saved.selectedPaths });
+    writeFileSync(file, JSON.stringify(start, null, 2) + '\n');
+  }
   else if (command === 'report') report(...args);
   else if (command === 'record') record(...args);
   else if (command === 'state') { const result = check(args[0]); console.log(JSON.stringify(result)); if (result.errors.length) process.exitCode = 1; }

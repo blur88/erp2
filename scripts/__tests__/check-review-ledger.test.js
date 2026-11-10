@@ -1,3 +1,4 @@
+const { preflightRequest } = require('../helpers/preflight-fixture.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -24,7 +25,7 @@ function fixture(t) {
         fs.appendFileSync(file, '\n```review-state\n' + JSON.stringify(data) + '\n```\n');
       }
     }
-    return spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8' });
+    return spawnSync(process.execPath, [script, ...args, ...(args[0] === 'reserve' && args.length === 2 ? [preflightRequest(repo, head)] : [])], { cwd: repo, encoding: 'utf8' });
   };
   return { repo, key, head, git, run };
 }
@@ -102,7 +103,7 @@ test('invalid record is rejected without mutating the ledger', (t) => {
   assert.equal(fs.readFileSync(path.join(f.key, 'reviews.md'), 'utf8'), before);
 });
 function nextRound(f, kind, outcome = 'complete', blocking = 'none') {
-  const reserve = f.run('reserve', f.key); assert.equal(reserve.status, 0, reserve.stderr);
+  const reserve = f.run('reserve', f.key, preflightRequest(f.repo, f.head, kind === 'working-tree' ? 'committed' : kind)); assert.equal(reserve.status, 0, reserve.stderr);
   const n = reserve.stdout.split(' ')[0];
   const report = `review-round-${n}.md`;
   if (kind === 'working-tree') assert.equal(f.run('snapshot', f.key, n, f.head).status, 0);
@@ -155,7 +156,7 @@ test('reserve races take distinct numbers and reports reserve numbers too', asyn
   const f = fixture(t);
   fs.writeFileSync(path.join(f.key, 'review-old.md'), '# Review round 08\n');
   const { spawn } = require('node:child_process'); const { once } = require('node:events');
-  const children = Array.from({ length: 5 }, () => spawn(process.execPath, [script, 'reserve', f.key], { cwd: f.repo }));
+  const children = Array.from({ length: 5 }, () => spawn(process.execPath, [script, 'reserve', f.key, preflightRequest(f.repo, f.head)], { cwd: f.repo }));
   const codes = await Promise.all(children.map(async (child) => (await once(child, 'close'))[0]));
   assert.deepEqual(codes, [0, 0, 0, 0, 0]);
   assert.deepEqual(fs.readdirSync(f.key).filter((s) => s.endsWith('.started')), ['round-09.started', 'round-10.started', 'round-11.started', 'round-12.started', 'round-13.started']);
@@ -163,7 +164,9 @@ test('reserve races take distinct numbers and reports reserve numbers too', asyn
 for (const env of [{ CLAUDE_CODE_SESSION_ID: '12345678-1234-1234-1234-123456789abc' }, { CODEX_THREAD_ID: '87654321-1234-1234-1234-123456789abc' }, {}]) test(`reserve reports harness identity: ${Object.keys(env)[0] ?? 'fallback'}`, (t) => {
   const f = fixture(t), cleanEnv = { ...process.env };
   for (const name of ['CLAUDE_CODE_SESSION_ID', 'CODEX_SESSION_ID', 'CODEX_THREAD_ID']) delete cleanEnv[name];
-  const result = spawnSync(process.execPath, [script, 'reserve', f.key], { cwd: f.repo, env: { ...cleanEnv, ...env }, encoding: 'utf8' });
+  const request = preflightRequest(f.repo, f.head);
+  fs.writeFileSync(request, JSON.stringify({ ...JSON.parse(fs.readFileSync(request)), harness: env.CLAUDE_CODE_SESSION_ID ? 'claude-code' : 'codex' }));
+  const result = spawnSync(process.execPath, [script, 'reserve', f.key, request], { cwd: f.repo, env: { ...cleanEnv, ...env }, encoding: 'utf8' });
   assert.equal(result.status, 0);
   const data = JSON.parse(fs.readFileSync(path.join(f.key, 'round-01.started')));
   assert.equal(data.harness, env.CLAUDE_CODE_SESSION_ID ? 'claude-code' : 'codex');
@@ -230,7 +233,7 @@ test('snapshot preserves binaries, deletions, modes and selected new files witho
   fs.writeFileSync(path.join(f.repo, 'binary.dat'), Buffer.from([0, 1, 2]));
   f.git('add', '.'); f.git('commit', '-qm', 'tracked state');
   const head = f.git('rev-parse', 'HEAD');
-  assert.equal(f.run('reserve', f.key).status, 0);
+  assert.equal(f.run('reserve', f.key, preflightRequest(f.repo, head)).status, 0);
   fs.unlinkSync(path.join(f.repo, 'remove.txt'));
   fs.chmodSync(path.join(f.repo, 'run.sh'), 0o755);
   fs.writeFileSync(path.join(f.repo, 'binary.dat'), Buffer.from([0, 255, 3]));
@@ -270,7 +273,7 @@ test('snapshot captures final disk content and excludes unselected staged additi
   fs.writeFileSync(path.join(f.repo, 'tracked'), 'original\n');
   f.git('add', 'tracked'); f.git('commit', '-qm', 'tracked');
   const baseline = f.git('rev-parse', 'HEAD');
-  f.run('reserve', f.key);
+  f.run('reserve', f.key, preflightRequest(f.repo, baseline));
   fs.writeFileSync(path.join(f.repo, 'tracked'), 'staged\n');
   fs.writeFileSync(path.join(f.repo, 'staged-new'), 'new\n');
   f.git('add', 'tracked', 'staged-new');
@@ -316,7 +319,7 @@ for (const suffix of [' ', '\n']) test(`snapshot preserves significant trailing 
         fs.appendFileSync(file, '\n```review-state\n' + JSON.stringify(data) + '\n```\n');
       }
     }
-    return spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8' });
+    return spawnSync(process.execPath, [script, ...args, ...(args[0] === 'reserve' && args.length === 2 ? [preflightRequest(repo, f.head)] : [])], { cwd: repo, encoding: 'utf8' });
   };
   assert.equal(run('reserve', 'records').status, 0);
   fs.writeFileSync(path.join(repo, 'selected'), 'new\n');

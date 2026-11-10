@@ -1,3 +1,4 @@
+const { preflightRequest } = require('../helpers/preflight-fixture.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -14,10 +15,10 @@ function fixture(t) {
   const head = git('rev-parse', 'HEAD'), key = path.join(repo, 'records'); fs.mkdirSync(key);
   fs.writeFileSync(path.join(key, 'reviewer.md'), 'Independent reviewer findings and evidence.');
   fs.writeFileSync(path.join(key, 'checks.log'), 'EXIT=0\n');
-  const run = (...args) => spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8' });
+  const run = (...args) => spawnSync(process.execPath, [script, ...args, ...(args[0] === 'reserve' && args.length === 2 ? [preflightRequest(repo, head)] : [])], { cwd: repo, encoding: 'utf8' });
   const input = { issue: 'retro PR1778', pr: 'N/A', kind: 'committed', 'PR baseline': head, mode: 'subagents (fixture)', standards: 'See saved reviewer report.', spec: 'See saved reviewer report.', state: { scope: 'full PR', implementer: 'implementer', reviewers: [{ session: 'reviewer', report: 'reviewer.md' }], requiredCriteria: ['AC1'] } };
   function report(data = input) {
-    const reserved = run('reserve', key); assert.equal(reserved.status, 0, reserved.stderr);
+    const reserved = run('reserve', key, preflightRequest(repo, head, data.kind, data.state.scope)); assert.equal(reserved.status, 0, reserved.stderr);
     const number = reserved.stdout.split(' ')[0];
     fs.writeFileSync(path.join(repo, 'input.json'), JSON.stringify(data));
     return { number, result: run('report', key, number, path.join(repo, 'input.json')) };
@@ -140,4 +141,22 @@ test('decorated completion cannot bypass explicit reviewer assessment requiremen
   const generated = f.report(input);
   assert.equal(generated.result.status, 1, generated.result.stdout + generated.result.stderr);
   assert.equal(fs.existsSync(path.join(f.key, `review-${f.head}.md`)), false);
+});
+
+test('completion rejects missing or stale preflight without appending a ledger row', t => {
+  for (const scenario of ['missing', 'stale conventions', 'scope change']) {
+    const f = fixture(t);
+    const reserved = f.run('reserve', f.key), number = reserved.stdout.split(' ')[0];
+    assert.equal(reserved.status, 0, reserved.stderr);
+    const marker = path.join(f.key, `round-${number}.started`);
+    if (scenario === 'missing') { const data = JSON.parse(fs.readFileSync(marker)); delete data.preflight; fs.writeFileSync(marker, JSON.stringify(data)); }
+    if (scenario === 'stale conventions') fs.appendFileSync(path.join(f.repo, 'AGENTS.md'), 'Changed rule.');
+    const input = completed(f);
+    if (scenario === 'scope change') input.state.scope = 'delta';
+    fs.writeFileSync(path.join(f.repo, 'input.json'), JSON.stringify(input));
+    const result = f.run('report', f.key, number, path.join(f.repo, 'input.json'));
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stderr, /preflight/);
+    assert.equal(fs.existsSync(path.join(f.key, 'reviews.md')), false);
+  }
 });

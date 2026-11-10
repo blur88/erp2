@@ -1,3 +1,4 @@
+const { preflightRequest } = require('../helpers/preflight-fixture.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -13,9 +14,9 @@ function fixture(t) {
   fs.writeFileSync(path.join(repo, 'source.txt'), 'criterion evidence\n');
   git('add', '.'); git('commit', '-qm', 'initial');
   const head = git('rev-parse', 'HEAD'), key = path.join(repo, 'records'); fs.mkdirSync(key);
-  const run = (...args) => spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8' });
+  const run = (...args) => spawnSync(process.execPath, [script, ...args, ...(args[0] === 'reserve' && args.length === 2 ? [preflightRequest(repo, head)] : [])], { cwd: repo, encoding: 'utf8' });
   function round(change = {}, kind = 'committed', outcome = 'complete') {
-    const reserved = run('reserve', key); assert.equal(reserved.status, 0, reserved.stderr);
+    const reserved = run('reserve', key, preflightRequest(repo, head, kind === 'working-tree' ? 'committed' : kind, change.scope ?? 'full PR')); assert.equal(reserved.status, 0, reserved.stderr);
     const n = reserved.stdout.split(' ')[0], current = git('rev-parse', 'HEAD');
     if (kind === 'working-tree') assert.equal(run('snapshot', key, n, head).status, 0);
     const report = kind === 'committed' ? `review-${current}${fs.existsSync(path.join(key, `review-${current}.md`)) ? `-round-${n}` : ''}.md` : `review-round-${n}.md`;
