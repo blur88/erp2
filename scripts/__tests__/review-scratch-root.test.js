@@ -1,32 +1,15 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { spawnSync } = require('node:child_process');
-const { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
-const { tmpdir } = require('node:os');
+const { cpSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs');
+const { createGitFixture } = require('../helpers/git-fixture.cjs');
 const path = require('node:path');
 
 const script = path.resolve(__dirname, '../review-scratch-root.sh');
 
 function fixture(t) {
-  const root = mkdtempSync(path.join(tmpdir(), 'review scratch '));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
-  const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
-  for (const key of Object.keys(env)) {
-    if (/^GIT_(DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|CONFIG|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES)(_|$)/.test(key)) delete env[key];
-  }
-  env.GIT_CONFIG_GLOBAL = '/dev/null';
-  function run(command, args, cwd = root, extraEnv = {}) {
-    return spawnSync(command, args, { cwd, env: { ...env, ...extraEnv }, encoding: 'utf8' });
-  }
-  function git(args, cwd = root) {
-    const result = run('git', args, cwd);
-    assert.equal(result.status, 0, result.stderr);
-    return result.stdout.trim();
-  }
-  function resolve(cwd = root) {
-    return run(script, [], cwd);
-  }
-  return { root, run, git, resolve };
+  const f = createGitFixture();
+  t.after(f.cleanup);
+  return { ...f, resolve: (cwd = f.root) => f.run(script, [], cwd) };
 }
 
 function succeeds(result, expected) {
