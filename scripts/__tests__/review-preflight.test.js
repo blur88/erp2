@@ -89,3 +89,13 @@ test('literal replacement character in valid UTF-8 is readable guidance', t => {
   const f = fixture(t); fs.appendFileSync(path.join(f.root, 'AGENTS.md'), 'Literal replacement character: \uFFFD.');
   assert.equal(f.run('load', 'request.json').status, 0);
 });
+for (const pointer of ['[rules](missing%2Emd)', '[rules](missing(foo).md)']) test(`preflight rejects encoded or nested missing pointer ${pointer}`, t => {
+  const f = fixture(t); fs.appendFileSync(path.join(f.root, 'AGENTS.md'), pointer);
+  assert.equal(f.run('load', 'request.json').status, 1);
+});
+test('preflight loads a real Markdown filename with balanced parentheses', t => {
+  const f = fixture(t); fs.writeFileSync(path.join(f.root, 'rules(extra).md'), 'Required rule.');
+  fs.appendFileSync(path.join(f.root, 'AGENTS.md'), '[rules](rules(extra).md)');
+  const result = f.run('load', 'request.json'); assert.equal(result.status, 0, result.stderr);
+  assert.ok(JSON.parse(result.stdout).conventions.some(c => c.path.endsWith('/rules(extra).md')));
+});

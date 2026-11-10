@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, realpathSync, statSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, realpathSync, statSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -12,10 +12,29 @@ const inside = (root, path) => { const rel = relative(root, path); return rel !=
 
 function markdownPointers(content) {
   const text = content.replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, '').replace(/(`+)[^\r\n]*?\1/g, '');
-  const destinations = [...text.matchAll(/!?\[[^\]\n]*\]\(\s*(<[^>]*>|[^\s)]*)(?:\s+['"][^\n]*?['"])?\s*\)/g)].map(match => match[1]);
+  const destinations = [];
+  for (const match of text.matchAll(/!?\[[^\]\n]*\]\(\s*/g)) {
+    let index = match.index + match[0].length, destination = '', depth = 0;
+    if (text[index] === '<') {
+      const end = text.indexOf('>', index + 1);
+      if (end < 0) throw Error('unverifiable Markdown destination');
+      destination = text.slice(index + 1, end);
+    } else {
+      for (; index < text.length; index++) {
+        const character = text[index];
+        if (character === '\\') { destination += text[++index] ?? ''; continue; }
+        if ((character === ')' && depth === 0) || (/\s/.test(character) && depth === 0)) break;
+        if (character === '(') depth++;
+        if (character === ')') depth--;
+        destination += character;
+      }
+      if (depth !== 0) throw Error('unverifiable Markdown destination');
+    }
+    destinations.push(destination);
+  }
   // Definitions are loaded even when unused, so reference syntax cannot conceal a required pointer.
   destinations.push(...[...text.matchAll(/^ {0,3}\[([^\]]+)\]:\s*(<[^>]+>|\S+)/gm)].map(match => match[2]));
-  return destinations.map(value => value.replace(/^<|>$/g, '').split('#')[0]).filter(target => target && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target) && /\.md$/i.test(target)).map(decodeURIComponent);
+  return destinations.map(value => decodeURIComponent(value.replace(/^<|>$/g, '').split('#')[0])).filter(target => target && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target) && /\.md$/i.test(target));
 }
 function present(path) {
   try { lstatSync(path); return true; }
@@ -46,7 +65,7 @@ export function loadPreflight(request) {
     if (seen.has(canonical)) return;
     seen.add(canonical);
     if (!statSync(canonical).isFile()) throw Error(`convention is not a file: ${path}`);
-    const bytes = readFileSync(canonical), content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    const bytes = readFileSync(canonical), content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
     if (!content.trim() || /^(?:<<<<<<<|=======|>>>>>>>)(?: |$)/m.test(content)) throw Error(`empty, unreadable or conflicting conventions: ${path}`);
     conventions.push({ path: canonical, sha256: hash(bytes), content });
     // Local Markdown pointers are required once reached. External links are references, not executable guidance.
