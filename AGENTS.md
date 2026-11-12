@@ -70,7 +70,7 @@ If multiple areas are changed, run all relevant checks.
 PRs must include the exact verification commands run and whether they passed.
 
 ## Commit & Pull Request Guidelines
-Start implementation on a feature branch cut from `origin/main` (`git switch -c <type>/<issue>-<slug>`); do not commit to `main`.
+Start implementation on a feature branch cut from `origin/main` (`git switch -c <type>/<issue>-<slug>`).
 
 Git history follows Conventional Commit style:
 - Examples: `feat(accounting): ...`, `fix(accounting): ...`, `test(price-lists): ...`, `chore: ...`.
