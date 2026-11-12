@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 #
 # Guard for the local main-branch commit refusal (#1796).
+# The drift test also checks that the hook, AGENTS.md and README name the same
+# branch pattern (#1802).
 #
 # Runs the real .githooks/pre-commit inside a throwaway repository. Commits on
 # main must be refused with a branch-first message; commits on any other branch
@@ -20,10 +22,11 @@ setup() {
   git config core.hooksPath .githooks
 }
 
-@test "hook message and AGENTS.md name the same branch pattern" {
+@test "hook message, AGENTS.md and README name the same branch pattern" {
   pattern='<type>/<issue>-<slug>'
   grep -qF "git switch -c $pattern" "$REPO_DIR/.githooks/pre-commit"
   grep -qF "git switch -c $pattern" "$REPO_DIR/AGENTS.md"
+  grep -qF "git switch -c $pattern" "$REPO_DIR/README.md"
 }
 
 @test "commit on main is refused with a branch-first message" {
