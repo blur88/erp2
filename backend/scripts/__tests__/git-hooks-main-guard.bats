@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 #
 # Guard for the local main-branch commit refusal (#1796).
+# The drift test also checks that the hook, AGENTS.md and README name the same
+# branch pattern (#1802).
 #
 # Runs the real .githooks/pre-commit inside a throwaway repository. Commits on
 # main must be refused with a branch-first message; commits on any other branch
