@@ -65,6 +65,10 @@ Run checks based on files touched (not just a default test set):
 - Cross-app contract changes (API DTOs/interfaces used by both apps):
   - `cd backend && npm run type-check && npm run test`
   - Run the coverage command from the frontend gate above. Frontend lint and type-check apply when `frontend/src/**` is touched.
+- Documentation-only changes (every changed file is Markdown, and none is under `backend/src/**` or `frontend/src/**`):
+  - Run `git diff --check`.
+  - If the change edits the branch-naming line (`git switch -c <type>/<issue>-<slug>`) in `AGENTS.md` or `README.md`, also run `cd backend && npm run test:scripts`. A CI drift test checks that line.
+  - If the change touches executable examples or generated content, also run the matching gate above.
 
 If multiple areas are changed, run all relevant checks.
 PRs must include the exact verification commands run and whether they passed.
