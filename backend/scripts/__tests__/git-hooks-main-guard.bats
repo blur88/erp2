@@ -14,8 +14,16 @@ setup() {
   cd "$WORK" || return 1
   git config user.name 'Hook Test'
   git config user.email 'hooks@example.invalid'
+  # Signing is off so commits do not depend on the developer's global config.
+  git config commit.gpgsign false
   cp -R "$REPO_DIR/.githooks" .githooks
   git config core.hooksPath .githooks
+}
+
+@test "hook message and AGENTS.md name the same branch pattern" {
+  pattern='<type>/<issue>-<slug>'
+  grep -qF "git switch -c $pattern" "$REPO_DIR/.githooks/pre-commit"
+  grep -qF "git switch -c $pattern" "$REPO_DIR/AGENTS.md"
 }
 
 @test "commit on main is refused with a branch-first message" {
