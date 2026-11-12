@@ -18,7 +18,7 @@
 #      fast-forward to origin/main, or git branch -d refused a branch.
 #   2  usage error.
 
-set -u
+set -euo pipefail
 
 DRY_RUN=0
 
