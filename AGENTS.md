@@ -82,6 +82,9 @@ PRs should include:
 - UI screenshots for frontend changes.
 - Notes for migrations/env changes when applicable.
 
+Attribution:
+- Commits and PR bodies must not contain Claude session links, `Claude-Session` trailers, or "Generated with Claude Code" lines. Project `.claude/settings.json` enforces this; `Co-Authored-By` lines are unaffected.
+
 ## Security & Configuration Tips
 - Never commit real secrets; copy from `.env.example`.
 - Rotate default credentials in non-dev environments.
