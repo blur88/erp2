@@ -62,6 +62,9 @@ Run checks based on files touched (not just a default test set):
 - Frontend changes (`frontend/src/**`):
   - `cd frontend && npm run lint && npm run type-check && npm run test:coverage`
   - This matches CI: run the full suite once with coverage, without a separate `npm run test` pass.
+- Root `scripts/*.sh` changes (repo-root git and release tooling):
+  - `cd backend && npm run test:scripts` runs the Bats specs in `backend/scripts/__tests__/`, including those for `scripts/git-cleanup-merged.sh`. CI runs it on every PR.
+  - Run `git diff --check`.
 - Cross-app contract changes (API DTOs/interfaces used by both apps):
   - `cd backend && npm run type-check && npm run test`
   - Run the coverage command from the frontend gate above. Frontend lint and type-check apply when `frontend/src/**` is touched.

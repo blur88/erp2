@@ -45,9 +45,10 @@ git rev-parse --git-dir >/dev/null 2>&1 || die "not inside a git repository"
 
 # CANDIDATES holds branches that passed every classification check so far.
 # SKIPPED entries are "branch: reason" and are printed in the summary.
+# REMOVALS holds branches deleted, or, in a dry run, branches that would be.
 CANDIDATES=()
 SKIPPED=()
-DELETED=()
+REMOVALS=()
 
 is_candidate() {
   local item
@@ -62,7 +63,16 @@ drop_candidate() {
   for item in ${CANDIDATES[@]+"${CANDIDATES[@]}"}; do
     [ "$item" = "$1" ] || kept+=("$item")
   done
-  CANDIDATES=(${kept[@]+"${kept[@]}"})
+  CANDIDATES=()
+  if [ ${#kept[@]} -gt 0 ]; then
+    CANDIDATES=("${kept[@]}")
+  fi
+}
+
+# Fast-forwards local main to origin/main. Preflight has already shown that
+# main is an ancestor of origin/main, so this only moves forward.
+fast_forward_main() {
+  git merge -q --ff-only origin/main || die "local main cannot fast-forward to origin/main."
 }
 
 skip() {
@@ -96,7 +106,12 @@ branch_in_other_worktree() {
 }
 
 # Field 3 is "[gone]" when the configured upstream no longer exists on origin.
+# The listing is captured first: a failing command inside process substitution
+# would otherwise look like an empty branch list under set -e.
+branch_list="$(git for-each-ref --format='%(refname:lstrip=2)%09%(upstream)%09%(upstream:track)' refs/heads/)" \
+  || die "could not list local branches. No local branches were changed."
 while IFS=$'\t' read -r branch upstream track; do
+  [ -n "$branch" ] || continue
   case "$branch" in
     main|master) continue ;;
   esac
@@ -111,7 +126,7 @@ while IFS=$'\t' read -r branch upstream track; do
   else
     CANDIDATES+=("$branch")
   fi
-done < <(git for-each-ref --format='%(refname:lstrip=2)%09%(upstream)%09%(upstream:track)' refs/heads/)
+done <<< "$branch_list"
 
 # Decide what happens to the checkout. Deletion runs last, so a merged branch
 # is never the checked-out one when git branch -d runs.
@@ -155,14 +170,14 @@ print_summary() {
   else
     echo "Deleted local branches:"
   fi
-  if [ ${#DELETED[@]} -eq 0 ]; then
+  if [ ${#REMOVALS[@]} -eq 0 ]; then
     if [ "$DRY_RUN" -eq 1 ]; then
       echo "  none (no local branches would be deleted)"
     else
       echo "  none. No local branches deleted."
     fi
   fi
-  for branch in ${DELETED[@]+"${DELETED[@]}"}; do
+  for branch in ${REMOVALS[@]+"${REMOVALS[@]}"}; do
     echo "  $branch"
   done
   if [ ${#SKIPPED[@]} -gt 0 ]; then
@@ -181,9 +196,9 @@ case "$mode" in
       if [ "$main_exists" -eq 1 ]; then
         git switch -q main || die "could not switch to main."
       else
-        git switch -q -c main origin/main || die "could not create main from origin/main."
+        git switch -q -c main --track origin/main || die "could not create main from origin/main."
       fi
-      git merge -q --ff-only origin/main || die "local main cannot fast-forward to origin/main."
+      fast_forward_main
       echo "Switched to main and fast-forwarded it to origin/main."
     fi
     ;;
@@ -191,7 +206,7 @@ case "$mode" in
     if [ "$DRY_RUN" -eq 1 ]; then
       echo "[dry-run] Would fast-forward main to origin/main."
     else
-      git merge -q --ff-only origin/main || die "local main cannot fast-forward to origin/main."
+      fast_forward_main
     fi
     ;;
   stay)
@@ -199,17 +214,20 @@ case "$mode" in
       echo "main is checked out in another worktree; not updated to origin/main."
     elif [ "$DRY_RUN" -eq 1 ]; then
       echo "[dry-run] Would update local main to origin/main without switching."
-    else
+    elif [ "$main_exists" -eq 1 ]; then
       git fetch -q origin main:main || die "could not update local main to origin/main."
+    else
+      # fetch main:main would create main without tracking origin/main.
+      git branch --track main origin/main || die "could not create main from origin/main."
     fi
     ;;
 esac
 
 for branch in ${CANDIDATES[@]+"${CANDIDATES[@]}"}; do
   if [ "$DRY_RUN" -eq 1 ]; then
-    DELETED+=("$branch")
+    REMOVALS+=("$branch")
   elif git branch -d "$branch" >/dev/null; then
-    DELETED+=("$branch")
+    REMOVALS+=("$branch")
   else
     print_summary
     die "git branch -d refused '$branch' after every check passed. Stopped; later branches were not deleted."

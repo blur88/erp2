@@ -173,7 +173,7 @@ current_branch() {
 
   [ "$status" -eq 1 ]
   assert_branch feat-e
-  [[ "$output" == *"main"* ]]
+  [[ "$output" == *"commits that are not in origin/main"* ]]
 }
 
 @test "rerunning after a successful cleanup is a no-op" {
@@ -274,4 +274,47 @@ current_branch() {
   run "$SCRIPT" --bogus
 
   [ "$status" -eq 2 ]
+}
+
+@test "main created while detached is tracking origin/main" {
+  git -C "$WORK" switch -q --detach
+  git -C "$WORK" branch -q -D main
+
+  run "$SCRIPT"
+
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$WORK" rev-parse --abbrev-ref 'main@{upstream}')" = origin/main ]
+}
+
+@test "dirty tree on main blocks the run before any deletion" {
+  push_branch feat-n
+  merge_on_remote feat-n
+  git -C "$WORK" switch -q main
+  printf 'dirty\n' >> "$WORK/README.md"
+
+  run "$SCRIPT"
+
+  [ "$status" -eq 1 ]
+  assert_branch feat-n
+  [ "$(current_branch)" = main ]
+  grep -qx 'dirty' "$WORK/README.md"
+}
+
+@test "git branch -d refusal stops the run after earlier deletions and keeps the rest" {
+  push_branch aa-first
+  push_branch zz-last
+  git -C "$WORK" switch -q -c wip
+  commit "$WORK" wip.txt 'wip work'
+  git -C "$WORK" push -q -u origin wip
+  merge_on_remote aa-first
+  merge_on_remote zz-last
+  # A ref lock makes git branch -d refuse zz-last after the checks have passed.
+  touch "$WORK/.git/refs/heads/zz-last.lock"
+
+  run "$SCRIPT"
+
+  [ "$status" -eq 1 ]
+  refute_branch aa-first
+  assert_branch zz-last
+  [[ "$output" == *"git branch -d refused 'zz-last'"* ]]
 }
