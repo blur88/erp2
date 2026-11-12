@@ -62,6 +62,9 @@ Run checks based on files touched (not just a default test set):
 - Frontend changes (`frontend/src/**`):
   - `cd frontend && npm run lint && npm run type-check && npm run test:coverage`
   - This matches CI: run the full suite once with coverage, without a separate `npm run test` pass.
+- Root `scripts/*.sh` changes (repo-root git and release tooling):
+  - `cd backend && npm run test:scripts` runs the Bats specs in `backend/scripts/__tests__/`, including those for `scripts/git-cleanup-merged.sh`. CI runs it on every PR.
+  - Run `git diff --check`.
 - Cross-app contract changes (API DTOs/interfaces used by both apps):
   - `cd backend && npm run type-check && npm run test`
   - Run the coverage command from the frontend gate above. Frontend lint and type-check apply when `frontend/src/**` is touched.
@@ -85,6 +88,8 @@ PRs should include:
 - Test evidence (commands run and results).
 - UI screenshots for frontend changes.
 - Notes for migrations/env changes when applicable.
+
+After a PR merges, GitHub deletes its remote head branch automatically (the repository setting "Automatically delete head branches"). From the clone that performed the merge, run `scripts/git-cleanup-merged.sh` (`--dry-run` to preview) to delete the matching local branches and, if the checkout sat on one of them, move it to `main` and fast-forward it to `origin/main`. Branches with unmerged commits, no upstream, a live upstream, or a checkout in another worktree are kept and reported with the reason.
 
 Attribution:
 - Commits and PR bodies must not contain Claude session links, `Claude-Session` trailers, or "Generated with Claude Code" lines. Project `.claude/settings.json` enforces this; `Co-Authored-By` lines are unaffected.
