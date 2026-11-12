@@ -152,8 +152,9 @@ frontend/exports/
 # Redis dump files
 dump.rdb
 
-# Claude Code artifacts (temporary files only)
-.claude/
+# Claude Code local files; only .claude/settings.json is tracked
+.claude/*
+!.claude/settings.json
 # NOTE: CLAUDE.md is NOT ignored - it's the authoritative project documentation
 
 # Binaries and executables
