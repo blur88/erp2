@@ -20,10 +20,11 @@ setup() {
   git config core.hooksPath .githooks
 }
 
-@test "hook message and AGENTS.md name the same branch pattern" {
+@test "hook message, AGENTS.md and README name the same branch pattern" {
   pattern='<type>/<issue>-<slug>'
   grep -qF "git switch -c $pattern" "$REPO_DIR/.githooks/pre-commit"
   grep -qF "git switch -c $pattern" "$REPO_DIR/AGENTS.md"
+  grep -qF "git switch -c $pattern" "$REPO_DIR/README.md"
 }
 
 @test "commit on main is refused with a branch-first message" {
