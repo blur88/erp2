@@ -5,10 +5,10 @@ A modern, comprehensive React frontend application for the ERP system built with
 ## Features
 
 ### 🚀 Core Features
-- **Modern React Architecture** - React 18.3.1 with TypeScript, hooks, and context API
+- **Modern React Architecture** - React 19 with TypeScript, hooks, and context API
 - **Responsive Design** - Mobile-first approach with Material-UI v7 components
 - **State Management** - Redux Toolkit for predictable state management
-- **Public Access** - Authentication system completely removed for rapid development
+- **Authentication** - JWT login with access and refresh tokens; routes require a signed-in session
 - **Real-time Updates** - WebSocket integration for live data updates
 - **Module-based Navigation** - Sidebar navigation for different ERP modules
 
@@ -32,7 +32,7 @@ A modern, comprehensive React frontend application for the ERP system built with
 
 ## Tech Stack
 
-- **React 18.3.1** - Modern React with concurrent features
+- **React 19** - Modern React with concurrent features
 - **TypeScript** - Type-safe JavaScript (relaxed mode: `"strict": false`)
 - **Material-UI v7** - Comprehensive UI component library (v7.3.6)
 - **Redux Toolkit** - State management with Redux best practices
@@ -169,27 +169,20 @@ npm run test:coverage    # Run tests with coverage report
 - **Company Settings** - Business configuration and preferences
 - **Price & Costing Settings** - AVERAGE, FIFO, LIFO, and STANDARD costing methods
 - **Print Settings** - Print templates and printing configuration
-- **User Management** - Basic user CRUD operations (no authentication)
+- **User Management** - Basic user CRUD operations
 - **Theme Customization** - Light/dark mode, color schemes
 
 ## Security Status
 
-**⚠️ CRITICAL: Authentication system completely removed**
+Authentication is enforced on the backend and frontend.
 
 ### Current Security Model
-- **Public Access** - All pages and API endpoints publicly accessible
-- **No Authentication** - JWT authentication system completely removed for rapid development
+- **Authentication** - JWT access and refresh tokens; the backend guards every route except those marked `@Public()`
+- **Protected Routes** - Frontend routes require a signed-in session
 - **Input Validation** - Client-side and server-side validation still active
 - **CORS Enabled** - Cross-origin requests configured for development
 
-### Removed Features
-- ❌ JWT token management
-- ❌ Route protection and guards
-- ❌ Role-based access control
-- ❌ Login/logout functionality
-- ❌ Password management
-
-### Remaining Security
+### Additional Security Controls
 - ✅ Input sanitization - XSS prevention
 - ✅ Client-side validation - Form validation with Yup
 - ✅ Secure headers - CORS, CSP headers from backend
@@ -221,7 +214,7 @@ npm run test:coverage    # Run tests with coverage report
 }
 ```
 
-**Note**: No auth state - authentication system completely removed
+**Note**: The example above omits the `auth` slice, which tracks the signed-in session.
 
 ### Real-time Updates
 - **WebSocket integration** - Live data synchronization
@@ -369,9 +362,9 @@ For support, please:
 
 ### December 2025
 - ✅ **Material-UI v7 Upgrade** - Upgraded from v5 to v7.3.6
-- ✅ **React 18.3.1 Upgrade** - Latest React version
+- ✅ **React 18.3.1 Upgrade** - Latest React version at the time (historical; now React 19)
 - ✅ **PostgreSQL 18.1** - Backend database upgrade
-- ✅ **Redis 8.4** - Cache and queue system upgrade
+- ✅ **Redis 8.4** - BullMQ queue backend upgrade
 
 ### November 2025
 - ✅ **Module-Embedded Reports** - Reports integrated into business modules
@@ -385,10 +378,10 @@ For support, please:
 - ✅ **Sales Order Enhancements** - Advanced filtering and payment handling
 
 ### Pre-September 2025
-- ✅ **Authentication Removal** - Complete auth system removal for rapid development
+- ✅ **Authentication Removal** - Auth system removed for rapid development (historical; the current `auth` module provides JWT login)
 - ✅ **NestJS 11 Upgrade** - Backend framework upgrade
 - ✅ **Node.js 24** - Docker base image upgrade
 
 ---
 
-**For complete system documentation, see**: `/CLAUDE.md` in the repository root.
+**For complete system documentation, see**: [`AGENTS.md`](../AGENTS.md) in the repository root.
