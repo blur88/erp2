@@ -14,6 +14,15 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
+## Verifying provenance claims
+
+When you write a ticket that cites a commit or says what a branch contains, check the claim against `origin/main` before relying on it:
+
+- `git fetch -q --prune origin && git merge-base --is-ancestor <sha> origin/main`: exit 0 means the commit reaches `main`; exit 1 means it does not; exit 128 means no fetched branch holds the SHA, so check it for a typo.
+- `git branch -r --contains <sha>` (lists the remote branches that hold it)
+
+If the commit is not on `origin/main`, name the branch that `--contains` lists. If it lists none, say the commit is on no remote branch and do not cite it as provenance. This applies only to provenance claims, not to every SHA in a ticket.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
