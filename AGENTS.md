@@ -65,6 +65,9 @@ Run checks based on files touched (not just a default test set):
 - Cross-app contract changes (API DTOs/interfaces used by both apps):
   - `cd backend && npm run type-check && npm run test`
   - Run the coverage command from the frontend gate above. Frontend lint and type-check apply when `frontend/src/**` is touched.
+- Documentation-only changes outside `backend/` and `frontend/`:
+  - `git diff --check` is sufficient by default.
+  - No application test suite is required unless the documentation change affects executable examples, generated content, or another explicitly required check.
 
 If multiple areas are changed, run all relevant checks.
 PRs must include the exact verification commands run and whether they passed.
