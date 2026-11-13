@@ -60,6 +60,16 @@ setup() {
   [ -n "$(git rev-parse --verify -q HEAD)" ]
 }
 
+@test "typed scissors line does not hide a prohibited trailer from a -m message" {
+  cd "$WORK"
+  # Only git's own verbose-diff scissors block is excluded. A scissors line the
+  # user typed is ordinary message text and must not open an unchecked region.
+  run git commit -q --allow-empty -m $'feat: example\n\n# ------------------------ >8 ------------------------\nClaude-Session: abc123'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Claude-Session"* ]]
+  [ -z "$(git rev-parse --verify -q HEAD)" ]
+}
+
 @test "clean message is accepted" {
   cd "$WORK"
   printf 'feat: example\n\nCo-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>\n' > "$BATS_TEST_TMPDIR/msg"

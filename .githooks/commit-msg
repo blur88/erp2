@@ -6,11 +6,19 @@
 # Local check only, and it covers commit messages only. It does not check PR
 # bodies, commits made with --no-verify, or commits in other clones.
 #
-# Only the text above git's scissors line is checked. `git commit -v` appends the
-# staged diff below that line, and staged content is not part of the message.
+# `git commit -v` appends the staged diff below a scissors line followed by git's
+# sentinel line. Only that block is skipped. A scissors line typed by the user
+# without the sentinel is ordinary message text and is checked.
 
 msg_file="$1"
-message=$(awk '/^# -+ >8 -+$/ { exit } { print }' "$msg_file")
+message=$(awk '
+  pending {
+    if ($0 ~ /^# Do not modify or remove the line above\.$/) exit
+    pending = 0
+  }
+  /^# -+ >8 -+$/ { pending = 1 }
+  { print }
+' "$msg_file")
 
 if printf '%s\n' "$message" | grep -q -i -F 'Claude-Session'; then
   echo "commit-msg: 'Claude-Session' trailers are refused (AGENTS.md, Attribution). Remove the trailer and commit again." >&2

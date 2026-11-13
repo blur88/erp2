@@ -165,7 +165,7 @@ See [`docs/deployment/DEPLOYMENT_CHECKLIST.md`](docs/deployment/DEPLOYMENT_CHECK
 ## Contributing
 
 1. Clone the repository
-2. Create a feature branch from `origin/main`: `git switch -c <type>/<issue>-<slug>`. Once per clone, activate the commit guard that refuses commits on `main` with `git config core.hooksPath .githooks` (this replaces `.git/hooks`).
+2. Create a feature branch from `origin/main`: `git switch -c <type>/<issue>-<slug>`. Once per clone, activate the commit guards that refuse commits on `main` and commit messages with Claude session trailers or links, with `git config core.hooksPath .githooks` (this replaces `.git/hooks`).
 3. Write tests for new functionality
 4. Run the verification gates in [`AGENTS.md`](AGENTS.md#change-scoped-verification-required-before-pr) for the areas you changed
 5. Submit a pull request
