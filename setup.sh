@@ -44,13 +44,13 @@ check_prerequisites() {
 generate_secret() {
     node -e "console.log(require('crypto').randomBytes(64).toString('hex'))" 2>/dev/null \
         || openssl rand -hex 64 2>/dev/null \
-        || cat /dev/urandom | tr -dc 'a-f0-9' | head -c 128
+        || tr -dc 'a-f0-9' < /dev/urandom | head -c 128
 }
 
 # Generate a random password
 generate_password() {
     openssl rand -base64 16 2>/dev/null \
-        || cat /dev/urandom | tr -dc 'A-Za-z0-9!@#$%' | head -c 16
+        || tr -dc 'A-Za-z0-9!@#$%' < /dev/urandom | head -c 16
 }
 
 # Setup .env file

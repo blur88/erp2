@@ -88,8 +88,9 @@ run_migrations_before_ours() {
   stage="$(mktemp -d "${TMPDIR:-/tmp}/pmm-stage.XXXXXX")"
   (
     # Invoked indirectly through the EXIT/INT/TERM trap below, which ShellCheck
-    # cannot follow (SC2329 false positive).
-    # shellcheck disable=SC2329
+    # cannot follow. Older ShellCheck reports the body as unreachable (SC2317,
+    # 0.9/0.10), newer ones the definition (SC2329, 0.11), so both are disabled.
+    # shellcheck disable=SC2317,SC2329
     restore_ours() {
       local status=$?
       if [ -f "$stage/$ours" ]; then

@@ -105,8 +105,10 @@ jobs:
       # ShellCheck over every tracked shell script, plus the two extensionless
       # git hooks, which a *.sh glob misses (#1826). Runs from the repository
       # root, not backend/ (this job's default), so git ls-files covers the
-      # whole tree. Any finding fails the job. ShellCheck is not preinstalled
-      # everywhere this job can run, so install it when it is missing.
+      # whole tree. Any finding fails the job. The ubuntu-latest image (24.04)
+      # preinstalls ShellCheck 0.9.0 from apt, so the install branch is only a
+      # fallback. The scope is clean under 0.9.0, 0.10.0 and 0.11.0 (#1826), so
+      # the runner's version does not change the result.
       - name: ShellCheck
         working-directory: ${{ github.workspace }}
         run: |
