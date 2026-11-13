@@ -47,17 +47,28 @@ setup() {
   [ -z "$(git rev-parse --verify -q HEAD)" ]
 }
 
-@test "verbose diff below the scissors line is not read as the message" {
+@test "commit -v checks the staged diff with the message and fails closed" {
   cd "$WORK"
-  # git commit -v appends the staged diff under a scissors line. Staged content
-  # that mentions the prohibited string must not refuse a clean message.
+  # The hook reads the whole message file. git commit -v appends the staged diff
+  # to it, so staged content that names a prohibited string is refused. Use -m or
+  # -F to commit such a change; a scissors line cannot open an unchecked region.
   printf 'Claude-Session mentioned in staged content\n' > staged.txt
   git add staged.txt
   printf '#!/bin/sh\nprintf "feat: example\\n\\n" | cat - "$1" > "$1.new" && mv "$1.new" "$1"\n' > "$BATS_TEST_TMPDIR/editor.sh"
   chmod +x "$BATS_TEST_TMPDIR/editor.sh"
   run env GIT_EDITOR="$BATS_TEST_TMPDIR/editor.sh" git commit -q -v
-  [ "$status" -eq 0 ]
-  [ -n "$(git rev-parse --verify -q HEAD)" ]
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Claude-Session"* ]]
+  [ -z "$(git rev-parse --verify -q HEAD)" ]
+}
+
+@test "typed scissors and git sentinel lines do not hide a trailer from -F" {
+  cd "$WORK"
+  printf 'feat: example\n\n# ------------------------ >8 ------------------------\n# Do not modify or remove the line above.\n# Everything below it will be ignored.\nClaude-Session: abc123\n' > "$BATS_TEST_TMPDIR/msg"
+  run git commit -q --allow-empty -F "$BATS_TEST_TMPDIR/msg"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Claude-Session"* ]]
+  [ -z "$(git rev-parse --verify -q HEAD)" ]
 }
 
 @test "typed scissors line does not hide a prohibited trailer from a -m message" {

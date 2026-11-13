@@ -6,26 +6,19 @@
 # Local check only, and it covers commit messages only. It does not check PR
 # bodies, commits made with --no-verify, or commits in other clones.
 #
-# `git commit -v` appends the staged diff below a scissors line followed by git's
-# sentinel line. Only that block is skipped. A scissors line typed by the user
-# without the sentinel is ordinary message text and is checked.
+# The whole message file is checked, including any text below a scissors line.
+# `git commit -v` appends the staged diff to that file, so a staged change that
+# names a prohibited string is refused too. Commit such a change with -m or -F.
+# Scanning everything keeps a typed scissors line from hiding a trailer.
 
 msg_file="$1"
-message=$(awk '
-  pending {
-    if ($0 ~ /^# Do not modify or remove the line above\.$/) exit
-    pending = 0
-  }
-  /^# -+ >8 -+$/ { pending = 1 }
-  { print }
-' "$msg_file")
 
-if printf '%s\n' "$message" | grep -q -i -F 'Claude-Session'; then
+if grep -q -i -F 'Claude-Session' "$msg_file"; then
   echo "commit-msg: 'Claude-Session' trailers are refused (AGENTS.md, Attribution). Remove the trailer and commit again." >&2
   exit 1
 fi
 
-if printf '%s\n' "$message" | grep -q -i -F 'claude.ai/code/session_'; then
+if grep -q -i -F 'claude.ai/code/session_' "$msg_file"; then
   echo "commit-msg: 'claude.ai/code/session_' session links are refused (AGENTS.md, Attribution). Remove the link and commit again." >&2
   exit 1
 fi
