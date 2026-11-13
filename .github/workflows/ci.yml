@@ -150,6 +150,22 @@ jobs:
       - name: Gate script tests
         run: npm run test:scripts
 
+      # Root node:test suite for release tooling (scripts/__tests__/*.test.js):
+      # release-notes helpers, the semantic-release writerOpts hooks in
+      # release.config.cjs, and the backfill script. The root package.json
+      # declares no dependencies, so the only one these tests need is the
+      # Angular preset that release.config.cjs imports dynamically. Install it
+      # without saving so no root lockfile or manifest changes.
+      #
+      # KEEP THE VERSION PIN BELOW IN SYNC with the "Install release tools" step
+      # in .github/workflows/release.yml. Runs from the repository root, not
+      # backend/ (this job's default), so override the job default.
+      - name: Root release-tooling tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          npm install --no-save --package-lock=false conventional-changelog-angular@8.1.0
+          node --test scripts/__tests__/*.test.js
+
       # The gate below compares a MIGRATED schema against a schema:sync
       # reference — the only thing that catches a migration diverging from the
       # entity declarations. migrations-fresh-db proves migrations APPLY to an
