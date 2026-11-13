@@ -3,8 +3,11 @@ import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
+import { ThemeProvider, type Theme } from '@mui/material/styles'
 
 import TopBar from '../TopBar'
+import { darkTheme } from '@/styles/theme'
+import { desktopViewportTheme } from '@/test/desktopViewportTheme'
 
 vi.mock('../NotificationPanel', () => ({ default: () => null }))
 vi.mock('../SystemStatus', () => ({
@@ -40,14 +43,15 @@ function makeStore(unreadCount = 0) {
 
 type RouterEntry = string | { pathname: string; state?: unknown }
 
-function renderTopBar(entry: RouterEntry, collapsed = false) {
-  return render(
+function renderTopBar(entry: RouterEntry, collapsed = false, theme?: Theme) {
+  const ui = (
     <Provider store={makeStore()}>
       <MemoryRouter initialEntries={[entry]}>
         <TopBar collapsed={collapsed} onMobileMenuOpen={vi.fn()} />
       </MemoryRouter>
-    </Provider>,
+    </Provider>
   )
+  return render(theme ? <ThemeProvider theme={theme}>{ui}</ThemeProvider> : ui)
 }
 
 describe('TopBar breadcrumbs', () => {
@@ -118,9 +122,17 @@ describe('TopBar breadcrumbs', () => {
 })
 
 describe('TopBar search', () => {
+  it('hides the search trigger below the lg breakpoint', () => {
+    // jsdom's fixed 1024px viewport is below the production lg breakpoint (1280px).
+    mockUseMatches.mockReturnValue([{ handle: { title: 'Dashboard' } }])
+    renderTopBar('/dashboard', false, darkTheme)
+    expect(screen.queryByRole('button', { name: /open global search/i })).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/open global search/i)).not.toBeVisible()
+  })
+
   it('opens search modal when search trigger is clicked', () => {
     mockUseMatches.mockReturnValue([{ handle: { title: 'Dashboard' } }])
-    renderTopBar('/dashboard')
+    renderTopBar('/dashboard', false, desktopViewportTheme)
     fireEvent.click(screen.getByRole('button', { name: /open global search/i }))
     expect(screen.getByTestId('search-modal')).toBeInTheDocument()
   })
