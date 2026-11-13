@@ -1,0 +1,25 @@
+#!/bin/sh
+# Refuses commit messages that carry prohibited Claude attribution (#1813):
+# a Claude-Session trailer or a claude.ai/code/session_ link (AGENTS.md, Attribution).
+# Activate once per clone: git config core.hooksPath .githooks
+#
+# Local check only, and it covers commit messages only. It does not check PR
+# bodies, commits made with --no-verify, or commits in other clones.
+#
+# Only the text above git's scissors line is checked. `git commit -v` appends the
+# staged diff below that line, and staged content is not part of the message.
+
+msg_file="$1"
+message=$(awk '/^# -+ >8 -+$/ { exit } { print }' "$msg_file")
+
+if printf '%s\n' "$message" | grep -q -i -F 'Claude-Session'; then
+  echo "commit-msg: 'Claude-Session' trailers are refused (AGENTS.md, Attribution). Remove the trailer and commit again." >&2
+  exit 1
+fi
+
+if printf '%s\n' "$message" | grep -q -i -F 'claude.ai/code/session_'; then
+  echo "commit-msg: 'claude.ai/code/session_' session links are refused (AGENTS.md, Attribution). Remove the link and commit again." >&2
+  exit 1
+fi
+
+exit 0
