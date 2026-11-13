@@ -16,11 +16,8 @@ BACKEND_DIR="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
 CHECKER="${BATS_TEST_DIRNAME}/helpers/check-licence-metadata.cjs"
 
 setup() {
-  TEST_TMP="$(mktemp -d)"
-}
-
-teardown() {
-  [ -n "${TEST_TMP:-}" ] && rm -rf "$TEST_TMP"
+  # Bats removes BATS_TEST_TMPDIR after each test, so no teardown is needed.
+  TEST_TMP="$BATS_TEST_TMPDIR"
 }
 
 # write_pair <dir> <package.json object> <lockfile root object>
@@ -39,6 +36,7 @@ check() {
 @test "the real backend manifests agree and declare an accepted licence" {
   check "$BACKEND_DIR"
   [ "$status" -eq 0 ]
+  [ -z "$output" ]
 }
 
 @test "name differing between package.json and lockfile root fails" {
@@ -63,7 +61,7 @@ check() {
   [[ "$output" == *"license"* ]]
 }
 
-@test "field present in only one file fails" {
+@test "license present in only one file fails" {
   write_pair "$TEST_TMP/pkg" \
     '{"name":"erp-backend","license":"UNLICENSED"}' \
     '{"name":"erp-backend"}'
@@ -138,7 +136,7 @@ check() {
   check "$TEST_TMP/pkg"
   [ "$status" -eq 1 ]
   [[ "$output" == *"licence metadata:"* ]]
-  [[ "$output" == *"LICENSE"* ]]
+  [[ "$output" == *"does not exist"* ]]
 }
 
 @test "SEE LICENSE IN resolves against the package directory, not its parent" {
@@ -151,7 +149,7 @@ check() {
   check "$TEST_TMP/pkg"
   [ "$status" -eq 1 ]
   [[ "$output" == *"licence metadata:"* ]]
-  [[ "$output" == *"LICENSE"* ]]
+  [[ "$output" == *"does not exist"* ]]
 }
 
 @test "SEE LICENSE IN a file reached by climbing out of the package directory fails" {
