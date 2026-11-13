@@ -73,8 +73,8 @@ setup() {
 
 @test "typed scissors line does not hide a prohibited trailer from a -m message" {
   cd "$WORK"
-  # Only git's own verbose-diff scissors block is excluded. A scissors line the
-  # user typed is ordinary message text and must not open an unchecked region.
+  # The whole message is checked, so a scissors line typed into the message
+  # cannot open an unchecked region.
   run git commit -q --allow-empty -m $'feat: example\n\n# ------------------------ >8 ------------------------\nClaude-Session: abc123'
   [ "$status" -ne 0 ]
   [[ "$output" == *"Claude-Session"* ]]
