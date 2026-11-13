@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
 import { darkTheme } from '@/styles/theme'
+import { desktopViewportTheme } from '@/test/desktopViewportTheme'
 
 const mockUseGetCompanySettingsQuery = vi.fn()
 const mockUseAppSelector = vi.fn()
@@ -174,13 +175,27 @@ describe('Sidebar', () => {
     expect(screen.getByText('ERP System')).toBeInTheDocument()
   })
 
+  it('hides the collapse toggle below the lg breakpoint', () => {
+    // jsdom's fixed 1024px viewport is below the production lg breakpoint (1280px).
+    renderSidebarWithTheme(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={false} onToggleCollapse={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    expect(screen.queryByRole('button', { name: /collapse sidebar/i })).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/collapse sidebar/i)).not.toBeVisible()
+  })
+
   it('calls onToggleCollapse when toggle button is clicked', () => {
     const onToggleCollapse = vi.fn()
 
     render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
-      </MemoryRouter>
+      <ThemeProvider theme={desktopViewportTheme}>
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
+        </MemoryRouter>
+      </ThemeProvider>
     )
 
     const toggleBtn = screen.getByRole('button', { name: /collapse sidebar/i })
@@ -359,7 +374,7 @@ describe('Sidebar', () => {
     const labelStyles = window.getComputedStyle(within(customersButton).getByText('Customers'))
 
     expect(buttonStyles.height).toBe('40px')
-    expect(buttonStyles.transform).toBe('translateX(0)')
+    expect(buttonStyles.transform).toBe('translateX(0px)')
     expect(labelStyles.fontSize).toBe('14px')
   })
 
