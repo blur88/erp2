@@ -66,22 +66,22 @@ setup_environment() {
     echo ""
 
     # Domain
-    read -p "  Domain / server IP (e.g. https://erp.example.com): " INPUT_DOMAIN
+    read -r -p "  Domain / server IP (e.g. https://erp.example.com): " INPUT_DOMAIN
     DOMAIN=${INPUT_DOMAIN:-http://localhost}
 
     # Database password
     DEFAULT_DB_PASS=$(generate_password)
-    read -p "  Database password [auto: $DEFAULT_DB_PASS]: " INPUT_DB_PASS
+    read -r -p "  Database password [auto: $DEFAULT_DB_PASS]: " INPUT_DB_PASS
     DB_PASS=${INPUT_DB_PASS:-$DEFAULT_DB_PASS}
 
     # Redis password
     DEFAULT_REDIS_PASS=$(generate_password)
-    read -p "  Redis password [auto: $DEFAULT_REDIS_PASS]: " INPUT_REDIS_PASS
+    read -r -p "  Redis password [auto: $DEFAULT_REDIS_PASS]: " INPUT_REDIS_PASS
     REDIS_PASS=${INPUT_REDIS_PASS:-$DEFAULT_REDIS_PASS}
 
     # JWT secret
     DEFAULT_JWT_SECRET=$(generate_secret)
-    read -p "  JWT secret [auto-generated, press ENTER]: " INPUT_JWT_SECRET
+    read -r -p "  JWT secret [auto-generated, press ENTER]: " INPUT_JWT_SECRET
     JWT_SECRET=${INPUT_JWT_SECRET:-$DEFAULT_JWT_SECRET}
 
     echo ""
