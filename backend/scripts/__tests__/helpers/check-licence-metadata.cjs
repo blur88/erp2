@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Licence metadata check for one package directory (#1824, follow-up to #1809).
 //
 // Usage: node check-licence-metadata.cjs <package-dir>
@@ -16,7 +15,14 @@ const path = require('path');
 
 const dir = process.argv[2];
 const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
-const readJson = (file) => JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+const readJson = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+  } catch (error) {
+    console.error(`licence metadata: cannot read ${file} in ${dir}: ${error.message}`);
+    process.exit(1);
+  }
+};
 
 const pkg = readJson('package.json');
 const lockRoot = (readJson('package-lock.json').packages || {})[''] || {};
@@ -45,7 +51,13 @@ function checkLicense(source, value) {
     );
     return;
   }
-  const file = path.join(dir, match[1]);
+  const packageDir = path.resolve(dir);
+  const file = path.resolve(packageDir, match[1]);
+  const relative = path.relative(packageDir, file);
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    violations.push(`license in ${source} points at ${match[1]}, which is outside the package directory`);
+    return;
+  }
   if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
     violations.push(`license in ${source} points at ${match[1]}, which does not exist in ${dir}`);
   }

@@ -154,6 +154,30 @@ check() {
   [[ "$output" == *"LICENSE"* ]]
 }
 
+@test "SEE LICENSE IN a file reached by climbing out of the package directory fails" {
+  # Same #1809 pattern with an explicit ../ escape: the file exists, but outside
+  # the declaring package directory, so it must not satisfy the reference.
+  touch "$TEST_TMP/LICENSE"
+  write_pair "$TEST_TMP/pkg" \
+    '{"name":"erp-backend","license":"SEE LICENSE IN ../LICENSE"}' \
+    '{"name":"erp-backend","license":"SEE LICENSE IN ../LICENSE"}'
+  check "$TEST_TMP/pkg"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"licence metadata:"* ]]
+  [[ "$output" == *"outside"* ]]
+}
+
+@test "missing lockfile fails with a licence metadata line, not a stack trace" {
+  write_pair "$TEST_TMP/pkg" \
+    '{"name":"erp-backend","license":"UNLICENSED"}' \
+    '{"name":"erp-backend","license":"UNLICENSED"}'
+  rm "$TEST_TMP/pkg/package-lock.json"
+  check "$TEST_TMP/pkg"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"licence metadata:"* ]]
+  [[ "$output" == *"package-lock.json"* ]]
+}
+
 @test "version differences are not compared" {
   write_pair "$TEST_TMP/pkg" \
     '{"name":"erp-backend","version":"1.0.0","license":"UNLICENSED"}' \
