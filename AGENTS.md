@@ -65,6 +65,12 @@ Run checks based on files touched (not just a default test set):
 - Root `scripts/*.sh` changes (repo-root git and release tooling):
   - `cd backend && npm run test:scripts` runs the Bats specs in `backend/scripts/__tests__/`, including those for `scripts/git-cleanup-merged.sh`. CI runs it on every PR.
   - Run `git diff --check`.
+- Scripts, hooks, CI workflows, and manifest or tooling config:
+  - `backend/scripts/**` and `.githooks/**`: `cd backend && npm run test:scripts`. Root `scripts/*.sh` is covered above. `test:scripts` covers only scripts that have a Bats spec; for a script without one, name in the PR what you ran instead. Also run `git diff --check`.
+  - Root release tooling (`release.config.cjs`, `scripts/*.cjs`, `scripts/__tests__/*.test.*`): run the commands of the "Root release-tooling tests" step in CI's Backend job, from the repository root. That step owns the pinned dependency install and the test command.
+  - Root `package.json` and `package-lock.json`: no gate covers them. Check that the JSON parses and name in the PR what else you ran.
+  - `.github/workflows/**`: verify the specific change (for example, the affected job's command) and name it in the PR. Do not run unrelated test suites.
+  - `backend/package.json`, `frontend/package.json`, their lockfiles, and app config (`tsconfig*.json`, ESLint, Jest, Vitest) under `backend/` or `frontend/`: run that app's gate above. For metadata-only manifest edits (for example `license` or `description`), check that the JSON parses and run `git diff --check`, plus any other applicable gate.
 - Cross-app contract changes (API DTOs/interfaces used by both apps):
   - `cd backend && npm run type-check && npm run test`
   - Run the coverage command from the frontend gate above. Frontend lint and type-check apply when `frontend/src/**` is touched.
