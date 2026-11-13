@@ -14,7 +14,7 @@ A modern, comprehensive React frontend application for the ERP system built with
 
 ### 📱 UI/UX Features
 - **Responsive layout** that works on desktop, tablet, and mobile
-- **Dark/light theme** support with theme switching
+- **Single dark MUI theme** (`darkTheme` in `src/styles/theme.ts`)
 - **Internationalization** support (i18n) ready
 - **Loading states** and comprehensive error handling
 - **Data tables** with sorting, filtering, and pagination
@@ -170,7 +170,6 @@ npm run test:coverage    # Run tests with coverage report
 - **Price & Costing Settings** - AVERAGE, FIFO, LIFO, and STANDARD costing methods
 - **Print Settings** - Print templates and printing configuration
 - **User Management** - Basic user CRUD operations
-- **Theme Customization** - Light/dark mode, color schemes
 
 ## Security Status
 
@@ -192,11 +191,6 @@ Authentication is enforced on the backend and frontend.
 ### Redux Store Structure
 ```typescript
 {
-  theme: {
-    mode: 'light' | 'dark',
-    primaryColor: string,
-    secondaryColor: string
-  },
   inventory: {
     products: Product[],
     categories: Category[],
