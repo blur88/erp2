@@ -29,6 +29,7 @@ CAND_DB="${CAND_DB:-erp_gate_candidate}"
 FAILED=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib/pg-transport.sh
 . "$SCRIPT_DIR/lib/pg-transport.sh"
 

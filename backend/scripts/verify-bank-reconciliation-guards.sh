@@ -27,6 +27,7 @@ fi
 export DB_PASSWORD
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib/pg-transport.sh
 . "$SCRIPT_DIR/lib/pg-transport.sh"
 

@@ -102,6 +102,23 @@ jobs:
       - name: Lint
         run: npx eslint "{src,apps,libs,test}/**/*.ts"
 
+      # ShellCheck over every tracked shell script, plus the two extensionless
+      # git hooks, which a *.sh glob misses (#1826). Runs from the repository
+      # root, not backend/ (this job's default), so git ls-files covers the
+      # whole tree. Any finding fails the job. The ubuntu-latest image (24.04)
+      # preinstalls ShellCheck 0.9.0 from apt, so the install branch is only a
+      # fallback. The scope is clean under 0.9.0, 0.10.0 and 0.11.0 (#1826), so
+      # the runner's version does not change the result.
+      - name: ShellCheck
+        working-directory: ${{ github.workspace }}
+        run: |
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq shellcheck
+          fi
+          shellcheck --version
+          git ls-files -z '*.sh' | xargs -0 shellcheck -x -- .githooks/pre-commit .githooks/commit-msg
+
       # ts-jest transpiles per file, so cross-file declaration errors (TS4053 and
       # friends) pass the unit suite and fail only at `docker compose build`.
       # Runs against tsconfig.build.json — the config `nest build` uses — so this
