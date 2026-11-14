@@ -40,7 +40,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
   const initials = (
     (firstName?.[0] ?? '') + (lastName?.[0] ?? '') || username?.[0] || 'U'
   ).toUpperCase()
-  const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'
+  const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0-dev'
 
   const handleAvatarClick = (event: React.MouseEvent<HTMLElement>) => {
     setMenuAnchorEl(event.currentTarget)

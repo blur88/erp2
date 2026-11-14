@@ -37,7 +37,7 @@ For maintenance, `./maintain.sh` offers dependency, audit, Knip, duplication, an
 - **Soft delete:** use TypeORM `softDelete(id)` to set `deletedAt`; setting `isActive = false` breaks deleted queries and restore.
 - **API responses:** `ApiService` returns the backend body without the Axios wrapper. Paginated lists use `response.data` for items and `response.meta` for pagination. Tree endpoints (categories, chart of accounts) return a plain array; use `response` directly.
 - **Account lockout:** `User.isLocked`, the login check, and user filters/counts all use the Node container clock (`new Date()`), never SQL `NOW()`. For clock drift after sleep/resume, restart the backend or resync the host clock; preserve the common clock.
-- **Pulling main:** use `git pull --ff-only`. With `merge.ff = false`, a normal pull creates a merge commit that unnecessarily retriggers Release.
+- **Pulling main:** use `git pull --ff-only`. This stops a pull from creating a local merge commit when local and remote `main` have diverged.
 
 ## Printing and statement UI
 
@@ -53,6 +53,8 @@ jsdom cannot validate layout or `@media print`. There is no Playwright config, f
 - Keep all figure font sizes equal for decimal alignment. Distinguish the bottom line by weight and double rule.
 
 ## CI
+
+For release versioning, read [Tags-only release versioning](docs/adr/0001-tags-only-release-versioning.md).
 
 CI runs on PRs and manual dispatch, not pushes to main. To validate main explicitly: `gh workflow run ci.yml --ref main`. Keep required CI job names stable: branch rules match job-name strings.
 

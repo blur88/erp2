@@ -25,19 +25,6 @@ jobs:
       new_release_version: ${{ steps.semantic_release.outputs.new_release_version }}
 
     steps:
-      - name: Check for redundant trigger
-        id: guard
-        env:
-          MSG: ${{ github.event.head_commit.message }}
-        run: |
-          # Skip only "git pull --no-ff" re-triggers: merge of 'main' into 'main' locally after semantic-release auto-commit
-          if echo "$MSG" | grep -qE "^Merge branch '(main|master)' of "; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Detected redundant git-pull merge commit — skipping semantic-release."
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout
         uses: actions/checkout@v5
         with:
@@ -55,19 +42,19 @@ jobs:
             semantic-release@25.0.3 \
             @semantic-release/commit-analyzer@13.0.1 \
             @semantic-release/release-notes-generator@14.1.0 \
-            @semantic-release/npm@13.1.5 \
-            @semantic-release/git@10.0.1 \
             @semantic-release/github@12.0.6 \
             conventional-changelog-angular@8.1.0
 
       - name: Run semantic-release
-        if: steps.guard.outputs.skip != 'true'
         id: semantic_release
         run: |
           npx semantic-release | tee /tmp/sr-output.txt
           exit_code=${PIPESTATUS[0]}
-          version=$(grep -oP 'Published release \K[0-9]+\.[0-9]+\.[0-9]+' /tmp/sr-output.txt | tail -1)
-          if [ $exit_code -eq 0 ] && [ -n "$version" ]; then
+          if [ "$exit_code" -ne 0 ]; then
+            exit "$exit_code"
+          fi
+          version=$(grep -oP 'Published release \K[0-9]+\.[0-9]+\.[0-9]+' /tmp/sr-output.txt | tail -1 || true)
+          if [ -n "$version" ]; then
             echo "new_release_published=true" >> "$GITHUB_OUTPUT"
             echo "new_release_version=$version" >> "$GITHUB_OUTPUT"
           else
@@ -112,6 +99,8 @@ jobs:
         with:
           context: ./frontend
           push: true
+          build-args: |
+            VITE_APP_VERSION=${{ needs.release.outputs.new_release_version }}
           tags: |
             blur88/all:erp-frontend
             blur88/all:erp-frontend-v${{ needs.release.outputs.new_release_version }}
