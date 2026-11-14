@@ -169,6 +169,7 @@ See [`docs/deployment/DEPLOYMENT_CHECKLIST.md`](docs/deployment/DEPLOYMENT_CHECK
 3. Write tests for new functionality
 4. Run the verification gates in [`AGENTS.md`](AGENTS.md#change-scoped-verification-required-before-pr) for the areas you changed
 5. Submit a pull request
+6. Follow the [merge routine in AGENTS.md](AGENTS.md#merge-routine)
 
 ## License
 

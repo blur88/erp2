@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Cleans up local branches after their pull requests merge (#1811).
 #
-# Run from the clone that performed the merge, once GitHub has merged the PR.
+# Run from the local clone used for the PR, once GitHub confirms it is merged.
 # GitHub deletes the remote head branch on merge. This script deletes the local
-# copy and moves the checkout to main when it was sitting on a merged branch.
+# copy when safe. It moves a merged checkout to main when main is available.
 # It never force-deletes, and it keeps any branch it cannot prove is merged.
 #
 # Usage: scripts/git-cleanup-merged.sh [--dry-run]

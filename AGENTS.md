@@ -95,9 +95,20 @@ PRs should include:
 - UI screenshots for frontend changes.
 - Notes for migrations/env changes when applicable.
 
-After a PR merges, GitHub deletes its remote head branch automatically (the repository setting "Automatically delete head branches"). From the clone that performed the merge, run `scripts/git-cleanup-merged.sh` (`--dry-run` to preview) to delete the matching local branches and, if the checkout sat on one of them, move it to `main` and fast-forward it to `origin/main`. Branches with unmerged commits, no upstream, a live upstream, or a checkout in another worktree are kept and reported with the reason.
+### Merge routine
 
-Attribution:
+1. Merge the approved PR using GitHub or `gh pr merge`. For auto-merge or a merge queue, wait until GitHub confirms the PR is merged.
+2. Immediately after confirmation, run `scripts/git-cleanup-merged.sh` from the repository root of the local clone used for that PR, before starting the next task or reporting the merge complete. This also applies to merges performed in the GitHub web UI; pulling `main` alone does not run cleanup.
+3. Check the output. Resolve cleanup failures and rerun. If it reports "rerun from main", switch to `main` when available and rerun. Retain other skipped branches and report the script's stated reasons in the merge handoff.
+
+GitHub deletes the remote head branch through the repository setting "Automatically delete head branches". Cleanup fetches and prunes origin and uses `git branch -d` to remove eligible local branches. It keeps branches with unmerged commits, no upstream, a live upstream, or a checkout in another worktree. From an unrelated checkout, it also keeps branches not merged into the current checkout, with a "rerun from main" hint.
+
+Cleanup normally fast-forwards local `main` (or creates it if missing) and switches to it when deleting the current branch. If `main` is checked out in another worktree, it leaves `main` there untouched and skips the current branch when switching would be required.
+
+To preview, use `scripts/git-cleanup-merged.sh --dry-run`. This still fetches and prunes origin but changes no local branch or working tree. Follow a preview with an actual run to complete step 2.
+
+### Attribution
+
 - Commits and PR bodies must not contain Claude session links, `Claude-Session` trailers, or "Generated with Claude Code" lines. Project `.claude/settings.json` disables Claude Code's default PR attribution and session URL; it does not stop text written by hand. Where `core.hooksPath` is set to `.githooks`, `.githooks/commit-msg` refuses commit messages with a `Claude-Session` trailer or a `claude.ai/code/session_` link; it does not check PR bodies, `--no-verify` commits, or other clones. `Co-Authored-By` lines are unaffected.
 
 ## Security & Configuration Tips
