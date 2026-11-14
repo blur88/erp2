@@ -72,6 +72,7 @@ The reason for the separate type-check gates in AGENTS.md: ts-jest transpiles pe
 
 - All Jest scripts require `NODE_OPTIONS=--experimental-vm-modules`, `extensionsToTreatAsEsm: [".ts"]`, and ts-jest `useESM: true`. The old `transformIgnorePatterns` allowlist is obsolete; it cannot handle NestJS 12's `import.meta` in CommonJS mode.
 - A run with `Tests: 0 total` is a failure. Preserve Jest's nonzero exit status; never add `--passWithNoTests`. `npm run test:scripts` includes the Bats guard covering scripts/configs/CI.
+- Every test command run in CI must fail when zero test cases run, regardless of runner.
 - Jest main-process `globalSetup`/`globalTeardown` hooks stay plain CJS `.js`. A `.ts` hook is compiled to CJS but loaded as ESM, causing `exports is not defined`.
 - Only the e2e config shims `uuid` with `test/__mocks__/uuid.cjs` (`crypto.randomUUID`): ExcelJS's CommonJS require of ESM uuid trips Jest's require-cycle error when AppModule loads. Unit tests use the real package.
 - NestJS 12 is ESM-only; the application remains CommonJS using Node 24 `require(esm)`. Keep `@nestjs/typeorm` on a release whose exports include `default`/`require`, and retain the Dockerfile's Node compatibility floor. Older Node 24 releases lack the export-condition fallback. `verify:dist` catches `MODULE_NOT_FOUND` and `ERR_PACKAGE_PATH_NOT_EXPORTED`; a built `node dist/main.js` boot is the definitive check.
