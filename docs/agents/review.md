@@ -6,7 +6,7 @@
 
 Commit the intended changes on a feature branch before formal review. HEAD-based review cannot see uncommitted work. Resolve the fixed-point reference, confirm the intended changes appear in `git diff <fixed-point>...HEAD`, and record the reviewed HEAD SHA. Use the PR comparison baseline (normally the merge base) for “Before” and the final PR head SHA for “After”; intermediate implementation states belong in verification history.
 
-Plan one formal, fresh-context, independent review of the intended committed SHA. Checks run inline in the implementing session, including `/implement`'s review step, count as self-review. When a Haiku implementation has a fresh Opus review planned, that Opus session is the formal gate. If fixes change the SHA, apply the applicable re-review rules to the changed scope and record the new reviewed SHA.
+Plan one formal, fresh-context, independent review of the intended committed SHA. Checks run inline in the implementing session, including the installed implement skill's review step (`/implement`), count as self-review. When a Haiku implementation has a fresh Opus review planned, that Opus session is the formal gate. If fixes change the SHA, apply the applicable re-review rules to the changed scope and record the new reviewed SHA.
 
 Choose reviewer count from the actual committed diff:
 
@@ -43,7 +43,7 @@ Neither reviewer routinely reruns a full gate with valid evidence. Either may re
 
 If an independent reviewer cannot run in the current session, record independent review as pending in the PR or handoff and name the fresh session that will run it. Label inline implementing-session review as self-review.
 
-Provide the tested SHA or working-tree state, gate working directories, exact verification commands, exit statuses, and concise output. When a nonstandard tool installation matters, include its path and version. Reviewers distinguish supplied evidence from checks they reran and describe availability in their own environment: a tool absent from a review sub-agent's PATH is not necessarily absent from the machine.
+Provide the tested SHA or working-tree state and verification records with the fields specified in [Use gate evidence](#use-gate-evidence). When a nonstandard tool installation matters, include its path and version. Reviewers distinguish supplied evidence from checks they reran and describe availability in their own environment: a tool absent from a review sub-agent's PATH is not necessarily absent from the machine.
 
 Before reporting completion, account for every acceptance criterion: record its evidence and whether it was verified locally, verified against a live PR or CI run, or is pending or blocked. Tie live evidence to the relevant PR head SHA. When authorized scope includes opening the PR or obtaining live evidence, carry those steps through and wait for the relevant CI result. Preserve pending states; see the [tracker check-evidence convention](issue-tracker.md#conventions). Surface conflicts with repository instructions early, naming the specific criterion and instruction.
 

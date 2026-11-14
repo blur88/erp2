@@ -87,6 +87,7 @@ PRs must include the exact verification commands run and whether they passed.
 ## Commit & Pull Request Guidelines
 
 Before conducting a code review, read and follow Review guidance (docs/agents/review.md).
+
 Start implementation on a feature branch cut from `origin/main` (`git switch -c <type>/<issue>-<slug>`).
 
 Git history follows Conventional Commit style:

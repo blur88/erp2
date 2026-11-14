@@ -4,8 +4,6 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 ## Conventions
 
-- **GitHub Actions check evidence:** when combined commit status is empty or incomplete, use `gh pr checks <PR> --json name,state,bucket,link` and preserve pending states in the handoff.
-
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
 - **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
 
@@ -15,6 +13,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
+- **GitHub Actions check evidence:** when combined commit status is empty or incomplete, use `gh pr checks <PR> --json name,state,bucket,link` and preserve pending states in the handoff.
 - **Retro scope**: before folding retro scope into an existing issue, check its state (`gh issue view <n> --json state`); put unfinished work in a suitable open issue, or create a linked follow-up if the original is closed and none exists (the #1809 regression-check addendum landed after closure and was resolved in [#1824](https://github.com/blur88/erp2/issues/1824)).
 - **Follow-up dependencies**: when work depends on an artifact, name the observable result and link the issue that tracks it; #1817's manifest-metadata check depended on the licence regression Bats spec tracked in [#1824](https://github.com/blur88/erp2/issues/1824), with that spec running in `npm run test:scripts` as the observable result.
 - **Owner decisions**: record decisions affecting follow-up work as a comment on the relevant issue, with local notes linking to that comment; the e2e worker-recycling deferral is recorded in [#1820's closing comment](https://github.com/blur88/erp2/issues/1820#issuecomment-6858832080) and audit decision D6 in [MAIN_ANCESTRY_AUDIT_1820.md](../deployment/MAIN_ANCESTRY_AUDIT_1820.md).
