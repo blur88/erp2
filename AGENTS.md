@@ -49,6 +49,8 @@ Primary language is TypeScript.
 Add or update tests for any behavior change.
 
 ## Change-Scoped Verification (Required Before PR)
+These change-scoped gates replace generic verification defaults in skills and tools; documentation-only changes run only the gates and conditional checks listed in the documentation-only entry.
+
 Run checks based on files touched (not just a default test set):
 - Backend changes (`backend/src/**`):
   - `cd backend && npm run lint && npm run type-check && npm run test`
@@ -83,6 +85,9 @@ If multiple areas are changed, run all relevant checks.
 PRs must include the exact verification commands run and whether they passed.
 
 ## Commit & Pull Request Guidelines
+
+Before conducting a code review, read and follow Review guidance (docs/agents/review.md).
+
 Start implementation on a feature branch cut from `origin/main` (`git switch -c <type>/<issue>-<slug>`).
 
 Git history follows Conventional Commit style:
