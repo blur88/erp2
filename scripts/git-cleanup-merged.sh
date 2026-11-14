@@ -16,8 +16,8 @@
 # fast-forwards before deletion. Otherwise it keeps the current checkout and
 # updates or creates local main without switching. If main is checked out in
 # another worktree, it leaves main untouched and skips the current branch when
-# switching would be required. A dirty tree blocks only when cleanup would
-# switch the checkout or fast-forward the checked-out main.
+# switching would be required. A dirty tree blocks whenever main is checked
+# out or the run would switch to it, including in dry-run.
 #
 # Usage: scripts/git-cleanup-merged.sh [--dry-run]
 #
@@ -174,7 +174,7 @@ if [ "$mode" = "stay" ]; then
   done
 fi
 
-# A dirty tree blocks only when the checkout itself must move.
+# A dirty tree blocks on main or when switching to it, including in dry-run.
 if [ "$mode" != "stay" ] && [ -n "$(git status --porcelain --untracked-files=all)" ]; then
   die "uncommitted or untracked changes on ${current:-HEAD}. Commit or stash them, then rerun. No local branches were changed."
 fi
