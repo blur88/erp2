@@ -4,6 +4,8 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 ## Conventions
 
+- **GitHub Actions check evidence:** when combined commit status is empty or incomplete, use `gh pr checks <PR> --json name,state,bucket,link` and preserve pending states in the handoff.
+
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
 - **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
 

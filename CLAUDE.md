@@ -127,6 +127,8 @@ For orphan warnings or manual scheduler cleanup, follow the [backup scheduler re
 
 ## Agent skills
 
+- **Code review:** read and follow [Review guidance](docs/agents/review.md) before conducting a code review.
+
 - **Issues:** GitHub Issues in `blur88/erp2`; read [issue-tracker.md](docs/agents/issue-tracker.md) when using the tracker.
 - **Triage:** read [triage-labels.md](docs/agents/triage-labels.md) before choosing readiness labels.
 - **Domain exploration:** read [domain.md](docs/agents/domain.md) for glossary/ADR discovery and terminology rules.
