@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Run from the repository root (or a fixture with the same test directory).
-set -e
+set -euo pipefail
 
 # node --test exits 0 when the glob matches nothing or a file holds no
 # test cases. Require at least one real case: the TAP reporter also
 # emits one top-level entry per file (named by its path), so those are
 # excluded from the count. Capture the status with `|| status=$?`
-# because the runner's bash runs with -e.
+# because this script enables errexit.
 tap="$(mktemp)"
 trap 'rm -f "$tap"' EXIT
 status=0

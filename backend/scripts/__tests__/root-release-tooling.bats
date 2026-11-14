@@ -10,7 +10,7 @@ setup() {
 }
 
 @test "root release-tooling rejects an unmatched test glob" {
-  run bash -e "$GUARD"
+  run "$GUARD"
   [ "$status" -eq 1 ]
   [[ "$output" == *"Root release-tooling tests: no test cases ran"* ]]
 }
@@ -18,7 +18,7 @@ setup() {
 @test "root release-tooling rejects a matched file with zero test cases" {
   touch scripts/__tests__/empty.test.cjs
 
-  run bash -e "$GUARD"
+  run "$GUARD"
   [ "$status" -eq 1 ]
   [[ "$output" == *"Root release-tooling tests: no test cases ran"* ]]
 }
@@ -29,7 +29,7 @@ const { test } = require('node:test');
 test('passes', () => {});
 JS
 
-  run bash -e "$GUARD"
+  run "$GUARD"
   [ "$status" -eq 0 ]
 }
 
@@ -39,7 +39,7 @@ const { test } = require('node:test');
 test('fails', () => { throw new Error('fixture failure'); });
 JS
 
-  run bash -e "$GUARD"
+  run "$GUARD"
   [ "$status" -eq 1 ]
   [[ "$output" == *"fixture failure"* ]]
   [[ "$output" != *"no test cases ran"* ]]

@@ -181,7 +181,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           npm install --no-save --package-lock=false conventional-changelog-angular@8.1.0
-          bash -e scripts/test-root-release-tooling.sh
+          scripts/test-root-release-tooling.sh
 
       # The gate below compares a MIGRATED schema against a schema:sync
       # reference — the only thing that catches a migration diverging from the
