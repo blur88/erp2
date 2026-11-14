@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+## Issue Intake
+
+Before implementing or reviewing an issue, read and follow [issue-tracker.md](docs/agents/issue-tracker.md) for GitHub Issues in `blur88/erp2`. Read the issue body, comments, and any Agent Brief referenced by the issue; treat an approved Agent Brief as the contract when present.
+
 ## Project Structure & Module Organization
 This repository is a full-stack ERP monorepo.
 - `backend/`: NestJS API, TypeORM entities/migrations, Jest unit + e2e tests (`backend/test`).
