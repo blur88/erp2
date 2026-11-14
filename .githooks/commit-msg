@@ -24,7 +24,7 @@ if grep -q -i -F 'claude.ai/code/session_' "$msg_file"; then
   exit 1
 fi
 
-if grep -q -i -F 'Generated with Claude Code' "$msg_file"; then
+if grep -q -i -E 'Generated with \[?Claude Code' "$msg_file"; then
   echo "commit-msg: 'Generated with Claude Code' lines are refused (AGENTS.md, Attribution). Remove the line and commit again." >&2
   exit 1
 fi

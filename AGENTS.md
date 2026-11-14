@@ -109,7 +109,7 @@ To preview, use `scripts/git-cleanup-merged.sh --dry-run`. This still fetches an
 
 ### Attribution
 
-- Commits and PR bodies must not contain Claude session links, `Claude-Session` trailers, or "Generated with Claude Code" lines. `Co-Authored-By` lines are unaffected. See the [`.githooks/commit-msg` header](.githooks/commit-msg) for activation and local enforcement limits.
+- Commits and PR bodies must not contain Claude session links, `Claude-Session` trailers, or "Generated with Claude Code" lines. Project `.claude/settings.json` disables Claude Code's default PR attribution and session URL; it does not stop text written by hand. `Co-Authored-By` lines are unaffected. See the [`.githooks/commit-msg` header](.githooks/commit-msg) for activation and local enforcement limits.
 
 ## Security & Configuration Tips
 - Never commit real secrets; copy from `.env.example`.

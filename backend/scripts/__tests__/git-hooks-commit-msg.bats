@@ -90,12 +90,23 @@ setup() {
   [ -z "$(git rev-parse --verify -q HEAD)" ]
 }
 
+@test "actual Markdown-link generated attribution is refused and names the rule" {
+  cd "$WORK"
+  printf 'feat: example\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n' > "$BATS_TEST_TMPDIR/msg"
+  run git commit -q --allow-empty -F "$BATS_TEST_TMPDIR/msg"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Generated with Claude Code"* ]]
+  [[ "$output" == *"AGENTS.md, Attribution"* ]]
+  [ -z "$(git rev-parse --verify -q HEAD)" ]
+}
+
 @test "Generated with Claude Code refusal is case-insensitive" {
   cd "$WORK"
   printf 'feat: example\n\ngEnErAtEd WiTh cLaUdE cOdE\n' > "$BATS_TEST_TMPDIR/msg"
   run git commit -q --allow-empty -F "$BATS_TEST_TMPDIR/msg"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Generated with Claude Code"* ]]
+  [[ "$output" == *"AGENTS.md, Attribution"* ]]
   [ -z "$(git rev-parse --verify -q HEAD)" ]
 }
 
