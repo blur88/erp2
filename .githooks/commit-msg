@@ -4,8 +4,10 @@
 # Generated with Claude Code lines. Matching is case-insensitive.
 # Activate once per clone: git config core.hooksPath .githooks
 #
-# Local check only, and it covers commit messages only. It does not check PR
-# bodies, commits made with --no-verify, or commits in other clones.
+# Locally, this hook checks commit messages only and can be bypassed with
+# --no-verify or an unconfigured clone. The PR attribution CI workflow (#1832)
+# also runs this hook on every PR commit and the description, including edits.
+# That separate check is initially non-required.
 #
 # The whole message file is checked, including any text below a scissors line.
 # `git commit -v` appends the staged diff to that file, so a staged change that

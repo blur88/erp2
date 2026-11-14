@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Check PR commits and description using the shared hook rules (#1832).
 # Run from the repository root with the pull_request event JSON path.
 set -euo pipefail
 

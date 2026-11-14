@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# Verify PR commit-range and description attribution checks (#1832).
 
 REPO_DIR="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
 
@@ -21,9 +22,11 @@ write_event() {
     '{pull_request: {base: {sha: $base}, head: {sha: $head}, body: $body}}' > "$event"
 }
 
-@test "clean range and null description pass, including permitted coauthors" {
+@test "clean range and empty or null description pass, including permitted coauthors" {
   git commit -q --allow-empty -m $'feat: clean\n\nCo-Authored-By: Example <example@example.invalid>'
   write_event ''
+  run bash "$REPO_DIR/scripts/check-pr-attribution.sh" "$event"
+  [ "$status" -eq 0 ]
   jq '.pull_request.body = null' "$event" > "$event.tmp"
   mv "$event.tmp" "$event"
   run bash "$REPO_DIR/scripts/check-pr-attribution.sh" "$event"
