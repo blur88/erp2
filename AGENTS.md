@@ -49,8 +49,6 @@ Primary language is TypeScript.
 Add or update tests for any behavior change.
 
 ## Change-Scoped Verification (Required Before PR)
-These change-scoped gates replace generic verification defaults in skills and tools; documentation-only changes run only the gates and conditional checks listed in the documentation-only entry.
-
 Run checks based on files touched (not just a default test set):
 - Backend changes (`backend/src/**`):
   - `cd backend && npm run lint && npm run type-check && npm run test`
@@ -69,9 +67,9 @@ Run checks based on files touched (not just a default test set):
   - Run `git diff --check`.
 - Scripts, hooks, CI workflows, and manifest or tooling config:
   - `backend/scripts/**` and `.githooks/**`: `cd backend && npm run test:scripts`. Root `scripts/*.sh` is covered above. `test:scripts` covers only scripts that have a Bats spec; for a script without one, name in the PR what you ran instead. Also run `git diff --check`.
-  - Root release tooling (`release.config.cjs`, `scripts/*.cjs`, `scripts/__tests__/*.test.*`, `scripts/test-root-release-tooling.sh`): run the commands of the "Root release-tooling tests" step in CI's Backend job, from the repository root. That step owns the pinned dependency install and the test command.
+  - Root release tooling (`release.config.cjs`, `scripts/*.cjs`, `scripts/__tests__/*.test.*`): run the commands of the "Root release-tooling tests" step in CI's Backend job, from the repository root. That step owns the pinned dependency install and the test command.
   - Root `package.json` and `package-lock.json`: no gate covers them. Check that the JSON parses and name in the PR what else you ran.
-  - `.github/workflows/**`: verify the specific change (for example, the affected job's command) and name it in the PR. For `.github/workflows/release.yml`, also run `cd backend && npm run test:scripts`; its Bats spec executes the real semantic-release step. Do not run unrelated test suites.
+  - `.github/workflows/**`: verify the specific change (for example, the affected job's command) and name it in the PR. Do not run unrelated test suites.
   - `backend/package.json`, `frontend/package.json`, their lockfiles, and app config (`tsconfig*.json`, ESLint, Jest, Vitest) under `backend/` or `frontend/`: run that app's gate above. For metadata-only manifest edits (for example `license` or `description`), check that the JSON parses and run `git diff --check`, plus any other applicable gate.
 - Cross-app contract changes (API DTOs/interfaces used by both apps):
   - `cd backend && npm run type-check && npm run test`
@@ -85,9 +83,6 @@ If multiple areas are changed, run all relevant checks.
 PRs must include the exact verification commands run and whether they passed.
 
 ## Commit & Pull Request Guidelines
-
-Before conducting a code review, read and follow Review guidance (docs/agents/review.md).
-
 Start implementation on a feature branch cut from `origin/main` (`git switch -c <type>/<issue>-<slug>`).
 
 Git history follows Conventional Commit style:
@@ -100,17 +95,10 @@ PRs should include:
 - UI screenshots for frontend changes.
 - Notes for migrations/env changes when applicable.
 
-### Merge routine
+After a PR merges, GitHub deletes its remote head branch automatically (the repository setting "Automatically delete head branches"). From the clone that performed the merge, run `scripts/git-cleanup-merged.sh` (`--dry-run` to preview) to delete the matching local branches and, if the checkout sat on one of them, move it to `main` and fast-forward it to `origin/main`. Branches with unmerged commits, no upstream, a live upstream, or a checkout in another worktree are kept and reported with the reason.
 
-1. Read the allowed merge methods from GitHub, select a permitted method, and merge the approved PR using GitHub or `gh pr merge`. For auto-merge or a merge queue, wait until GitHub confirms the PR is merged.
-2. Immediately after confirmation, run `scripts/git-cleanup-merged.sh` from the repository root of the local clone used for that PR, before starting the next task or reporting the merge complete. This also applies to merges performed in the GitHub web UI; pulling `main` alone does not run cleanup.
-3. Check the output. Resolve cleanup failures and rerun. If it reports "rerun from main", switch to `main` when available and rerun. Retain other skipped branches and report the script's stated reasons in the merge handoff.
-
-For skip reasons, worktree handling, dry-run previews, and exit codes, read the header of [scripts/git-cleanup-merged.sh](scripts/git-cleanup-merged.sh).
-
-### Attribution
-
-- Commits and PR bodies must not contain Claude session links, `Claude-Session` trailers, or "Generated with Claude Code" lines. Project `.claude/settings.json` disables Claude Code's default PR attribution and session URL; it does not stop text written by hand. `Co-Authored-By` lines are unaffected. The separate, initially non-required [PR attribution workflow](.github/workflows/pr-attribution.yml) checks every PR commit and the description using the same hook, including description edits. See the [`.githooks/commit-msg` header](.githooks/commit-msg) for local activation and enforcement limits.
+Attribution:
+- Commits and PR bodies must not contain Claude session links, `Claude-Session` trailers, or "Generated with Claude Code" lines. Project `.claude/settings.json` disables Claude Code's default PR attribution and session URL; it does not stop text written by hand. Where `core.hooksPath` is set to `.githooks`, `.githooks/commit-msg` refuses commit messages with a `Claude-Session` trailer or a `claude.ai/code/session_` link; it does not check PR bodies, `--no-verify` commits, or other clones. `Co-Authored-By` lines are unaffected.
 
 ## Security & Configuration Tips
 - Never commit real secrets; copy from `.env.example`.

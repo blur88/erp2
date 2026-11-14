@@ -1,37 +1,21 @@
 #!/usr/bin/env bash
 # Cleans up local branches after their pull requests merge (#1811).
 #
-# Run from the local clone used for the PR, once GitHub confirms it is merged.
-# GitHub's "Automatically delete head branches" setting deletes the remote head.
-# This script fetches and prunes origin, then uses git branch -d (never -D) to
-# delete eligible local branches. main and master are always retained.
-#
-# Skips: branches checked out in another worktree, with no upstream, with a
-# live upstream, or with commits not in origin/main. From an unrelated checkout
-# or detached HEAD, it also keeps branches not merged into the current HEAD,
-# reporting "rerun from main"; switch to main when available and rerun.
-#
-# On main, cleanup fast-forwards it to origin/main. On an eligible current
-# branch, it switches to main (creating it from origin/main if missing), then
-# fast-forwards before deletion. Otherwise it keeps the current checkout and
-# updates or creates local main without switching. If main is checked out in
-# another worktree, it leaves main untouched and skips the current branch when
-# switching would be required. A dirty tree blocks whenever main is checked
-# out or the run would switch to it, including in dry-run.
+# Run from the clone that performed the merge, once GitHub has merged the PR.
+# GitHub deletes the remote head branch on merge. This script deletes the local
+# copy and moves the checkout to main when it was sitting on a merged branch.
+# It never force-deletes, and it keeps any branch it cannot prove is merged.
 #
 # Usage: scripts/git-cleanup-merged.sh [--dry-run]
 #
-# --dry-run performs preflight checks and prints the plan without attempting
-# local branch updates or deletions. It still fetches and prunes origin, but
-# changes no local branch or working tree. Follow a preview with an actual run
-# to complete cleanup.
+# --dry-run runs every check and prints the plan. It still fetches origin,
+# which only updates remote-tracking refs. It changes no local branch and no
+# working tree.
 #
 # Exit status:
 #   0  cleanup finished. Skipped branches are reported, not failures.
-#   1  repository/ref checks, fetch, checkout/main updates, or deletion failed,
-#      or a dirty tree blocks the run. Local main with commits not in
-#      origin/main stops the run before any local branch changes. A deletion
-#      refusal stops later deletions; earlier deletions remain applied.
+#   1  fetch failed, a dirty tree blocks the run, local main cannot
+#      fast-forward to origin/main, or git branch -d refused a branch.
 #   2  usage error.
 
 set -euo pipefail
@@ -174,7 +158,7 @@ if [ "$mode" = "stay" ]; then
   done
 fi
 
-# A dirty tree blocks on main or when switching to it, including in dry-run.
+# A dirty tree blocks only when the checkout itself must move.
 if [ "$mode" != "stay" ] && [ -n "$(git status --porcelain --untracked-files=all)" ]; then
   die "uncommitted or untracked changes on ${current:-HEAD}. Commit or stash them, then rerun. No local branches were changed."
 fi

@@ -30,9 +30,7 @@ export default defineConfig(({ mode }) => {
     customLogger: isVitest ? vitestLogger : undefined,
     plugins: isVitest ? [] : [react()],
     define: {
-      __APP_VERSION__: JSON.stringify(
-        process.env.VITE_APP_VERSION || process.env.npm_package_version || '0.0.0-dev'
-      ),
+      __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0'),
     },
     resolve: {
       alias: {

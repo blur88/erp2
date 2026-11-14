@@ -37,7 +37,7 @@ For maintenance, `./maintain.sh` offers dependency, audit, Knip, duplication, an
 - **Soft delete:** use TypeORM `softDelete(id)` to set `deletedAt`; setting `isActive = false` breaks deleted queries and restore.
 - **API responses:** `ApiService` returns the backend body without the Axios wrapper. Paginated lists use `response.data` for items and `response.meta` for pagination. Tree endpoints (categories, chart of accounts) return a plain array; use `response` directly.
 - **Account lockout:** `User.isLocked`, the login check, and user filters/counts all use the Node container clock (`new Date()`), never SQL `NOW()`. For clock drift after sleep/resume, restart the backend or resync the host clock; preserve the common clock.
-- **Pulling main:** use `git pull --ff-only`. This stops a pull from creating a local merge commit when local and remote `main` have diverged.
+- **Pulling main:** use `git pull --ff-only`. With `merge.ff = false`, a normal pull creates a merge commit that unnecessarily retriggers Release.
 
 ## Printing and statement UI
 
@@ -53,8 +53,6 @@ jsdom cannot validate layout or `@media print`. There is no Playwright config, f
 - Keep all figure font sizes equal for decimal alignment. Distinguish the bottom line by weight and double rule.
 
 ## CI
-
-For release versioning, read [Tags-only release versioning](docs/adr/0001-tags-only-release-versioning.md).
 
 CI runs on PRs and manual dispatch, not pushes to main. To validate main explicitly: `gh workflow run ci.yml --ref main`. Keep required CI job names stable: branch rules match job-name strings.
 
@@ -74,7 +72,6 @@ The reason for the separate type-check gates in AGENTS.md: ts-jest transpiles pe
 
 - All Jest scripts require `NODE_OPTIONS=--experimental-vm-modules`, `extensionsToTreatAsEsm: [".ts"]`, and ts-jest `useESM: true`. The old `transformIgnorePatterns` allowlist is obsolete; it cannot handle NestJS 12's `import.meta` in CommonJS mode.
 - A run with `Tests: 0 total` is a failure. Preserve Jest's nonzero exit status; never add `--passWithNoTests`. `npm run test:scripts` includes the Bats guard covering scripts/configs/CI.
-- Every test command run in CI must fail when zero test cases run, regardless of runner.
 - Jest main-process `globalSetup`/`globalTeardown` hooks stay plain CJS `.js`. A `.ts` hook is compiled to CJS but loaded as ESM, causing `exports is not defined`.
 - Only the e2e config shims `uuid` with `test/__mocks__/uuid.cjs` (`crypto.randomUUID`): ExcelJS's CommonJS require of ESM uuid trips Jest's require-cycle error when AppModule loads. Unit tests use the real package.
 - NestJS 12 is ESM-only; the application remains CommonJS using Node 24 `require(esm)`. Keep `@nestjs/typeorm` on a release whose exports include `default`/`require`, and retain the Dockerfile's Node compatibility floor. Older Node 24 releases lack the export-condition fallback. `verify:dist` catches `MODULE_NOT_FOUND` and `ERR_PACKAGE_PATH_NOT_EXPORTED`; a built `node dist/main.js` boot is the definitive check.
@@ -129,7 +126,6 @@ For orphan warnings or manual scheduler cleanup, follow the [backup scheduler re
 
 ## Agent skills
 
-- **Code review:** read and follow [Review guidance](docs/agents/review.md) before conducting a code review.
 - **Issues:** GitHub Issues in `blur88/erp2`; read [issue-tracker.md](docs/agents/issue-tracker.md) when using the tracker.
 - **Triage:** read [triage-labels.md](docs/agents/triage-labels.md) before choosing readiness labels.
 - **Domain exploration:** read [domain.md](docs/agents/domain.md) for glossary/ADR discovery and terminology rules.

@@ -24,7 +24,8 @@ do_knip() {
 }
 
 print_outdated_table() {
-  local dir="$1"
+  local label="$1"
+  local dir="$2"
   local raw
   raw=$(cd "$dir" && npm outdated --json 2>/dev/null); [[ -z "$raw" ]] && raw="{}"
   if [[ -z "$raw" || "$raw" == "{}" ]]; then
@@ -60,13 +61,13 @@ for pkg, info in sorted(data.items()):
 
 do_outdated() {
   echo -e "${BOLD}${YELLOW}--- ROOT (semantic-release) ---${RESET}"
-  print_outdated_table "$ROOT_DIR"
+  print_outdated_table "Root" "$ROOT_DIR"
   echo ""
   echo -e "${BOLD}${YELLOW}--- FRONTEND (React/Vite) ---${RESET}"
-  print_outdated_table "$ROOT_DIR/frontend"
+  print_outdated_table "Frontend" "$ROOT_DIR/frontend"
   echo ""
   echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
-  print_outdated_table "$ROOT_DIR/backend"
+  print_outdated_table "Backend" "$ROOT_DIR/backend"
 }
 
 do_update() {
@@ -194,7 +195,7 @@ do_refactor_radar() {
     done
     if [[ ${#hits[@]} -ge 3 ]]; then
       cluster_found=1
-      local rel="${file#"$ROOT_DIR"/frontend/src/}"
+      local rel="${file#$ROOT_DIR/frontend/src/}"
       echo -e "  ${RED}⚠  ${rel}${RESET}"
       echo -e "     Found: $(IFS=', '; echo "${hits[*]}")"
       echo -e "     ${CYAN}→ Extract into useReportFilters hook${RESET}"
@@ -219,7 +220,7 @@ do_refactor_radar() {
       local count
       count=$(grep -c "@CurrentUser('userId') currentUserId" "$file" 2>/dev/null)
       audit_found=1
-      local rel="${file#"$ROOT_DIR"/backend/src/}"
+      local rel="${file#$ROOT_DIR/backend/src/}"
       echo -e "  ${RED}⚠  ${rel}${RESET}"
       echo -e "     ${count} endpoint(s) pass currentUserId manually"
       echo -e "     ${CYAN}→ Consider a @CurrentUserAudit() interceptor or shared AuditService${RESET}"
@@ -243,7 +244,7 @@ do_refactor_radar() {
     count=$(grep -c "useState" "$file" 2>/dev/null)
     if [[ $count -gt 10 ]]; then
       fe_bloat_found=1
-      local rel="${file#"$ROOT_DIR"/frontend/src/}"
+      local rel="${file#$ROOT_DIR/frontend/src/}"
       echo -e "    ${RED}⚠  ${rel}${RESET}"
       echo -e "       ${count} useState calls — component may need splitting"
     fi
@@ -262,7 +263,7 @@ do_refactor_radar() {
     count=${count:-0}
     if [[ $count -gt 5 ]]; then
       be_bloat_found=1
-      local rel="${file#"$ROOT_DIR"/backend/src/}"
+      local rel="${file#$ROOT_DIR/backend/src/}"
       echo -e "    ${RED}⚠  ${rel}${RESET}"
       echo -e "       ${count} constructor dependencies — consider splitting responsibilities"
     fi

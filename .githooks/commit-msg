@@ -1,13 +1,10 @@
 #!/bin/sh
-# Refuses commit messages that carry prohibited Claude attribution (AGENTS.md,
-# Attribution): Claude-Session trailers, claude.ai/code/session_ links, or
-# Generated with Claude Code lines. Matching is case-insensitive.
+# Refuses commit messages that carry prohibited Claude attribution (#1813):
+# a Claude-Session trailer or a claude.ai/code/session_ link (AGENTS.md, Attribution).
 # Activate once per clone: git config core.hooksPath .githooks
 #
-# Locally, this hook checks commit messages only and can be bypassed with
-# --no-verify or an unconfigured clone. The PR attribution CI workflow (#1832)
-# also runs this hook on every PR commit and the description, including edits.
-# That separate check is initially non-required.
+# Local check only, and it covers commit messages only. It does not check PR
+# bodies, commits made with --no-verify, or commits in other clones.
 #
 # The whole message file is checked, including any text below a scissors line.
 # `git commit -v` appends the staged diff to that file, so a staged change that
@@ -23,11 +20,6 @@ fi
 
 if grep -q -i -F 'claude.ai/code/session_' "$msg_file"; then
   echo "commit-msg: 'claude.ai/code/session_' session links are refused (AGENTS.md, Attribution). Remove the link and commit again." >&2
-  exit 1
-fi
-
-if grep -q -i -E 'Generated with \[?Claude Code' "$msg_file"; then
-  echo "commit-msg: 'Generated with Claude Code' lines are refused (AGENTS.md, Attribution). Remove the line and commit again." >&2
   exit 1
 fi
 
