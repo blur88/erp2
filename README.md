@@ -169,15 +169,7 @@ See [`docs/deployment/DEPLOYMENT_CHECKLIST.md`](docs/deployment/DEPLOYMENT_CHECK
 3. Write tests for new functionality
 4. Run the verification gates in [`AGENTS.md`](AGENTS.md#change-scoped-verification-required-before-pr) for the areas you changed
 5. Submit a pull request
-6. When merging, follow the [merge routine](#merge-routine), including local branch cleanup.
-
-### Merge routine
-
-1. Merge the approved PR using GitHub or `gh pr merge`. If auto-merge or a merge queue is used, wait until GitHub confirms the PR is merged.
-2. Immediately after the merge is confirmed, run `scripts/git-cleanup-merged.sh` from the repository root of the local clone used for that PR, before starting the next task or reporting the merge complete. GitHub deletes the remote head branch; this command fetches and prunes origin, removes eligible local branches, and fast-forwards local `main`. If the current branch is eligible for deletion, it switches to `main` first.
-3. Check the output. If cleanup fails, resolve the reported blocker and rerun it. If a branch is skipped, retain it and report the stated reason; cleanup uses `git branch -d` and keeps branches it cannot prove safe to delete.
-
-To preview cleanup, run `scripts/git-cleanup-merged.sh --dry-run`, then run it without `--dry-run` to apply the cleanup. A preview alone does not complete step 2. A merge performed in the GitHub web UI still requires cleanup in the local clone; pulling `main` alone does not run it.
+6. Follow the [merge routine in AGENTS.md](AGENTS.md#merge-routine)
 
 ## License
 
