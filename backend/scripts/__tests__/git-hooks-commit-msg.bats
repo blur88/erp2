@@ -4,8 +4,7 @@
 #
 # Runs the real .githooks/commit-msg inside a throwaway repository. A message
 # that carries a prohibited Claude attribution string must be refused and must
-# create no commit; a clean message must still succeed. The hook is local only:
-# it does not cover --no-verify commits, PR bodies, or other clones.
+# create no commit; a clean message must still succeed.
 #
 # The repository sits on a feature branch so the pre-commit main-branch refusal
 # does not run first and mask the commit-msg result.
@@ -78,6 +77,25 @@ setup() {
   run git commit -q --allow-empty -m $'feat: example\n\n# ------------------------ >8 ------------------------\nClaude-Session: abc123'
   [ "$status" -ne 0 ]
   [[ "$output" == *"Claude-Session"* ]]
+  [ -z "$(git rev-parse --verify -q HEAD)" ]
+}
+
+@test "message with a Generated with Claude Code line is refused and names the rule" {
+  cd "$WORK"
+  printf 'feat: example\n\nGenerated with Claude Code\n' > "$BATS_TEST_TMPDIR/msg"
+  run git commit -q --allow-empty -F "$BATS_TEST_TMPDIR/msg"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Generated with Claude Code"* ]]
+  [[ "$output" == *"AGENTS.md, Attribution"* ]]
+  [ -z "$(git rev-parse --verify -q HEAD)" ]
+}
+
+@test "Generated with Claude Code refusal is case-insensitive" {
+  cd "$WORK"
+  printf 'feat: example\n\ngEnErAtEd WiTh cLaUdE cOdE\n' > "$BATS_TEST_TMPDIR/msg"
+  run git commit -q --allow-empty -F "$BATS_TEST_TMPDIR/msg"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Generated with Claude Code"* ]]
   [ -z "$(git rev-parse --verify -q HEAD)" ]
 }
 
