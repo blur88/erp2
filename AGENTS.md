@@ -95,7 +95,7 @@ PRs should include:
 - UI screenshots for frontend changes.
 - Notes for migrations/env changes when applicable.
 
-After a PR merges, GitHub deletes its remote head branch automatically (the repository setting "Automatically delete head branches"). From the clone that performed the merge, run `scripts/git-cleanup-merged.sh` (`--dry-run` to preview) to delete the matching local branches and, if the checkout sat on one of them, move it to `main` and fast-forward it to `origin/main`. Branches with unmerged commits, no upstream, a live upstream, or a checkout in another worktree are kept and reported with the reason.
+When merging a PR, complete the [merge routine in README.md](README.md#merge-routine), including local branch cleanup, before reporting the merge complete or starting the next task.
 
 Attribution:
 - Commits and PR bodies must not contain Claude session links, `Claude-Session` trailers, or "Generated with Claude Code" lines. Project `.claude/settings.json` disables Claude Code's default PR attribution and session URL; it does not stop text written by hand. Where `core.hooksPath` is set to `.githooks`, `.githooks/commit-msg` refuses commit messages with a `Claude-Session` trailer or a `claude.ai/code/session_` link; it does not check PR bodies, `--no-verify` commits, or other clones. `Co-Authored-By` lines are unaffected.
