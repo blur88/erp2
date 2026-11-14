@@ -26,46 +26,65 @@ SH
   chmod +x "$BATS_TEST_TMPDIR/bin/npx"
 }
 
+# The workflow uses GitHub's default bash -e; also retain strict-shell coverage.
+run_release_step() {
+  : > "$GITHUB_OUTPUT"
+  echo "# shell: $1"
+  if [ "$1" = default ]; then
+    run bash -e "$BATS_TEST_TMPDIR/release.sh"
+  else
+    run bash --noprofile --norc -eo pipefail "$BATS_TEST_TMPDIR/release.sh"
+  fi
+}
+
 @test "Release step reports no release after a successful analysis" {
   export RELEASE_STATUS=0
   export RELEASE_OUTPUT='semantic-release: There are no relevant changes, so no new version is released.'
 
-  run bash --noprofile --norc -eo pipefail "$BATS_TEST_TMPDIR/release.sh"
+  for shell_mode in default strict; do
+    run_release_step "$shell_mode"
 
-  [ "$status" -eq 0 ]
-  grep -qx 'new_release_published=false' "$GITHUB_OUTPUT"
-  grep -qx 'new_release_version=' "$GITHUB_OUTPUT"
+    [ "$status" -eq 0 ]
+    grep -qx 'new_release_published=false' "$GITHUB_OUTPUT"
+    grep -qx 'new_release_version=' "$GITHUB_OUTPUT"
+  done
 }
 
 @test "Release step preserves semantic-release failure after publication" {
   export RELEASE_STATUS=42
   export RELEASE_OUTPUT=$'Published release 3.18.0 on default channel\nsemantic-release: fixture publish failure'
 
-  run bash -e "$BATS_TEST_TMPDIR/release.sh"
+  for shell_mode in default strict; do
+    run_release_step "$shell_mode"
 
-  [ "$status" -eq 42 ]
-  [[ "$output" == *"semantic-release: fixture publish failure"* ]]
-  ! grep -q '^new_release_published=true$' "$GITHUB_OUTPUT"
+    [ "$status" -eq 42 ]
+    [[ "$output" == *"semantic-release: fixture publish failure"* ]]
+    ! grep -q '^new_release_published=true$' "$GITHUB_OUTPUT"
+  done
 }
 
-@test "Release step preserves semantic-release failure before publication with pipefail" {
+@test "Release step preserves semantic-release failure before publication" {
   export RELEASE_STATUS=42
   export RELEASE_OUTPUT='semantic-release: fixture prepare failure'
 
-  run bash --noprofile --norc -eo pipefail "$BATS_TEST_TMPDIR/release.sh"
+  for shell_mode in default strict; do
+    run_release_step "$shell_mode"
 
-  [ "$status" -eq 42 ]
-  [[ "$output" == *"semantic-release: fixture prepare failure"* ]]
-  [ ! -s "$GITHUB_OUTPUT" ]
+    [ "$status" -eq 42 ]
+    [[ "$output" == *"semantic-release: fixture prepare failure"* ]]
+    [ ! -s "$GITHUB_OUTPUT" ]
+  done
 }
 
 @test "Release step reports the published version on success" {
   export RELEASE_STATUS=0
   export RELEASE_OUTPUT='Published release 3.18.0 on default channel'
 
-  run bash --noprofile --norc -eo pipefail "$BATS_TEST_TMPDIR/release.sh"
+  for shell_mode in default strict; do
+    run_release_step "$shell_mode"
 
-  [ "$status" -eq 0 ]
-  grep -qx 'new_release_published=true' "$GITHUB_OUTPUT"
-  grep -qx 'new_release_version=3.18.0' "$GITHUB_OUTPUT"
+    [ "$status" -eq 0 ]
+    grep -qx 'new_release_published=true' "$GITHUB_OUTPUT"
+    grep -qx 'new_release_version=3.18.0' "$GITHUB_OUTPUT"
+  done
 }

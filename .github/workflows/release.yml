@@ -48,11 +48,8 @@ jobs:
       - name: Run semantic-release
         id: semantic_release
         run: |
-          # Capture the release status under both errexit and pipefail shells.
-          set +e
           npx semantic-release | tee /tmp/sr-output.txt
           exit_code=${PIPESTATUS[0]}
-          set -e
           if [ "$exit_code" -ne 0 ]; then
             exit "$exit_code"
           fi
