@@ -97,7 +97,7 @@ describe('SidebarUserMenu', () => {
     expect(screen.getAllByText('jdoe').length).toBeGreaterThan(0)
     expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /logout/i })).toBeInTheDocument()
-    expect(screen.getAllByText(/^v/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('v0.0.0-dev').length).toBeGreaterThan(0)
   })
 
   it('Settings click navigates to /settings', async () => {
