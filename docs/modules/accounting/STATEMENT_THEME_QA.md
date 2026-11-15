@@ -49,7 +49,7 @@ The browser gate that once covered the rest was removed in #1223. Restoring Play
 
 The suite cannot protect the CSS spacer invariant below or the figure font-size invariant in [ST-12](#st-12--figure-font-size-uniformity-1228); change them only deliberately:
 
-- **The paren spacer must stay CSS generated content** (`.stmt-paren-spacer::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser. Note that `toHaveTextContent('56,800.00')` is a substring assertion — it would still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
+- **The paren spacer must stay CSS generated content** (`[data-role="paren-spacer"]::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser. Note that `toHaveTextContent('56,800.00')` is a substring assertion — it would still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
 
 **Run the checks below in a real browser, in the dark theme, and record the results in the PR.**
 
