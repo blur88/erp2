@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ERP system — NestJS 11 backend + React 19 / TypeScript 6 / Material-UI v9 frontend, served via NGINX in Docker.
 
-- **Databases**: PostgreSQL 18.3 (TypeORM, primary), Redis 8.6 (caching, queues, WebSocket state)
+- **Databases**: PostgreSQL 18.3 (TypeORM, primary), Redis 8.6 (BullMQ queue backing store)
 - **Queue**: BullMQ via `@nestjs/bullmq` (background jobs)
 - **Testing**: Jest (backend) + Vitest (frontend)
 - **Default admin**: `admin / Admin@123!` — change on first login
@@ -31,10 +31,10 @@ cd backend && npm run test
 # every .ts file falls back to CommonJS (see the Jest ESM section below).
 cd backend && NODE_OPTIONS=--experimental-vm-modules npx jest src/path/to/file.spec.ts --no-coverage
 
-# Run backend e2e tests (required after entity/migration changes)
+# Run backend e2e tests
 cd backend && npm run test:e2e
 
-# Run all frontend tests (slow — ~12 minutes for ~167 files; do NOT assume hung)
+# Run all frontend tests (can be slow; do not assume the run is hung)
 cd frontend && npm run test
 
 # Run a single frontend test file (path relative to frontend/)
@@ -90,12 +90,7 @@ Sales/Purchasing/Inventory "reports" are routes and methods **inside** the respe
 
 ## Pre-PR verification gates
 
-`AGENTS.md` defines these as **required**, scoped to the files touched (not a default set). PRs must state the exact commands run and whether they passed.
-
-- Backend `src/**`: `cd backend && npm run lint && npm run type-check && npm run test`
-- Backend entities/migrations: also `npm run migration:run && npm run test:e2e`
-- Frontend `src/**`: `cd frontend && npm run lint && npm run type-check && npm run test` (full suite required even for one-line changes)
-- Cross-app DTO/interface changes: both backend and frontend suites, plus `cd backend && npm run type-check` — an exported DTO or interface whose declaration no longer resolves is exactly what this gate catches
+Follow [AGENTS.md — Change-Scoped Verification](AGENTS.md#change-scoped-verification-required-before-pr) for applicable checks and acceptable CI evidence, and use the [PR template](.github/pull_request_template.md) to record results.
 
 ## Gotchas
 
@@ -119,47 +114,7 @@ jsdom has no layout engine and does not evaluate `@media print`, so **the Vitest
 
 SO/PO print remains covered only by the jsdom suite plus a manual browser pass. `ci.yml` triggers on `pull_request` and `workflow_dispatch` only — there is deliberately no `push` trigger, so **merging never produces a run on `main`**; validating main takes a deliberate `gh workflow run ci.yml --ref main`.
 
-**Statement (P&L / Balance Sheet / Form B) has limited automated visual coverage**: `components/accounting/Statement/` was aligned to the app theme in #1224 — MUI `Paper` frame, theme palette, sticky header, and one right-aligned figure cell per column in place of the integer/fraction split.
-
-The Vitest suite covers structure, not rendering. jsdom has no layout engine, so **decimal alignment, real sticky scrolling, clipping, elevation and font loading are unassertable**. Imported stylesheet rules are stubbed in this setup (Vitest does not inject `statement.css`), so the sticky, `text-align` and `tabular-nums` rules there are invisible to the suite too.
-
-Emotion styles are a different story, and the boundary was **measured**, not
-inferred from the shared pipeline. Probed 2026-09-11 against
-**@mui/material 9.4.0, jsdom 30.0.1, vitest 5.0.0**, each case asserting the
-correct value *and* a deliberately wrong one:
-
-| Applied via | Observable through `toHaveStyle`? |
-|---|---|
-| `sx` on the asserted element itself | **yes** (`MainLayout.test.tsx` reads `sx={{ pt: 11 }}` as `paddingTop: 88px`) |
-| `sx` descendant selector (`'& .stmt-cell-code'`) | **yes** — measured on `Statement` itself: `.stmt-figure-negative` computes `rgb(239, 83, 80)`, `.stmt-cell-code` computes `rgb(189, 189, 189)` |
-| theme `styleOverrides` on a themeable slot | **yes** (`MuiButton` root `paddingTop` computes `88px`) |
-| an imported stylesheet (`statement.css`) | **no** — Vitest does not inject it |
-
-So Statement's themed colours *are* assertable, including the descendant-selector
-ones; the current suite simply does not assert them. What stays out of reach is
-the imported stylesheet and anything needing layout.
-
-Two measurement traps, both of which produced false negatives on the first pass
-here:
-
-- **Render through a `ThemeProvider`.** A component rendered bare computes no
-  themed colour, which reads as "Emotion is unobservable" when it only means the
-  theme was absent.
-- **`toHaveStyle` failing on a wrong value proves nothing by itself.** An element
-  with no rule at all computes `rgb(0, 0, 0)`, so a wrong-colour assertion
-  "fails" there too. Read the actual computed value before concluding a rule did
-  not apply.
-
-An older note (#1098, measured on MUI 9.3.1 / vitest 4.1.10) recorded that a
-pure-`sx` control failed. That does not reproduce on the versions above; treat
-it as superseded rather than as a live constraint.
-
-The browser gate that once covered the rest was removed in #1223 and is not coming back as part of this work. `docs/modules/accounting/STATEMENT_THEME_QA.md` is the substitute — a tracked manual procedure, run by hand, with results recorded in the PR.
-
-Two invariants the suite *cannot* protect, so change them only deliberately:
-
-- **The paren spacer must stay CSS generated content** (`.stmt-paren-spacer::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser. Note that `toHaveTextContent('56,800.00')` is a substring assertion — it would still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
-- **Every figure must render at the same font size.** The bottom line is distinguished by weight and its double rule. A larger bottom-line figure places its decimal separator at a different x position from every other row, which is the exact misalignment the old two-cell split existed to prevent.
+**Statement styling**: Before changing Statement layout, theme styles or visual tests, read [the coverage limits, styling invariants and browser QA procedure](docs/modules/accounting/STATEMENT_THEME_QA.md).
 
 **Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*`, `@modules/*` → `src/modules/*`, `@common/*` → `src/common/*`, `@config/*` → `src/config/*`, and `@database/*` → `src/database/*`.
 
@@ -178,95 +133,15 @@ Both write to `dist/`. `tsconfig.cli.json` includes `src/database/cli/**/*`, so 
 
 Nothing in the normal gate catches it: the source is valid TypeScript, `npm run type-check` passes, and `npm run test` transpiles from `src/` with alias resolution. Only the built artifact is wrong. `backend/scripts/verify-dist-runtime.sh` (`npm run verify:dist`) is the gate — it scans `dist/` for surviving aliases and then loads `dist/main.js` to prove the require graph resolves. It runs inside the Dockerfile after the CLI compile, so a corrupt image fails the build instead of shipping.
 
-Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative imports, never path aliases.** The CLI pass currently reaches 68 `src/` files. Check reach with `npx tsc -p tsconfig.cli.json --noEmit --listFiles`.
+Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative imports, never path aliases.** Check reach with `npx tsc -p tsconfig.cli.json --noEmit --listFiles`.
 
 **Dead-code sweeps**: `maintain.sh do_knip()` wraps `npx knip` in `|| true`, so it always exits 0 and cannot be used as a gate — run `npx knip` directly per directory when you need pass/fail. Knip also reports false positives for backend service methods called by a *sibling service* rather than an HTTP route; grep the method name across `backend/src` before deleting anything.
 
 **Migration baseline**: the chain starts from a single `InitialSchema` genesis migration (#950). `npm run migration:run` works against an empty database, so a new migration can be validated end-to-end locally. Migration failure is fatal — there is no `schema:sync` fallback in the entrypoint or E2E setup. Verify a schema change with `backend/scripts/verify-baseline.sh` and `backend/scripts/verify-seeds.sh`.
 
-**Redis is `noeviction`, and BullMQ requires it**: The Redis instance is the BullMQ queue backing store *only* — no cache, no sessions, despite what older comments claimed. `--maxmemory-policy noeviction` (issue #1036) is a correctness requirement, not a tuning preference: BullMQ has no recovery path for evicted keys, so under an eviction policy Redis can silently drop job hashes, queue state, or scheduler metadata and jobs vanish with no error.
+**Redis operations**: Before adding Redis-backed caching or sessions, changing queue Redis policy, memory sizing or monitoring, or deploying Redis changes, read [the Redis operator runbook](docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md) for rollout gates and evidence limits.
 
-Never add cache or session keys to this instance. Cache workloads want eviction, queue workloads must never be evicted, and the two are irreconcilable on one instance — introducing a cache requires a *separate* Redis service, never a policy revert. `users.module.ts` carries a dormant `CacheModule.register()` that is the concrete way this gets violated.
-
-`--maxmemory-policy` is a start-time flag on the `redis-server` command, so the container must be **recreated** (`docker compose up -d redis`), not merely restarted; a runtime `CONFIG SET` is reverted on the next recreate. The compose files are the source of truth.
-
-*Mandatory pre-rollout baseline capture* — run per environment from the deployment directory (wherever that environment's compose files live), **before** switching the policy. A non-zero `evicted_keys` means eviction has already damaged queue state and must be investigated before any change:
-
-```bash
-redis_password="$(docker compose exec -T backend printenv REDIS_PASSWORD)"
-redis_cli() { docker compose exec -T -e REDISCLI_AUTH="$redis_password" redis redis-cli --raw "$@"; }
-
-redis_cli CONFIG GET maxmemory-policy
-redis_cli INFO memory | grep -E "^used_memory_peak_human:|^maxmemory_human:"
-redis_cli INFO stats | grep -E "^evicted_keys:"   # MUST be 0
-redis_cli INFO keyspace
-```
-
-Extract the password from the container as shown — `$REDIS_PASSWORD` is generally *not* exported in the host shell, and an unset var makes `REDISCLI_AUTH=""` fail with `NOAUTH`. `REDISCLI_AUTH` also keeps the password out of the process argument list, unlike `-a`.
-
-*Verification after rollout* needs a restart-bounded window plus a positive marker — `docker compose logs` retains pre-change history, so a naive grep still finds the old warning, and a backend that fails to start produces an empty window that reads as success:
-
-```bash
-docker compose up -d redis && docker compose restart backend
-docker compose logs backend --since 90s 2>&1 | grep -E "Initialized [0-9]+ backup schedules|Eviction policy"
-```
-
-Pass requires **both**: `Initialized N backup schedules` present (it cannot print unless BullMQ initialized against Redis) and `Eviction policy` absent.
-
-The 256 MiB cap is **retained** (decision recorded 2026-09-05). Local history
-demonstrates persistence across Redis restarts; **production sizing and survival
-across a confirmed deploy remain unverified**, and re-evaluating the cap against
-captured production values is still a mandatory rollout gate, not an optional
-follow-up. Nothing in the local measurement discharges it.
-
-The evidence is one frozen window on the **local development stack only**
-(`instanceId = erp_backend`, `sampledAt < 2026-09-05 00:00:00-07`): 30,667
-samples over 21d 10h, 0 failed, peak `usedBytes` 3,008,424 of 268,435,456 =
-**1.121%**, p95 2,961,160.8, `evictedKeys` and `oomErrors` both 0. Utilization
-is computed from the byte columns; the stored `utilizationPercent` rounds to
-whole percentages (`redis-info.parser.ts:50`) and reads `1.00`.
-
-Two limits on that evidence. Zero counters mean **none observed** — `evicted_keys`
-is inert under `noeviction`, and `oomErrors` lives inside the Redis process, so a
-container OOM kill or Redis restart **can occur without incrementing either
-counter** (the replacement process starts fresh; already-persisted samples and
-alert rows remain). And the window's three sampling gaps identify **sampling
-interruptions**; the restart correlation comes from the retained
-`redis_alert_state` run_id rows, which resolve two of the three to Redis
-restarts. Neither is deployment evidence, so this window spans **zero verified
-deploys**.
-
-The recorded query output is the evidence, not the query: 90-day retention with
-a nightly prune means re-running the bounded query returns fewer rows over time.
-The cap matters more now that `noeviction` makes hitting it a hard `OOM command
-not allowed` failure rather than silent eviction.
-
-`docker-compose.prod.yml` sets the Redis container `limits.memory: 512M` against
-`--maxmemory 256mb` (`reservations.memory: 256M`) — recorded as an unmeasured
-configuration fact, not a defect: Redis needs memory beyond `used_memory` during
-RDB save and AOF rewrite, and this stack runs both. See
-`docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md` for the full measurement,
-the reproduce query, the restart-correlation method and its caveats, and the
-investigation triggers.
-
-**Redis memory monitoring persists to Postgres, never to Redis**: the sampler writes samples (`redis_memory_samples`) and alert state (`redis_alert_state`) through TypeORM; Redis itself is only ever *read* (INFO) by the monitoring module. Alert state is keyed by the Redis `run_id`, so a Redis restart yields a **new** row rather than clearing a watermark — the old row is retained for diagnostics and simply no longer consulted. Samples are keyed by `MONITORING_INSTANCE_ID`, which **must be stable across restarts and unique per running sampler** (compose pins `erp_backend`; `HOSTNAME` is the container ID and changes on recreation). The `bigint` columns on these tables need `SafeIntegerTransformer` (`safe-integer.transformer.ts`), which throws rather than silently truncating values past `MAX_SAFE_INTEGER`.
-
-The detail route also returns `windowStats` — an **exact** aggregate over the
-full filtered window, computed in SQL and grouped by instance. It exists because
-`samples` is capped at `REDIS_DETAIL_MAX_ROWS` (5000) and newest-anchored: at the
-60s interval a 7-day request returns roughly the newest 3.5 days, so any peak
-computed from `samples` describes that slice, not the window. Read peaks from
-`windowStats`, never from `samples`. Counter deltas there are the **sum of
-positive consecutive increases**, not `max - min`, which is wrong in both
-directions across a `CONFIG RESETSTAT`; `delta: null` means fewer than two
-comparable readings and is distinct from a measured `0`. `/settings/redis-monitoring`
-renders this.
-
-**Cross-file type errors need `npm run type-check`**: `npm run test` uses per-file ts-jest transpilation and will not catch cross-file declaration errors (e.g. TS4053, a public method whose inferred return type names a non-exported interface). Before issue #1039 those surfaced first at `docker compose build backend`, after every pre-PR gate had passed; `cd backend && npm run type-check` is now a required backend gate and runs in CI ahead of the unit tests.
-
-It compiles `tsconfig.build.json` — the config `nest build` uses — deliberately, so the gate mirrors the image build that would otherwise be the first failure. That config uses `include: ["src"]`, so the 120 spec files under `src/` **are** type-checked and spec type errors **do** fail this gate; only the specs under `test/` are excluded.
-
-**The test sources have their own gate — `npm run type-check:spec`** (#1262). Nothing compiled the test sources before it — `type-check` excludes them by `include`, and ts-jest transpiles per file without cross-file declaration checking — so nine errors accumulated there invisibly. It runs `tsconfig.spec.json`, which is ts-jest's transform config, so the gate checks `test/**` and additionally re-checks `src/**` under the test TypeScript configuration (esnext module, bundler resolution, `isolatedModules`) rather than the build one. It is a **step** on the existing `Backend - Lint, Type Check, Unit Tests, E2E Tests` job, deliberately not a new job: ruleset 15609777 matches required checks by job-name string, so a new job would block every open PR until the ruleset was updated too.
+**Backend type-checking**: See [AGENTS.md](AGENTS.md#change-scoped-verification-required-before-pr) for build/test configuration coverage and applicable checks.
 
 **Jest runs in ESM mode; `transformIgnorePatterns` no longer exists**: the backend test suite runs under `NODE_OPTIONS=--experimental-vm-modules` with `extensionsToTreatAsEsm: [".ts"]` and ts-jest `useESM: true` (transform config: `tsconfig.spec.json`, which is test-only and isolated from the build configs). All three configs (unit in `package.json`, `test/jest-e2e.json`, `test/jest-redis.json`) share this shape. The old `transformIgnorePatterns` allowlist — thirteen packages led by the `sanitize-html` ESM cluster — was deleted: it is obsolete in ESM mode. The CJS workaround could not have been extended to NestJS 12 anyway, which uses `import.meta`, invalid in CommonJS — allowlisting fails one level deeper with `SyntaxError: Cannot use 'import.meta' outside a module`.
 
@@ -363,106 +238,9 @@ drift rather than at the reuse check.
 The gate is nightly and on-demand, **not** a required check — it runs the full
 e2e suite twice.
 
-**ioredis is 6.x and RESP2 is pinned deliberately (#1069)**: ioredis 6 defaults to `protocol: 3` (RESP3) where 5.x used RESP2. Every Redis client in this codebase passes **`protocol: 2`**, and that is a correctness pin, not leftover scaffolding.
+**BullMQ and backup schedulers**: Before upgrading Redis clients or BullMQ, investigating scheduler warnings or reconciling orphaned entries, read [the scheduler runbook](docs/deployment/BULLMQ_SCHEDULER_RUNBOOK.md) for protocol pins, migration history and remediation safeguards.
 
-Reply shapes are protocol-dependent, and the failure mode is silent rather than loud. From ioredis 6's own typings, `zrange` returns `RespShape<Resp2<string[]>, Resp3<[member, score][]>>` — a flat `[member, score, member, score]` array under RESP2, an array of pairs under RESP3. `backup.service.ts` walks that reply as a flat array, so under RESP3 it would mis-parse rather than throw. BullMQ 6.1.1 declares `ioredis: >=5.0.0` but pins `5.11.1` as its devDependency: the range is permissive, not evidence RESP3 was tested against the queue layer. Combined with the fact that this Redis is the BullMQ queue backing store (see the `noeviction` note above), an untested protocol switch risks exactly the silent queue-state damage that section is about.
-
-The load-bearing pin is in **`createBullOptions()`** (`config/bull-options.factory.ts`). BullMQ derives its blocking and QueueEvents connections from those options via `duplicate()`, so that one line covers every queue connection — pinning only the directly-constructed clients would not. The three diagnostic clients (`app.service.ts`, `redis-memory-sampler.service.ts`, `backup.service.ts`) set it individually, as does the `connection` in `test/orphaned-scheduler-reconciliation.redis-spec.ts` so the real-Redis gate exercises production's protocol.
-
-Adopting RESP3 is its own change, not a cleanup: it means removing the pins **and** re-verifying every raw reply read (`INFO` parsing in the sampler and `backup.service.ts`, and the `zrange`/`hgetall` paths in the backup snapshot). `bull-options.factory.spec.ts` asserts the pin directly so dropping it fails with a message about the protocol instead of an incidental diff. Verify a live stack with `redis_cli CLIENT LIST` — every connection should report `resp=2`.
-
-Two related v6 details: TypeORM 1.1.0 declares `peerOptional ioredis@^5.0.4`, which `npm install` tolerates but `npm prune --omit=dev` in the Dockerfile rejects — hence the `overrides.typeorm.ioredis: "$ioredis"` entry, which must survive future bumps. And v6 types `zrange`'s `stop` argument as `string | Buffer` (only `start` takes a number), so `-1` must be passed as `'-1'`; `npm run type-check` catches this.
-
-**BullMQ v5→v6 migration: complete (#1033)**. `removeLegacyRepeatables()` and the three v5-migration tests were removed once the gate passed — no environment held a blocking entry (a bare-hex member with no `ic` field). Nothing in the codebase cleans up v5 repeatables any more, so a v5 process must never write to this Redis again.
-
-`bullmq-v5` (`npm:bullmq@5.81.3`) **was retired in #1050** and is no longer a backend devDependency. Earlier revisions of this file said to keep it; that guidance is superseded. `test/orphaned-scheduler-reconciliation.redis-spec.ts` now seeds its own fixtures:
-
-- Scheduler-format orphans (`ic` present, bare-hex member) use **v6**'s `upsertJobScheduler` with the id passed explicitly — v6 forwards it verbatim, so the on-disk shape is identical.
-- The **non-`ic` legacy repeatable**, which v6 has no code path to write, is hand-rolled with raw `zadd`/`hset` in `seedLegacyRepeatable()`.
-
-That legacy shape was **captured byte-for-byte from a real `bullmq@5.81.3` `Queue.add(..., { repeat: { pattern } })`** against Redis 8.6.2 while the alias was still installed, then asserted to match — not reconstructed from documentation. The captured shape is recorded in the helper's docblock. One detail that a from-memory reconstruction gets wrong: the metadata hash `repeat:<member>` holds **only `{name, pattern}`** — there is no `data` field on it. The `scheduleId` lives on the *delayed job* hash `repeat:<member>:<millis>`. The reconciler's `ic` check (`orphaned-scheduler-reconciler.service.ts:125`) short-circuits before its `data` read, which is why the legacy entry is skipped rather than misclassified.
-
-The unit tests mock `hexists`, so they cannot catch an inverted `ic` check — `npm run test:redis` is the only thing that does. It is on CI's critical path. **`Tests: 0 total` there is a failure, not a pass**: a suite that fails to load reports zero and looks green to a careless reading, though Jest's own exit code does catch it (see the zero-discovery note in the Jest ESM section above). Verified by inverting the `ic` discriminator, which turns the legacy test red at the `legacySkipped` assertion.
-
-**`test:redis` requires an explicit opt-in** (#1190). `scripts/preflight-redis-test.sh` aborts unless `REDIS_TEST_ALLOW_WRITES=1`, *before* it opens any connection — so a run pointed at the wrong endpoint never touches it:
-
-```bash
-REDIS_TEST_ALLOW_WRITES=1 npm run test:redis
-```
-
-The address cannot express what matters. `REDIS_TEST_PORT` defaulting to 6399 is a convention, not a guard: the app's Redis can run on any port, and CI deliberately points this suite at 6379 (its own ephemeral service container, where `ci.yml` sets the opt-in). Only an affirmative opt-in keeps a default configuration from writing to an instance nobody provisioned for the suite.
-
-The suite does **not** flush: it writes under a unique `test-bullmq-<ts>-<rand>` prefix and deletes `${prefix}:*` in teardown. So the exposure from a mis-pointed run is stray keys under a random prefix, not destroyed schedulers — but an interrupted run leaves them behind, and this Redis is `noeviction`, so nothing reclaims them. Point it only at a Redis you are willing to lose.
-
-If a `Legacy (non-scheduler) repeat entry` warning ever appears at boot, an environment is holding pre-v6 state that predates the removal. BullMQ 6 cannot remove it safely — `removeJobScheduler` would delete its metadata but leave the delayed occurrence live — so it needs BullMQ 5's `removeRepeatableByKey`.
-
-**Orphaned backup-queue repeat entries (report-only)**: `BackupSchedulerService.reportOrphanedSchedulers()` runs last in `initializeSchedules()` and `logger.warn`s any `bull:backup-queue:repeat` member whose `data.scheduleId` has no `backup_schedules` row (issue #1035). It **never deletes** — making Redis contents depend on a DB read means a transient read failure or a partially-migrated deploy could destroy live schedulers. Keep it free of mutating calls; auto-reconciliation is a separate design discussion that needs explicit safeguards. The whole body is wrapped in a catch-all because a diagnostic must never fail boot. It survived the v5→v6 retirement in #1033, which is why it was written as a sibling method rather than folded into that scan. Entries with no `data`, unparseable JSON, or a non-string/empty `scheduleId` are logged as *unclassifiable*, never as orphans.
-
-Remediate a reported orphan with the CLI, which is dry-run by default:
-
-```bash
-docker compose exec -T backend npm run backup:reconcile-schedulers            # report only
-docker compose exec -T backend npm run backup:reconcile-schedulers -- --execute
-```
-
-It scans `bull:backup-queue:repeat`, classifies each `ic` (scheduler-format)
-entry against `backup_schedules`, and removes only confirmed orphans via
-`removeJobScheduler(<bare member>)` — **never `ZREM`**, which strips the ZSET
-member but leaves `repeat:<member>:<millis>` live in `bull:backup-queue:delayed`
-with no metadata.
-
-Guards, all fail-safe toward keeping the entry:
-
-- A failed DB read aborts before any removal.
-- If every classifiable entry looks orphaned (zero confirmed live rows), it
-  aborts — that is indistinguishable from a broken read. Override with
-  `--execute --allow-empty` only when you intend to remove every remaining
-  scheduler (e.g. you deleted the last schedule).
-- Non-`ic` legacy entries are never touched. Nothing removes that class any
-  more (#1033); they need BullMQ 5's `removeRepeatableByKey`.
-- Do not run it during a deploy window.
-
-A mid-run failure stops immediately and reports which entries were already
-removed. Nothing is rolled back — re-run to finish.
-
-```bash
-redis_cli ZRANGE bull:backup-queue:repeat 0 -1 WITHSCORES
-redis_cli HGETALL bull:backup-queue:repeat:<member>     # read data.scheduleId
-redis_cli ZRANGE bull:backup-queue:delayed 0 -1
-docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  -c "SELECT id FROM backup_schedules WHERE id = '<scheduleId>';"   # 0 rows ⇒ orphan
-```
-
-Then remove it, closing the queue so the command exits instead of hanging on the open connection:
-
-```bash
-docker compose exec -T backend node -e '
-const { Queue } = require("bullmq");
-const q = new Queue("backup-queue", { connection: {
-  host: process.env.REDIS_HOST, port: +process.env.REDIS_PORT,
-  password: process.env.REDIS_PASSWORD } });
-q.removeJobScheduler(process.argv[1])
-  .then((r) => console.log("removed:", r))
-  .finally(() => q.close());
-' <member>
-```
-
-On BullMQ 6.1.0 the public API returns a **boolean**: `removed: true` on success, `false` if the member was already absent. (The underlying `removeJobScheduler-3.lua` still returns `0`/`1` with `0` meaning removed, but the TypeScript wrapper inverts it — read the boolean, not the Lua convention. Verified against 6.1.0 in `backend/test/orphaned-scheduler-reconciliation.redis-spec.ts`; earlier revisions of this file documented the Lua numbers, which was wrong for v6 and inverted the pass/fail reading.) Re-run the preflight to verify: the member is gone from `repeat`, and its `repeat:<member>:<millis>` occurrence is gone from `delayed`.
-
-
-**Bank Reconciliation (#1342)**: tables use the prefix `bank_statement_reconciliation`. `bank_reconciliations` and `reconciled_transactions` are the *legacy* names from the removed implementation; the migration aborts if either exists, and nothing may create them.
-
-**Reservations live in one place.** `UQ_bsr_line_journal_line`, a plain unique index on `bank_statement_reconciliation_lines."journalEntryLineId"`, is the only thing that reserves a journal line. Version lines are a snapshot and reserve nothing — the same journal line is legitimately `OUTSTANDING` in one reconciliation's version and `MATCHED` in a later one. Working lines and setup marks are hard-deleted, never `softDelete`d.
-
-**Six functions, eight triggers and one foreign key exist only in the migration** (`1791044381374-AddBankStatementReconciliations.ts`): the `bsr_*` functions, the `trg_bsr_*` triggers, and `FK_bsr_current_version` — `(id, "currentVersionNo")` → `bank_statement_reconciliation_versions ("reconciliationId", "versionNo")`, `ON DELETE RESTRICT`. TypeORM cannot express triggers; keeping the composite FK out of the entities was a choice. `verify-baseline.sh` therefore sees them as differences: `ALLOWLIST=migration-indexes npm run verify:baseline` allows exactly those fifteen objects by name and then checks each one in the catalog (trigger table, enabled state and deferrability; the FK's columns, referenced columns and delete rule). A new migration-only object needs both halves extended.
-
-**Version rows cannot be updated or deleted, and there is no bypass.** `trg_bsr_version_guard` and `trg_bsr_version_line_guard` reject it in every session; a version is writable only until `sealedAt` is set, and `trg_bsr_version_sealed_at_commit` (a deferred constraint trigger) fails any commit that leaves one unsealed. No session variable or role switch turns this off. Tests remove their rows through `removeSuiteBankReconciliations` (`backend/test/utils/bank-reconciliation-fixture.ts`), which disables the eight triggers with `ALTER TABLE … DISABLE TRIGGER` inside one transaction and re-enables them before commit. Nothing under `src/` may do this. Call it *before* deleting journal rows: the journal-line FKs are `RESTRICT`.
-
-**Account lock rule.** Every reconciliation write first takes `FOR NO KEY UPDATE` on the bank account's `chart_of_account` row (`lockBankAccount`, `bank-reconciliation.locks.ts`), then the header row, then working lines in ascending `journalEntryLineId`. `FOR NO KEY UPDATE` is deliberate: it does not conflict with the key-share lock a `journal_entry_line` insert takes, so postings are not blocked — `FOR UPDATE` would block them. No reconciliation path, including helpers it calls, may lock `accounting_settings` (`withBalanceSheetConfigLock`) after the account lock; the account update path takes those two in the opposite order.
-
-**Error details ride inside `message`.** Reconciliation conflicts that carry data are thrown as `ConflictException({ message: { text, ...details } })`, the provider-settlement stale-conflict shape. The global exception filter forwards only `message`; do not widen it to copy other keys. The frontend reads `text` through `reconciliationErrorMessage`, because `rtkErrorMessage` only understands string messages.
-
-**Unsaved form drafts are in `sessionStorage`** (statement balances and selected amounts, keyed by user and reconciliation). `applyPreview` must return the *same* state object when nothing changed — the form compares `matched` by reference to decide whether to preview again, and a fresh-but-equal object re-requests forever. `useClearReconciliationDraftsOnSignOut` in `RootLayout` removes them from a tab whenever that tab is not signed in (sign-out, or a restored tab whose session is gone). It cannot reach other tabs: `sessionStorage` is per tab and sign-out is not synchronised between tabs, so a second open tab keeps its drafts until it signs out or closes — and browser QA showed that tab can stay signed in after the other tab's sign-out. `docs/modules/accounting/BANK_RECONCILIATION_DRAFT_STORAGE_ASSESSMENT.md` records this and the open CodeQL alert.
+**Bank Reconciliation**: Before changing reconciliation persistence, locking, conflicts or form drafts, read [the implementation invariants](docs/modules/accounting/BANK_RECONCILIATION_REFERENCE.md).
 
 ## Agent skills
 

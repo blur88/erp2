@@ -8,31 +8,50 @@ Balance Sheet (`/accounting/balance-sheet`) and the Form B tax view.
 **The instructions themselves live here, in version control**, so they are
 reviewable in a PR and survive the local working copy.
 
-## Why this document exists
+## Automated coverage and styling invariants
 
-jsdom has no layout engine, so rendered geometry — decimal alignment, real
-sticky scrolling, clipping, elevation and font loading — cannot be asserted.
-Imported stylesheet rules are stubbed in this setup as well: Vitest does not
-inject `statement.css`, so its sticky, `text-align` and `tabular-nums` rules
-never reach `getComputedStyle`.
+**Statement (P&L / Balance Sheet / Form B) has limited automated visual coverage**: `components/accounting/Statement/` was aligned to the app theme in #1224 — MUI `Paper` frame, theme palette, sticky header, and one right-aligned figure cell per column in place of the integer/fraction split.
 
-Emotion styles behave differently: MUI `sx` DOES reach
-`getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 (see
-`MainLayout.test.tsx:40`); theme `styleOverrides` use the same Emotion
-pipeline. Theme colours applied via `sx` are assertable; the Statement suite
-does not rely on that.
+The Vitest suite proves structure and themed `sx` values only: one cell per figure, a single `amountHook` node, the complete signed accessible value, row-kind classes, and header cells present. jsdom has no layout engine, so **decimal alignment, real sticky scrolling, clipping, elevation and font loading are unassertable**. Imported stylesheet rules are stubbed in this setup (Vitest does not inject `statement.css`), so the sticky, `text-align` and `tabular-nums` rules there are invisible to the suite too.
 
-The Vitest suite therefore proves **structure and themed `sx` values only**:
-one cell per figure, a single `amountHook` node, the complete signed
-accessible value, row-kind classes, header cells present.
+Emotion styles are a different story, and the boundary was **measured**, not
+inferred from the shared pipeline. Probed 2026-09-11 against
+**@mui/material 9.4.0, jsdom 30.0.1, vitest 5.0.0**, each case asserting the
+correct value *and* a deliberately wrong one:
 
-It proves nothing about alignment, stickiness, clipping or font loading.
-Every check below is outside its reach. There is no Playwright
-infrastructure in this repo (removed in #1223) and restoring it was
-deliberately excluded from #1224.
+| Applied via | Observable through `toHaveStyle`? |
+|---|---|
+| `sx` on the asserted element itself | **yes** (`MainLayout.test.tsx` reads `sx={{ pt: 11 }}` as `paddingTop: 88px`) |
+| `sx` descendant selector (`'& .stmt-cell-code'`) | **yes** — measured on `Statement` itself: `.stmt-figure-negative` computes `rgb(239, 83, 80)`, `.stmt-cell-code` computes `rgb(189, 189, 189)` |
+| theme `styleOverrides` on a themeable slot | **yes** (`MuiButton` root `paddingTop` computes `88px`) |
+| an imported stylesheet (`statement.css`) | **no** — Vitest does not inject it |
 
-**Run these in a real browser, in the dark theme, and record the results in
-the PR.**
+So Statement's themed colours *are* assertable, including the descendant-selector
+ones; the current suite simply does not assert them. What stays out of reach is
+the imported stylesheet and anything needing layout.
+
+Two measurement traps, both of which produced false negatives on the first pass
+here:
+
+- **Render through a `ThemeProvider`.** A component rendered bare computes no
+  themed colour, which reads as "Emotion is unobservable" when it only means the
+  theme was absent.
+- **`toHaveStyle` failing on a wrong value proves nothing by itself.** An element
+  with no rule at all computes `rgb(0, 0, 0)`, so a wrong-colour assertion
+  "fails" there too. Read the actual computed value before concluding a rule did
+  not apply.
+
+An older note (#1098, measured on MUI 9.3.1 / vitest 4.1.10) recorded that a
+pure-`sx` control failed. That does not reproduce on the versions above; treat
+it as superseded rather than as a live constraint.
+
+The browser gate that once covered the rest was removed in #1223. Restoring Playwright was deliberately excluded from #1224. This document is the substitute — a tracked manual procedure, run by hand, with results recorded in the PR.
+
+The suite cannot protect the CSS spacer invariant below or the figure font-size invariant in [ST-12](#st-12--figure-font-size-uniformity-1228); change them only deliberately:
+
+- **The paren spacer must stay CSS generated content** (`[data-role="paren-spacer"]::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser. Note that `toHaveTextContent('56,800.00')` is a substring assertion — it would still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
+
+**Run the checks below in a real browser, in the dark theme, and record the results in the PR.**
 
 ## Preparation
 
@@ -131,8 +150,8 @@ There should be no sense of two different palettes on screen.
 
 - Negative figures are in parentheses, in the themed negative colour.
 - Subtotal rows keep a hairline above the figure only.
-- The bottom line keeps its heavier double rule and stronger weight — and is
-  the **same font size** as every other figure.
+- The bottom line keeps its heavier double rule and stronger weight; verify
+  figure sizing with [ST-12](#st-12--figure-font-size-uniformity-1228).
 - Section hierarchy and indentation are unchanged.
 - Zero rows are muted but still visible.
 - Drill-down links (P&L, Balance Sheet expanded accounts) are visible,
@@ -213,8 +232,7 @@ row would scroll away and leave the labels floating over the data.
 **Why it matters:** a larger bottom-line figure places its decimal separator at
 a different x position from every other row — the exact misalignment the old
 two-cell integer/fraction split existed to prevent. The bottom-line *label* may
-be larger (`1rem`); the *figure* may not. CLAUDE.md records this as an
-invariant the suite cannot protect.
+be larger (`1rem`); the *figure* may not. The suite cannot protect this invariant.
 
 ## ST-13 — Paren alignment across the sign boundary (#1228)
 
