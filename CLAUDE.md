@@ -34,7 +34,7 @@ cd backend && NODE_OPTIONS=--experimental-vm-modules npx jest src/path/to/file.s
 # Run backend e2e tests
 cd backend && npm run test:e2e
 
-# Run all frontend tests
+# Run all frontend tests (can be slow; do not assume the run is hung)
 cd frontend && npm run test
 
 # Run a single frontend test file (path relative to frontend/)
@@ -141,11 +141,7 @@ Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative i
 
 **Redis operations**: Before adding Redis-backed caching or sessions, changing queue Redis policy, memory sizing or monitoring, or deploying Redis changes, read [the Redis operator runbook](docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md) for rollout gates and evidence limits.
 
-**Cross-file type errors need `npm run type-check`**: `npm run test` uses per-file ts-jest transpilation and will not catch cross-file declaration errors (e.g. TS4053, a public method whose inferred return type names a non-exported interface). Before issue #1039 those surfaced first at `docker compose build backend`, after every pre-PR gate had passed; `cd backend && npm run type-check` catches these errors and runs in CI ahead of the unit tests; see AGENTS.md for when it applies.
-
-It compiles `tsconfig.build.json` — the config `nest build` uses — deliberately, so the gate mirrors the image build that would otherwise be the first failure. That config uses `include: ["src"]`, so spec files under `src/` **are** type-checked and spec type errors **do** fail this gate; only the specs under `test/` are excluded.
-
-**The test sources have their own gate — `npm run type-check:spec`** (#1262). Nothing compiled the test sources before it — `type-check` excludes them by `include`, and ts-jest transpiles per file without cross-file declaration checking — so nine errors accumulated there invisibly. It runs `tsconfig.spec.json`, which is ts-jest's transform config, so the gate checks `test/**` and additionally re-checks `src/**` under the test TypeScript configuration (esnext module, bundler resolution, `isolatedModules`) rather than the build one. It is a **step** on the existing `Backend - Lint, Type Check, Unit Tests, E2E Tests` job, deliberately not a new job: ruleset 15609777 matches required checks by job-name string, so a new job would block every open PR until the ruleset was updated too.
+**Backend type-checking**: See [AGENTS.md](AGENTS.md#change-scoped-verification-required-before-pr) for build/test configuration coverage and applicable checks.
 
 **Jest runs in ESM mode; `transformIgnorePatterns` no longer exists**: the backend test suite runs under `NODE_OPTIONS=--experimental-vm-modules` with `extensionsToTreatAsEsm: [".ts"]` and ts-jest `useESM: true` (transform config: `tsconfig.spec.json`, which is test-only and isolated from the build configs). All three configs (unit in `package.json`, `test/jest-e2e.json`, `test/jest-redis.json`) share this shape. The old `transformIgnorePatterns` allowlist — thirteen packages led by the `sanitize-html` ESM cluster — was deleted: it is obsolete in ESM mode. The CJS workaround could not have been extended to NestJS 12 anyway, which uses `import.meta`, invalid in CommonJS — allowlisting fails one level deeper with `SyntaxError: Cannot use 'import.meta' outside a module`.
 
@@ -244,7 +240,7 @@ e2e suite twice.
 
 **BullMQ and backup schedulers**: Before upgrading Redis clients or BullMQ, investigating scheduler warnings or reconciling orphaned entries, read [the scheduler runbook](docs/deployment/BULLMQ_SCHEDULER_RUNBOOK.md) for protocol pins, migration history and remediation safeguards.
 
-**Bank Reconciliation**: Before changing reconciliation persistence, locking, conflicts or form drafts, read [the implementation invariants and QA procedure](docs/modules/accounting/BANK_RECONCILIATION_QA.md#implementation-invariants). Before deployment, read [the deployment gate](docs/deployment/BANK_RECONCILIATION_DEPLOY_GATE.md).
+**Bank Reconciliation**: Before changing reconciliation persistence, locking, conflicts or form drafts, read [the implementation invariants](docs/modules/accounting/BANK_RECONCILIATION_REFERENCE.md).
 
 ## Agent skills
 

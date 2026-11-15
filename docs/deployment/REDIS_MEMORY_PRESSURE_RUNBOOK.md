@@ -301,7 +301,7 @@ eviction can silently drop job hashes or queue state.
 
 **Decision: retain 256 MiB.** Local history demonstrates persistence across
 Redis restarts; **production sizing and survival across a confirmed deploy
-remain unverified.** The mandatory production measurement in the rollout procedure below is
+remain unverified.** The mandatory production measurement in the [rollout procedure above](#queue-policy-and-rollout-verification) is
 **not** discharged by this section and remains required unconditionally.
 
 Evidence is one frozen window from the **local development stack only**, upper

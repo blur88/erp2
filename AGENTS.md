@@ -28,6 +28,7 @@ Primary language is TypeScript.
 - Use 2-space indentation and keep imports organized by feature/domain.
 - Naming: `PascalCase` for React components/classes, `camelCase` for variables/functions, `kebab-case` for filenames where established.
 - Keep DTOs/entities/services grouped by module in backend.
+- Follow [CODING_STANDARDS.md](CODING_STANDARDS.md) for shell scripts, GitHub Actions logic and build-time code.
 
 ## Testing Guidelines
 - Backend: Jest (`*.spec.ts`) and e2e under `backend/test/e2e`.
@@ -35,12 +36,12 @@ Primary language is TypeScript.
 - Add or update tests for any behavior change.
 
 ## Change-Scoped Verification (Required Before PR)
-This section is the single source of truth for pre-PR verification. Select checks from the files touched; combine applicable rows and run each command only once. Documentation-only changes do not require application tests or type-checks.
+This section is the single source of truth for pre-PR verification. Select checks from the files touched; combine applicable rows and run each command only once.
 
 | Files changed | Required commands (from repository root) |
 |---|---|
-| Backend source (`backend/src/**`) | `cd backend && npm run lint && npm run type-check && npm run test && npm run test:e2e` |
-| Backend test sources (`backend/test/**`) | `cd backend && npm run type-check:spec && npm run test && npm run test:e2e` |
+| Backend source (`backend/src/**`) | `cd backend && npm run lint && npm run type-check && npm run test` |
+| Backend test sources (`backend/test/**`) | `cd backend && npm run type-check:spec`; run `cd backend && npm run test` for unit-test changes and `cd backend && npm run test:e2e` for e2e-test changes |
 | Backend entities or migrations | Backend source checks, plus `cd backend && npm run migration:run && npm run test:e2e` |
 | Frontend source (`frontend/src/**`) | `cd frontend && npm run lint && npm run type-check && npm run test:coverage` |
 | Cross-app contracts (API DTOs/interfaces used by both apps) | `cd backend && npm run type-check && npm run test`; `cd frontend && npm run test:coverage`; also apply source checks for each app touched |
@@ -49,7 +50,9 @@ Backend `type-check` compiles `tsconfig.build.json` with `include: ["src"]`; it 
 
 Frontend `npm run test:coverage` executes the complete test suite with coverage instrumentation, satisfying both frontend `test` and `test:coverage` requirements in one run. A successful full-suite `test:coverage` CI run on the PR's current head commit satisfies both requirements; do not repeat the same suite locally solely for documentation or review.
 
-Completed successful CI evidence may satisfy the corresponding applicable commands. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence. Keep the PR in draft while required checks are running; a PR ready for review must not describe required verification as "in progress".
+E2E verification is required for backend entity/migration changes and e2e-test changes; ordinary backend source changes retain the source checks above. This resolves the former blanket testing list in favor of checks justified by the affected code.
+
+Completed successful CI evidence may satisfy the corresponding applicable commands. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence.
 
 ## Commit & Pull Request Guidelines
 Git history follows Conventional Commit style:
@@ -57,12 +60,7 @@ Git history follows Conventional Commit style:
 
 Commit messages and PR bodies must not contain AI attribution lines.
 
-PRs should include:
-- Clear summary and impacted modules.
-- Linked issue/ticket.
-- Test evidence (commands run and results).
-- UI screenshots for frontend changes.
-- Notes for migrations/env changes when applicable.
+Use the [PR template](.github/pull_request_template.md) for the summary, related issue, verification evidence, screenshots and migration/environment notes.
 
 ## Security & Configuration Tips
 - Never commit real secrets; copy from `.env.example`.

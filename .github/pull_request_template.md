@@ -14,11 +14,9 @@ For CI evidence:
 2. Retrieve results: gh pr checks --json name,state,bucket,link,workflow
 3. Confirm each linked run tested that head SHA and the applicable command completed successfully.
    Recheck the head after collecting evidence; discard evidence invalidated by new commits.
-Record the actual CI commands, conclusions and links below. Older commits, incomplete runs,
-and unrelated checks do not satisfy requirements. Include test counts only when explicitly
-available in reliable CI output or artifacts; never estimate counts or claim a pass without
-completed evidence. A successful full-suite frontend test:coverage run on the current head
-satisfies both test and test:coverage; no duplicate local run is needed. -->
+Record the actual CI commands, conclusions and links below, following AGENTS.md's evidence
+rules. Include test counts only when explicitly available in reliable CI output or artifacts;
+never estimate counts or claim a pass without completed evidence. -->
 
 PR head SHA (when citing CI):
 
