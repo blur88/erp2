@@ -50,7 +50,7 @@ Backend `type-check` compiles `tsconfig.build.json` with `include: ["src"]`; it 
 
 Frontend `npm run test:coverage` executes the complete test suite with coverage instrumentation, satisfying both frontend `test` and `test:coverage` requirements in one run. A successful full-suite `test:coverage` CI run on the PR's current head commit satisfies both requirements; do not repeat the same suite locally solely for documentation or review.
 
-E2E verification is required for backend entity/migration changes and e2e-test changes; ordinary backend source changes retain the source checks above. This resolves the former blanket testing list in favor of checks justified by the affected code.
+E2E verification is required for backend entity/migration changes and e2e-test changes; ordinary backend source changes retain the source checks above.
 
 Completed successful CI evidence may satisfy the corresponding applicable commands. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence.
 
