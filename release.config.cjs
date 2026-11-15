@@ -123,27 +123,6 @@ module.exports = {
         writerOpts: { transform, finalizeContext },
       },
     ],
-    [
-      '@semantic-release/npm',
-      {
-        pkgRoot: 'backend',
-        npmPublish: false,
-      },
-    ],
-    [
-      '@semantic-release/npm',
-      {
-        pkgRoot: 'frontend',
-        npmPublish: false,
-      },
-    ],
-    [
-      '@semantic-release/git',
-      {
-        assets: ['backend/package.json', 'frontend/package.json'],
-        message: 'chore(release): ${nextRelease.version} [skip ci]',
-      },
-    ],
     '@semantic-release/github',
   ],
 };

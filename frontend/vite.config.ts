@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config'
 import { createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { resolveAppVersion } from './src/config/app-version.ts'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -30,7 +31,7 @@ export default defineConfig(({ mode }) => {
     customLogger: isVitest ? vitestLogger : undefined,
     plugins: isVitest ? [] : [react()],
     define: {
-      __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0'),
+      __APP_VERSION__: JSON.stringify(resolveAppVersion(process.env)),
     },
     resolve: {
       alias: {
