@@ -7,7 +7,14 @@ That unauthenticated response contained target, enforcement, conditions and rule
 the workflow uses only the built-in `GITHUB_TOKEN` with `contents: read` (and
 GitHub's implicit metadata read access). No admin credential is needed.
 
-The comparison sorts object keys and unordered arrays, ignores response metadata,
+Historical token-access evidence: the [probe in run 43743444140](https://github.com/blur88/erp2/actions/runs/43743444140)
+from closed PR #1901 successfully returned all four required fields on 2026-11-15
+using `GH_TOKEN: ${{ github.token }}` with `Contents: read` and `Metadata: read`.
+The overall run was cancelled. This proves that probe's access, not current-head
+CI success or execution of this new scheduled workflow; its first run after merge
+still needs inspection.
+
+The comparison sorts object keys and all arrays (treated as unordered configuration sets), ignores response metadata,
 and retains rule parameters, including required check contexts and integration IDs.
 Missing required fields fail validation rather than silently producing a baseline.
 A changed configuration fails the run and prints a unified diff. An API access

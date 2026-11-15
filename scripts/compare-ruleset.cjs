@@ -1,3 +1,5 @@
+'use strict';
+
 // Normalize and compare observable repository ruleset configuration (#1898).
 const { readFileSync, mkdtempSync, writeFileSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
@@ -18,19 +20,26 @@ function canonical(value) {
   return value;
 }
 
-function normalize(path) {
-  const data = JSON.parse(readFileSync(path, 'utf8'));
+function observableConfiguration(data, path) {
   if (typeof data.target !== 'string' || typeof data.enforcement !== 'string' ||
       !data.conditions || typeof data.conditions !== 'object' || Array.isArray(data.conditions) ||
-      !Array.isArray(data.rules) || data.rules.some(rule => typeof rule.type !== 'string')) {
+      !Array.isArray(data.rules) || data.rules.some(rule => !rule || typeof rule.type !== 'string' ||
+        (rule.type === 'required_status_checks' &&
+          (!Array.isArray(rule.parameters?.required_status_checks) ||
+            rule.parameters.required_status_checks.some(check => !check || typeof check.context !== 'string'))))) {
     throw new Error(`Missing required observable ruleset fields in ${path}; stop and report the access limitation on #1898`);
   }
-  return JSON.stringify(canonical({
+  return {
     target: data.target,
     enforcement: data.enforcement,
     conditions: data.conditions,
     rules: data.rules,
-  }), null, 2) + '\n';
+  };
+}
+
+function normalize(path) {
+  const data = JSON.parse(readFileSync(path, 'utf8'));
+  return JSON.stringify(canonical(observableConfiguration(data, path)), null, 2) + '\n';
 }
 
 try {
@@ -42,9 +51,9 @@ try {
     const expected = normalize(args[0]);
     const actual = normalize(args[1]);
     if (expected === actual) {
-      console.log('Ruleset 15609777 matches the reviewed baseline.');
+      console.log('Ruleset matches the reviewed baseline.');
     } else {
-      console.error('::error::Ruleset 15609777 drift detected. Review the configuration diff; the baseline has not been changed.');
+      console.error('::error::Ruleset drift detected. Review the configuration diff; the baseline has not been changed.');
       const dir = mkdtempSync(join(tmpdir(), 'ruleset-diff-'));
       try {
         writeFileSync(join(dir, 'baseline'), expected);
