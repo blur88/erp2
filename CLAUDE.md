@@ -449,7 +449,6 @@ q.removeJobScheduler(process.argv[1])
 
 On BullMQ 6.1.0 the public API returns a **boolean**: `removed: true` on success, `false` if the member was already absent. (The underlying `removeJobScheduler-3.lua` still returns `0`/`1` with `0` meaning removed, but the TypeScript wrapper inverts it — read the boolean, not the Lua convention. Verified against 6.1.0 in `backend/test/orphaned-scheduler-reconciliation.redis-spec.ts`; earlier revisions of this file documented the Lua numbers, which was wrong for v6 and inverted the pass/fail reading.) Re-run the preflight to verify: the member is gone from `repeat`, and its `repeat:<member>:<millis>` occurrence is gone from `delayed`.
 
-**Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). A regular `git pull` with `merge.ff = false` creates a merge commit that re-triggers the Release workflow unnecessarily.
 
 **Bank Reconciliation (#1342)**: tables use the prefix `bank_statement_reconciliation`. `bank_reconciliations` and `reconciled_transactions` are the *legacy* names from the removed implementation; the migration aborts if either exists, and nothing may create them.
 

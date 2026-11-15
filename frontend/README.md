@@ -300,7 +300,7 @@ Production environment variables:
 VITE_API_BASE_URL=https://your-api-domain.com/api
 VITE_SOCKET_URL=https://your-api-domain.com
 VITE_APP_NAME=Your Company ERP
-VITE_APP_VERSION=1.0.0
+VITE_APP_VERSION=3.17.1 # Release build version; omitted locally to use 0.0.0-development
 ```
 
 ## Development Guidelines
