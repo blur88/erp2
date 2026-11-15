@@ -104,8 +104,9 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            blur88/all:erp-backend
-            blur88/all:erp-backend-v${{ needs.release.outputs.new_release_version }}
+            blur88/erp2:v${{ needs.release.outputs.new_release_version }}-backend
+            blur88/erp2:latest-backend
+            blur88/master:erp2-backend
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v7.1.0
@@ -113,8 +114,9 @@ jobs:
           context: ./frontend
           push: true
           tags: |
-            blur88/all:erp-frontend
-            blur88/all:erp-frontend-v${{ needs.release.outputs.new_release_version }}
+            blur88/erp2:v${{ needs.release.outputs.new_release_version }}-frontend
+            blur88/erp2:latest-frontend
+            blur88/master:erp2-frontend
 
       - name: Build and push nginx image
         uses: docker/build-push-action@v7.1.0
@@ -122,5 +124,6 @@ jobs:
           context: ./nginx
           push: true
           tags: |
-            blur88/all:erp-nginx
-            blur88/all:erp-nginx-v${{ needs.release.outputs.new_release_version }}
+            blur88/erp2:v${{ needs.release.outputs.new_release_version }}-nginx
+            blur88/erp2:latest-nginx
+            blur88/master:erp2-nginx
