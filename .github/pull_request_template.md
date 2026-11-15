@@ -9,6 +9,8 @@ Closes #
 ## Verification
 
 <!-- Select applicable commands from AGENTS.md's Change-Scoped Verification section.
+Before waiting on PR checks or long-running verification, follow
+docs/agents/verification-waits.md (blocking waits, polling fallback, and status updates).
 For CI evidence:
 1. Identify the current PR head: gh pr view --json headRefOid
 2. Retrieve results: gh pr checks --json name,state,bucket,link,workflow
