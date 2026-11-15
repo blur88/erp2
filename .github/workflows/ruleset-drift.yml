@@ -1,0 +1,23 @@
+name: Ruleset drift
+
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ruleset-drift:
+    name: Ruleset 15609777 drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Compare observable ruleset with reviewed baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/check-ruleset-drift.sh
