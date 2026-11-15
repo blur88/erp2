@@ -86,6 +86,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Lint GitHub Actions workflows
+        working-directory: .
+        run: bash scripts/lint-workflows.sh
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:

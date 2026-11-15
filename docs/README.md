@@ -29,6 +29,7 @@ Frontend design references:
 
 ## Deployment
 
+- [deployment/ruleset-drift.md](./deployment/ruleset-drift.md) — Ruleset drift detection and reviewed baseline updates
 - [deployment/DEPLOYMENT_CHECKLIST.md](./deployment/DEPLOYMENT_CHECKLIST.md) — Deployment checklist
 
 ## Price List Module
