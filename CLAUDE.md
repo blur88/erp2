@@ -60,20 +60,23 @@ cd frontend && npm run lint
 # Maintenance menu (outdated deps, audit, knip, jscpd, docker rebuild)
 ./maintain.sh
 
-# Deploy
+# Development deployment (builds from local source)
 ./deploy.sh          # start
 ./deploy.sh restart  # restart
 ./deploy.sh logs     # view logs
 ./deploy.sh status   # check status
+
+# Production deployment (prebuilt images, docker-compose.prod.yml)
+./setup.sh
 ```
+
+For release → Docker Hub → production, see [the release workflow](.github/workflows/release.yml), [the Docker image repository ADR](docs/adr/0001-two-docker-repositories.md), and [setup.sh](setup.sh) with [docker-compose.prod.yml](docker-compose.prod.yml).
 
 ## Architecture
 
-**Active business modules** (12, `backend/src/modules/`): `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule`, `SearchModule`
+**Business modules**: see `backend/src/modules/` for the current module set.
 
 Plus `ErrorManagementModule` (`backend/src/common/error-management`) — cross-cutting exception filters/interceptors, registered in `app.module.ts` ahead of the business modules.
-
-The accounting module was removed (issue #884) — no `modules/accounting`, no journal entries, no chart of accounts.
 
 Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and methods **inside** the respective `*-analytics` controllers/services, which also serve the dashboards.
 

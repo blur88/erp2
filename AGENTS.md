@@ -5,14 +5,14 @@ This repository is a full-stack ERP monorepo.
 - `backend/`: NestJS API, TypeORM entities/migrations, Jest unit + e2e tests (`backend/test`).
 - `frontend/`: React + TypeScript + Vite app, Vitest tests, reusable UI in `frontend/src/components`.
 - `docs/`: operational and feature documentation.
-- Root infra: `docker-compose.yml`, `deploy.sh`, `.env.example`, `nginx/`.
+- Root infra: `docker-compose.yml`, `deploy.sh` (development), `setup.sh` + `docker-compose.prod.yml` (production), `.env.example`, `nginx/`.
 
 Keep domain logic inside module folders (for example `backend/src/modules/auth`, `frontend/src/pages/*`).
 
 ## Build, Test, and Development Commands
-Use Docker for full-stack runs, or run each app locally.
+Use Docker for full-stack development runs, or run each app locally. Production uses `./setup.sh` with `docker-compose.prod.yml` to pull prebuilt images.
 - `docker-compose up -d`: start full stack.
-- `./deploy.sh restart|logs|status`: common operational workflows.
+- `./deploy.sh restart|logs|status`: development stack operations.
 - `cd backend && npm run start:dev`: run API in watch mode.
 - `cd frontend && npm run dev`: run Vite dev server.
 - `cd backend && npm run build`: compile backend.
@@ -61,6 +61,8 @@ PRs must include the exact verification commands run and whether they passed.
 ## Commit & Pull Request Guidelines
 Git history follows Conventional Commit style:
 - Examples: `feat(accounting): ...`, `fix(accounting): ...`, `test(price-lists): ...`, `chore: ...`.
+
+Commit messages and PR bodies must not contain AI attribution lines.
 
 PRs should include:
 - Clear summary and impacted modules.
