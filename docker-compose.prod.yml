@@ -91,7 +91,7 @@ services:
 
   # Backend API
   backend:
-    image: blur88/all:erp-backend
+    image: blur88/erp2:latest-backend
     container_name: erp_backend
     restart: unless-stopped
     environment:
@@ -191,7 +191,7 @@ services:
 
   # Frontend Application
   frontend:
-    image: blur88/all:erp-frontend
+    image: blur88/erp2:latest-frontend
     container_name: erp_frontend
     restart: unless-stopped
     ports:
@@ -232,7 +232,7 @@ services:
 
   # NGINX Reverse Proxy
   nginx:
-    image: blur88/all:erp-nginx
+    image: blur88/erp2:latest-nginx
     container_name: erp_nginx
     restart: unless-stopped
     ports:
