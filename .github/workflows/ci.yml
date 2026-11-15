@@ -86,6 +86,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Keep workflow linting inside an existing required job (#1898).
+      # The pinned image includes ShellCheck; explicitly select it for run blocks.
+      - name: Lint GitHub Actions workflows
+        working-directory: .
+        run: docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color -shellcheck=shellcheck
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
