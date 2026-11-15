@@ -78,7 +78,7 @@ For release → Docker Hub → production, see [the release workflow](.github/wo
 
 Plus `ErrorManagementModule` (`backend/src/common/error-management`) — cross-cutting exception filters/interceptors, registered in `app.module.ts` ahead of the business modules.
 
-Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and methods **inside** the respective `*-analytics` controllers/services, which also serve the dashboards.
+Sales/Purchasing/Inventory "reports" are routes and methods **inside** the respective `*-analytics` controllers/services, which also serve the dashboards.
 
 **Non-obvious decisions:**
 - `TypeScript strict: false` — use `as any` when TypeORM types resist

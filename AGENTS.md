@@ -10,7 +10,7 @@ This repository is a full-stack ERP monorepo.
 Keep domain logic inside module folders (for example `backend/src/modules/auth`, `frontend/src/pages/*`).
 
 ## Build, Test, and Development Commands
-Use Docker for full-stack development runs, or run each app locally. Production uses `./setup.sh` with `docker-compose.prod.yml` to pull prebuilt images.
+Use Docker for full-stack development runs, or run each app locally.
 - `docker-compose up -d`: start full stack.
 - `./deploy.sh restart|logs|status`: development stack operations.
 - `cd backend && npm run start:dev`: run API in watch mode.
