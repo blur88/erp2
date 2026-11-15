@@ -89,6 +89,17 @@ jobs:
         with:
           ref: refs/tags/v${{ needs.release.outputs.new_release_version }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install release test dependencies
+        run: npm ci
+
+      - name: Release validation
+        run: npm run test:release
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v4.1.0
         with:

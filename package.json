@@ -2,5 +2,11 @@
   "name": "erp2-release",
   "version": "1.0.0",
   "private": true,
-  "devDependencies": {}
+  "scripts": {
+    "test:release": "node --test scripts/__tests__/*.test.js"
+  },
+  "devDependencies": {
+    "conventional-changelog-angular": "8.1.0",
+    "yaml": "^2.9.1"
+  }
 }

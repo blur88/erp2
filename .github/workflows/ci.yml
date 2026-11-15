@@ -96,6 +96,14 @@ jobs:
       - name: Update npm
         run: npm install -g npm@11
 
+      - name: Install release test dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Release validation
+        working-directory: .
+        run: npm run test:release
+
       - name: Install dependencies
         run: npm ci
 
