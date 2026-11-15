@@ -86,6 +86,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Probe observable ruleset access (#1898)
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api repos/${{ github.repository }}/rulesets/15609777 --jq '{target, enforcement, conditions, rules}'
+
       # Keep workflow linting inside an existing required job (#1898).
       # The pinned image includes ShellCheck; explicitly select it for run blocks.
       - name: Lint GitHub Actions workflows
