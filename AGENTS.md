@@ -32,31 +32,24 @@ Primary language is TypeScript.
 ## Testing Guidelines
 - Backend: Jest (`*.spec.ts`) and e2e under `backend/test/e2e`.
 - Frontend: Vitest + Testing Library; co-locate tests in `__tests__` or `*.test.ts(x)`.
-- Run before PR:
-  - `cd backend && npm run test && npm run test:e2e`
-  - `cd frontend && npm run test && npm run test:coverage`
-
-Add or update tests for any behavior change.
+- Add or update tests for any behavior change.
 
 ## Change-Scoped Verification (Required Before PR)
-Run checks based on files touched (not just a default test set):
-- Backend changes (`backend/src/**`):
-  - `cd backend && npm run lint && npm run type-check && npm run test`
-- Backend test-source changes (`backend/test/**`):
-  - `cd backend && npm run type-check:spec`
-  - Catches errors in `test/**`, which `npm run type-check` cannot see at all —
-    `tsconfig.build.json` has `include: ["src"]`. It additionally checks
-    `src/**` under the test TypeScript configuration.
-- Backend DB changes (entities/migrations):
-  - `cd backend && npm run migration:run && npm run test:e2e`
-- Frontend changes (`frontend/src/**`):
-  - `cd frontend && npm run lint && npm run type-check && npm run test`
-- Cross-app contract changes (API DTOs/interfaces used by both apps):
-  - `cd backend && npm run type-check && npm run test`
-  - `cd frontend && npm run test && npm run test:coverage`
+This section is the single source of truth for pre-PR verification. Select checks from the files touched; combine applicable rows and run each command only once. Documentation-only changes do not require application tests or type-checks.
 
-If multiple areas are changed, run all relevant checks.
-PRs must include the exact verification commands run and whether they passed.
+| Files changed | Required commands (from repository root) |
+|---|---|
+| Backend source (`backend/src/**`) | `cd backend && npm run lint && npm run type-check && npm run test && npm run test:e2e` |
+| Backend test sources (`backend/test/**`) | `cd backend && npm run type-check:spec && npm run test && npm run test:e2e` |
+| Backend entities or migrations | Backend source checks, plus `cd backend && npm run migration:run && npm run test:e2e` |
+| Frontend source (`frontend/src/**`) | `cd frontend && npm run lint && npm run type-check && npm run test:coverage` |
+| Cross-app contracts (API DTOs/interfaces used by both apps) | `cd backend && npm run type-check && npm run test`; `cd frontend && npm run test:coverage`; also apply source checks for each app touched |
+
+Backend `type-check` compiles `tsconfig.build.json` with `include: ["src"]`; it cannot see `test/**`. `type-check:spec` checks `test/**` and additionally `src/**` under the test TypeScript configuration. Unit-test transpilation does not replace either applicable type-check.
+
+Frontend `npm run test:coverage` executes the complete test suite with coverage instrumentation, satisfying both frontend `test` and `test:coverage` requirements in one run. A successful full-suite `test:coverage` CI run on the PR's current head commit satisfies both requirements; do not repeat the same suite locally solely for documentation or review.
+
+Completed successful CI evidence may satisfy the corresponding applicable commands. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence. Keep the PR in draft while required checks are running; a PR ready for review must not describe required verification as "in progress".
 
 ## Commit & Pull Request Guidelines
 Git history follows Conventional Commit style:
