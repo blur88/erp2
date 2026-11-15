@@ -1,0 +1,17 @@
+name: Ruleset drift detection
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compare observable ruleset with reviewed baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: gh api "repos/$GITHUB_REPOSITORY/rulesets/15609777" | python3 scripts/check-ruleset.py .github/ruleset-15609777.snapshot.json

@@ -86,17 +86,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Probe observable ruleset access (#1898)
-        working-directory: .
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api repos/${{ github.repository }}/rulesets/15609777 --jq '{target, enforcement, conditions, rules}'
-
       # Keep workflow linting inside an existing required job (#1898).
       # The pinned image includes ShellCheck; explicitly select it for run blocks.
       - name: Lint GitHub Actions workflows
         working-directory: .
         run: docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color -shellcheck=shellcheck
+
+      - name: Ruleset comparison tests
+        working-directory: .
+        run: python3 scripts/__tests__/ruleset-drift.test.py
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
