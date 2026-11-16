@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Before starting work, follow the [workflow entry points in AGENTS.md](AGENTS.md#workflow-entry-points).
+
 ## Project Overview
 
 ERP system — NestJS 11 backend + React 19 / TypeScript 6 / Material-UI v9 frontend, served via NGINX in Docker.
