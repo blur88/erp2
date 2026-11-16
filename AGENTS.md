@@ -2,9 +2,9 @@
 
 ## Workflow Entry Points
 
-- Before implementation, follow [branch selection](#commit--pull-request-guidelines).
+- Before implementation, follow [Commit & Pull Request Guidelines](#commit--pull-request-guidelines).
 - Before editing agent-facing documentation, read [CODING_STANDARDS.md](CODING_STANDARDS.md).
-- Before reviewing, read [acceptance-criterion evidence guidance](CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews). When delegating a review, include this reference and the requirement to read it before assessment in both the Standards and Spec reviewer assignments.
+- Before reviewing, read [acceptance-criterion evidence guidance](CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews). When delegating a review, include this reference and the requirement to read it before assessment in every reviewer assignment.
 
 ## Project Structure & Module Organization
 This repository is a full-stack ERP monorepo.
@@ -34,7 +34,7 @@ Primary language is TypeScript.
 - Use 2-space indentation and keep imports organized by feature/domain.
 - Naming: `PascalCase` for React components/classes, `camelCase` for variables/functions, `kebab-case` for filenames where established.
 - Keep DTOs/entities/services grouped by module in backend.
-- Follow [CODING_STANDARDS.md](CODING_STANDARDS.md) for shell scripts, GitHub Actions logic and build-time code.
+- Follow [CODING_STANDARDS.md](CODING_STANDARDS.md) for repository standards.
 
 ## Testing Guidelines
 - Backend: Jest (`*.spec.ts`) and e2e under `backend/test/e2e`.
@@ -66,7 +66,7 @@ Completed successful CI evidence may satisfy the corresponding applicable comman
 
 At the start of implementation, determine the current Git branch and the repository’s default branch. If starting on the default branch, create and switch to a topic branch before making implementation commits. For issue-linked changes, use `<type>/<issue>-<slug>` (e.g. `docs/1899-verification-waits`). Continue on an existing valid topic branch. Do not silently switch branches when the working tree contains existing uncommitted changes. Work directly on the default branch only when explicitly requested by the user.
 
-A valid topic branch is a non-default branch for the current work that follows the issue-linked naming convention when applicable. If branch selection requires switching with existing uncommitted changes, stop and ask the user how to preserve those changes before switching.
+A valid topic branch is a non-default branch for the current work that follows the issue-linked naming convention when applicable.
 
 Git history follows Conventional Commit style:
 - Examples: `feat(accounting): ...`, `fix(accounting): ...`, `test(price-lists): ...`, `chore: ...`.

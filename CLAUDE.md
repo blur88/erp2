@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Before implementation, agent-facing documentation changes or reviews, follow the [workflow entry points in AGENTS.md](AGENTS.md#workflow-entry-points).
+Before starting work, follow the [workflow entry points in AGENTS.md](AGENTS.md#workflow-entry-points).
 
 ## Project Overview
 
