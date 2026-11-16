@@ -7,8 +7,8 @@
 
 ## Acceptance-criterion evidence in reviews
 
-- Review every applicable acceptance criterion individually. Distinguish **Implemented** (the relevant implementation exists), **Demonstrated** (valid execution or test evidence supports the required behavior), and **Unverified** (evidence is missing, incomplete, stale, or insufficient). An implemented criterion may still lack the evidence required to demonstrate it.
-- Cite concrete evidence for each criterion: source locations, test results, CI links, or reproducible commands.
+- Review every applicable acceptance criterion individually. For each criterion, distinguish **Implemented** (the relevant implementation exists), **Demonstrated** (the required behavior is supported by valid execution or test evidence), and **Unverified** (evidence is missing, incomplete, stale, or insufficient). An implemented criterion may still lack the evidence required to demonstrate it.
+- Cite concrete evidence for each criterion, such as source locations, test results, CI links, or reproducible commands.
 - Synthetic process waits do not demonstrate real CI behavior. A documentation link alone does not prove that an agent encounters an instruction at the correct workflow stage.
 - For agent-facing documentation, verify when and how the intended reader encounters the instruction.
 - Never report complete acceptance-criterion coverage when required evidence is missing.
