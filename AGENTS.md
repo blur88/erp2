@@ -57,6 +57,9 @@ E2E verification is required for backend entity/migration changes and e2e-test c
 Completed successful CI evidence may satisfy the corresponding applicable commands. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence.
 
 ## Commit & Pull Request Guidelines
+
+At the start of implementation, determine the current Git branch and the repository’s default branch. If starting on the default branch, create and switch to a topic branch before making implementation commits. For issue-linked changes, use `<type>/<issue>-<slug>` (e.g. `docs/1899-verification-waits`). Continue on an existing valid topic branch. Do not silently switch branches when the working tree contains existing uncommitted changes. Work directly on the default branch only when explicitly requested by the user.
+
 Git history follows Conventional Commit style:
 - Examples: `feat(accounting): ...`, `fix(accounting): ...`, `test(price-lists): ...`, `chore: ...`.
 
