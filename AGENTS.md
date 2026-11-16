@@ -28,7 +28,7 @@ Primary language is TypeScript.
 - Use 2-space indentation and keep imports organized by feature/domain.
 - Naming: `PascalCase` for React components/classes, `camelCase` for variables/functions, `kebab-case` for filenames where established.
 - Keep DTOs/entities/services grouped by module in backend.
-- Follow [CODING_STANDARDS.md](CODING_STANDARDS.md) for shell scripts, GitHub Actions logic and build-time code.
+- Before writing shell scripts, GitHub Actions logic, build-time code or agent-facing documentation, or reviewing acceptance-criterion evidence, read [CODING_STANDARDS.md](CODING_STANDARDS.md).
 
 ## Testing Guidelines
 - Backend: Jest (`*.spec.ts`) and e2e under `backend/test/e2e`.
