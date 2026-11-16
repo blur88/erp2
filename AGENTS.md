@@ -38,6 +38,8 @@ Primary language is TypeScript.
 ## Change-Scoped Verification (Required Before PR)
 This section is the single source of truth for pre-PR verification. Select checks from the files touched; combine applicable rows and run each command only once.
 
+Before starting or waiting on long-running local verification or PR checks, read [Verification waits](docs/agents/verification-waits.md).
+
 | Files changed | Required commands (from repository root) |
 |---|---|
 | Backend source (`backend/src/**`) | `cd backend && npm run lint && npm run type-check && npm run test` |
