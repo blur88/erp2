@@ -9,11 +9,13 @@
    to list published versions in that major, choose the highest stable version,
    and preserve the manifest's pinning style. Review upstream release notes and
    engine/peer requirements before installing the selected version.
+
    Before filing a deferred-upgrade issue, try each proposed fix against the
    target dependency version using the smallest reproduction that exercises it.
-   Check repository-specific values, such as breakpoints, against the relevant
-   source. Record the reproduction and its result in the issue. If a proposed
-   fix could not be tried, label it **untested** and present it as a hypothesis.
+   Verify values the fix relies on against the repository configuration or
+   implementation that defines them. Record the reproduction and its result in
+   the issue. If a proposed fix could not be tried, describe it as an untested
+   hypothesis in the issue body.
    Keep acceptance criteria focused on the behaviour the upgrade must preserve.
 3. Review [backend override reasons](dependency-overrides.md) before changing
    backend dependencies. Keep exact overrides aligned with direct pins to avoid
@@ -23,12 +25,15 @@
    from that directory to identify each parent responsible for a surprising
    change and whether an override forced it. Account for every changed resolution
    and keep unrelated churn out of the update.
+
    If a resolved version of `@mui/material`, `jsdom` or `vitest` changes, follow
-   [Statement Theme QA](../modules/accounting/STATEMENT_THEME_QA.md) and repeat
-   the relevant probes under the new resolved versions, even when no Statement
-   test changes. Keep earlier measurements as dated history, record the new
-   versions and observed results in the PR, and add a dated note to the QA
-   document when the findings change.
+   [Statement QA's automated coverage and styling invariants](../modules/accounting/STATEMENT_THEME_QA.md#automated-coverage-and-styling-invariants)
+   and repeat its computed-style probes under the new resolved versions, even
+   when no Statement test changes. If the upgrade affects Statement's browser
+   rendering, also run the applicable ST-1 through ST-13 browser checks in that
+   document. Keep earlier measurements as dated history, record the new versions
+   and observed results in the PR, and add a dated note to the QA document when
+   the findings change.
 5. Before changing BullMQ or ioredis, read the
    [BullMQ scheduler runbook](../deployment/BULLMQ_SCHEDULER_RUNBOOK.md).
    The setup instructions printed by
