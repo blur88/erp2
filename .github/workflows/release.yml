@@ -82,6 +82,8 @@ jobs:
         with:
           context: ./backend
           push: true
+          provenance: mode=max
+          sbom: true
           tags: |
             blur88/erp2:v${{ needs.release.outputs.new_release_version }}-backend
             blur88/erp2:latest-backend
@@ -92,6 +94,8 @@ jobs:
         with:
           context: ./frontend
           push: true
+          provenance: mode=max
+          sbom: true
           build-args: VITE_APP_VERSION=${{ needs.release.outputs.new_release_version }}
           tags: |
             blur88/erp2:v${{ needs.release.outputs.new_release_version }}-frontend
@@ -103,6 +107,8 @@ jobs:
         with:
           context: ./nginx
           push: true
+          provenance: mode=max
+          sbom: true
           tags: |
             blur88/erp2:v${{ needs.release.outputs.new_release_version }}-nginx
             blur88/erp2:latest-nginx

@@ -12,7 +12,7 @@ function normalizeImage(image) {
   return image.replace(/^(?:docker\.io|index\.docker\.io)\//, '');
 }
 
-test('every production application image has a tag published by the release workflow', () => {
+test('every production application image has a tag published with SBOM and max provenance', () => {
   const compose = readYaml('docker-compose.prod.yml');
   const workflow = readYaml('.github/workflows/release.yml');
   const publishedTags = new Set();
@@ -22,6 +22,8 @@ test('every production application image has a tag published by the release work
       if (!step.uses?.startsWith('docker/build-push-action@')) continue;
       assert.equal(typeof step.with?.push, 'boolean', `${step.name}: push must be a literal boolean for tag validation`);
       if (step.with.push) {
+        assert.equal(step.with.provenance, 'mode=max', `${step.name}: published images must include max provenance`);
+        assert.equal(step.with.sbom, true, `${step.name}: published images must include an SBOM`);
         for (const tag of (step.with.tags ?? '').trim().split(/\r?\n/)) {
           publishedTags.add(normalizeImage(tag.trim()));
         }
