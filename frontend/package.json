@@ -9,10 +9,10 @@
     "build": "vite build",
     "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
-    "test": "vitest --run",
+    "test": "vitest --run --outputFile.junit=test-results/junit.xml",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --run --coverage",
+    "test:coverage": "vitest --run --coverage --outputFile.junit=test-results/junit-coverage.xml",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

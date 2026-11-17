@@ -450,6 +450,16 @@ export default function BankReconciliationFormPage(): React.ReactElement {
     runSetupSearch,
   ])
 
+  useEffect(() => () => {
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current)
+    if (checklistDebounceRef.current) clearTimeout(checklistDebounceRef.current)
+    if (setupDebounceRef.current) clearTimeout(setupDebounceRef.current)
+    // Ignore responses from requests that were already running on unmount.
+    previewSeqRef.current += 1
+    checklistSeqRef.current += 1
+    setupSeqRef.current += 1
+  }, [])
+
   // Handlers for Checklist & Setup
   const handleToggleMatched = useCallback((line: ReconciliationLineDto) => {
     setForm((f) => toggleMatched(f, line))

@@ -38,6 +38,23 @@ display output to a temporary file when needed and inspect it at completion.
 A watcher error, authentication failure, timeout, or interruption does not prove
 the verification passed or failed.
 
+When shortening test output, keep the full stdout and stderr in a log and
+preserve the test process's exit status. For example, run this in Bash from
+`frontend/` to display only the last 40 lines while retaining the full log:
+
+```bash
+(
+  set -o pipefail
+  mkdir -p test-results
+  npm run test:coverage 2>&1 | tee test-results/coverage.log | tail -n 40
+)
+```
+
+The frontend's `npm test` and `npm run test:coverage` also write JUnit reports
+to the git-ignored paths specified in [frontend/package.json](../../frontend/package.json).
+Each command replaces its previous report, so inspect and retain failure
+evidence before rerunning.
+
 If blocking or completion notifications are unavailable, poll summary status at
 longer intervals, starting around 30 seconds and backing off to 60 seconds or the
 host's allowed limit. Batch relevant checks in one status read per interval.

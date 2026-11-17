@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import { createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -108,6 +108,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
+      // Preserve Vitest's console and CI reporters; add JUnit only for run mode (#1910).
+      reporters: process.argv.includes('--run')
+        ? [...configDefaults.reporters, 'junit']
+        : configDefaults.reporters,
       globals: true,
       server: {
         deps: {
