@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -147,6 +147,7 @@ export class BackupSchedulerService {
     let initialized = 0;
     for (const schedule of schedules) {
       try {
+        validateBackupCronExpression(schedule.cronExpression || this.buildCronExpression(schedule));
         await this.addScheduleToQueue(schedule);
         initialized++;
       } catch (error) {
@@ -155,7 +156,9 @@ export class BackupSchedulerService {
             `(${schedule.cronExpression || this.buildCronExpression(schedule)}): ${error.message}`,
           error.stack,
         );
-        // The existing UI exposes enabled, so operators can see and repair it.
+        // Keep valid schedules enabled after transient queue failures so boot
+        // can retry them. Invalid expressions require operator repair.
+        if (!(error instanceof BadRequestException)) continue;
         try {
           await this.scheduleRepository.update(schedule.id, {
             enabled: false,

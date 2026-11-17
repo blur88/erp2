@@ -101,7 +101,7 @@ describe('BackupSchedulerService', () => {
         'schedule-schedule-1', { pattern: '30 02 * * *' }, expect.anything(),
       );
       expect(error).toHaveBeenCalledWith(
-        expect.stringMatching(/invalid "Old custom".*0 0 \* \* 1-5L.*Constraint error/),
+        expect.stringMatching(/invalid "Old custom".*0 0 \* \* 1-5L.*valid cron expression/),
         expect.any(String),
       );
       expect(scheduleRepository.update).toHaveBeenCalledWith('invalid', { enabled: false, nextRunAt: null });
@@ -112,9 +112,8 @@ describe('BackupSchedulerService', () => {
   });
 
   it('continues boot even when recording a registration failure fails', async () => {
-    scheduleRepository.find.mockResolvedValue([schedule, { ...schedule, id: 'later' }]);
+    scheduleRepository.find.mockResolvedValue([{ ...schedule, cronExpression: '0 0 * * 1-5L' }, { ...schedule, id: 'later' }]);
     scheduleRepository.update = (jest.fn as any)().mockRejectedValue(new Error('database unavailable'));
-    backupQueue.upsertJobScheduler.mockRejectedValueOnce(new Error('queue unavailable'));
     const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     try {
       await expect(service.onModuleInit()).resolves.toBeUndefined();
@@ -124,6 +123,20 @@ describe('BackupSchedulerService', () => {
       expect(error).toHaveBeenCalledWith(
         expect.stringContaining('Failed to disable backup schedule schedule-1'), expect.any(String),
       );
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('keeps valid schedules enabled after a temporary queue failure', async () => {
+    scheduleRepository.find.mockResolvedValue([schedule]);
+    scheduleRepository.update = (jest.fn as any)();
+    backupQueue.upsertJobScheduler.mockRejectedValueOnce(new Error('queue unavailable'));
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    try {
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
+      expect(scheduleRepository.update).not.toHaveBeenCalled();
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('queue unavailable'), expect.any(String));
     } finally {
       error.mockRestore();
     }
