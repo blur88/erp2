@@ -3,9 +3,9 @@ import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
-import { ThemeProvider } from '@mui/material/styles'
+import { ThemeProvider, type Theme } from '@mui/material/styles'
 import { darkTheme } from '@/styles/theme'
-import { desktopTestTheme } from '@/test/desktopTheme'
+import { jsdomDesktopTheme } from '@/test/jsdomDesktopTheme'
 
 import TopBar from '../TopBar'
 
@@ -43,16 +43,16 @@ function makeStore(unreadCount = 0) {
 
 type RouterEntry = string | { pathname: string; state?: unknown }
 
-function renderTopBar(entry: RouterEntry, collapsed = false, theme = darkTheme) {
-  return render(
-    <ThemeProvider theme={theme}>
-      <Provider store={makeStore()}>
-        <MemoryRouter initialEntries={[entry]}>
-          <TopBar collapsed={collapsed} onMobileMenuOpen={vi.fn()} />
-        </MemoryRouter>
-      </Provider>
-    </ThemeProvider>,
+function renderTopBar(entry: RouterEntry, collapsed = false, theme?: Theme) {
+  const ui = (
+    <Provider store={makeStore()}>
+      <MemoryRouter initialEntries={[entry]}>
+        <TopBar collapsed={collapsed} onMobileMenuOpen={vi.fn()} />
+      </MemoryRouter>
+    </Provider>
   )
+
+  return render(theme ? <ThemeProvider theme={theme}>{ui}</ThemeProvider> : ui)
 }
 
 describe('TopBar breadcrumbs', () => {
@@ -125,14 +125,14 @@ describe('TopBar breadcrumbs', () => {
 describe('TopBar search', () => {
   it('opens search modal when search trigger is clicked', () => {
     mockUseMatches.mockReturnValue([{ handle: { title: 'Dashboard' } }])
-    renderTopBar('/dashboard', false, desktopTestTheme)
+    renderTopBar('/dashboard', false, jsdomDesktopTheme)
     fireEvent.click(screen.getByRole('button', { name: /open global search/i }))
     expect(screen.getByTestId('search-modal')).toBeInTheDocument()
   })
 
   it('hides the search trigger below lg with the production theme at 1024px', () => {
     mockUseMatches.mockReturnValue([{ handle: { title: 'Dashboard' } }])
-    renderTopBar('/dashboard')
+    renderTopBar('/dashboard', false, darkTheme)
 
     expect(screen.getByLabelText(/open global search/i)).not.toBeVisible()
     expect(screen.queryByRole('button', { name: /open global search/i })).not.toBeInTheDocument()

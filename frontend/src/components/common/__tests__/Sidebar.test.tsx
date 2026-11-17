@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
 import { darkTheme } from '@/styles/theme'
-import { desktopTestTheme } from '@/test/desktopTheme'
+import { jsdomDesktopTheme } from '@/test/jsdomDesktopTheme'
 
 const mockUseGetCompanySettingsQuery = vi.fn()
 const mockUseAppSelector = vi.fn()
@@ -42,8 +42,8 @@ vi.mock('../SidebarFooter', () => ({
 }))
 
 describe('Sidebar', () => {
-  const renderSidebarWithTheme = (ui: React.ReactElement) =>
-    render(<ThemeProvider theme={darkTheme}>{ui}</ThemeProvider>)
+  const renderSidebarWithTheme = (ui: React.ReactElement, theme = darkTheme) =>
+    render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>)
 
   beforeEach(() => {
     localStorage.clear()
@@ -178,12 +178,11 @@ describe('Sidebar', () => {
   it('calls onToggleCollapse when toggle button is clicked', () => {
     const onToggleCollapse = vi.fn()
 
-    render(
-      <ThemeProvider theme={desktopTestTheme}>
-        <MemoryRouter initialEntries={['/dashboard']}>
-          <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
-        </MemoryRouter>
-      </ThemeProvider>
+    renderSidebarWithTheme(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
+      </MemoryRouter>,
+      jsdomDesktopTheme
     )
 
     const toggleBtn = screen.getByRole('button', { name: /collapse sidebar/i })
