@@ -11,6 +11,7 @@ import {
 } from './dto/backup-schedule.dto';
 import { BackupService } from './backup.service';
 import { OrphanedSchedulerReconciler } from './orphaned-scheduler-reconciler.service';
+import { validateBackupCronExpression } from './backup-cron';
 
 @Injectable()
 export class BackupSchedulerService {
@@ -32,6 +33,7 @@ export class BackupSchedulerService {
   async createSchedule(
     createDto: CreateBackupScheduleDto,
   ): Promise<BackupSchedule> {
+    validateBackupCronExpression(createDto.cronExpression);
     const schedule = this.scheduleRepository.create({
       ...createDto,
       nextRunAt: this.calculateNextRun(createDto),
@@ -67,6 +69,11 @@ export class BackupSchedulerService {
   ): Promise<BackupSchedule> {
     const schedule = await this.findOne(id);
 
+    validateBackupCronExpression(
+      updateDto.cronExpression !== undefined
+        ? updateDto.cronExpression
+        : schedule.cronExpression,
+    );
     Object.assign(schedule, updateDto);
 
     if (updateDto.frequency || updateDto.time || updateDto.cronExpression) {
@@ -137,11 +144,33 @@ export class BackupSchedulerService {
       where: { enabled: true },
     });
 
+    let initialized = 0;
     for (const schedule of schedules) {
-      await this.addScheduleToQueue(schedule);
+      try {
+        await this.addScheduleToQueue(schedule);
+        initialized++;
+      } catch (error) {
+        this.logger.error(
+          `Failed to initialize backup schedule ${schedule.id} "${schedule.name}" ` +
+            `(${schedule.cronExpression || this.buildCronExpression(schedule)}): ${error.message}`,
+          error.stack,
+        );
+        // The existing UI exposes enabled, so operators can see and repair it.
+        try {
+          await this.scheduleRepository.update(schedule.id, {
+            enabled: false,
+            nextRunAt: null,
+          });
+        } catch (statusError) {
+          this.logger.error(
+            `Failed to disable backup schedule ${schedule.id}: ${statusError.message}`,
+            statusError.stack,
+          );
+        }
+      }
     }
 
-    this.logger.log(`Initialized ${schedules.length} backup schedules`);
+    this.logger.log(`Initialized ${initialized} of ${schedules.length} backup schedules`);
 
     // Last, so the schedulers we just upserted are fully written before the
     // diagnostic reads them back — otherwise a live schedule could be read

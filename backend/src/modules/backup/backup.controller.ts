@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Delete,
@@ -243,6 +244,15 @@ export class BackupController {
   })
   @ApiResponse({ status: 404, description: 'Schedule not found' })
   async updateSchedule(
+    @Param('id') id: string,
+    @Body() updateScheduleDto: UpdateBackupScheduleDto,
+  ): Promise<BackupSchedule> {
+    return this.schedulerService.update(id, updateScheduleDto);
+  }
+
+  @Patch('schedule/:id')
+  @ApiOperation({ summary: 'Update a backup schedule' })
+  async patchSchedule(
     @Param('id') id: string,
     @Body() updateScheduleDto: UpdateBackupScheduleDto,
   ): Promise<BackupSchedule> {
