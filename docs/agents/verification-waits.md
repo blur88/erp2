@@ -50,10 +50,10 @@ preserve the test process's exit status. For example, run this in Bash from
 )
 ```
 
-The frontend's non-watch test commands also write JUnit reports under the
-git-ignored `frontend/test-results/`: `junit.xml` for `npm test` and
-`junit-coverage.xml` for `npm run test:coverage`. Each command replaces its
-previous report, so inspect and retain failure evidence before rerunning.
+The frontend's `npm test` and `npm run test:coverage` also write JUnit reports
+to the git-ignored paths specified in [frontend/package.json](../../frontend/package.json).
+Each command replaces its previous report, so inspect and retain failure
+evidence before rerunning.
 
 If blocking or completion notifications are unavailable, poll summary status at
 longer intervals, starting around 30 seconds and backing off to 60 seconds or the
