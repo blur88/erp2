@@ -342,7 +342,7 @@ describe('Statement body typography', () => {
       expect(typography).toHaveStyle({
         fontWeight: '400',
         fontSize: '12.8px',
-        lineHeight: '1.2',
+        lineHeight: '15.36px', // 12.8px font size × 1.2 line height
       })
     }
   })
@@ -394,7 +394,7 @@ describe('Statement body typography', () => {
       expect(typography).toHaveStyle({
         fontWeight: '700',
         fontSize: '12.8px',
-        lineHeight: '1.2',
+        lineHeight: '15.36px', // 12.8px font size × 1.2 line height
       })
     }
   })

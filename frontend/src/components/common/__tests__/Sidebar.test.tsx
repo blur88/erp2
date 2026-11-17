@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
 import { darkTheme } from '@/styles/theme'
+import { desktopTestTheme } from '@/test/desktopTheme'
 
 const mockUseGetCompanySettingsQuery = vi.fn()
 const mockUseAppSelector = vi.fn()
@@ -178,15 +179,28 @@ describe('Sidebar', () => {
     const onToggleCollapse = vi.fn()
 
     render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
-      </MemoryRouter>
+      <ThemeProvider theme={desktopTestTheme}>
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
+        </MemoryRouter>
+      </ThemeProvider>
     )
 
     const toggleBtn = screen.getByRole('button', { name: /collapse sidebar/i })
     fireEvent.click(toggleBtn)
 
     expect(onToggleCollapse).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the collapse toggle below lg with the production theme at 1024px', () => {
+    renderSidebarWithTheme(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={false} onToggleCollapse={vi.fn()} />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByLabelText(/collapse sidebar/i)).not.toBeVisible()
+    expect(screen.queryByRole('button', { name: /collapse sidebar/i })).not.toBeInTheDocument()
   })
 
   it('renders sidebar with dark background data attribute', () => {
@@ -359,7 +373,7 @@ describe('Sidebar', () => {
     const labelStyles = window.getComputedStyle(within(customersButton).getByText('Customers'))
 
     expect(buttonStyles.height).toBe('40px')
-    expect(buttonStyles.transform).toBe('translateX(0)')
+    expect(buttonStyles.transform).toBe('translateX(0px)')
     expect(labelStyles.fontSize).toBe('14px')
   })
 
