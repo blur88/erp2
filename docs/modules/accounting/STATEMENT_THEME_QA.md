@@ -26,6 +26,16 @@ correct value *and* a deliberately wrong one:
 | theme `styleOverrides` on a themeable slot | **yes** (`MuiButton` root `paddingTop` computes `88px`) |
 | an imported stylesheet (`statement.css`) | **no** — Vitest does not inject it |
 
+The table above records the 2026-09-11 environment. With jsdom 31, computed
+values can use different serialization: Statement body Typography with a
+`12.8px` font size and unitless `lineHeight: 1.2` resolves to `15.36px`.
+The body typography tests assert that resolved length, retaining the font-size
+and font-weight checks. A follow-up probe for #1906 on **@mui/material 9.5.0,
+jsdom 31.0.1, Vitest 5.1.0** accepted `15.36px` and rejected the deliberately
+wrong `15.35px` on both line and section-row Typography. This checks the
+computed-style matcher, without establishing browser layout or re-measuring
+the other entries in the historical table.
+
 So Statement's themed colours *are* assertable, including the descendant-selector
 ones; the current suite simply does not assert them. What stays out of reach is
 the imported stylesheet and anything needing layout.
