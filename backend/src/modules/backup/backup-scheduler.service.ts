@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -11,6 +11,10 @@ import {
 } from './dto/backup-schedule.dto';
 import { BackupService } from './backup.service';
 import { OrphanedSchedulerReconciler } from './orphaned-scheduler-reconciler.service';
+import {
+  InvalidBackupCronExpressionError,
+  validateBackupCronExpression,
+} from './backup-cron';
 
 @Injectable()
 export class BackupSchedulerService {
@@ -32,6 +36,7 @@ export class BackupSchedulerService {
   async createSchedule(
     createDto: CreateBackupScheduleDto,
   ): Promise<BackupSchedule> {
+    this.validateScheduleCronExpression(createDto.cronExpression);
     const schedule = this.scheduleRepository.create({
       ...createDto,
       nextRunAt: this.calculateNextRun(createDto),
@@ -67,7 +72,19 @@ export class BackupSchedulerService {
   ): Promise<BackupSchedule> {
     const schedule = await this.findOne(id);
 
-    Object.assign(schedule, updateDto);
+    this.validateScheduleCronExpression(
+      updateDto.cronExpression !== undefined
+        ? updateDto.cronExpression
+        : schedule.cronExpression,
+    );
+    // Transformed partial DTOs can contain undefined class fields. Preserve
+    // stored values for omitted fields while allowing explicit null/empty clears.
+    Object.assign(
+      schedule,
+      Object.fromEntries(
+        Object.entries(updateDto).filter(([, value]) => value !== undefined),
+      ),
+    );
 
     if (updateDto.frequency || updateDto.time || updateDto.cronExpression) {
       schedule.nextRunAt = this.calculateNextRun(schedule as any);
@@ -94,6 +111,7 @@ export class BackupSchedulerService {
 
   async toggleSchedule(id: string, enabled: boolean): Promise<BackupSchedule> {
     const schedule = await this.findOne(id);
+    if (enabled) this.validateScheduleCronExpression(schedule.cronExpression);
     schedule.enabled = enabled;
 
     if (enabled) {
@@ -137,11 +155,38 @@ export class BackupSchedulerService {
       where: { enabled: true },
     });
 
+    let initialized = 0;
     for (const schedule of schedules) {
-      await this.addScheduleToQueue(schedule);
+      let cronExpression = schedule.cronExpression;
+      try {
+        cronExpression ||= this.buildCronExpression(schedule);
+        validateBackupCronExpression(cronExpression);
+        await this.addScheduleToQueue(schedule);
+        initialized++;
+      } catch (error) {
+        this.logger.error(
+          `Failed to initialize backup schedule ${schedule.id} "${schedule.name}" ` +
+            `(${cronExpression}): ${error.message}`,
+          error.stack,
+        );
+        // Keep valid schedules enabled after transient queue failures so boot
+        // can retry them. Invalid expressions require operator repair.
+        if (!(error instanceof InvalidBackupCronExpressionError)) continue;
+        try {
+          await this.scheduleRepository.update(schedule.id, {
+            enabled: false,
+            nextRunAt: null,
+          });
+        } catch (statusError) {
+          this.logger.error(
+            `Failed to disable backup schedule ${schedule.id}: ${statusError.message}`,
+            statusError.stack,
+          );
+        }
+      }
     }
 
-    this.logger.log(`Initialized ${schedules.length} backup schedules`);
+    this.logger.log(`Initialized ${initialized} of ${schedules.length} backup schedules`);
 
     // Last, so the schedulers we just upserted are fully written before the
     // diagnostic reads them back — otherwise a live schedule could be read
@@ -211,6 +256,17 @@ export class BackupSchedulerService {
         `Orphaned-scheduler diagnostic failed: ${error.message}`,
         error.stack,
       );
+    }
+  }
+
+  private validateScheduleCronExpression(expression: string): void {
+    try {
+      validateBackupCronExpression(expression);
+    } catch (error) {
+      if (error instanceof InvalidBackupCronExpressionError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
     }
   }
 

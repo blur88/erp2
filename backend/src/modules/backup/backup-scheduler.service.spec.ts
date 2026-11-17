@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
-import { Queue } from 'bullmq';
+import { defaultRepeatStrategy, Queue } from 'bullmq';
+import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import { BackupSchedulerService } from './backup-scheduler.service';
@@ -84,6 +85,116 @@ describe('BackupSchedulerService', () => {
     expect(backupQueue.removeJobScheduler).toHaveBeenCalledWith(
       'schedule-schedule-1',
     );
+  });
+
+  it('boots past an invalid saved cron, disables it, and registers later schedules', async () => {
+    const invalid = { ...schedule, id: 'invalid', name: 'Old custom', cronExpression: '0 0 * * 1-5L' };
+    scheduleRepository.find.mockResolvedValue([invalid, schedule]);
+    scheduleRepository.update = (jest.fn as any)().mockResolvedValue({ affected: 1 });
+    backupQueue.upsertJobScheduler.mockImplementation(async (_id, options) => {
+      defaultRepeatStrategy(Date.now(), options);
+    });
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    try {
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
+      expect(backupQueue.upsertJobScheduler).toHaveBeenCalledWith(
+        'schedule-schedule-1', { pattern: '30 02 * * *' }, expect.anything(),
+      );
+      expect(error).toHaveBeenCalledWith(
+        expect.stringMatching(/invalid "Old custom".*0 0 \* \* 1-5L.*valid cron expression/),
+        expect.any(String),
+      );
+      expect(scheduleRepository.update).toHaveBeenCalledWith('invalid', { enabled: false, nextRunAt: null });
+      expect(reconciler.scanOrphanedSchedulers).toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('continues boot even when recording a registration failure fails', async () => {
+    scheduleRepository.find.mockResolvedValue([{ ...schedule, cronExpression: '0 0 * * 1-5L' }, { ...schedule, id: 'later' }]);
+    scheduleRepository.update = (jest.fn as any)().mockRejectedValue(new Error('database unavailable'));
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    try {
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
+      expect(backupQueue.upsertJobScheduler).toHaveBeenCalledWith(
+        'schedule-later', expect.anything(), expect.anything(),
+      );
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to disable backup schedule schedule-1'), expect.any(String),
+      );
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('keeps valid schedules enabled after a temporary queue failure', async () => {
+    scheduleRepository.find.mockResolvedValue([schedule]);
+    scheduleRepository.update = (jest.fn as any)();
+    backupQueue.upsertJobScheduler.mockRejectedValueOnce(new Error('queue unavailable'));
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    try {
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
+      expect(scheduleRepository.update).not.toHaveBeenCalled();
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('queue unavailable'), expect.any(String));
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('rejects re-enabling an invalid saved cron with 400 before changing state', async () => {
+    schedule.enabled = false;
+    schedule.cronExpression = '0 0 * * 1-5L';
+    scheduleRepository.findOne = (jest.fn as any)().mockResolvedValue(schedule);
+    await expect(service.toggleSchedule(schedule.id, true)).rejects.toMatchObject({ status: 400 });
+    expect(schedule.enabled).toBe(false);
+    expect(scheduleRepository.save).not.toHaveBeenCalled();
+    expect(backupQueue.upsertJobScheduler).not.toHaveBeenCalled();
+  });
+
+  describe.each(['0 0 * * 1-5L', '0 0 31 2 *', '*5 * * * *', 'not a cron'])(
+    'invalid cron %s', (cronExpression) => {
+      it('rejects create with 400 before saving, even when disabled', async () => {
+        await expect(service.createSchedule({ ...schedule, enabled: false, cronExpression }))
+          .rejects.toMatchObject({ status: 400 });
+        expect(scheduleRepository.save).not.toHaveBeenCalled();
+        expect(backupQueue.upsertJobScheduler).not.toHaveBeenCalled();
+      });
+
+      it('rejects update with 400 without changing the saved schedule or queue', async () => {
+        scheduleRepository.findOne = (jest.fn as any)().mockResolvedValue(schedule);
+        await expect(service.update(schedule.id, { name: 'Changed', cronExpression }))
+          .rejects.toMatchObject({ status: 400 });
+        expect(schedule.name).toBe('Nightly');
+        expect(schedule.cronExpression).toBeUndefined();
+        expect(scheduleRepository.save).not.toHaveBeenCalled();
+        expect(backupQueue.removeJobScheduler).not.toHaveBeenCalled();
+        expect(backupQueue.upsertJobScheduler).not.toHaveBeenCalled();
+      });
+    },
+  );
+
+  it.each([
+    { frequency: 'hourly', pattern: '30 * * * *' },
+    { frequency: 'daily', pattern: '30 02 * * *' },
+    { frequency: 'weekly', pattern: '30 02 * * 0' },
+    { frequency: 'monthly', pattern: '30 02 1 * *' },
+    { frequency: 'daily', cronExpression: '0 4 * * 1-5', pattern: '0 4 * * 1-5' },
+    { frequency: 'daily', cronExpression: '', pattern: '30 02 * * *' },
+  ])('creates and updates a valid $frequency schedule ($cronExpression)', async ({ pattern, ...options }) => {
+    scheduleRepository.create.mockImplementation((dto) => Object.assign(schedule, dto));
+    scheduleRepository.findOne = (jest.fn as any)().mockResolvedValue(schedule);
+    const dto = { ...schedule, ...options } as Parameters<typeof service.createSchedule>[0];
+    await expect(service.createSchedule(dto)).resolves.toMatchObject({ enabled: true });
+    expect(backupQueue.upsertJobScheduler).toHaveBeenLastCalledWith(
+      'schedule-schedule-1', { pattern }, expect.anything(),
+    );
+    await expect(service.update(schedule.id, { ...options, name: 'Updated' } as Parameters<typeof service.update>[1]))
+      .resolves.toMatchObject({ name: 'Updated' });
+    expect(backupQueue.upsertJobScheduler).toHaveBeenLastCalledWith(
+      'schedule-schedule-1', { pattern }, expect.anything(),
+    );
+    expect(scheduleRepository.save).toHaveBeenCalledTimes(2);
   });
 
   describe('orphaned scheduler diagnostic', () => {
