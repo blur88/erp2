@@ -3,6 +3,7 @@
 ## Workflow Entry Points
 
 - Before implementation, follow [Commit & Pull Request Guidelines](#commit--pull-request-guidelines).
+- Before updating dependencies or reviewing manifest/lockfile changes, read [Dependency updates](docs/agents/dependency-updates.md).
 - Before editing agent-facing documentation, read [CODING_STANDARDS.md](CODING_STANDARDS.md).
 - Before reviewing, read [acceptance-criterion evidence guidance](CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews). When delegating a review, include this reference and the requirement to read it before assessment in every reviewer assignment.
 
@@ -52,6 +53,10 @@ Before starting or waiting on long-running local verification or PR checks, read
 | Backend test sources (`backend/test/**`) | `cd backend && npm run type-check:spec`; run `cd backend && npm run test` for unit-test changes and `cd backend && npm run test:e2e` for e2e-test changes |
 | Backend entities or migrations | Backend source checks, plus `cd backend && npm run migration:run && npm run test:e2e` |
 | Frontend source (`frontend/src/**`) | `cd frontend && npm run lint && npm run type-check && npm run test:coverage` |
+| Dependency manifests or lockfiles (`package.json` / `package-lock.json` at root, `backend/`, or `frontend/`) | Apply the source checks above for each affected app and combine the applicable dependency rows below. |
+| Backend dependency changes that can affect the production build or runtime | Also run in order: `cd backend && npm run build && npx tsc -p tsconfig.cli.json && npm run verify:dist`. |
+| Root release-tooling dependency changes | `npm run test:release` |
+| BullMQ or ioredis dependency changes, including changed resolved versions in lockfiles | `cd backend && npm run test:redis` |
 | Cross-app contracts (API DTOs/interfaces used by both apps) | `cd backend && npm run type-check && npm run test`; `cd frontend && npm run test:coverage`; also apply source checks for each app touched |
 
 Backend `type-check` compiles `tsconfig.build.json` with `include: ["src"]`; it cannot see `test/**`. `type-check:spec` checks `test/**` and additionally `src/**` under the test TypeScript configuration. Unit-test transpilation does not replace either applicable type-check.
@@ -60,7 +65,9 @@ Frontend `npm run test:coverage` executes the complete test suite with coverage 
 
 E2E verification is required for backend entity/migration changes and e2e-test changes; ordinary backend source changes retain the source checks above.
 
-Completed successful CI evidence may satisfy the corresponding applicable commands. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence.
+For dependency changes, decide E2E applicability from the behavior affected and the existing requirements above; a dependency change alone neither requires nor exempts E2E.
+
+Completed successful CI evidence from the matching job on the current PR commit may satisfy the corresponding applicable commands, including production-image jobs that execute the full backend build, CLI compile, and distribution verification sequence. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, including E2E as passed in CI when it succeeds on the current PR commit, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence.
 
 ## Commit & Pull Request Guidelines
 
