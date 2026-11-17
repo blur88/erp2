@@ -6,7 +6,7 @@
     "test:release": "set -- scripts/__tests__/*.test.js; test -f \"$1\" && node --test \"$@\""
   },
   "devDependencies": {
-    "conventional-changelog-angular": "8.1.0",
+    "conventional-changelog-angular": "9.4.0",
     "yaml": "2.9.1"
   }
 }
