@@ -223,6 +223,25 @@ describe('BankReconciliationFormPage', () => {
     )
   }
 
+  it('cancels pending checklist and setup searches when the form unmounts', async () => {
+    vi.useFakeTimers()
+    mockExisting.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false })
+    const view = renderEdit()
+
+    try {
+      await act(async () => {})
+      expect(mockSearchLines).not.toHaveBeenCalled()
+
+      view.unmount()
+      await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+
+      expect(mockSearchLines).not.toHaveBeenCalled()
+    } finally {
+      view.unmount()
+      vi.useRealTimers()
+    }
+  })
+
   it('subsequent reconciliation: From and Opening Balance are read-only and come from next-period', async () => {
     mockNextPeriod.mockReturnValue({
       data: {
