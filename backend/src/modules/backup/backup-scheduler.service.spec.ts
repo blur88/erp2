@@ -142,6 +142,16 @@ describe('BackupSchedulerService', () => {
     }
   });
 
+  it('rejects re-enabling an invalid saved cron with 400 before changing state', async () => {
+    schedule.enabled = false;
+    schedule.cronExpression = '0 0 * * 1-5L';
+    scheduleRepository.findOne = (jest.fn as any)().mockResolvedValue(schedule);
+    await expect(service.toggleSchedule(schedule.id, true)).rejects.toMatchObject({ status: 400 });
+    expect(schedule.enabled).toBe(false);
+    expect(scheduleRepository.save).not.toHaveBeenCalled();
+    expect(backupQueue.upsertJobScheduler).not.toHaveBeenCalled();
+  });
+
   describe.each(['0 0 * * 1-5L', '0 0 31 2 *', '*5 * * * *', 'not a cron'])(
     'invalid cron %s', (cronExpression) => {
       it('rejects create with 400 before saving, even when disabled', async () => {

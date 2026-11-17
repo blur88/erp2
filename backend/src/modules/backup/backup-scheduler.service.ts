@@ -11,7 +11,10 @@ import {
 } from './dto/backup-schedule.dto';
 import { BackupService } from './backup.service';
 import { OrphanedSchedulerReconciler } from './orphaned-scheduler-reconciler.service';
-import { validateBackupCronExpression } from './backup-cron';
+import {
+  InvalidBackupCronExpressionError,
+  validateBackupCronExpression,
+} from './backup-cron';
 
 @Injectable()
 export class BackupSchedulerService {
@@ -33,7 +36,7 @@ export class BackupSchedulerService {
   async createSchedule(
     createDto: CreateBackupScheduleDto,
   ): Promise<BackupSchedule> {
-    validateBackupCronExpression(createDto.cronExpression);
+    this.validateScheduleCronExpression(createDto.cronExpression);
     const schedule = this.scheduleRepository.create({
       ...createDto,
       nextRunAt: this.calculateNextRun(createDto),
@@ -69,12 +72,19 @@ export class BackupSchedulerService {
   ): Promise<BackupSchedule> {
     const schedule = await this.findOne(id);
 
-    validateBackupCronExpression(
+    this.validateScheduleCronExpression(
       updateDto.cronExpression !== undefined
         ? updateDto.cronExpression
         : schedule.cronExpression,
     );
-    Object.assign(schedule, updateDto);
+    // Transformed partial DTOs can contain undefined class fields. Preserve
+    // stored values for omitted fields while allowing explicit null/empty clears.
+    Object.assign(
+      schedule,
+      Object.fromEntries(
+        Object.entries(updateDto).filter(([, value]) => value !== undefined),
+      ),
+    );
 
     if (updateDto.frequency || updateDto.time || updateDto.cronExpression) {
       schedule.nextRunAt = this.calculateNextRun(schedule as any);
@@ -101,6 +111,7 @@ export class BackupSchedulerService {
 
   async toggleSchedule(id: string, enabled: boolean): Promise<BackupSchedule> {
     const schedule = await this.findOne(id);
+    if (enabled) this.validateScheduleCronExpression(schedule.cronExpression);
     schedule.enabled = enabled;
 
     if (enabled) {
@@ -146,19 +157,21 @@ export class BackupSchedulerService {
 
     let initialized = 0;
     for (const schedule of schedules) {
+      let cronExpression = schedule.cronExpression;
       try {
-        validateBackupCronExpression(schedule.cronExpression || this.buildCronExpression(schedule));
+        cronExpression ||= this.buildCronExpression(schedule);
+        validateBackupCronExpression(cronExpression);
         await this.addScheduleToQueue(schedule);
         initialized++;
       } catch (error) {
         this.logger.error(
           `Failed to initialize backup schedule ${schedule.id} "${schedule.name}" ` +
-            `(${schedule.cronExpression || this.buildCronExpression(schedule)}): ${error.message}`,
+            `(${cronExpression}): ${error.message}`,
           error.stack,
         );
         // Keep valid schedules enabled after transient queue failures so boot
         // can retry them. Invalid expressions require operator repair.
-        if (!(error instanceof BadRequestException)) continue;
+        if (!(error instanceof InvalidBackupCronExpressionError)) continue;
         try {
           await this.scheduleRepository.update(schedule.id, {
             enabled: false,
@@ -243,6 +256,17 @@ export class BackupSchedulerService {
         `Orphaned-scheduler diagnostic failed: ${error.message}`,
         error.stack,
       );
+    }
+  }
+
+  private validateScheduleCronExpression(expression: string): void {
+    try {
+      validateBackupCronExpression(expression);
+    } catch (error) {
+      if (error instanceof InvalidBackupCronExpressionError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
     }
   }
 

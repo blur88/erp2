@@ -201,6 +201,7 @@ export class BackupController {
 
   @Post('schedule')
   @ApiOperation({ summary: 'Create a backup schedule' })
+  @ApiResponse({ status: 400, description: 'Invalid schedule or cron expression' })
   @ApiResponse({
     status: 201,
     description: 'Schedule created successfully',
@@ -237,6 +238,7 @@ export class BackupController {
 
   @Post('schedule/:id')
   @ApiOperation({ summary: 'Update a backup schedule' })
+  @ApiResponse({ status: 400, description: 'Invalid schedule or cron expression' })
   @ApiResponse({
     status: 200,
     description: 'Schedule updated successfully',
@@ -252,6 +254,13 @@ export class BackupController {
 
   @Patch('schedule/:id')
   @ApiOperation({ summary: 'Update a backup schedule' })
+  @ApiResponse({
+    status: 200,
+    description: 'Schedule updated successfully',
+    type: BackupSchedule,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid schedule or cron expression' })
+  @ApiResponse({ status: 404, description: 'Schedule not found' })
   async patchSchedule(
     @Param('id') id: string,
     @Body() updateScheduleDto: UpdateBackupScheduleDto,
