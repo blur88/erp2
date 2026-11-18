@@ -1,7 +1,7 @@
 # Merge and branch cleanup
 
 1. From the PR's topic branch, confirm the checkout is clean with `git status --short --branch --untracked-files=normal --ignore-submodules=none`. Confirm the PR targets `main` in the repository on `origin`, and that the local branch and its tip match the PR's head branch and commit. If either check fails, stop and report what needs attention.
-2. Set `pr` to the PR number, then merge and run cleanup from that checkout.
+2. Set `pr` to the PR number, then merge and run cleanup from that checkout. Use a merge commit, the merge method enabled in this repository's GitHub settings.
 
    ```bash
    gh pr merge "$pr" --merge --match-head-commit "$(git rev-parse HEAD)" &&
