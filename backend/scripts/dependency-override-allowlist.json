@@ -1,13 +1,5 @@
 [
   {
-    "parent": "@angular-devkit/core",
-    "parentVersion": "22.2.6",
-    "dependency": "ajv",
-    "declared": "8.20.0",
-    "resolved": "8.18.0",
-    "reason": "The historical Angular-scoped pin holds Ajv at 8.18.0 below the declared 8.20.0. The registry uses the Ajv constructor, schema lookup and compilation, format and keyword registration, and validation error classes, all available on the pinned version."
-  },
-  {
     "parent": "@istanbuljs/load-nyc-config",
     "parentVersion": "1.1.0",
     "dependency": "js-yaml",
@@ -22,14 +14,6 @@
     "declared": "^13.0.6",
     "resolved": "14.0.6",
     "reason": "CoverageReporter uses the named glob export’s sync method with a pattern and options, which glob 14 provides."
-  },
-  {
-    "parent": "@nestjs/common",
-    "parentVersion": "12.5.1",
-    "dependency": "file-type",
-    "declared": "22.3.0",
-    "resolved": "21.3.2",
-    "reason": "The historical 21.x advisory pin holds file-type at 21.3.2 below the declared 22.3.0. FileTypeValidator imports fileTypeFromBuffer and reads the result’s mime field, both supported by the older major."
   },
   {
     "parent": "@nestjs/swagger",
