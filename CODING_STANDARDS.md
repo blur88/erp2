@@ -15,3 +15,4 @@
 - For agent-facing documentation, verify when and how the intended reader encounters the instruction.
 - Before reporting, refresh pending checks and confirm that the evidence still applies to the reviewed SHA. If the PR head moved, identify the reviewed SHA and flag which conclusions need reassessment.
 - Never report complete acceptance-criterion coverage when required evidence is missing.
+- When behavior depends on omitted fields, defaults, or coercion, verify it through `createGlobalValidationPipe()` directly or through an HTTP test that uses it; see [the backup schedule HTTP test](backend/src/modules/backup/backup-schedule.http.spec.ts).
