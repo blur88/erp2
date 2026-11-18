@@ -11,14 +11,18 @@ describe('Nest file signature validation', () => {
       'base64',
     );
 
-    await expect(validator.isValid({ mimetype, buffer })).resolves.toBe(true);
+    await expect(
+      validator.isValid({ mimetype, buffer, size: buffer.length }),
+    ).resolves.toBe(true);
   });
 
   it('rejects plain text declared as a PNG', async () => {
     const validator = new FileTypeValidator({ fileType: mimetype });
     const buffer = Buffer.from('plain text');
 
-    await expect(validator.isValid({ mimetype, buffer })).resolves.toBe(false);
+    await expect(
+      validator.isValid({ mimetype, buffer, size: buffer.length }),
+    ).resolves.toBe(false);
   });
 });
 
@@ -28,7 +32,7 @@ describe('Angular devkit schema validation', () => {
     const uri = 'https://example.invalid/email-schema.json';
     registry.registerUriHandler((requestedUri) =>
       requestedUri === uri
-        ? { $id: uri, type: 'string', format: 'email' }
+        ? Promise.resolve({ $id: uri, type: 'string', format: 'email' })
         : undefined,
     );
 
