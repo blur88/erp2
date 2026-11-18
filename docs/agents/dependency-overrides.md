@@ -9,6 +9,10 @@ be removed. Earlier override reviews are recorded in
 key, put the full path in backticks, with ` → ` between keys. Give every row a
 reason and removal condition so the CI checker can validate coverage.
 
+For any new or edited removal condition that depends on API compatibility, name
+the committed spec to run with the override removed. If the condition depends
+only on the resolved tree or an advisory, name the applicable check.
+
 | Override | Reason | Removal condition |
 |---|---|---|
 | `glob` | Keeps deprecated transitive glob releases out of the tree and bounds future resolution to a reviewed major. | Parents' own supported ranges resolve maintained versions without a global override, with compatible APIs for every consumer. |

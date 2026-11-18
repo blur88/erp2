@@ -28,12 +28,18 @@
    change and whether an override forced it. Account for every changed resolution
    and keep unrelated churn out of the update.
 
-   For a globally overridden dependency, identify every direct consumer whose
-   declared range excludes the resolved version. Before recording any
-   exception, inspect the installed call sites of each affected consumer and
-   run a focused probe for each distinct API usage. Consumers with identical
-   usage can share a probe. In the opening PR, record the consumers covered,
-   the commands, and the actual results.
+   When adding, changing, or removing an override, identify every direct
+   consumer whose resolved dependency changes and inspect its installed call
+   sites. For each distinct relevant API use of each affected consumer, cite an
+   existing committed spec or add a spec that exercises the installed consumer
+   against the resulting dependency tree. Put new cross-module compatibility
+   specs in `backend/test/unit/dependency-*.spec.ts` by default.
+
+   When repeatable consumer compatibility coverage is required, include any
+   new committed specs or reference the existing committed specs in the opening
+   PR revision. After CI completes, cite each spec and its CI result for the
+   tested head SHA in the PR. Record one-off investigation output in the PR as
+   supporting evidence.
 
    If a resolved version of `@mui/material`, `jsdom` or `vitest` changes, follow
    [Statement QA's automated coverage and styling invariants](../modules/accounting/STATEMENT_THEME_QA.md#automated-coverage-and-styling-invariants)
