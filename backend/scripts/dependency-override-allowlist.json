@@ -5,7 +5,7 @@
     "dependency": "ajv",
     "declared": "8.20.0",
     "resolved": "8.18.0",
-    "reason": "CoreSchemaRegistry uses the Ajv 8 constructor, format and keyword registration, schema lookup and compilation, and validation errors. The installed registry compiled a referenced schema and returned the expected sync and async validation results."
+    "reason": "The historical Angular-scoped pin holds Ajv at 8.18.0 below the declared 8.20.0. The registry uses the Ajv constructor, schema lookup and compilation, format and keyword registration, and validation error classes, all available on the pinned version."
   },
   {
     "parent": "@istanbuljs/load-nyc-config",
@@ -13,7 +13,7 @@
     "dependency": "js-yaml",
     "declared": "^3.13.1",
     "resolved": "5.4.2",
-    "reason": "Its YAML branch calls load(text), which still parses NYC config and returns the expected options."
+    "reason": "The YAML branch uses load(text) for NYC configuration, which remains available on js-yaml 5."
   },
   {
     "parent": "@jest/reporters",
@@ -21,7 +21,7 @@
     "dependency": "glob",
     "declared": "^13.0.6",
     "resolved": "14.0.6",
-    "reason": "CoverageReporter calls glob.glob.sync(pattern, options), which still matches files with the overridden version."
+    "reason": "CoverageReporter uses the named glob export’s sync method with a pattern and options, which glob 14 provides."
   },
   {
     "parent": "@nestjs/common",
@@ -29,7 +29,7 @@
     "dependency": "file-type",
     "declared": "22.3.0",
     "resolved": "21.3.2",
-    "reason": "FileTypeValidator imports fileTypeFromBuffer and reads the result MIME. The validator accepted PNG bytes and rejected plain text with this version."
+    "reason": "The historical 21.x advisory pin holds file-type at 21.3.2 below the declared 22.3.0. FileTypeValidator imports fileTypeFromBuffer and reads the result’s mime field, both supported by the older major."
   },
   {
     "parent": "@nestjs/swagger",
@@ -37,7 +37,7 @@
     "dependency": "js-yaml",
     "declared": "5.5.0",
     "resolved": "5.4.2",
-    "reason": "The Swagger YAML endpoint calls dump(document, options). It served a serialized OpenAPI document with this version."
+    "reason": "The global pin avoids restoring NYC’s js-yaml 3.x copy and holds Swagger at 5.4.2 below its declared 5.5.0. Swagger uses dump(document, options), which the pinned version provides."
   },
   {
     "parent": "anymatch",
@@ -45,7 +45,7 @@
     "dependency": "picomatch",
     "declared": "^2.0.4",
     "resolved": "4.0.7",
-    "reason": "anymatch calls picomatch(pattern, options) and invokes the returned matcher. Ordinary and negated patterns matched as expected."
+    "reason": "anymatch calls picomatch(pattern, options) and invokes the returned matcher, a call shape that picomatch 4 preserves for both include and negated patterns."
   },
   {
     "parent": "archiver-utils",
@@ -53,7 +53,7 @@
     "dependency": "glob",
     "declared": "^7.1.4",
     "resolved": "14.0.6",
-    "reason": "file.expand calls glob.sync(pattern, options), which still matches files with this version."
+    "reason": "file.expand calls the top-level glob.sync(pattern, options) export, which glob 14 provides."
   },
   {
     "parent": "archiver-utils",
@@ -61,7 +61,7 @@
     "dependency": "glob",
     "declared": "^7.2.3",
     "resolved": "14.0.6",
-    "reason": "file.expand calls glob.sync(pattern, options), which still matches files with this version."
+    "reason": "file.expand calls the top-level glob.sync(pattern, options) export, which glob 14 provides."
   },
   {
     "parent": "engine.io",
@@ -69,7 +69,7 @@
     "dependency": "ws",
     "declared": "~8.21.0",
     "resolved": "8.23.0",
-    "reason": "The server uses ws.Server and handleUpgrade. The transport receives messages, sends normally or through _sender.sendFrame, and closes the connection. A local Socket.IO connection exercised upgrade, both send paths, and close."
+    "reason": "The server uses ws.Server and handleUpgrade. The transport receives messages, sends normally or through _sender.sendFrame, and closes the connection. These interfaces retain the call shapes used by Engine.IO."
   },
   {
     "parent": "exceljs",
@@ -77,7 +77,7 @@
     "dependency": "unzipper",
     "declared": "^0.10.11",
     "resolved": "0.12.5",
-    "reason": "WorkbookReader consumes Parse({ forceStream: true }) entries. The streaming export-read test recovered the expected worksheet cell with this version."
+    "reason": "WorkbookReader consumes ZIP entries from Parse({ forceStream: true }), an interface unzipper 0.12.5 provides."
   },
   {
     "parent": "exceljs",
@@ -85,7 +85,7 @@
     "dependency": "uuid",
     "declared": "^8.3.0",
     "resolved": "14.0.3",
-    "reason": "The extended conditional-formatting transform requires the named v4 export. The transform generated a v4 UUID with the backend Node version."
+    "reason": "The extended conditional-formatting transform loads the named v4 export via require(), which the backend’s Node version can load from uuid 14."
   },
   {
     "parent": "jest-config",
@@ -93,7 +93,7 @@
     "dependency": "glob",
     "declared": "^13.0.6",
     "resolved": "14.0.6",
-    "reason": "Project glob expansion calls glob.glob.sync(pattern, options), which still matches files with the overridden version."
+    "reason": "Project glob expansion calls the named glob export’s sync method with a pattern and options, which glob 14 provides."
   },
   {
     "parent": "jest-runtime",
@@ -101,7 +101,7 @@
     "dependency": "glob",
     "declared": "^13.0.6",
     "resolved": "14.0.6",
-    "reason": "Manual mock lookup calls glob.glob.sync(pattern, options), which still matches files with the overridden version."
+    "reason": "Manual mock lookup calls the named glob export’s sync method with a pattern and options, which glob 14 provides."
   },
   {
     "parent": "socket.io-adapter",
@@ -109,7 +109,7 @@
     "dependency": "ws",
     "declared": "~8.21.0",
     "resolved": "8.23.0",
-    "reason": "The adapter uses Sender.frame to precompute a text broadcast frame. A local WebSocket client received a broadcast through the precomputed-frame path."
+    "reason": "The adapter uses Sender.frame to precompute text broadcast frames in the format Engine.IO passes to _sender.sendFrame. Both interfaces are available in ws 8.23.0."
   },
   {
     "parent": "test-exclude",
@@ -117,7 +117,7 @@
     "dependency": "glob",
     "declared": "^10.4.1",
     "resolved": "14.0.6",
-    "reason": "The package uses the named glob export as a function and uses its sync method. Both dependency paths matched the known file through test-exclude."
+    "reason": "The package calls the named glob export and the sync method on that export, both provided by glob 14."
   },
   {
     "parent": "typeorm",
@@ -125,6 +125,6 @@
     "dependency": "ioredis",
     "declared": "^5.0.4",
     "resolved": "6.0.0",
-    "reason": "The optional query cache uses the Redis and Cluster constructors, plus set with PX, get, del, flushdb, and quit. Both cache modes performed a round trip and cleanup against disposable Redis with this version."
+    "reason": "The optional query cache uses the Redis and Cluster constructors plus set with PX, get, del, flushdb, and quit. ioredis 6 provides those constructors and accepts the command arguments TypeORM passes."
   }
 ]

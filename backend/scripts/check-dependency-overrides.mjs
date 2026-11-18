@@ -4,12 +4,22 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 
+const exceptionIdentityFields = [
+  "parent",
+  "parentVersion",
+  "dependency",
+  "declared",
+  "resolved",
+];
+
 function overrideKeys(overrides, ancestors = []) {
-  return Object.entries(overrides).flatMap(([key, rule]) => {
-    const path = [...ancestors, key];
+  return Object.entries(overrides).flatMap(([key, override]) => {
+    const overridePath = [...ancestors, key];
     return [
-      path.join(" → "),
-      ...(typeof rule === "string" ? [] : overrideKeys(rule, path)),
+      overridePath.join(" → "),
+      ...(typeof override === "string"
+        ? []
+        : overrideKeys(override, overridePath)),
     ];
   });
 }
@@ -28,31 +38,26 @@ function documentedKeys(markdown) {
   return keys;
 }
 
-async function check(project, documentation, allowlist) {
-  const path = resolve(project);
-  const manifest = JSON.parse(readFileSync(join(path, "package.json"), "utf8"));
+async function checkDependencyOverrides(project, documentation, allowlist) {
+  const projectDirectory = resolve(project);
+  const manifest = JSON.parse(
+    readFileSync(join(projectDirectory, "package.json"), "utf8"),
+  );
   const documented = documentedKeys(readFileSync(documentation, "utf8"));
   const exceptions = JSON.parse(readFileSync(allowlist, "utf8"));
-  const exceptionFields = [
-    "parent",
-    "parentVersion",
-    "dependency",
-    "declared",
-    "resolved",
-    "reason",
-  ];
+  const requiredFields = [...exceptionIdentityFields, "reason"];
   if (
     !Array.isArray(exceptions) ||
     exceptions.some(
       (entry) =>
         !entry ||
-        exceptionFields.some(
+        requiredFields.some(
           (field) => typeof entry[field] !== "string" || !entry[field].trim(),
         ),
     )
   ) {
     throw new Error(
-      "Expected an allowlist array with a parent, parentVersion, dependency, declared, resolved and reason for each entry",
+      `Expected an allowlist array with these fields for each entry: ${requiredFields.join(", ")}`,
     );
   }
 
@@ -73,11 +78,16 @@ async function check(project, documentation, allowlist) {
   const semver = fromNpm("semver");
   // npm ci installs this same graph. Loading it virtually also checks packages
   // locked for other platforms and allows fixtures to run without installing.
-  const tree = await new Arborist({ path }).loadVirtual();
+  const tree = await new Arborist({ path: projectDirectory }).loadVirtual();
   for (const parent of tree.inventory.values()) {
     for (const edge of parent.edgesOut.values()) {
-      const rule = edge.overrides;
-      if (!edge.to || rule?.name !== edge.name || rule.value === "*") continue;
+      const overrideRule = edge.overrides;
+      if (
+        !edge.to ||
+        overrideRule?.name !== edge.name ||
+        overrideRule.value === "*"
+      )
+        continue;
 
       const original = parseSpec.resolve(edge.name, edge.rawSpec || "*");
       const spec = original.subSpec ?? original;
@@ -90,7 +100,7 @@ async function check(project, documentation, allowlist) {
       )
         continue;
 
-      const match = {
+      const incompatibility = {
         parent: parent.packageName,
         parentVersion: parent.version,
         dependency: edge.name,
@@ -101,13 +111,22 @@ async function check(project, documentation, allowlist) {
       };
       if (
         exceptions.some((entry) =>
-          Object.entries(match).every(([key, value]) => entry[key] === value),
+          exceptionIdentityFields.every(
+            (field) => entry[field] === incompatibility[field],
+          ),
         )
       )
         continue;
 
+      const {
+        parent: parentName,
+        parentVersion,
+        dependency,
+        declared,
+        resolved,
+      } = incompatibility;
       problems.push(
-        `${match.parent}@${match.parentVersion} -> ${match.dependency}: declared ${match.declared}, resolved ${match.resolved} (${parent.location || "root"})`,
+        `${parentName}@${parentVersion} -> ${dependency}: declared ${declared}, resolved ${resolved} (${parent.location || "root"})`,
       );
     }
   }
@@ -129,7 +148,7 @@ try {
       "Usage: node check-dependency-overrides.mjs <project-dir> <documentation.md> <allowlist.json>",
     );
   }
-  await check(...args);
+  await checkDependencyOverrides(...args);
 } catch (error) {
   console.error(`Could not check dependency overrides: ${error.message}`);
   process.exitCode = 2;

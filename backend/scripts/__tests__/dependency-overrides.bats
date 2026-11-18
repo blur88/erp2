@@ -24,7 +24,7 @@ setup() {
   [[ "$output" == *'Undocumented override key "rimraf@2.7.1 → glob"'* ]]
 }
 
-@test "accepts the verified archiver-utils exception" {
+@test "rejects the archiver-utils resolution unless its exact exception is listed" {
   run node "$checker" "$fixtures/archiver" "$fixtures/documented.md" "$fixtures/no-exceptions.json"
   [ "$status" -eq 1 ]
   [[ "$output" == *'archiver-utils@2.1.0 -> glob: declared ^7.1.4, resolved 14.0.6'* ]]
@@ -37,4 +37,17 @@ setup() {
   run node "$checker" "$fixtures/rimraf" "$fixtures/documented.md" "$fixtures/archiver-exception.json"
   [ "$status" -eq 1 ]
   [[ "$output" == *'rimraf@2.7.1 -> glob: declared ^7.1.3, resolved 14.0.6'* ]]
+}
+
+@test "reports an invalid allowlist as a setup error" {
+  printf '[{}]\n' > invalid-allowlist.json
+  run node "$checker" "$fixtures/rimraf" "$fixtures/documented.md" "$PWD/invalid-allowlist.json"
+  [ "$status" -eq 2 ]
+  [[ "$output" == 'Could not check dependency overrides: Expected an allowlist array'* ]]
+}
+
+@test "reports missing arguments as a setup error" {
+  run node "$checker" "$fixtures/rimraf" "$fixtures/documented.md"
+  [ "$status" -eq 2 ]
+  [[ "$output" == 'Could not check dependency overrides: Usage:'* ]]
 }
