@@ -51,7 +51,7 @@ Before starting or waiting on long-running local verification or PR checks, read
 | Files changed | Required commands (from repository root) |
 |---|---|
 | GitHub Actions workflows (`.github/workflows/**`) | `bash scripts/lint-workflows.sh` (pinned actionlint + ShellCheck) |
-| Release workflow or release scripts (`.github/workflows/release.yml`, `release.config.cjs`, `scripts/*release*`, and related tests under `scripts/__tests__/`) | `npm run test:release` (root) |
+| Release workflow, release configuration, or root scripts and tests (`.github/workflows/release.yml`, `release.config.cjs`, `scripts/**`) | `npm run test:release` (root) |
 | Published-image settings (tags, attestations, build-args in `.github/workflows/release.yml`) | Add or update a targeted assertion under `scripts/__tests__/`, covered by `npm run test:release` |
 | Backend scripts (`backend/scripts/**`) | `cd backend && npm run test:scripts` (Bats) |
 | Backend source (`backend/src/**`) | `cd backend && npm run lint && npm run type-check && npm run test` |
@@ -86,6 +86,8 @@ Git history follows Conventional Commit style:
 Commit messages and PR bodies must not contain AI attribution lines.
 
 Use the [PR template](.github/pull_request_template.md) for the summary, related issue, verification evidence, screenshots and migration/environment notes.
+
+When merging a PR from its local topic branch, follow [Merge and branch cleanup](docs/agents/merge-and-branch-cleanup.md) through checkout and branch cleanup.
 
 ## Security & Configuration Tips
 - Never commit real secrets; copy from `.env.example`.
