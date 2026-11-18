@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as ExcelJS from 'exceljs';
@@ -22,7 +23,7 @@ describe('ExportService', () => {
   });
 
   describe('exportFlat', () => {
-    it('returns a Buffer', async () => {
+    it('returns a Buffer that xlsx.load can read', async () => {
       const columns = [
         { key: 'name', header: 'Name', type: 'string' as const, width: 20 },
         { key: 'price', header: 'Price', type: 'currency' as const, width: 15 },
@@ -31,6 +32,25 @@ describe('ExportService', () => {
       const result = await service.exportFlat('Products', columns, rows);
       expect(Buffer.isBuffer(result)).toBe(true);
       expect(result.length).toBeGreaterThan(0);
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(Uint8Array.from(result).buffer);
+      expect(workbook.getWorksheet('Products').getCell('A6').value).toBe('Widget');
+    });
+
+    it('recovers the exported cell through the streaming WorkbookReader', async () => {
+      const columns = [{ key: 'name', header: 'Name', type: 'string' as const }];
+      const buffer = await service.exportFlat('Products', columns, [{ name: 'Widget' }]);
+      const reader = new ExcelJS.stream.xlsx.WorkbookReader(Readable.from(buffer), {});
+      const dataCells: ExcelJS.CellValue[] = [];
+
+      for await (const worksheet of reader) {
+        for await (const row of worksheet) {
+          if (row.number === 6) dataCells.push(row.getCell(1).value);
+        }
+      }
+
+      expect(dataCells).toEqual(['Widget']);
     });
   });
 
