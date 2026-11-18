@@ -49,6 +49,10 @@ Before starting or waiting on long-running local verification or PR checks, read
 
 | Files changed | Required commands (from repository root) |
 |---|---|
+| GitHub Actions workflows (`.github/workflows/**`) | `bash scripts/lint-workflows.sh` (pinned actionlint + ShellCheck) |
+| Release workflow or release scripts | `npm run test:release` (root) |
+| Published-image settings (tags, attestations, build-args in `release.yml`) | Add or update a targeted assertion under `scripts/__tests__/`, covered by `npm run test:release` |
+| Backend scripts (`backend/scripts/**`) | `cd backend && npm run test:scripts` (Bats) |
 | Backend source (`backend/src/**`) | `cd backend && npm run lint && npm run type-check && npm run test` |
 | Backend test sources (`backend/test/**`) | `cd backend && npm run type-check:spec`; run `cd backend && npm run test` for unit-test changes and `cd backend && npm run test:e2e` for e2e-test changes |
 | Backend entities or migrations | Backend source checks, plus `cd backend && npm run migration:run && npm run test:e2e` |
@@ -67,7 +71,7 @@ E2E verification is required for backend entity/migration changes and e2e-test c
 
 For dependency changes, decide E2E applicability from the behavior affected and the existing requirements above; a dependency change alone neither requires nor exempts E2E.
 
-Completed successful CI evidence from the matching job on the current PR commit may satisfy the corresponding applicable commands, including production-image jobs that execute the full backend build, CLI compile, and distribution verification sequence. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, including E2E as passed in CI when it succeeds on the current PR commit, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence.
+Completed successful CI evidence from the matching job on the current PR commit may satisfy the corresponding applicable commands, including production-image jobs that execute the full backend build, CLI compile, and distribution verification sequence. In the `Backend - Lint, Type Check, Unit Tests, E2E Tests` job, the matching steps are `Lint GitHub Actions workflows`, `Release validation`, and `Gate script tests` for workflow lint, release tests, and backend script tests respectively. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, including E2E as passed in CI when it succeeds on the current PR commit, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence.
 
 ## Commit & Pull Request Guidelines
 
