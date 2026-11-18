@@ -176,6 +176,21 @@ test('preserves both branches when main is checked out in another worktree', t =
   assertBlocked(f, f.run(), /main.*worktree/);
 });
 
+test('preserves both checkouts when the topic branch is checked out in another worktree', t => {
+  const f = fixture(t);
+  const otherWorktree = path.join(f.checkout, '..', 'other-worktree');
+  const localMain = f.git('rev-parse', 'refs/heads/main');
+  f.git('worktree', 'add', '--force', otherWorktree, topic);
+  const localFile = path.join(otherWorktree, 'local-work');
+  writeFileSync(localFile, 'keep me\n');
+
+  assertBlocked(f, f.run(), /branch fix\/1937-topic is checked out in another worktree/);
+  assert.equal(f.git('rev-parse', 'refs/heads/main'), localMain);
+  assert.equal(f.git('-C', otherWorktree, 'branch', '--show-current'), topic);
+  assert.equal(f.git('-C', otherWorktree, 'rev-parse', 'HEAD'), f.head);
+  assert.equal(readFileSync(localFile, 'utf8'), 'keep me\n');
+});
+
 test('blocks cleanup while the PR is open', t => {
   const f = fixture(t);
 
