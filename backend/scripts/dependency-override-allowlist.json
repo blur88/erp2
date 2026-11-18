@@ -1,0 +1,130 @@
+[
+  {
+    "parent": "@angular-devkit/core",
+    "parentVersion": "22.2.6",
+    "dependency": "ajv",
+    "declared": "8.20.0",
+    "resolved": "8.18.0",
+    "reason": "CoreSchemaRegistry uses the Ajv 8 constructor, format and keyword registration, schema lookup and compilation, and validation errors. The installed registry compiled a referenced schema and returned the expected sync and async validation results."
+  },
+  {
+    "parent": "@istanbuljs/load-nyc-config",
+    "parentVersion": "1.1.0",
+    "dependency": "js-yaml",
+    "declared": "^3.13.1",
+    "resolved": "5.4.2",
+    "reason": "Its YAML branch calls load(text), which still parses NYC config and returns the expected options."
+  },
+  {
+    "parent": "@jest/reporters",
+    "parentVersion": "30.5.2",
+    "dependency": "glob",
+    "declared": "^13.0.6",
+    "resolved": "14.0.6",
+    "reason": "CoverageReporter calls glob.glob.sync(pattern, options), which still matches files with the overridden version."
+  },
+  {
+    "parent": "@nestjs/common",
+    "parentVersion": "12.5.1",
+    "dependency": "file-type",
+    "declared": "22.3.0",
+    "resolved": "21.3.2",
+    "reason": "FileTypeValidator imports fileTypeFromBuffer and reads the result MIME. The validator accepted PNG bytes and rejected plain text with this version."
+  },
+  {
+    "parent": "@nestjs/swagger",
+    "parentVersion": "12.1.2",
+    "dependency": "js-yaml",
+    "declared": "5.5.0",
+    "resolved": "5.4.2",
+    "reason": "The Swagger YAML endpoint calls dump(document, options). It served a serialized OpenAPI document with this version."
+  },
+  {
+    "parent": "anymatch",
+    "parentVersion": "3.1.3",
+    "dependency": "picomatch",
+    "declared": "^2.0.4",
+    "resolved": "4.0.7",
+    "reason": "anymatch calls picomatch(pattern, options) and invokes the returned matcher. Ordinary and negated patterns matched as expected."
+  },
+  {
+    "parent": "archiver-utils",
+    "parentVersion": "2.1.0",
+    "dependency": "glob",
+    "declared": "^7.1.4",
+    "resolved": "14.0.6",
+    "reason": "file.expand calls glob.sync(pattern, options), which still matches files with this version."
+  },
+  {
+    "parent": "archiver-utils",
+    "parentVersion": "3.0.4",
+    "dependency": "glob",
+    "declared": "^7.2.3",
+    "resolved": "14.0.6",
+    "reason": "file.expand calls glob.sync(pattern, options), which still matches files with this version."
+  },
+  {
+    "parent": "engine.io",
+    "parentVersion": "6.6.11",
+    "dependency": "ws",
+    "declared": "~8.21.0",
+    "resolved": "8.23.0",
+    "reason": "The server uses ws.Server and handleUpgrade. The transport receives messages, sends normally or through _sender.sendFrame, and closes the connection. A local Socket.IO connection exercised upgrade, both send paths, and close."
+  },
+  {
+    "parent": "exceljs",
+    "parentVersion": "4.4.0",
+    "dependency": "unzipper",
+    "declared": "^0.10.11",
+    "resolved": "0.12.5",
+    "reason": "WorkbookReader consumes Parse({ forceStream: true }) entries. The streaming export-read test recovered the expected worksheet cell with this version."
+  },
+  {
+    "parent": "exceljs",
+    "parentVersion": "4.4.0",
+    "dependency": "uuid",
+    "declared": "^8.3.0",
+    "resolved": "14.0.3",
+    "reason": "The extended conditional-formatting transform requires the named v4 export. The transform generated a v4 UUID with the backend Node version."
+  },
+  {
+    "parent": "jest-config",
+    "parentVersion": "30.5.2",
+    "dependency": "glob",
+    "declared": "^13.0.6",
+    "resolved": "14.0.6",
+    "reason": "Project glob expansion calls glob.glob.sync(pattern, options), which still matches files with the overridden version."
+  },
+  {
+    "parent": "jest-runtime",
+    "parentVersion": "30.5.2",
+    "dependency": "glob",
+    "declared": "^13.0.6",
+    "resolved": "14.0.6",
+    "reason": "Manual mock lookup calls glob.glob.sync(pattern, options), which still matches files with the overridden version."
+  },
+  {
+    "parent": "socket.io-adapter",
+    "parentVersion": "2.5.8",
+    "dependency": "ws",
+    "declared": "~8.21.0",
+    "resolved": "8.23.0",
+    "reason": "The adapter uses Sender.frame to precompute a text broadcast frame. A local WebSocket client received a broadcast through the precomputed-frame path."
+  },
+  {
+    "parent": "test-exclude",
+    "parentVersion": "7.0.2",
+    "dependency": "glob",
+    "declared": "^10.4.1",
+    "resolved": "14.0.6",
+    "reason": "The package uses the named glob export as a function and uses its sync method. Both dependency paths matched the known file through test-exclude."
+  },
+  {
+    "parent": "typeorm",
+    "parentVersion": "1.1.3",
+    "dependency": "ioredis",
+    "declared": "^5.0.4",
+    "resolved": "6.0.0",
+    "reason": "The optional query cache uses the Redis and Cluster constructors, plus set with PX, get, del, flushdb, and quit. Both cache modes performed a round trip and cleanup against disposable Redis with this version."
+  }
+]

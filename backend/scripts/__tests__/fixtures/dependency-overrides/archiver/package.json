@@ -1,0 +1,12 @@
+{
+  "name": "override-fixture",
+  "version": "1.0.0",
+  "dependencies": {
+    "archiver-utils": "2.1.0"
+  },
+  "overrides": {
+    "archiver-utils@2.1.0": {
+      "glob": "14.0.6"
+    }
+  }
+}
