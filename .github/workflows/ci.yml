@@ -350,6 +350,9 @@ jobs:
             exit 1
           fi
 
+      - name: Verify backup schedule recovery on restart
+        run: bash scripts/verify-backup-restart.sh
+
       - name: Container logs on failure
         if: failure()
         run: docker logs erp_ci_backend 2>&1 | tail -200
