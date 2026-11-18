@@ -16,7 +16,9 @@
    implementation that defines them. Record the reproduction and its result in
    the issue. If a proposed fix could not be tried, describe it as an untested
    hypothesis in the issue body.
-   Keep acceptance criteria focused on the behaviour the upgrade must preserve.
+   State acceptance criteria as invariants of the resolved dependency tree or
+   application behaviour so they still apply if the fix removes a transitive
+   dependency.
 3. Review [backend override reasons](dependency-overrides.md) before changing
    backend dependencies. Keep exact overrides aligned with direct pins to avoid
    `EOVERRIDE`; check whether an override prevents a desired security fix.
@@ -25,6 +27,13 @@
    from that directory to identify each parent responsible for a surprising
    change and whether an override forced it. Account for every changed resolution
    and keep unrelated churn out of the update.
+
+   For a globally overridden dependency, identify every direct consumer whose
+   declared range excludes the resolved version. Before recording any
+   exception, inspect the installed call sites of each affected consumer and
+   run a focused probe for each distinct API usage. Consumers with identical
+   usage can share a probe. In the opening PR, record the consumers covered,
+   the commands, and the actual results.
 
    If a resolved version of `@mui/material`, `jsdom` or `vitest` changes, follow
    [Statement QA's automated coverage and styling invariants](../modules/accounting/STATEMENT_THEME_QA.md#automated-coverage-and-styling-invariants)
