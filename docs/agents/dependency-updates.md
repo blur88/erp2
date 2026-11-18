@@ -29,17 +29,19 @@
    and keep unrelated churn out of the update.
 
    When adding, changing, or removing an override, identify every direct
-   consumer whose resolved dependency changes and inspect its installed call
-   sites. For each distinct relevant API use of each affected consumer, cite an
-   existing committed spec or add a spec that exercises the installed consumer
-   against the resulting dependency tree. Put new cross-module compatibility
-   specs in `backend/test/unit/dependency-*.spec.ts` by default.
+   consumer whose resolved dependency changes. Before recording an exception,
+   identify the direct consumer whose declared range excludes the resolved
+   version, even if the override is unchanged. Inspect each affected consumer's
+   installed call sites. In the opening PR revision, cite an existing committed
+   spec or include a new committed spec for each distinct relevant API use of
+   each affected consumer. The spec must exercise the installed consumer against
+   the resulting dependency tree. Consumers with identical usage can share a
+   spec that exercises each of them. Put new cross-module compatibility specs in
+   `backend/test/unit/dependency-*.spec.ts` by default.
 
-   When repeatable consumer compatibility coverage is required, include any
-   new committed specs or reference the existing committed specs in the opening
-   PR revision. After CI completes, cite each spec and its CI result for the
-   tested head SHA in the PR. Record one-off investigation output in the PR as
-   supporting evidence.
+   After CI completes, cite each spec and its CI result for the tested PR head
+   SHA in the PR. Record one-off probe results in the PR as supporting evidence.
+   See [acceptance-criterion evidence in reviews](../../CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews).
 
    If a resolved version of `@mui/material`, `jsdom` or `vitest` changes, follow
    [Statement QA's automated coverage and styling invariants](../modules/accounting/STATEMENT_THEME_QA.md#automated-coverage-and-styling-invariants)

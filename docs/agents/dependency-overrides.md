@@ -10,8 +10,11 @@ key, put the full path in backticks, with ` → ` between keys. Give every row a
 reason and removal condition so the CI checker can validate coverage.
 
 For any new or edited removal condition that depends on API compatibility, name
-the committed spec to run with the override removed. If the condition depends
-only on the resolved tree or an advisory, name the applicable check.
+the committed spec to run with the override removed. Follow step 4 of the
+[dependency update workflow](dependency-updates.md#dependency-updates) for
+consumer coverage. If the condition depends only on the resolved tree or an
+advisory, name the check that demonstrates it, such as `npm explain <package>`
+for the resolved tree or `npm audit` for an advisory.
 
 | Override | Reason | Removal condition |
 |---|---|---|
