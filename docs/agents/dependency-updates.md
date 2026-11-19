@@ -30,10 +30,13 @@
 
    For a security fix that changes a dependency resolution, verify each affected
    version against the advisory range on the PR head. Dependabot alert status
-   can lag the resolved tree. Run the same regression assertion against the
-   previous and patched resolutions. Record in the PR that it rejects the
-   previous version on the expected affected path and accepts the patched
-   version. Keep consumer compatibility tests for a major upgrade.
+   can lag the resolved tree. To corroborate what GitHub has indexed, check the
+   repository's Dependency Graph or use the
+   [asynchronous SBOM export](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/establish-provenance-and-integrity/export-dependencies-as-sbom#exporting-a-software-bill-of-materials-for-your-repository-using-the-rest-api).
+   Run the same regression assertion against the previous and patched
+   resolutions. Record in the PR that it rejects the previous version on the
+   expected affected path and accepts the patched version. Keep consumer
+   compatibility tests for a major upgrade.
 
    For example, [PR #1945](https://github.com/blur88/erp2/pull/1945) checks the
    minimatch version resolved by each of `readdir-glob` and `test-exclude`. Both

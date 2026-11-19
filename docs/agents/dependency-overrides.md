@@ -9,6 +9,10 @@ be removed. Earlier override reviews are recorded in
 key, put the full path in backticks, with ` → ` between keys. Give every row a
 reason and removal condition so the CI checker can validate coverage.
 
+Scope new nested overrides to the parent major verified for the workaround
+(for example, `readdir-glob@3`). Record the rationale in the row if you use a
+broader scope.
+
 For any new or edited removal condition that depends on API compatibility, name
 the committed spec to run with the override removed. Follow step 4 of the
 [dependency update workflow](dependency-updates.md#dependency-updates) for
