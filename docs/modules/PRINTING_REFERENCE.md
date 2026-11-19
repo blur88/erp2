@@ -1,4 +1,4 @@
-# Accounting report printing history
+# Application printing reference
 
 The accounting reports (Profit & Loss, Balance Sheet, Form B) had an in-`#root` print path until [#1223](https://github.com/blur88/erp2/issues/1223) removed it entirely — layout wrapper, print stylesheet, row print axes and the CI gate. Those reports now have **no print or export route**; a replacement is deliberately deferred to a future redesign. Do not reintroduce an in-`#root` print flow without restoring the ancestor-chain release and a browser-based gate — see the [#1223 history](https://github.com/blur88/erp2/issues/1223) for what that machinery cost.
 

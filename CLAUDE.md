@@ -108,7 +108,7 @@ Follow [AGENTS.md — Change-Scoped Verification](AGENTS.md#change-scoped-verifi
 
 **Printing is portal-only**: the transactional document dialogs (Sales/Purchase Orders, invoices) render through MUI portals **outside** `#root`, so `@media print { #root { display: none } }` (`styles/global.css`) is what isolates them — hiding the app shell leaves the portaled document alone on the page. That rule is unconditional and load-bearing for every print flow in the app; nothing renders a printable page *inside* `#root`.
 
-The accounting reports (Profit & Loss, Balance Sheet, Form B) have **no print or export route**. Before changing print layout, styles, or coverage, read [Accounting report printing history](docs/modules/accounting/PRINTING_REFERENCE.md).
+The accounting reports (Profit & Loss, Balance Sheet, Form B) have **no print or export route**. Before changing print layout, styles, or coverage, read [the printing reference](docs/modules/PRINTING_REFERENCE.md).
 
 **Statement styling**: Before changing Statement layout, theme styles or visual tests, read [the coverage limits, styling invariants and browser QA procedure](docs/modules/accounting/STATEMENT_THEME_QA.md).
 
@@ -129,6 +129,8 @@ Both write to `dist/`. `tsconfig.cli.json` includes `src/database/cli/**/*`, so 
 
 Nothing in the normal gate catches it: the source is valid TypeScript, `npm run type-check` passes, and `npm run test` transpiles from `src/` with alias resolution. Only the built artifact is wrong. `backend/scripts/verify-dist-runtime.sh` (`npm run verify:dist`) is the gate — it scans `dist/` for surviving aliases and then loads `dist/main.js` to prove the require graph resolves. It runs inside the Dockerfile after the CLI compile, so a corrupt image fails the build instead of shipping.
 
+<a name="cli-relative-imports"></a>
+
 Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative imports, never path aliases.** Check reach with `npx tsc -p tsconfig.cli.json --noEmit --listFiles`.
 
 **Dead-code sweeps**: `maintain.sh do_knip()` wraps `npx knip` in `|| true`, so it always exits 0 and cannot be used as a gate — run `npx knip` directly per directory when you need pass/fail. Knip also reports false positives for backend service methods called by a *sibling service* rather than an HTTP route; grep the method name across `backend/src` before deleting anything.
@@ -139,9 +141,9 @@ Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative i
 
 **Backend type-checking**: See [AGENTS.md](AGENTS.md#change-scoped-verification-required-before-pr) for build/test configuration coverage and applicable checks.
 
-**Jest ESM**. Before changing backend Jest configuration or troubleshooting module loading in Jest, read [Backend Jest ESM](docs/test/backend-jest-esm.md).
+**Jest ESM**: Before changing backend Jest configuration or troubleshooting module loading in Jest, read [Backend Jest ESM](docs/testing/backend-jest-esm.md).
 
-**E2E fixture leak check**. Before changing an E2E suite, its cleanup, or the nightly leak check, read [E2E fixture leak check](docs/test/e2e-leak-check.md).
+**E2E fixture leak check**: Before changing an E2E suite, its cleanup, or the nightly leak check, read [E2E fixture leak check](docs/testing/e2e-leak-check.md).
 
 **BullMQ and backup schedulers**: Before upgrading Redis clients or BullMQ, investigating scheduler warnings or reconciling orphaned entries, read [the scheduler runbook](docs/deployment/BULLMQ_SCHEDULER_RUNBOOK.md) for protocol pins, migration history and remediation safeguards.
 

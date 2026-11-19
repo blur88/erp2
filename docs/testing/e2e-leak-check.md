@@ -23,7 +23,7 @@ once between migrations and baseline capture. Remove that step and the two
 tables the gate is supposed to protect become its first false positives.
 
 That boot entry lives in `test/`, never under `src/database/cli/` — see the
-[`tsconfig.cli.json` relative-import rule](../../CLAUDE.md#gotchas).
+[`tsconfig.cli.json` relative-import rule](../../CLAUDE.md#cli-relative-imports).
 
 **Reuse is rejected on two migration comparisons, not one.** Stored-vs-applied
 compares the retained database to itself, so a newly pulled migration leaves it
@@ -49,7 +49,7 @@ and skips this turns the nightly gate red.
 **Sampler tables are excluded, deliberately.** `redis_memory_samples` and
 `redis_alert_state` are not captured or compared: the sampler writes a startup
 sample in `onModuleInit` on every app boot under a per-boot instanceId (one row
-per boot, +38/pass measured 2026-09-27), which no suite can prevent. That write
+per boot), which no suite can prevent. That write
 is not cron, so turning cron off in test apps (below) does not remove it.
 
 **Cron does not run in e2e-booted apps** (#1311). `createScheduleOptions()`
