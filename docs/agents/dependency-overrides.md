@@ -7,11 +7,11 @@ be removed. Earlier override reviews are recorded in
 [#1933](https://github.com/blur88/erp2/issues/1933). Use the exact key from
 [`backend/package.json`](../../backend/package.json) in backticks. For each nested
 key, put the full path in backticks, with ` → ` between keys. Give every row a
-reason and removal condition so the CI checker can validate coverage. Scope new nested overrides
-to the parent major verified for the workaround (for example, `readdir-glob@3`).
-Record the rationale in the row if you use a broader scope. Remove stale rows
-and compatibility exceptions when they no longer match the override keys or
-resolved incompatibilities.
+reason and removal condition so the CI checker can validate coverage.
+
+Scope new nested overrides to the parent major verified for the workaround
+(for example, `readdir-glob@3`). Record the rationale in the row if you use a
+broader scope.
 
 For any new or edited removal condition that depends on API compatibility, name
 the committed spec to run with the override removed. Follow step 4 of the

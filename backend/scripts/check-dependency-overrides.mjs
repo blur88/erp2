@@ -38,7 +38,7 @@ function documentedKeys(markdown) {
   return keys;
 }
 
-function describeResolution({
+function describeIncompatibility({
   parent,
   parentVersion,
   dependency,
@@ -139,14 +139,14 @@ async function checkDependencyOverrides(project, documentation, allowlist) {
       }
       if (!matchingExceptions.length) {
         problems.push(
-          `${describeResolution(incompatibility)} (${parent.location || "root"})`,
+          `${describeIncompatibility(incompatibility)} (${parent.location || "root"})`,
         );
       }
     }
   }
 
   for (const entry of unusedExceptions) {
-    problems.push(`Stale allowlist entry: ${describeResolution(entry)}`);
+    problems.push(`Stale allowlist entry: ${describeIncompatibility(entry)}`);
   }
 
   if (problems.length) {

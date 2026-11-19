@@ -4,7 +4,7 @@
     "parentVersion": "2.1.0",
     "dependency": "glob",
     "declared": "^7.1.4",
-    "resolved": "14.0.5",
+    "resolved": "14.0.6",
     "reason": "file.expand uses glob.sync(pattern, options), which matched a known file with glob 14.0.6."
   }
 ]
