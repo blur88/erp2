@@ -87,6 +87,8 @@ run_migrations_before_ours() {
   local stage
   stage="$(mktemp -d "${TMPDIR:-/tmp}/pmm-stage.XXXXXX")"
   (
+    # Bash invokes this function indirectly via the traps below.
+    # shellcheck disable=SC2317,SC2329
     restore_ours() {
       local status=$?
       if [ -f "$stage/$ours" ]; then

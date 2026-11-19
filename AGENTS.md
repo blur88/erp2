@@ -50,7 +50,7 @@ Before starting or waiting on long-running local verification or PR checks, read
 
 | Files changed | Required commands (from repository root) |
 |---|---|
-| GitHub Actions workflows (`.github/workflows/**`) | `bash scripts/lint-workflows.sh` (pinned actionlint + ShellCheck) |
+| GitHub Actions workflows (`.github/workflows/**`) or tracked shell scripts (`scripts/**/*.sh`, `backend/scripts/**/*.sh`) | `bash scripts/lint-workflows.sh` (pinned actionlint + ShellCheck) |
 | Release workflow, release configuration, or root scripts and tests (`.github/workflows/release.yml`, `release.config.cjs`, `scripts/**`) | `npm run test:release` (root) |
 | Published-image settings (tags, attestations, build-args in `.github/workflows/release.yml`) | Add or update a targeted assertion under `scripts/__tests__/`, covered by `npm run test:release` |
 | Backend scripts (`backend/scripts/**`) | `cd backend && npm run test:scripts` (Bats) |
