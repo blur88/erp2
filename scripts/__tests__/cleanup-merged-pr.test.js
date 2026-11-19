@@ -81,6 +81,18 @@ function assertCleaned(f) {
   assert.equal(f.origin('rev-parse', 'unrelated'), f.head);
 }
 
+function installGitShim(f, scriptBody) {
+  const shim = path.join(f.bin, 'git');
+  writeFileSync(shim, `#!/usr/bin/env bash
+set -euo pipefail
+# The fixture prepends its bin directory. Remove it to reach the real Git.
+export PATH="\${PATH#*:}"
+${scriptBody}
+exec git "$@"
+`, { mode: 0o755 });
+  return shim;
+}
+
 test('updates main and removes only the merged topic branch', t => {
   const f = fixture(t);
   const result = f.run();
@@ -95,6 +107,23 @@ test('cleans up a squash-merged branch after origin already deleted it', t => {
   assert.equal(f.git('rev-parse', '--verify', 'refs/remotes/origin/unrelated'), f.head);
 
   const result = f.run();
+  assert.equal(result.status, 0, result.stderr);
+  assertCleaned(f);
+  assert.equal(f.git('for-each-ref', '--format=%(refname)', trackingRef), '');
+  assert.equal(f.git('rev-parse', '--verify', 'refs/remotes/origin/unrelated'), f.head);
+});
+
+test('removes the stale tracking ref when a failed push is followed by an absent branch on origin', t => {
+  const f = fixture(t);
+  assert.equal(f.origin('rev-parse', '--verify', `refs/heads/${topic}`), f.head);
+  assert.equal(f.git('rev-parse', '--verify', trackingRef), f.head);
+  installGitShim(f, `if [[ $1 == push ]]; then
+  git --git-dir="$(git remote get-url origin)" update-ref -d 'refs/heads/${topic}' '${f.head}'
+  exit 1
+fi`);
+
+  const result = f.run();
+
   assert.equal(result.status, 0, result.stderr);
   assertCleaned(f);
   assert.equal(f.git('for-each-ref', '--format=%(refname)', trackingRef), '');
@@ -118,16 +147,11 @@ test('preserves the tracking ref when it changes during cleanup', t => {
   const f = fixture(t);
   f.origin('branch', '-D', topic);
   const updatedTrackingTip = f.git('rev-parse', 'refs/remotes/origin/main');
-  writeFileSync(path.join(f.bin, 'git'), `#!/usr/bin/env bash
-set -euo pipefail
-export PATH="\${PATH#*:}"
-if [[ $1 == ls-remote ]]; then
+  const shim = installGitShim(f, `if [[ $1 == ls-remote ]]; then
   git "$@"
   git update-ref '${trackingRef}' '${updatedTrackingTip}'
   exit
-fi
-exec git "$@"
-`, { mode: 0o755 });
+fi`);
 
   const result = f.run();
 
@@ -135,6 +159,15 @@ exec git "$@"
   assert.match(result.stderr, /could not delete local tracking ref .* at its observed OID/);
   assert.equal(f.git('rev-parse', '--verify', trackingRef), updatedTrackingTip);
   assert.equal(f.git('rev-parse', '--verify', `refs/heads/${topic}`), f.head);
+
+  // A retry from main observes the tracking ref's new OID.
+  assert.equal(f.git('branch', '--show-current'), 'main');
+  rmSync(shim);
+  const retry = f.run();
+
+  assert.equal(retry.status, 0, retry.stderr);
+  assertCleaned(f);
+  assert.equal(f.git('for-each-ref', '--format=%(refname)', trackingRef), '');
 });
 
 test('creates main from origin in a topic-only checkout', t => {
