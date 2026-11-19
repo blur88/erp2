@@ -88,6 +88,14 @@
     "reason": "Manual mock lookup calls the named glob export’s sync method with a pattern and options, which glob 14 provides."
   },
   {
+    "parent": "readdir-glob",
+    "parentVersion": "3.0.0",
+    "dependency": "minimatch",
+    "declared": "^10.2.2",
+    "resolved": "11.0.9",
+    "reason": "Uses the named Minimatch constructor and match(path) to filter directory entries. Both APIs work with minimatch 11 when Archiver adds files by glob pattern."
+  },
+  {
     "parent": "socket.io-adapter",
     "parentVersion": "2.5.8",
     "dependency": "ws",
@@ -102,6 +110,14 @@
     "declared": "^10.4.1",
     "resolved": "14.0.6",
     "reason": "The package calls the named glob export and the sync method on that export, both provided by glob 14."
+  },
+  {
+    "parent": "test-exclude",
+    "parentVersion": "7.0.2",
+    "dependency": "minimatch",
+    "declared": "^10.2.2",
+    "resolved": "11.0.9",
+    "reason": "Uses the named minimatch(path, pattern, { dot: true }) export for inclusion, exclusion and negated exclusion. That call works with minimatch 11."
   },
   {
     "parent": "typeorm",
