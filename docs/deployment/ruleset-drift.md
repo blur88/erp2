@@ -34,7 +34,8 @@ a proposed baseline with `node scripts/compare-ruleset.cjs --normalize
 it over the committed snapshot and submitting a PR. Never accept a baseline
 solely to turn a failing run green.
 
-The existing backend CI job runs `bash scripts/lint-workflows.sh`, installing
-checksum-verified actionlint v1.7.12 and explicitly enabling the runner's
-ShellCheck. It checks workflow syntax, expressions and shell quality; it does
-not detect release logic defects. No required job names or release behavior change.
+The backend CI job runs `bash scripts/lint-workflows.sh`. The script installs
+checksum-verified actionlint v1.7.12 to check workflow syntax and expressions
+and uses the runner's ShellCheck for inline workflow commands and tracked
+`.sh` files under `scripts/` and `backend/scripts/`. Release logic has a
+separate test suite.

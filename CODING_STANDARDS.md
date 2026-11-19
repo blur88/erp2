@@ -4,6 +4,7 @@
 2. Extract nontrivial GitHub Actions `run:` logic (branching, failure handling, exit-status propagation) into testable scripts under `scripts/`, with tests under `scripts/__tests__/`.
 3. Keep build-time-only code out of frontend runtime source directories unless there is a justified architectural reason.
 4. Agent-facing documentation (AGENTS.md, CLAUDE.md, docs/agents/) must use tool-neutral instructions unless explicitly scoped to a specific agent or environment; link to the authoritative document instead of duplicating its requirements; keep session-specific validation evidence in PRs rather than reusable instructions; and place guidance pointers where agents encounter the relevant workflow or decision.
+5. When adding or changing a guard that protects work before a destructive script operation, give each independently blocking condition its own test and assert that the protected work or ref is preserved. See the [worktree tests](https://github.com/blur88/erp2/blob/8dc76fca44b47b23867744d10208ceb9e583f3b7/scripts/__tests__/cleanup-merged-pr.test.js#L172-L200) from [PR #1938](https://github.com/blur88/erp2/pull/1938).
 
 ## Acceptance-criterion evidence in reviews
 
