@@ -32,6 +32,10 @@ for the resolved tree or `npm audit` for an advisory.
 | `lodash` | Requires a patched lodash release throughout the backend tree. | Every consumer's declared range resolves a patched lodash release without the override. |
 | `picomatch` | Forces patched glob matching for transitive consumers ([#209](https://github.com/blur88/erp2/issues/209)). | Every consumer resolves a patched release and its pattern matching works without the override. |
 | `ws` | Keeps a patched WebSocket implementation in the Socket.IO dependency tree. | Every consumer resolves a patched release and WebSocket upgrades and broadcasts work without the override. |
+| `readdir-glob@3` | Scopes the minimatch override to the major used by the direct archiver@8 dependency. | Remove this scope when the nested override can be removed. |
+| `readdir-glob@3 → minimatch` | Resolves a patched release for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) in backup archive creation. | With the override removed, verify that `npm explain minimatch` shows a patched resolution for this consumer and that `backend/test/unit/dependency-minimatch.spec.ts` passes. |
+| `test-exclude@7` | Scopes the minimatch override to the coverage file filter. | Remove this scope when the nested override can be removed. |
+| `test-exclude@7 → minimatch` | Resolves a patched release for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) in coverage file selection. | With the override removed, verify that `npm explain minimatch` shows a patched resolution for this consumer and that `backend/test/unit/dependency-minimatch.spec.ts` passes. |
 | `typeorm` | Scopes the ioredis override to TypeORM's optional query cache peer. | Remove this scope when the ioredis override can be removed. |
 | `typeorm → ioredis` | Uses the backend's direct ioredis range for TypeORM's optional peer to keep production pruning compatible with the backend's ioredis major. | TypeORM's peer range accepts the backend's ioredis version and production pruning succeeds without the override. |
 
