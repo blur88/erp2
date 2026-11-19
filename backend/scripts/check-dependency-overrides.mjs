@@ -38,6 +38,16 @@ function documentedKeys(markdown) {
   return keys;
 }
 
+function describeResolution({
+  parent,
+  parentVersion,
+  dependency,
+  declared,
+  resolved,
+}) {
+  return `${parent}@${parentVersion} -> ${dependency}: declared ${declared}, resolved ${resolved}`;
+}
+
 async function checkDependencyOverrides(project, documentation, allowlist) {
   const projectDirectory = resolve(project);
   const manifest = JSON.parse(
@@ -61,12 +71,21 @@ async function checkDependencyOverrides(project, documentation, allowlist) {
     );
   }
 
-  const problems = overrideKeys(manifest.overrides ?? {})
+  const configured = new Set(overrideKeys(manifest.overrides ?? {}));
+  const problems = [...configured]
     .filter((key) => !documented.has(key))
     .map(
       (key) =>
         `Undocumented override key "${key}": expected a reason and removal condition`,
     );
+
+  for (const key of documented) {
+    if (!configured.has(key)) {
+      problems.push(
+        `Stale documented override key "${key}": no matching override`,
+      );
+    }
+  }
 
   // Use the Arborist, package spec parser and semver bundled with CI's npm.
   const npmRoot = execFileSync("npm", ["root", "--global"], {
@@ -79,6 +98,7 @@ async function checkDependencyOverrides(project, documentation, allowlist) {
   // npm ci installs this same graph. Loading it virtually also checks packages
   // locked for other platforms and allows fixtures to run without installing.
   const tree = await new Arborist({ path: projectDirectory }).loadVirtual();
+  const unusedExceptions = new Set(exceptions);
   for (const parent of tree.inventory.values()) {
     for (const edge of parent.edgesOut.values()) {
       const overrideRule = edge.overrides;
@@ -109,26 +129,24 @@ async function checkDependencyOverrides(project, documentation, allowlist) {
           ? edge.to.version
           : `${edge.to.packageName}@${edge.to.version}`,
       };
-      if (
-        exceptions.some((entry) =>
-          exceptionIdentityFields.every(
-            (field) => entry[field] === incompatibility[field],
-          ),
-        )
-      )
-        continue;
-
-      const {
-        parent: parentName,
-        parentVersion,
-        dependency,
-        declared,
-        resolved,
-      } = incompatibility;
-      problems.push(
-        `${parentName}@${parentVersion} -> ${dependency}: declared ${declared}, resolved ${resolved} (${parent.location || "root"})`,
+      const matchingExceptions = exceptions.filter((entry) =>
+        exceptionIdentityFields.every(
+          (field) => entry[field] === incompatibility[field],
+        ),
       );
+      for (const entry of matchingExceptions) {
+        unusedExceptions.delete(entry);
+      }
+      if (!matchingExceptions.length) {
+        problems.push(
+          `${describeResolution(incompatibility)} (${parent.location || "root"})`,
+        );
+      }
     }
+  }
+
+  for (const entry of unusedExceptions) {
+    problems.push(`Stale allowlist entry: ${describeResolution(entry)}`);
   }
 
   if (problems.length) {

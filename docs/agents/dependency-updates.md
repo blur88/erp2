@@ -30,7 +30,10 @@
 
    For a security fix that changes a dependency resolution, verify each affected
    version against the advisory range on the PR head. Dependabot alert status
-   can lag the resolved tree. Run the same regression assertion against the
+   can lag the resolved tree. To corroborate what GitHub has indexed, check the
+   repository's Dependency Graph or use the
+   [asynchronous SBOM export](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/establish-provenance-and-integrity/export-dependencies-as-sbom#exporting-a-software-bill-of-materials-for-your-repository-using-the-rest-api).
+   Run the same regression assertion against the
    previous and patched resolutions. Record in the PR that it rejects the
    previous version on the expected affected path and accepts the patched
    version. Keep consumer compatibility tests for a major upgrade.
@@ -69,5 +72,7 @@
    [`backend/scripts/preflight-redis-test.sh`](../../backend/scripts/preflight-redis-test.sh)
    describe a disposable Redis and the explicit write opt-in; consult them before
    preparing the integration-test environment.
-6. Select verification and collect evidence using
+6. Start long verification runs from a clean checkout, record the tested commit
+   SHA at startup, and keep the checkout stable until the runs finish.
+   Select verification and collect evidence using
    [AGENTS.md's Change-Scoped Verification](../../AGENTS.md#change-scoped-verification-required-before-pr).

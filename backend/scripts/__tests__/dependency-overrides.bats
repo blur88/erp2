@@ -25,11 +25,11 @@ setup() {
 }
 
 @test "rejects the archiver-utils resolution unless its exact exception is listed" {
-  run node "$checker" "$fixtures/archiver" "$fixtures/documented.md" "$fixtures/no-exceptions.json"
+  run node "$checker" "$fixtures/archiver" "$fixtures/archiver-documentation.md" "$fixtures/no-exceptions.json"
   [ "$status" -eq 1 ]
   [[ "$output" == *'archiver-utils@2.1.0 -> glob: declared ^7.1.4, resolved 14.0.6'* ]]
 
-  run node "$checker" "$fixtures/archiver" "$fixtures/documented.md" "$fixtures/archiver-exception.json"
+  run node "$checker" "$fixtures/archiver" "$fixtures/archiver-documentation.md" "$fixtures/archiver-exception.json"
   [ "$status" -eq 0 ]
 }
 
@@ -50,4 +50,16 @@ setup() {
   run node "$checker" "$fixtures/rimraf" "$fixtures/documented.md"
   [ "$status" -eq 2 ]
   [[ "$output" == 'Could not check dependency overrides: Usage:'* ]]
+}
+
+@test "rejects a documented key for a removed override" {
+  run node "$checker" "$fixtures/compatible" "$fixtures/stale-documentation.md" "$fixtures/no-exceptions.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'Stale documented override key "rimraf@2.7.1 → obsolete-dependency"'* ]]
+}
+
+@test "rejects an allowlist entry for a resolution that is absent" {
+  run node "$checker" "$fixtures/archiver" "$fixtures/archiver-documentation.md" "$fixtures/stale-exception.json"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'Stale allowlist entry: archiver-utils@2.1.0 -> glob: declared ^7.1.4, resolved 14.0.5'* ]]
 }
