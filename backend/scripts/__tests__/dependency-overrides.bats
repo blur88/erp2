@@ -59,7 +59,7 @@ setup() {
 }
 
 @test "rejects an allowlist entry for a resolution that is absent" {
-  run node "$checker" "$fixtures/compatible" "$fixtures/nested.md" "$fixtures/stale-exception.json"
+  run node "$checker" "$fixtures/compatible" "$fixtures/nested.md" "$fixtures/archiver-exception.json"
   [ "$status" -eq 1 ]
   [[ "$output" == 'Stale allowlist entry: archiver-utils@2.1.0 -> glob: declared ^7.1.4, resolved 14.0.6' ]]
 }
