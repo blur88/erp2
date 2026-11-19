@@ -20,10 +20,29 @@ const TestExclude = requireDependency("test-exclude") as new (options: {
   shouldInstrument(filename: string): boolean;
 };
 
+describe("GHSA-g3hv-75wg-m249 dependency resolutions", () => {
+  it.each(["readdir-glob", "test-exclude"])(
+    "%s resolves minimatch 11.0.1 or later",
+    (consumer) => {
+      const requireFromConsumer = createRequire(
+        requireDependency.resolve(consumer),
+      );
+      const { version } = requireFromConsumer("minimatch/package.json") as {
+        version: string;
+      };
+      const [major, minor, patch] = version.split(".").map(Number);
+
+      expect(major > 11 || (major === 11 && (minor > 0 || patch >= 1))).toBe(
+        true,
+      );
+    },
+  );
+});
+
 describe("minimatch consumer compatibility", () => {
   it.each([
     {
-      operation: "backs up the source directory",
+      operation: "archives the source directory tree through readdir-glob",
       append: (archive: TarArchive, source: string) =>
         archive.directory(source, false),
       entries: ["data/", "data/backup.json", "data/notes.txt"],

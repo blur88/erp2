@@ -93,7 +93,7 @@
     "dependency": "minimatch",
     "declared": "^10.2.2",
     "resolved": "11.0.9",
-    "reason": "Uses the named Minimatch constructor and match(path) to filter directory entries. Both APIs work with minimatch 11 when Archiver adds files by glob pattern."
+    "reason": "Uses the named Minimatch constructor and match(path) to filter directory entries. With minimatch 11, Archiver can append a source directory and can filter files when given a glob pattern."
   },
   {
     "parent": "socket.io-adapter",
