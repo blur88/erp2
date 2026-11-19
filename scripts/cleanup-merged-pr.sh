@@ -41,6 +41,9 @@ remote_topic_tip() {
   refs=$(git ls-remote --refs origin "$topic_ref") || return 1
   awk -v ref="$topic_ref" '$2 == ref { print $1 }' <<< "$refs"
 }
+tracking_ref="refs/remotes/origin/$topic"
+# Observe the tracking ref before checking whether the branch exists on origin.
+tracking_tip=$(git rev-parse --verify --quiet "$tracking_ref") || tracking_tip=
 remote_tip=$(remote_topic_tip) || fail "could not check branch $topic on origin."
 [[ -z $remote_tip || $remote_tip == "$head" ]] || fail "branch $topic on origin differs from the merged PR head."
 
@@ -62,6 +65,10 @@ if [[ -n $remote_tip ]] && ! git push --force-with-lease="$topic_ref:$head" orig
   [[ -z $remote_tip ]] || fail "could not safely delete branch $topic on origin."
 fi
 
-# Squash and rebase merges can leave the verified PR head outside main's history.
 check_topic_tip
+if [[ -z $remote_tip && -n $tracking_tip ]]; then
+  git update-ref --no-deref -d "$tracking_ref" "$tracking_tip" ||
+    fail "could not delete local tracking ref $tracking_ref at its observed OID. Resolve the Git error above and retry."
+fi
+# Squash and rebase merges can leave the verified PR head outside main's history.
 git branch -D -- "$topic"

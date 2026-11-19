@@ -7,6 +7,7 @@ const path = require('node:path');
 
 const script = path.resolve(__dirname, '../cleanup-merged-pr.sh');
 const topic = 'fix/1937-topic';
+const trackingRef = `refs/remotes/origin/${topic}`;
 
 function fixture(t, mergeMethod = 'merge') {
   const dir = mkdtempSync(path.join(tmpdir(), 'cleanup-merged-pr-'));
@@ -59,7 +60,7 @@ function fixture(t, mergeMethod = 'merge') {
   writeFileSync(path.join(bin, 'gh'), '#!/usr/bin/env bash\n[[ "$1 $2 $3" == "pr view 42" ]] || exit 1\nprintf "%s\\n" "$PR_METADATA"\n', { mode: 0o755 });
 
   return {
-    checkout, head, main, merge,
+    bin, checkout, head, main, merge,
     git: (...args) => git(checkout, ...args),
     origin: (...args) => git(origin, ...args),
     run: (metadata = ['MERGED', 'main', topic, head, 'false', merge]) => spawnSync('bash', [script, '42'], {
@@ -80,6 +81,18 @@ function assertCleaned(f) {
   assert.equal(f.origin('rev-parse', 'unrelated'), f.head);
 }
 
+function installGitShim(f, scriptBody) {
+  const shim = path.join(f.bin, 'git');
+  writeFileSync(shim, `#!/usr/bin/env bash
+set -euo pipefail
+# The fixture prepends its bin directory. Remove it to reach the real Git.
+export PATH="\${PATH#*:}"
+${scriptBody}
+exec git "$@"
+`, { mode: 0o755 });
+  return shim;
+}
+
 test('updates main and removes only the merged topic branch', t => {
   const f = fixture(t);
   const result = f.run();
@@ -90,10 +103,71 @@ test('updates main and removes only the merged topic branch', t => {
 test('cleans up a squash-merged branch after origin already deleted it', t => {
   const f = fixture(t, 'squash');
   f.origin('branch', '-D', topic);
+  assert.equal(f.git('rev-parse', '--verify', trackingRef), f.head);
+  assert.equal(f.git('rev-parse', '--verify', 'refs/remotes/origin/unrelated'), f.head);
 
   const result = f.run();
   assert.equal(result.status, 0, result.stderr);
   assertCleaned(f);
+  assert.equal(f.git('for-each-ref', '--format=%(refname)', trackingRef), '');
+  assert.equal(f.git('rev-parse', '--verify', 'refs/remotes/origin/unrelated'), f.head);
+});
+
+test('removes the stale tracking ref when a failed push is followed by an absent branch on origin', t => {
+  const f = fixture(t);
+  assert.equal(f.origin('rev-parse', '--verify', `refs/heads/${topic}`), f.head);
+  assert.equal(f.git('rev-parse', '--verify', trackingRef), f.head);
+  installGitShim(f, `if [[ $1 == push ]]; then
+  git --git-dir="$(git remote get-url origin)" update-ref -d 'refs/heads/${topic}' '${f.head}'
+  exit 1
+fi`);
+
+  const result = f.run();
+
+  assert.equal(result.status, 0, result.stderr);
+  assertCleaned(f);
+  assert.equal(f.git('for-each-ref', '--format=%(refname)', trackingRef), '');
+  assert.equal(f.git('rev-parse', '--verify', 'refs/remotes/origin/unrelated'), f.head);
+});
+
+test('preserves the tracking ref when origin cannot be checked', t => {
+  const f = fixture(t);
+  f.origin('branch', '-D', topic);
+  f.git('remote', 'set-url', 'origin', path.join(f.checkout, 'missing-origin.git'));
+
+  const result = f.run();
+
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /could not check branch .* on origin/);
+  assert.equal(f.git('rev-parse', '--verify', trackingRef), f.head);
+  assert.equal(f.git('branch', '--show-current'), topic);
+});
+
+test('preserves the tracking ref when it changes during cleanup', t => {
+  const f = fixture(t);
+  f.origin('branch', '-D', topic);
+  const updatedTrackingTip = f.git('rev-parse', 'refs/remotes/origin/main');
+  const shim = installGitShim(f, `if [[ $1 == ls-remote ]]; then
+  git "$@"
+  git update-ref '${trackingRef}' '${updatedTrackingTip}'
+  exit
+fi`);
+
+  const result = f.run();
+
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /could not delete local tracking ref .* at its observed OID/);
+  assert.equal(f.git('rev-parse', '--verify', trackingRef), updatedTrackingTip);
+  assert.equal(f.git('rev-parse', '--verify', `refs/heads/${topic}`), f.head);
+
+  // A retry from main observes the tracking ref's new OID.
+  assert.equal(f.git('branch', '--show-current'), 'main');
+  rmSync(shim);
+  const retry = f.run();
+
+  assert.equal(retry.status, 0, retry.stderr);
+  assertCleaned(f);
+  assert.equal(f.git('for-each-ref', '--format=%(refname)', trackingRef), '');
 });
 
 test('creates main from origin in a topic-only checkout', t => {
@@ -156,6 +230,7 @@ test('preserves a topic branch updated on origin after the merge', t => {
   f.origin('update-ref', `refs/heads/${topic}`, f.main);
 
   assertBlocked(f, f.run(), /on origin differs/, f.head, f.main);
+  assert.equal(f.git('rev-parse', '--verify', trackingRef), f.head);
 });
 
 test('preserves local main when it has a local-only commit', t => {
