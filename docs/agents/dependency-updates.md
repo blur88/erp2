@@ -23,10 +23,22 @@
    backend dependencies. Keep exact overrides aligned with direct pins to avoid
    `EOVERRIDE`; check whether an override prevents a desired security fix.
 4. Regenerate the affected lockfile with npm, then inspect its diff for changed
-   resolved versions, including transitive major bumps. Run `npm explain <package>`
-   from that directory to identify each parent responsible for a surprising
-   change and whether an override forced it. Account for every changed resolution
-   and keep unrelated churn out of the update.
+   resolved versions, including transitive major bumps. Run
+   `npm explain <installed-package-path>` from that directory for each relevant
+   copy to identify its parent and whether an override forced the resolution.
+   Account for every changed resolution and keep unrelated churn out of the update.
+
+   For a security fix that changes a dependency resolution, verify each affected
+   version against the advisory range on the PR head. Dependabot alert status
+   can lag the resolved tree. Run the same regression assertion against the
+   previous and patched resolutions. Record in the PR that it rejects the
+   previous version on the expected affected path and accepts the patched
+   version. Keep consumer compatibility tests for a major upgrade.
+
+   For example, [PR #1945](https://github.com/blur88/erp2/pull/1945) checks the
+   minimatch version resolved by each of `readdir-glob` and `test-exclude`. Both
+   assertions fail with `10.2.6` and pass with `11.0.9`. The same spec exercises
+   archive creation, glob filtering, and coverage file selection.
 
    When adding, changing, or removing an override, identify every direct
    consumer whose resolved dependency changes. Before recording an exception,
