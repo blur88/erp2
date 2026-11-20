@@ -101,26 +101,14 @@ deploy_services() {
     print_success "Services started successfully"
 }
 
-# Poll a URL until it returns HTTP 200, for at most READY_TIMEOUT seconds
-# (default 180). On timeout, report the URL and the Compose service status.
-wait_for_http_200() {
-    local url="$1"
-    local timeout="${READY_TIMEOUT:-180}"
-    local deadline=$((SECONDS + timeout))
-    local code
-    while :; do
-        code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
-        if [ "$code" = "200" ]; then
-            return 0
-        fi
-        if [ "$SECONDS" -ge "$deadline" ]; then
-            print_error "No HTTP 200 from $url within ${timeout}s (last status: ${code:-none})"
-            # shellcheck disable=SC2086  # COMPOSE_FILES is a list of -f flags
-            docker compose $COMPOSE_FILES ps
-            return 1
-        fi
-        sleep 5
-    done
+# Bounded readiness waits (READY_TIMEOUT seconds each, default 180).
+# shellcheck source=scripts/lib/wait-ready.sh
+. "$(dirname "$0")/scripts/lib/wait-ready.sh"
+
+# Diagnostics printed by the waits on timeout.
+print_compose_status() {
+    # shellcheck disable=SC2086  # COMPOSE_FILES is a list of -f flags
+    docker compose $COMPOSE_FILES ps
 }
 
 # Wait for services to be ready
@@ -129,15 +117,13 @@ wait_for_services() {
     
     # Wait for PostgreSQL
     print_status "Waiting for PostgreSQL..."
-    until docker compose $COMPOSE_FILES exec postgres pg_isready -U erp_user; do
-        sleep 2
-    done
-    
+    # shellcheck disable=SC2086  # COMPOSE_FILES is a list of -f flags
+    wait_for_command "PostgreSQL" docker compose $COMPOSE_FILES exec -T postgres pg_isready -U erp_user
+
     # Wait for Redis
     print_status "Waiting for Redis..."
-    until docker compose $COMPOSE_FILES exec redis redis-cli ping; do
-        sleep 2
-    done
+    # shellcheck disable=SC2086
+    wait_for_command "Redis" docker compose $COMPOSE_FILES exec -T redis redis-cli ping
     
     # The Ingress (port 80) is the only published entry point; these probes
     # prove it reaches the backend and serves the frontend.

@@ -103,7 +103,10 @@ services:
     environment:
       # Application
       - NODE_ENV=${NODE_ENV:-development}
-      - PORT=${PORT:-3001}
+      # Fixed: the Ingress upstream (nginx/nginx.conf) and the healthcheck
+      # below both use 3001, and the port is not published, so there is
+      # nothing to configure.
+      - PORT=3001
 
       # Database (using DB_* prefix to match backend config)
       - DB_HOST=${DATABASE_HOST:-postgres}
@@ -166,7 +169,7 @@ services:
       - ./logs:/app/logs
       - ./backups:/app/backups
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-3001}/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

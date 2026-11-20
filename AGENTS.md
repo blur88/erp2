@@ -52,6 +52,7 @@ Before starting or waiting on long-running local verification or PR checks, read
 |---|---|
 | GitHub Actions workflows (`.github/workflows/**`) or tracked shell scripts (`scripts/**/*.sh`, `backend/scripts/**/*.sh`) | `bash scripts/lint-workflows.sh` (pinned actionlint + ShellCheck) |
 | Release workflow, release configuration, or root scripts and tests (`.github/workflows/release.yml`, `release.config.cjs`, `scripts/**`) | `npm run test:release` (root) |
+| Ingress or Frontend server config, Compose files, or deployment readiness (`nginx/**`, `frontend/nginx.conf`, `docker-compose*.yml`, `deploy.sh`, `setup.sh`) | `npm run test:release` (root; includes `scripts/__tests__/ingress-config.test.js`, which needs Docker) |
 | Published-image settings (tags, attestations, build-args in `.github/workflows/release.yml`) | Add or update a targeted assertion under `scripts/__tests__/`, covered by `npm run test:release` |
 | Backend scripts (`backend/scripts/**`) | `cd backend && npm run test:scripts` (Bats) |
 | Backend source (`backend/src/**`) | `cd backend && npm run lint && npm run type-check && npm run test` |

@@ -155,21 +155,30 @@ docker compose ps
 # Expected: All services in "Up" state
 ```
 
+### Ingress Readiness
+- [ ] Both `http://localhost/api/health` (backend through the Ingress) and `http://localhost/` (frontend through the Ingress) return exactly HTTP 200
+
+**Ingress Readiness Check** (each request is limited to 10 seconds; any other status, or no response, stops the check, prints the failing URL and the service status):
+```bash
+for url in http://localhost/api/health http://localhost/; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$url")
+  if [ "$code" != "200" ]; then
+    echo "FAIL: $url returned ${code:-000}"
+    docker compose ps
+    break
+  fi
+  echo "OK: $url"
+done
+# Expected: two OK lines and no FAIL line
+```
+
 ### Backend Verification
-- [ ] Health check passed: `curl http://localhost/api/health`
 - [ ] API endpoints registered (check logs)
 - [ ] 13 price list endpoints visible
 - [ ] No TypeScript compilation errors
 - [ ] No module load errors
 
-**Backend Health Check**:
-```bash
-curl http://localhost/api/health
-# Expected: {"status":"ok"}
-```
-
 ### Frontend Verification
-- [ ] Frontend accessible: `curl -I http://localhost`
 - [ ] Price list page exists: `curl -I http://localhost/settings/price-lists`
 - [ ] No JavaScript errors in browser console
 - [ ] Assets loaded correctly
