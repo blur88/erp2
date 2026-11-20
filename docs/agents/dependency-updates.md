@@ -1,6 +1,6 @@
 # Dependency updates
 
-1. Inspect manifests and lockfiles in the affected directories, including the
+1. Use a dedicated Git worktree for dependency updates. Inspect manifests and lockfiles in the affected directories, including the
    repository root. The root `package.json` owns release-tooling dependencies;
    inspect `release.config.cjs` and its helpers when updating them.
 2. Choose targets within each installed major explicitly. For an exact pin,
@@ -8,7 +8,9 @@
    From the package directory, use `npm view '<package>@<major>' version --json`
    to list published versions in that major, choose the highest stable version,
    and preserve the manifest's pinning style. Review upstream release notes and
-   engine/peer requirements before installing the selected version.
+   engine/peer requirements before installing the selected version. When a GitHub
+   release only links to a changelog, run `npm pack <package>@<version>` in a
+   temporary directory and read `package/CHANGELOG.md` from the tarball.
 
    Before filing a deferred-upgrade issue, try each proposed fix against the
    target dependency version using the smallest reproduction that exercises it.
@@ -26,7 +28,11 @@
    resolved versions, including transitive major bumps. Run
    `npm explain <installed-package-path>` from that directory for each relevant
    copy to identify its parent and whether an override forced the resolution.
-   Account for every changed resolution and keep unrelated churn out of the update.
+   Account for every changed resolution. Resolve unexpected changes before
+   continuing. Immediately before each commit, run
+   `node scripts/report-lockfile-changes.cjs staged` from the repository root and
+   check the staged resolutions again. The process that rewrote the lockfiles
+   around 01:10 (+0800) on 2026-11-20 remains unidentified.
 
    For a security fix that changes a dependency resolution, verify each affected
    version against the advisory range on the PR head. Dependabot alert status
@@ -74,3 +80,9 @@
    preparing the integration-test environment.
 6. Select verification and collect evidence using
    [AGENTS.md's Change-Scoped Verification](../../AGENTS.md#change-scoped-verification-required-before-pr).
+   When batching related bumps, run focused local checks for each bump and use
+   one full-suite CI run on the final PR head. When writing the PR description,
+   run `node scripts/report-lockfile-changes.cjs branch` from the repository
+   root and use the report to account for the complete set of resolution changes.
+   The command defaults to the merge base with local `main` and compares it with
+   `HEAD`. Pass the PR base and head refs explicitly when needed.
