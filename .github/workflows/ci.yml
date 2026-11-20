@@ -85,6 +85,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Lint GitHub Actions workflows
         working-directory: .
@@ -98,6 +100,26 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             package-lock.json
+
+      - name: Detect changed npm lockfiles
+        if: github.event_name == 'pull_request'
+        id: lockfiles
+        working-directory: .
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          count=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- package-lock.json backend/package-lock.json frontend/package-lock.json | wc -l)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+      - name: Report lockfile resolution changes
+        if: github.event_name == 'pull_request' && steps.lockfiles.outputs.count != '0'
+        working-directory: .
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/report-lockfile-changes.cjs branch "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Update npm
         run: npm install -g npm@11
