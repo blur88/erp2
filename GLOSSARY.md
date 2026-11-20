@@ -19,7 +19,7 @@ _Avoid_: Main repo, `blur88/all`
 ## Deployment
 
 **Ingress**:
-The NGINX server built from `nginx/` and the only service Compose publishes on the host (port 80). It holds the rate limits and the security-header policy, so every request to the API, uploads or socket.io passes through it and its limits.
+The NGINX server built from `nginx/` and the only service Compose publishes on the host. In development it serves the app on port 80. In production it serves the app on 443, and port 80 only answers ACME challenges and redirects everything else to HTTPS. It holds the rate limits and the security-header policy, so every request to the API, uploads or socket.io passes through it and its limits.
 _Avoid_: Reverse proxy, gateway, load balancer
 
 **Frontend server**:
@@ -27,5 +27,9 @@ The NGINX server built from `frontend/`. It serves the built web app and its cac
 _Avoid_: Frontend container, web server, static server
 
 **Entry point**:
-A host port through which a caller can reach the app. There is exactly one, the Ingress. A published port on the Frontend server or backend would be a second one that skips the Ingress's limits.
+A host port through which a caller can reach the app. The Ingress is the only one: port 80 in development, and 443 in production, with port 80 there only answering ACME challenges and redirecting to HTTPS. A published port on the Frontend server or backend would be a second one that skips the Ingress's limits.
 _Avoid_: Endpoint, access port
+
+**Canonical hostname**:
+The single configured hostname that serves the production app. HTTPS requests for any other hostname that reach the HTTP layer get 421.
+_Avoid_: Domain, server name, public URL
