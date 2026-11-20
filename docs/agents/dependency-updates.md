@@ -28,10 +28,10 @@
    resolved versions, including transitive major bumps. Run
    `npm explain <installed-package-path>` from that directory for each relevant
    copy to identify its parent and whether an override forced the resolution.
-   Account for every changed resolution. Resolve unexpected changes before
-   continuing. Immediately before each commit, run
-   `node scripts/report-lockfile-changes.cjs staged` from the repository root and
-   check the staged resolutions again. The process that rewrote the lockfiles
+   Account for every changed resolution and keep unrelated churn out of the
+   update. Resolve unexpected changes before continuing. From the repository root,
+   run `node scripts/report-lockfile-changes.cjs staged` immediately before each
+   commit and check the staged resolutions again. The process that rewrote the lockfiles
    around 01:10 (+0800) on 2026-11-20 remains unidentified.
 
    For a security fix that changes a dependency resolution, verify each affected
@@ -81,7 +81,8 @@
 6. Select verification and collect evidence using
    [AGENTS.md's Change-Scoped Verification](../../AGENTS.md#change-scoped-verification-required-before-pr).
    When batching related bumps, run focused local checks for each bump and use
-   one full-suite CI run on the final PR head. When writing the PR description,
+   one full-suite CI run on the final PR head where it satisfies the applicable
+   checks in that table. When writing the PR description,
    run `node scripts/report-lockfile-changes.cjs branch` from the repository
    root and use the report to account for the complete set of resolution changes.
    The command defaults to the merge base with local `main` and compares it with

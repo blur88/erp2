@@ -1,5 +1,9 @@
+'use strict';
+
+// Report staged and branch npm lockfile resolution changes (#1952).
 const { execFileSync } = require('node:child_process');
 
+const indexRevision = '';
 const lockfiles = [
   'package-lock.json',
   'backend/package-lock.json',
@@ -44,7 +48,7 @@ function main([mode, base, head = 'HEAD', ...extra]) {
   let after;
   if (mode === 'staged' && base === undefined) {
     before = 'HEAD';
-    after = '';
+    after = indexRevision;
   } else if (mode === 'branch' && extra.length === 0) {
     before = git('merge-base', '--', base ?? 'main', head);
     after = git('rev-parse', '--verify', '--end-of-options', `${head}^{commit}`);
@@ -52,7 +56,7 @@ function main([mode, base, head = 'HEAD', ...extra]) {
     throw new Error('Usage: node scripts/report-lockfile-changes.cjs staged | branch [base=main] [head=HEAD]');
   }
 
-  const comparison = after ? [before, after] : ['--cached', before];
+  const comparison = after === indexRevision ? ['--cached', before] : [before, after];
   const diff = git('diff', '--name-status', '--no-renames', ...comparison, '--', ...lockfiles);
   if (!diff) return;
 
