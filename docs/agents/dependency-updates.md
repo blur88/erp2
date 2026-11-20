@@ -64,14 +64,11 @@
    SHA in the PR. Record one-off probe results in the PR as supporting evidence.
    See [acceptance-criterion evidence in reviews](../../CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews).
 
-   If a resolved version of `@mui/material`, `jsdom` or `vitest` changes, follow
-   [Statement QA's automated coverage and styling invariants](../modules/accounting/STATEMENT_THEME_QA.md#automated-coverage-and-styling-invariants)
-   and repeat its computed-style probes under the new resolved versions, even
-   when no Statement test changes. If the upgrade affects Statement's browser
-   rendering, also run the applicable ST-1 through ST-13 browser checks in that
-   document. Keep earlier measurements as dated history, record the new versions
-   and observed results in the PR, and add a dated note to the QA document when
-   the findings change.
+   When the resolved version of `@mui/material`, `jsdom` or `vitest` changes,
+   the frontend coverage suite in CI provides the
+   [Statement computed-style verification](../modules/accounting/STATEMENT_THEME_QA.md#automated-coverage-and-styling-invariants).
+   Use the same guide to determine when to run the ST-1 through ST-13 browser
+   checks. Record the applicable browser results in the PR.
 5. Before changing BullMQ or ioredis, read the
    [BullMQ scheduler runbook](../deployment/BULLMQ_SCHEDULER_RUNBOOK.md).
    The setup instructions printed by

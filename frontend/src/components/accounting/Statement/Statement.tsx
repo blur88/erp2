@@ -60,11 +60,9 @@ const HEADER_TYPOGRAPHY_SX = {
  * #1228: every rule it carried now resolves from the MUI theme through the
  * table and cell selectors below.
  *
- * NOTE ON COVERAGE: Vitest injects no stylesheet and has no layout engine, so
- * nothing below is verifiable by the suite. `sx` IS observable through
- * `toHaveStyle` when the component renders under a ThemeProvider, but the
- * geometry these rules produce — decimal alignment, real sticky scrolling,
- * clipping — is browser-only. See docs/modules/accounting/STATEMENT_THEME_QA.md.
+ * The frontend suite checks computed styles with `toHaveStyle` under the app
+ * theme. A browser is needed to verify decimal alignment, sticky scrolling,
+ * and clipping. See docs/modules/accounting/STATEMENT_THEME_QA.md.
  */
 export function Statement({ rows, figureHeads, label, className }: StatementProps) {
   return (
@@ -102,13 +100,10 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
           <Table
             aria-label={label}
             /*
-              Column headers stay put while the body scrolls inside
-              `.stmt-scroller`. MUI implements this by switching the table to
-              `border-collapse: separate` and setting `position: sticky; top: 0`
-              on the head cells — which is what the hand-rolled `.stmt-col-head`
-              sticky rule used to do, and why the head-cell background below is
-              load-bearing rather than cosmetic: a transparent sticky cell lets
-              the rows scroll through it.
+              MUI sets `border-collapse: separate` on the table and
+              `position: sticky; top: 0` on its head cells. The head-cell
+              background keeps body rows from showing through during scroll
+              (ST-11).
             */
             stickyHeader
             sx={{
@@ -187,10 +182,6 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
                   — defined on baseThemeOptions, which darkTheme spreads without
                   redefining) still dresses the CELL, and the Table `sx` above
                   keeps the cell's own size/tracking as a floor.
-
-                  Either way the old `.stmt-col-head` rule is gone — it set
-                  weight 500 / 0.04em / no uppercase, which is exactly how the
-                  Statement header diverged from SO/PO (#1228).
                 */}
                 <TableCell scope="col" data-role="col-head">
                   <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
