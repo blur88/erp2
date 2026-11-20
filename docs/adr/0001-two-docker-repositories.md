@@ -1,6 +1,6 @@
 # Images are published to two Docker Hub repositories: a public Release repository and a private Master repository
 
-Each Release pushes its images to two places. The **Release repository** (`blur88/erp2`, public) gets an immutable set per Release tagged with the GitHub version (`vX.Y.Z-backend`, `vX.Y.Z-frontend`, `vX.Y.Z-nginx`) plus moving `latest-backend`, `latest-frontend`, `latest-nginx` tags, and production pulls the `latest-*` tags from it without credentials. The **Master repository** (`blur88/master`, private) is the owner's own image store shared across their projects; it gets one moving tag per image, prefixed with the project (`erp2-backend`, `erp2-frontend`, `erp2-nginx`), and no version history. This replaces the single `blur88/all` repository, which mixed floating and versioned tags; that repository was deleted and nothing was migrated: both new repositories start empty and fill from the next Release.
+Each Release pushes its images to two places. The **Release repository** (`blur88/erp2`, public) gets an immutable set per Release tagged with the GitHub version (`vX.Y.Z-backend`, `vX.Y.Z-frontend`, `vX.Y.Z-nginx`) plus moving `latest-backend`, `latest-frontend`, `latest-nginx` tags, and production pulls the `latest-*` tags from it without credentials. The **Master repository** (`blur88/master`, private) is the owner's own image store shared across their projects; it gets the same immutable per-Release tags as the Release repository (`vX.Y.Z-backend`, `vX.Y.Z-frontend`, `vX.Y.Z-nginx`) and no moving tags. Until 2026-11-20 it got one moving tag per image instead (`erp2-backend`, `erp2-frontend`, `erp2-nginx`); those tags remain on Docker Hub but stop updating. The switch was made while investigating why Docker Scout showed no analysis for this repository (see `docs/deployment/DOCKER_SCOUT_BASE_IMAGE_RECOMMENDATIONS.md`). This replaces the single `blur88/all` repository, which mixed floating and versioned tags; that repository was deleted and nothing was migrated: both new repositories start empty and fill from the next Release.
 
 ## Private tag inspection
 
@@ -8,7 +8,7 @@ Inspect registry tags with `docker buildx imagetools inspect blur88/master:<tag>
 
 To verify that a target tag is absent:
 
-1. Confirm that a known existing tag in the same private repository, such as `blur88/master:erp2-backend`, resolves with the same credentials: `docker buildx imagetools inspect blur88/master:erp2-backend`.
+1. Confirm that a known existing tag in the same private repository, such as the latest Release's `blur88/master:vX.Y.Z-backend`, resolves with the same credentials: `docker buildx imagetools inspect blur88/master:vX.Y.Z-backend`.
 2. Inspect the target tag and confirm the tag-not-found diagnostic: `ERROR: docker.io/blur88/master:<tag>: not found`.
 3. Keep absence **Unverified** after an anonymous 404, an authentication error, or a network error. A failed control lookup also leaves target absence **Unverified**.
 
