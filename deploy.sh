@@ -108,6 +108,14 @@ deploy_services() {
 # shellcheck source=scripts/lib/wait-ready.sh
 . "$(dirname "$0")/scripts/lib/wait-ready.sh"
 
+# Succeeds when the Compose healthcheck reports the service healthy.
+service_healthy() {
+    local health
+    # shellcheck disable=SC2086  # COMPOSE_FILES is a list of -f flags
+    health=$(docker compose $COMPOSE_FILES ps --format '{{.Health}}' "$1" 2>/dev/null) || return 1
+    [ "$health" = "healthy" ]
+}
+
 # Diagnostics printed by the waits on timeout.
 print_compose_status() {
     # shellcheck disable=SC2086  # COMPOSE_FILES is a list of -f flags
@@ -118,15 +126,13 @@ print_compose_status() {
 wait_for_services() {
     print_status "Waiting for services to be ready..."
     
-    # Wait for PostgreSQL
+    # PostgreSQL and Redis: their Compose healthchecks use the credentials
+    # from .env (a bare `redis-cli ping` prints NOAUTH and still exits 0).
     print_status "Waiting for PostgreSQL..."
-    # shellcheck disable=SC2086  # COMPOSE_FILES is a list of -f flags
-    wait_for_command "PostgreSQL" docker compose $COMPOSE_FILES exec -T postgres pg_isready -U erp_user
+    wait_for_command "PostgreSQL" service_healthy postgres
 
-    # Wait for Redis
     print_status "Waiting for Redis..."
-    # shellcheck disable=SC2086
-    wait_for_command "Redis" docker compose $COMPOSE_FILES exec -T redis redis-cli ping
+    wait_for_command "Redis" service_healthy redis
     
     # The Ingress (port 80) is the only published entry point; these probes
     # prove it reaches the backend and serves the frontend.

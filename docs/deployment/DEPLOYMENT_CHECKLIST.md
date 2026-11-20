@@ -158,18 +158,22 @@ docker compose ps
 ### Ingress Readiness
 - [ ] Both `http://localhost/api/health` (backend through the Ingress) and `http://localhost/` (frontend through the Ingress) return exactly HTTP 200
 
-**Ingress Readiness Check** (each request is limited to 10 seconds; any other status, or no response, stops the check, prints the failing URL and the service status):
+**Ingress Readiness Check** (each request is limited to 10 seconds and `docker compose ps` to 15; a failed transfer or any status other than 200 prints the failing URL and the service status, and returns 1):
 ```bash
-for url in http://localhost/api/health http://localhost/; do
-  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$url")
-  if [ "$code" != "200" ]; then
-    echo "FAIL: $url returned ${code:-000}"
-    docker compose ps
-    break
-  fi
-  echo "OK: $url"
-done
-# Expected: two OK lines and no FAIL line
+check_ingress() {
+  local url code
+  for url in http://localhost/api/health http://localhost/; do
+    if code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$url") && [ "$code" = "200" ]; then
+      echo "OK: $url"
+    else
+      echo "FAIL: $url (status ${code:-000})"
+      timeout 15 docker compose ps
+      return 1
+    fi
+  done
+}
+check_ingress
+# Expected: two OK lines, no FAIL line, exit status 0
 ```
 
 ### Backend Verification

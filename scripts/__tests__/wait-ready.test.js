@@ -80,6 +80,17 @@ test('reports the failing URL, last status and compose status on timeout', async
   assert.match(r.out, /COMPOSE-STATUS/);
 });
 
+test('a 200 whose body is cut off is not ready', async t => {
+  const url = await server(t, (req, res) => {
+    res.writeHead(200, { 'Content-Length': '100' });
+    res.write('partial');
+    setTimeout(() => res.socket.destroy(), 50);
+  });
+  const r = await runWait(`wait_for_http_200 ${url} || echo "rc=$?"`, { READY_TIMEOUT: '2' });
+  assert.match(r.out, /rc=1/);
+  assert.match(r.out, /last status: 200, curl exit 18/);
+});
+
 test('under set -e a timeout stops the caller', async t => {
   const url = await server(t, (req, res) => { res.statusCode = 500; res.end(); });
   const r = await runWait(`wait_for_http_200 ${url}; echo "kept going"`, { READY_TIMEOUT: '1' });
@@ -101,6 +112,24 @@ test('wait_for_command terminates a hanging command at the deadline', async () =
   assert.match(r.out, /PostgreSQL not ready within 2s/);
   assert.match(r.out, /COMPOSE-STATUS/);
   assert.ok(r.seconds < 4, `took ${r.seconds}s`);
+});
+
+test('wait_for_command kills a command that ignores TERM, and everything it spawned', async () => {
+  // The output pipe closes only when every holder exits, so the elapsed time
+  // also proves the ignored-TERM sleep child was killed.
+  const r = await runWait(`wait_for_command "Stubborn" bash -c 'trap "" TERM; sleep 30' || echo "rc=$?"`,
+    { READY_TIMEOUT: '1' });
+  assert.match(r.out, /rc=1/);
+  assert.match(r.out, /Stubborn not ready within 1s/);
+  assert.ok(r.seconds < 4, `took ${r.seconds}s`);
+});
+
+test('a hanging diagnostic cannot hold the timeout report', async () => {
+  const r = await runWait(`print_compose_status() { echo "STATUS-START"; trap "" TERM; sleep 30; }
+wait_for_command "Probe" false || echo "rc=$?"`, { READY_TIMEOUT: '1', READY_DIAG_TIMEOUT: '1' });
+  assert.match(r.out, /STATUS-START/);
+  assert.match(r.out, /rc=1/);
+  assert.ok(r.seconds < 5, `took ${r.seconds}s`);
 });
 
 test('setup.sh embeds wait-ready.sh verbatim', () => {
