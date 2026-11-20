@@ -60,11 +60,9 @@ const HEADER_TYPOGRAPHY_SX = {
  * #1228: every rule it carried now resolves from the MUI theme through the
  * table and cell selectors below.
  *
- * NOTE ON COVERAGE: Vitest injects no stylesheet and has no layout engine, so
- * nothing below is verifiable by the suite. `sx` IS observable through
- * `toHaveStyle` when the component renders under a ThemeProvider, but the
- * geometry these rules produce — decimal alignment, real sticky scrolling,
- * clipping — is browser-only. See docs/modules/accounting/STATEMENT_THEME_QA.md.
+ * The frontend suite checks computed styles with `toHaveStyle` under the app
+ * theme. A browser is needed to verify decimal alignment, sticky scrolling,
+ * and clipping. See docs/modules/accounting/STATEMENT_THEME_QA.md.
  */
 export function Statement({ rows, figureHeads, label, className }: StatementProps) {
   return (

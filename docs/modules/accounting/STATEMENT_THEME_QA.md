@@ -10,58 +10,33 @@ reviewable in a PR and survive the local working copy.
 
 ## Automated coverage and styling invariants
 
-**Statement (P&L / Balance Sheet / Form B) has limited automated visual coverage**: `components/accounting/Statement/` was aligned to the app theme in #1224 — MUI `Paper` frame, theme palette, sticky header, and one right-aligned figure cell per column in place of the integer/fraction split.
+The normal frontend coverage suite renders the real Statement under the app's
+`darkTheme`. [Statement.test.tsx](../../../frontend/src/components/accounting/Statement/__tests__/Statement.test.tsx)
+checks computed header-cell backgrounds and negative figure colour, the theme's
+Paper shadow, and header and body typography (including `15.36px` body line
+height and uniform figure font size). The suite also covers table structure,
+[accessible figure values](../../../frontend/src/components/accounting/Statement/__tests__/StatementFigure.test.tsx)
+and [browser QA hooks](../../../frontend/src/components/accounting/Statement/__tests__/qaSelectorContract.test.tsx).
 
-The Vitest suite proves structure and themed `sx` values only: one cell per figure, a single `amountHook` node, the complete signed accessible value, row-kind classes, and header cells present. jsdom has no layout engine, so **decimal alignment, real sticky scrolling, clipping, elevation and font loading are unassertable**. Imported stylesheet rules are stubbed in this setup (Vitest does not inject `statement.css`), so the sticky, `text-align` and `tabular-nums` rules there are invisible to the suite too.
+Run ST-1 through ST-13 as applicable in a real browser in dark theme and record
+the results in the PR. Browser checks cover decimal alignment, sticky scrolling,
+clipping, font loading, visual elevation, and the width and visibility of the
+CSS-generated closing parenthesis. The figure specs also check that a positive
+amount's text contains no stray closing parenthesis.
 
-Emotion styles are a different story, and the boundary was **measured**, not
-inferred from the shared pipeline. Probed 2026-09-11 against
-**@mui/material 9.4.0, jsdom 30.0.1, vitest 5.0.0**, each case asserting the
-correct value *and* a deliberately wrong one:
+### Historical computed-style measurements
 
-| Applied via | Observable through `toHaveStyle`? |
-|---|---|
-| `sx` on the asserted element itself | **yes** (`MainLayout.test.tsx` reads `sx={{ pt: 11 }}` as `paddingTop: 88px`) |
-| `sx` descendant selector (`'& .stmt-cell-code'`) | **yes** — measured on `Statement` itself: `.stmt-figure-negative` computes `rgb(239, 83, 80)`, `.stmt-cell-code` computes `rgb(189, 189, 189)` |
-| theme `styleOverrides` on a themeable slot | **yes** (`MuiButton` root `paddingTop` computes `88px`) |
-| an imported stylesheet (`statement.css`) | **no** — Vitest does not inject it |
-
-The table above records the 2026-09-11 environment. With jsdom 31, computed
-values can use different serialization: Statement body Typography with a
-`12.8px` font size and unitless `lineHeight: 1.2` resolves to `15.36px`.
-The body typography tests assert that resolved length, retaining the font-size
-and font-weight checks. A follow-up probe for #1906 on **@mui/material 9.5.0,
-jsdom 31.0.1, Vitest 5.1.0** accepted `15.36px` and rejected the deliberately
-wrong `15.35px` on both line and section-row Typography. This checks the
-computed-style matcher, without establishing browser layout or re-measuring
-the other entries in the historical table.
-
-So Statement's themed colours *are* assertable, including the descendant-selector
-ones; the current suite simply does not assert them. What stays out of reach is
-the imported stylesheet and anything needing layout.
-
-Two measurement traps, both of which produced false negatives on the first pass
-here:
-
-- **Render through a `ThemeProvider`.** A component rendered bare computes no
-  themed colour, which reads as "Emotion is unobservable" when it only means the
-  theme was absent.
-- **`toHaveStyle` failing on a wrong value proves nothing by itself.** An element
-  with no rule at all computes `rgb(0, 0, 0)`, so a wrong-colour assertion
-  "fails" there too. Read the actual computed value before concluding a rule did
-  not apply.
-
-An older note (#1098, measured on MUI 9.3.1 / vitest 4.1.10) recorded that a
-pure-`sx` control failed. That does not reproduce on the versions above; treat
-it as superseded rather than as a live constraint.
-
-The browser gate that once covered the rest was removed in #1223. Restoring Playwright was deliberately excluded from #1224. This document is the substitute — a tracked manual procedure, run by hand, with results recorded in the PR.
-
-The suite cannot protect the CSS spacer invariant below or the figure font-size invariant in [ST-12](#st-12--figure-font-size-uniformity-1228); change them only deliberately:
-
-- **The paren spacer must stay CSS generated content** (`[data-role="paren-spacer"]::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser. Note that `toHaveTextContent('56,800.00')` is a substring assertion — it would still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
-
-**Run the checks below in a real browser, in the dark theme, and record the results in the PR.**
+- **2026-09-11** (MUI 9.4.0, jsdom 30.0.1, Vitest 5.0.0). Element and
+  descendant `sx` and theme overrides computed successfully. The imported
+  stylesheet was stubbed.
+- **2026-11-17** (#1906, MUI 9.5.0, jsdom 31.0.1, Vitest 5.1.0). Line and
+  section-row Typography both computed `15.36px` line height and rejected
+  `15.35px`.
+- **2026-11-20** (#1951, MUI 9.5.0, jsdom 31.0.1, Vitest 5.1.1).
+  Element `sx` and a theme override each computed `88px` padding. The header
+  cell computed `rgb(66, 66, 66)`, the negative figure `rgb(239, 83, 80)`, and
+  body typography `15.36px` line height at `12.8px` font size. A test-local
+  imported stylesheet's `77px` padding computed as `0px`.
 
 ## Preparation
 
@@ -88,7 +63,8 @@ figure and a non-zero Net Profit.
 - Repeat on Balance Sheet and Form B.
 
 **Why it can break:** the closing paren on negatives, and any difference in
-figure font size, each shift the separator. Both are invisible to the suite.
+figure font size, each shift the separator. The browser check measures the
+resulting decimal position.
 
 ## ST-2 — Parentheses are not clipped
 
@@ -172,15 +148,8 @@ There should be no sense of two different palettes on screen.
 **Precondition:** a Sales Orders or Purchase Orders list open in the same
 session, same theme.
 
-Added for #1228, which migrated the Statement table from native HTML +
-`statement.css` to MUI table components. The header now draws its typography
-from the theme's `MuiTableHead` override rather than a local rule, and this
-check is what proves the two agree.
-
-Extended by #1231, which made the header text a `<Typography
-variant="tableHeader">` carrying the same inline overrides EntityTable uses —
-so the two headers now share one implementation rather than two that merely
-computed alike.
+Statement and EntityTable render header text with the `tableHeader` Typography
+variant and the same inline size and tracking overrides.
 
 **Measure the TYPOGRAPHY, not the cell.** Since #1231 the glyphs are drawn by
 the span inside the head cell, and the cell keeps its own size/tracking as a
@@ -205,14 +174,9 @@ Typography stripped of its `sx` would compute.
 render the shared `Statement`, so Form B inherits any header change whether or
 not the issue that caused it mentions Form B.
 
-**Why it can break:** the old `stmt-col-head` class rule (removed) set weight 500, 0.04em and
-no uppercase — the exact divergence #1228 removed. A reintroduced local rule,
-or a `darkTheme` block that shadows `MuiTableHead`, brings it back. Since #1231
-there is a second route: dropping `HEADER_TYPOGRAPHY_SX` from the Typography
-(or letting EntityTable's inline values drift from it) silently returns the
-header to the theme variant's smaller size and wider tracking. Note that
-`darkTheme` currently spreads `...baseThemeOptions.components` and does not
-redefine `MuiTableHead`; if that changes, this check is what catches it.
+**Why it can break:** dropping `HEADER_TYPOGRAPHY_SX` from the Typography
+returns the header to the theme variant's smaller size and wider tracking.
+Compare both implementations to catch drift between them.
 
 ## ST-11 — Sticky-header opacity under active scroll (#1228)
 
@@ -242,7 +206,7 @@ row would scroll away and leave the labels floating over the data.
 **Why it matters:** a larger bottom-line figure places its decimal separator at
 a different x position from every other row — the exact misalignment the old
 two-cell integer/fraction split existed to prevent. The bottom-line *label* may
-be larger (`1rem`); the *figure* may not. The suite cannot protect this invariant.
+be larger (`1rem`); the *figure* may not.
 
 ## ST-13 — Paren alignment across the sign boundary (#1228)
 
