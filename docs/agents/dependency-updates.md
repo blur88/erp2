@@ -67,8 +67,8 @@
    When the resolved version of `@mui/material`, `jsdom` or `vitest` changes,
    the frontend coverage suite in CI provides the
    [Statement computed-style verification](../modules/accounting/STATEMENT_THEME_QA.md#automated-coverage-and-styling-invariants).
-   For changes that may affect Statement rendering, also run the applicable
-   ST-1 through ST-13 browser checks in that guide and record the results in the PR.
+   Use the same guide to determine when to run the ST-1 through ST-13 browser
+   checks. Record the applicable browser results in the PR.
 5. Before changing BullMQ or ioredis, read the
    [BullMQ scheduler runbook](../deployment/BULLMQ_SCHEDULER_RUNBOOK.md).
    The setup instructions printed by

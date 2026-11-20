@@ -10,8 +10,8 @@ import { formatCurrency } from '@/utils/currency'
  *
  * `StatementFigure` re-joins `int` and `frac` into ONE string rendered in a
  * single right-aligned cell; decimal alignment comes from tabular digits, a
- * shared body font size and `.stmt-paren-spacer` (spec §4.1), not from a
- * column boundary. This helper is therefore purely a string split.
+ * shared body font size and the paren spacer (spec §4.1). This helper splits
+ * the formatted string.
  *
  * NEVER parses the amount. `formatCurrency` keeps string amounts as strings
  * because amounts are NUMERIC(18,4) and Number()/parseFloat() lose cents once
@@ -123,7 +123,7 @@ interface StatementFigureProps {
  * carries exactly two decimals (formatCurrency pins min/maxFractionDigits: 2),
  * every figure renders at the SAME font size (a larger bottom line would shift
  * its decimal), and `tabular-nums` fixes digit advance. The remaining offset is
- * the closing paren on negatives, which `.stmt-paren-spacer` reserves on
+ * the closing paren on negatives. The paren spacer reserves that width on
  * positives.
  *
  * Accessibility (spec §4.3): the visible figure is aria-hidden and a single

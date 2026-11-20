@@ -314,30 +314,6 @@ const renderThemed = (rows: StatementRow[], figureHeads = ['RM']) =>
     </MemoryRouter>,
   )
 
-describe('Statement dark theme', () => {
-  it('paints an opaque background on every sticky column header cell', () => {
-    renderThemed([row({ id: 'a' })])
-
-    for (const header of screen.getAllByRole('columnheader')) {
-      expect(header).toHaveStyle({ backgroundColor: 'rgb(66, 66, 66)' })
-    }
-  })
-
-  it('uses the theme error colour for a negative figure', () => {
-    renderThemed([row({ id: 'a', figures: ['-840.0000'] })])
-
-    expect(screen.getByTestId('row-a-fig0')).toHaveStyle({ color: 'rgb(239, 83, 80)' })
-  })
-
-  it('uses the theme Paper elevation shadow on the statement frame', () => {
-    const { container } = renderThemed([row({ id: 'a' })])
-
-    expect(container.querySelector('[data-role="statement-root"]')).toHaveStyle({
-      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.08)',
-    })
-  })
-})
-
 describe('Statement body typography', () => {
   it('renders code and description through a Typography, as EntityTable does', () => {
     const { container } = renderThemed([row({ id: 'a', code: '4000' })])
@@ -435,6 +411,32 @@ describe('Statement body typography', () => {
 
 })
 
+
+describe('Statement dark theme', () => {
+  it('uses the dark-theme header background on every column header cell', () => {
+    renderThemed([row({ id: 'a' })])
+
+    // The dark theme maps the table header background to grey[800].
+    for (const header of screen.getAllByRole('columnheader')) {
+      expect(header).toHaveStyle({ backgroundColor: 'rgb(66, 66, 66)' })
+    }
+  })
+
+  it('uses the theme error colour for a negative figure', () => {
+    renderThemed([row({ id: 'a', figures: ['-840.0000'] })])
+
+    expect(screen.getByTestId('row-a-fig0')).toHaveStyle({ color: 'rgb(239, 83, 80)' })
+  })
+
+  it('uses the theme Paper elevation shadow on the statement frame', () => {
+    const { container } = renderThemed([row({ id: 'a' })])
+
+    // MuiPaper's elevation1 override defines this shadow.
+    expect(container.querySelector('[data-role="statement-root"]')).toHaveStyle({
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.08)',
+    })
+  })
+})
 
 describe('Statement figure rules', () => {
   it.each(['100.0000', '-100.0000', null])(

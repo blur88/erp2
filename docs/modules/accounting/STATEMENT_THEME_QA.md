@@ -18,8 +18,15 @@ height and uniform figure font size). The suite also covers table structure,
 [accessible figure values](../../../frontend/src/components/accounting/Statement/__tests__/StatementFigure.test.tsx)
 and [browser QA hooks](../../../frontend/src/components/accounting/Statement/__tests__/qaSelectorContract.test.tsx).
 
-Run ST-1 through ST-13 as applicable in a real browser in dark theme and record
-the results in the PR. Browser checks cover decimal alignment, sticky scrolling,
+For computed-style checks, render through `ThemeProvider` with `darkTheme`
+so theme values apply. Assert the expected computed value before checking
+whether an incorrect value is rejected. An element with no colour rule can
+compute `rgb(0, 0, 0)`, which also rejects an incorrect colour.
+
+Run the applicable ST-1 through ST-13 checks in a real browser in dark theme
+after changes to Statement markup, styles, or layout, or to theme defaults
+and UI dependencies that affect the components it renders. Record the results
+in the PR. Browser checks cover decimal alignment, sticky scrolling,
 clipping, font loading, visual elevation, and the width and visibility of the
 CSS-generated closing parenthesis. The figure specs also check that a positive
 amount's text contains no stray closing parenthesis.
@@ -176,7 +183,9 @@ not the issue that caused it mentions Form B.
 
 **Why it can break:** dropping `HEADER_TYPOGRAPHY_SX` from the Typography
 returns the header to the theme variant's smaller size and wider tracking.
-Compare both implementations to catch drift between them.
+Compare both implementations to catch drift between them. The dark theme
+currently inherits the shared `MuiTableHead` override. Recheck the rendered
+Typography if a dark-theme override changes the header cascade.
 
 ## ST-11 — Sticky-header opacity under active scroll (#1228)
 
