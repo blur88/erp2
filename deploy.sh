@@ -67,7 +67,10 @@ create_directories() {
     
     mkdir -p uploads logs backups
     mkdir -p database/init
-    chmod 755 uploads logs backups
+    # Cosmetic, and it fails on a re-run: the containers leave these
+    # bind-mounted directories owned by their own user, which chmod may not
+    # touch. That must not stop the deploy.
+    chmod 755 uploads logs backups 2>/dev/null || print_warning "Could not chmod uploads/logs/backups (owned by another user); continuing"
     
     print_success "Directories created"
 }
@@ -90,7 +93,7 @@ deploy_services() {
     print_status "Building and starting services..."
     
     # Pull latest images
-    docker compose $COMPOSE_FILES pull
+    docker compose $COMPOSE_FILES pull --ignore-buildable
     
     # Build custom images
     docker compose $COMPOSE_FILES build --no-cache

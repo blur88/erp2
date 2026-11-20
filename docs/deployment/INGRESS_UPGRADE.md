@@ -35,7 +35,7 @@ FRONTEND_URL=https://erp.example.com
 
 Then recreate the backend so it picks the values up: `docker compose up -d backend` (or `docker compose -f docker-compose.prod.yml up -d backend`).
 
-Browsers don't apply CORS to same-origin requests, so a stale value rarely breaks the web app itself. Fix it anyway: any cross-origin client you add later is checked against this list.
+What a stale value does depends on `NODE_ENV`. In `development` the backend reflects any origin, so nothing changes. In `production` it answers CORS only for the listed origins, so with the old list the backend sends no `Access-Control-Allow-Origin` for `http://localhost` (checked against the real backend). Browsers don't apply CORS to same-origin requests, so the web app itself keeps working, but any other client calling from the Ingress origin is refused. Fix it either way.
 
 ## Verify
 

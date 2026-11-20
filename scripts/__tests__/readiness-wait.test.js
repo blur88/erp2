@@ -23,7 +23,18 @@ function fixture(t, script) {
   mkdirSync(work);
   const command = (name, body) => writeFileSync(path.join(bin, name), `#!/bin/bash\n${body}\n`, { mode: 0o755 });
 
-  command('docker', 'printf "%s\\n" "$*" >> "$TRACE"; exit 0');
+  // Bind-mounted dirs left by a previous run belong to the container user, so
+  // chmod on them fails for the invoking user.
+  command('chmod', 'echo "chmod: changing permissions: Operation not permitted" >&2; exit 1');
+  // In the dev stack (the override file is in play) `compose pull` exits
+  // non-zero for build-only images (erp-backend etc.) unless told to skip
+  // them, as real Compose does. The prod stack is all prebuilt images.
+  command('docker', `
+    printf '%s\\n' "$*" >> "$TRACE"
+    if [[ " $* " == *" pull "* && "$*" == *docker-compose.override.yml* && " $* " != *" --ignore-buildable "* ]]; then
+      echo 'pull access denied for erp-backend' >&2; exit 1
+    fi
+    exit 0`);
   // The last argument is the URL. CODE_<n> is the status served for the nth
   // request to that URL; CODE_DEFAULT_<key> after that. key: HEALTH | ROOT.
   command('curl', `
