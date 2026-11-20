@@ -79,8 +79,12 @@ jobs:
       JWT_REFRESH_EXPIRES_IN: 7d
       JWT_AUDIENCE: erp-app
       JWT_ISSUER: erp-backend
-      ALLOWED_ORIGINS: http://localhost:3000
-      FRONTEND_URL: http://localhost:3000
+      # FRONTEND_URL and ALLOWED_ORIGINS are deliberately NOT set job-wide
+      # (issue #1968). ConfigService falls back to process.env, so a job-level value
+      # leaks into every unit spec and makes a default-origin assertion pass
+      # locally and fail only here (issue #1965). Only security.config.ts reads them,
+      # and it is reached solely from main.ts, which no step here boots. A step
+      # that really needs one must set it in its own `env:`.
 
     steps:
       - name: Checkout
