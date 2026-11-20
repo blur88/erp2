@@ -41,3 +41,25 @@ test('every production application image has a tag published with SBOM and max S
     assert.ok(publishedTags.has(normalizeImage(image)), `${service}: ${image} is not published by release.yml`);
   }
 });
+
+test('the private Master repository receives only versioned release tags', () => {
+  const workflow = readYaml('.github/workflows/release.yml');
+  const masterTags = [];
+
+  for (const job of Object.values(workflow.jobs)) {
+    for (const step of job.steps ?? []) {
+      if (!step.uses?.startsWith('docker/build-push-action@') || !step.with?.push) continue;
+      for (const tag of (step.with.tags ?? '').trim().split(/\r?\n/).map((t) => normalizeImage(t.trim()))) {
+        if (tag.startsWith('blur88/master:')) masterTags.push(tag);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    masterTags.sort(),
+    ['backend', 'frontend', 'nginx']
+      .map((image) => `blur88/master:v\${{ needs.release.outputs.new_release_version }}-${image}`)
+      .sort(),
+    'blur88/master must get exactly one vX.Y.Z-<image> tag per image and no moving tags (ADR 0001)',
+  );
+});
