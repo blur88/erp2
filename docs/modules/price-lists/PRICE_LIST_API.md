@@ -606,7 +606,7 @@ interface PriceListItem {
 
 ```bash
 # Step 1: Create the price list
-curl -X POST http://localhost:3000/api/price-lists \
+curl -X POST http://localhost/api/price-lists \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -620,7 +620,7 @@ curl -X POST http://localhost:3000/api/price-lists \
 # Response: { "data": { "id": "uuid-2", ... } }
 
 # Step 2: Add prices for multiple products
-curl -X POST http://localhost:3000/api/price-lists/uuid-2/items/bulk \
+curl -X POST http://localhost/api/price-lists/uuid-2/items/bulk \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -645,7 +645,7 @@ curl -X POST http://localhost:3000/api/price-lists/uuid-2/items/bulk \
 
 ```bash
 # Apply a 15% discount to all prices in a price list
-curl -X POST http://localhost:3000/api/price-lists/uuid-2/adjust \
+curl -X POST http://localhost/api/price-lists/uuid-2/adjust \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -660,7 +660,7 @@ curl -X POST http://localhost:3000/api/price-lists/uuid-2/adjust \
 
 ```bash
 # Copy current price list to create next year's pricing
-curl -X POST http://localhost:3000/api/price-lists/uuid-1/copy \
+curl -X POST http://localhost/api/price-lists/uuid-1/copy \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -670,7 +670,7 @@ curl -X POST http://localhost:3000/api/price-lists/uuid-1/copy \
   }'
 
 # Then apply a 5% increase for inflation
-curl -X POST http://localhost:3000/api/price-lists/NEW_UUID/adjust \
+curl -X POST http://localhost/api/price-lists/NEW_UUID/adjust \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

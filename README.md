@@ -39,10 +39,15 @@ cd erp2
 docker compose up -d
 
 # Access the application
-# Frontend:     http://localhost:3000
-# Backend API:  http://localhost:3000/api
-# API Docs:     http://localhost:3000/api/docs
+# Application:  http://localhost
+# Backend API:  http://localhost/api
+# API Docs:     http://localhost/api/docs
 ```
+
+Port 80 (the NGINX **Ingress**) is the only port Compose publishes for the app. The
+frontend and backend containers are reachable only through it, so the rate limits and
+security headers apply to every request. Upgrading an existing install? See
+[the Ingress upgrade note](docs/deployment/INGRESS_UPGRADE.md).
 
 **Default credentials** — change immediately after first login:
 - Username: `admin`
@@ -139,7 +144,7 @@ fails to load reports zero. Check the exit code, not the summary line.
 
 All endpoints require `Authorization: Bearer <token>` except `/api/auth/login` and `/api/auth/register`.
 
-Interactive API documentation is available at `http://localhost:3000/api/docs`.
+Interactive API documentation is available at `http://localhost/api/docs`.
 
 Key endpoint groups:
 - `POST /api/auth/login` — obtain access + refresh tokens

@@ -34,26 +34,23 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // Rate limiting is enforced ONLY by nginx: the login_limit zone
-  // (nginx/nginx.conf:47, 5r/m) applied to ^/api/(auth|login|register)
-  // at :137, burst=3 nodelay. There is no app-layer throttler -- #1154
-  // was closed not-planned, leaving nginx the single documented
-  // enforcement point, and the @Throttle decorators were removed as
-  // inert in the NestJS 12 migration.
+  // Rate limiting is enforced ONLY by the nginx Ingress: the login_limit zone
+  // (nginx/nginx.conf, 5r/m, burst=3 nodelay) is keyed to POST /api/auth/login
+  // and POST /api/auth/register alone. Every other auth route (me, refresh,
+  // logout, show-default-credentials) is under the general api_limit zone, so
+  // routine session traffic cannot spend the sign-in budget (#1959). There is
+  // no app-layer throttler -- #1154 was closed not-planned, leaving nginx the
+  // single documented enforcement point.
   //
-  // Rejection is 429, not 503: limit_req_status 429 sits in the http
-  // block (nginx.conf:44) and is inherited by every limit_req in the
-  // file. #1154's 503 observation predates that fix by twenty minutes
-  // (#1156, commit b9379f5b6) and does not describe current behaviour.
-  // Measured 2026-09-07 through the local stack's nginx -- 12 rapid
-  // POSTs to /api/auth/login returned 401 x4 then 429 x8 (#1207).
+  // Rejection is 429, not 503: limit_req_status 429 sits in the http block of
+  // nginx/nginx.conf and is inherited by every limit_req.
   //
-  // The limit is a property of the ingress-fronted deployment, not of
-  // this application. Anything reaching this controller without
-  // traversing that nginx is unthrottled and returns no rate-limit
-  // status at all: e2e suites via supertest, start:dev, the
-  // loopback-published backend port (docker-compose.prod.yml:155-156,
-  // #1193), or any future second ingress.
+  // The limit is a property of the ingress-fronted deployment, not of this
+  // application. Compose publishes only the Ingress (ADR 0003), so the stack
+  // has no unthrottled route to this controller. Anything else that reaches it
+  // without traversing the Ingress is unthrottled and returns no rate-limit
+  // status at all: e2e suites via supertest, start:dev, or any future second
+  // ingress.
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -90,26 +87,23 @@ export class AuthController {
     return this.authService.login(loginDto, ipAddress, userAgent);
   }
 
-  // Rate limiting is enforced ONLY by nginx: the login_limit zone
-  // (nginx/nginx.conf:47, 5r/m) applied to ^/api/(auth|login|register)
-  // at :137, burst=3 nodelay. There is no app-layer throttler -- #1154
-  // was closed not-planned, leaving nginx the single documented
-  // enforcement point, and the @Throttle decorators were removed as
-  // inert in the NestJS 12 migration.
+  // Rate limiting is enforced ONLY by the nginx Ingress: the login_limit zone
+  // (nginx/nginx.conf, 5r/m, burst=3 nodelay) is keyed to POST /api/auth/login
+  // and POST /api/auth/register alone. Every other auth route (me, refresh,
+  // logout, show-default-credentials) is under the general api_limit zone, so
+  // routine session traffic cannot spend the sign-in budget (#1959). There is
+  // no app-layer throttler -- #1154 was closed not-planned, leaving nginx the
+  // single documented enforcement point.
   //
-  // Rejection is 429, not 503: limit_req_status 429 sits in the http
-  // block (nginx.conf:44) and is inherited by every limit_req in the
-  // file. #1154's 503 observation predates that fix by twenty minutes
-  // (#1156, commit b9379f5b6) and does not describe current behaviour.
-  // Measured 2026-09-07 through the local stack's nginx -- 12 rapid
-  // POSTs to /api/auth/login returned 401 x4 then 429 x8 (#1207).
+  // Rejection is 429, not 503: limit_req_status 429 sits in the http block of
+  // nginx/nginx.conf and is inherited by every limit_req.
   //
-  // The limit is a property of the ingress-fronted deployment, not of
-  // this application. Anything reaching this controller without
-  // traversing that nginx is unthrottled and returns no rate-limit
-  // status at all: e2e suites via supertest, start:dev, the
-  // loopback-published backend port (docker-compose.prod.yml:155-156,
-  // #1193), or any future second ingress.
+  // The limit is a property of the ingress-fronted deployment, not of this
+  // application. Compose publishes only the Ingress (ADR 0003), so the stack
+  // has no unthrottled route to this controller. Anything else that reaches it
+  // without traversing the Ingress is unthrottled and returns no rate-limit
+  // status at all: e2e suites via supertest, start:dev, or any future second
+  // ingress.
   @Post('register')
   @Public()
   @ApiOperation({

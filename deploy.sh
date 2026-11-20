@@ -67,7 +67,10 @@ create_directories() {
     
     mkdir -p uploads logs backups
     mkdir -p database/init
-    chmod 755 uploads logs backups
+    # Cosmetic, and it fails on a re-run: the containers leave these
+    # bind-mounted directories owned by their own user, which chmod may not
+    # touch. That must not stop the deploy.
+    chmod 755 uploads logs backups 2>/dev/null || print_warning "Could not chmod uploads/logs/backups (owned by another user); continuing"
     
     print_success "Directories created"
 }
@@ -90,7 +93,7 @@ deploy_services() {
     print_status "Building and starting services..."
     
     # Pull latest images
-    docker compose $COMPOSE_FILES pull
+    docker compose $COMPOSE_FILES pull --ignore-buildable
     
     # Build custom images
     docker compose $COMPOSE_FILES build --no-cache
@@ -99,6 +102,30 @@ deploy_services() {
     docker compose $COMPOSE_FILES up -d
     
     print_success "Services started successfully"
+}
+
+# Readiness: the Ingress is the only published entry point (ADR 0003), so the
+# stack is ready when it serves the API and the web app on port 80. Each URL
+# must return exactly HTTP 200 within READY_TIMEOUT seconds (polling every
+# READY_INTERVAL); on timeout, name the URL and show `docker compose ps`.
+READY_URLS=("http://localhost/api/health" "http://localhost/")
+READY_TIMEOUT="${READY_TIMEOUT:-180}"
+READY_INTERVAL="${READY_INTERVAL:-3}"
+
+wait_for_url() {
+    local url="$1" code="000"
+    local deadline=$((SECONDS + READY_TIMEOUT))
+
+    while :; do
+        code=$(curl -s -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" || true)
+        [ "$code" = "200" ] && return 0
+        [ "$SECONDS" -ge "$deadline" ] && break
+        sleep "$READY_INTERVAL"
+    done
+
+    print_error "$url did not return HTTP 200 within ${READY_TIMEOUT}s (last status: ${code:-none})"
+    docker compose $COMPOSE_FILES ps
+    exit 1
 }
 
 # Wait for services to be ready
@@ -117,22 +144,10 @@ wait_for_services() {
         sleep 2
     done
     
-    # Wait for backend API
-    print_status "Waiting for Backend API..."
-    until curl -f http://localhost:3001/api/health > /dev/null 2>&1; do
-        sleep 5
-    done
-    
-    # Wait for frontend
-    print_status "Waiting for Frontend..."
-    until curl -f http://localhost:3000 > /dev/null 2>&1; do
-        sleep 5
-    done
-
-    # Wait for NGINX
-    print_status "Waiting for NGINX..."
-    until curl -f http://localhost:8080/health > /dev/null 2>&1; do
-        sleep 2
+    # Wait for the Ingress, which fronts the backend and frontend
+    for url in "${READY_URLS[@]}"; do
+        print_status "Waiting for $url..."
+        wait_for_url "$url"
     done
 
     print_success "All services are ready"
@@ -147,9 +162,9 @@ show_status() {
     print_success "🎉 ERP System deployed successfully!"
     echo ""
     echo "Access URLs:"
-    echo "  🌐 Frontend Application: http://localhost:3000"
-    echo "  🔧 Backend API: http://localhost:3001/api"
-    echo "  📚 API Documentation: http://localhost:3001/api/docs"
+    echo "  🌐 Application: http://localhost"
+    echo "  🔧 Backend API: http://localhost/api"
+    echo "  📚 API Documentation: http://localhost/api/docs"
     echo ""
     echo "Demo Accounts:"
     echo "  👤 Admin: admin / Admin@123!"

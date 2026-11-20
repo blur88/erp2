@@ -134,8 +134,8 @@ services:
       - JWT_ISSUER=${JWT_ISSUER:-erp-backend}
 
       # Security
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
       - CSP_REPORT_ONLY=${CSP_REPORT_ONLY:-false}
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
       - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
@@ -151,8 +151,8 @@ services:
       - ENABLE_SWAGGER=${ENABLE_SWAGGER:-true}
       - DEBUG_MODE=${DEBUG_MODE:-false}
 
-    ports:
-      - "${PORT:-3001}:${PORT:-3001}"
+    # No host port: the backend is reachable only through the Ingress
+    # (nginx service) over erp_network. See docs/adr/0003-ingress-only-entry-point.md.
     depends_on:
       postgres:
         condition: service_healthy
@@ -198,8 +198,8 @@ services:
     image: erp-frontend:latest
     container_name: erp_frontend
     restart: unless-stopped
-    ports:
-      - "3000:80"
+    # No host port: this server holds the static web app only and is reachable
+    # only through the Ingress. See docs/adr/0003-ingress-only-entry-point.md.
     depends_on:
       backend:
         condition: service_healthy
@@ -239,9 +239,10 @@ services:
     image: erp-nginx:latest
     container_name: erp_nginx
     restart: unless-stopped
+    # The only published entry point. Nothing listens on 443 (HTTPS is out of
+    # scope for now), so it is not published.
     ports:
       - "80:80"
-      - "443:443"
     depends_on:
       frontend:
         condition: service_healthy
