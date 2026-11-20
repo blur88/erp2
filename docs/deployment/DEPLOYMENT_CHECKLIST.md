@@ -11,6 +11,8 @@
 ## Pre-Deployment (1-2 hours before)
 
 ### System Preparation
+- [ ] Entry point: the Ingress (`nginx` service, port 80) is the only published port; the frontend (`:3000`) and backend (`:3001`) are no longer reachable from the host ([ADR 0003](../adr/0003-ingress-only-entry-point.md)). Use `http://localhost` and `http://localhost/api`.
+- [ ] Existing `.env`: `ALLOWED_ORIGINS` and `FRONTEND_URL` values there override the new `http://localhost` defaults. Replace any `http://localhost:3000` / `:3001` entries with the origin users actually open (in production, the public HTTPS origin).
 - [ ] All team members notified of deployment
 - [ ] Deployment window scheduled and communicated
 - [ ] Support team briefed and standing by
@@ -154,7 +156,7 @@ docker compose ps
 ```
 
 ### Backend Verification
-- [ ] Health check passed: `curl http://localhost:3001/api/health`
+- [ ] Health check passed: `curl http://localhost/api/health`
 - [ ] API endpoints registered (check logs)
 - [ ] 13 price list endpoints visible
 - [ ] No TypeScript compilation errors
@@ -162,13 +164,13 @@ docker compose ps
 
 **Backend Health Check**:
 ```bash
-curl http://localhost:3001/api/health
+curl http://localhost/api/health
 # Expected: {"status":"ok"}
 ```
 
 ### Frontend Verification
-- [ ] Frontend accessible: `curl -I http://localhost:3000`
-- [ ] Price list page exists: `curl -I http://localhost:3000/settings/price-lists`
+- [ ] Frontend accessible: `curl -I http://localhost`
+- [ ] Price list page exists: `curl -I http://localhost/settings/price-lists`
 - [ ] No JavaScript errors in browser console
 - [ ] Assets loaded correctly
 
@@ -213,14 +215,14 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "
 **API Test Commands**:
 ```bash
 TOKEN="YOUR_ADMIN_TOKEN"
-curl -s http://localhost:3000/api/price-lists \
+curl -s http://localhost/api/price-lists \
   -H "Authorization: Bearer $TOKEN" | jq '.data | length'
-curl -s http://localhost:3000/api/price-lists/default \
+curl -s http://localhost/api/price-lists/default \
   -H "Authorization: Bearer $TOKEN" | jq '.data.code'
 ```
 
 ### UI Testing
-- [ ] Navigate to Price Lists page: http://localhost:3000/settings/price-lists
+- [ ] Navigate to Price Lists page: http://localhost/settings/price-lists
 - [ ] Price lists displayed correctly
 - [ ] Click on a price list - details page loads
 - [ ] Product prices displayed correctly

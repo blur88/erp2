@@ -133,8 +133,8 @@ services:
       - JWT_ISSUER=${JWT_ISSUER:-erp-backend}
 
       # Security
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
       - CSP_REPORT_ONLY=${CSP_REPORT_ONLY:-false}
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
       - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
@@ -150,11 +150,9 @@ services:
       - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
       - DEBUG_MODE=false
 
-    ports:
-      # Loopback-bound (issue #1193): a short-form publish binds 0.0.0.0 and
-      # reaches NestJS without traversing the ingress nginx that holds the
-      # limit_req zones. nginx reaches this over erp_network by service name.
-      - "127.0.0.1:${PORT:-3001}:${PORT:-3001}"
+    # No host port: the Ingress (nginx service) is the only published entry
+    # point and reaches the backend over erp_network
+    # (docs/adr/0003-ingress-only-entry-point.md).
     depends_on:
       postgres:
         condition: service_healthy
@@ -194,11 +192,8 @@ services:
     image: blur88/erp2:latest-frontend
     container_name: erp_frontend
     restart: unless-stopped
-    ports:
-      # Loopback-bound (issue #1193): this container's own nginx proxies
-      # /api/ straight to backend:3001 with no rate limiting, so a published
-      # 0.0.0.0:3000 is a second unlimited path to the API.
-      - "127.0.0.1:3000:80"
+    # No host port: the Ingress reaches this over erp_network as frontend:80
+    # (docs/adr/0003-ingress-only-entry-point.md).
     depends_on:
       backend:
         condition: service_healthy
@@ -236,8 +231,8 @@ services:
     container_name: erp_nginx
     restart: unless-stopped
     ports:
+      # HTTP only; production HTTPS termination is tracked in #1960.
       - "80:80"
-      - "443:443"
     depends_on:
       frontend:
         condition: service_healthy

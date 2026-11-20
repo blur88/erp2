@@ -101,6 +101,28 @@ deploy_services() {
     print_success "Services started successfully"
 }
 
+# Poll a URL until it returns HTTP 200, for at most READY_TIMEOUT seconds
+# (default 180). On timeout, report the URL and the Compose service status.
+wait_for_http_200() {
+    local url="$1"
+    local timeout="${READY_TIMEOUT:-180}"
+    local deadline=$((SECONDS + timeout))
+    local code
+    while :; do
+        code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
+        if [ "$code" = "200" ]; then
+            return 0
+        fi
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            print_error "No HTTP 200 from $url within ${timeout}s (last status: ${code:-none})"
+            # shellcheck disable=SC2086  # COMPOSE_FILES is a list of -f flags
+            docker compose $COMPOSE_FILES ps
+            return 1
+        fi
+        sleep 5
+    done
+}
+
 # Wait for services to be ready
 wait_for_services() {
     print_status "Waiting for services to be ready..."
@@ -117,23 +139,13 @@ wait_for_services() {
         sleep 2
     done
     
-    # Wait for backend API
-    print_status "Waiting for Backend API..."
-    until curl -f http://localhost:3001/api/health > /dev/null 2>&1; do
-        sleep 5
-    done
-    
-    # Wait for frontend
-    print_status "Waiting for Frontend..."
-    until curl -f http://localhost:3000 > /dev/null 2>&1; do
-        sleep 5
-    done
+    # The Ingress (port 80) is the only published entry point; these probes
+    # prove it reaches the backend and serves the frontend.
+    print_status "Waiting for Backend API through the Ingress..."
+    wait_for_http_200 http://localhost/api/health
 
-    # Wait for NGINX
-    print_status "Waiting for NGINX..."
-    until curl -f http://localhost:8080/health > /dev/null 2>&1; do
-        sleep 2
-    done
+    print_status "Waiting for Frontend through the Ingress..."
+    wait_for_http_200 http://localhost/
 
     print_success "All services are ready"
 }
@@ -147,9 +159,9 @@ show_status() {
     print_success "🎉 ERP System deployed successfully!"
     echo ""
     echo "Access URLs:"
-    echo "  🌐 Frontend Application: http://localhost:3000"
-    echo "  🔧 Backend API: http://localhost:3001/api"
-    echo "  📚 API Documentation: http://localhost:3001/api/docs"
+    echo "  🌐 Frontend Application: http://localhost"
+    echo "  🔧 Backend API: http://localhost/api"
+    echo "  📚 API Documentation: http://localhost/api/docs"
     echo ""
     echo "Demo Accounts:"
     echo "  👤 Admin: admin / Admin@123!"

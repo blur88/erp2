@@ -134,8 +134,8 @@ services:
       - JWT_ISSUER=${JWT_ISSUER:-erp-backend}
 
       # Security
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
       - CSP_REPORT_ONLY=${CSP_REPORT_ONLY:-false}
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
       - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
@@ -151,8 +151,9 @@ services:
       - ENABLE_SWAGGER=${ENABLE_SWAGGER:-true}
       - DEBUG_MODE=${DEBUG_MODE:-false}
 
-    ports:
-      - "${PORT:-3001}:${PORT:-3001}"
+    # No host port: the Ingress (nginx service) is the only published entry
+    # point and reaches the backend over erp_network
+    # (docs/adr/0003-ingress-only-entry-point.md).
     depends_on:
       postgres:
         condition: service_healthy
@@ -198,8 +199,8 @@ services:
     image: erp-frontend:latest
     container_name: erp_frontend
     restart: unless-stopped
-    ports:
-      - "3000:80"
+    # No host port: the Ingress reaches this over erp_network as frontend:80
+    # (docs/adr/0003-ingress-only-entry-point.md).
     depends_on:
       backend:
         condition: service_healthy
@@ -240,8 +241,8 @@ services:
     container_name: erp_nginx
     restart: unless-stopped
     ports:
+      # HTTP only; production HTTPS termination is tracked in #1960.
       - "80:80"
-      - "443:443"
     depends_on:
       frontend:
         condition: service_healthy

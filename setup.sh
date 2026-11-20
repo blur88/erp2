@@ -156,14 +156,37 @@ deploy_services() {
     print_success "Services started"
 }
 
-# Wait for backend health
+# Poll a URL until it returns HTTP 200, for at most READY_TIMEOUT seconds
+# (default 180). On timeout, report the URL and the Compose service status.
+wait_for_http_200() {
+    local url="$1"
+    local timeout="${READY_TIMEOUT:-180}"
+    local deadline=$((SECONDS + timeout))
+    local code
+    while :; do
+        code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
+        if [ "$code" = "200" ]; then
+            return 0
+        fi
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            print_error "No HTTP 200 from $url within ${timeout}s (last status: ${code:-none})"
+            docker compose -f "$COMPOSE_FILE" ps
+            return 1
+        fi
+        sleep 5
+    done
+}
+
+# Wait for the Ingress (port 80, the only published entry point) to reach the
+# backend and serve the frontend.
 wait_for_services() {
     print_status "Waiting for services to be ready..."
 
-    print_status "Waiting for backend..."
-    until curl -sf http://localhost:3001/api/health > /dev/null 2>&1; do
-        sleep 5
-    done
+    print_status "Waiting for backend through the Ingress..."
+    wait_for_http_200 http://localhost/api/health
+
+    print_status "Waiting for frontend through the Ingress..."
+    wait_for_http_200 http://localhost/
 
     print_success "All services are ready"
 }

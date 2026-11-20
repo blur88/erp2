@@ -47,8 +47,10 @@ async function bootstrap() {
       .addTag('Reports', 'Business reports and analytics')
       .addTag('Plugins', 'Plugin management system')
       .addTag('Security', 'Security monitoring and reporting')
-      .addServer('http://localhost:3001', 'Development server')
-      .addServer('https://api.yourcompany.com', 'Production server')
+      // Relative: operation paths already carry the /api prefix, so "Try it
+      // out" calls the host that served the docs (the Ingress, or Nest
+      // directly when run without Compose).
+      .addServer('/', 'Current origin')
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
