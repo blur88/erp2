@@ -29,11 +29,10 @@ const index = name => steps.indexOf(named(name));
 test('one detection step feeds every smoke step, and it runs the smoke test for any listed path', () => {
   const detect = named(DETECT);
   assert.equal(detect.id, 'compose-paths');
-  assert.match(detect.run, /scripts\/compose-smoke-paths\.sh/);
-  // A manual dispatch has no base to diff against: run rather than skip.
-  assert.match(detect.run, /pull_request/);
-  assert.match(detect.run, /run=true/);
-  assert.match(detect.run, /run=false/);
+  // The decision itself lives in a script with its own tests
+  // (compose-smoke-decide.test.js); the step only publishes its output.
+  assert.match(detect.run, /scripts\/compose-smoke-decide\.sh >> "\$GITHUB_OUTPUT"/);
+  assert.equal(detect.env?.EVENT_NAME, '${{ github.event_name }}');
 });
 
 test('the diff base is available: checkout fetches the merge commit and its first parent', () => {

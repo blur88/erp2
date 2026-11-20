@@ -4,7 +4,7 @@
 # Reads changed file paths, one per line, from stdin. Exits 0 and names the
 # first path that can affect the deployed stack; exits 1 when none can.
 #
-# Keep this list in step with the "Compose deployment and ingress smoke test"
+# Keep this list in step with the "Compose smoke - ..." and "Ingress smoke test"
 # steps in the Frontend job of .github/workflows/ci.yml. The workflow file
 # itself is on the list so that editing those steps runs them.
 set -uo pipefail
@@ -12,7 +12,8 @@ set -uo pipefail
 while IFS= read -r changed; do
   case "$changed" in
     deploy.sh | docker-compose*.yml | nginx/* | frontend/nginx.conf | .env.example | \
-      scripts/ingress-smoke.sh | scripts/compose-smoke-paths.sh | .github/workflows/ci.yml)
+      scripts/ingress-smoke.sh | scripts/compose-smoke-paths.sh | scripts/compose-smoke-decide.sh | \
+      .github/workflows/ci.yml)
       echo "Compose smoke test needed: $changed changed"
       exit 0
       ;;

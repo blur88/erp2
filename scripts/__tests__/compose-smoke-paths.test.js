@@ -24,6 +24,7 @@ for (const changed of [
   '.env.example',
   'scripts/ingress-smoke.sh',
   'scripts/compose-smoke-paths.sh',
+  'scripts/compose-smoke-decide.sh',
   '.github/workflows/ci.yml',
 ]) {
   test(`${changed} runs the smoke test`, () => {

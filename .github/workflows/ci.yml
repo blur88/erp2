@@ -620,20 +620,7 @@ jobs:
         working-directory: .
         env:
           EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT_NAME" != pull_request ]; then
-            echo "Not a pull request: running the Compose smoke test"
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          elif [ "$(git rev-list --parents -n 1 HEAD | wc -w)" != 3 ]; then
-            # Not the expected merge commit, so there is no base to diff: run.
-            echo "HEAD is not a two-parent merge commit: running the Compose smoke test"
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only HEAD^1 HEAD | scripts/compose-smoke-paths.sh; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No Compose or ingress file changed: skipping the Compose smoke test"
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          fi
+        run: scripts/compose-smoke-decide.sh >> "$GITHUB_OUTPUT"
 
       - name: Compose smoke - prepare .env
         if: steps.compose-paths.outputs.run == 'true'
