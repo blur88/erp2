@@ -155,9 +155,9 @@ Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative i
 
 Issues are tracked in GitHub Issues for `blur88/erp2` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
-### Triage labels
+### Triage labels and ticket writing
 
-Use the five default triage labels. See `docs/agents/triage-labels.md`.
+Use the five default triage labels. Before writing a ticket or agent brief, read `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
