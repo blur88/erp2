@@ -26,5 +26,6 @@ What the Ingress now does, and what each upstream may not:
 - `scripts/verify-backup-restart.sh` and the `.github/workflows/ci.yml` health waits keep their direct `:3001` probes. They run the backend container directly in host-networked CI jobs, without Compose.
 - Every browser request now shares the Ingress's per-IP `limit_conn` (raised from 10 to 50, answering 429), because the browser no longer has a side door. Rate limits key on the connecting address: behind another proxy or TLS terminator that is the proxy's address, and the Ingress does not read `X-Forwarded-For`. That was already true and is not changed here.
 - The development override still publishes Postgres (`5432`) and Redis (`6379`). Those are not part of this decision.
-- Production HTTPS, and the Vite dev-server fallback (`frontend/src/services/api.ts` still points at `localhost:3001` when the page is at `localhost:3000`), are separate follow-ups.
+- Production HTTPS is decided in [ADR 0004](0004-ingress-terminated-https.md): the Ingress terminates TLS on `443` in production and stays the only entry point. ADR 0004 supersedes the HSTS value mentioned above, and HSTS is no longer sent over plain HTTP.
+- The Vite dev-server fallback (`frontend/src/services/api.ts` still points at `localhost:3001` when the page is at `localhost:3000`) is a separate follow-up.
 - Behaviour is pinned by `scripts/__tests__/ingress.test.js`, which runs the real Ingress image and Frontend server config in Docker in front of a stub backend, and by `scripts/__tests__/readiness-wait.test.js`.
