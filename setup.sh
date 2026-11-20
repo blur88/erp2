@@ -156,13 +156,37 @@ deploy_services() {
     print_success "Services started"
 }
 
-# Wait for backend health
+# Readiness: the Ingress is the only published entry point (ADR 0003), so the
+# stack is ready when it serves the API and the web app on port 80. Each URL
+# must return exactly HTTP 200 within READY_TIMEOUT seconds (polling every
+# READY_INTERVAL); on timeout, name the URL and show `docker compose ps`.
+READY_URLS=("http://localhost/api/health" "http://localhost/")
+READY_TIMEOUT="${READY_TIMEOUT:-180}"
+READY_INTERVAL="${READY_INTERVAL:-3}"
+
+wait_for_url() {
+    local url="$1" code="000"
+    local deadline=$((SECONDS + READY_TIMEOUT))
+
+    while :; do
+        code=$(curl -s -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" || true)
+        [ "$code" = "200" ] && return 0
+        [ "$SECONDS" -ge "$deadline" ] && break
+        sleep "$READY_INTERVAL"
+    done
+
+    print_error "$url did not return HTTP 200 within ${READY_TIMEOUT}s (last status: ${code:-none})"
+    docker compose -f "$COMPOSE_FILE" ps
+    exit 1
+}
+
+# Wait for the Ingress
 wait_for_services() {
     print_status "Waiting for services to be ready..."
 
-    print_status "Waiting for backend..."
-    until curl -sf http://localhost:3001/api/health > /dev/null 2>&1; do
-        sleep 5
+    for url in "${READY_URLS[@]}"; do
+        print_status "Waiting for $url..."
+        wait_for_url "$url"
     done
 
     print_success "All services are ready"

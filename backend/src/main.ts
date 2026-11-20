@@ -47,8 +47,9 @@ async function bootstrap() {
       .addTag('Reports', 'Business reports and analytics')
       .addTag('Plugins', 'Plugin management system')
       .addTag('Security', 'Security monitoring and reporting')
-      .addServer('http://localhost:3001', 'Development server')
-      .addServer('https://api.yourcompany.com', 'Production server')
+      // Relative: "Try it out" calls go to the origin serving this page, which
+      // is the Ingress in Compose and localhost:3001 under `npm run start:dev`.
+      .addServer('/', 'Current origin')
       .build();
 
     const document = SwaggerModule.createDocument(app, config);

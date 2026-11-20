@@ -47,7 +47,7 @@ export class SecurityConfigBuilder {
    */
   build(): SecurityConfig {
     const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost');
     const allowedOrigins = this.configService.get<string>('ALLOWED_ORIGINS', frontendUrl)
       .split(',')
       .map(origin => origin.trim());

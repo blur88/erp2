@@ -1,0 +1,30 @@
+# The Ingress is the only published entry point; every other service is reachable only through it
+
+Compose runs two nginx servers, and only one of them may face the host. The **Ingress** (`nginx/`) owns everything that must apply to every request: the rate limits and the security-header policy. The **Frontend server** (`frontend/nginx.conf`) only serves the built web app. Compose publishes the Ingress on port 80 and nothing else. The frontend and backend containers have no host ports, and `443` is not published because nothing listens on it. Anyone reaching the API, uploads or socket.io goes through the Ingress, and so through its API rate limits and connection limit. (`/uploads` and `/socket.io/` have no request-rate limit of their own, as before.)
+
+This closes a hole that #1193 only narrowed. The Frontend server used to proxy `/api/`, `/uploads/` and `/socket.io/` straight to `backend:3001` with no limits, and both Compose files published the frontend (`3000:80`) and the backend (`3001`). That gave callers two routes to the API that skipped the Ingress. #1193 bound those two ports to loopback in production, but development still published them on every interface, and the README, `deploy.sh` and the checklist told people to use them.
+
+What the Ingress now does, and what each upstream may not:
+
+- **Rate limits.** `login_limit` (5r/m, burst 3) is keyed to `POST /api/auth/login` and `POST /api/auth/register` only, matched case-insensitively with an optional trailing slash, because Express treats `/api/auth/LOGIN` and `/api/auth/login/` as the same route. Other auth routes (`me`, `refresh`, `logout`, `show-default-credentials`) share `api_limit` with the rest of the API, so routine session traffic can't spend the sign-in budget. The cost: `PATCH /api/auth/change-password` also falls under `api_limit` and no longer has the strict 5r/m budget, so a holder of a valid access token can guess the current password far faster than before. Adding it to the `login_limit_key` map is the follow-up if that matters. `/api/uploads` is a longer prefix than `/api` and repeats the API limits so it can't skip them.
+- **CORS belongs to the backend.** The Ingress adds no `Access-Control-*` headers and answers no `OPTIONS` itself. A hard-coded `http://localhost:3000` there contradicted `ALLOWED_ORIGINS` and, in development, duplicated the backend's own headers.
+- **One security-header policy**, sent with `always` from `nginx/security-headers.conf`. It keeps `X-Frame-Options: SAMEORIGIN` and the existing HSTS value. The same file hides the upstream copies with `proxy_hide_header`, so a response never carries both Helmet's `DENY` and the Ingress's `SAMEORIGIN`. nginx's `add_header` inheritance drops every inherited header in a location that declares its own, so any such location must `include` the file. Today none does. The Frontend server sends no security headers at all.
+- **Caching is the Frontend server's, passed through unchanged.** `/assets/*` is content-hashed by Vite and gets `public, max-age=31536000, immutable`. `index.html`, the SPA fallback, `/env-config.js` and everything else get `no-cache`. A missing `/assets/` file is a plain 404, never the SPA fallback. The Ingress sets no `Cache-Control` and passes the backend's through, including for `/uploads`. The old `/uploads` `proxy_cache_valid` and `X-Cache-Status` did nothing because no `proxy_cache` was configured, and are gone.
+- **Origins default to the Ingress.** `FRONTEND_URL` and `ALLOWED_ORIGINS` default to `http://localhost`, in Compose, `.env.example` and `security.config.ts`. Swagger lists one server, `/` ("Current origin"), so "Try it out" works from whichever origin serves the page.
+- **Readiness is checked through the front door.** `deploy.sh` and `setup.sh` require HTTP 200 from `http://localhost/api/health` and `http://localhost/` within a time limit and, on timeout, print the failing URL and `docker compose ps`. The `:8080` wait is gone: that listener serves the container's own healthcheck and was never published, so the wait hung forever.
+
+## Considered Options
+
+- **Keep the ports, rate-limit the Frontend server too.** Rejected. It duplicates the limits in two places that then drift, and leaves the backend port open.
+- **Keep binding the ports to loopback (#1193).** Rejected. It fixes remote access only. Anything on the host, and anything in development where it was never applied, still skips the limits.
+- **Make the Frontend server the entry point and drop the Ingress.** Rejected. The Ingress already has the limits, the upstream keepalive and the per-route timeouts, and the Frontend server runs in a read-only container that is meant to serve files.
+
+## Consequences
+
+- Nothing on the host can reach the backend or the Frontend server, so debugging them means `docker compose exec`, or `docker compose run` with a port published for that one run.
+- A client that used `:3000` or `:3001` must move to port 80. Existing `.env` files that still list the old origins need the edit in [the upgrade note](../deployment/INGRESS_UPGRADE.md).
+- `scripts/verify-backup-restart.sh` and the `.github/workflows/ci.yml` health waits keep their direct `:3001` probes. They run the backend container directly in host-networked CI jobs, without Compose.
+- Every browser request now shares the Ingress's per-IP `limit_conn` (raised from 10 to 50, answering 429), because the browser no longer has a side door. Rate limits key on the connecting address: behind another proxy or TLS terminator that is the proxy's address, and the Ingress does not read `X-Forwarded-For`. That was already true and is not changed here.
+- The development override still publishes Postgres (`5432`) and Redis (`6379`). Those are not part of this decision.
+- Production HTTPS, and the Vite dev-server fallback (`frontend/src/services/api.ts` still points at `localhost:3001` when the page is at `localhost:3000`), are separate follow-ups.
+- Behaviour is pinned by `scripts/__tests__/ingress.test.js`, which runs the real Ingress image and Frontend server config in Docker in front of a stub backend, and by `scripts/__tests__/readiness-wait.test.js`.

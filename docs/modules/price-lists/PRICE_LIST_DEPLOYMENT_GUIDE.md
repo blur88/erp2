@@ -91,7 +91,7 @@ This deployment introduces a comprehensive price list management system that mig
 
 ```bash
 # Via API (if backup module is active)
-curl -X POST http://localhost:3000/api/backup/create \
+curl -X POST http://localhost/api/backup/create \
   -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
 ```
 
@@ -324,10 +324,10 @@ docker compose logs frontend --tail=50
 
 ```bash
 # Check backend health
-curl http://localhost:3001/api/health
+curl http://localhost/api/health
 
 # Check price list endpoints are registered
-curl http://localhost:3001/api/price-lists \
+curl http://localhost/api/price-lists \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # Expected: List of price lists or empty array (not 404)
@@ -337,12 +337,12 @@ curl http://localhost:3001/api/price-lists \
 
 ```bash
 # Check frontend is accessible
-curl -I http://localhost:3000
+curl -I http://localhost
 
 # Expected: 200 OK
 
 # Check price list page is accessible
-curl -I http://localhost:3000/settings/price-lists
+curl -I http://localhost/settings/price-lists
 
 # Expected: 200 OK
 ```
@@ -361,12 +361,12 @@ echo "=== Price List Deployment Validation ==="
 
 # 1. Check backend health
 echo "1. Checking backend health..."
-curl -s http://localhost:3001/api/health | jq '.'
+curl -s http://localhost/api/health | jq '.'
 
 # 2. Check price list API
 echo "2. Checking price list API..."
 TOKEN="YOUR_ADMIN_TOKEN"
-curl -s http://localhost:3000/api/price-lists \
+curl -s http://localhost/api/price-lists \
   -H "Authorization: Bearer $TOKEN" | jq '.data | length'
 
 # 3. Check database tables
@@ -380,7 +380,7 @@ docker compose exec -T postgres psql -U erp_user -d erp_db -t -c "
 
 # 4. Check default price list
 echo "4. Checking default price list..."
-curl -s http://localhost:3000/api/price-lists/default \
+curl -s http://localhost/api/price-lists/default \
   -H "Authorization: Bearer $TOKEN" | jq '.data.code'
 
 # 5. Test price calculation
@@ -394,7 +394,7 @@ echo "=== Validation Complete ==="
 
 #### 1. Test Price List Management UI
 
-- [ ] Navigate to http://localhost:3000/settings/price-lists
+- [ ] Navigate to http://localhost/settings/price-lists
 - [ ] Verify price lists are displayed
 - [ ] Click on a price list to view details
 - [ ] Verify product prices are shown
@@ -651,7 +651,7 @@ docker compose build frontend
 docker compose up -d frontend
 
 # Check browser console for errors
-# Navigate to http://localhost:3000/settings/price-lists
+# Navigate to http://localhost/settings/price-lists
 ```
 
 ### Issue: Prices Don't Match After Migration

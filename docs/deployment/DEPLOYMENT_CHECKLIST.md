@@ -153,8 +153,21 @@ docker compose ps
 # Expected: All services in "Up" state
 ```
 
+**Readiness (Ingress)**: the Ingress on port 80 is the only published entry point
+(ADR 0003); the backend and frontend have no host ports. The stack is ready when both
+URLs return exactly HTTP 200 within a time limit. `deploy.sh` and `setup.sh` apply this
+check themselves (`READY_TIMEOUT`, default 180 seconds) and, on timeout, print the
+failing URL and `docker compose ps`.
+```bash
+for url in http://localhost/api/health http://localhost/; do
+  code=$(curl -s -o /dev/null --max-time 10 -w '%{http_code}' "$url")
+  echo "$code $url"   # Expected: 200 for both
+done
+docker compose ps     # Attach this to the report if either is not 200
+```
+
 ### Backend Verification
-- [ ] Health check passed: `curl http://localhost:3001/api/health`
+- [ ] Health check returns HTTP 200 through the Ingress: `curl http://localhost/api/health`
 - [ ] API endpoints registered (check logs)
 - [ ] 13 price list endpoints visible
 - [ ] No TypeScript compilation errors
@@ -162,13 +175,13 @@ docker compose ps
 
 **Backend Health Check**:
 ```bash
-curl http://localhost:3001/api/health
+curl --max-time 10 http://localhost/api/health
 # Expected: {"status":"ok"}
 ```
 
 ### Frontend Verification
-- [ ] Frontend accessible: `curl -I http://localhost:3000`
-- [ ] Price list page exists: `curl -I http://localhost:3000/settings/price-lists`
+- [ ] Frontend returns HTTP 200 through the Ingress: `curl -I http://localhost`
+- [ ] Price list page exists: `curl -I http://localhost/settings/price-lists`
 - [ ] No JavaScript errors in browser console
 - [ ] Assets loaded correctly
 
@@ -213,14 +226,14 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "
 **API Test Commands**:
 ```bash
 TOKEN="YOUR_ADMIN_TOKEN"
-curl -s http://localhost:3000/api/price-lists \
+curl -s http://localhost/api/price-lists \
   -H "Authorization: Bearer $TOKEN" | jq '.data | length'
-curl -s http://localhost:3000/api/price-lists/default \
+curl -s http://localhost/api/price-lists/default \
   -H "Authorization: Bearer $TOKEN" | jq '.data.code'
 ```
 
 ### UI Testing
-- [ ] Navigate to Price Lists page: http://localhost:3000/settings/price-lists
+- [ ] Navigate to Price Lists page: http://localhost/settings/price-lists
 - [ ] Price lists displayed correctly
 - [ ] Click on a price list - details page loads
 - [ ] Product prices displayed correctly
