@@ -51,10 +51,17 @@ function repo(t) {
       git('commit', '-qm', 'main moved');
       git('merge', '-q', '--no-ff', 'pr', '-m', 'merge');
     },
-    run(eventName) {
-      return spawnSync('bash', ['scripts/compose-smoke-decide.sh'], {
-        cwd: dir, encoding: 'utf8', env: { ...process.env, EVENT_NAME: eventName },
-      });
+    run(eventName, { failGitDiff = false } = {}) {
+      const env = { ...process.env, EVENT_NAME: eventName };
+      if (failGitDiff) {
+        // A git on PATH that behaves normally except that `git diff` errors.
+        const real = spawnSync('which', ['git'], { encoding: 'utf8' }).stdout.trim();
+        const bin = path.join(dir, 'fake-bin');
+        mkdirSync(bin);
+        writeFileSync(path.join(bin, 'git'), `#!/bin/bash\n[ "$1" = diff ] && { echo 'fatal: bad object' >&2; exit 128; }\nexec ${real} "$@"\n`, { mode: 0o755 });
+        env.PATH = `${bin}:${process.env.PATH}`;
+      }
+      return spawnSync('bash', ['scripts/compose-smoke-decide.sh'], { cwd: dir, encoding: 'utf8', env });
     },
   };
 }
@@ -89,6 +96,15 @@ test('a pull request HEAD that is not a two-parent merge has no base, so it runs
   const r = f.run('pull_request');
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.stdout.trim(), 'run=true');
+});
+
+test('a pull request whose diff cannot be computed runs the smoke test rather than skipping it', t => {
+  const f = repo(t);
+  f.mergeCommit('frontend/src/App.tsx'); // would otherwise skip
+  const r = f.run('pull_request', { failGitDiff: true });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout.trim(), 'run=true');
+  assert.match(r.stderr, /diff/i);
 });
 
 test('stdout carries only the output line, so it can be appended to $GITHUB_OUTPUT as is', t => {
