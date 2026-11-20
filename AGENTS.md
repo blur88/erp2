@@ -87,7 +87,7 @@ Git history follows Conventional Commit style:
 
 Commit messages and PR bodies must not contain AI attribution lines.
 
-When closing a PR without merging, record the reason and link any superseding PR or issue, following [Closing a PR without merging](docs/agents/issue-tracker.md#closing-a-pr-without-merging).
+When closing a PR without merging, follow [Closing a PR without merging](docs/agents/issue-tracker.md#closing-a-pr-without-merging).
 
 Use the [PR template](.github/pull_request_template.md) for the summary, related issue, verification evidence, screenshots and migration/environment notes.
 

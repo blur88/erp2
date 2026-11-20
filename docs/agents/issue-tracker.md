@@ -32,13 +32,11 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 ## Closing a PR without merging
 
-Closing a PR requires a recorded reason, so the next reader does not have to guess. Use `gh pr close <number> --comment "<reason>"`. When a superseding PR or issue exists, the comment links it (for example `Superseded by #<number>`).
+Closing a PR without merging requires a recorded reason, so the next reader does not have to guess. Use `gh pr close <number> --comment "<reason>"`. When a superseding PR or issue exists, include the link in the comment (for example `Superseded by #<number>`).
 
 ## When a skill says "publish to the issue tracker"
 
 Create a GitHub issue.
-
-When a ticket references an ADR or glossary entry that the work will create, identify that document as "to be written in this PR", so the implementer does not look for a file that does not exist yet.
 
 ## When a skill says "fetch the relevant ticket"
 
@@ -47,7 +45,7 @@ Read it as in **Read an issue** above, then look for earlier attempts, including
 1. Check the issue's linked PRs: `gh issue view <number> --json closedByPullRequestsReferences`. This lists only PRs that close the issue, so it misses abandoned attempts.
 2. Find more candidates: `gh pr list --state all --limit 100 --search "<issue-number>"`.
 3. Confirm each candidate actually relates to the issue before reading it; the search also returns PRs that merely mention the number.
-4. For each confirmed PR, read its notes and commit summaries: `gh pr view <number> --json state,body,commits`, plus the comments as in **Read a PR** above. Include closed unmerged PRs; the close comment gives the reason.
+4. For each confirmed PR, read its notes and commit summaries: `gh pr view <number> --json state,body,commits,comments`. Include closed unmerged PRs; if there is a close comment, it gives the reason.
 
 ## Wayfinding operations
 
