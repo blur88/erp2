@@ -602,6 +602,80 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          # A pull request is checked out as a merge commit; depth 2 brings its
+          # first parent (the base) so the detection step can diff against it.
+          fetch-depth: 2
+
+      # Compose deployment and ingress smoke test (#1966).
+      #
+      # Stub-based tests passed with real deploy.sh bugs in place (#1959), and
+      # nothing else in CI brings up Compose. This brings the real development
+      # stack up with ./deploy.sh, twice, and asserts the Ingress behaviour.
+      # It runs only when a file that can change the stack changed (list in
+      # scripts/compose-smoke-paths.sh), or on a manual dispatch. Reviewers:
+      # confirm the "Ingress smoke test" step ran, not skipped, on the head.
+      - name: Detect Compose and ingress changes
+        id: compose-paths
+        working-directory: .
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: scripts/compose-smoke-decide.sh >> "$GITHUB_OUTPUT"
+
+      - name: Compose smoke - prepare .env
+        if: steps.compose-paths.outputs.run == 'true'
+        working-directory: .
+        run: |
+          # A fresh development .env from .env.example, with throwaway secrets
+          # for this disposable runner.
+          cp .env.example .env
+          set_env() {
+            sed -i "s|^$1=.*|$1=$2|" .env
+            grep -q "^$1=$2\$" .env
+          }
+          db_password=$(openssl rand -hex 16)
+          set_env DATABASE_PASSWORD "$db_password"
+          set_env POSTGRES_PASSWORD "$db_password"
+          set_env REDIS_PASSWORD "$(openssl rand -hex 16)"
+          set_env JWT_SECRET "$(openssl rand -hex 64)"
+
+      # deploy.sh waits on Postgres and Redis without a limit, so the step
+      # timeout is what bounds it. Its readiness wait for http://localhost is
+      # bounded by READY_TIMEOUT (180s) on its own.
+      - name: Compose smoke - ./deploy.sh (first run)
+        if: steps.compose-paths.outputs.run == 'true'
+        working-directory: .
+        timeout-minutes: 20
+        run: ./deploy.sh
+
+      # The re-run case: the containers now own the bind-mounted uploads, logs
+      # and backups directories, which is what made chmod abort the script.
+      - name: Compose smoke - ./deploy.sh (second run, same stack and bind mounts)
+        if: steps.compose-paths.outputs.run == 'true'
+        working-directory: .
+        timeout-minutes: 20
+        run: |
+          ls -ldn uploads logs backups
+          ./deploy.sh
+
+      - name: Ingress smoke test
+        if: steps.compose-paths.outputs.run == 'true'
+        working-directory: .
+        timeout-minutes: 5
+        run: scripts/ingress-smoke.sh
+
+      - name: Compose smoke - diagnostics on failure
+        if: failure() && steps.compose-paths.outputs.run == 'true'
+        working-directory: .
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.override.yml ps -a || true
+          docker compose -f docker-compose.yml -f docker-compose.override.yml logs --no-color --tail=200 || true
+          curl -sS -i --max-time 5 http://localhost/api/health || true
+
+      - name: Compose smoke - tear down
+        if: always() && steps.compose-paths.outputs.run == 'true'
+        working-directory: .
+        run: docker compose -f docker-compose.yml -f docker-compose.override.yml down -v --remove-orphans
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
