@@ -26,9 +26,13 @@ When set to `yes`, PRs run through the same labels and states as issues, using t
 
 - **Read a PR**: `gh pr view <number>`, then `gh pr view <number> --comments` (off a TTY, `--comments` prints only the comments, not the body), and `gh pr diff <number>` for the diff.
 - **List external PRs for triage**: `gh api --paginate 'repos/{owner}/{repo}/pulls?state=open' --jq '.[] | select(.author_association | IN("OWNER","MEMBER","COLLABORATOR") | not) | {number, title, author: .user.login, author_association, labels: [.labels[].name]}'`.
-- **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
+- **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`. Closing without merging follows [Closing a PR without merging](#closing-a-pr-without-merging).
 
 GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42` and fall back to `gh issue view 42`.
+
+## Closing a PR without merging
+
+Closing a PR without merging requires a recorded reason, so the next reader does not have to guess. Use `gh pr close <number> --comment "<reason>"`. When a superseding PR or issue exists, include the link in the comment (for example `Superseded by #<number>`).
 
 ## When a skill says "publish to the issue tracker"
 
@@ -36,7 +40,12 @@ Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read it as in **Read an issue** above.
+Read it as in **Read an issue** above, then look for earlier attempts, including PRs closed without merging:
+
+1. Check the issue's linked PRs: `gh issue view <number> --json closedByPullRequestsReferences`. This lists only PRs that close the issue, so it misses abandoned attempts.
+2. Find more candidates: `gh pr list --state all --limit 100 --search "<issue-number>"`.
+3. Confirm each candidate actually relates to the issue before reading it; the search also returns PRs that merely mention the number.
+4. For each confirmed PR, read its notes and commit summaries: `gh pr view <number> --json state,body,commits,comments`. Include closed unmerged PRs; if there is a close comment, it gives the reason.
 
 ## Wayfinding operations
 

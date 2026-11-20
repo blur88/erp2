@@ -13,3 +13,7 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
 Edit the "Label in our tracker" column to match whatever vocabulary you actually use.
+
+## Writing tickets
+
+When a ticket references an ADR or glossary entry that the work will create, identify that document as "to be written in this PR", so the implementer does not look for a file that does not exist yet.
