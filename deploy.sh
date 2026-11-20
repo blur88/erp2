@@ -67,7 +67,10 @@ create_directories() {
     
     mkdir -p uploads logs backups
     mkdir -p database/init
-    chmod 755 uploads logs backups
+    # The containers chown these to their own users after the first run, so
+    # the host user may no longer be allowed to chmod them; that is harmless.
+    chmod 755 uploads logs backups 2>/dev/null ||
+        print_warning "Could not chmod uploads/logs/backups (owned by a container user); leaving permissions as they are"
     
     print_success "Directories created"
 }
@@ -89,8 +92,8 @@ setup_environment() {
 deploy_services() {
     print_status "Building and starting services..."
     
-    # Pull latest images
-    docker compose $COMPOSE_FILES pull
+    # Pull latest images (backend, frontend and nginx are built below, not pulled)
+    docker compose $COMPOSE_FILES pull --ignore-buildable
     
     # Build custom images
     docker compose $COMPOSE_FILES build --no-cache
