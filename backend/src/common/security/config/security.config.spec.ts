@@ -1,9 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import { SecurityConfigBuilder } from './security.config';
 
-// ConfigService falls back to process.env, and CI exports FRONTEND_URL and
-// ALLOWED_ORIGINS for the e2e job (ci.yml). Clear them so the defaults under
-// test are really the defaults, whatever the host environment says.
+// ConfigService falls back to process.env, so an ambient FRONTEND_URL,
+// ALLOWED_ORIGINS or NODE_ENV (a developer's shell, a CI job's env) would
+// replace the defaults under test. Clear them so the defaults are really the
+// defaults, whatever the host environment says.
 const AMBIENT = ['FRONTEND_URL', 'ALLOWED_ORIGINS', 'NODE_ENV'] as const;
 const saved: Record<string, string | undefined> = {};
 
