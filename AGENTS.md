@@ -91,7 +91,7 @@ Git history follows Conventional Commit style:
 
 Use a `BREAKING CHANGE:` footer as the only breaking-change marker. Put it on the commit that introduces the break. It triggers a major release for every commit type.
 
-A `type!:` or `type(scope)!:` header by itself triggers no release and is omitted from release notes. The Breaking Change Check will reject either form even with a footer.
+A `type!:` or `type(scope)!:` header by itself triggers no release and is omitted from release notes. A [planned CI check](https://github.com/blur88/erp2/issues/1994) will reject either form even with a footer.
 
 ```text
 feat(accounting): require an explicit fiscal year
