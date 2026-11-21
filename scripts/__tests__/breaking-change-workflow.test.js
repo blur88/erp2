@@ -39,7 +39,7 @@ test('the Breaking Change Check runs on PR events to main without rerunning CI o
   assert.equal(workflow.defaults?.run?.['working-directory'], undefined);
   assert.equal(job.defaults?.run?.['working-directory'], undefined);
 
-  const [checkout, node, install, check] = job.steps;
+  const [checkout, node, , check] = job.steps;
   assert.match(checkout.uses, /^actions\/checkout@/);
   assert.deepEqual(checkout.with, { 'fetch-depth': 0 });
   assert.match(node.uses, /^actions\/setup-node@/);
@@ -48,7 +48,7 @@ test('the Breaking Change Check runs on PR events to main without rerunning CI o
     undefined, undefined, 'npm ci', 'node scripts/breaking-change-check.cjs "$PR_NUMBER"',
   ]);
   assert.deepEqual(check.env, { GH_TOKEN: '${{ github.token }}', PR_NUMBER: '${{ github.event.number }}' });
-  for (const step of [install, check]) {
+  for (const step of job.steps) {
     assert.equal(step['working-directory'], undefined);
     assert.equal(step['continue-on-error'], undefined);
     assert.equal(step.if, undefined);
