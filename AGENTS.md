@@ -76,6 +76,8 @@ For dependency changes, decide E2E applicability from the behavior affected and 
 
 Completed successful CI evidence from the matching job on the current PR commit may satisfy the corresponding applicable commands, including production-image jobs that execute the full backend build, CLI compile, and distribution verification sequence. In the `Backend - Lint, Type Check, Unit Tests, E2E Tests` job defined in [ci.yml](.github/workflows/ci.yml), the matching steps are `Lint GitHub Actions workflows`, `Release validation`, and `Gate script tests` for workflow lint, release tests, and backend script tests respectively; consult that workflow for current step names and commands. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, including E2E as passed in CI when it succeeds on the current PR commit, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence.
 
+The `Frontend - Lint, Type Check, Tests` job in [ci.yml](.github/workflows/ci.yml) verifies the development full-stack deployment through three conditional steps. Reviewers must open the individual step results even when the Frontend job passed. Confirm that `Compose smoke - ./deploy.sh (first run)`, `Compose smoke - ./deploy.sh (second run, same stack and bind mounts)`, and `Ingress smoke test` all ran and passed on the reviewed PR head before citing deployment evidence.
+
 For post-merge validation on the default branch, follow the manual dispatch guidance in [the CI workflow's trigger comments](.github/workflows/ci.yml). Merging does not trigger a CI run on `main`.
 
 ## Commit & Pull Request Guidelines

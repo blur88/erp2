@@ -6,6 +6,14 @@
 
 Closes #
 
+## Release boundary
+
+<!-- Record any constraints the related ticket sets on what can merge or ship independently. Use "None stated" for constraints the ticket does not specify. -->
+
+- Mergeable independently: <!-- Whether the ticket permits merging this PR on its own. -->
+- Must ship together: <!-- Related tickets or PRs that must ship with this change. -->
+- Maintainer decision: <!-- Decision and link, if a maintainer authorizes an exception. -->
+
 ## Verification
 
 <!-- Select applicable commands from AGENTS.md's Change-Scoped Verification section.
@@ -32,5 +40,7 @@ PR head SHA (when citing CI):
 ## Known limitations or outstanding risks
 
 <!-- Include migration or environment changes when applicable, or state none. -->
+
+Before marking a draft PR ready for review, follow the [release-boundary check](https://github.com/blur88/erp2/blob/main/docs/agents/merge-and-branch-cleanup.md#before-marking-ready-or-merging).
 
 A PR with required checks still running stays in draft until results are in. A PR marked ready for review must not describe required verification as "in progress".

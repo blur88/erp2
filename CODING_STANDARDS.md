@@ -8,7 +8,7 @@
 
 ## Integration ticket evidence
 
-- When ticket implementation lands on an integration branch before a PR is open, record the implementation SHA, exact verification commands, exit statuses, results, and evidence links in a comment on the relevant ticket.
+- When ticket implementation lands on an integration branch before a PR is open, record the tested implementation SHA, exact verification commands, exit statuses, results, and accessible evidence links in a comment on the relevant ticket. Before CI evidence is available, quote the actual result summary in that comment, including the SHA, commands and statuses above, test counts, skips, and relevant failing tests. Use local `/tmp` paths only to record where output was saved. For evidence reviewers can check, attach a sanitized log artifact or include a reproducible command where possible. Never publish secrets.
 - Link the ticket evidence comments from the final integration PR. Treat those comments as historical evidence and follow [Change-Scoped Verification](AGENTS.md#change-scoped-verification-required-before-pr) for the final integration head.
 
 ## Acceptance-criterion evidence in reviews
@@ -21,6 +21,7 @@
 - A rejected dependency fixture demonstrates the intended failure when it exits with the expected status and names the incompatible dependency. A setup error or a run that executes zero tests leaves the intended failure unverified.
 - Claims that motivate a behavioral change must cite the installed library implementation, directly relevant test evidence, or a focused reproducer. Mark unsupported claims as **Unverified**.
 - Stub-based evidence covers only the behaviour exercised against the stub; a criterion about a real component (a server, proxy, database or deployed stack) requires evidence from that component.
+- When a negative acceptance criterion depends on observing that an event did not happen, require a positive control that shows the same observation channel detects the event when it occurs. Validate the channel before treating an empty log, a missing header, or an absent file as evidence. In #1973, an accepted request had to appear in the stub backend request log, and a valid hostname had to produce a rendered file in the mounted output directory. Direct, deterministic assertions with an established observation mechanism are exempt. [Issue #1973](https://github.com/blur88/erp2/issues/1973)
 - Synthetic process waits do not demonstrate real CI behavior. A documentation link alone does not prove that an agent encounters an instruction at the correct workflow stage.
 - For agent-facing documentation, verify when and how the intended reader encounters the instruction.
 - Before reporting, refresh pending checks and confirm that the evidence still applies to the reviewed SHA. If the PR head moved, identify the reviewed SHA and flag which conclusions need reassessment.

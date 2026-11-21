@@ -1,5 +1,11 @@
 # Merge and branch cleanup
 
+## Before marking ready or merging
+
+Check the PR's recorded `Mergeable independently`, `Must ship together`, and `Maintainer decision` fields against the related ticket. The [PR template](../../.github/pull_request_template.md#release-boundary) describes what to record. If a maintainer authorizes an exception, record the decision and a link to it in the PR before proceeding. Honor any integration-only release boundary even when CI passes.
+
+## Merge and cleanup procedure
+
 1. From the PR's topic branch, confirm the checkout is clean with `git status --short --branch --untracked-files=normal --ignore-submodules=none`. Confirm the PR targets `main` in the repository on `origin`, and that the local branch and its tip match the PR's head branch and commit. If either check fails, stop and report what needs attention.
 2. Set `pr` to the PR number, then merge and run cleanup from that checkout. Use a merge commit, the merge method enabled in this repository's GitHub settings.
 

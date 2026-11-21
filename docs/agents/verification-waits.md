@@ -14,10 +14,9 @@
 3. Choose local or CI execution for each required full suite before starting it.
    When CI covers the full suite on the current head, use targeted local checks
    as needed and follow the single-watcher guidance under [Wait for a result](#wait-for-a-result).
-   For full-stack evidence, use the Compose deployment and Ingress
-   smoke steps in [CI](../../.github/workflows/ci.yml) when those steps ran and
-   passed on the current PR head. Skip a complete local stack run whose sole
-   purpose would be to duplicate that evidence.
+   Check [Change-Scoped Verification](../../AGENTS.md#change-scoped-verification-required-before-pr)
+   for qualifying full-stack deployment evidence. Skip a complete local stack
+   run whose sole purpose would be to duplicate that evidence.
 4. Choose a wait for the remaining work and state any useful expectation once.
 
 ## Before running local Docker verification
@@ -26,13 +25,16 @@
    For a substantial build, include the root filesystem with `df -h /`.
    Compare the stack's configured published ports with host listeners and
    running containers before bringing the stack up.
-2. If less than about 5 GB is free, inspect `docker system df` and relevant
-   caches, such as the npm cache, before starting the build. Keep pruning out
-   of automated verification. On a shared host, arrange cleanup with the host
-   owner and confirm other builds are finished before pruning. The Docker
-   option in [maintain.sh](../../maintain.sh) prunes, rebuilds, and starts the
-   stack. Use it only when all three actions are appropriate, then repeat the
-   disk and port checks before verification.
+2. Treat about 5 GB of free space as advisory for substantial full-stack builds.
+   Below that threshold, inspect `docker system df` and relevant caches, such as
+   the npm cache. A targeted Docker test, such as building only the Ingress
+   image, may proceed once the free-space and Docker usage checks confirm enough
+   headroom for that operation. Keep pruning out of automated verification.
+   On a shared host, arrange cleanup with the host owner and confirm other
+   builds are finished before pruning. The Docker option in
+   [maintain.sh](../../maintain.sh) prunes, rebuilds, and starts the stack. Use
+   it only when all three actions are appropriate, then repeat the disk and port
+   checks before verification.
 3. If a local Compose check fails, capture the relevant service logs from the
    same Compose project before teardown. Follow [Wait for a result](#wait-for-a-result)
    to preserve the original verification exit status through cleanup.
