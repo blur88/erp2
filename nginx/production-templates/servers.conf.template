@@ -1,0 +1,53 @@
+ssl_certificate /etc/nginx/tls/fullchain.pem;
+ssl_certificate_key /etc/nginx/tls/privkey.pem;
+
+# nginx can select a server during the TLS handshake. Check the HTTP
+# authority as well before proxying from the canonical virtual server.
+map $http_host $authority_hostname {
+    default "";
+    ~^(?<authority_name>[a-zA-Z0-9.-]+?)[.]?(?::[0-9]+)?$ $authority_name;
+}
+
+map "$host:$authority_hostname" $canonical_request {
+    default 0;
+    "${ERP_PUBLIC_HOST}:${ERP_PUBLIC_HOST}" 1;
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_tokens off;
+    return 301 https://${ERP_PUBLIC_HOST}$request_uri;
+}
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_tokens off;
+    return 421;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name ${ERP_PUBLIC_HOST};
+    server_tokens off;
+
+    # Return through a named location whose header policy omits HSTS.
+    error_page 421 = @misdirected;
+    if ($canonical_request = 0) {
+        return 421;
+    }
+
+    include /etc/nginx/security-headers.conf;
+    include /etc/nginx/hsts.conf;
+
+    limit_conn_status 429;
+    limit_conn addr 50;
+    include /etc/nginx/app-locations.conf;
+
+    location @misdirected {
+        add_header_inherit off;
+        return 421;
+    }
+}
