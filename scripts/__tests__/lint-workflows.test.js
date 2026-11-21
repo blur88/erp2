@@ -109,7 +109,8 @@ test('standalone lint checks every tracked .sh file', t => {
   const result = f.run({}, f.dir);
 
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.stdout.trimEnd().split('\n').slice(1).sort(), trackedScripts.sort());
+  const checkedFiles = result.stdout.trimEnd().split('\n').filter(line => line !== 'ShellCheck enabled');
+  assert.deepEqual(checkedFiles.sort(), trackedScripts.sort());
 });
 
 test('a standalone ShellCheck finding fails lint even when actionlint passes', t => {

@@ -20,7 +20,7 @@ test('maintenance radar displays relative paths from a checkout with brackets', 
   ].join('\n'));
 
   const result = spawnSync('bash', [script], {
-    input: '7\nq\n',
+    input: '7\nq\n', // Run Refactor Radar, then quit.
     encoding: 'utf8',
     timeout: 5000,
   });
