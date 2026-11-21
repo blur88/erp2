@@ -23,13 +23,7 @@ function httpsRepositoryUrl(repositoryUrl) {
   return `https://${host}${url.pathname}`;
 }
 
-/**
- * Predict a release on main using local Git history and semantic-release's
- * analyzer and notes pipelines. For replay, visibleTags limits which reachable
- * tags are supplied to the pipelines.
- * configDirectory defaults to the checkout and can point to a staged config.
- */
-export async function releasePreview({ cwd, head, visibleTags, configDirectory = cwd, plugins, repositoryUrl }) {
+async function loadReleaseConfig({ cwd, configDirectory = cwd, plugins, repositoryUrl }) {
   const gitOptions = offlineGitOptions(cwd);
   const context = { ...gitOptions, logger, stdout: nullStream, stderr: nullStream };
   const overrides = {
@@ -41,6 +35,25 @@ export async function releasePreview({ cwd, head, visibleTags, configDirectory =
     overrides
   );
   options.repositoryUrl = httpsRepositoryUrl(options.repositoryUrl);
+  return { context, gitOptions, options, pluginSteps };
+}
+
+export async function classifyPullRequest({ cwd, base, head }) {
+  const { context, options, pluginSteps } = await loadReleaseConfig({ cwd });
+  const range = { lastRelease: { gitHead: base }, nextRelease: { gitHead: head } };
+  const commits = await getCommits({ ...context, ...range });
+  const type = await pluginSteps.analyzeCommits({ ...context, options, ...range, commits });
+  return { type, commits };
+}
+
+/**
+ * Predict a release on main using local Git history and semantic-release's
+ * analyzer and notes pipelines. For replay, visibleTags limits which reachable
+ * tags are supplied to the pipelines.
+ * configDirectory defaults to the checkout and can point to a staged config.
+ */
+export async function releasePreview({ cwd, head, visibleTags, configDirectory, plugins, repositoryUrl }) {
+  const { context, gitOptions, options, pluginSteps } = await loadReleaseConfig({ cwd, configDirectory, plugins, repositoryUrl });
   const [{ tags: reachableTags }] = await getTags({ ...context, options }, [{ name: head }]);
   const tags = visibleTags ? reachableTags.filter(({ gitTag }) => visibleTags.has(gitTag)) : reachableTags;
   const branch = { name: 'main', type: 'release', main: true, range: '>=0.0.0', tags };
