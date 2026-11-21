@@ -36,19 +36,11 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install release test dependencies
+      - name: Install release dependencies
         run: npm ci
 
       - name: Release validation
         run: npm run test:release
-
-      - name: Install release tools
-        run: |
-          npm install --no-save --package-lock=false \
-            semantic-release@25.0.3 \
-            @semantic-release/commit-analyzer@13.0.1 \
-            @semantic-release/release-notes-generator@14.1.0 \
-            @semantic-release/github@12.0.6
 
       - name: Run semantic-release
         id: semantic_release
