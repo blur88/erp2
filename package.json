@@ -6,7 +6,12 @@
     "test:release": "set -- scripts/__tests__/*.test.js; test -f \"$1\" && node --test \"$@\""
   },
   "devDependencies": {
+    "@semantic-release/commit-analyzer": "13.0.1",
+    "@semantic-release/github": "12.0.6",
+    "@semantic-release/release-notes-generator": "14.1.0",
     "conventional-changelog-angular": "9.4.0",
+    "conventional-changelog-angular-v8": "npm:conventional-changelog-angular@8.1.0",
+    "semantic-release": "25.0.3",
     "yaml": "2.9.1"
   }
 }

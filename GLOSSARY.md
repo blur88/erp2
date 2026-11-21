@@ -16,6 +16,22 @@ _Avoid_: erp2 repo, prod repo
 The Docker Hub repository `blur88/master`: the owner's private image store, shared across their projects; not used by production.
 _Avoid_: Main repo, `blur88/all`
 
+**Breaking release**:
+A Release that production installs on the immediately preceding Release can't take without new operator action. It is always a major version. A break that already shipped doesn't make later Releases breaking. One published by mistake as a minor is still a Breaking release, and is documented as a misclassification.
+_Avoid_: Breaking update, incompatible version, release classification
+
+**Release preview**:
+The Release a PR's merge result is predicted to produce: its version, release type and release-note headings. It is a prediction, not a Release.
+_Avoid_: Dry run, release impact, release classification
+
+**Release boundary**:
+A ticket's constraint on whether its PR may merge, or ship, on its own.
+_Avoid_: Integration boundary, merge boundary
+
+**Maintainer exception**:
+A recorded maintainer decision that lets one PR cross its Release boundary. It records the operational consequences the maintainer accepted, but it never waives a required check or changes what kind of Release the merge produces.
+_Avoid_: Override, waiver
+
 ## Deployment
 
 **Ingress**:

@@ -1,7 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
-    "release.config.cjs",
     "scripts/*.cjs",
     "scripts/__tests__/*.js"
   ],
@@ -11,7 +10,12 @@
   ],
   "ignore": [],
   "ignoreDependencies": [
-    "conventional-changelog-angular"
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/github",
+    "@semantic-release/release-notes-generator",
+    "conventional-changelog-angular",
+    "conventional-changelog-angular-v8",
+    "semantic-release"
   ],
   "ignoreBinaries": [],
   "ignoreExportsUsedInFile": true
