@@ -51,7 +51,7 @@ Before starting local Docker-backed verification, read [Docker verification pref
 
 | Files changed | Required commands (from repository root) |
 |---|---|
-| GitHub Actions workflows (`.github/workflows/**`) or tracked shell scripts (`scripts/**/*.sh`, `backend/scripts/**/*.sh`) | `bash scripts/lint-workflows.sh` (Linux x86_64, pinned actionlint + ShellCheck) |
+| GitHub Actions workflows (`.github/workflows/**`) or any tracked `.sh` file | `bash scripts/lint-workflows.sh` (Linux x86_64, pinned actionlint + ShellCheck) |
 | Ingress, Compose, or root deploy scripts (`nginx/**`, `frontend/nginx.conf`, `docker-compose*.yml`, `setup.sh`, `deploy.sh`, `scripts/__tests__/**/ingress*`) | `INGRESS_REQUIRE_DOCKER=1 npm run test:release` and `bash scripts/lint-workflows.sh` |
 | Release workflow, release configuration, or root scripts and tests (`.github/workflows/release.yml`, `release.config.cjs`, `scripts/**`) | `npm run test:release` (root) |
 | Published-image settings (tags, attestations, build-args in `.github/workflows/release.yml`) | Add or update a targeted assertion under `scripts/__tests__/`, covered by `npm run test:release` |

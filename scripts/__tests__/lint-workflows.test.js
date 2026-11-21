@@ -83,34 +83,51 @@ test('successful lint passes with ShellCheck enabled', t => {
   assert.match(result.stdout, /ShellCheck enabled/);
 });
 
-test('standalone lint checks tracked deploy, application, and Ingress scripts', t => {
-  const f = fixture(t);
-  const trackedScripts = ['setup.sh', 'deploy.sh', 'scripts/root.sh', 'backend/scripts/lib/pg transport.sh', 'nginx/05-validate-public-host.sh'];
-  const trackedPaths = [...trackedScripts, 'scripts/notes.txt', 'other/outside.sh', 'outside.sh'];
-  for (const file of [...trackedPaths, 'scripts/untracked.sh']) {
-    const target = path.join(f.dir, file);
+function trackFiles(directory, trackedPaths, untrackedPaths = []) {
+  for (const file of [...trackedPaths, ...untrackedPaths]) {
+    const target = path.join(directory, file);
     mkdirSync(path.dirname(target), { recursive: true });
     writeFileSync(target, '#!/bin/bash\n');
   }
   for (const args of [['init', '--template='], ['add', '-f', '--', ...trackedPaths]]) {
-    const result = spawnSync('git', args, { cwd: f.dir, encoding: 'utf8' });
+    const result = spawnSync('git', args, { cwd: directory, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
   }
-  f.command('pinned-shellcheck', 'for arg; do\n  case "$arg" in *.sh) printf "%s\\n" "$arg";; esac\ndone');
+}
+
+test('standalone lint checks every tracked .sh file', t => {
+  const f = fixture(t);
+  const trackedScripts = [
+    'setup.sh', 'deploy.sh', 'maintain.sh', 'scripts/root.sh',
+    'backend/scripts/lib/pg transport.sh', 'nginx/05-validate-public-host.sh',
+    'backend/docker-entrypoint.sh', 'frontend/docker-entrypoint.sh',
+    'backend/add-audit-logging.sh', 'other/outside.sh', 'outside.sh',
+  ];
+  trackFiles(f.dir, [...trackedScripts, 'scripts/notes.txt'], ['other/untracked.sh', 'scripts/untracked.sh']);
+  f.command('pinned-shellcheck', 'for arg; do\n  case "$arg" in --|-x|-P|SCRIPTDIR) ;; *) printf "%s\\n" "$arg";; esac\ndone');
 
   const result = f.run({}, f.dir);
 
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.stdout.split('\n').filter(line => line.endsWith('.sh')).sort(), trackedScripts.sort());
+  const checkedFiles = result.stdout.trimEnd().split('\n').filter(line => line !== 'ShellCheck enabled');
+  assert.deepEqual(checkedFiles.sort(), trackedScripts.sort());
 });
 
 test('a standalone ShellCheck finding fails lint even when actionlint passes', t => {
   const f = fixture(t);
-  f.command('pinned-shellcheck', 'echo "standalone lint finding" >&2\nexit 1');
+  trackFiles(f.dir, ['other/finding.sh']);
+  f.command('pinned-shellcheck', [
+    'for arg; do',
+    '  if [[ "$arg" == other/finding.sh ]]; then',
+    '    echo "other/finding.sh: standalone lint finding" >&2',
+    '    exit 1',
+    '  fi',
+    'done',
+  ].join('\n'));
 
-  const result = f.run();
+  const result = f.run({}, f.dir);
 
   assert.match(result.stdout, /ShellCheck enabled/);
-  assert.match(result.stderr, /standalone lint finding/);
+  assert.match(result.stderr, /other\/finding\.sh: standalone lint finding/);
   assert.ok(Number.isInteger(result.status) && result.status > 0, result.stderr);
 });
