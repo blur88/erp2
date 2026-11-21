@@ -133,6 +133,8 @@ jobs:
         run: npm ci
 
       - name: Release validation
+        env:
+          INGRESS_REQUIRE_DOCKER: "1"
         working-directory: .
         run: npm run test:release
 
