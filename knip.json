@@ -6,7 +6,7 @@
   ],
   "project": [
     "*.cjs",
-    "scripts/**/*.{cjs,js}"
+    "scripts/**/*.{cjs,js,mjs}"
   ],
   "ignore": [],
   "ignoreDependencies": [
