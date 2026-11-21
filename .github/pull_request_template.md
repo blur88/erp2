@@ -18,8 +18,8 @@ Closes #
 - Mergeable independently: <!-- Whether the ticket permits merging this PR on its own. -->
 - Must ship together: <!-- Related tickets or PRs that must ship with this change. -->
 - Maintainer decision: <!-- None, or the recorded exception decision -->
-- Applicable ADR: <!-- Only for a maintainer exception -->
-- Release-impact decision: <!-- Permalink, only for a maintainer exception -->
+- Applicable ADR: <!-- only when Maintainer decision is not None -->
+- Release-impact decision: <!-- only when Maintainer decision is not None; permalink -->
 
 ## Verification
 

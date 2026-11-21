@@ -1,3 +1,4 @@
+// Pin the standalone Breaking Change Check workflow and its PR event coverage (#2003).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
@@ -39,11 +40,12 @@ test('the Breaking Change Check runs on PR events to main without rerunning CI o
   assert.equal(workflow.defaults?.run?.['working-directory'], undefined);
   assert.equal(job.defaults?.run?.['working-directory'], undefined);
 
-  const [checkout, node, , check] = job.steps;
+  const [checkout, setupNode] = job.steps;
+  const check = job.steps.at(-1);
   assert.match(checkout.uses, /^actions\/checkout@/);
   assert.deepEqual(checkout.with, { 'fetch-depth': 0 });
-  assert.match(node.uses, /^actions\/setup-node@/);
-  assert.equal(node.with['node-version'], '24');
+  assert.match(setupNode.uses, /^actions\/setup-node@/);
+  assert.equal(setupNode.with['node-version'], '24');
   assert.deepEqual(job.steps.map(step => step.run), [
     undefined, undefined, 'npm ci', 'node scripts/breaking-change-check.cjs "$PR_NUMBER"',
   ]);
