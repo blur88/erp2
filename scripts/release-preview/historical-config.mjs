@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { offlineGitOptions } from './offline-git.cjs';
 
 const require = createRequire(import.meta.url);
 const installedPresets = new Map([
@@ -27,8 +28,8 @@ function historicalPreset(git, commit) {
 
 /** Load the config for a trusted historical commit without changing the checkout. */
 export async function withHistoricalConfig({ cwd, commit }, run) {
-  const env = { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '' };
-  const git = (...args) => execFileSync('git', args, { cwd, env, encoding: 'utf8' });
+  const gitOptions = { ...offlineGitOptions(cwd), encoding: 'utf8' };
+  const git = (...args) => execFileSync('git', args, gitOptions);
   const preset = historicalPreset(git, commit);
   const configDirectory = mkdtempSync(join(tmpdir(), 'erp2-release-preview-'));
   try {
