@@ -6,6 +6,7 @@
 - When landing a ticket on an integration branch before a PR is open, follow [Integration ticket evidence](CODING_STANDARDS.md#integration-ticket-evidence).
 - Before updating dependencies or reviewing manifest/lockfile changes, read [Dependency updates](docs/agents/dependency-updates.md).
 - Before editing agent-facing documentation, read [CODING_STANDARDS.md](CODING_STANDARDS.md).
+- Before the first `gh issue` or `gh pr` operation, read [the issue tracker guide](docs/agents/issue-tracker.md).
 - Before checking private registry tags, follow [Private tag inspection](docs/adr/0001-two-docker-repositories.md#private-tag-inspection).
 - Before reviewing, read [acceptance-criterion evidence guidance](CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews). When delegating a review, include this reference and the requirement to read it before assessment in every reviewer assignment.
 

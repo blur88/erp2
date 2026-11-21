@@ -153,7 +153,7 @@ Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative i
 
 ### Issue tracker
 
-Issues are tracked in GitHub Issues for `blur88/erp2` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues are tracked in GitHub Issues for `blur88/erp2` via the `gh` CLI. Before the first `gh issue` or `gh pr` operation, read `docs/agents/issue-tracker.md`.
 
 ### Triage labels and ticket writing
 
