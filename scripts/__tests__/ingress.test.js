@@ -26,7 +26,6 @@ const POLICY = {
   'x-content-type-options': 'nosniff',
   'x-xss-protection': '1; mode=block',
   'referrer-policy': 'strict-origin-when-cross-origin',
-  'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
   'content-security-policy':
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:;",
 };
@@ -60,6 +59,7 @@ function request(port, { method = 'GET', url = '/', headers = {} } = {}) {
 }
 
 function assertPolicy(res, label) {
+  assert.deepEqual(res.all('strict-transport-security'), [], `${label}: HTTP must omit HSTS`);
   for (const [name, value] of Object.entries(POLICY)) {
     assert.equal(res.one(name), value, `${label}: ${name}`);
   }
@@ -298,7 +298,9 @@ test('every location that declares an add_header includes the security-header po
   const conf = readFileSync(path.join(repo, 'nginx/nginx.conf'), 'utf8').replace(/#.*$/gm, '');
   assert.match(conf, /server\s*\{[^]*?include \/etc\/nginx\/security-headers\.conf;/, 'server scope includes the policy');
 
-  const locations = [...conf.matchAll(/location\s+[^{]+\{([^{}]*)\}/g)].map(m => m[1]);
+  assert.match(conf, /include \/etc\/nginx\/app-locations\.conf;/);
+  const appLocations = readFileSync(path.join(repo, 'nginx/app-locations.conf'), 'utf8').replace(/#.*$/gm, '');
+  const locations = [...(conf + appLocations).matchAll(/location\s+[^{]+\{([^{}]*)\}/g)].map(m => m[1]);
   assert.ok(locations.length > 0, 'found no locations to check');
   for (const body of locations) {
     if (/add_header|proxy_hide_header/.test(body)) {
