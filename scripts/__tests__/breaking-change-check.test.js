@@ -345,3 +345,26 @@ test('uses gh over the event body and treats shell syntax as plain text', t => {
   assert.equal(result.status, 0, result.stderr);
   assert.equal(existsSync(join(cwd, 'injected')), false);
 });
+
+test('the shipped PR template passes the check when filled in canonically', t => {
+  const template = readFileSync(join(root, '.github/pull_request_template.md'), 'utf8');
+  assert.match(template, /^## Breaking release\n[^#]*\n## Release boundary$/m);
+
+  let body = template;
+  for (const [field, value] of [
+    ['Breaking change', 'no'],
+    ['Upgrade documentation', 'N/A: No operator action is required.'],
+    ['Mergeable independently', 'None stated'],
+    ['Must ship together', 'None stated'],
+    ['Maintainer decision', 'None'],
+    ['Applicable ADR', ''],
+    ['Release-impact decision', ''],
+  ]) {
+    const line = new RegExp(`^- ${field}: [^\\n]*$`, 'm');
+    assert.match(body, line);
+    body = body.replace(line, () => value ? `- ${field}: ${value}` : `- ${field}:`);
+  }
+
+  const result = fixture(t).run(body);
+  assert.equal(result.status, 0, result.stderr);
+});

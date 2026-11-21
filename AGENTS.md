@@ -91,7 +91,7 @@ Git history follows Conventional Commit style:
 
 Use a `BREAKING CHANGE:` footer as the only breaking-change marker. Put it on the commit that introduces the break. It triggers a major release for every commit type.
 
-A `type!:` or `type(scope)!:` header by itself triggers no release and is omitted from release notes. A [planned CI check](https://github.com/blur88/erp2/issues/1994) will reject either form even with a footer.
+A `type!:` or `type(scope)!:` header by itself triggers no release and is omitted from release notes. The Breaking Change Check rejects either form even with a footer.
 
 ```text
 feat(accounting): require an explicit fiscal year
@@ -103,7 +103,7 @@ Commit messages and PR bodies must not contain AI attribution lines.
 
 When closing a PR without merging, follow [Closing a PR without merging](docs/agents/issue-tracker.md#closing-a-pr-without-merging).
 
-Use the [PR template](.github/pull_request_template.md) for the summary, related issue, verification evidence, screenshots and migration/environment notes.
+Follow the complete [PR template](.github/pull_request_template.md) and keep both `## Breaking release` and `## Release boundary`. Use canonical `- Field: value` lines. Fill in `Breaking change` and `Upgrade documentation` for every PR to `main`, including docs-only PRs. Use `Maintainer decision: None` and leave `Applicable ADR` and `Release-impact decision` empty when there is no exception. Fill in both exception fields for any other decision. See [release checks](docs/agents/merge-and-branch-cleanup.md#before-marking-ready-or-merging) for valid values.
 
 When merging a PR from its local topic branch, follow [Merge and branch cleanup](docs/agents/merge-and-branch-cleanup.md) through checkout and branch cleanup.
 

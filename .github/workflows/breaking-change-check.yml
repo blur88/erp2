@@ -1,0 +1,35 @@
+name: Breaking Change Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: breaking-change-check-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  breaking-change-check:
+    name: Breaking Change Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Install release tooling
+        run: npm ci
+      - name: Check the release declaration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: node scripts/breaking-change-check.cjs "$PR_NUMBER"
