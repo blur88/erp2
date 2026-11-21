@@ -3,12 +3,18 @@
 1. New shell scripts start with a short comment describing their purpose, plus the related issue reference where there is one. Scripts without a related issue do not need an issue number.
 2. Extract nontrivial GitHub Actions `run:` logic (branching, failure handling, exit-status propagation) into testable scripts under `scripts/`, with tests under `scripts/__tests__/`.
 3. Keep build-time-only code out of frontend runtime source directories unless there is a justified architectural reason.
-4. Agent-facing documentation (AGENTS.md, CLAUDE.md, docs/agents/) must use tool-neutral instructions unless explicitly scoped to a specific agent or environment; link to the authoritative document instead of duplicating its requirements; keep session-specific validation evidence in PRs rather than reusable instructions; and place guidance pointers where agents encounter the relevant workflow or decision.
+4. Agent-facing documentation (AGENTS.md, CLAUDE.md, docs/agents/) must use tool-neutral instructions unless explicitly scoped to a specific agent or environment; link to the authoritative document instead of duplicating its requirements; keep session-specific validation evidence in PRs, with the [pre-PR integration ticket exception](#integration-ticket-evidence); and place guidance pointers where agents encounter the relevant workflow or decision.
 5. When adding or changing a guard that protects work before a destructive script operation, give each independently blocking condition its own test and assert that the protected work or ref is preserved. See the [worktree tests](https://github.com/blur88/erp2/blob/8dc76fca44b47b23867744d10208ceb9e583f3b7/scripts/__tests__/cleanup-merged-pr.test.js#L172-L200) from [PR #1938](https://github.com/blur88/erp2/pull/1938).
+
+## Integration ticket evidence
+
+- When ticket implementation lands on an integration branch before a PR is open, record the implementation SHA, exact verification commands, exit statuses, results, and evidence links in a comment on the relevant ticket.
+- Link the ticket evidence comments from the final integration PR. Treat those comments as historical evidence and follow [Change-Scoped Verification](AGENTS.md#change-scoped-verification-required-before-pr) for the final integration head.
 
 ## Acceptance-criterion evidence in reviews
 
-- Before assessment, collect the PR URL, reviewed head SHA, and applicable verification commands with their actual results and evidence links. For work without a PR, use the reviewed commit and available local results.
+- Before assessment begins, give each reviewer assignment the reviewed SHA, PR URL when available, exact verification commands, exit statuses, results, and accessible log paths or CI links. Include any remaining evidence gaps.
+- Report an earlier successful run and a rerun blocked by insufficient disk space (`ENOSPC`) or another environmental failure as separate results. Identify the acceptance criteria supported by the earlier evidence wherever it still applies. Mark checks blocked before or during execution **Unverified**. Evidence of a product regression requires a run that reaches the behavior under test.
 - Review every applicable acceptance criterion individually. For each criterion, distinguish **Implemented** (the relevant implementation exists), **Demonstrated** (the required behavior is supported by valid execution or test evidence), and **Unverified** (evidence is missing, incomplete, stale, or insufficient). An implemented criterion may still lack the evidence required to demonstrate it.
 - Cite concrete evidence for each criterion, such as source locations, test results, CI links, or reproducible commands.
 - A PR-body probe can demonstrate observed behavior, but required regression coverage stays **Unverified** until a committed spec passes on the reviewed head.
