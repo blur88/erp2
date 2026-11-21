@@ -1,3 +1,5 @@
+// These private imports depend on the semantic-release 25.0.3 pin.
+// Run the historical replay when upgrading semantic-release.
 import getConfig from 'semantic-release/lib/get-config.js';
 import getTags from 'semantic-release/lib/branches/get-tags.js';
 import getLastRelease from 'semantic-release/lib/get-last-release.js';

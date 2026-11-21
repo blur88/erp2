@@ -14,8 +14,7 @@
     "@semantic-release/github",
     "@semantic-release/release-notes-generator",
     "conventional-changelog-angular",
-    "conventional-changelog-angular-v8",
-    "semantic-release"
+    "conventional-changelog-angular-v8"
   ],
   "ignoreBinaries": [],
   "ignoreExportsUsedInFile": true
