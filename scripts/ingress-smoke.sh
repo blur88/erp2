@@ -131,7 +131,7 @@ for port in $REFUSED_PORTS; do
   fi
 done
 
-# --- 3. Security headers: exactly one copy each, no HSTS -----------------------------
+# --- 3. Security headers and HSTS absence -----------------------------------
 # A real hashed asset, as referenced by the built HTML.
 asset=$(grep -oE '(src|href)="/assets/[^"]+"' "$work/root.body" | head -n 1 | sed -E 's/^[a-z]+="//; s/"$//')
 if [ -n "$asset" ]; then

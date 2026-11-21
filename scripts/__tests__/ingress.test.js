@@ -8,7 +8,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const path = require('node:path');
-const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, chmodSync } = require('node:fs');
+const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, chmodSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { parse } = require('yaml');
@@ -298,15 +298,23 @@ test('every location that declares an add_header includes the security-header po
   const conf = readFileSync(path.join(repo, 'nginx/nginx.conf'), 'utf8').replace(/#.*$/gm, '');
   assert.match(conf, /server\s*\{[^]*?include \/etc\/nginx\/security-headers\.conf;/, 'server scope includes the policy');
 
-  assert.match(conf, /include \/etc\/nginx\/app-locations\.conf;/);
-  const appLocations = readFileSync(path.join(repo, 'nginx/app-locations.conf'), 'utf8').replace(/#.*$/gm, '');
-  const locations = [...(conf + appLocations).matchAll(/location\s+[^{]+\{([^{}]*)\}/g)].map(m => m[1]);
+  const configs = readdirSync(path.join(repo, 'nginx'))
+    .filter(file => file.endsWith('.conf'))
+    .map(file => readFileSync(path.join(repo, 'nginx', file), 'utf8').replace(/#.*$/gm, ''));
+  const locations = configs.flatMap(config =>
+    [...config.matchAll(/location\s+[^{]+\{([^{}]*)\}/g)].map(match => match[1]),
+  );
   assert.ok(locations.length > 0, 'found no locations to check');
   for (const body of locations) {
     if (/add_header|proxy_hide_header/.test(body)) {
       assert.match(body, /include \/etc\/nginx\/security-headers\.conf;/, `location is missing the policy:\n${body}`);
     }
   }
+});
+
+test('the HTTPS-only HSTS policy sets a one-year max age with subdomains', () => {
+  const conf = readFileSync(path.join(repo, 'nginx/hsts.conf'), 'utf8').replace(/#.*$/gm, '').trim();
+  assert.equal(conf, 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;');
 });
 
 describe('Compose publishes only the Ingress', () => {
