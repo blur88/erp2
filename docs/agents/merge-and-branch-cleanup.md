@@ -5,7 +5,7 @@
 Check both release sections in the [PR template](../../.github/pull_request_template.md) before marking a PR ready or merging it.
 
 - In **Breaking release**, set `Breaking change` to `yes` or `no` based on the change relative to the immediately preceding Release. For `yes`, require a major PR classification and set `Upgrade documentation` to a repo-relative file path that exists in the merge result. For `no`, supply an existing repo-relative file path or `N/A: <reason>`. Review the full Release preview for what the merge will publish.
-- In **Release boundary**, check `Mergeable independently` and `Must ship together` against the ticket. Use `Maintainer decision: None` and leave both exception fields empty when no exception applies. Honor integration-only constraints even when CI passes.
+- In **Release boundary**, check `Mergeable independently` and `Must ship together` against the ticket. Check the exception fields against the [PR guidance](../../AGENTS.md#commit--pull-request-guidelines). Honor integration-only constraints even when CI passes.
 - For an approved Maintainer exception, record the decision on the parent issue. Set `Applicable ADR` to an existing `docs/adr/NNNN-*.md` file in the merge result, or use `None: <reason>` for a non-breaking exception without an ADR. Use a permalink to the decision comment or review in this repository for `Release-impact decision`. Keep the classification, upgrade documentation and required checks in force under the exception. Update affected open tickets with links to the components that merged and preserve their remaining integration-only constraints.
 
 ### Before deleting a branch after an exception merge

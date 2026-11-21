@@ -26,7 +26,9 @@ test('the Breaking Change Check runs on PR events to main without rerunning CI o
     'cancel-in-progress': true,
   });
   assert.notEqual(workflow.concurrency.group, ci.concurrency.group);
-  assert.doesNotMatch(source, /\bsecrets\s*[.\[]|github\.event\.pull_request\.body/);
+  for (const expression of source.matchAll(/\$\{\{([\s\S]*?)\}\}/g)) {
+    assert.doesNotMatch(expression[1], /\b(?:secrets|pull_request)\b/);
+  }
 
   const [job, ...otherJobs] = Object.values(workflow.jobs);
   assert.deepEqual(otherJobs, []);
@@ -50,6 +52,5 @@ test('the Breaking Change Check runs on PR events to main without rerunning CI o
     assert.equal(step['working-directory'], undefined);
     assert.equal(step['continue-on-error'], undefined);
     assert.equal(step.if, undefined);
-    assert.doesNotMatch(step.run, /\$\{\{\s*github\.event\.pull_request\b/);
   }
 });
