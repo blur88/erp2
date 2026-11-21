@@ -8,8 +8,7 @@
 
 ## Integration ticket evidence
 
-- When ticket implementation lands on an integration branch before a PR is open, record the implementation SHA, exact verification commands, exit statuses, results, and evidence links in a comment on the relevant ticket.
-- Before CI evidence is available, quote the actual verification result summary in the ticket comment. Include the tested SHA, exact command, exit status, test counts, skips, and any relevant failing tests. A local `/tmp` path records where the output was saved and is inaccessible to other reviewers. Where possible, attach a sanitized log artifact or include reproduction steps with the command. Never publish secrets.
+- When ticket implementation lands on an integration branch before a PR is open, record the tested implementation SHA, exact verification commands, exit statuses, results, and accessible evidence links in a comment on the relevant ticket. Before CI evidence is available, quote the actual result summary in that comment, including the SHA, commands and statuses above, test counts, skips, and relevant failing tests. Use local `/tmp` paths only to record where output was saved. For evidence reviewers can check, attach a sanitized log artifact or include a reproducible command where possible. Never publish secrets.
 - Link the ticket evidence comments from the final integration PR. Treat those comments as historical evidence and follow [Change-Scoped Verification](AGENTS.md#change-scoped-verification-required-before-pr) for the final integration head.
 
 ## Acceptance-criterion evidence in reviews

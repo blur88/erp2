@@ -2,12 +2,7 @@
 
 ## Before marking ready or merging
 
-Check the related ticket for a release boundary. Where one applies, verify the
-PR’s recorded `Mergeable independently`, `Must ship together`, and
-`Maintainer decision` fields against the ticket and resolve any missing or
-conflicting details before proceeding. If a maintainer authorizes an exception,
-record the decision and a link to it in the PR before proceeding. Honor any
-integration-only release boundary even when CI passes.
+Check the PR's recorded `Mergeable independently`, `Must ship together`, and `Maintainer decision` fields against the related ticket. The [PR template](../../.github/pull_request_template.md#release-boundary) describes what to record. If a maintainer authorizes an exception, record the decision and a link to it in the PR before proceeding. Honor any integration-only release boundary even when CI passes.
 
 ## Merge and cleanup procedure
 
