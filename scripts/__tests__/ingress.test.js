@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const https = require('node:https');
 const path = require('node:path');
-const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, chmodSync } = require('node:fs');
+const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, chmodSync, existsSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { parse } = require('yaml');
@@ -22,7 +22,7 @@ const docker = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
 const dockerAvailable = docker('info', '--format', '{{.ServerVersion}}').status === 0;
 const requireDocker = process.env.INGRESS_REQUIRE_DOCKER === '1';
 
-// The Ingress policy: every response, every location.
+// Shared policy for application responses served through the Ingress.
 const POLICY = {
   'x-frame-options': 'SAMEORIGIN',
   'x-content-type-options': 'nosniff',
@@ -140,15 +140,20 @@ async function startProductionStack(service) {
   return { ingress: portOf(stack.ingress), secure: portOf(stack.ingress, 443), backend: stack.backend };
 }
 
-function composeConfig(publicHost, tlsDir) {
+function productionCompose(env, ...args) {
+  return spawnSync('docker', [
+    'compose', '--env-file', '/dev/null', '-f', path.join(repo, 'docker-compose.prod.yml'),
+    ...args,
+  ], { encoding: 'utf8', env });
+}
+
+function composeConfig(publicHost, tlsDir, acmeWebroot) {
   const env = { ...process.env };
   delete env.ERP_PUBLIC_HOST;
   if (publicHost !== undefined) env.ERP_PUBLIC_HOST = publicHost;
   if (tlsDir) env.TLS_DIR = tlsDir;
-  return spawnSync('docker', [
-    'compose', '--env-file', '/dev/null', '-f', path.join(repo, 'docker-compose.prod.yml'),
-    'config', '--format', 'json',
-  ], { encoding: 'utf8', env });
+  if (acmeWebroot) env.ACME_WEBROOT = acmeWebroot;
+  return productionCompose(env, 'config', '--format', 'json');
 }
 
 function productionArgs(service, env = service.environment) {
@@ -156,7 +161,7 @@ function productionArgs(service, env = service.environment) {
     '-p', '127.0.0.1::443',
     ...service.tmpfs.flatMap(mount => ['--tmpfs', mount]),
     ...service.volumes.flatMap(({ source, target, read_only }) => [
-      '-v', `${source}:${target}${read_only ? ':ro' : ''}`,
+      '--mount', `type=bind,source=${source},target=${target}${read_only ? ',readonly' : ''}`,
     ]),
     ...Object.entries(env).flatMap(([name, value]) => ['-e', `${name}=${value}`]),
     ingressImage, ...service.command,
@@ -208,14 +213,20 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
     let stack;
     let production;
     let tls;
+    let tlsDir;
     const canonical = { Host: 'erp.test' };
 
     before(async () => {
-      const directory = path.join(workdir, 'tls');
-      mkdirSync(directory);
-      createTestCertificate(directory);
-      tls = { ca: readFileSync(path.join(directory, 'ca.pem')), servername: 'erp.test', rejectUnauthorized: true };
-      const config = composeConfig('erp.test', directory);
+      tlsDir = path.join(workdir, 'tls');
+      mkdirSync(tlsDir);
+      createTestCertificate(tlsDir);
+      tls = { ca: readFileSync(path.join(tlsDir, 'ca.pem')), servername: 'erp.test', rejectUnauthorized: true };
+      const webroot = path.join(workdir, 'acme');
+      const challenges = path.join(webroot, '.well-known/acme-challenge');
+      mkdirSync(path.join(challenges, 'tokens'), { recursive: true });
+      writeFileSync(path.join(challenges, 'tokens/visible-token'), 'directory listing probe');
+      writeFileSync(path.join(challenges, 'fixture.html'), 'fixture-token.fixture-thumbprint\n');
+      const config = composeConfig('erp.test', tlsDir, webroot);
       assert.equal(config.status, 0, config.stderr);
       production = JSON.parse(config.stdout).services.nginx;
       stack = await startProductionStack(production);
@@ -264,6 +275,49 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
       assert.equal(logs.status, 0, logs.stderr);
       assert.ok(logs.stdout.split('\n').includes(control), 'backend log must record the accepted request');
       assert.doesNotMatch(logs.stdout, /probe=(default|canonical)/);
+    });
+
+    test('HTTP serves an ACME token verbatim as plain text without security headers', async () => {
+      const res = await request(stack.ingress, { url: '/.well-known/acme-challenge/fixture.html' });
+      assert.equal(res.status, 200);
+      assert.equal(res.one('content-type'), 'text/plain');
+      assert.equal(res.body, 'fixture-token.fixture-thumbprint\n');
+      for (const name of [...Object.keys(POLICY), 'strict-transport-security', 'x-backend']) {
+        assert.deepEqual(res.all(name), [], name);
+      }
+    });
+
+    test('missing ACME tokens and directories return 404 without redirecting or listing files', async () => {
+      for (const name of ['missing-token', 'tokens/']) {
+        const url = `/.well-known/acme-challenge/${name}`;
+        const res = await request(stack.ingress, { url });
+        assert.equal(res.status, 404, url);
+        assert.doesNotMatch(res.body, /visible-token/, url);
+        for (const header of ['location', ...Object.keys(POLICY), 'strict-transport-security', 'x-backend']) {
+          assert.deepEqual(res.all(header), [], `${url}: ${header}`);
+        }
+      }
+    });
+
+    test('production Compose fails when the ACME webroot is absent and leaves it absent', () => {
+      const webroot = path.join(workdir, 'missing-acme');
+      const override = path.join(workdir, 'compose.ingress-image.yml');
+      writeFileSync(override, `services:\n  nginx:\n    image: ${ingressImage}\n`);
+      const env = { ...process.env, ERP_PUBLIC_HOST: 'erp.test', TLS_DIR: tlsDir, ACME_WEBROOT: webroot };
+      const args = ['-f', override, '--project-name', `ingress-acme-test-${process.pid}`];
+      assert.equal(existsSync(webroot), false);
+      try {
+        const result = productionCompose(env, ...args, 'run', '--no-deps', '--rm', '--pull', 'never',
+          '--entrypoint', '/bin/true', 'nginx');
+        assert.ifError(result.error);
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /bind source path does not exist/);
+        assert.ok(result.stderr.includes(webroot), result.stderr);
+        assert.equal(existsSync(webroot), false);
+      } finally {
+        const cleanup = productionCompose(env, ...args, 'down');
+        assert.equal(cleanup.status, 0, cleanup.stderr);
+      }
     });
 
     test('HTTP redirects to the canonical HTTPS URL verbatim for either Host', async () => {

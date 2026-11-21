@@ -16,7 +16,19 @@ map "$host:$authority_hostname" $canonical_request {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    return 301 https://${ERP_PUBLIC_HOST}$request_uri;
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/acme;
+        types {}
+        default_type text/plain;
+        autoindex off;
+        limit_conn addr 50;
+        limit_conn_status 429;
+        try_files $uri =404;
+    }
+
+    location / {
+        return 301 https://${ERP_PUBLIC_HOST}$request_uri;
+    }
 }
 
 server {
