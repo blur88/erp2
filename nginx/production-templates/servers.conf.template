@@ -16,14 +16,12 @@ map "$host:$authority_hostname" $canonical_request {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_tokens off;
     return 301 https://${ERP_PUBLIC_HOST}$request_uri;
 }
 
 server {
     listen 443 ssl default_server;
     listen [::]:443 ssl default_server;
-    server_tokens off;
     return 421;
 }
 
@@ -31,7 +29,6 @@ server {
     listen 443 ssl;
     listen [::]:443 ssl;
     server_name ${ERP_PUBLIC_HOST};
-    server_tokens off;
 
     # Return through a named location whose header policy omits HSTS.
     error_page 421 = @misdirected;
@@ -39,15 +36,12 @@ server {
         return 421;
     }
 
-    include /etc/nginx/security-headers.conf;
+    include /etc/nginx/app-server.conf;
     include /etc/nginx/hsts.conf;
-
-    limit_conn_status 429;
-    limit_conn addr 50;
-    include /etc/nginx/app-locations.conf;
 
     location @misdirected {
         add_header_inherit off;
+        include /etc/nginx/security-headers.conf;
         return 421;
     }
 }

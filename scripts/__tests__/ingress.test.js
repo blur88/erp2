@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const https = require('node:https');
 const path = require('node:path');
-const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, chmodSync, globSync } = require('node:fs');
+const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, chmodSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { parse } = require('yaml');
@@ -91,7 +91,7 @@ function start(name, args) {
 }
 
 // A fresh stack per call: the rate-limit zones live in the Ingress's memory.
-async function startStack(label, production) {
+function startStack(label, ingressArgs) {
   const id = `ingress-test-${process.pid}-${label}`;
   const net = id;
   const r = docker('network', 'create', net);
@@ -112,24 +112,32 @@ async function startStack(label, production) {
   // Both Compose modes run the Ingress on a read-only root filesystem.
   start(`${id}-ingress`, [
     '--network', net, '-p', '127.0.0.1::80',
-    ...(production ? [
-      ...(production.read_only ? ['--read-only'] : []),
-      ...productionArgs(production),
-    ] : [
-      '--read-only', '--tmpfs', '/var/cache/nginx:size=10M', '--tmpfs', '/var/run:size=1M', ingressImage,
-    ]),
+    ...ingressArgs,
   ]);
+  return { backend: `${id}-backend`, frontend: `${id}-frontend`, ingress: `${id}-ingress` };
+}
 
-  const portOf = (name, port = 80) => Number(docker('port', name, `${port}/tcp`).stdout.trim().split('\n')[0].split(':').pop());
-  const ingress = portOf(`${id}-ingress`);
-  const frontend = portOf(`${id}-frontend`);
-  if (production) {
-    await waitForOk(frontend, '/');
-    return { ingress, secure: portOf(`${id}-ingress`, 443) };
-  }
+function portOf(container, port = 80) {
+  const result = docker('port', container, `${port}/tcp`);
+  assert.equal(result.status, 0, result.stderr);
+  return Number(result.stdout.trim().split(':').pop());
+}
+
+async function startDevStack(label) {
+  const stack = startStack(label, [
+    '--read-only', '--tmpfs', '/var/cache/nginx:size=10M', '--tmpfs', '/var/run:size=1M', ingressImage,
+  ]);
+  const ingress = portOf(stack.ingress);
   await waitForOk(ingress, '/api/health');
   await waitForOk(ingress, '/');
-  return { ingress, frontend };
+  return { ingress, frontend: portOf(stack.frontend) };
+}
+
+async function startProductionStack(service) {
+  assert.equal(service.read_only, true);
+  const stack = startStack('https', ['--read-only', ...productionArgs(service)]);
+  await waitForOk(portOf(stack.frontend), '/');
+  return { ingress: portOf(stack.ingress), secure: portOf(stack.ingress, 443), backend: stack.backend };
 }
 
 function composeConfig(publicHost, tlsDir) {
@@ -210,7 +218,7 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
       const config = composeConfig('erp.test', directory);
       assert.equal(config.status, 0, config.stderr);
       production = JSON.parse(config.stdout).services.nginx;
-      stack = await startStack('https', production);
+      stack = await startProductionStack(production);
       await waitForOk(stack.secure, '/api/health', { tls, headers: canonical });
     });
 
@@ -232,12 +240,30 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
       }
     });
 
-    test('noncanonical HTTP Host over valid TLS returns 421 without reaching the backend', async () => {
-      const res = await request(stack.secure, { url: '/api/health', tls, headers: { Host: 'other.test' } });
-      assert.equal(res.status, 421);
-      for (const name of ['location', 'strict-transport-security', 'x-backend']) {
-        assert.deepEqual(res.all(name), [], name);
+    test('noncanonical HTTP Host returns 421 from either TLS server without reaching the backend', async () => {
+      const defaultRequest = '/api/health?probe=default';
+      // An absolute request target selects the canonical server before nginx
+      // processes Host. The canonical server still has to reject that Host.
+      const canonicalRequest = 'https://erp.test/api/health?probe=canonical';
+      for (const url of [defaultRequest, canonicalRequest]) {
+        const res = await request(stack.secure, { url, tls, headers: { Host: 'other.test' } });
+        assert.equal(res.status, 421, url);
+        for (const name of ['location', 'strict-transport-security', 'x-backend']) {
+          assert.deepEqual(res.all(name), [], name);
+        }
+        if (url === canonicalRequest) {
+          assertPolicy(res, url);
+        } else {
+          assert.deepEqual(res.all('x-frame-options'), [], 'response came from the default server');
+        }
       }
+
+      const control = '/api/health?probe=accepted';
+      assert.equal((await request(stack.secure, { url: control, tls, headers: canonical })).status, 200);
+      const logs = docker('logs', stack.backend);
+      assert.equal(logs.status, 0, logs.stderr);
+      assert.ok(logs.stdout.split('\n').includes(control), 'backend log must record the accepted request');
+      assert.doesNotMatch(logs.stdout, /probe=(default|canonical)/);
     });
 
     test('HTTP redirects to the canonical HTTPS URL verbatim for either Host', async () => {
@@ -251,14 +277,32 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
     });
 
     test('the image rejects malformed canonical hostnames before envsubst', () => {
+      const output = path.join(workdir, 'startup-render');
+      mkdirSync(output);
+      const observed = {
+        ...production,
+        volumes: [...production.volumes, { source: output, target: '/observed-render' }],
+      };
+      const environment = {
+        ...production.environment,
+        NGINX_ENVSUBST_OUTPUT_DIR: '/observed-render',
+        NGINX_ENTRYPOINT_QUIET_LOGS: '1',
+      };
+      // Positive control: the entrypoint renders here even though nginx then
+      // exits because its normal runtime config path is empty.
+      const control = docker('run', '--rm', '--read-only', ...productionArgs(observed, environment));
+      assert.equal(control.status, 1, control.stderr);
+      assert.match(control.stderr, /runtime\/servers\.conf/);
+      assert.match(readFileSync(path.join(output, 'servers.conf'), 'utf8'), /server_name erp\.test;/);
+      rmSync(path.join(output, 'servers.conf'));
       for (const ERP_PUBLIC_HOST of ['https://erp.test', 'erp.test:443', 'erp.test/path',
         '*.erp.test', '192.0.2.1', '[::1]', '0x7f000001', 'erp..test', '-erp.test', 'erp.test\n']) {
-        const result = docker('run', '--rm', '--read-only', ...productionArgs(production, {
-          ...production.environment, ERP_PUBLIC_HOST,
+        const result = docker('run', '--rm', '--read-only', ...productionArgs(observed, {
+          ...environment, ERP_PUBLIC_HOST,
         }));
         assert.equal(result.status, 1, result.stderr);
         assert.match(result.stderr, /ERP_PUBLIC_HOST must be a bare DNS hostname/);
-        assert.doesNotMatch(result.stdout + result.stderr, /20-envsubst-on-templates/);
+        assert.deepEqual(readdirSync(output), [], ERP_PUBLIC_HOST);
       }
     });
 
@@ -273,7 +317,7 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
 
   describe('responses', () => {
     let stack;
-    before(async () => { stack = await startStack('responses'); });
+    before(async () => { stack = await startDevStack('responses'); });
 
     const surfaces = [
       ['a client-side route', { url: '/dashboard/reports' }, 200],
@@ -377,7 +421,7 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
 
   describe('rate limits', () => {
     let stack;
-    before(async () => { stack = await startStack('limits'); });
+    before(async () => { stack = await startDevStack('limits'); });
 
     const login = (url = '/api/auth/login') => request(stack.ingress, { method: 'POST', url });
 
@@ -422,7 +466,9 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
 // the policy again, or its responses silently lose the security headers.
 test('every location that declares an add_header includes the security-header policy', () => {
   const conf = readFileSync(path.join(repo, 'nginx/nginx.conf'), 'utf8').replace(/#.*$/gm, '');
-  assert.match(conf, /server\s*\{[^]*?include \/etc\/nginx\/security-headers\.conf;/, 'server scope includes the policy');
+  const appServer = readFileSync(path.join(repo, 'nginx/app-server.conf'), 'utf8').replace(/#.*$/gm, '');
+  assert.match(conf, /server\s*\{[^]*?include \/etc\/nginx\/app-server\.conf;/);
+  assert.match(appServer, /^include \/etc\/nginx\/security-headers\.conf;/m);
 
   const configs = readdirSync(path.join(repo, 'nginx'))
     .filter(file => file.endsWith('.conf'))
@@ -477,11 +523,9 @@ function assertNoDevelopmentHsts(directory) {
       // mime.types is supplied by the base image and contains only MIME data.
       if (argument === '/etc/nginx/mime.types') continue;
       const local = path.posix.normalize(argument.replace(/^\/etc\/nginx\//, ''));
-      assert.ok(!path.isAbsolute(local) && local !== '..' && !local.startsWith('../'),
-        'Unsupported nginx include: ' + argument);
-      const matches = /[*?\[]/.test(local) ? globSync(local, { cwd: directory }).sort() : [local];
-      assert.ok(matches.length, 'Missing nginx include: ' + local);
-      for (const match of matches) visit(match, chain);
+      assert.ok(!path.isAbsolute(local) && local !== '..' && !local.startsWith('../') && !/[*?\[]/.test(local),
+        'Expected a local nginx include file: ' + argument);
+      visit(local, chain);
     }
   }
 

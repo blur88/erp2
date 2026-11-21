@@ -83,9 +83,9 @@ test('successful lint passes with ShellCheck enabled', t => {
   assert.match(result.stdout, /ShellCheck enabled/);
 });
 
-test('standalone lint checks tracked deploy scripts and both script trees', t => {
+test('standalone lint checks tracked deploy, application, and Ingress scripts', t => {
   const f = fixture(t);
-  const trackedScripts = ['setup.sh', 'deploy.sh', 'scripts/root.sh', 'backend/scripts/lib/pg transport.sh'];
+  const trackedScripts = ['setup.sh', 'deploy.sh', 'scripts/root.sh', 'backend/scripts/lib/pg transport.sh', 'nginx/05-validate-public-host.sh'];
   const trackedPaths = [...trackedScripts, 'scripts/notes.txt', 'other/outside.sh', 'outside.sh'];
   for (const file of [...trackedPaths, 'scripts/untracked.sh']) {
     const target = path.join(f.dir, file);
