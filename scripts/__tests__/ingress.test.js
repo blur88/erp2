@@ -7,6 +7,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const https = require('node:https');
 const path = require('node:path');
 const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, chmodSync } = require('node:fs');
 const { tmpdir } = require('node:os');
@@ -32,9 +33,10 @@ const POLICY = {
 };
 
 // Raw HTTP so duplicate header lines stay visible; fetch() folds them together.
-function request(port, { method = 'GET', url = '/', headers = {} } = {}) {
+function request(port, { method = 'GET', url = '/', headers = {}, tls } = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: '127.0.0.1', port, method, path: url, headers }, res => {
+    const client = tls ? https : http;
+    const req = client.request({ host: '127.0.0.1', port, method, path: url, headers, ...tls }, res => {
       const chunks = [];
       res.on('data', c => chunks.push(c));
       res.on('end', () => {
@@ -59,17 +61,17 @@ function request(port, { method = 'GET', url = '/', headers = {} } = {}) {
   });
 }
 
-function assertPolicy(res, label) {
-  assert.deepEqual(res.all('strict-transport-security'), [], `${label}: HTTP must omit HSTS`);
+function assertPolicy(res, label, hsts = []) {
+  assert.deepEqual(res.all('strict-transport-security'), hsts, label);
   for (const [name, value] of Object.entries(POLICY)) {
     assert.equal(res.one(name), value, `${label}: ${name}`);
   }
 }
 
-async function waitForOk(port, url) {
+async function waitForOk(port, url, options = {}) {
   for (let attempt = 0; attempt < 60; attempt++) {
     try {
-      if ((await request(port, { url })).status === 200) return;
+      if ((await request(port, { url, ...options })).status === 200) return;
     } catch {
       // not listening yet
     }
@@ -89,7 +91,7 @@ function start(name, args) {
 }
 
 // A fresh stack per call: the rate-limit zones live in the Ingress's memory.
-async function startStack(label) {
+function startStack(label, ingressArgs) {
   const id = `ingress-test-${process.pid}-${label}`;
   const net = id;
   const r = docker('network', 'create', net);
@@ -107,19 +109,74 @@ async function startStack(label) {
     '-v', `${path.join(workdir, 'html')}:/usr/share/nginx/html:ro`,
     NGINX_IMAGE,
   ]);
-  // Same hardening as docker-compose.yml: the Ingress must not need a writable rootfs.
+  // Both Compose modes run the Ingress on a read-only root filesystem.
   start(`${id}-ingress`, [
     '--network', net, '-p', '127.0.0.1::80',
-    '--read-only', '--tmpfs', '/var/cache/nginx:size=10M', '--tmpfs', '/var/run:size=1M',
-    ingressImage,
+    ...ingressArgs,
   ]);
+  return { backend: `${id}-backend`, frontend: `${id}-frontend`, ingress: `${id}-ingress` };
+}
 
-  const portOf = name => Number(docker('port', name, '80/tcp').stdout.trim().split('\n')[0].split(':').pop());
-  const ingress = portOf(`${id}-ingress`);
-  const frontend = portOf(`${id}-frontend`);
+function portOf(container, port = 80) {
+  const result = docker('port', container, `${port}/tcp`);
+  assert.equal(result.status, 0, result.stderr);
+  return Number(result.stdout.trim().split(':').pop());
+}
+
+async function startDevStack(label) {
+  const stack = startStack(label, [
+    '--read-only', '--tmpfs', '/var/cache/nginx:size=10M', '--tmpfs', '/var/run:size=1M', ingressImage,
+  ]);
+  const ingress = portOf(stack.ingress);
   await waitForOk(ingress, '/api/health');
   await waitForOk(ingress, '/');
-  return { ingress, frontend };
+  return { ingress, frontend: portOf(stack.frontend) };
+}
+
+async function startProductionStack(service) {
+  assert.equal(service.read_only, true);
+  const stack = startStack('https', ['--read-only', ...productionArgs(service)]);
+  await waitForOk(portOf(stack.frontend), '/');
+  return { ingress: portOf(stack.ingress), secure: portOf(stack.ingress, 443), backend: stack.backend };
+}
+
+function composeConfig(publicHost, tlsDir) {
+  const env = { ...process.env };
+  delete env.ERP_PUBLIC_HOST;
+  if (publicHost !== undefined) env.ERP_PUBLIC_HOST = publicHost;
+  if (tlsDir) env.TLS_DIR = tlsDir;
+  return spawnSync('docker', [
+    'compose', '--env-file', '/dev/null', '-f', path.join(repo, 'docker-compose.prod.yml'),
+    'config', '--format', 'json',
+  ], { encoding: 'utf8', env });
+}
+
+function productionArgs(service, env = service.environment) {
+  return [
+    '-p', '127.0.0.1::443',
+    ...service.tmpfs.flatMap(mount => ['--tmpfs', mount]),
+    ...service.volumes.flatMap(({ source, target, read_only }) => [
+      '-v', `${source}:${target}${read_only ? ':ro' : ''}`,
+    ]),
+    ...Object.entries(env).flatMap(([name, value]) => ['-e', `${name}=${value}`]),
+    ingressImage, ...service.command,
+  ];
+}
+
+function createTestCertificate(directory) {
+  const openssl = (...args) => {
+    const result = spawnSync('openssl', args, { cwd: directory, encoding: 'utf8' });
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, result.stderr);
+  };
+  openssl('req', '-x509', '-newkey', 'rsa:2048', '-noenc', '-days', '1',
+    '-subj', '/CN=ERP Ingress Test CA', '-keyout', 'ca.key', '-out', 'ca.pem',
+    '-addext', 'basicConstraints=critical,CA:TRUE');
+  openssl('req', '-new', '-newkey', 'rsa:2048', '-noenc', '-subj', '/CN=erp.test',
+    '-keyout', 'privkey.pem', '-out', 'server.csr');
+  writeFileSync(path.join(directory, 'server.ext'), 'subjectAltName=DNS:erp.test\n');
+  openssl('x509', '-req', '-in', 'server.csr', '-CA', 'ca.pem', '-CAkey', 'ca.key',
+    '-CAcreateserial', '-days', '1', '-extfile', 'server.ext', '-out', 'fullchain.pem');
 }
 
 describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAvailable && 'docker is not available' }, () => {
@@ -147,9 +204,120 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
     if (workdir) rmSync(workdir, { recursive: true, force: true });
   });
 
+  describe('production canonical HTTPS', () => {
+    let stack;
+    let production;
+    let tls;
+    const canonical = { Host: 'erp.test' };
+
+    before(async () => {
+      const directory = path.join(workdir, 'tls');
+      mkdirSync(directory);
+      createTestCertificate(directory);
+      tls = { ca: readFileSync(path.join(directory, 'ca.pem')), servername: 'erp.test', rejectUnauthorized: true };
+      const config = composeConfig('erp.test', directory);
+      assert.equal(config.status, 0, config.stderr);
+      production = JSON.parse(config.stdout).services.nginx;
+      stack = await startProductionStack(production);
+      await waitForOk(stack.secure, '/api/health', { tls, headers: canonical });
+    });
+
+    for (const publicHost of [undefined, '']) {
+      test(`Compose rejects an ${publicHost === undefined ? 'unset' : 'empty'} ERP_PUBLIC_HOST`, () => {
+        const result = composeConfig(publicHost);
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /ERP_PUBLIC_HOST.*canonical DNS hostname/);
+      });
+    }
+
+    test('the app and API serve verified HTTPS with exactly one HSTS header', async () => {
+      for (const url of ['/', '/api/health']) {
+        const res = await request(stack.secure, { url, tls, headers: canonical });
+        assert.equal(res.status, 200, url);
+        assertPolicy(res, url, ['max-age=31536000; includeSubDomains']);
+        if (url === '/api/health') assert.equal(res.one('x-backend'), 'stub');
+        else assert.match(res.body, /<div id="root">/);
+      }
+    });
+
+    test('noncanonical HTTP Host returns 421 from either TLS server without reaching the backend', async () => {
+      const defaultRequest = '/api/health?probe=default';
+      // An absolute request target selects the canonical server before nginx
+      // processes Host. The canonical server still has to reject that Host.
+      const canonicalRequest = 'https://erp.test/api/health?probe=canonical';
+      for (const url of [defaultRequest, canonicalRequest]) {
+        const res = await request(stack.secure, { url, tls, headers: { Host: 'other.test' } });
+        assert.equal(res.status, 421, url);
+        for (const name of ['location', 'strict-transport-security', 'x-backend']) {
+          assert.deepEqual(res.all(name), [], name);
+        }
+        if (url === canonicalRequest) {
+          assertPolicy(res, url);
+        } else {
+          assert.deepEqual(res.all('x-frame-options'), [], 'response came from the default server');
+        }
+      }
+
+      const control = '/api/health?probe=accepted';
+      assert.equal((await request(stack.secure, { url: control, tls, headers: canonical })).status, 200);
+      const logs = docker('logs', stack.backend);
+      assert.equal(logs.status, 0, logs.stderr);
+      assert.ok(logs.stdout.split('\n').includes(control), 'backend log must record the accepted request');
+      assert.doesNotMatch(logs.stdout, /probe=(default|canonical)/);
+    });
+
+    test('HTTP redirects to the canonical HTTPS URL verbatim for either Host', async () => {
+      const url = '/api/a%2Fb?keep=%2F&x=1';
+      for (const Host of ['erp.test', 'other.test']) {
+        const res = await request(stack.ingress, { url, headers: { Host } });
+        assert.equal(res.status, 301);
+        assert.equal(res.one('location'), 'https://erp.test/api/a%2Fb?keep=%2F&x=1');
+        assert.deepEqual(res.all('strict-transport-security'), []);
+      }
+    });
+
+    test('the image rejects malformed canonical hostnames before envsubst', () => {
+      const output = path.join(workdir, 'startup-render');
+      mkdirSync(output);
+      const observed = {
+        ...production,
+        volumes: [...production.volumes, { source: output, target: '/observed-render' }],
+      };
+      const environment = {
+        ...production.environment,
+        NGINX_ENVSUBST_OUTPUT_DIR: '/observed-render',
+        NGINX_ENTRYPOINT_QUIET_LOGS: '1',
+      };
+      // Positive control: the entrypoint renders here even though nginx then
+      // exits because its normal runtime config path is empty.
+      const control = docker('run', '--rm', '--read-only', ...productionArgs(observed, environment));
+      assert.equal(control.status, 1, control.stderr);
+      assert.match(control.stderr, /runtime\/servers\.conf/);
+      assert.match(readFileSync(path.join(output, 'servers.conf'), 'utf8'), /server_name erp\.test;/);
+      rmSync(path.join(output, 'servers.conf'));
+      for (const ERP_PUBLIC_HOST of ['https://erp.test', 'erp.test:443', 'erp.test/path',
+        '*.erp.test', '192.0.2.1', '[::1]', '0x7f000001', 'erp..test', '-erp.test', 'erp.test\n']) {
+        const result = docker('run', '--rm', '--read-only', ...productionArgs(observed, {
+          ...environment, ERP_PUBLIC_HOST,
+        }));
+        assert.equal(result.status, 1, result.stderr);
+        assert.match(result.stderr, /ERP_PUBLIC_HOST must be a bare DNS hostname/);
+        assert.deepEqual(readdirSync(output), [], ERP_PUBLIC_HOST);
+      }
+    });
+
+    test('nginx fails to start without the rendered production configuration', () => {
+      const result = docker('run', '--rm', '--read-only', ...productionArgs(production, {
+        ...production.environment, NGINX_ENVSUBST_TEMPLATE_DIR: '/missing-templates',
+      }));
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /open\(\) "\/etc\/nginx\/runtime\/servers\.conf" failed/);
+    });
+  });
+
   describe('responses', () => {
     let stack;
-    before(async () => { stack = await startStack('responses'); });
+    before(async () => { stack = await startDevStack('responses'); });
 
     const surfaces = [
       ['a client-side route', { url: '/dashboard/reports' }, 200],
@@ -253,7 +421,7 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
 
   describe('rate limits', () => {
     let stack;
-    before(async () => { stack = await startStack('limits'); });
+    before(async () => { stack = await startDevStack('limits'); });
 
     const login = (url = '/api/auth/login') => request(stack.ingress, { method: 'POST', url });
 
@@ -298,7 +466,9 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
 // the policy again, or its responses silently lose the security headers.
 test('every location that declares an add_header includes the security-header policy', () => {
   const conf = readFileSync(path.join(repo, 'nginx/nginx.conf'), 'utf8').replace(/#.*$/gm, '');
-  assert.match(conf, /server\s*\{[^]*?include \/etc\/nginx\/security-headers\.conf;/, 'server scope includes the policy');
+  const appServer = readFileSync(path.join(repo, 'nginx/app-server.conf'), 'utf8').replace(/#.*$/gm, '');
+  assert.match(conf, /server\s*\{[^]*?include \/etc\/nginx\/app-server\.conf;/);
+  assert.match(appServer, /^include \/etc\/nginx\/security-headers\.conf;/m);
 
   const configs = readdirSync(path.join(repo, 'nginx'))
     .filter(file => file.endsWith('.conf'))
@@ -319,18 +489,81 @@ test('the HTTPS-only HSTS policy sets a one-year max age with subdomains', () =>
   assert.equal(conf, 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;');
 });
 
+function assertNoDevelopmentHsts(directory) {
+  function visit(file, parents) {
+    const chain = [...parents, file];
+    assert.ok(!parents.includes(file), 'nginx include cycle: ' + chain.join(' -> '));
+
+    let config;
+    try {
+      config = readFileSync(path.join(directory, file), 'utf8');
+    } catch (error) {
+      if (error.code === 'ENOENT') assert.fail('Missing nginx include: ' + file);
+      throw error;
+    }
+
+    // Tokenize quoted values as a unit so an embedded semicolon or # stays
+    // inside its value. Only complete directives can declare headers/includes.
+    const tokens = config.match(/#[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[;{}]|[^\s#;{}"']+/g) ?? [];
+    let directive = [];
+    for (const token of tokens) {
+      if (token.startsWith('#')) continue;
+      if (![';', '{', '}'].includes(token)) {
+        directive.push(token.replace(/^(["'])(.*)\1$/, '$2'));
+        continue;
+      }
+
+      const [name, argument] = directive;
+      directive = [];
+      if (token !== ';') continue;
+      assert.ok(name !== 'add_header' || argument.toLowerCase() !== 'strict-transport-security',
+        'HSTS policy in development: ' + file);
+      if (name !== 'include') continue;
+
+      // mime.types is supplied by the base image and contains only MIME data.
+      if (argument === '/etc/nginx/mime.types') continue;
+      const local = path.posix.normalize(argument.replace(/^\/etc\/nginx\//, ''));
+      assert.ok(!path.isAbsolute(local) && local !== '..' && !local.startsWith('../') && !/[*?\[]/.test(local),
+        'Expected a local nginx include file: ' + argument);
+      visit(local, chain);
+    }
+  }
+
+  visit('nginx.conf', []);
+}
+
 test('the development Ingress does not include the HTTPS-only HSTS policy', () => {
-  const conf = readFileSync(path.join(repo, 'nginx/nginx.conf'), 'utf8').replace(/#.*$/gm, '');
-  assert.doesNotMatch(conf, /\binclude\s+[^;]*\bhsts\.conf\s*;/);
+  assertNoDevelopmentHsts(path.join(repo, 'nginx'));
+});
+
+test('the development HSTS check follows shared includes', t => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'ingress-includes-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const put = (file, config) => writeFileSync(path.join(directory, file), config);
+  put('nginx.conf', 'http { include /etc/nginx/shared.conf; }');
+  put('shared.conf', 'include "policy.conf";');
+  put('policy.conf', 'proxy_hide_header Strict-Transport-Security; # shared policy');
+  assert.doesNotThrow(() => assertNoDevelopmentHsts(directory));
+
+  put('shared.conf', 'include "policy.conf"; include hsts.conf;');
+  put('hsts.conf', 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;');
+  assert.throws(() => assertNoDevelopmentHsts(directory), /HSTS policy in development: hsts\.conf/);
+
+  put('shared.conf', 'include policy.conf;');
+  put('policy.conf', 'include missing.conf;');
+  assert.throws(() => assertNoDevelopmentHsts(directory), /Missing nginx include: missing\.conf/);
+
+  put('policy.conf', 'include shared.conf;');
+  assert.throws(() => assertNoDevelopmentHsts(directory), /nginx include cycle: nginx\.conf -> shared\.conf -> policy\.conf -> shared\.conf/);
 });
 
 describe('Compose publishes only the Ingress', () => {
   for (const file of ['docker-compose.yml', 'docker-compose.prod.yml']) {
-    test(`${file} publishes no frontend, backend or 443 port`, () => {
+    test(`${file} publishes only the expected Ingress ports`, () => {
       const { services } = parse(readFileSync(path.join(repo, file), 'utf8'));
       assert.equal(services.frontend.ports, undefined, 'frontend');
       assert.equal(services.backend.ports, undefined, 'backend');
-      assert.deepEqual(services.nginx.ports, ['80:80']);
+      assert.deepEqual(services.nginx.ports, file === 'docker-compose.yml' ? ['80:80'] : ['80:80', '443:443']);
     });
   }
 });

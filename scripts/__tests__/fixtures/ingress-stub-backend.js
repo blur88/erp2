@@ -26,6 +26,7 @@ const helmetHeaders = {
 
 http
   .createServer((req, res) => {
+    console.log(req.url);
     const origin = req.headers.origin;
     const headers = { ...helmetHeaders, 'X-Backend': 'stub' };
 

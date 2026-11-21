@@ -24,5 +24,5 @@ shellcheck_path="$install_dir/$shellcheck_member"
 
 "$install_dir/actionlint" -shellcheck "$shellcheck_path"
 
-git ls-files -z -- setup.sh deploy.sh ':(glob)scripts/**/*.sh' ':(glob)backend/scripts/**/*.sh' |
+git ls-files -z -- setup.sh deploy.sh ':(glob)scripts/**/*.sh' ':(glob)backend/scripts/**/*.sh' ':(glob)nginx/**/*.sh' |
   xargs -0 -r "$shellcheck_path" -x -P SCRIPTDIR --

@@ -230,10 +230,22 @@ services:
     image: blur88/erp2:latest-nginx
     container_name: erp_nginx
     restart: unless-stopped
-    # The only published entry point. Nothing listens on 443 (HTTPS is out of
-    # scope for now), so it is not published.
+    command: ["nginx", "-c", "/etc/nginx/nginx-https.conf", "-g", "daemon off;"]
+    environment:
+      ERP_PUBLIC_HOST: ${ERP_PUBLIC_HOST:?Set ERP_PUBLIC_HOST to the canonical DNS hostname}
+      NGINX_ENVSUBST_TEMPLATE_DIR: /etc/nginx/production-templates
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx/runtime
+      NGINX_ENVSUBST_FILTER: '^ERP_PUBLIC_HOST$'
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - type: bind
+        source: ${TLS_DIR:-/etc/erp2/tls}
+        target: /etc/nginx/tls
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       frontend:
         condition: service_healthy
@@ -261,6 +273,7 @@ services:
     tmpfs:
       - /var/cache/nginx:size=10M
       - /var/run:size=1M
+      - /etc/nginx/runtime:size=1M
     logging:
       driver: "json-file"
       options:
