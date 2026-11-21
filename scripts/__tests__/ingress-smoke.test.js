@@ -23,7 +23,6 @@ const SECURITY = {
   'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Content-Security-Policy': "default-src 'self'",
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
 };
 
 // `faults` is a Set of names; each one breaks exactly one assertion.
@@ -34,8 +33,11 @@ function startStub(faults) {
     const headers = [];
     const add = (name, value) => headers.push([name, value]);
     for (const [name, value] of Object.entries(SECURITY)) {
-      if (has('missing-hsts') && url.startsWith('/api/nope') && name === 'Strict-Transport-Security') continue;
+      if (has('missing-csp') && url.startsWith('/api/nope') && name === 'Content-Security-Policy') continue;
       add(name, value);
+    }
+    if (has('http-hsts') && url.startsWith('/api/nope')) {
+      add('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }
     if (has('duplicate-xfo') && url === '/api/health') add('X-Frame-Options', 'DENY');
     if (has('deny-xfo')) headers.splice(headers.findIndex(([n]) => n === 'X-Frame-Options'), 1, ['X-Frame-Options', 'DENY']);
@@ -150,7 +152,8 @@ describe('scripts/ingress-smoke.sh', () => {
     ['app-down', 'port 80 serves the app', /FAIL.*serves the app/],
     ['api-down', 'port 80 serves the API', /FAIL.*serves the API/],
     ['duplicate-xfo', 'a security header sent twice', /FAIL.*X-Frame-Options/],
-    ['missing-hsts', 'a security header missing on an error response', /FAIL.*Strict-Transport-Security/],
+    ['missing-csp', 'a shared security header missing on an error response', /FAIL.*Content-Security-Policy/],
+    ['http-hsts', 'HSTS present on an HTTP error response', /FAIL.*Strict-Transport-Security/],
     ['deny-xfo', 'X-Frame-Options other than SAMEORIGIN', /FAIL.*X-Frame-Options/],
     ['mutable-asset', 'a hashed asset that is not immutable', /FAIL.*immutable/],
     ['immutable-shell', 'an immutable app shell', /FAIL.*immutable/],

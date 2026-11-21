@@ -4,7 +4,8 @@
 #
 #   - port 80 serves the app and the API
 #   - 3000, 3001, 8080 and 443 refuse connections
-#   - exactly one copy of each agreed security header, X-Frame-Options SAMEORIGIN
+#   - exactly one copy of each shared security header, X-Frame-Options SAMEORIGIN
+#   - no Strict-Transport-Security over HTTP
 #   - `immutable` caching on a real hashed asset referenced by the built HTML,
 #     and none on the app shell or on a missing asset
 #   - exactly one Access-Control-Allow-Origin, with the expected value, on the
@@ -34,7 +35,6 @@ SECURITY_HEADERS=(
   X-XSS-Protection
   Referrer-Policy
   Content-Security-Policy
-  Strict-Transport-Security
 )
 
 work=$(mktemp -d)
@@ -131,7 +131,7 @@ for port in $REFUSED_PORTS; do
   fi
 done
 
-# --- 3. Security headers: exactly one copy each -----------------------------
+# --- 3. Security headers and HSTS absence -----------------------------------
 # A real hashed asset, as referenced by the built HTML.
 asset=$(grep -oE '(src|href)="/assets/[^"]+"' "$work/root.body" | head -n 1 | sed -E 's/^[a-z]+="//; s/"$//')
 if [ -n "$asset" ]; then
@@ -157,6 +157,11 @@ for target in root:"the app shell (/)" spa:"an SPA route (/dashboard)" asset:"th
       assert_one_header "$name" "$header" "security header on $what"
     fi
   done
+  if [ "$(header_count "$name" Strict-Transport-Security)" = 0 ]; then
+    pass "no Strict-Transport-Security on $what"
+  else
+    fail "$what: HTTP response includes Strict-Transport-Security"
+  fi
 done
 
 # --- 4. Caching --------------------------------------------------------------

@@ -8,7 +8,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const path = require('node:path');
-const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, chmodSync } = require('node:fs');
+const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, chmodSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { parse } = require('yaml');
@@ -26,7 +26,6 @@ const POLICY = {
   'x-content-type-options': 'nosniff',
   'x-xss-protection': '1; mode=block',
   'referrer-policy': 'strict-origin-when-cross-origin',
-  'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
   'content-security-policy':
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:;",
 };
@@ -60,6 +59,7 @@ function request(port, { method = 'GET', url = '/', headers = {} } = {}) {
 }
 
 function assertPolicy(res, label) {
+  assert.deepEqual(res.all('strict-transport-security'), [], `${label}: HTTP must omit HSTS`);
   for (const [name, value] of Object.entries(POLICY)) {
     assert.equal(res.one(name), value, `${label}: ${name}`);
   }
@@ -298,13 +298,28 @@ test('every location that declares an add_header includes the security-header po
   const conf = readFileSync(path.join(repo, 'nginx/nginx.conf'), 'utf8').replace(/#.*$/gm, '');
   assert.match(conf, /server\s*\{[^]*?include \/etc\/nginx\/security-headers\.conf;/, 'server scope includes the policy');
 
-  const locations = [...conf.matchAll(/location\s+[^{]+\{([^{}]*)\}/g)].map(m => m[1]);
+  const configs = readdirSync(path.join(repo, 'nginx'))
+    .filter(file => file.endsWith('.conf'))
+    .map(file => readFileSync(path.join(repo, 'nginx', file), 'utf8').replace(/#.*$/gm, ''));
+  const locations = configs.flatMap(config =>
+    [...config.matchAll(/location\s+[^{]+\{([^{}]*)\}/g)].map(match => match[1]),
+  );
   assert.ok(locations.length > 0, 'found no locations to check');
   for (const body of locations) {
     if (/add_header|proxy_hide_header/.test(body)) {
       assert.match(body, /include \/etc\/nginx\/security-headers\.conf;/, `location is missing the policy:\n${body}`);
     }
   }
+});
+
+test('the HTTPS-only HSTS policy sets a one-year max age with subdomains', () => {
+  const conf = readFileSync(path.join(repo, 'nginx/hsts.conf'), 'utf8').replace(/#.*$/gm, '').trim();
+  assert.equal(conf, 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;');
+});
+
+test('the development Ingress does not include the HTTPS-only HSTS policy', () => {
+  const conf = readFileSync(path.join(repo, 'nginx/nginx.conf'), 'utf8').replace(/#.*$/gm, '');
+  assert.doesNotMatch(conf, /\binclude\s+[^;]*\bhsts\.conf\s*;/);
 });
 
 describe('Compose publishes only the Ingress', () => {
