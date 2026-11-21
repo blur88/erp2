@@ -14,7 +14,7 @@
 3. Choose local or CI execution for each required full suite before starting it.
    When CI covers the full suite on the current head, use targeted local checks
    as needed and follow the single-watcher guidance under [Wait for a result](#wait-for-a-result).
-   For full-stack evidence, use the required Compose deployment and Ingress
+   For full-stack evidence, use the Compose deployment and Ingress
    smoke steps in [CI](../../.github/workflows/ci.yml) when those steps ran and
    passed on the current PR head. Skip a complete local stack run whose sole
    purpose would be to duplicate that evidence.
@@ -22,20 +22,23 @@
 
 ## Before running local Docker verification
 
-1. Check free disk space on the filesystems used by Docker and the build.
-   For a substantial build, run `df -h /`. Compare the stack's configured
-   published ports with host listeners and running containers to catch conflicts
-   before bringing the stack up.
+1. Check free space on the filesystems that hold Docker data and build caches.
+   For a substantial build, include the root filesystem with `df -h /`.
+   Compare the stack's configured published ports with host listeners and
+   running containers before bringing the stack up.
 2. If less than about 5 GB is free, inspect `docker system df` and relevant
-   caches, such as the npm cache, before starting the build. Use the existing
-   [maintenance procedure](../../maintain.sh) when cleanup is appropriate.
-   On a shared development host or while other builds may be using the cache,
-   leave pruning to coordinated maintenance.
-3. If a local Compose check fails, save its exit status and capture the
-   relevant service logs from the same Compose project before teardown. Keep
-   the original verification exit status through log collection and cleanup.
-   Report remaining evidence gaps, including checks blocked by insufficient
-   disk space, using the [review evidence guidance](../../CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews).
+   caches, such as the npm cache, before starting the build. Keep pruning out
+   of automated verification. On a shared host, arrange cleanup with the host
+   owner and confirm other builds are finished before pruning. The Docker
+   option in [maintain.sh](../../maintain.sh) prunes, rebuilds, and starts the
+   stack. Use it only when all three actions are appropriate, then repeat the
+   disk and port checks before verification.
+3. If a local Compose check fails, capture the relevant service logs from the
+   same Compose project before teardown. Follow [Wait for a result](#wait-for-a-result)
+   to preserve the original verification exit status through cleanup.
+
+Report remaining evidence gaps using the [review evidence guidance](../../CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews),
+including checks blocked by insufficient disk space during preflight or execution.
 
 ## Wait for a result
 

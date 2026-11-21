@@ -3,6 +3,7 @@
 ## Workflow Entry Points
 
 - Before implementation, follow [Commit & Pull Request Guidelines](#commit--pull-request-guidelines).
+- When landing a ticket on an integration branch before a PR is open, follow [Integration ticket evidence](CODING_STANDARDS.md#integration-ticket-evidence).
 - Before updating dependencies or reviewing manifest/lockfile changes, read [Dependency updates](docs/agents/dependency-updates.md).
 - Before editing agent-facing documentation, read [CODING_STANDARDS.md](CODING_STANDARDS.md).
 - Before checking private registry tags, follow [Private tag inspection](docs/adr/0001-two-docker-repositories.md#private-tag-inspection).
@@ -46,7 +47,7 @@ Primary language is TypeScript.
 ## Change-Scoped Verification (Required Before PR)
 This section is the single source of truth for pre-PR verification. Select checks from the files touched; combine applicable rows and run each command only once. When the Ingress row applies, its Docker-required release command also satisfies any plain `npm run test:release` requirement.
 
-Before starting or waiting on long-running local verification or PR checks, read [Verification waits](docs/agents/verification-waits.md).
+Before starting local Docker-backed verification, read [Docker verification preflight](docs/agents/verification-waits.md#before-running-local-docker-verification). Before starting or waiting on long-running local verification or PR checks, read [Verification waits](docs/agents/verification-waits.md).
 
 | Files changed | Required commands (from repository root) |
 |---|---|

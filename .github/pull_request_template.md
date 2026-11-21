@@ -8,6 +8,8 @@ Closes #
 
 ## Verification
 
+[Integration PR evidence instructions](../CODING_STANDARDS.md#integration-ticket-evidence)
+
 <!-- Select applicable commands from AGENTS.md's Change-Scoped Verification section.
 For CI evidence:
 1. Identify the current PR head: gh pr view --json headRefOid
