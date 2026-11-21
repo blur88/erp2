@@ -11,5 +11,5 @@ echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $install
 tar -xzf "$install_dir/actionlint.tar.gz" -C "$install_dir" actionlint
 "$install_dir/actionlint" -shellcheck "$(command -v shellcheck)"
 
-git ls-files -z -- ':(glob)scripts/**/*.sh' ':(glob)backend/scripts/**/*.sh' |
+git ls-files -z -- setup.sh deploy.sh ':(glob)scripts/**/*.sh' ':(glob)backend/scripts/**/*.sh' |
   xargs -0 -r shellcheck -x -P SCRIPTDIR --

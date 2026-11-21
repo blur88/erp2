@@ -25,7 +25,7 @@ NC='\033[0m' # No Color
 
 # Development stack: base + the local override (ports, debug logging).
 # setup.sh owns the production stack and pins docker-compose.prod.yml.
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.override.yml"
+COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.override.yml)
 
 # Function to print colored output
 print_status() {
@@ -93,13 +93,13 @@ deploy_services() {
     print_status "Building and starting services..."
     
     # Pull latest images
-    docker compose $COMPOSE_FILES pull --ignore-buildable
+    docker compose "${COMPOSE_FILES[@]}" pull --ignore-buildable
     
     # Build custom images
-    docker compose $COMPOSE_FILES build --no-cache
+    docker compose "${COMPOSE_FILES[@]}" build --no-cache
     
     # Start services
-    docker compose $COMPOSE_FILES up -d
+    docker compose "${COMPOSE_FILES[@]}" up -d
     
     print_success "Services started successfully"
 }
@@ -124,7 +124,7 @@ wait_for_url() {
     done
 
     print_error "$url did not return HTTP 200 within ${READY_TIMEOUT}s (last status: ${code:-none})"
-    docker compose $COMPOSE_FILES ps
+    docker compose "${COMPOSE_FILES[@]}" ps
     exit 1
 }
 
@@ -134,13 +134,13 @@ wait_for_services() {
     
     # Wait for PostgreSQL
     print_status "Waiting for PostgreSQL..."
-    until docker compose $COMPOSE_FILES exec postgres pg_isready -U erp_user; do
+    until docker compose "${COMPOSE_FILES[@]}" exec postgres pg_isready -U erp_user; do
         sleep 2
     done
     
     # Wait for Redis
     print_status "Waiting for Redis..."
-    until docker compose $COMPOSE_FILES exec redis redis-cli ping; do
+    until docker compose "${COMPOSE_FILES[@]}" exec redis redis-cli ping; do
         sleep 2
     done
     
@@ -156,7 +156,7 @@ wait_for_services() {
 # Display service status
 show_status() {
     print_status "Service Status:"
-    docker compose $COMPOSE_FILES ps
+    docker compose "${COMPOSE_FILES[@]}" ps
     
     echo ""
     print_success "🎉 ERP System deployed successfully!"
@@ -181,7 +181,7 @@ show_status() {
 # Cleanup function for errors
 cleanup_on_error() {
     print_error "Deployment failed. Cleaning up..."
-    docker compose $COMPOSE_FILES down
+    docker compose "${COMPOSE_FILES[@]}" down
     exit 1
 }
 
@@ -210,29 +210,29 @@ case "${1:-deploy}" in
         ;;
     "stop")
         print_status "Stopping ERP System..."
-        docker compose $COMPOSE_FILES down
+        docker compose "${COMPOSE_FILES[@]}" down
         print_success "ERP System stopped"
         ;;
     "restart")
         print_status "Restarting ERP System..."
-        docker compose $COMPOSE_FILES restart
+        docker compose "${COMPOSE_FILES[@]}" restart
         print_success "ERP System restarted"
         ;;
     "logs")
-        docker compose $COMPOSE_FILES logs -f
+        docker compose "${COMPOSE_FILES[@]}" logs -f
         ;;
     "clean")
         print_warning "This will remove all containers, networks, and volumes!"
         read -p "Are you sure? (y/N): " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            docker compose $COMPOSE_FILES down -v --remove-orphans
+            docker compose "${COMPOSE_FILES[@]}" down -v --remove-orphans
             docker system prune -f
             print_success "Cleanup completed"
         fi
         ;;
     "status")
-        docker compose $COMPOSE_FILES ps
+        docker compose "${COMPOSE_FILES[@]}" ps
         ;;
     *)
         echo "Usage: $0 {deploy|stop|restart|logs|clean|status}"

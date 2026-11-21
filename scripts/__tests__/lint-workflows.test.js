@@ -61,16 +61,16 @@ test('successful lint passes with ShellCheck enabled', t => {
   assert.match(result.stdout, /ShellCheck enabled/);
 });
 
-test('standalone lint checks tracked shell scripts in both script trees', t => {
+test('standalone lint checks tracked deploy scripts and both script trees', t => {
   const f = fixture(t);
-  const trackedScripts = ['scripts/root.sh', 'backend/scripts/lib/pg transport.sh'];
-  const paths = [...trackedScripts, 'scripts/untracked.sh', 'scripts/notes.txt', 'other/outside.sh'];
-  for (const file of paths) {
+  const trackedScripts = ['setup.sh', 'deploy.sh', 'scripts/root.sh', 'backend/scripts/lib/pg transport.sh'];
+  const trackedPaths = [...trackedScripts, 'scripts/notes.txt', 'other/outside.sh', 'outside.sh'];
+  for (const file of [...trackedPaths, 'scripts/untracked.sh']) {
     const target = path.join(f.dir, file);
     mkdirSync(path.dirname(target), { recursive: true });
     writeFileSync(target, '#!/bin/bash\n');
   }
-  for (const args of [['init', '--template='], ['add', '-f', '--', ...trackedScripts, 'scripts/notes.txt', 'other/outside.sh']]) {
+  for (const args of [['init', '--template='], ['add', '-f', '--', ...trackedPaths]]) {
     const result = spawnSync('git', args, { cwd: f.dir, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
   }
