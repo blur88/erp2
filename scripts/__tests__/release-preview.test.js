@@ -94,3 +94,73 @@ test(`Release preview replays the published history at ${historySnapshot.slice(0
     });
   }
 });
+
+test('Release preview classifies commit headers with and without a breaking footer', async t => {
+  const repo = mkdtempSync(join(tmpdir(), 'erp2-release-classification-'));
+  t.after(() => rmSync(repo, { recursive: true, force: true }));
+  const git = gitAt(repo);
+  git('init', '--quiet');
+  git('config', 'user.name', 'Release Test');
+  git('config', 'user.email', 'release@example.test');
+  git('config', 'commit.gpgsign', 'false');
+  git('commit', '--quiet', '--allow-empty', '-m', 'Initial commit');
+  git('tag', 'v1.0.0');
+
+  const { releasePreview } = await import('../release-preview/preview.mjs');
+  const cases = [
+    ['feat: example', 'minor', 'major'],
+    ['fix: example', 'patch', 'major'],
+    ['perf: example', 'patch', 'major'],
+    ['docs: example', null, 'major'],
+    ['chore: example', 'patch', 'major'],
+    ['style: example', 'patch', 'major'],
+    ['refactor: example', 'patch', 'major'],
+    ['test: example', null, 'major'],
+    ['ci: example', null, 'major'],
+    ['build: example', null, 'major'],
+    ['revert: example', null, 'major'],
+    ['An untyped header', null, 'major'],
+  ];
+
+  for (const [header, plainType, breakingType] of cases) {
+    for (const [footer, expectedType] of [['', plainType], ['BREAKING CHANGE: update configuration', breakingType]]) {
+      await t.test(`${header} (${footer ? 'with' : 'without'} footer)`, async () => {
+        git('checkout', '--quiet', '--detach', 'v1.0.0');
+        git('commit', '--quiet', '--allow-empty', '-m', header, ...(footer ? ['-m', footer] : []));
+        const preview = await releasePreview({
+          cwd: repo,
+          head: git('rev-parse', 'HEAD'),
+          configDirectory: cwd,
+          repositoryUrl: 'https://github.com/blur88/erp2.git',
+        });
+        assert.equal(preview.type, expectedType);
+      });
+    }
+  }
+});
+
+test('Release preview with current rules changes only v1.171.4 to 2.0.0', async () => {
+  const requiredTags = new Set(releases.flatMap(({ tag, previousTag }) => [tag, previousTag]));
+  const tags = replayTags(cwd, historySnapshot, requiredTags);
+  const { releasePreview } = await import('../release-preview/preview.mjs');
+
+  const changedVersions = [];
+  let matchedVersions = 0;
+  for (const { tag, commit, version, previousTag } of releases) {
+    const preview = await releasePreview({
+      cwd,
+      head: commit,
+      visibleTags: new Set(tags.slice(0, tags.indexOf(tag))),
+      repositoryUrl: 'https://github.com/blur88/erp2.git',
+    });
+    assert.equal(preview.lastRelease, previousTag, `${tag} previous release`);
+    if (preview.version === version) {
+      matchedVersions++;
+    } else {
+      changedVersions.push({ tag, version: preview.version });
+    }
+  }
+
+  assert.deepEqual(changedVersions, [{ tag: 'v1.171.4', version: '2.0.0' }]);
+  assert.equal(matchedVersions, 28);
+});

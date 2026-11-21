@@ -6,6 +6,20 @@ const config = require('../../release.config.cjs');
 const notesPlugin = config.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === '@semantic-release/release-notes-generator');
 const { finalizeContext, transform } = notesPlugin[1].writerOpts;
 
+test('the breaking rule precedes the existing release rules', () => {
+  const [, { releaseRules }] = config.plugins.find(
+    plugin => Array.isArray(plugin) && plugin[0] === '@semantic-release/commit-analyzer'
+  );
+
+  assert.deepEqual(releaseRules, [
+    { breaking: true, release: 'major' },
+    { type: 'chore', scope: 'release', release: false },
+    { type: 'chore', release: 'patch' },
+    { type: 'style', release: 'patch' },
+    { type: 'refactor', release: 'patch' },
+  ]);
+});
+
 function makeCommit(type, scope, subject) {
   const scope_ = scope ? `(${scope})` : '';
   return {

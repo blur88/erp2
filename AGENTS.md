@@ -89,6 +89,16 @@ A valid topic branch is a non-default branch for the current work that follows t
 Git history follows Conventional Commit style:
 - Examples: `feat(accounting): ...`, `fix(accounting): ...`, `test(price-lists): ...`, `chore: ...`.
 
+Use a `BREAKING CHANGE:` footer as the only breaking-change marker. Put it on the commit that introduces the break. It triggers a major release for every commit type.
+
+A `type!:` or `type(scope)!:` header by itself triggers no release and is omitted from release notes. The Breaking Change Check will reject either form even with a footer.
+
+```text
+feat(accounting): require an explicit fiscal year
+
+BREAKING CHANGE: API callers must supply the fiscal year when creating an accounting period.
+```
+
 Commit messages and PR bodies must not contain AI attribution lines.
 
 When closing a PR without merging, follow [Closing a PR without merging](docs/agents/issue-tracker.md#closing-a-pr-without-merging).
