@@ -317,6 +317,11 @@ test('the HTTPS-only HSTS policy sets a one-year max age with subdomains', () =>
   assert.equal(conf, 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;');
 });
 
+test('the development Ingress does not include the HTTPS-only HSTS policy', () => {
+  const conf = readFileSync(path.join(repo, 'nginx/nginx.conf'), 'utf8').replace(/#.*$/gm, '');
+  assert.doesNotMatch(conf, /\binclude\s+[^;]*\bhsts\.conf\s*;/);
+});
+
 describe('Compose publishes only the Ingress', () => {
   for (const file of ['docker-compose.yml', 'docker-compose.prod.yml']) {
     test(`${file} publishes no frontend, backend or 443 port`, () => {
