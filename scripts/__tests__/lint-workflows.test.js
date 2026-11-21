@@ -9,13 +9,21 @@ function fixture(t, { verifyChecksum = false } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'lint-workflows-test-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const command = (name, body) => writeFileSync(path.join(dir, name), `#!/bin/bash\n${body}\n`, { mode: 0o755 });
-  command('shellcheck', 'exit 0');
+  command('uname', 'case "$1" in -s) echo Linux;; -m) echo "${TEST_ARCH:-x86_64}";; esac');
+  command('shellcheck', 'echo "unexpected PATH ShellCheck" >&2\nexit 98');
+  command('pinned-shellcheck', 'exit 0');
   command('curl', 'exit "${CURL_STATUS:-0}"');
   if (!verifyChecksum) {
-    command('sha256sum', 'cat >/dev/null\nexit 0');
+    command('sha256sum', 'read -r digest archive\ncase "$archive" in */shellcheck.tar.gz) exit "${SHELLCHECK_CHECKSUM_STATUS:-0}";; esac');
   }
-  command('tar', 'touch "$TAR_CALLED"\ncp "$FAKE_ACTIONLINT" "$4/actionlint"');
-  command('fake-actionlint', 'test "$1" = -shellcheck && test "$2" = "$EXPECTED_SHELLCHECK" || exit 99\necho "ShellCheck enabled"\nexit "${LINT_STATUS:-0}"');
+  command('tar', [
+    'case "$5" in',
+    '  actionlint) touch "$TAR_CALLED"; cp "$FIXTURE_BIN/fake-actionlint" "$4/actionlint";;',
+    '  shellcheck-v0.11.0/shellcheck) touch "$FIXTURE_BIN/shellcheck-extracted"; mkdir -p "$4/shellcheck-v0.11.0"; cp "$FIXTURE_BIN/pinned-shellcheck" "$4/$5";;',
+    '  *) exit 97;;',
+    'esac',
+  ].join('\n'));
+  command('fake-actionlint', 'test "$1" = -shellcheck && test "$2" = "${0%/*}/shellcheck-v0.11.0/shellcheck" || exit 99\necho "ShellCheck enabled"\nexit "${LINT_STATUS:-0}"');
   return {
     dir, command,
     run(env = {}, cwd = path.resolve(__dirname, '../..')) {
@@ -24,8 +32,7 @@ function fixture(t, { verifyChecksum = false } = {}) {
         env: {
           ...process.env, PATH: `${dir}:${process.env.PATH}`,
           TAR_CALLED: path.join(dir, 'tar-called'),
-          FAKE_ACTIONLINT: path.join(dir, 'fake-actionlint'),
-          EXPECTED_SHELLCHECK: path.join(dir, 'shellcheck'), ...env,
+          FIXTURE_BIN: dir, ...env,
         },
       });
     },
@@ -45,6 +52,21 @@ test('checksum mismatch fails lint before extracting or executing the archive', 
   const result = f.run();
   assert.notEqual(result.status, 0);
   assert.equal(existsSync(path.join(f.dir, 'tar-called')), false);
+});
+
+test('a ShellCheck checksum failure stops extraction and lint', t => {
+  const f = fixture(t);
+  const result = f.run({ SHELLCHECK_CHECKSUM_STATUS: '1' });
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.equal(existsSync(path.join(f.dir, 'shellcheck-extracted')), false);
+  assert.doesNotMatch(result.stdout, /ShellCheck enabled/);
+});
+
+test('unsupported platforms fail with a platform diagnostic', t => {
+  const f = fixture(t);
+  const result = f.run({ TEST_ARCH: 'aarch64' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /unsupported platform.*Linux\/aarch64/i);
 });
 
 test('lint explicitly enables ShellCheck and propagates actionlint failures', t => {
@@ -74,7 +96,7 @@ test('standalone lint checks tracked deploy scripts and both script trees', t =>
     const result = spawnSync('git', args, { cwd: f.dir, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
   }
-  f.command('shellcheck', 'for arg; do\n  case "$arg" in *.sh) printf "%s\\n" "$arg";; esac\ndone');
+  f.command('pinned-shellcheck', 'for arg; do\n  case "$arg" in *.sh) printf "%s\\n" "$arg";; esac\ndone');
 
   const result = f.run({}, f.dir);
 
@@ -84,7 +106,7 @@ test('standalone lint checks tracked deploy scripts and both script trees', t =>
 
 test('a standalone ShellCheck finding fails lint even when actionlint passes', t => {
   const f = fixture(t);
-  f.command('shellcheck', 'echo "standalone lint finding" >&2\nexit 1');
+  f.command('pinned-shellcheck', 'echo "standalone lint finding" >&2\nexit 1');
 
   const result = f.run();
 

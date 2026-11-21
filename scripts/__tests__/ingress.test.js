@@ -3,7 +3,7 @@
 // Runs the real Ingress image (built from ./nginx) and the real Frontend
 // server config (frontend/nginx.conf) in Docker, in front of a stub backend
 // that sends Helmet- and CORS-shaped headers (fixtures/ingress-stub-backend.js).
-// Skipped when Docker is not reachable.
+// Docker is optional unless INGRESS_REQUIRE_DOCKER=1.
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
@@ -19,6 +19,7 @@ const NODE_IMAGE = 'node:24.15.0-alpine3.23';
 
 const docker = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
 const dockerAvailable = docker('info', '--format', '{{.ServerVersion}}').status === 0;
+const requireDocker = process.env.INGRESS_REQUIRE_DOCKER === '1';
 
 // The Ingress policy: every response, every location.
 const POLICY = {
@@ -121,8 +122,9 @@ async function startStack(label) {
   return { ingress, frontend };
 }
 
-describe('Ingress as the only entry point', { skip: !dockerAvailable && 'docker is not available' }, () => {
+describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAvailable && 'docker is not available' }, () => {
   before(() => {
+    assert.ok(dockerAvailable, 'Docker is required for the Ingress suite. Start Docker and check that docker info succeeds.');
     workdir = mkdtempSync(path.join(tmpdir(), 'ingress-'));
     const html = path.join(workdir, 'html');
     mkdirSync(path.join(html, 'assets'), { recursive: true });
