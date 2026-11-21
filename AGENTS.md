@@ -76,6 +76,8 @@ For dependency changes, decide E2E applicability from the behavior affected and 
 
 Completed successful CI evidence from the matching job on the current PR commit may satisfy the corresponding applicable commands, including production-image jobs that execute the full backend build, CLI compile, and distribution verification sequence. In the `Backend - Lint, Type Check, Unit Tests, E2E Tests` job defined in [ci.yml](.github/workflows/ci.yml), the matching steps are `Lint GitHub Actions workflows`, `Release validation`, and `Gate script tests` for workflow lint, release tests, and backend script tests respectively; consult that workflow for current step names and commands. Evidence from older commits, incomplete runs, or unrelated checks does not satisfy verification requirements. PRs must record exact commands, actual results and CI links where used, including E2E as passed in CI when it succeeds on the current PR commit, plus checks not run and why. Use the [PR template](.github/pull_request_template.md) to collect current-head evidence.
 
+For development full-stack deployment evidence, check `Compose smoke - ./deploy.sh (first run)`, `Compose smoke - ./deploy.sh (second run, same stack and bind mounts)`, and `Ingress smoke test` in the `Frontend - Lint, Type Check, Tests` job. The smoke steps run conditionally. Confirm all three ran and passed on the reviewed PR head before using them as evidence. [Compose and Ingress smoke steps](.github/workflows/ci.yml#L613-L667)
+
 For post-merge validation on the default branch, follow the manual dispatch guidance in [the CI workflow's trigger comments](.github/workflows/ci.yml). Merging does not trigger a CI run on `main`.
 
 ## Commit & Pull Request Guidelines
@@ -93,7 +95,7 @@ When closing a PR without merging, follow [Closing a PR without merging](docs/ag
 
 Use the [PR template](.github/pull_request_template.md) for the summary, related issue, verification evidence, screenshots and migration/environment notes.
 
-When merging a PR from its local topic branch, follow [Merge and branch cleanup](docs/agents/merge-and-branch-cleanup.md) through checkout and branch cleanup.
+Before marking a draft PR ready or merging, check the release boundary in [Merge and branch cleanup](docs/agents/merge-and-branch-cleanup.md) and follow its checkout and cleanup procedure when merging.
 
 ## Security & Configuration Tips
 - Never commit real secrets; copy from `.env.example`.
