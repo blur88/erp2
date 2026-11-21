@@ -41,6 +41,6 @@ PR head SHA (when citing CI):
 
 <!-- Include migration or environment changes when applicable, or state none. -->
 
-Before marking a draft PR ready for review, follow the [release-boundary check](../docs/agents/merge-and-branch-cleanup.md#before-marking-ready-or-merging).
+Before marking a draft PR ready for review, follow the [release-boundary check](https://github.com/blur88/erp2/blob/main/docs/agents/merge-and-branch-cleanup.md#before-marking-ready-or-merging).
 
 A PR with required checks still running stays in draft until results are in. A PR marked ready for review must not describe required verification as "in progress".
