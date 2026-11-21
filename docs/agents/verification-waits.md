@@ -14,7 +14,28 @@
 3. Choose local or CI execution for each required full suite before starting it.
    When CI covers the full suite on the current head, use targeted local checks
    as needed and follow the single-watcher guidance under [Wait for a result](#wait-for-a-result).
+   For full-stack evidence, use the required Compose deployment and Ingress
+   smoke steps in [CI](../../.github/workflows/ci.yml) when those steps ran and
+   passed on the current PR head. Skip a complete local stack run whose sole
+   purpose would be to duplicate that evidence.
 4. Choose a wait for the remaining work and state any useful expectation once.
+
+## Before running local Docker verification
+
+1. Check free disk space on the filesystems used by Docker and the build.
+   For a substantial build, run `df -h /`. Compare the stack's configured
+   published ports with host listeners and running containers to catch conflicts
+   before bringing the stack up.
+2. If less than about 5 GB is free, inspect `docker system df` and relevant
+   caches, such as the npm cache, before starting the build. Use the existing
+   [maintenance procedure](../../maintain.sh) when cleanup is appropriate.
+   On a shared development host or while other builds may be using the cache,
+   leave pruning to coordinated maintenance.
+3. If a local Compose check fails, save its exit status and capture the
+   relevant service logs from the same Compose project before teardown. Keep
+   the original verification exit status through log collection and cleanup.
+   Report remaining evidence gaps, including checks blocked by insufficient
+   disk space, using the [review evidence guidance](../../CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews).
 
 ## Wait for a result
 

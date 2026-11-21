@@ -8,7 +8,10 @@
 
 ## Acceptance-criterion evidence in reviews
 
-- Before assessment, collect the PR URL, reviewed head SHA, and applicable verification commands with their actual results and evidence links. For work without a PR, use the reviewed commit and available local results.
+- When ticket implementation lands on an integration branch before a PR is open, record the implementation SHA, exact verification commands, exit statuses, results, and evidence links in a comment on the relevant ticket.
+- Before assessment begins, give each reviewer assignment the reviewed SHA, PR URL when available, exact verification commands, exit statuses, results, and accessible log paths or CI links. Include any remaining evidence gaps.
+- Report an earlier successful run and a rerun blocked by insufficient disk space (`ENOSPC`) or another environmental failure as separate results. Verify that the earlier evidence applies to the reviewed commit and the acceptance criteria it supports. Mark the blocked run **Unverified** and treat the environmental failure as a verification gap.
+- Link the ticket evidence comments from the final integration PR. Use the comments as historical evidence and rerun the applicable integrated checks on the final head before claiming complete verification. Follow [Change-Scoped Verification](AGENTS.md#change-scoped-verification-required-before-pr) for qualifying current-head results.
 - Review every applicable acceptance criterion individually. For each criterion, distinguish **Implemented** (the relevant implementation exists), **Demonstrated** (the required behavior is supported by valid execution or test evidence), and **Unverified** (evidence is missing, incomplete, stale, or insufficient). An implemented criterion may still lack the evidence required to demonstrate it.
 - Cite concrete evidence for each criterion, such as source locations, test results, CI links, or reproducible commands.
 - A PR-body probe can demonstrate observed behavior, but required regression coverage stays **Unverified** until a committed spec passes on the reviewed head.
