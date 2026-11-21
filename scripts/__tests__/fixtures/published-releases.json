@@ -1,0 +1,288 @@
+{
+  "historySnapshot": "87527002a6c5d9a0906741f0f5294b7fdd368f26",
+  "releases": [
+    {
+      "tag": "v1.171.4",
+      "commit": "1fd4fd0920c4f22ddd62f33494a07e2eaa4802b8",
+      "mergeCommit": "8536a4b6fa3187a4efdd3b1e1c0fa30ee572e3e0",
+      "version": "1.171.4",
+      "previousTag": "v1.171.3"
+    },
+    {
+      "tag": "v2.0.0",
+      "commit": "c64187328bdb8a625b263e7d15567b2ad79fe8ee",
+      "mergeCommit": "1763b6d64837a09e7419d8deaa62f8dbfa845439",
+      "version": "2.0.0",
+      "previousTag": "v1.171.6"
+    },
+    {
+      "tag": "v3.0.0",
+      "commit": "cd4e303efef99732536271657543536cbf8e9448",
+      "mergeCommit": "9ab09b08f3096b4df4cf9308ee226a2c6347a26c",
+      "version": "3.0.0",
+      "previousTag": "v2.58.0"
+    },
+    {
+      "tag": "v3.16.1",
+      "commit": "96bb0742146225dfc30331cf5567e2e9de968f37",
+      "mergeCommit": "6667dc5d77d567de6260c0dfca8c38486ed1ba73",
+      "version": "3.16.1",
+      "previousTag": "v3.16.0",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.16.2",
+      "commit": "aef4e9f995353fcb702fbdeb7004de79856690fc",
+      "mergeCommit": "92d3d036bca6ec1604b453a7c45c23bc864303bf",
+      "version": "3.16.2",
+      "previousTag": "v3.16.1",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.0",
+      "commit": "0723355dbed81bef215eb438fb091a16177891e5",
+      "mergeCommit": "2e0b26bafadceba435176bc8da5c4456a01257a1",
+      "version": "3.17.0",
+      "previousTag": "v3.16.2",
+      "headings": [
+        "### Bug Fixes",
+        "### Features"
+      ]
+    },
+    {
+      "tag": "v3.17.1",
+      "commit": "b3679503ccf8b9f97e539c5d6c5d1dc1b292ec01",
+      "mergeCommit": "b3679503ccf8b9f97e539c5d6c5d1dc1b292ec01",
+      "version": "3.17.1",
+      "previousTag": "v3.17.0",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.2",
+      "commit": "75274cbea6c99a5491c17b9fdba9c157da8814a3",
+      "mergeCommit": "75274cbea6c99a5491c17b9fdba9c157da8814a3",
+      "version": "3.17.2",
+      "previousTag": "v3.17.1",
+      "headings": [
+        "### Internal Changes"
+      ]
+    },
+    {
+      "tag": "v3.17.3",
+      "commit": "a955674d51b3059983e4fa61360a6ddf96792cdd",
+      "mergeCommit": "a955674d51b3059983e4fa61360a6ddf96792cdd",
+      "version": "3.17.3",
+      "previousTag": "v3.17.2",
+      "headings": [
+        "### Internal Changes"
+      ]
+    },
+    {
+      "tag": "v3.17.4",
+      "commit": "cf2efe5c744d708ca661f42065a013bee9ec5c56",
+      "mergeCommit": "cf2efe5c744d708ca661f42065a013bee9ec5c56",
+      "version": "3.17.4",
+      "previousTag": "v3.17.3",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.5",
+      "commit": "9a76cb9287e4c8a2cc3f0c6aca50c95588cc5933",
+      "mergeCommit": "9a76cb9287e4c8a2cc3f0c6aca50c95588cc5933",
+      "version": "3.17.5",
+      "previousTag": "v3.17.4",
+      "headings": [
+        "### Internal Changes"
+      ]
+    },
+    {
+      "tag": "v3.17.6",
+      "commit": "f39da53c7e84c37a9954318586b12961e0100679",
+      "mergeCommit": "f39da53c7e84c37a9954318586b12961e0100679",
+      "version": "3.17.6",
+      "previousTag": "v3.17.5",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.7",
+      "commit": "665ec12e7adb1ca30624e4d4ce20bf41531f6edb",
+      "mergeCommit": "665ec12e7adb1ca30624e4d4ce20bf41531f6edb",
+      "version": "3.17.7",
+      "previousTag": "v3.17.6",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.8",
+      "commit": "30ba6306975941f830bbaf78e267af932953bc21",
+      "mergeCommit": "30ba6306975941f830bbaf78e267af932953bc21",
+      "version": "3.17.8",
+      "previousTag": "v3.17.7",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.9",
+      "commit": "9bc5e9d681eef754173241e914ec1c65885cc6e8",
+      "mergeCommit": "9bc5e9d681eef754173241e914ec1c65885cc6e8",
+      "version": "3.17.9",
+      "previousTag": "v3.17.8",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.10",
+      "commit": "274ca5c1f8e5722045f9262039d4b6c9764ad3ed",
+      "mergeCommit": "274ca5c1f8e5722045f9262039d4b6c9764ad3ed",
+      "version": "3.17.10",
+      "previousTag": "v3.17.9",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.11",
+      "commit": "d8f733ed2b5ddd79aa5b6503b44b607232122d00",
+      "mergeCommit": "d8f733ed2b5ddd79aa5b6503b44b607232122d00",
+      "version": "3.17.11",
+      "previousTag": "v3.17.10",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.12",
+      "commit": "ced6a70e2a8b947ba4424a01a5dcf8d71c9350e5",
+      "mergeCommit": "ced6a70e2a8b947ba4424a01a5dcf8d71c9350e5",
+      "version": "3.17.12",
+      "previousTag": "v3.17.11",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.13",
+      "commit": "b2ef6fbb84466414cb461670d4433cee1bd41700",
+      "mergeCommit": "b2ef6fbb84466414cb461670d4433cee1bd41700",
+      "version": "3.17.13",
+      "previousTag": "v3.17.12",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.14",
+      "commit": "2e8298e1c888f7ff15da286d029e21366b35fa9e",
+      "mergeCommit": "2e8298e1c888f7ff15da286d029e21366b35fa9e",
+      "version": "3.17.14",
+      "previousTag": "v3.17.13",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.15",
+      "commit": "96fea2e80b3681cc8b1e90c3d1013ce3deb6b863",
+      "mergeCommit": "96fea2e80b3681cc8b1e90c3d1013ce3deb6b863",
+      "version": "3.17.15",
+      "previousTag": "v3.17.14",
+      "headings": [
+        "### Internal Changes"
+      ]
+    },
+    {
+      "tag": "v3.17.16",
+      "commit": "776ee5c3e01e2cc2593ae403c82283b7bbb9fbc3",
+      "mergeCommit": "776ee5c3e01e2cc2593ae403c82283b7bbb9fbc3",
+      "version": "3.17.16",
+      "previousTag": "v3.17.15",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.17",
+      "commit": "51235685edb73df8b6b0b52c8d7d34c16231647d",
+      "mergeCommit": "51235685edb73df8b6b0b52c8d7d34c16231647d",
+      "version": "3.17.17",
+      "previousTag": "v3.17.16",
+      "headings": [
+        "### Internal Changes"
+      ]
+    },
+    {
+      "tag": "v3.17.18",
+      "commit": "1263292f4c6f5fee1fc265bbe3fbc041f1330532",
+      "mergeCommit": "1263292f4c6f5fee1fc265bbe3fbc041f1330532",
+      "version": "3.17.18",
+      "previousTag": "v3.17.17",
+      "headings": [
+        "### Internal Changes"
+      ]
+    },
+    {
+      "tag": "v3.17.19",
+      "commit": "d79df345cb93f2efc32ba03a43eb381d5e22212f",
+      "mergeCommit": "d79df345cb93f2efc32ba03a43eb381d5e22212f",
+      "version": "3.17.19",
+      "previousTag": "v3.17.18",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.20",
+      "commit": "110c9e778116c1c1ee30cdf52a82556391e0fcd9",
+      "mergeCommit": "110c9e778116c1c1ee30cdf52a82556391e0fcd9",
+      "version": "3.17.20",
+      "previousTag": "v3.17.19",
+      "headings": [
+        "### Bug Fixes"
+      ]
+    },
+    {
+      "tag": "v3.17.21",
+      "commit": "8359bb64a1305be86291d263e4af18403eb091d5",
+      "mergeCommit": "8359bb64a1305be86291d263e4af18403eb091d5",
+      "version": "3.17.21",
+      "previousTag": "v3.17.20",
+      "headings": [
+        "### Internal Changes"
+      ]
+    },
+    {
+      "tag": "v3.18.0",
+      "commit": "2ab285d893a9a7deefc22950f1f67e2806fc1a3d",
+      "mergeCommit": "2ab285d893a9a7deefc22950f1f67e2806fc1a3d",
+      "version": "3.18.0",
+      "previousTag": "v3.17.21",
+      "headings": [
+        "### Bug Fixes",
+        "### Features"
+      ]
+    },
+    {
+      "tag": "v3.19.0",
+      "commit": "87527002a6c5d9a0906741f0f5294b7fdd368f26",
+      "mergeCommit": "87527002a6c5d9a0906741f0f5294b7fdd368f26",
+      "version": "3.19.0",
+      "previousTag": "v3.18.0",
+      "headings": [
+        "### Features"
+      ]
+    }
+  ]
+}
