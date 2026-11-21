@@ -1,3 +1,4 @@
+// Issue #1999 guards against bringing back the separate npm install --no-save step.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
