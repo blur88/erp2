@@ -110,6 +110,7 @@ module.exports = {
       '@semantic-release/commit-analyzer',
       {
         releaseRules: [
+          { breaking: true, release: 'major' },
           { type: 'chore', scope: 'release', release: false },
           { type: 'chore', release: 'patch' },
           { type: 'style', release: 'patch' },
