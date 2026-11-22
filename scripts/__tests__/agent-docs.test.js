@@ -28,5 +28,9 @@ test('CLAUDE.md documents the focused Ingress command; AGENTS.md keeps the full 
   const claude = read('CLAUDE.md');
   assert.match(claude, /INGRESS_REQUIRE_DOCKER=1 node --test scripts\/__tests__\/ingress\.test\.js/);
   assert.match(claude, /--test-name-pattern=<name>/);
-  assert.match(read('AGENTS.md'), /INGRESS_REQUIRE_DOCKER=1 npm run test:release/);
+  const gateRow = read('AGENTS.md')
+    .split('\n')
+    .find((line) => line.includes('INGRESS_REQUIRE_DOCKER=1 npm run test:release'));
+  assert.ok(gateRow, 'AGENTS.md must keep the full Ingress release gate');
+  assert.match(gateRow, /bash scripts\/lint-workflows\.sh/);
 });
