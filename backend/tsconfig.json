@@ -1,3 +1,13 @@
+// Three roles (#2030):
+// 1. Shared base that tsconfig.build.json, tsconfig.spec.json and
+//    tsconfig.cli.json extend. Each of those sets its own `include`.
+// 2. The runtime config ts-node loads for admin:create and
+//    backup:reconcile-schedulers, so `module` must stay CommonJS.
+// 3. Editor project for src/. test/tsconfig.json covers test/ with the ESM
+//    settings Jest uses.
+// `include` matches tsconfig.build.json's file set, so `npm run
+// type-check:build` validates this program; test/unit/tsconfig-roles.spec.ts
+// enforces that.
 {
   "compilerOptions": {
     "module": "commonjs",
@@ -29,6 +39,7 @@
       "@database/*": ["./src/database/*"]
     }
   },
+  "include": ["src"],
   "exclude": [
     "src/modules/reports/**/*"
   ]
