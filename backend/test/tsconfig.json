@@ -1,0 +1,7 @@
+// Editor entry point for test/ (#2030). Editors use the nearest tsconfig.json;
+// without this file test sources would get the CommonJS root config and show
+// TS1343 on every `import.meta`. This resolves to exactly the tsconfig.spec.json
+// program that Jest and `npm run type-check:spec` use (test/unit/tsconfig-roles.spec.ts).
+{
+  "extends": "../tsconfig.spec.json"
+}

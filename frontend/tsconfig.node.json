@@ -1,10 +1,18 @@
 {
+  // Build-time config sources (#2030): vite.config.ts and the module it imports.
+  // Checked by `npm run type-check`. Composite because tsconfig.json references
+  // it, which is how editors find a project for vite.config.ts. A referenced
+  // project may not disable emit, so the `.ts` import extension is allowed via
+  // emitDeclarationOnly, with output kept out of the source tree.
   "compilerOptions": {
     "composite": true,
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./node_modules/.tmp/tsconfig.node",
     "allowSyntheticDefaultImports": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "src/config/app-version.ts"]
 }

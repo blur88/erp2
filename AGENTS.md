@@ -55,7 +55,7 @@ Before starting or waiting on long-running local verification or PR checks, read
 | Published-image settings (tags, attestations, build-args in `.github/workflows/release.yml`) | Add or update a targeted assertion under `scripts/__tests__/`, covered by `npm run test:release` |
 | Backend scripts (`backend/scripts/**`) | `cd backend && npm run test:scripts` (Bats) |
 | Backend source (`backend/src/**`) | `cd backend && npm run lint && npm run type-check && npm run test` |
-| Backend test sources (`backend/test/**`) | `cd backend && npm run type-check:spec`; run `cd backend && npm run test` for unit-test changes and `cd backend && npm run test:e2e` for e2e-test changes |
+| Backend test sources (`backend/test/**`) | `cd backend && npm run type-check`; run `cd backend && npm run test` for unit-test changes and `cd backend && npm run test:e2e` for e2e-test changes |
 | Backend entities or migrations | Backend source checks, plus `cd backend && npm run migration:run && npm run test:e2e` |
 | Frontend source (`frontend/src/**`) | `cd frontend && npm run lint && npm run type-check && npm run test:coverage` |
 | Dependency manifests or lockfiles (`package.json` / `package-lock.json` at root, `backend/`, or `frontend/`) | Apply the source checks above for each affected app and combine the applicable dependency rows below. |
@@ -65,7 +65,7 @@ Before starting or waiting on long-running local verification or PR checks, read
 | BullMQ or ioredis dependency changes, including changed resolved versions in lockfiles | `cd backend && npm run test:redis` |
 | Cross-app contracts (API DTOs/interfaces used by both apps) | `cd backend && npm run type-check && npm run test`; `cd frontend && npm run test:coverage`; also apply source checks for each app touched |
 
-Backend `type-check` compiles `tsconfig.build.json` with `include: ["src"]`; it cannot see `test/**`. `type-check:spec` checks `test/**` and additionally `src/**` under the test TypeScript configuration. Unit-test transpilation does not replace either applicable type-check.
+Backend `npm run type-check` compiles both production sources (`type-check:build`, `tsconfig.build.json`) and test sources (`type-check:spec`, `tsconfig.spec.json`). Frontend `npm run type-check` compiles both the app (`tsconfig.json`) and the build-time config sources (`tsconfig.node.json`). Unit-test transpilation does not replace type-checking.
 
 Frontend `npm run test:coverage` executes the complete test suite with coverage instrumentation, satisfying both frontend `test` and `test:coverage` requirements in one run. A successful full-suite `test:coverage` CI run on the PR's current head commit satisfies both requirements; do not repeat the same suite locally solely for documentation or review.
 

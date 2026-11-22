@@ -41,7 +41,9 @@
     "src/**/__tests__/**",
     "src/setupTests.ts",
     "src/test/**",
-    "src/mocks/**"
+    "src/mocks/**",
+    // Build-time config source owned by tsconfig.node.json (#2030).
+    "src/config/app-version.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

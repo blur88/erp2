@@ -146,15 +146,17 @@ jobs:
       # Runs against tsconfig.build.json — the config `nest build` uses — so this
       # gate mirrors the build that would otherwise catch it. Placed before the
       # tests to report a type error in seconds rather than after the suite.
+      # `npm run type-check` locally runs this step and the next one together;
+      # CI calls them separately so each failure is named and nothing compiles
+      # twice (#2030).
       - name: Type check
-        run: npm run type-check
+        run: npm run type-check:build
 
-      # tsconfig.build.json's `include: ["src"]` excludes test/ entirely, so no
-      # other gate compiles the test sources and nine errors accumulated there
-      # unnoticed (#1262). This runs tsconfig.spec.json — ts-jest's own
-      # transform config — which covers test/** and additionally re-checks
-      # src/** under the test TypeScript configuration (esnext module,
-      # bundler resolution, isolatedModules).
+      # tsconfig.build.json's `include: ["src"]` excludes test/ entirely (#1262).
+      # This runs tsconfig.spec.json — ts-jest's own transform config — which
+      # covers test/** and additionally re-checks src/** under the test
+      # TypeScript configuration (esnext module, bundler resolution,
+      # isolatedModules).
       - name: Type check (test sources)
         run: npm run type-check:spec
 
