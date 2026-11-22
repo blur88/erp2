@@ -17,6 +17,7 @@ const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync
 const { tmpdir } = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { parse } = require('yaml');
+const { loadIntermediateProfile, nginxProfileProblems, directiveValues } = require('./fixtures/tls-profile');
 
 const repo = path.resolve(__dirname, '../..');
 const NGINX_IMAGE = 'nginx:1.30.0-alpine3.23-slim';
@@ -193,13 +194,14 @@ function createTestCertificate(directory) {
     '-CAcreateserial', '-days', '1', '-extfile', 'server.ext', '-out', 'fullchain.pem');
 }
 
-// Mozilla Intermediate profile, guidelines 6.0 (ssl-config.mozilla.org/guidelines/6.0.json).
-const INTERMEDIATE_TLS12_CIPHERS = [
-  'ECDHE-ECDSA-AES128-GCM-SHA256', 'ECDHE-RSA-AES128-GCM-SHA256',
-  'ECDHE-ECDSA-AES256-GCM-SHA384', 'ECDHE-RSA-AES256-GCM-SHA384',
-  'ECDHE-ECDSA-CHACHA20-POLY1305', 'ECDHE-RSA-CHACHA20-POLY1305',
-];
-const INTERMEDIATE_CURVES = 'X25519MLKEM768:X25519:prime256v1:secp384r1';
+// Expected values come from the pinned Mozilla Intermediate guidelines 6.0
+// fixture (fixtures/mozilla-tls-guidelines-6.0.provenance.json records its
+// source and checksum), never from memory. nginx/tls-intermediate.conf is
+// hand-written; the tests below inspect it and the running Ingress against
+// these values (#2016).
+const PROFILE = loadIntermediateProfile();
+// The test certificate is RSA, so only the RSA suites can complete a handshake.
+const RSA_TLS12_CIPHERS = PROFILE.tls12Ciphers.filter(name => name.startsWith('ECDHE-RSA-'));
 
 // OpenSSL 3 refuses TLS 1.0 and 1.1 at the default security level, so a client
 // has to lower it to offer them.
@@ -537,22 +539,21 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
       nginxConfig = dump.stdout.replace(/#.*$/gm, '');
     });
 
-    for (const version of ['TLSv1.2', 'TLSv1.3']) {
+    for (const version of PROFILE.tlsVersions) {
       test(`${version} handshakes succeed with certificate verification`, async () => {
         const socket = await tlsConnect(stack.secure, { ...tls, ...pinned(version) });
         try {
           assert.equal(socket.authorized, true, String(socket.authorizationError));
           assert.equal(socket.getProtocol(), version);
-          if (version === 'TLSv1.2') {
-            assert.ok(INTERMEDIATE_TLS12_CIPHERS.includes(socket.getCipher().name), socket.getCipher().name);
-          }
+          const suites = version === 'TLSv1.2' ? PROFILE.tls12Ciphers : PROFILE.tls13CipherSuites;
+          assert.ok(suites.includes(socket.getCipher().name), socket.getCipher().name);
         } finally {
           socket.destroy();
         }
       });
     }
 
-    for (const version of ['TLSv1', 'TLSv1.1']) {
+    for (const version of ['TLSv1', 'TLSv1.1'].filter(name => !PROFILE.tlsVersions.includes(name))) {
       test(`${version} is refused by nginx with a protocol_version alert, for a client shown to offer it`, async () => {
         const legacy = { ...tls, ...pinned(version, { ciphers: LEGACY_TLS_CIPHERS }) };
         const clientVersion = (record) => record.readUInt16BE(9);
@@ -586,6 +587,18 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
       });
     }
 
+    for (const cipher of RSA_TLS12_CIPHERS) {
+      test(`TLS 1.2 negotiates ${cipher} when it is the only suite the client offers`, async () => {
+        const socket = await tlsConnect(stack.secure, { ...tls, ...pinned('TLSv1.2', { ciphers: cipher }) });
+        try {
+          assert.equal(socket.authorized, true, String(socket.authorizationError));
+          assert.equal(socket.getCipher().name, cipher);
+        } finally {
+          socket.destroy();
+        }
+      });
+    }
+
     test('TLS 1.2 cipher suites outside the Intermediate profile are refused, DHE and RSA key exchange included', async () => {
       for (const ciphers of ['AES128-SHA', 'DHE-RSA-AES128-GCM-SHA256']) {
         const weak = { ...tls, maxVersion: 'TLSv1.2', ciphers };
@@ -599,8 +612,8 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
     });
 
     test('key exchange groups follow the profile, including the X25519MLKEM768 hybrid', async () => {
-      assert.match(nginxConfig, new RegExp(`^\\s*ssl_ecdh_curve ${INTERMEDIATE_CURVES};`, 'm'));
-      for (const ecdhCurve of INTERMEDIATE_CURVES.split(':')) {
+      assert.deepEqual(directiveValues(nginxConfig, 'ssl_ecdh_curve'), [PROFILE.curves.join(':')]);
+      for (const ecdhCurve of PROFILE.curves) {
         const socket = await tlsConnect(stack.secure, { ...tls, ...pinned('TLSv1.3', { ecdhCurve }) });
         assert.equal(socket.authorized, true, ecdhCurve);
         // Node reports no name for the hybrid group. It was the only group
@@ -672,10 +685,8 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
       resumed.destroy();
     });
 
-    test('the profile is TLS 1.2 and 1.3 only, with HTTP/2 and no OCSP stapling', () => {
-      assert.match(nginxConfig, /^\s*ssl_protocols TLSv1\.2 TLSv1\.3;/m);
-      assert.match(nginxConfig, /^\s*ssl_prefer_server_ciphers off;/m);
-      assert.match(nginxConfig, new RegExp(`^\\s*ssl_ciphers ${INTERMEDIATE_TLS12_CIPHERS.join(':')};`, 'm'));
+    test('the running config states the pinned profile, with HTTP/2 and no OCSP stapling', () => {
+      assert.deepEqual(nginxProfileProblems(nginxConfig, PROFILE), []);
       assert.equal((nginxConfig.match(/^\s*http2 on;/gm) ?? []).length, 2, 'both :443 servers');
       assert.doesNotMatch(nginxConfig, /ssl_stapling\s+on/);
     });

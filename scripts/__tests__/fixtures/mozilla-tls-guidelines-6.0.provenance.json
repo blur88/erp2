@@ -1,0 +1,26 @@
+{
+  "fixture": "mozilla-tls-guidelines-6.0.json",
+  "description": "Verbatim copy of the Mozilla server-side TLS guidelines, version 6.0, as published by TLSref. Never edit the fixture by hand: refresh it from the source URL and update this file in the same commit.",
+  "sourceUrl": "https://data.tlsref.org/guidelines/6.0.json",
+  "version": 6,
+  "retrievedOn": "2026-11-22",
+  "sha256": "d687ec847524adbba61d46be40182f6cafdd72d8d3720a53b6dfb982acb5c228",
+  "reproduce": "curl -fsS https://data.tlsref.org/guidelines/6.0.json | sha256sum",
+  "mirror": {
+    "url": "https://ssl-config.mozilla.org/guidelines/6.0.json",
+    "note": "Serves the same guidelines version. On 2026-11-22 its configurations.intermediate object was identical to the fixture's; only the document's own href and its formatting differed, so its checksum differs."
+  },
+  "profile": "intermediate",
+  "selectedFields": {
+    "ciphers.openssl": "Expected TLS 1.2 OpenSSL cipher list (ssl_ciphers).",
+    "ciphersuites": "Expected TLS 1.3 cipher suites. nginx keeps the OpenSSL default, so only the handshake is checked.",
+    "tls_versions": "Expected protocol versions (ssl_protocols).",
+    "tls_curves": "Expected key exchange groups (ssl_ecdh_curve).",
+    "server_preferred_order": "Expected ssl_prefer_server_ciphers."
+  },
+  "intentionalDeviations": {
+    "hsts_min_age": "ADR 0004 sends max-age=31536000; includeSubDomains, not the guideline's 63072000.",
+    "ocsp_staple": "ADR 0004 does not staple: Let's Encrypt stopped running OCSP responders in 2025."
+  },
+  "unselectedFields": "Every other field (certificate_*, dh_param_size, ecdh_param_size, rsa_key_size, oldest_clients, lifespans, ciphers.iana) describes certificates, clients or the DHE parameters of suites the profile does not enable, and the Ingress does not enforce it."
+}
