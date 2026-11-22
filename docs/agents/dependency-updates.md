@@ -31,7 +31,9 @@
    Account for every changed resolution and keep unrelated churn out of the
    update. Resolve unexpected changes before continuing. From the repository root,
    run `node scripts/report-lockfile-changes.cjs staged` immediately before each
-   commit and check the staged resolutions again. The process that rewrote the lockfiles
+   commit and check the staged resolutions again. The report lists
+   semantic-version downgrades first as `DOWNGRADED` and does not fail on
+   them. The process that rewrote the lockfiles
    around 01:10 (+0800) on 2026-11-20 remains unidentified.
 
    For a security fix that changes a dependency resolution, verify each affected
