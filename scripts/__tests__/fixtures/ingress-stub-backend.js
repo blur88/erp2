@@ -30,9 +30,13 @@ const helmetHeaders = {
 // text frames under 126 bytes, which is all the test sends.
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
-function sendText(socket, text) {
+function textFrame(text) {
   const payload = Buffer.from(text);
-  socket.write(Buffer.concat([Buffer.from([0x81, payload.length]), payload]));
+  return Buffer.concat([Buffer.from([0x81, payload.length]), payload]);
+}
+
+function sendText(socket, text) {
+  socket.write(textFrame(text));
 }
 
 // Split a buffer into complete masked client text frames, so frames that
@@ -59,20 +63,24 @@ function onUpgrade(req, socket, head) {
   }
   console.log(req.url);
   const accept = crypto.createHash('sha1').update(req.headers['sec-websocket-key'] + WS_GUID).digest('base64');
-  socket.write([
-    'HTTP/1.1 101 Switching Protocols',
-    'Upgrade: websocket',
-    'Connection: Upgrade',
-    `Sec-WebSocket-Accept: ${accept}`,
-    '', '',
-  ].join('\r\n'));
-  sendText(socket, '0' + JSON.stringify({ sid: 'stub-eio', upgrades: [], pingInterval: 25000, pingTimeout: 20000 }));
-  let pending = head;
-  socket.on('data', chunk => {
+  // One write for the 101 response and the Engine.IO open frame, so the client
+  // can receive both in a single read (the open frame then arrives as `head`).
+  socket.write(Buffer.concat([
+    Buffer.from([
+      'HTTP/1.1 101 Switching Protocols',
+      'Upgrade: websocket',
+      'Connection: Upgrade',
+      `Sec-WebSocket-Accept: ${accept}`,
+      '', '',
+    ].join('\r\n')),
+    textFrame('0' + JSON.stringify({ sid: 'stub-eio', upgrades: [], pingInterval: 25000, pingTimeout: 20000 })),
+  ]));
+  let pending = Buffer.alloc(0);
+  const onBytes = chunk => {
     const { texts, rest } = readClientFrames(Buffer.concat([pending, chunk]));
     pending = rest;
     for (const text of texts) handleText(text);
-  });
+  };
   const handleText = text => {
     if (text === null) return socket.end();
     if (text === '40') sendText(socket, '40{"sid":"stub-sio"}');
@@ -82,6 +90,8 @@ function onUpgrade(req, socket, head) {
       sendText(socket, `42["echo",{"proto":"${req.headers['x-forwarded-proto']}","host":"${req.headers.host}"}]`);
     }
   };
+  socket.on('data', onBytes);
+  if (head.length) onBytes(head);
   socket.on('error', () => {});
 }
 

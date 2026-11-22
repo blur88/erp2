@@ -616,7 +616,7 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
         assert.equal(socket.getEphemeralKeyInfo().name, 'secp521r1');
         socket.destroy();
       });
-      await assert.rejects(tlsConnect(stack.secure, outside), /handshake failure|alert/i);
+      await assert.rejects(tlsConnect(stack.secure, outside), /alert handshake failure/i);
     });
 
     test('ALPN negotiates h2, and HTTP/1.1 clients still get http/1.1', async () => {
