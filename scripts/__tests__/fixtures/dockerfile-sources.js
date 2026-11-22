@@ -14,8 +14,9 @@
 //     file, and they are reported in `broad` so the test can pin the known set.
 //     An ignored-but-present file under a broad copy (the #1975 failure class)
 //     is NOT detected there.
-//   - `RUN --mount=type=bind` (without `from=`), `ADD <git url>`, and anything a
-//     RUN step reads from the context at build time are not modelled.
+//   - `RUN --mount=type=bind` (without `from=`), `ADD <git url>`, `ONBUILD COPY`,
+//     and anything a RUN step reads from the context at build time are not
+//     modelled.
 //   - Sources containing `$VAR`/`${VAR}` cannot be resolved statically and are
 //     reported as problems rather than skipped (fail closed).
 //   - Wildcards use Go filepath.Match rules plus `**`, the same dialect as
@@ -126,9 +127,9 @@ function parseCopyOperands(rest) {
   const flags = {};
   let body = rest;
   for (;;) {
-    const m = /^--([A-Za-z-]+)(?:=(\S*))?\s*/.exec(body);
+    const m = /^--([A-Za-z-]+)(?:=("[^"]*"|'[^']*'|\S*))?\s*/.exec(body);
     if (!m) break;
-    flags[m[1].toLowerCase()] = m[2] === undefined ? true : m[2];
+    flags[m[1].toLowerCase()] = m[2] === undefined ? true : m[2].replace(/^(["'])(.*)\1$/, '$2');
     body = body.slice(m[0].length);
   }
   let words;
@@ -225,10 +226,11 @@ function dockerignoreMatch(patterns, file) {
 
 // --- Git ---------------------------------------------------------------------
 
+// Hooks export GIT_DIR/GIT_INDEX_FILE; a fixture repo must not inherit them.
+const cleanGitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
+
 function git(repoRoot, args) {
-  // Hooks export GIT_DIR/GIT_INDEX_FILE; a fixture repo must not inherit them.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
-  const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8', env, maxBuffer: 256 * 1024 * 1024 });
+  const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8', env: cleanGitEnv(), maxBuffer: 256 * 1024 * 1024 });
   if (result.error) throw result.error;
   return result;
 }
@@ -241,7 +243,8 @@ function gitList(repoRoot, args, contextRel) {
 }
 
 function ignoredBy(repoRoot, repoRelativePath) {
-  const result = git(repoRoot, ['check-ignore', '-v', '--', repoRelativePath]);
+  // --no-index: a clean checkout has no such file, and the rule still applies.
+  const result = git(repoRoot, ['check-ignore', '-v', '--no-index', '--', repoRelativePath]);
   const m = result.status === 0 ? /^(.*?):(\d+):(.*?)\t/.exec(result.stdout) : null;
   return m ? `${m[1]}:${m[2]} \`${m[3]}\`` : null;
 }
@@ -283,14 +286,17 @@ function checkDockerfile({ repoRoot, dockerfile, context = posix.dirname(dockerf
   const repoPath = file => (context === '.' ? file : posix.join(context, file));
 
   // Why a source has no tracked match, in terms of what a clean checkout lacks.
-  const explainUntracked = matches => {
+  const explainUntracked = (matches, target) => {
     const ignored = matches.filter(file => !untrackedVisible.has(file));
     if (ignored.length) {
       const rule = ignoredBy(repoRoot, repoPath(ignored[0]));
       return `${ignored.map(repoPath).join(', ')} exist${ignored.length === 1 ? 's' : ''} in the working tree but ${ignored.length === 1 ? 'is' : 'are'} ignored by ${rule || '.gitignore'}, so a clean checkout will not contain ${ignored.length === 1 ? 'it' : 'them'}`;
     }
     if (matches.length) return `${matches.map(repoPath).join(', ')} exist${matches.length === 1 ? 's' : ''} in the working tree but ${matches.length === 1 ? 'was' : 'were'} never added to Git, so a clean checkout will not contain ${matches.length === 1 ? 'it' : 'them'}`;
-    return 'it does not exist in the build context';
+    const rule = target && !hasWildcard(target) ? ignoredBy(repoRoot, repoPath(target)) : null;
+    return rule
+      ? `it does not exist in the build context (a clean checkout never has it: ${repoPath(target)} would be ignored by ${rule})`
+      : 'it does not exist in the build context';
   };
 
   for (const instruction of instructions) {
@@ -332,7 +338,7 @@ function checkDockerfile({ repoRoot, dockerfile, context = posix.dirname(dockerf
             fail(instruction, raw, `matches only tracked files that are ${by ? explainExcluded(by) : 'excluded by the .dockerignore'}`);
           } else {
             const others = untracked.filter(file => regexp.test(file));
-            fail(instruction, raw, `matches no tracked file: ${explainUntracked(others)}`);
+            fail(instruction, raw, `matches no tracked file: ${explainUntracked(others, target)}`);
           }
           continue;
         }
@@ -363,7 +369,7 @@ function checkDockerfile({ repoRoot, dockerfile, context = posix.dirname(dockerf
       }
 
       const others = untracked.filter(file => file === target || file.startsWith(`${target}/`));
-      fail(instruction, raw, `is not tracked in Git: ${explainUntracked(others)}`);
+      fail(instruction, raw, `is not tracked in Git: ${explainUntracked(others, target)}`);
     }
   }
   return result;
@@ -374,5 +380,5 @@ const formatProblem = ({ dockerfile, line, source, reason }) =>
 
 module.exports = {
   parseInstructions, parseCopyOperands, parseDockerignore, dockerignoreMatch, patternToRegExp,
-  checkDockerfile, formatProblem,
+  checkDockerfile, formatProblem, cleanGitEnv,
 };

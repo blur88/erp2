@@ -11,7 +11,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const YAML = require('yaml');
 const {
-  parseInstructions, parseCopyOperands, parseDockerignore, dockerignoreMatch, checkDockerfile, formatProblem,
+  parseInstructions, parseCopyOperands, parseDockerignore, dockerignoreMatch, checkDockerfile, formatProblem, cleanGitEnv,
 } = require('./fixtures/dockerfile-sources');
 
 const repo = path.resolve(__dirname, '../..');
@@ -30,8 +30,7 @@ const IMAGES = [
 const KNOWN_BROAD_COPIES = ['backend/Dockerfile: .', 'frontend/Dockerfile: .'];
 
 function sh(cwd, command, args) {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
-  const result = spawnSync(command, args, { cwd, encoding: 'utf8', env });
+  const result = spawnSync(command, args, { cwd, encoding: 'utf8', env: cleanGitEnv() });
   assert.ifError(result.error);
   assert.equal(result.status, 0, `${command} ${args.join(' ')}: ${result.stderr}`);
 }
@@ -76,6 +75,12 @@ describe('Dockerfile parsing', () => {
   test('reads the JSON array form, including a source with a space', () => {
     assert.deepEqual(parseCopyOperands('["my file.txt", "b.txt", "/dest/"]').words, ['my file.txt', 'b.txt', '/dest/']);
     assert.match(parseCopyOperands('["a.txt", ').error, /JSON/);
+  });
+
+  test('keeps a quoted flag value with a space inside the flag', () => {
+    const { flags, words } = parseCopyOperands('--chown="a b" a.conf /x/');
+    assert.equal(flags.chown, 'a b');
+    assert.deepEqual(words, ['a.conf', '/x/']);
   });
 
   test('keeps a quoted shell-form source together', () => {
@@ -162,6 +167,16 @@ describe('local COPY sources must be tracked', () => {
     assert.equal(problem.source, 'new.conf');
     assert.match(problem.reason, /^is not tracked in Git: nginx\/new\.conf exists in the working tree but was never added to Git/);
     assert.doesNotMatch(problem.reason, /ignored by/);
+  });
+
+  test('in a clean checkout, where the ignored file is absent, the reason still names the ignore rule', t => {
+    const root = fixtureRepo(t, {
+      '.gitignore': '*.pem\n',
+      'nginx/Dockerfile': 'FROM scratch\nCOPY dhparam-ffdhe2048.pem /etc/nginx/\n',
+    });
+    const [problem] = check(root).problems;
+    assert.match(problem.reason, /does not exist in the build context/);
+    assert.match(problem.reason, /nginx\/dhparam-ffdhe2048\.pem would be ignored by \.gitignore:1 `\*\.pem`/);
   });
 
   test('a file that does not exist fails', t => {
