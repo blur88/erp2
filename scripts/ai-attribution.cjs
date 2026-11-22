@@ -4,6 +4,7 @@
 // and its accepted and rejected forms are in docs/agents/commit-attribution.md.
 
 const maxReportedText = 100;
+const missingBodyMessage = 'The PR body is missing or inaccessible, so it cannot be checked for AI attribution.';
 
 // A trailer key that credits a contributor, so its value decides the verdict.
 const creditKey = /^(?:co[-_ ]?(?:authored|developed)|authored|assisted|generated|created|written|signed[-_ ]off|reviewed|suggested|helped)[-_ ]?by$/i;
@@ -11,13 +12,14 @@ const sessionKey = /^claude[-_ ]?session(?:[-_ ]?id)?$/i;
 
 // Names that identify an AI tool on their own, with or without an email.
 const aiName = new RegExp(`\\b(?:${[
-  'chatgpt', 'openai', 'anthropic', 'copilot', 'codex', 'aider', 'windsurf', 'codeium', 'tabnine', 'deepseek',
+  'chatgpt', 'openai', 'anthropic', 'copilot', 'codex', 'windsurf', 'amazon q', 'devin-ai-integration', 'codeium', 'tabnine', 'deepseek',
   'gpt-?\\d[\\w.-]*', 'claude[- ](?:code|opus|sonnet|haiku|fable|ai|\\d[\\w.-]*)',
   'gemini[- ](?:code|cli|ai|pro|flash|ultra|\\d[\\w.-]*)', 'cursor[- ]?agent', 'devin[- ]ai',
 ].join('|')})\\b`, 'i');
 // A single-word name is an AI tool too. A longer name such as "Claude Dupont" is a person.
-const bareAiName = /^(?:claude|gemini|chatgpt|gpt|copilot|codex|ai|llm|assistant)$/i;
-const aiEmailDomain = /@(?:[\w-]+\.)*(?:anthropic\.com|openai\.com|claude\.ai|cursor\.com|codeium\.com|windsurf\.com|aider\.chat|devin\.ai|cognition\.ai|x\.ai|deepseek\.com)(?=[>\s]|$)/i;
+const bareAiName = /^(?:claude|gemini|chatgpt|gpt|copilot|codex|aider|ai|llm|assistant)$/i;
+// A vendor domain alone is not enough: employees are people. Only a tool-style mailbox counts.
+const aiEmailDomain = /(?:^|[<\s])(?:\d+\+)?(?:no-?reply|claude|chatgpt|codex|copilot|bot|ai|assistant)[\w.+-]*@(?:[\w-]+\.)*(?:anthropic\.com|openai\.com|claude\.ai|cursor\.com|codeium\.com|windsurf\.com|aider\.chat|devin\.ai|cognition\.ai|x\.ai|deepseek\.com)(?=[>\s]|$)/i;
 const copilotEmail = /\bcopilot@users\.noreply\.github\.com\b/i;
 
 const sessionUrl = new RegExp(
@@ -27,8 +29,11 @@ const sessionUrl = new RegExp(
   ].join('|') + ')[^\\s)>\\]]+', 'i');
 
 const aiTool = '(?:claude|chatgpt|gpt-?\\d\\S*|openai|anthropic|(?:github )?copilot|codex|gemini|cursor|aider|windsurf|codeium|devin|ai|an? (?:ai|llm))';
+// The tool name must end the line apart from markdown, a link, a version or a word such as "Code",
+// so "Built with OpenAI SDK support" stays ordinary prose.
 const attributionProse = new RegExp(
-  `^(?:generated|created|authored|written|made|built|assisted|produced|co-?authored)\\s+(?:with|by|using|via)\\b.*\\b${aiTool}\\b`, 'i');
+  `^(?:generated|created|authored|written|made|built|assisted|produced|co-?authored)\\s+(?:with|by|using|via)\\s+(?:the\\s+)?[\\[*_\`]*${aiTool}`
+  + '(?:\\s*(?:code|codex|chat|assistance|assistant|agent|ai|v?\\d[\\w.]*|\\[[^\\]]*\\]|\\([^)]*\\)|[\\]*_`.!,]|\\p{Extended_Pictographic}|\\uFE0F))*\\s*$', 'iu');
 
 const invisible = /[​-‍⁠﻿]/g;
 const leadingNoise = /^(?:[\s>*_#\-\p{Extended_Pictographic}️‍]|<!--)+/u;
@@ -36,7 +41,7 @@ const scissors = /^# -{24} >8 -{24}$/;
 
 function isAiIdentity(value) {
   const name = value.replace(/<[^>]*>/g, '').replace(/["'`*_[\]()]/g, '').trim();
-  return aiEmailDomain.test(value) || copilotEmail.test(value) || aiName.test(name) || bareAiName.test(name);
+  return aiEmailDomain.test(value) || copilotEmail.test(value) || aiName.test(value.replace(/@[^>\s]*/g, '@')) || bareAiName.test(name);
 }
 
 function classify(raw) {
@@ -80,7 +85,7 @@ function findAttribution(text, { gitComments = false } = {}) {
  * data it never saw.
  */
 function attributionFailures({ body, commits }) {
-  if (typeof body !== 'string') throw new Error('The PR body is missing or inaccessible, so it cannot be checked for AI attribution.');
+  if (typeof body !== 'string') throw new Error(missingBodyMessage);
   if (!Array.isArray(commits) || commits.length === 0) {
     throw new Error('The PR commit list is missing or empty, so it cannot be checked for AI attribution.');
   }
@@ -100,4 +105,4 @@ function attributionFailures({ body, commits }) {
   return failures;
 }
 
-module.exports = { findAttribution, attributionFailures };
+module.exports = { findAttribution, attributionFailures, missingBodyMessage };

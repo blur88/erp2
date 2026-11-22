@@ -5,7 +5,7 @@ const { execFileSync } = require('node:child_process');
 const { appendFileSync } = require('node:fs');
 const { offlineGitOptions } = require('./release-preview/offline-git.cjs');
 const { validateFields } = require('./release-preview/pr-fields.cjs');
-const { attributionFailures } = require('./ai-attribution.cjs');
+const { attributionFailures, missingBodyMessage } = require('./ai-attribution.cjs');
 
 const repository = 'blur88/erp2';
 const staleMergeMessage = 'merge ref stale or unverifiable; re-run';
@@ -77,7 +77,7 @@ async function check() {
   const mainTip = fetchMainTip();
   const { head, merge } = verifyMerge(metadata, mainTip);
   if (typeof metadata.body !== 'string') {
-    throw new Error('The PR body is missing or inaccessible, so it cannot be checked for AI attribution.');
+    throw new Error(missingBodyMessage);
   }
   const breaking = validateFields(metadata.body, {
     repository,

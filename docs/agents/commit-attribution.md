@@ -6,15 +6,17 @@ Commit messages and PR bodies must not contain AI attribution. [#2017](https://g
 
 The detector is [`scripts/ai-attribution.cjs`](../../scripts/ai-attribution.cjs). It judges each line, including lines inside code fences, quotes and HTML comments.
 
-- A credit trailer (`Co-Authored-By`, `Authored-By`, `Co-Developed-By`, `Assisted-By`, `Generated-By`, `Created-By`, `Written-By`, `Signed-off-by`, `Reviewed-by`) whose value names an AI tool or uses an AI vendor email domain. Key case, spacing around the colon, quotes and a missing email do not matter.
+- A credit trailer (`Co-Authored-By`, `Assisted-By`, `Generated-By`, `Signed-off-by` and similar; the key list is `creditKey` in the detector) whose value names an AI tool or uses a tool-style mailbox (such as `noreply@`) on an AI vendor domain. A person with a vendor email address is not rejected. Key case, spacing around the colon, quotes and a missing email do not matter.
 - A `Claude-Session:` line, whatever it contains.
 - A line holding a recognized AI session URL (Claude Code, Claude, ChatGPT or Gemini conversation links).
-- A line such as `Generated with Claude Code`, `Created by ChatGPT` or `Generated with AI assistance`, with or without emoji or Markdown around it.
+- A line that is only an attribution, such as `Generated with Claude Code`, `Created by ChatGPT` or `Generated with AI assistance`, with or without emoji or Markdown around it.
 
 ## What is accepted
 
 - Human `Co-Authored-By` trailers, including a person named Claude. A bare single-word name such as `Claude` is treated as the tool.
-- Prose, inline code and links that mention AI tools or this rule, such as ``The `Co-Authored-By: Claude` trailer is rejected`` or a link to a product page. To quote an example, keep it inside a sentence rather than at the start of a line.
+- Prose, inline code and links that mention AI tools or this rule, such as ``The `Co-Authored-By: Claude` trailer is rejected``, `Built with OpenAI SDK support` or a link to a product page. To quote an example, keep it inside a sentence rather than at the start of a line.
+
+The tool list is a denylist and cannot be complete: an unlisted assistant is not caught. Add it to the detector when one appears.
 
 ## Where it is enforced
 
