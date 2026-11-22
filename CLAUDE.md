@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Before starting work, follow the [workflow entry points in AGENTS.md](AGENTS.md#workflow-entry-points).
+@AGENTS.md
 
 ## Project Overview
 
@@ -32,6 +32,10 @@ cd backend && npm run test
 # NODE_OPTIONS is required — bare `npx jest` runs without vm-based ESM and
 # every .ts file falls back to CommonJS. See the Jest ESM pointer under Gotchas.
 cd backend && NODE_OPTIONS=--experimental-vm-modules npx jest src/path/to/file.spec.ts --no-coverage
+
+# Focused Ingress test (development only; the full gate is in AGENTS.md).
+# Add --test-name-pattern=<name> to run only matching tests.
+INGRESS_REQUIRE_DOCKER=1 node --test scripts/__tests__/ingress.test.js
 
 # Run backend e2e tests
 cd backend && npm run test:e2e

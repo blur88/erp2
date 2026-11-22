@@ -8,7 +8,7 @@
 - Before editing agent-facing documentation, read [CODING_STANDARDS.md](CODING_STANDARDS.md).
 - Before the first `gh issue` or `gh pr` operation, read [the issue tracker guide](docs/agents/issue-tracker.md).
 - Before checking private registry tags, follow [Private tag inspection](docs/adr/0001-two-docker-repositories.md#private-tag-inspection).
-- Before reviewing, read [acceptance-criterion evidence guidance](CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews). When delegating a review, include this reference and the requirement to read it before assessment in every reviewer assignment.
+- Delegating or running a review, including `/code-review`: read the [review-evidence guidance](CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews) before assessment, and include that reference and the requirement to read it before assessment in every reviewer assignment.
 
 ## Project Structure & Module Organization
 This repository is a full-stack ERP monorepo.
