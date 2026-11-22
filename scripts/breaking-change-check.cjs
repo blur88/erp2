@@ -79,12 +79,19 @@ async function check() {
   if (typeof metadata.body !== 'string') {
     throw new Error(missingBodyMessage);
   }
-  const breaking = validateFields(metadata.body, {
-    repository,
-    exists: path => /^100(?:644|755) blob /.test(
-      git('--literal-pathspecs', 'ls-tree', '-z', '--full-tree', merge, '--', path)
-    ),
-  });
+  // Hold a declaration error until the attribution check has run, so one run reports both problems.
+  let breaking;
+  let declarationError;
+  try {
+    breaking = validateFields(metadata.body, {
+      repository,
+      exists: path => /^100(?:644|755) blob /.test(
+        git('--literal-pathspecs', 'ls-tree', '-z', '--full-tree', merge, '--', path)
+      ),
+    });
+  } catch (error) {
+    declarationError = error;
+  }
   const { classifyPullRequest, releasePreview } = await import('./release-preview/preview.mjs');
   const { type, commits } = await classifyPullRequest({ cwd, base: mainTip, head });
   for (const { hash, message } of commits) {
@@ -94,9 +101,11 @@ async function check() {
   }
 
   const attribution = attributionFailures({ body: metadata.body, commits });
+  const problems = declarationError ? [declarationError.message] : [];
   if (attribution.length > 0) {
-    throw new Error(`AI attribution is not allowed in commit messages or the PR body. Remove it from each place listed (amend or rewrite the commit, or edit the PR body). See docs/agents/commit-attribution.md.\n${attribution.join('\n')}`);
+    problems.push(`AI attribution is not allowed in commit messages or the PR body. Remove it from each place listed (amend or rewrite the commit, or edit the PR body). See docs/agents/commit-attribution.md.\n${attribution.join('\n')}`);
   }
+  if (problems.length > 0) throw new Error(problems.join('\n\n'));
 
   if (breaking !== (type === 'major')) {
     const details = type === 'major' ? 'yes, or remove or move the BREAKING CHANGE: footer if the PR does not introduce the break'

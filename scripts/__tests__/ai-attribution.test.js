@@ -1,7 +1,7 @@
 // Cover the AI attribution detector shared by the Breaking Change Check and the commit-msg hook (#2017).
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { findAttribution, attributionFailures } = require('../ai-attribution.cjs');
+const { findAttribution, attributionFailures, formatViolation } = require('../ai-attribution.cjs');
 
 const reasons = (text, options) => findAttribution(text, options).map(({ line, reason }) => `${line}:${reason}`);
 
@@ -26,13 +26,18 @@ test('rejects an AI Co-Authored-By trailer in every common spelling', () => {
     'Co-authored-by: Devin <devin-ai-integration[bot]@users.noreply.github.com>',
     'Co-authored-by: Amazon Q Developer <q@example.test>',
     'Co-authored-by: Aider',
+    'Co-authored-by: claude[bot] <209825114+claude[bot]@users.noreply.github.com>',
+    'Co-authored-by: claude[bot] <anyone@example.test>',
+    'Co-authored-by: Someone <209825114+claude[bot]@users.noreply.github.com>',
+    'Co-authored-by: GitHub Copilot <noreply@example.test>',
+    'Co-authored-by: OpenAI Codex <noreply@example.test>',
     'Co-Authored-By: "Claude" <noreply@anthropic.com>',
     'Co-Authored-By:Claude <noreply@anthropic.com>',
     'Co-Authored-By :  Claude <noreply@anthropic.com>',
     'Co-Authored-By: Claude',
     'Co-Authored-By: Claude <>',
     'Co-Authored-By: noreply@anthropic.com',
-    'Co-Authored-By: Cl​aude <noreply@anthropic.com>',
+    'Co-Authored-By: Cl\u200Baude <noreply@anthropic.com>',
     '  Co-Authored-By: Claude <noreply@anthropic.com>   ',
     '> Co-Authored-By: Claude <noreply@anthropic.com>',
     '- Co-Authored-By: Claude <noreply@anthropic.com>',
@@ -109,6 +114,9 @@ test('accepts human co-author trailers, including a human named Claude', () => {
     'Co-authored-by: Devin Patel <devin@example.test>',
     'Co-authored-by: Cursor Smith <cursor.smith@example.test>',
     'Co-authored-by: Aider Smith <aider.smith@example.test>',
+    'Co-authored-by: Sam Openai-Smith <sam@example.test>',
+    'Co-authored-by: Codex Jones <codex.jones@example.test>',
+    'Co-authored-by: Anthropic Support Team <support@example.test>',
     'Co-authored-by: Jane Doe <jane@anthropic.com>',
     'Signed-off-by: Jane Doe <jane@openai.com>',
     'Co-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>',
@@ -151,16 +159,21 @@ test('detects attribution inside code fences and HTML comments in a PR body', ()
   assert.deepEqual(reasons(body), ['3:AI co-author trailer', '5:Claude-Session line']);
 });
 
-test('skips git comment lines and everything below the scissors line only when asked', () => {
+test('keeps # lines, which git commit -m preserves, and skips only below the scissors line', () => {
   const message = [
     'fix: example', '', '# Co-Authored-By: Claude <noreply@anthropic.com>',
     'Co-Authored-By: Jane Doe <jane@example.test>',
     '# ------------------------ >8 ------------------------',
     'Co-Authored-By: Claude <noreply@anthropic.com>',
   ].join('\n');
-  assert.deepEqual(findAttribution(message, { gitComments: true }), []);
+  assert.deepEqual(reasons(message, { scissors: true }), ['3:AI co-author trailer']);
   assert.deepEqual(reasons(message), ['3:AI co-author trailer', '6:AI co-author trailer']);
-  assert.deepEqual(reasons('# Claude-Session: x', { gitComments: true }), []);
+  assert.deepEqual(reasons('# Claude-Session: x', { scissors: true }), ['1:Claude-Session line']);
+});
+
+test('formats a violation the same way for the hook and CI', () => {
+  const [violation] = findAttribution('x\nClaude-Session: abc');
+  assert.equal(formatViolation(violation), 'line 2: Claude-Session line: "Claude-Session: abc"');
 });
 
 test('truncates a very long offending line in the report', () => {

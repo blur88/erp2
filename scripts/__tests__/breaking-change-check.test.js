@@ -423,3 +423,16 @@ test('attribution in a commit does not hide behind a later release classificatio
   const { run } = fixture(t, { messages: [`chore: introduce change${footer}\n\n${claudeTrailer}`] });
   rejects(run(), /AI attribution/);
 });
+
+test('reports a malformed declaration and AI attribution in one run', t => {
+  const { run } = fixture(t, { messages: [`fix: one\n\n${claudeTrailer}`] });
+  const result = run(standardBody.replace('- Breaking change: no', '- Breaking change = no') + '\n\nClaude-Session: y');
+  rejects(result, /malformed field.*`- Breaking change: <value>`/s);
+  assert.match(result.stderr, /AI attribution is not allowed/);
+  assert.match(result.stderr, /PR body line \d+: Claude-Session line/);
+  assert.match(result.stderr, /commit [0-9a-f]{12} line 3: AI co-author trailer/);
+});
+
+test('a PR with an empty description fails with a message that says so', t => {
+  rejects(fixture(t).run(standardBody, { first: { body: null } }), /empty description as missing/);
+});

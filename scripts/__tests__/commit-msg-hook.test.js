@@ -75,16 +75,18 @@ test('the hook also guards amend and merge commits', t => {
   assert.notEqual(merge.status, 0);
 });
 
-test('git comment lines and text below the scissors line are not judged', t => {
-  const { cwd, install } = clone(t);
+test('a # line committed with -m is still judged, and text below the scissors line is not', t => {
+  const { cwd, commit, subjects, install } = clone(t);
   install();
+  assert.notEqual(commit(`fix: x\n\n# ${claude}`).status, 0);
+  assert.deepEqual(subjects(), []);
   const file = join(cwd, 'message.txt');
   const hook = join(cwd, '.githooks/commit-msg');
   const run = text => {
     writeFileSync(file, text);
     return spawnSync(hook, [file], { cwd, encoding: 'utf8' });
   };
-  assert.equal(run(`fix: x\n\n# ${claude}\n# ------------------------ >8 ------------------------\n${claude}\n`).status, 0);
+  assert.equal(run(`fix: x\n\n# ------------------------ >8 ------------------------\n+${claude.replace('Co', 'Co')}\n`).status, 0);
   assert.equal(run(`fix: x\n\n${claude}\n`).status, 1);
 });
 

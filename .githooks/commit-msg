@@ -7,7 +7,7 @@
 // See docs/agents/commit-attribution.md.
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
-const { findAttribution } = require(resolve(__dirname, '../scripts/ai-attribution.cjs'));
+const { findAttribution, formatViolation } = require(resolve(__dirname, '../scripts/ai-attribution.cjs'));
 
 const file = process.argv[2];
 if (process.argv.length !== 3 || !file) {
@@ -23,10 +23,10 @@ try {
   process.exit(1);
 }
 
-const violations = findAttribution(message, { gitComments: true });
+const violations = findAttribution(message, { scissors: true });
 if (violations.length > 0) {
   console.error('commit-msg: AI attribution is not allowed in commit messages (AGENTS.md, docs/agents/commit-attribution.md):');
-  for (const { line, reason, text } of violations) console.error(`  line ${line}: ${reason}: "${text}"`);
+  for (const violation of violations) console.error(`  ${formatViolation(violation)}`);
   console.error('Remove the line and commit again.');
   process.exit(1);
 }
