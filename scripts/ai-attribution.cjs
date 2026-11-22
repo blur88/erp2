@@ -39,7 +39,7 @@ const leadingNoise = /^(?:[\s>*_#\-\p{Extended_Pictographic}\uFE0F\u200D]|<!--)+
 const scissors = /^# -{24} >8 -{24}$/;
 
 function isAiIdentity(value) {
-  const name = value.replace(/<[^>]*>/g, '').replace(/["'`*_[\]()]/g, ' ').replace(/\s+/g, ' ').trim();
+  const name = value.split('<', 1)[0].replace(/["'`*_[\]()]/g, ' ').replace(/\s+/g, ' ').trim();
   return aiToolMailbox.test(value) || aiBotEmail.test(value) || aiName.test(name) || bareAiName.test(name);
 }
 

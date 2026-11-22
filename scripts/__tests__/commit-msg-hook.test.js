@@ -86,7 +86,7 @@ test('a # line committed with -m is still judged, and text below the scissors li
     writeFileSync(file, text);
     return spawnSync(hook, [file], { cwd, encoding: 'utf8' });
   };
-  assert.equal(run(`fix: x\n\n# ------------------------ >8 ------------------------\n+${claude.replace('Co', 'Co')}\n`).status, 0);
+  assert.equal(run(`fix: x\n\n# ------------------------ >8 ------------------------\n+${claude}\n`).status, 0);
   assert.equal(run(`fix: x\n\n${claude}\n`).status, 1);
 });
 
