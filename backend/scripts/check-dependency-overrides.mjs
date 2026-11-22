@@ -1,8 +1,8 @@
 // Check npm override compatibility and documentation coverage (#1931).
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const exceptionIdentityFields = [
   "parent",
@@ -46,6 +46,72 @@ function describeIncompatibility({
   resolved,
 }) {
   return `${parent}@${parentVersion} -> ${dependency}: declared ${declared}, resolved ${resolved}`;
+}
+
+function isWithin(directory, path) {
+  const fromDirectory = relative(directory, path);
+  return (
+    fromDirectory !== ".." &&
+    !fromDirectory.startsWith(`..${sep}`) &&
+    !isAbsolute(fromDirectory)
+  );
+}
+
+// Mirror the parts of the project's Jest config that select test files.
+function jestSuite(projectDirectory, { jest = {} }) {
+  const rootDir = resolve(projectDirectory, jest.rootDir ?? ".");
+  const roots = (jest.roots ?? ["<rootDir>"]).map((root) =>
+    realpathSync(resolve(rootDir, root.replace("<rootDir>", rootDir))),
+  );
+  const patterns = [jest.testRegex].flat().filter(Boolean);
+  if (!patterns.length) {
+    throw new Error("Expected a Jest testRegex in the project's package.json");
+  }
+  return (path) =>
+    roots.some((root) => isWithin(root, path)) &&
+    patterns.some((pattern) => new RegExp(pattern).test(path));
+}
+
+function gitRepository(projectDirectory) {
+  const root = realpathSync(
+    execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: projectDirectory,
+      encoding: "utf8",
+    }).trim(),
+  );
+  return {
+    contains: (path) => isWithin(root, path),
+    tracks: (path) =>
+      execFileSync(
+        "git",
+        ["ls-files", "--", `:(literal)${relative(root, path)}`],
+        {
+          cwd: root,
+          encoding: "utf8",
+        },
+      ) !== "",
+  };
+}
+
+// Each exception must name the committed compatibility spec that exercises the
+// consumer against the resolved dependency (#1935, #2025).
+function specReferenceProblem(
+  { spec },
+  projectDirectory,
+  { inSuite, repository },
+) {
+  if (spec === undefined) return "Missing spec reference";
+  if (typeof spec !== "string" || !spec.trim() || isAbsolute(spec))
+    return `Invalid spec reference ${JSON.stringify(spec)}, expected a path relative to the project`;
+  const path = resolve(projectDirectory, spec);
+  if (!statSync(path, { throwIfNoEntry: false })?.isFile())
+    return `Nonexistent spec "${spec}"`;
+  const realPath = realpathSync(path);
+  if (!repository.contains(realPath))
+    return `Spec "${spec}" is outside the repository`;
+  if (!repository.tracks(realPath)) return `Untracked spec "${spec}"`;
+  if (!inSuite(realPath)) return `Spec "${spec}" is not in the Jest test suite`;
+  return null;
 }
 
 async function checkDependencyOverrides(project, documentation, allowlist) {
@@ -143,6 +209,17 @@ async function checkDependencyOverrides(project, documentation, allowlist) {
         );
       }
     }
+  }
+
+  // A stale entry must be removed, so only matched exceptions need a spec.
+  const matched = exceptions.filter((entry) => !unusedExceptions.has(entry));
+  const specContext = matched.length && {
+    inSuite: jestSuite(projectDirectory, manifest),
+    repository: gitRepository(projectDirectory),
+  };
+  for (const entry of matched) {
+    const problem = specReferenceProblem(entry, projectDirectory, specContext);
+    if (problem) problems.push(`${problem}: ${describeIncompatibility(entry)}`);
   }
 
   for (const entry of unusedExceptions) {

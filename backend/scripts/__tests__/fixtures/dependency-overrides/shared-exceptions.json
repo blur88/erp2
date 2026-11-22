@@ -1,0 +1,20 @@
+[
+  {
+    "parent": "archiver-utils",
+    "parentVersion": "2.1.0",
+    "dependency": "glob",
+    "declared": "^7.1.4",
+    "resolved": "14.0.6",
+    "reason": "file.expand uses glob.sync(pattern, options).",
+    "spec": "test/unit/dependency-glob.spec.ts"
+  },
+  {
+    "parent": "rimraf",
+    "parentVersion": "2.7.1",
+    "dependency": "glob",
+    "declared": "^7.1.3",
+    "resolved": "14.0.6",
+    "reason": "Fixture: shares the archiver-utils glob spec.",
+    "spec": "test/unit/dependency-glob.spec.ts"
+  }
+]

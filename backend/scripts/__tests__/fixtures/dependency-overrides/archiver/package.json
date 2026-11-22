@@ -8,5 +8,12 @@
     "archiver-utils@2.1.0": {
       "glob": "14.0.6"
     }
+  },
+  "jest": {
+    "rootDir": ".",
+    "roots": [
+      "<rootDir>/test"
+    ],
+    "testRegex": ".*\\.spec\\.ts$"
   }
 }
