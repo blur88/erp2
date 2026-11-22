@@ -47,7 +47,7 @@ function fakeRedis(received: string[][]) {
   const store = new Map<string, string>();
   return createServer((socket: Socket) => {
     let pending: Buffer = Buffer.alloc(0);
-    socket.on("data", (chunk) => {
+    socket.on("data", (chunk: Buffer) => {
       const { commands, rest } = parseCommands(Buffer.concat([pending, chunk]));
       pending = rest;
       for (const [name, ...args] of commands) {

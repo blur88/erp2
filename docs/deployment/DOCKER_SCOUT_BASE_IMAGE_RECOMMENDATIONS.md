@@ -73,7 +73,7 @@ Commands run from this machine against public tags. Local Scout CLI v1.18.4, bui
 1. **`blur88/erp2` is not Scout-enabled, and the plan allows one repository, which is spent on `blur88/master`.** This is decisive for the Hub UI on the public repository. Fix: enable `blur88/erp2` in [Scout repository settings](https://scout.docker.com/settings/repos) (`https://scout.docker.com/org/blur88/settings/repos`) and disable `blur88/master`, or upgrade the plan. Alternatively, look at the `blur88/master` tags in Hub, which hold the same digests.
 2. **Policy and base-image data not populated even on the enabled repository.** All seven policies report "No data" for `blur88/master:erp2-frontend`. Possible reasons: the platform has not analysed that digest, or the platform does not read SLSA v1 provenance. Both are **Unverified**. Check in the Dashboard whether `blur88/master` lists the current digest.
 3. **SLSA v1 provenance not read by older Scout clients.** This is proven for CLI v1.18.4 and **Unverified** for the platform. Fixes: upgrade the CLI to v1.20.0 or later (the latest is v1.29.0). If the platform also turns out to ignore v1, pin `provenance: mode=max,version=v0.2` in `release.yml` (the parameter is documented in [SLSA provenance — Version](https://docs.docker.com/build/metadata/attestations/slsa-provenance/#version)). That pin is a fallback, not a confirmed fix.
-4. **Auto-detected tag family differs from the pinned tag** (`node:24-alpine` instead of `node:24.16.0-alpine3.23`). This makes recommendations less precise but does not remove them. Use `--tag 24.16.0-alpine3.23` ([#84](https://github.com/docker/scout-cli/issues/84#issuecomment-1884668527)).
+4. **Auto-detected tag family differs from the pinned tag** (`node:24-alpine` instead of `node:24.16.0-alpine3.23`). This makes recommendations less precise but does not remove them. Use `--tag <tag from backend/Dockerfile>` ([#84](https://github.com/docker/scout-cli/issues/84#issuecomment-1884668527)).
 5. **Fully pinned patch tags may stop receiving rebuilds.** `nginx:1.30.0-alpine3.23-slim` was last pushed about 7 months ago, while `1.30-alpine-slim` moved to 1.30.7 on alpine3.24 (**Observed**). Docker Official Images' policy on how long exact patch tags keep getting rebuilt is **Unverified**. If the tag never moves, a "refresh" of the exact tag is never offered, only a "change".
 
 ## Diagnostic commands
@@ -93,7 +93,7 @@ docker buildx imagetools inspect blur88/erp2:latest-frontend --format '{{json .P
 docker scout version
 docker scout quickview blur88/erp2:latest-frontend          # does "Base image was auto-detected" disappear?
 docker scout recommendations blur88/erp2:latest-frontend
-docker scout recommendations --only-refresh blur88/erp2:latest-backend --tag 24.16.0-alpine3.23
+docker scout recommendations --only-refresh blur88/erp2:latest-backend --tag <tag from backend/Dockerfile>
 docker scout recommendations --only-update  blur88/erp2:latest-frontend --tag 1.30.0-alpine3.23-slim
 
 # Policy view against the org (enabled repository)
