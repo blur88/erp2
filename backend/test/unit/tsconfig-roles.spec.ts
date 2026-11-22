@@ -6,7 +6,7 @@ import ts from "typescript";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(__dirname, "..", "..");
 
-const resolve = (configPath: string) => {
+const parseConfig = (configPath: string) => {
   const file = path.resolve(backendRoot, configPath);
   const { config, error } = ts.readConfigFile(file, ts.sys.readFile);
   if (error) throw new Error(ts.flattenDiagnosticMessageText(error.messageText, "\n"));
@@ -26,22 +26,29 @@ const resolve = (configPath: string) => {
  * directly; these assertions are the evidence that it doesn't need to be.
  */
 describe("backend TypeScript configuration roles", () => {
-  it("root tsconfig.json compiles exactly the files type-check:build compiles", () => {
+  it("root tsconfig.json is the type-check:build program", () => {
     // ts-node (admin:create, backup:reconcile-schedulers) loads the root config
-    // at runtime. If its file set matches tsconfig.build.json's, the build gate
-    // already proves the program type-checks. Widening the root's `include`
-    // needs a gate of its own.
-    expect(resolve("tsconfig.json").files).toEqual(resolve("tsconfig.build.json").files);
+    // at runtime. While its files and checking options match
+    // tsconfig.build.json's, the build gate already proves the program
+    // type-checks. Widening the root's `include`, or overriding a checking
+    // option in the build config, needs a gate of its own.
+    const root = parseConfig("tsconfig.json");
+    const build = parseConfig("tsconfig.build.json");
+    expect(root.files).toEqual(build.files);
+    // The only overrides tsconfig.build.json declares; neither affects checking.
+    const { rootDir: _rootDir, incremental: _incremental, ...buildChecking } = build.options;
+    const { incremental: _rootIncremental, ...rootChecking } = root.options;
+    expect(rootChecking).toEqual(buildChecking);
   });
 
   it("root tsconfig.json stays CommonJS, the format ts-node CLIs load", () => {
-    expect(resolve("tsconfig.json").options.module).toBe(ts.ModuleKind.CommonJS);
+    expect(parseConfig("tsconfig.json").options.module).toBe(ts.ModuleKind.CommonJS);
   });
 
   it("test/tsconfig.json gives editors the type-check:spec program", () => {
     // Editors use the nearest tsconfig.json. Without this file, test sources
     // fall back to the CommonJS root and editors flag every `import.meta`
     // (TS1343), errors Jest and type-check:spec never raise.
-    expect(resolve("test/tsconfig.json")).toEqual(resolve("tsconfig.spec.json"));
+    expect(parseConfig("test/tsconfig.json")).toEqual(parseConfig("tsconfig.spec.json"));
   });
 });

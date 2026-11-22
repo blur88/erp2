@@ -12,7 +12,9 @@
     "allowImportingTsExtensions": true,
     "emitDeclarationOnly": true,
     "outDir": "./node_modules/.tmp/tsconfig.node",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    // Matches tsconfig.json, which checked app-version.ts before #2030.
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["vite.config.ts", "src/config/app-version.ts"]
 }
