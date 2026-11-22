@@ -1,10 +1,11 @@
 'use strict';
 
-// Validate a PR's release declaration and preview its merge result (#2002).
+// Validate a PR's release declaration, reject AI attribution (#2017) and preview its merge result (#2002).
 const { execFileSync } = require('node:child_process');
 const { appendFileSync } = require('node:fs');
 const { offlineGitOptions } = require('./release-preview/offline-git.cjs');
 const { validateFields } = require('./release-preview/pr-fields.cjs');
+const { attributionFailures, missingBodyMessage } = require('./ai-attribution.cjs');
 
 const repository = 'blur88/erp2';
 const staleMergeMessage = 'merge ref stale or unverifiable; re-run';
@@ -75,12 +76,22 @@ async function check() {
   const metadata = fetchPullRequest(number);
   const mainTip = fetchMainTip();
   const { head, merge } = verifyMerge(metadata, mainTip);
-  const breaking = validateFields(metadata.body, {
-    repository,
-    exists: path => /^100(?:644|755) blob /.test(
-      git('--literal-pathspecs', 'ls-tree', '-z', '--full-tree', merge, '--', path)
-    ),
-  });
+  if (typeof metadata.body !== 'string') {
+    throw new Error(missingBodyMessage);
+  }
+  // Hold a declaration error until the attribution check has run, so one run reports both problems.
+  let breaking;
+  let declarationError;
+  try {
+    breaking = validateFields(metadata.body, {
+      repository,
+      exists: path => /^100(?:644|755) blob /.test(
+        git('--literal-pathspecs', 'ls-tree', '-z', '--full-tree', merge, '--', path)
+      ),
+    });
+  } catch (error) {
+    declarationError = error;
+  }
   const { classifyPullRequest, releasePreview } = await import('./release-preview/preview.mjs');
   const { type, commits } = await classifyPullRequest({ cwd, base: mainTip, head });
   for (const { hash, message } of commits) {
@@ -88,6 +99,13 @@ async function check() {
       throw new Error(`Commit ${hash} uses an unsupported ! header. Remove ! from the header and add a BREAKING CHANGE: footer if the commit introduces a break.`);
     }
   }
+
+  const attribution = attributionFailures({ body: metadata.body, commits });
+  const problems = declarationError ? [declarationError.message] : [];
+  if (attribution.length > 0) {
+    problems.push(`AI attribution is not allowed in commit messages or the PR body. Remove it from each place listed (amend or rewrite the commit, or edit the PR body). See docs/agents/commit-attribution.md.\n${attribution.join('\n')}`);
+  }
+  if (problems.length > 0) throw new Error(problems.join('\n\n'));
 
   if (breaking !== (type === 'major')) {
     const details = type === 'major' ? 'yes, or remove or move the BREAKING CHANGE: footer if the PR does not introduce the break'

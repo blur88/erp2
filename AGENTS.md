@@ -100,7 +100,7 @@ feat(accounting): require an explicit fiscal year
 BREAKING CHANGE: API callers must supply the fiscal year when creating an accounting period.
 ```
 
-Commit messages and PR bodies must not contain AI attribution lines.
+Commit messages and PR bodies must not contain AI attribution lines, such as a `Co-Authored-By:` trailer naming an AI assistant or a `Claude-Session:` line. The required Breaking Change Check enforces this; see [Commit and PR attribution](docs/agents/commit-attribution.md) for the rules and the optional local `commit-msg` hook.
 
 When closing a PR without merging, follow [Closing a PR without merging](docs/agents/issue-tracker.md#closing-a-pr-without-merging).
 

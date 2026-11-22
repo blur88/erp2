@@ -56,3 +56,8 @@ test('the Breaking Change Check runs on PR events to main without rerunning CI o
     assert.equal(step.if, undefined);
   }
 });
+
+test('a PR body edit reruns the check that rejects AI attribution (#2017)', () => {
+  const workflow = parse(readWorkflow('breaking-change-check.yml'));
+  assert.ok(workflow.on.pull_request.types.includes('edited'));
+});

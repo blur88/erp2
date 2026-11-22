@@ -368,3 +368,71 @@ test('the shipped PR template passes the check when filled in canonically', t =>
   const result = fixture(t).run(body);
   assert.equal(result.status, 0, result.stderr);
 });
+
+const claudeTrailer = 'Co-Authored-By: Claude <noreply@anthropic.com>';
+
+test('rejects AI attribution in a non-final PR commit and names the commit and line', t => {
+  const { run } = fixture(t, { messages: [`fix: first\n\n${claudeTrailer}`, 'fix: second'] });
+  const result = run();
+  rejects(result, /AI attribution.*commit [0-9a-f]{12} line 3: AI co-author trailer: "Co-Authored-By: Claude/s);
+  assert.match(result.summary, /AI co-author trailer/);
+});
+
+test('rejects Claude-Session lines and session URLs in the final commit', t => {
+  rejects(fixture(t, { messages: ['fix: one\n\nClaude-Session: session_01AbC'] }).run(), /Claude-Session line/);
+  rejects(fixture(t, { messages: ['fix: one\n\nhttps://claude.ai/code/session_01AbC'] }).run(), /AI session URL/);
+});
+
+test('rejects AI attribution in the PR body, even inside a fence or comment', t => {
+  const { run } = fixture(t);
+  for (const addition of [`\n\n${claudeTrailer}`, '\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)',
+    '\n\nhttps://claude.ai/code/session_01AbC', '\n\n```\nClaude-Session: x\n```', '\n\n<!-- Claude-Session: x -->']) {
+    rejects(run(standardBody + addition), /AI attribution.*PR body line \d+/s);
+  }
+});
+
+test('reports every offending commit and the body together', t => {
+  const { run } = fixture(t, { messages: [`fix: one\n\n${claudeTrailer}`, 'fix: two\n\nClaude-Session: x'] });
+  const result = run(`${standardBody}\n\nClaude-Session: y`);
+  rejects(result, /PR body line 7: Claude-Session line/);
+  assert.match(result.stderr, /commit [0-9a-f]{12} line 3: AI co-author trailer/);
+  assert.match(result.stderr, /commit [0-9a-f]{12} line 3: Claude-Session line/);
+});
+
+test('rejects AI attribution in a PR-owned merge commit', t => {
+  const { run } = fixture(t, { baseMessage: 'docs: main update', mergeBase: `Merge main\n\n${claudeTrailer}` });
+  rejects(run(), /AI attribution.*AI co-author trailer/s);
+});
+
+test('accepts human co-authors and prose that mentions AI tools', t => {
+  const { run } = fixture(t, { messages: ['fix: one\n\nCo-Authored-By: Jane Doe <jane@example.test>\nCo-authored-by: Claude Dupont <claude@example.test>',
+    'docs: two\n\nExplain why Claude Code sessions are not credited.'] });
+  const result = run(`${standardBody}\n\nWe use Claude Code and see https://claude.ai/code for details.`);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('fails rather than passing when the PR body is missing', t => {
+  const { run } = fixture(t);
+  for (const body of [null, undefined]) {
+    const result = run(standardBody, { first: { body } });
+    rejects(result, /PR body is missing or inaccessible/);
+  }
+});
+
+test('attribution in a commit does not hide behind a later release classification failure', t => {
+  const { run } = fixture(t, { messages: [`chore: introduce change${footer}\n\n${claudeTrailer}`] });
+  rejects(run(), /AI attribution/);
+});
+
+test('reports a malformed declaration and AI attribution in one run', t => {
+  const { run } = fixture(t, { messages: [`fix: one\n\n${claudeTrailer}`] });
+  const result = run(standardBody.replace('- Breaking change: no', '- Breaking change = no') + '\n\nClaude-Session: y');
+  rejects(result, /malformed field.*`- Breaking change: <value>`/s);
+  assert.match(result.stderr, /AI attribution is not allowed/);
+  assert.match(result.stderr, /PR body line \d+: Claude-Session line/);
+  assert.match(result.stderr, /commit [0-9a-f]{12} line 3: AI co-author trailer/);
+});
+
+test('a PR with an empty description fails with a message that says so', t => {
+  rejects(fixture(t).run(standardBody, { first: { body: null } }), /empty description as missing/);
+});
