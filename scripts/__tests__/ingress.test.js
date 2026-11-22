@@ -8,6 +8,10 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const https = require('node:https');
+const http2 = require('node:http2');
+const net = require('node:net');
+const nodeTls = require('node:tls');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, chmodSync, existsSync } = require('node:fs');
 const { tmpdir } = require('node:os');
@@ -133,11 +137,16 @@ async function startDevStack(label) {
   return { ingress, frontend: portOf(stack.frontend) };
 }
 
-async function startProductionStack(service) {
+async function startProductionStack(service, label = 'https') {
   assert.equal(service.read_only, true);
-  const stack = startStack('https', ['--read-only', ...productionArgs(service)]);
+  const stack = startStack(label, ['--read-only', ...productionArgs(service)]);
   await waitForOk(portOf(stack.frontend), '/');
-  return { ingress: portOf(stack.ingress), secure: portOf(stack.ingress, 443), backend: stack.backend };
+  return {
+    ingress: portOf(stack.ingress),
+    secure: portOf(stack.ingress, 443),
+    backend: stack.backend,
+    container: stack.ingress,
+  };
 }
 
 function productionCompose(env, ...args) {
@@ -182,6 +191,143 @@ function createTestCertificate(directory) {
   writeFileSync(path.join(directory, 'server.ext'), 'subjectAltName=DNS:erp.test\n');
   openssl('x509', '-req', '-in', 'server.csr', '-CA', 'ca.pem', '-CAkey', 'ca.key',
     '-CAcreateserial', '-days', '1', '-extfile', 'server.ext', '-out', 'fullchain.pem');
+}
+
+// Mozilla Intermediate profile, guidelines 6.0 (ssl-config.mozilla.org/guidelines/6.0.json).
+const INTERMEDIATE_TLS12_CIPHERS = [
+  'ECDHE-ECDSA-AES128-GCM-SHA256', 'ECDHE-RSA-AES128-GCM-SHA256',
+  'ECDHE-ECDSA-AES256-GCM-SHA384', 'ECDHE-RSA-AES256-GCM-SHA384',
+  'ECDHE-ECDSA-CHACHA20-POLY1305', 'ECDHE-RSA-CHACHA20-POLY1305',
+];
+const INTERMEDIATE_CURVES = 'X25519MLKEM768:X25519:prime256v1:secp384r1';
+
+// OpenSSL 3 refuses TLS 1.0 and 1.1 at the default security level, so a client
+// has to lower it to offer them.
+const LEGACY_TLS_CIPHERS = 'ALL:@SECLEVEL=0';
+
+// Both ends of one TLS connection are pinned to a single protocol version.
+const pinned = (version, extra = {}) => ({ minVersion: version, maxVersion: version, ...extra });
+
+// ClientHello client_version bytes for a client that offers only TLS 1.0 or 1.1.
+const CLIENT_VERSION = { TLSv1: 0x0301, 'TLSv1.1': 0x0302 };
+
+// A TCP forwarder that records the first bytes each side sends, so a test can
+// read the ClientHello the client really sent and the reply it got.
+async function recordingForwarder(targetPort) {
+  const seen = { client: null, server: null };
+  const server = net.createServer(client => {
+    const upstream = net.connect(targetPort, '127.0.0.1');
+    client.once('data', chunk => { seen.client ??= chunk; });
+    upstream.once('data', chunk => { seen.server ??= chunk; });
+    client.pipe(upstream).pipe(client);
+    const close = () => { client.destroy(); upstream.destroy(); };
+    client.on('error', close);
+    upstream.on('error', close);
+    client.on('close', close);
+    upstream.on('close', close);
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  return { port: server.address().port, seen, close: () => new Promise(resolve => server.close(resolve)) };
+}
+
+function tlsConnect(port, options = {}) {
+  return new Promise((resolve, reject) => {
+    const socket = nodeTls.connect({ host: '127.0.0.1', port, ...options });
+    socket.once('secureConnect', () => resolve(socket));
+    socket.once('error', reject);
+  });
+}
+
+async function withPermissiveTlsServer(tlsDir, serverOptions, fn) {
+  const server = nodeTls.createServer({
+    key: readFileSync(path.join(tlsDir, 'privkey.pem')),
+    cert: readFileSync(path.join(tlsDir, 'fullchain.pem')),
+    ...serverOptions,
+  }, socket => socket.on('error', () => {}).end());
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    return await fn(server.address().port);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+}
+
+// A minimal Socket.IO client for the WebSocket transport (Engine.IO v4,
+// Socket.IO v5). It exists so the root release tests need no extra dependency.
+const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+
+function socketIoOverWss(port, tlsOptions) {
+  return new Promise((resolve, reject) => {
+    const key = crypto.randomBytes(16).toString('base64');
+    const req = https.request({
+      host: '127.0.0.1',
+      port,
+      path: '/socket.io/?EIO=4&transport=websocket',
+      headers: {
+        Host: 'erp.test',
+        Connection: 'Upgrade',
+        Upgrade: 'websocket',
+        'Sec-WebSocket-Key': key,
+        'Sec-WebSocket-Version': '13',
+      },
+      ...tlsOptions,
+    });
+    const seen = [];
+    const send = (socket, text) => {
+      const payload = Buffer.from(text);
+      const mask = crypto.randomBytes(4);
+      const masked = Buffer.from(payload.map((byte, i) => byte ^ mask[i % 4]));
+      socket.write(Buffer.concat([Buffer.from([0x81, 0x80 | payload.length]), mask, masked]));
+    };
+    req.on('response', res => reject(new Error(`no upgrade: HTTP ${res.statusCode}`)));
+    req.on('error', reject);
+    req.on('upgrade', (res, socket, head) => {
+      const accept = crypto.createHash('sha1').update(key + WS_GUID).digest('base64');
+      if (res.headers['sec-websocket-accept'] !== accept) return reject(new Error('bad Sec-WebSocket-Accept'));
+      socket.on('error', reject);
+      // The backend sends the Engine.IO open frame right after the 101, so it
+      // may arrive in `head` or in the same read as other frames. Buffer them.
+      let pending = Buffer.alloc(0);
+      const onText = text => {
+        seen.push(text);
+        if (text.startsWith('0{')) send(socket, '40');
+        else if (text.startsWith('40{')) send(socket, '42["echo"]');
+        else if (text.startsWith('42["echo"')) {
+          socket.end();
+          resolve({ seen, alpn: socket.alpnProtocol, protocol: socket.getProtocol(), echo: JSON.parse(text.slice(2)) });
+        }
+      };
+      const onBytes = chunk => {
+        pending = Buffer.concat([pending, chunk]);
+        while (pending.length >= 2 && pending.length >= 2 + (pending[1] & 0x7f)) {
+          const length = pending[1] & 0x7f;
+          onText(pending.subarray(2, 2 + length).toString());
+          pending = pending.subarray(2 + length);
+        }
+      };
+      socket.on('data', onBytes);
+      if (head.length) onBytes(head);
+    });
+    req.end();
+  });
+}
+
+function http2Request(port, tlsOptions, authority = 'erp.test') {
+  return new Promise((resolve, reject) => {
+    const client = http2.connect('https://erp.test', {
+      createConnection: () => nodeTls.connect({ host: '127.0.0.1', port, ALPNProtocols: ['h2'], ...tlsOptions }),
+    });
+    client.on('error', reject);
+    const req = client.request({ ':path': '/api/health', ':authority': authority });
+    let responseHeaders;
+    req.on('response', received => { responseHeaders = received; });
+    req.resume();
+    req.on('end', () => {
+      client.close();
+      resolve({ alpn: client.alpnProtocol, headers: responseHeaders });
+    });
+    req.on('error', reject);
+  });
 }
 
 describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAvailable && 'docker is not available' }, () => {
@@ -366,6 +512,172 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
       }));
       assert.equal(result.status, 1, result.stderr);
       assert.match(result.stderr, /open\(\) "\/etc\/nginx\/runtime\/servers\.conf" failed/);
+    });
+  });
+
+  describe('production TLS profile', () => {
+    let stack;
+    let tls;
+    let tlsDir;
+    let nginxConfig;
+
+    before(async () => {
+      tlsDir = path.join(workdir, 'tls-profile');
+      mkdirSync(tlsDir);
+      createTestCertificate(tlsDir);
+      tls = { ca: readFileSync(path.join(tlsDir, 'ca.pem')), servername: 'erp.test', rejectUnauthorized: true };
+      const webroot = path.join(workdir, 'acme-profile');
+      mkdirSync(webroot);
+      const config = composeConfig('erp.test', tlsDir, webroot);
+      assert.equal(config.status, 0, config.stderr);
+      stack = await startProductionStack(JSON.parse(config.stdout).services.nginx, 'tls-profile');
+      await waitForOk(stack.secure, '/api/health', { tls, headers: { Host: 'erp.test' } });
+      const dump = docker('exec', stack.container, 'nginx', '-c', '/etc/nginx/nginx-https.conf', '-T');
+      assert.equal(dump.status, 0, dump.stderr);
+      nginxConfig = dump.stdout.replace(/#.*$/gm, '');
+    });
+
+    for (const version of ['TLSv1.2', 'TLSv1.3']) {
+      test(`${version} handshakes succeed with certificate verification`, async () => {
+        const socket = await tlsConnect(stack.secure, { ...tls, ...pinned(version) });
+        try {
+          assert.equal(socket.authorized, true, String(socket.authorizationError));
+          assert.equal(socket.getProtocol(), version);
+          if (version === 'TLSv1.2') {
+            assert.ok(INTERMEDIATE_TLS12_CIPHERS.includes(socket.getCipher().name), socket.getCipher().name);
+          }
+        } finally {
+          socket.destroy();
+        }
+      });
+    }
+
+    for (const version of ['TLSv1', 'TLSv1.1']) {
+      test(`${version} is refused by nginx with a protocol_version alert, for a client shown to offer it`, async () => {
+        const legacy = { ...tls, ...pinned(version, { ciphers: LEGACY_TLS_CIPHERS }) };
+        const clientVersion = (record) => record.readUInt16BE(9);
+
+        // Positive control: through the same forwarder, a permissive server
+        // negotiates this version, and the recorded ClientHello offers it.
+        await withPermissiveTlsServer(tlsDir, pinned(version, { ciphers: LEGACY_TLS_CIPHERS }), async port => {
+          const forwarder = await recordingForwarder(port);
+          try {
+            const socket = await tlsConnect(forwarder.port, legacy);
+            assert.equal(socket.getProtocol(), version);
+            socket.destroy();
+            assert.equal(forwarder.seen.client[0], 0x16, 'ClientHello record');
+            assert.equal(clientVersion(forwarder.seen.client), CLIENT_VERSION[version]);
+            assert.equal(forwarder.seen.server[0], 0x16, 'the permissive server answers with a handshake record');
+          } finally {
+            await forwarder.close();
+          }
+        });
+
+        const forwarder = await recordingForwarder(stack.secure);
+        try {
+          await assert.rejects(tlsConnect(forwarder.port, legacy), /alert protocol version/i);
+          assert.equal(forwarder.seen.client[0], 0x16, 'the client sent a ClientHello');
+          assert.equal(clientVersion(forwarder.seen.client), CLIENT_VERSION[version], 'and it offered only this version');
+          // TLS alert record: type 0x15, fatal (2), protocol_version (70).
+          assert.deepEqual([...forwarder.seen.server.subarray(0, 1), ...forwarder.seen.server.subarray(5, 7)], [0x15, 2, 70]);
+        } finally {
+          await forwarder.close();
+        }
+      });
+    }
+
+    test('TLS 1.2 cipher suites outside the Intermediate profile are refused, DHE and RSA key exchange included', async () => {
+      for (const ciphers of ['AES128-SHA', 'DHE-RSA-AES128-GCM-SHA256']) {
+        const weak = { ...tls, maxVersion: 'TLSv1.2', ciphers };
+        await withPermissiveTlsServer(tlsDir, { maxVersion: 'TLSv1.2', ciphers, dhparam: 'auto' }, async port => {
+          const socket = await tlsConnect(port, weak);
+          assert.equal(socket.getCipher().name, ciphers);
+          socket.destroy();
+        });
+        await assert.rejects(tlsConnect(stack.secure, weak), /handshake failure|no shared cipher/i, ciphers);
+      }
+    });
+
+    test('key exchange groups follow the profile, including the X25519MLKEM768 hybrid', async () => {
+      assert.match(nginxConfig, new RegExp(`^\\s*ssl_ecdh_curve ${INTERMEDIATE_CURVES};`, 'm'));
+      for (const ecdhCurve of INTERMEDIATE_CURVES.split(':')) {
+        const socket = await tlsConnect(stack.secure, { ...tls, ...pinned('TLSv1.3', { ecdhCurve }) });
+        assert.equal(socket.authorized, true, ecdhCurve);
+        // Node reports no name for the hybrid group. It was the only group
+        // offered, so the handshake succeeding means nginx accepted it.
+        if (ecdhCurve !== 'X25519MLKEM768') assert.equal(socket.getEphemeralKeyInfo().name, ecdhCurve);
+        socket.destroy();
+      }
+      // A group outside the profile finds no common group. The control server
+      // shows the client really negotiates it.
+      const outside = { ...tls, ...pinned('TLSv1.3', { ecdhCurve: 'secp521r1' }) };
+      await withPermissiveTlsServer(tlsDir, pinned('TLSv1.3', { ecdhCurve: 'secp521r1' }), async port => {
+        const socket = await tlsConnect(port, outside);
+        assert.equal(socket.getEphemeralKeyInfo().name, 'secp521r1');
+        socket.destroy();
+      });
+      await assert.rejects(tlsConnect(stack.secure, outside), /handshake failure|alert/i);
+    });
+
+    test('ALPN negotiates h2, and HTTP/1.1 clients still get http/1.1', async () => {
+      const h2 = await tlsConnect(stack.secure, { ...tls, ALPNProtocols: ['h2', 'http/1.1'] });
+      assert.equal(h2.alpnProtocol, 'h2');
+      h2.destroy();
+      const h1 = await tlsConnect(stack.secure, { ...tls, ALPNProtocols: ['http/1.1'] });
+      assert.equal(h1.alpnProtocol, 'http/1.1');
+      h1.destroy();
+    });
+
+    test('an HTTP/2 request reaches the backend with one HSTS header, and a foreign :authority gets 421', async () => {
+      const canonicalResponse = await http2Request(stack.secure, tls);
+      assert.equal(canonicalResponse.alpn, 'h2');
+      assert.equal(canonicalResponse.headers[':status'], 200);
+      assert.equal(canonicalResponse.headers['strict-transport-security'], 'max-age=31536000; includeSubDomains');
+      assert.equal(canonicalResponse.headers['x-backend'], 'stub');
+
+      const misdirected = await http2Request(stack.secure, tls, 'other.test');
+      assert.equal(misdirected.headers[':status'], 421);
+      assert.equal(misdirected.headers['strict-transport-security'], undefined);
+      assert.equal(misdirected.headers['x-backend'], undefined);
+    });
+
+    test('Socket.IO connects over wss with the WebSocket transport through the backend', async () => {
+      const session = await socketIoOverWss(stack.secure, tls);
+      assert.equal(session.alpn, false, 'the WebSocket upgrade runs over HTTP/1.1');
+      assert.match(session.seen[0], /^0\{.*"sid":"stub-eio"/);
+      assert.ok(session.seen.includes('40{"sid":"stub-sio"}'), JSON.stringify(session.seen));
+      assert.deepEqual(session.echo[1], { proto: 'https', host: 'erp.test' });
+      const logs = docker('logs', stack.backend);
+      assert.ok(logs.stdout.split('\n').includes('/socket.io/?EIO=4&transport=websocket'), 'backend log must record the upgrade');
+    });
+
+    test('session tickets are off and the shared session cache resumes sessions', async () => {
+      assert.match(nginxConfig, /^\s*ssl_session_tickets off;/m);
+      assert.match(nginxConfig, /^\s*ssl_session_cache shared:\w+:\d+m;/m);
+
+      const options = { ...tls, ...pinned('TLSv1.2') };
+      // Positive control: Node's own server issues a ticket to the same client.
+      await withPermissiveTlsServer(tlsDir, pinned('TLSv1.2'), async port => {
+        const socket = await tlsConnect(port, options);
+        assert.ok(Buffer.isBuffer(socket.getTLSTicket()), 'the control server must issue a ticket');
+        socket.destroy();
+      });
+
+      const first = await tlsConnect(stack.secure, options);
+      assert.equal(first.getTLSTicket(), undefined, 'nginx must not issue a session ticket');
+      const session = first.getSession();
+      first.destroy();
+      const resumed = await tlsConnect(stack.secure, { ...options, session });
+      assert.equal(resumed.isSessionReused(), true, 'the shared cache must resume the session by ID');
+      resumed.destroy();
+    });
+
+    test('the profile is TLS 1.2 and 1.3 only, with HTTP/2 and no OCSP stapling', () => {
+      assert.match(nginxConfig, /^\s*ssl_protocols TLSv1\.2 TLSv1\.3;/m);
+      assert.match(nginxConfig, /^\s*ssl_prefer_server_ciphers off;/m);
+      assert.match(nginxConfig, new RegExp(`^\\s*ssl_ciphers ${INTERMEDIATE_TLS12_CIPHERS.join(':')};`, 'm'));
+      assert.equal((nginxConfig.match(/^\s*http2 on;/gm) ?? []).length, 2, 'both :443 servers');
+      assert.doesNotMatch(nginxConfig, /ssl_stapling\s+on/);
     });
   });
 
