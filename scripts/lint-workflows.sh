@@ -2,7 +2,11 @@
 # Lint workflows with pinned actionlint and shell scripts with ShellCheck (#1898, #1939).
 set -euo pipefail
 
-command -v shellcheck >/dev/null
+if ! command -v shellcheck >/dev/null; then
+  echo "lint-workflows: shellcheck not found on PATH." >&2
+  echo "Install it (apt-get install shellcheck, brew install shellcheck) and re-run." >&2
+  exit 1
+fi
 install_dir=$(mktemp -d)
 trap 'rm -rf "$install_dir"' EXIT
 curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \

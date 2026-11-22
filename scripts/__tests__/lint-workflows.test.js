@@ -92,3 +92,20 @@ test('a standalone ShellCheck finding fails lint even when actionlint passes', t
   assert.match(result.stderr, /standalone lint finding/);
   assert.ok(Number.isInteger(result.status) && result.status > 0, result.stderr);
 });
+
+test('missing ShellCheck fails lint with an actionable error before downloading actionlint', t => {
+  const f = fixture(t);
+  rmSync(path.join(f.dir, 'shellcheck'));
+  f.command('curl', 'touch "$CURL_CALLED"');
+  const bash = spawnSync('bash', ['-c', 'command -v bash'], { encoding: 'utf8' }).stdout.trim();
+
+  const result = spawnSync(bash, [path.resolve(__dirname, '../lint-workflows.sh')], {
+    cwd: path.resolve(__dirname, '../..'), encoding: 'utf8',
+    env: { ...process.env, PATH: f.dir, CURL_CALLED: path.join(f.dir, 'curl-called') },
+  });
+
+  assert.ok(Number.isInteger(result.status) && result.status > 0, `status ${result.status}`);
+  assert.match(result.stderr, /shellcheck.*not found/i);
+  assert.match(result.stderr, /install/i);
+  assert.equal(existsSync(path.join(f.dir, 'curl-called')), false);
+});
