@@ -1,6 +1,6 @@
 'use strict';
 
-// Report staged and branch npm lockfile resolution changes (#1952).
+// Report staged and branch npm lockfile resolution changes (#1952), listing SemVer downgrades first (#2026).
 const { execFileSync } = require('node:child_process');
 
 const indexRevision = '';
@@ -35,10 +35,14 @@ function parseVersion(value) {
   return { core: match.slice(1, 4), prerelease: match[4]?.split('.') ?? [] };
 }
 
+function compareStrings(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 // Digit strings without leading zeros order by length, then lexically.
 function compareNumeric(a, b) {
   if (a.length !== b.length) return a.length < b.length ? -1 : 1;
-  return a < b ? -1 : a > b ? 1 : 0;
+  return compareStrings(a, b);
 }
 
 function compareIdentifiers(a, b) {
@@ -46,7 +50,7 @@ function compareIdentifiers(a, b) {
   const bNumeric = /^\d+$/.test(b);
   if (aNumeric && bNumeric) return compareNumeric(a, b);
   if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
-  return a < b ? -1 : a > b ? 1 : 0;
+  return compareStrings(a, b);
 }
 
 // Returns -1, 0 or 1 by SemVer precedence, or undefined when either value is not a valid version.
@@ -68,25 +72,27 @@ function compareVersions(a, b) {
   return Math.sign(left.prerelease.length - right.prerelease.length);
 }
 
+const versionLabels = { [-1]: 'UPGRADED', 0: 'Version changed', 1: 'DOWNGRADED' };
+
 function describeChanges(before, after) {
   const downgrades = [];
   const changes = [];
-  const version = (entry) => entry.version ?? '(no version)';
+  const displayVersion = (entry) => entry.version ?? '(no version)';
   const paths = [...new Set([...before.keys(), ...after.keys()])].sort();
 
   for (const path of paths) {
     const label = path || '.';
+    const from = before.get(path);
+    const to = after.get(path);
     if (!before.has(path)) {
-      changes.push(`Added ${label} ${version(after.get(path))}`);
+      changes.push(`Added ${label} ${displayVersion(to)}`);
     } else if (!after.has(path)) {
-      changes.push(`Removed ${label} ${version(before.get(path))}`);
-    } else if (before.get(path).version !== after.get(path).version) {
-      const transition = `${label} ${version(before.get(path))} → ${version(after.get(path))}`;
-      if (compareVersions(before.get(path).version, after.get(path).version) > 0) {
-        downgrades.push(`DOWNGRADED ${transition}`);
-      } else {
-        changes.push(`Version changed ${transition}`);
-      }
+      changes.push(`Removed ${label} ${displayVersion(from)}`);
+    } else if (from.version !== to.version) {
+      // Unorderable values and equal precedence (build metadata only) stay neutral.
+      const order = compareVersions(from.version, to.version) ?? 0;
+      const line = `${versionLabels[order]} ${label} ${displayVersion(from)} → ${displayVersion(to)}`;
+      (order > 0 ? downgrades : changes).push(line);
     }
   }
   return [...downgrades, ...changes];
