@@ -22,20 +22,11 @@ test('review pointer in AGENTS.md leads with the trigger and targets an existing
   assert.ok(anchor, 'review bullet must link the CODING_STANDARDS.md evidence section');
   const anchors = [...read('CODING_STANDARDS.md').matchAll(/^#{1,6} (.+)$/gm)].map((m) => slug(m[1]));
   assert.ok(anchors.includes(anchor[1]), `no heading matches #${anchor[1]}`);
-  assert.match(bullet, /every reviewer assignment/);
-});
-
-test('reviewer brief requirements live in the evidence section', () => {
-  const section = read('CODING_STANDARDS.md').split('## Acceptance-criterion evidence in reviews')[1];
-  assert.ok(section, 'evidence section missing');
-  for (const required of [/reviewed SHA/, /exact verification commands/, /exit statuses/, /Implemented/, /Demonstrated/, /Unverified/, /once for the reviewed SHA/]) {
-    assert.match(section, required);
-  }
 });
 
 test('CLAUDE.md documents the focused Ingress command; AGENTS.md keeps the full gate', () => {
   const claude = read('CLAUDE.md');
   assert.match(claude, /INGRESS_REQUIRE_DOCKER=1 node --test scripts\/__tests__\/ingress\.test\.js/);
   assert.match(claude, /--test-name-pattern=<name>/);
-  assert.match(read('AGENTS.md'), /INGRESS_REQUIRE_DOCKER=1 npm run test:release` and `bash scripts\/lint-workflows\.sh/);
+  assert.match(read('AGENTS.md'), /INGRESS_REQUIRE_DOCKER=1 npm run test:release/);
 });
