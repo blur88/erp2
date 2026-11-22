@@ -47,7 +47,12 @@ for the resolved tree or `npm audit` for an advisory.
 matches the parent name and version, dependency, original range and resolved
 version. Use step 4 of the [dependency update workflow](dependency-updates.md#dependency-updates)
 to verify each proposed exception, including scoped overrides. Record why the
-parent's APIs remain compatible in the entry.
+parent's APIs remain compatible in the entry's `reason`, and set its `spec` to
+the committed compatibility spec that exercises that consumer, as a path
+relative to `backend/`. Exceptions may share a spec that exercises each of their
+consumers. The checker rejects a missing, invalid, untracked or nonexistent
+spec, and any spec outside the backend Jest suite (`roots` and `testRegex` in
+`backend/package.json`). Run it with `cd backend && npm run check:overrides`.
 
 See [AGENTS.md](../../AGENTS.md#change-scoped-verification-required-before-pr)
 for verification requirements.

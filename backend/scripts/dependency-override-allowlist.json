@@ -5,7 +5,8 @@
     "dependency": "js-yaml",
     "declared": "^3.13.1",
     "resolved": "5.4.2",
-    "reason": "The YAML branch uses load(text) for NYC configuration, which remains available on js-yaml 5."
+    "reason": "The YAML branch uses load(text) for NYC configuration, which remains available on js-yaml 5.",
+    "spec": "test/unit/dependency-js-yaml.spec.ts"
   },
   {
     "parent": "@jest/reporters",
@@ -13,7 +14,8 @@
     "dependency": "glob",
     "declared": "^13.0.6",
     "resolved": "14.0.6",
-    "reason": "CoverageReporter uses the named glob export’s sync method with a pattern and options, which glob 14 provides."
+    "reason": "CoverageReporter uses the named glob export’s sync method with a pattern and options, which glob 14 provides.",
+    "spec": "test/unit/dependency-glob.spec.ts"
   },
   {
     "parent": "@nestjs/swagger",
@@ -21,7 +23,8 @@
     "dependency": "js-yaml",
     "declared": "5.5.0",
     "resolved": "5.4.2",
-    "reason": "The global pin avoids restoring NYC’s js-yaml 3.x copy and holds Swagger at 5.4.2 below its declared 5.5.0. Swagger uses dump(document, options), which the pinned version provides."
+    "reason": "The global pin avoids restoring NYC’s js-yaml 3.x copy and holds Swagger at 5.4.2 below its declared 5.5.0. Swagger uses dump(document, options), which the pinned version provides.",
+    "spec": "test/unit/dependency-js-yaml.spec.ts"
   },
   {
     "parent": "anymatch",
@@ -29,7 +32,8 @@
     "dependency": "picomatch",
     "declared": "^2.0.4",
     "resolved": "4.0.7",
-    "reason": "anymatch calls picomatch(pattern, options) and invokes the returned matcher, a call shape that picomatch 4 preserves for both include and negated patterns."
+    "reason": "anymatch calls picomatch(pattern, options) and invokes the returned matcher, a call shape that picomatch 4 preserves for both include and negated patterns.",
+    "spec": "test/unit/dependency-picomatch.spec.ts"
   },
   {
     "parent": "archiver-utils",
@@ -37,7 +41,8 @@
     "dependency": "glob",
     "declared": "^7.1.4",
     "resolved": "14.0.6",
-    "reason": "file.expand calls the top-level glob.sync(pattern, options) export, which glob 14 provides."
+    "reason": "file.expand calls the top-level glob.sync(pattern, options) export, which glob 14 provides.",
+    "spec": "test/unit/dependency-glob.spec.ts"
   },
   {
     "parent": "archiver-utils",
@@ -45,7 +50,8 @@
     "dependency": "glob",
     "declared": "^7.2.3",
     "resolved": "14.0.6",
-    "reason": "file.expand calls the top-level glob.sync(pattern, options) export, which glob 14 provides."
+    "reason": "file.expand calls the top-level glob.sync(pattern, options) export, which glob 14 provides.",
+    "spec": "test/unit/dependency-glob.spec.ts"
   },
   {
     "parent": "engine.io",
@@ -53,7 +59,8 @@
     "dependency": "ws",
     "declared": "~8.21.0",
     "resolved": "8.23.0",
-    "reason": "The server uses ws.Server and handleUpgrade. The transport receives messages, sends normally or through _sender.sendFrame, and closes the connection. These interfaces retain the call shapes used by Engine.IO."
+    "reason": "The server uses ws.Server and handleUpgrade. The transport receives messages, sends normally or through _sender.sendFrame, and closes the connection. These interfaces retain the call shapes used by Engine.IO.",
+    "spec": "test/unit/dependency-ws.spec.ts"
   },
   {
     "parent": "exceljs",
@@ -61,7 +68,8 @@
     "dependency": "unzipper",
     "declared": "^0.10.11",
     "resolved": "0.12.5",
-    "reason": "WorkbookReader consumes ZIP entries from Parse({ forceStream: true }), an interface unzipper 0.12.5 provides."
+    "reason": "WorkbookReader consumes ZIP entries from Parse({ forceStream: true }), an interface unzipper 0.12.5 provides.",
+    "spec": "src/common/services/export.service.spec.ts"
   },
   {
     "parent": "exceljs",
@@ -69,7 +77,8 @@
     "dependency": "uuid",
     "declared": "^8.3.0",
     "resolved": "14.0.3",
-    "reason": "The extended conditional-formatting transform loads the named v4 export via require(), which the backend’s Node version can load from uuid 14."
+    "reason": "The extended conditional-formatting transform loads the named v4 export via require(), which the backend’s Node version can load from uuid 14.",
+    "spec": "test/unit/dependency-uuid.spec.ts"
   },
   {
     "parent": "jest-config",
@@ -77,7 +86,8 @@
     "dependency": "glob",
     "declared": "^13.0.6",
     "resolved": "14.0.6",
-    "reason": "Project glob expansion calls the named glob export’s sync method with a pattern and options, which glob 14 provides."
+    "reason": "Project glob expansion calls the named glob export’s sync method with a pattern and options, which glob 14 provides.",
+    "spec": "test/unit/dependency-glob.spec.ts"
   },
   {
     "parent": "jest-runtime",
@@ -85,7 +95,8 @@
     "dependency": "glob",
     "declared": "^13.0.6",
     "resolved": "14.0.6",
-    "reason": "Manual mock lookup calls the named glob export’s sync method with a pattern and options, which glob 14 provides."
+    "reason": "Manual mock lookup calls the named glob export’s sync method with a pattern and options, which glob 14 provides.",
+    "spec": "test/unit/dependency-glob.spec.ts"
   },
   {
     "parent": "readdir-glob",
@@ -93,7 +104,8 @@
     "dependency": "minimatch",
     "declared": "^10.2.2",
     "resolved": "11.0.9",
-    "reason": "Uses the named Minimatch constructor and match(path) to filter directory entries. With minimatch 11, Archiver can append a source directory and can filter files when given a glob pattern."
+    "reason": "Uses the named Minimatch constructor and match(path) to filter directory entries. With minimatch 11, Archiver can append a source directory and can filter files when given a glob pattern.",
+    "spec": "test/unit/dependency-minimatch.spec.ts"
   },
   {
     "parent": "socket.io-adapter",
@@ -101,7 +113,8 @@
     "dependency": "ws",
     "declared": "~8.21.0",
     "resolved": "8.23.0",
-    "reason": "The adapter uses Sender.frame to precompute text broadcast frames in the format Engine.IO passes to _sender.sendFrame. Both interfaces are available in ws 8.23.0."
+    "reason": "The adapter uses Sender.frame to precompute text broadcast frames in the format Engine.IO passes to _sender.sendFrame. Both interfaces are available in ws 8.23.0.",
+    "spec": "test/unit/dependency-ws.spec.ts"
   },
   {
     "parent": "test-exclude",
@@ -109,7 +122,8 @@
     "dependency": "glob",
     "declared": "^10.4.1",
     "resolved": "14.0.6",
-    "reason": "The package calls the named glob export and the sync method on that export, both provided by glob 14."
+    "reason": "The package calls the named glob export and the sync method on that export, both provided by glob 14.",
+    "spec": "test/unit/dependency-glob.spec.ts"
   },
   {
     "parent": "test-exclude",
@@ -117,7 +131,8 @@
     "dependency": "minimatch",
     "declared": "^10.2.2",
     "resolved": "11.0.9",
-    "reason": "Uses the named minimatch(path, pattern, { dot: true }) export for inclusion, exclusion and negated exclusion. That call works with minimatch 11."
+    "reason": "Uses the named minimatch(path, pattern, { dot: true }) export for inclusion, exclusion and negated exclusion. That call works with minimatch 11.",
+    "spec": "test/unit/dependency-minimatch.spec.ts"
   },
   {
     "parent": "typeorm",
@@ -125,6 +140,7 @@
     "dependency": "ioredis",
     "declared": "^5.0.4",
     "resolved": "6.0.0",
-    "reason": "The optional query cache uses the Redis and Cluster constructors plus set with PX, get, del, flushdb, and quit. ioredis 6 provides those constructors and accepts the command arguments TypeORM passes."
+    "reason": "The optional query cache uses the Redis and Cluster constructors plus set with PX, get, del, flushdb, and quit. ioredis 6 provides those constructors and accepts the command arguments TypeORM passes.",
+    "spec": "test/unit/dependency-ioredis.spec.ts"
   }
 ]

@@ -1,0 +1,16 @@
+{
+  "name": "override-fixture",
+  "version": "1.0.0",
+  "dependencies": {
+    "archiver-utils": "2.1.0",
+    "rimraf": "2.7.1"
+  },
+  "overrides": {
+    "glob": "14.0.6"
+  },
+  "jest": {
+    "rootDir": ".",
+    "roots": ["<rootDir>/test"],
+    "testRegex": ".*\\.spec\\.ts$"
+  }
+}
