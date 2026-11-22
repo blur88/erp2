@@ -20,9 +20,10 @@
 //   - Sources containing `$VAR`/`${VAR}` cannot be resolved statically and are
 //     reported as problems rather than skipped (fail closed).
 //   - Wildcards use Go filepath.Match rules plus `**`, the same dialect as
-//     .dockerignore. A wildcard must match at least one tracked file: BuildKit
-//     accepts a COPY wildcard that matches nothing and copies nothing, which is
-//     exactly the silent failure this check exists to catch.
+//     .dockerignore. A wildcard must match at least one tracked file. This is
+//     deliberately stricter than needed: whether or not Docker tolerates a
+//     wildcard that matches nothing, a COPY that silently copies nothing is the
+//     failure this check exists to catch.
 //   - The build context is the Dockerfile's directory unless the caller says
 //     otherwise; dockerfile-sources.test.js verifies that against Compose and
 //     the release workflow.
@@ -89,7 +90,7 @@ function parseInstructions(text) {
         }
       }
     }
-    instructions.push({ keyword, line: startLine, rest, heredocs });
+    instructions.push({ keyword, line: startLine, rest });
   }
   return instructions;
 }
@@ -150,7 +151,9 @@ function parseCopyOperands(rest) {
 
 // --- Glob / .dockerignore matching ------------------------------------------
 
-// Port of moby's fileutils pattern compiler: `*` and `?` stop at `/`, `**`
+// Port of moby's pkg/fileutils pattern compiler (PatternMatcher), written from
+// reading its source; no Docker version is pinned and it is not run against a
+// Docker daemon. Rules: `*` and `?` stop at `/`, `**`
 // crosses it, `**/` may match nothing.
 function patternToRegExp(pattern) {
   let re = '^';
@@ -173,9 +176,9 @@ function patternToRegExp(pattern) {
       if (end === -1) {
         re += '\\[';
       } else {
-        let cls = pattern.slice(k + 1, end);
-        if (cls.startsWith('!')) cls = `^${cls.slice(1)}`;
-        re += `[${cls.replace(/\\/g, '\\\\')}]`;
+        // Passed through as a Go regexp class, as moby does: `[^a]` negates,
+        // `[!a]` is a literal `!` or `a`.
+        re += `[${pattern.slice(k + 1, end).replace(/\\/g, '\\\\')}]`;
         k = end;
       }
     } else if ('.$()+{}|^]'.includes(ch)) {
@@ -194,7 +197,8 @@ function cleanPattern(pattern) {
   return cleaned === '.' ? '' : cleaned;
 }
 
-// Mirrors moby's PatternMatcher.MatchesOrParentMatches. Returns the pattern that
+// Mirrors moby's pkg/fileutils PatternMatcher.MatchesOrParentMatches (same
+// caveat as patternToRegExp: ported from reading it, not verified against Docker). Returns the pattern that
 // excluded the file, or null when it is kept. Patterns are anchored at the
 // context root: `*.pem` is top-level only, `**/*.pem` is any depth.
 function parseDockerignore(text) {
@@ -253,13 +257,9 @@ function ignoredBy(repoRoot, repoRelativePath) {
 
 const REMOTE = /^(?:https?|git|ssh):\/\/|^git@/;
 
-// Classify one COPY/ADD source token. Returns null for inputs that are not
-// build-context files (stage copies, inline heredocs, remote ADD sources).
-function classifySource(keyword, source) {
-  if (source.startsWith('<<')) return null;
-  if (keyword === 'ADD' && REMOTE.test(source)) return null;
-  return source;
-}
+// Inline heredocs and remote ADD sources are not build-context files. (`--from`
+// copies are skipped earlier, by flag.)
+const isContextSource = (keyword, source) => !source.startsWith('<<') && !(keyword === 'ADD' && REMOTE.test(source));
 
 function checkDockerfile({ repoRoot, dockerfile, context = posix.dirname(dockerfile) }) {
   const result = { dockerfile, context, checked: [], broad: [], problems: [] };
@@ -282,6 +282,7 @@ function checkDockerfile({ repoRoot, dockerfile, context = posix.dirname(dockerf
   const ignoreLabel = ignoreFile ? posix.join(...path.relative(repoRoot, ignoreFile).split(path.sep)) : null;
   const patterns = ignoreFile ? parseDockerignore(fs.readFileSync(ignoreFile, 'utf8')) : [];
   const excluded = file => dockerignoreMatch(patterns, file);
+  const keptUnder = dir => tracked.find(file => file.startsWith(`${dir}/`) && !excluded(file));
   const explainExcluded = pattern => `excluded from the build context by ${ignoreLabel}:${pattern.line} \`${pattern.text}\``;
   const repoPath = file => (context === '.' ? file : posix.join(context, file));
 
@@ -313,8 +314,8 @@ function checkDockerfile({ repoRoot, dockerfile, context = posix.dirname(dockerf
     }
 
     for (const raw of words.slice(0, -1)) {
-      const source = classifySource(instruction.keyword, raw);
-      if (source === null) continue;
+      if (!isContextSource(instruction.keyword, raw)) continue;
+      const source = raw;
       if (/\$/.test(source)) {
         fail(instruction, raw, 'contains a variable, so it cannot be resolved statically; use a literal path so the check can verify it is tracked');
         continue;
@@ -331,7 +332,7 @@ function checkDockerfile({ repoRoot, dockerfile, context = posix.dirname(dockerf
         const files = tracked.filter(file => regexp.test(file));
         const dirs = [...trackedDirs].filter(dir => regexp.test(dir));
         const kept = files.filter(file => !excluded(file));
-        const keptDirs = dirs.filter(dir => tracked.some(file => file.startsWith(`${dir}/`) && !excluded(file)));
+        const keptDirs = dirs.filter(keptUnder);
         if (!kept.length && !keptDirs.length) {
           if (files.length || dirs.length) {
             const by = excluded(files[0] || tracked.find(file => file.startsWith(`${dirs[0]}/`)));
@@ -362,8 +363,7 @@ function checkDockerfile({ repoRoot, dockerfile, context = posix.dirname(dockerf
       }
 
       if (trackedDirs.has(target)) {
-        const kept = tracked.some(file => file.startsWith(`${target}/`) && !excluded(file));
-        if (!kept) fail(instruction, raw, 'is a directory whose tracked files are all excluded by the .dockerignore');
+        if (!keptUnder(target)) fail(instruction, raw, 'is a directory whose tracked files are all excluded by the .dockerignore');
         else result.broad.push({ dockerfile, line: instruction.line, source: raw, directory: target });
         continue;
       }
@@ -379,6 +379,6 @@ const formatProblem = ({ dockerfile, line, source, reason }) =>
   `${dockerfile}:${line}: local COPY/ADD source "${source}" ${reason}`;
 
 module.exports = {
-  parseInstructions, parseCopyOperands, parseDockerignore, dockerignoreMatch, patternToRegExp,
+  parseInstructions, parseCopyOperands, parseDockerignore, dockerignoreMatch,
   checkDockerfile, formatProblem, cleanGitEnv,
 };

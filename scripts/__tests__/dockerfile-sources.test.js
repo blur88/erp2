@@ -115,6 +115,13 @@ describe('.dockerignore matching', () => {
     assert.equal(excludedBy('**/*.pem', 'a.pem'), '**/*.pem');
   });
 
+  test('a bracket class passes through as Go regexp does: [^a] negates, [!a] is literal', () => {
+    assert.equal(excludedBy('[^a].txt', 'b.txt'), '[^a].txt');
+    assert.equal(excludedBy('[^a].txt', 'a.txt'), null);
+    assert.equal(excludedBy('[!a].txt', 'b.txt'), null);
+    assert.equal(excludedBy('[!a].txt', '!.txt'), '[!a].txt');
+  });
+
   test('a matching directory excludes everything beneath it', () => {
     assert.equal(excludedBy('secrets', 'secrets/deep/key'), 'secrets');
   });
@@ -371,7 +378,7 @@ describe('this repository', () => {
   });
 
   test('every tracked Dockerfile is covered by IMAGES', () => {
-    const listed = spawnSync('git', ['ls-files', '-z', '--', '*Dockerfile*'], { cwd: repo, encoding: 'utf8' });
+    const listed = spawnSync('git', ['ls-files', '-z', '--', '*Dockerfile*'], { cwd: repo, encoding: 'utf8', env: cleanGitEnv() });
     assert.equal(listed.status, 0, listed.stderr);
     const tracked = listed.stdout.split('\0').filter(f => /(^|\/)Dockerfile(\.[^/]*)?$/.test(f));
     assert.deepEqual(tracked.sort(), IMAGES.map(i => i.dockerfile).sort(),
