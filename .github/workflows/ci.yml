@@ -136,7 +136,7 @@ jobs:
         run: npm ci
 
       - name: Check backend dependency overrides
-        run: node scripts/check-dependency-overrides.mjs . ../docs/agents/dependency-overrides.md scripts/dependency-override-allowlist.json
+        run: npm run check:overrides
 
       - name: Lint
         run: npx eslint "{src,apps,libs,test}/**/*.ts"
