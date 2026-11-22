@@ -315,12 +315,11 @@ function checkDockerfile({ repoRoot, dockerfile, context = posix.dirname(dockerf
 
     for (const raw of words.slice(0, -1)) {
       if (!isContextSource(instruction.keyword, raw)) continue;
-      const source = raw;
-      if (/\$/.test(source)) {
+      if (/\$/.test(raw)) {
         fail(instruction, raw, 'contains a variable, so it cannot be resolved statically; use a literal path so the check can verify it is tracked');
         continue;
       }
-      const normalized = posix.normalize(source.replace(/^\/+/, '') || '.');
+      const normalized = posix.normalize(raw.replace(/^\/+/, '') || '.');
       if (normalized === '..' || normalized.startsWith('../')) {
         fail(instruction, raw, 'points outside the build context');
         continue;
