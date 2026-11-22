@@ -1,10 +1,11 @@
 'use strict';
 
-// Validate a PR's release declaration and preview its merge result (#2002).
+// Validate a PR's release declaration, reject AI attribution (#2017) and preview its merge result (#2002).
 const { execFileSync } = require('node:child_process');
 const { appendFileSync } = require('node:fs');
 const { offlineGitOptions } = require('./release-preview/offline-git.cjs');
 const { validateFields } = require('./release-preview/pr-fields.cjs');
+const { attributionFailures } = require('./ai-attribution.cjs');
 
 const repository = 'blur88/erp2';
 const staleMergeMessage = 'merge ref stale or unverifiable; re-run';
@@ -75,6 +76,9 @@ async function check() {
   const metadata = fetchPullRequest(number);
   const mainTip = fetchMainTip();
   const { head, merge } = verifyMerge(metadata, mainTip);
+  if (typeof metadata.body !== 'string') {
+    throw new Error('The PR body is missing or inaccessible, so it cannot be checked for AI attribution.');
+  }
   const breaking = validateFields(metadata.body, {
     repository,
     exists: path => /^100(?:644|755) blob /.test(
@@ -87,6 +91,11 @@ async function check() {
     if (/^[\w-]+(?:\([^\r\n)]+\))?!:/.test(message)) {
       throw new Error(`Commit ${hash} uses an unsupported ! header. Remove ! from the header and add a BREAKING CHANGE: footer if the commit introduces a break.`);
     }
+  }
+
+  const attribution = attributionFailures({ body: metadata.body, commits });
+  if (attribution.length > 0) {
+    throw new Error(`AI attribution is not allowed in commit messages or the PR body. Remove it from each place listed (amend or rewrite the commit, or edit the PR body). See docs/agents/commit-attribution.md.\n${attribution.join('\n')}`);
   }
 
   if (breaking !== (type === 'major')) {

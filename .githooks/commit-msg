@@ -1,0 +1,32 @@
+#!/usr/bin/env node
+'use strict';
+
+// commit-msg hook: reject AI attribution before a commit is created (#2017).
+// Optional and bypassable (git commit --no-verify); the Breaking Change Check
+// in CI is authoritative. Install: git config core.hooksPath .githooks
+// See docs/agents/commit-attribution.md.
+const { readFileSync } = require('node:fs');
+const { resolve } = require('node:path');
+const { findAttribution } = require(resolve(__dirname, '../scripts/ai-attribution.cjs'));
+
+const file = process.argv[2];
+if (process.argv.length !== 3 || !file) {
+  console.error('commit-msg: expected the path to the commit message file as the only argument.');
+  process.exit(1);
+}
+
+let message;
+try {
+  message = readFileSync(file, 'utf8');
+} catch (error) {
+  console.error(`commit-msg: cannot read ${file}: ${error.message}`);
+  process.exit(1);
+}
+
+const violations = findAttribution(message, { gitComments: true });
+if (violations.length > 0) {
+  console.error('commit-msg: AI attribution is not allowed in commit messages (AGENTS.md, docs/agents/commit-attribution.md):');
+  for (const { line, reason, text } of violations) console.error(`  line ${line}: ${reason}: "${text}"`);
+  console.error('Remove the line and commit again.');
+  process.exit(1);
+}

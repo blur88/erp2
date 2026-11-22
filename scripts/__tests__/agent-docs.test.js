@@ -3,7 +3,7 @@
 // resolve to the canonical evidence section.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { readFileSync } = require('node:fs');
+const { existsSync, readFileSync } = require('node:fs');
 const path = require('node:path');
 
 const read = (file) => readFileSync(path.resolve(__dirname, '../..', file), 'utf8');
@@ -33,4 +33,18 @@ test('CLAUDE.md documents the focused Ingress command; AGENTS.md keeps the full 
     .find((line) => line.includes('INGRESS_REQUIRE_DOCKER=1 npm run test:release'));
   assert.ok(gateRow, 'AGENTS.md must keep the full Ingress release gate');
   assert.match(gateRow, /bash scripts\/lint-workflows\.sh/);
+});
+
+test('AGENTS.md keeps the attribution policy and links the implementation (#2017)', () => {
+  const agents = read('AGENTS.md');
+  const policy = agents.split('\n').find((line) => line.startsWith('Commit messages and PR bodies must not contain AI attribution lines'));
+  assert.ok(policy, 'attribution policy statement missing from AGENTS.md');
+  assert.match(policy, /Co-Authored-By/);
+  assert.match(policy, /Claude-Session/);
+  assert.match(policy, /\]\(docs\/agents\/commit-attribution\.md\)/);
+  const doc = read('docs/agents/commit-attribution.md');
+  for (const target of ['scripts/ai-attribution.cjs', 'scripts/breaking-change-check.cjs', '.githooks/commit-msg']) {
+    assert.ok(doc.includes(`](../../${target})`), `${target} must be linked from the attribution doc`);
+    assert.ok(existsSync(path.resolve(__dirname, '../..', target)), `${target} must exist`);
+  }
 });
