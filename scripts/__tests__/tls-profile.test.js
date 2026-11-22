@@ -86,6 +86,14 @@ describe('deployed nginx/tls-intermediate.conf', () => {
   });
 });
 
+describe('ADR 0004', () => {
+  test('names the fixture source URL and guidelines version 6.0', () => {
+    const adr = read('docs/adr/0004-ingress-terminated-https.md');
+    assert.ok(adr.includes(provenance().sourceUrl), `ADR 0004 must cite ${provenance().sourceUrl}`);
+    assert.match(adr, /guidelines version 6\.0/);
+  });
+});
+
 describe('the profile comparison fails when the configuration drifts', () => {
   const profile = loadIntermediateProfile();
   const [ciphers] = directiveValues(conf, 'ssl_ciphers');
