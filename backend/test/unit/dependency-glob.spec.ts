@@ -1,21 +1,15 @@
 import { execFile } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import {
+  resolveVia,
+  requireVia,
+  versionVia,
+} from "../utils/resolve-dependency";
 
 const runFile = promisify(execFile);
-// Resolve a package from a chain of parents, as Node would from inside them.
-const resolveVia = (...chain: string[]) =>
-  chain.reduce(
-    (from, name) => createRequire(from).resolve(`${name}/package.json`),
-    fileURLToPath(import.meta.url),
-  );
-const requireVia = (...chain: string[]) =>
-  createRequire(resolveVia(...chain))(".");
 
 const archiverUtils = {
   "archiver-utils@2.1.0": ["exceljs", "archiver", "archiver-utils"],
@@ -36,9 +30,7 @@ describe("glob override resolutions", () => {
   it.each(Object.entries(consumers))(
     "%s resolves glob 14",
     (_consumer, chain) => {
-      const { version } = JSON.parse(
-        readFileSync(resolveVia(...chain, "glob"), "utf8"),
-      ) as { version: string };
+      const version = versionVia(...chain, "glob");
 
       expect(version.split(".")[0]).toBe("14");
     },
@@ -149,12 +141,12 @@ describe("glob consumer compatibility", () => {
         "",
       ].join("\n"),
     });
-    const jest = join(dirname(resolveVia("jest")), "bin", "jest.js");
+    const jestBin = join(dirname(resolveVia("jest")), "bin", "jest.js");
     const env = { ...process.env, NODE_OPTIONS: "" };
 
     const run = await runFile(
       process.execPath,
-      [jest, "--ci", "--json", "--outputFile", join(root, "results.json")],
+      [jestBin, "--ci", "--json", "--outputFile", join(root, "results.json")],
       { cwd: root, env },
     ).then(
       () => ({ code: 0, stderr: "" }),

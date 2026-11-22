@@ -213,13 +213,20 @@ async function checkDependencyOverrides(project, documentation, allowlist) {
 
   // A stale entry must be removed, so only matched exceptions need a spec.
   const matched = exceptions.filter((entry) => !unusedExceptions.has(entry));
-  const specContext = matched.length && {
-    inSuite: jestSuite(projectDirectory, manifest),
-    repository: gitRepository(projectDirectory),
-  };
-  for (const entry of matched) {
-    const problem = specReferenceProblem(entry, projectDirectory, specContext);
-    if (problem) problems.push(`${problem}: ${describeIncompatibility(entry)}`);
+  if (matched.length) {
+    const specContext = {
+      inSuite: jestSuite(projectDirectory, manifest),
+      repository: gitRepository(projectDirectory),
+    };
+    for (const entry of matched) {
+      const problem = specReferenceProblem(
+        entry,
+        projectDirectory,
+        specContext,
+      );
+      if (problem)
+        problems.push(`${problem}: ${describeIncompatibility(entry)}`);
+    }
   }
 
   for (const entry of unusedExceptions) {

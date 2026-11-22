@@ -1,20 +1,11 @@
-import { readFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { Controller, Get, Module, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import request from "supertest";
-
-// Resolve a package from a chain of parents, as Node would from inside them.
-const resolveVia = (...chain: string[]) =>
-  chain.reduce(
-    (from, name) => createRequire(from).resolve(`${name}/package.json`),
-    fileURLToPath(import.meta.url),
-  );
+import { requireVia, versionVia } from "../utils/resolve-dependency";
 
 const consumers: Record<string, string[]> = {
   "@istanbuljs/load-nyc-config": [
@@ -31,9 +22,7 @@ describe("js-yaml override resolutions", () => {
   it.each(Object.entries(consumers))(
     "%s resolves js-yaml 5.4.2",
     (_consumer, chain) => {
-      const { version } = JSON.parse(
-        readFileSync(resolveVia(...chain, "js-yaml"), "utf8"),
-      ) as { version: string };
+      const version = versionVia(...chain, "js-yaml");
 
       expect(version).toBe("5.4.2");
     },
@@ -48,9 +37,9 @@ describe("js-yaml consumer compatibility", () => {
         join(root, ".nycrc.yaml"),
         "all: true\nreporter:\n  - text\n  - lcov\n",
       );
-      const { loadNycConfig } = createRequire(
-        resolveVia(...consumers["@istanbuljs/load-nyc-config"]),
-      )(".") as { loadNycConfig(options: object): Promise<object> };
+      const { loadNycConfig } = requireVia(
+        ...consumers["@istanbuljs/load-nyc-config"],
+      ) as { loadNycConfig(options: object): Promise<object> };
 
       await expect(loadNycConfig({ cwd: root })).resolves.toMatchObject({
         all: true,

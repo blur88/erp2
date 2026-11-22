@@ -1,19 +1,10 @@
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import * as ExcelJS from "exceljs";
-
-// Resolve a package from a chain of parents, as Node would from inside them.
-const resolveVia = (...chain: string[]) =>
-  chain.reduce(
-    (from, name) => createRequire(from).resolve(`${name}/package.json`),
-    fileURLToPath(import.meta.url),
-  );
+import { requireVia, versionVia } from "../utils/resolve-dependency";
 
 type Zip = {
   file(path: string): { async(type: "string"): Promise<string> };
 };
-const JSZip = createRequire(resolveVia("exceljs", "jszip"))(".") as {
+const JSZip = requireVia("exceljs", "jszip") as {
   loadAsync(data: Buffer): Promise<Zip>;
 };
 
@@ -25,9 +16,7 @@ const UUID =
 // scripts/dependency-override-allowlist.json.
 describe("uuid override resolution", () => {
   it("exceljs resolves uuid 11.1.1 or later", () => {
-    const { version } = JSON.parse(
-      readFileSync(resolveVia("exceljs", "uuid"), "utf8"),
-    ) as { version: string };
+    const version = versionVia("exceljs", "uuid");
     const [major, minor, patch] = version.split(".").map(Number);
 
     expect(

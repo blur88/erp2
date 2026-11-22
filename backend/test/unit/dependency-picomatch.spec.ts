@@ -1,13 +1,4 @@
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
-
-// Resolve a package from a chain of parents, as Node would from inside them.
-const resolveVia = (...chain: string[]) =>
-  chain.reduce(
-    (from, name) => createRequire(from).resolve(`${name}/package.json`),
-    fileURLToPath(import.meta.url),
-  );
+import { requireVia, versionVia } from "../utils/resolve-dependency";
 
 const anymatchChain = ["jest", "@jest/core", "jest-haste-map", "anymatch"];
 type Anymatch = {
@@ -20,9 +11,7 @@ type Anymatch = {
 // scripts/dependency-override-allowlist.json.
 describe("picomatch override resolution", () => {
   it("anymatch resolves picomatch 4.0.4 or later within major 4", () => {
-    const { version } = JSON.parse(
-      readFileSync(resolveVia(...anymatchChain, "picomatch"), "utf8"),
-    ) as { version: string };
+    const version = versionVia(...anymatchChain, "picomatch");
     const [major, minor, patch] = version.split(".").map(Number);
 
     expect(major).toBe(4);
@@ -31,7 +20,7 @@ describe("picomatch override resolution", () => {
 });
 
 describe("picomatch consumer compatibility", () => {
-  const anymatch = createRequire(resolveVia(...anymatchChain))(".") as Anymatch;
+  const anymatch = requireVia(...anymatchChain) as Anymatch;
 
   it("matches include patterns through picomatch(pattern, options)", () => {
     expect(anymatch("src/**/*.ts", "src/modules/item.ts")).toBe(true);
