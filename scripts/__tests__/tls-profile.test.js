@@ -116,7 +116,7 @@ describe('the profile comparison fails when the configuration drifts', () => {
     ['a required cipher is removed', 'ssl_ciphers', ciphers.split(':').slice(1).join(':'), /ssl_ciphers/],
     ['the last required cipher is removed', 'ssl_ciphers', ciphers.split(':').slice(0, -1).join(':'), /ssl_ciphers/],
     ['a required curve is removed', 'ssl_ecdh_curve', curves.split(':').slice(1).join(':'), /ssl_ecdh_curve/],
-    ['the hybrid group is replaced by a curve outside the profile', 'ssl_ecdh_curve', curves.replace(curves.split(':')[0], 'secp521r1'), /ssl_ecdh_curve/],
+    ['the first profile group is replaced by a curve outside the profile', 'ssl_ecdh_curve', curves.replace(curves.split(':')[0], 'secp521r1'), /ssl_ecdh_curve/],
     ['a curve outside the profile is added', 'ssl_ecdh_curve', `${curves}:secp521r1`, /ssl_ecdh_curve/],
     ['TLS 1.1 is enabled', 'ssl_protocols', 'TLSv1.1 TLSv1.2 TLSv1.3', /ssl_protocols/],
     ['TLS 1.3 is dropped', 'ssl_protocols', 'TLSv1.2', /ssl_protocols/],
