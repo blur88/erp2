@@ -3,6 +3,7 @@
   "description": "Verbatim copy of the Mozilla server-side TLS guidelines, version 6.0, as published by TLSref. Never edit the fixture by hand: refresh it from the source URL and update this file in the same commit.",
   "sourceUrl": "https://data.tlsref.org/guidelines/6.0.json",
   "version": 6,
+  "versionLabel": "6.0",
   "retrievedOn": "2026-11-22",
   "sha256": "d687ec847524adbba61d46be40182f6cafdd72d8d3720a53b6dfb982acb5c228",
   "reproduce": "curl -fsS https://data.tlsref.org/guidelines/6.0.json | sha256sum",

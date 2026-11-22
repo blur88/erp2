@@ -202,6 +202,8 @@ function createTestCertificate(directory) {
 const PROFILE = loadIntermediateProfile();
 // The test certificate is RSA, so only the RSA suites can complete a handshake.
 const RSA_TLS12_CIPHERS = PROFILE.tls12Ciphers.filter(name => name.startsWith('ECDHE-RSA-'));
+const REFUSED_LEGACY_VERSIONS = ['TLSv1', 'TLSv1.1'].filter(name => !PROFILE.tlsVersions.includes(name));
+assert.deepEqual(REFUSED_LEGACY_VERSIONS, ['TLSv1', 'TLSv1.1'], 'the profile must exclude TLS 1.0 and 1.1');
 
 // OpenSSL 3 refuses TLS 1.0 and 1.1 at the default security level, so a client
 // has to lower it to offer them.
@@ -553,7 +555,7 @@ describe('Ingress as the only entry point', { skip: !requireDocker && !dockerAva
       });
     }
 
-    for (const version of ['TLSv1', 'TLSv1.1'].filter(name => !PROFILE.tlsVersions.includes(name))) {
+    for (const version of REFUSED_LEGACY_VERSIONS) {
       test(`${version} is refused by nginx with a protocol_version alert, for a client shown to offer it`, async () => {
         const legacy = { ...tls, ...pinned(version, { ciphers: LEGACY_TLS_CIPHERS }) };
         const clientVersion = (record) => record.readUInt16BE(9);

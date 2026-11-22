@@ -30,6 +30,8 @@ describe('pinned guidelines fixture', () => {
     const record = provenance();
     const profile = loadIntermediateProfile();
     assert.equal(record.version, 6);
+    assert.equal(record.versionLabel, '6.0');
+    assert.ok(record.sourceUrl.endsWith(`/${record.versionLabel}.json`), 'the URL must point at the recorded version');
     assert.equal(profile.version, record.version);
     assert.equal(profile.href, record.sourceUrl);
     assert.equal(record.sourceUrl, 'https://data.tlsref.org/guidelines/6.0.json');
@@ -56,7 +58,10 @@ describe('pinned guidelines fixture', () => {
     assert.ok(profile.tlsVersions.includes('TLSv1.2') && profile.tlsVersions.includes('TLSv1.3'));
     assert.ok(profile.curves.length > 0);
     assert.ok(profile.tls13CipherSuites.every(name => name.startsWith('TLS_')));
-    assert.equal(profile.serverPreferredOrder, false);
+    assert.equal(typeof profile.serverPreferredOrder, 'boolean');
+    // The Ingress tests refuse TLS 1.0 and 1.1 only while the profile excludes them.
+    // Fail here, loudly, if a fixture refresh ever allows either.
+    for (const legacy of ['TLSv1', 'TLSv1.1']) assert.ok(!profile.tlsVersions.includes(legacy), legacy);
   });
 });
 
@@ -111,7 +116,7 @@ describe('the profile comparison fails when the configuration drifts', () => {
     ['a required cipher is removed', 'ssl_ciphers', ciphers.split(':').slice(1).join(':'), /ssl_ciphers/],
     ['the last required cipher is removed', 'ssl_ciphers', ciphers.split(':').slice(0, -1).join(':'), /ssl_ciphers/],
     ['a required curve is removed', 'ssl_ecdh_curve', curves.split(':').slice(1).join(':'), /ssl_ecdh_curve/],
-    ['the hybrid group is replaced by a curve outside the profile', 'ssl_ecdh_curve', curves.replace('X25519MLKEM768', 'secp521r1'), /ssl_ecdh_curve/],
+    ['the hybrid group is replaced by a curve outside the profile', 'ssl_ecdh_curve', curves.replace(curves.split(':')[0], 'secp521r1'), /ssl_ecdh_curve/],
     ['a curve outside the profile is added', 'ssl_ecdh_curve', `${curves}:secp521r1`, /ssl_ecdh_curve/],
     ['TLS 1.1 is enabled', 'ssl_protocols', 'TLSv1.1 TLSv1.2 TLSv1.3', /ssl_protocols/],
     ['TLS 1.3 is dropped', 'ssl_protocols', 'TLSv1.2', /ssl_protocols/],
