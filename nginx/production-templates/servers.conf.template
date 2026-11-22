@@ -34,12 +34,14 @@ server {
 server {
     listen 443 ssl default_server;
     listen [::]:443 ssl default_server;
+    http2 on;
     return 421;
 }
 
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
+    http2 on;
     server_name ${ERP_PUBLIC_HOST};
 
     # Return through a named location whose header policy omits HSTS.
