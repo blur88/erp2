@@ -104,6 +104,8 @@ Follow [AGENTS.md — Change-Scoped Verification](AGENTS.md#change-scoped-verifi
 
 **Account lockout clock:** Lockout expiry (`User.isLocked`, the login check in `auth.service.ts`, and the `isLocked` filter/count in `users.service.ts`) is evaluated against the **Node container clock** (`new Date()`), never SQL `NOW()`. This keeps login and the user list using one clock so a skewed Postgres container clock can't disagree (issue #710). Docker container clocks can drift after host sleep/resume or container start; if a lockout seems wrong, run `docker compose restart backend` (or resync the host clock). Do not change these comparisons to SQL `NOW()`.
 
+**Docker from worktrees**: Before running Docker from a Git worktree, read [Docker verification from Git worktrees](docs/agents/docker-from-worktrees.md).
+
 **Frontend Docker**: Changes to frontend source require a rebuild — `docker compose build frontend && docker compose up -d frontend`. The Vite dev server (`npm run dev`) is for local-only development.
 
 **Printing is portal-only**: the transactional document dialogs (Sales/Purchase Orders, invoices) render through MUI portals **outside** `#root`, so `@media print { #root { display: none } }` (`styles/global.css`) is what isolates them — hiding the app shell leaves the portaled document alone on the page. That rule is unconditional and load-bearing for every print flow in the app; nothing renders a printable page *inside* `#root`.
