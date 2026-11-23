@@ -22,7 +22,7 @@ const alignedSources = (): NodeVersionSources => ({
   ].join("\n"),
   "frontend/Dockerfile": [
     "FROM node:26.13.1-alpine3.24 AS builder",
-    "FROM nginx:1.30.7-alpine3.24-slim AS production",
+    "FROM nginx:example AS production",
   ].join("\n"),
   ".nvmrc": "26\n",
   ".github/workflows/e2e-leakcheck.yml": [
@@ -139,7 +139,7 @@ describe("Node version alignment", () => {
   it("reports a Dockerfile with no Node FROM instruction", () => {
     const sources = alignedSources();
     sources["frontend/Dockerfile"] =
-      "FROM nginx:1.30.7-alpine3.24-slim AS production";
+      "FROM nginx:example AS production";
 
     const problems = findNodeVersionMisalignments(sources);
 

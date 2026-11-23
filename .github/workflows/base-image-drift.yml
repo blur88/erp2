@@ -1,0 +1,31 @@
+name: Docker base-image drift
+
+on:
+  schedule:
+    - cron: '41 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: docker-base-image-drift
+  cancel-in-progress: false
+
+jobs:
+  base-image-drift:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci --ignore-scripts
+      - name: Check pins and update the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-base-image-drift.js

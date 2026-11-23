@@ -100,6 +100,59 @@ docker scout recommendations --only-update  blur88/erp2:latest-frontend --tag 1.
 docker scout quickview blur88/master:erp2-frontend --org blur88
 ```
 
+## Measuring a base-image bump
+
+Repeat this comparison for each changed release service (`backend`, `frontend` or
+`nginx`). From the candidate branch, use the same build inputs as the release
+and match the published image's platform. This example measures the frontend.
+
+```bash
+service=frontend
+platform=linux/amd64
+published="blur88/erp2:latest-$service"
+candidate="erp2-scout-$service:$(git rev-parse --short HEAD)"
+
+date -u +%F
+docker scout version
+docker buildx imagetools inspect "$published"
+# Copy the top-level Digest from the output before building.
+published_digest='<sha256 digest from inspect>'
+baseline="registry://blur88/erp2@$published_digest"
+
+# For frontend, set this to the release version being modeled.
+build_args=(--build-arg VITE_APP_VERSION='<release version>')
+# For backend or nginx, use build_args=().
+docker buildx build --pull --load --platform "$platform" "${build_args[@]}" \
+  -f "$service/Dockerfile" -t "$candidate" "$service"
+docker image inspect "$candidate" --format '{{.Id}}'
+
+docker scout quickview --platform "$platform" "$baseline"
+docker scout quickview --platform "$platform" "local://$candidate"
+docker scout compare --platform "$platform" --to "$baseline" "local://$candidate"
+```
+
+Record the UTC observation date, Scout version, published index digest,
+candidate image ID (local config digest), candidate commit and platform. The
+`latest-<service>` tag identifies what was published at observation time. Use
+the recorded digest when repeating the comparison. [Docker Scout compare reference](https://docs.docker.com/reference/cli/docker/scout/compare/)
+
+Report Critical, High, Medium and Low totals for each full application image.
+List newly introduced CVEs with severity, affected package and version, and any
+available fix. Record base-attributed findings separately using Scout's base
+image rows and provenance where available. Mark inferred attribution when
+Scout falls back to layer matching. A second comparison with `--ignore-base`
+can show the findings Scout attributes outside the base layers.
+
+[PR #2036](https://github.com/blur88/erp2/pull/2036) recorded these full-image
+results with Scout v1.18.4. The reverse proxy improved across all four
+severities. The frontend removed two Medium findings and introduced High
+`CVE-2026-107891` in musl `1.2.6-r3`.
+
+| Service | Published C / H / M / L | Candidate C / H / M / L |
+|---|---|---|
+| Reverse proxy (`nginx`) | 4 / 20 / 8 / 5 | 1 / 5 / 1 / 0 |
+| Frontend | 0 / 0 / 2 / 0 | 0 / 1 / 0 / 0 |
+
 ## Open questions / unverified
 
 - **Does the Scout platform read SLSA v1 provenance?** Not tested. Running Scout CLI v1.29.0 was blocked in this session, so it is also unconfirmed that the auto-detect notice disappears with a current CLI. Run the upgraded CLI commands above.
