@@ -1,18 +1,30 @@
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { findNginxImageMisalignment } from "./nginx-image-alignment";
+
+const repoRoot = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+);
 
 describe("NGINX image alignment", () => {
   it("holds for the repository Dockerfiles", () => {
     expect(
       findNginxImageMisalignment(
-        readFileSync(
-          new URL("../../../frontend/Dockerfile", import.meta.url),
-          "utf8",
-        ),
-        readFileSync(
-          new URL("../../../nginx/Dockerfile", import.meta.url),
-          "utf8",
-        ),
+        readFileSync(join(repoRoot, "frontend/Dockerfile"), "utf8"),
+        readFileSync(join(repoRoot, "nginx/Dockerfile"), "utf8"),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("resolves an aliased final stage to its external NGINX image", () => {
+    expect(
+      findNginxImageMisalignment(
+        "FROM nginx:1.2.3-alpine3.24-slim AS runtime\nFROM runtime AS production",
+        "FROM nginx:1.2.3-alpine3.24-slim",
       ),
     ).toBeUndefined();
   });

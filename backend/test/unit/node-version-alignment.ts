@@ -1,3 +1,8 @@
+import {
+  dockerStageImages,
+  officialImagePin,
+} from "../../../scripts/docker-image-pins.cjs";
+
 /**
  * Node runtime version alignment across the files a Node bump must touch
  * (#2031). The authoritative pin is the first Node `FROM` in
@@ -21,8 +26,10 @@ const AUTHORITATIVE_DOCKERFILE = "backend/Dockerfile";
 const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
 
 function nodeImageTags(dockerfile: string): string[] {
-  const pattern = /^\s*FROM\s+(?:--platform=\S+\s+)?node:(\S+)/gim;
-  return [...dockerfile.matchAll(pattern)].map((match) => match[1]);
+  return dockerStageImages(dockerfile).flatMap((image) => {
+    const pin = officialImagePin(image);
+    return pin?.repository === "node" ? [pin.tag] : [];
+  });
 }
 
 /** `26.13.1-alpine3.24` → `26.13.1` */

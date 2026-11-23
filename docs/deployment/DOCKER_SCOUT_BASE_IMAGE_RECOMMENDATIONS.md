@@ -117,7 +117,7 @@ docker scout version
 docker buildx imagetools inspect "$published"
 # Copy the top-level Digest from the output before building.
 published_digest='<sha256 digest from inspect>'
-baseline="registry://blur88/erp2@$published_digest"
+baseline="registry://$published@$published_digest"
 
 # For frontend, set this to the release version being modeled.
 build_args=(--build-arg VITE_APP_VERSION='<release version>')
@@ -134,7 +134,8 @@ docker scout compare --platform "$platform" --to "$baseline" "local://$candidate
 Record the UTC observation date, Scout version, published index digest,
 candidate image ID (local config digest), candidate commit and platform. The
 `latest-<service>` tag identifies what was published at observation time. Use
-the recorded digest when repeating the comparison. [Docker Scout compare reference](https://docs.docker.com/reference/cli/docker/scout/compare/)
+the recorded digest when repeating the comparison. Append new dated results and
+retain previous observations and their original image references. [Docker Scout compare reference](https://docs.docker.com/reference/cli/docker/scout/compare/)
 
 Report Critical, High, Medium and Low totals for each full application image.
 List newly introduced CVEs with severity, affected package and version, and any
@@ -144,7 +145,9 @@ Scout falls back to layer matching. A second comparison with `--ignore-base`
 can show the findings Scout attributes outside the base layers.
 
 [PR #2036](https://github.com/blur88/erp2/pull/2036) recorded these full-image
-results with Scout v1.18.4. The reverse proxy improved across all four
+results on 2026-11-23 with Scout v1.18.4. The PR record contains the compared
+tags and severity totals. The published and local candidate digests were
+unrecorded. The reverse proxy improved across all four
 severities. The frontend removed two Medium findings and introduced High
 `CVE-2026-107891` in musl `1.2.6-r3`.
 
