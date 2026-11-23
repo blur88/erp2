@@ -94,7 +94,7 @@ docker scout version
 docker scout quickview blur88/erp2:latest-frontend          # does "Base image was auto-detected" disappear?
 docker scout recommendations blur88/erp2:latest-frontend
 docker scout recommendations --only-refresh blur88/erp2:latest-backend --tag <tag from backend/Dockerfile>
-docker scout recommendations --only-update  blur88/erp2:latest-frontend --tag 1.30.0-alpine3.23-slim
+docker scout recommendations --only-update  blur88/erp2:latest-frontend --tag 1.30.7-alpine3.24-slim
 
 # Policy view against the org (enabled repository)
 docker scout quickview blur88/master:erp2-frontend --org blur88
