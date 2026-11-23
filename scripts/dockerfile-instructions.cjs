@@ -51,7 +51,7 @@ function dockerStages(dockerfile) {
     }
   }
   // An unclosed heredoc may have hidden a later FROM instruction.
-  return heredocs.length ? [] : stages;
+  return heredocs.length ? undefined : stages;
 }
 
 module.exports = { dockerStages };

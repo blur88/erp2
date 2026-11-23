@@ -30,6 +30,16 @@ test('collects external pins and combines repeated references', () => {
   ]);
 });
 
+test('preserves pin discovery when an unterminated heredoc prevents stage parsing', () => {
+  const redis = 'redis:8.6.2-alpine3.23';
+  assert.deepEqual(parsePins({
+    'frontend/Dockerfile': `FROM ${nginx} AS build\nCOPY <<EOF /file\ntext\nFROM build\nFROM ${redis}`,
+  }), [
+    { ...pins[0], pinnedDigest: undefined },
+    { repository: 'redis', tag: redis.split(':')[1], pinnedDigest: undefined, sources: ['frontend/Dockerfile'] },
+  ]);
+});
+
 test('compares numeric major, minor and patch components', () => {
   assert.ok(compareVersions('1.30.10', '1.30.9') > 0);
   assert.ok(compareVersions('18.3', '18.11') < 0);

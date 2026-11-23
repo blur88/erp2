@@ -6,7 +6,7 @@ const { parse } = require('yaml');
 const { dockerStages } = require('../dockerfile-instructions.cjs');
 
 function publishedStage(dockerfile, target) {
-  const stages = dockerStages(dockerfile);
+  const stages = dockerStages(dockerfile) ?? [];
   return target ? stages.find(({ alias }) => alias?.toLowerCase() === target.toLowerCase()) : stages.at(-1);
 }
 
@@ -23,6 +23,16 @@ function hasAlpineUpgrade({ runCommands }) {
   );
 }
 
+function assertPublishedAlpineUpgrade(dockerfile, path, target) {
+  const stage = publishedStage(dockerfile, target);
+  assert.ok(stage, `${path}: cannot find published stage ${target ?? '(last stage)'}`);
+  assert.ok(!stage.baseImage.includes('$'),
+    `${path}: cannot determine whether published base image ${stage.baseImage} uses Alpine`);
+  if (isAlpineBase(stage.baseImage)) {
+    assert.ok(hasAlpineUpgrade(stage), `${path} needs RUN apk upgrade --no-cache in the published stage`);
+  }
+}
+
 const root = resolve(__dirname, '../..');
 const workflow = parse(readFileSync(resolve(root, '.github/workflows/release.yml'), 'utf8'));
 const publishedImages = Object.values(workflow.jobs)
@@ -37,11 +47,7 @@ for (const { name, with: options } of publishedImages) {
   test(`${name} upgrades packages when the published stage uses Alpine`, () => {
     const path = options.file ?? join(options.context ?? '.', 'Dockerfile');
     const dockerfile = readFileSync(resolve(root, path), 'utf8');
-    const stage = publishedStage(dockerfile, options.target);
-    assert.ok(stage, `${path}: cannot find published stage ${options.target ?? '(last stage)'}`);
-    if (isAlpineBase(stage.baseImage)) {
-      assert.ok(hasAlpineUpgrade(stage), `${path} needs RUN apk upgrade --no-cache in the published stage`);
-    }
+    assertPublishedAlpineUpgrade(dockerfile, path, options.target);
   });
 }
 
@@ -84,6 +90,24 @@ test('only the published stage determines whether the Alpine policy applies', ()
   const dockerfile = 'FROM node:26-alpine AS builder\nFROM debian:stable-slim AS production';
   assert.equal(isAlpineBase(publishedStage(dockerfile).baseImage), false);
   assert.equal(isAlpineBase(publishedStage(dockerfile, 'builder').baseImage), true);
+});
+
+for (const base of ['${IMG}', '$IMG']) {
+  test(`rejects an unresolved base image ${base} in the published stage`, () => {
+    const dockerfile = `ARG IMG=node:26-alpine\nFROM ${base} AS base\nFROM base AS production`;
+    assert.throws(
+      () => assertPublishedAlpineUpgrade(dockerfile, 'example/Dockerfile'),
+      /example\/Dockerfile: cannot determine whether published base image .* uses Alpine/,
+    );
+  });
+}
+
+test('rejects an unterminated heredoc even after a stage with an upgrade', () => {
+  const dockerfile = 'FROM alpine\nRUN apk upgrade --no-cache\nCOPY <<EOF /file\ntext';
+  assert.throws(
+    () => assertPublishedAlpineUpgrade(dockerfile, 'example/Dockerfile'),
+    /example\/Dockerfile: cannot find published stage/,
+  );
 });
 
 test('keeps the legacy multiline upgrade together as a single command', () => {
