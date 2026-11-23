@@ -590,14 +590,55 @@ jobs:
         if: always()
         run: docker rm -f erp_ci_backend_tls erp_ci_postgres_tls || true
 
+  validate-production-images:
+    name: Production Images - Frontend and Reverse Proxy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Build the reverse-proxy image
+        run: docker build -t erp-nginx:ci ./nginx
+
+      - name: Check the reverse-proxy NGINX configuration
+        run: >-
+          docker run --rm --network none
+          --add-host backend:127.0.0.1 --add-host frontend:127.0.0.1
+          erp-nginx:ci nginx -t
+
+      # Release publication supplies the version at build time.
+      - name: Build the frontend production image
+        run: >-
+          docker build --build-arg VITE_APP_VERSION=0.0.0-ci
+          -t erp-frontend:ci ./frontend
+
+      - name: Check the frontend NGINX configuration
+        run: >-
+          docker run --rm --network none
+          --add-host backend:127.0.0.1
+          erp-frontend:ci nginx -t
+
   test-frontend:
     name: Frontend - Lint, Type Check, Tests
     runs-on: ubuntu-latest
+    # The main ruleset requires this job. Fail it when the image job fails
+    # or is skipped so a skipped dependent job cannot satisfy the ruleset.
+    needs: validate-production-images
+    if: always()
     defaults:
       run:
         working-directory: frontend
 
     steps:
+      - name: Require production image validation
+        if: always() && needs.validate-production-images.result != 'success'
+        working-directory: .
+        run: |
+          echo "::error::Production image validation did not succeed."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v5
 
