@@ -42,7 +42,7 @@ test-only env file. Use the same project name, Compose files and env file
 you intend to use for the run.
 
 ```sh
-docker compose --env-file .env.worktree-test config --format json |
+docker compose --env-file .env.worktree.local config --format json |
   jq '{name, services: (.services | map_values({container_name, image, ports, volumes, networks})), volumes, networks}'
 ```
 
