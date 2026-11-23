@@ -1,0 +1,42 @@
+name: Docker base-image drift
+
+on:
+  schedule:
+    - cron: '41 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: docker-base-image-drift
+  cancel-in-progress: false
+
+jobs:
+  base-image-drift:
+    name: Check Docker base-image pins
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci --ignore-scripts
+      - name: Check pins and update the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRIFT_STATE_FILE: ${{ runner.temp }}/docker-base-image-drift-state.json
+        run: node scripts/check-base-image-drift.cjs
+      - name: Save successful registry observations
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-base-image-drift-state
+          path: ${{ runner.temp }}/docker-base-image-drift-state.json
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: true
