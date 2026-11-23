@@ -156,6 +156,10 @@ severities. The frontend removed two Medium findings and introduced High
 | Reverse proxy (`nginx`) | 4 / 20 / 8 / 5 | 1 / 5 / 1 / 0 |
 | Frontend | 0 / 0 / 2 / 0 | 0 / 1 / 0 / 0 |
 
+## Alpine package upgrade evidence
+
+For Dockerfile package upgrades, the [committed regression test](../../scripts/__tests__/docker-image-packages.test.js) checks for the upgrade operation in the published image stage. The [Release validation CI step](../../.github/workflows/ci.yml) runs `npm run test:release`, which includes the regression test. A real build of the affected published stage verifies that the upgrade command executes successfully. Cite the build output showing which packages changed when reporting package changes.
+
 ## Open questions / unverified
 
 - **Does the Scout platform read SLSA v1 provenance?** Not tested. Running Scout CLI v1.29.0 was blocked in this session, so it is also unconfirmed that the auto-detect notice disappears with a current CLI. Run the upgraded CLI commands above.
