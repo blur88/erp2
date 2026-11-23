@@ -20,6 +20,12 @@ and the [production file](../../docker-compose.prod.yml) declare fixed names
 such as `erp_backend` and `erp_nginx`. Compose `-p` changes the project name,
 but fixed `container_name` values must still be unique on the daemon.
 
+Redirecting Compose to the main checkout can select the running project.
+When the project name comes from the checkout directory, that means `erp2`.
+Compose `up` then targets its existing services and can recreate them with the
+candidate images. This is how the running frontend and NGINX containers were
+replaced during verification for #2035.
+
 - **Published ports** are shared on the host. Check host addresses and ports,
   including PostgreSQL and Redis ports added by the development override.
 - **Image tags** are shared on the daemon. A build using a tag such as
@@ -29,6 +35,20 @@ but fixed `container_name` values must still be unique on the daemon.
   volume names and external volumes, as well as resolved host paths for
   PostgreSQL, Redis, uploads, logs, and backups. Pointing Compose at the main
   checkout can select its data directories.
+
+To list the configured resources without starting services or printing the
+service environment, run this from the worktree with `jq` installed and a
+test-only env file. Use the same project name, Compose files and env file
+you intend to use for the run.
+
+```sh
+docker compose --env-file .env.worktree-test config --format json |
+  jq '{name, services: (.services | map_values({container_name, image, ports, volumes, networks})), volumes, networks}'
+```
+
+This example uses the default development files, including the automatic
+override. For a different file set, pass each file explicitly with `-f`.
+Compare the output with the running stack before starting services.
 
 ## Isolated image verification
 
@@ -61,10 +81,12 @@ verify the worktree changes.
 
 ## Isolated integration verification
 
-1. Use a standalone test Compose file or verify that an override removes or
-   replaces every conflicting setting. Use a unique project name, generated or
-   unique container names, and a project-specific network. Omit host port
-   mappings where possible. Otherwise use free ports bound to loopback.
+1. Use a standalone test Compose file and select it explicitly with `-f`.
+   Compose can retain base port mappings when an override adds new ones, so a
+   test port can coexist with a live stack's port in the merged configuration.
+   Use a unique project name, generated or unique container names, and a
+   project-specific network. Omit host port mappings where possible. Otherwise
+   use free ports bound to loopback.
 2. Assign unique local tags to candidate images. Use project-scoped volumes or
    dedicated scratch directories and disposable test data. Keep all production
    and main-stack data directories and external volumes out of the test project.

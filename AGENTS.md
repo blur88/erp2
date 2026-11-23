@@ -5,7 +5,7 @@
 - Before implementation, follow [Commit & Pull Request Guidelines](#commit--pull-request-guidelines).
 - Before updating dependencies or reviewing manifest/lockfile changes, read [Dependency updates](docs/agents/dependency-updates.md).
 - Before editing agent-facing documentation, read [CODING_STANDARDS.md](CODING_STANDARDS.md).
-- Before building or running Docker Compose from a Git worktree, read [Docker verification from Git worktrees](docs/agents/docker-from-worktrees.md).
+- Before running Docker from a Git worktree, read [Docker verification from Git worktrees](docs/agents/docker-from-worktrees.md).
 - Before checking private registry tags, follow [Private tag inspection](docs/adr/0001-two-docker-repositories.md#private-tag-inspection).
 - Before reviewing, read [acceptance-criterion evidence guidance](CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews). When delegating a review, include this reference and the requirement to read it before assessment in every reviewer assignment.
 
