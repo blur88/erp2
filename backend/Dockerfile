@@ -21,9 +21,8 @@ RUN npm run build && \
 FROM node:26.13.1-alpine3.24 AS production
 
 # Install security updates and runtime dependencies
-RUN apk update && apk upgrade && \
+RUN apk upgrade --no-cache && \
     apk add --no-cache curl postgresql18-client dumb-init && \
-    rm -rf /var/cache/apk/* && \
     rm -rf /usr/local/lib/node_modules/npm && \
     rm -f /usr/local/bin/npm /usr/local/bin/npx
 

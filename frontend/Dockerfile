@@ -31,8 +31,7 @@ RUN npm run build
 FROM nginx:1.30.7-alpine3.24-slim AS production
 
 # Update Alpine packages and install curl for health checks
-RUN apk update && \
-    apk upgrade && \
+RUN apk upgrade --no-cache && \
     apk add --no-cache curl
 
 # Copy custom nginx configuration
