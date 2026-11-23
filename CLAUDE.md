@@ -96,6 +96,8 @@ Follow [AGENTS.md — Change-Scoped Verification](AGENTS.md#change-scoped-verifi
 
 ## Gotchas
 
+Before building or running Docker Compose from a Git worktree, read [docs/agents/docker-from-worktrees.md](docs/agents/docker-from-worktrees.md).
+
 **NestJS route order**: Specific routes (`/products/deleted`) MUST be declared before parameterized routes (`/products/:id`) in controllers, or NestJS will try to treat `"deleted"` as a UUID and fail.
 
 **Soft delete**: Always use TypeORM's `softDelete(id)` method — it sets the `deletedAt` timestamp. Setting `isActive = false` manually does NOT set `deletedAt`, breaking `withDeleted` queries and the restore flow.

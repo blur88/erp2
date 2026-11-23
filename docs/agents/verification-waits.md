@@ -12,6 +12,8 @@
    successful verification: if CI is expected, inspect its dispatch/queued state
    once before choosing a wait.
 3. Choose local or CI execution for each required full suite before starting it.
+   Before choosing local Docker verification from a worktree, read
+   [Docker verification from Git worktrees](docker-from-worktrees.md).
    When CI covers the full suite on the current head, use targeted local checks
    as needed and follow the single-watcher guidance under [Wait for a result](#wait-for-a-result).
 4. Choose a wait for the remaining work and state any useful expectation once.
