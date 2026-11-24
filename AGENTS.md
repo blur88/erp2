@@ -8,7 +8,7 @@
 - Before editing agent-facing documentation, read [CODING_STANDARDS.md](CODING_STANDARDS.md).
 - Before running Docker from a Git worktree, read [Docker verification from Git worktrees](docs/agents/docker-from-worktrees.md).
 - Before checking private registry tags, follow [Private tag inspection](docs/adr/0001-two-docker-repositories.md#private-tag-inspection).
-- Before reviewing, read [acceptance-criterion evidence guidance](CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews). For delegated reviews, follow the [shared review handoff](docs/agents/skill-verification.md#hand-off-review-evidence) and require every reviewer to read the linked standards before assessment.
+- Before reviewing, read [acceptance-criterion evidence guidance](CODING_STANDARDS.md#acceptance-criterion-evidence-in-reviews). For issue-only requests, follow [review target resolution](docs/agents/skill-verification.md#resolve-an-issue-only-review). For delegated reviews, follow the [shared review handoff](docs/agents/skill-verification.md#hand-off-review-evidence) and require every reviewer to read the linked standards before assessment.
 
 ## Project Structure & Module Organization
 This repository is a full-stack ERP monorepo.
