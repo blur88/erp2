@@ -115,7 +115,7 @@ The suite connects to `REDIS_TEST_HOST:REDIS_TEST_PORT`, defaulting to
 
 ```bash
 docker run -d --name erp-redis-test-6399 -p 6399:6379 \
-  redis:8.6-alpine redis-server --maxmemory-policy noeviction
+  redis:8.6.8-alpine3.23 redis-server --maxmemory-policy noeviction
 
 npm run test:redis      # expects: 1 suite, 11 tests
 

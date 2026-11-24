@@ -32,6 +32,13 @@
 
 set -eu
 
+show_redis_test_container() {
+  cat >&2 <<'COMMAND'
+  docker run -d --name erp-redis-test-6399 -p 6399:6379 \
+    redis:8.6.8-alpine3.23 redis-server --maxmemory-policy noeviction
+COMMAND
+}
+
 # Fail closed before touching the network. This must stay ahead of the TCP
 # probe: the point is that a run without the opt-in never connects to whatever
 # is listening at REDIS_TEST_HOST:REDIS_TEST_PORT.
@@ -50,8 +57,7 @@ if [ "${REDIS_TEST_ALLOW_WRITES:-}" != "1" ]; then
   echo "" >&2
   echo "Start a disposable Redis for it:" >&2
   echo "" >&2
-  echo "  docker run -d --name erp-redis-test-6399 -p 6399:6379 \\" >&2
-  echo "    redis:8.6-alpine redis-server --maxmemory-policy noeviction" >&2
+  show_redis_test_container
   echo "" >&2
   echo "Remove it when you are done:" >&2
   echo "" >&2
@@ -102,8 +108,7 @@ echo "  REDIS_TEST_PORT=${PORT}   (default 6399)" >&2
 echo "" >&2
 echo "Start a disposable Redis for it:" >&2
 echo "" >&2
-echo "  docker run -d --name erp-redis-test-6399 -p 6399:6379 \\" >&2
-echo "    redis:8.6-alpine redis-server --maxmemory-policy noeviction" >&2
+show_redis_test_container
 echo "" >&2
 echo "Remove it when you are done:" >&2
 echo "" >&2

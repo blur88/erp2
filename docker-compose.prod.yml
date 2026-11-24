@@ -1,7 +1,7 @@
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:18.3-alpine3.23
+    image: postgres:18.7-alpine3.23
     container_name: erp_postgres
     restart: unless-stopped
     environment:
@@ -51,7 +51,7 @@ services:
   # never a policy change back to allkeys-lru. See users.module.ts (dormant
   # CacheModule.register()) for the concrete way this constraint gets violated.
   redis:
-    image: redis:8.6.1-alpine3.23
+    image: redis:8.6.8-alpine3.23
     container_name: erp_redis
     restart: unless-stopped
     command: >
