@@ -27,7 +27,8 @@ function officialImageReference(image) {
 
 function officialImagePin(image) {
   const pin = officialImageReference(image);
-  if (pin?.tag) return pin;
+  // Keep the tagged lookup used by the alignment tests compatible with its original names.
+  if (pin?.tag && /^\w+$/.test(pin.repository)) return pin;
 }
 
 module.exports = { dockerStageImages, officialImagePin, officialImageReference };

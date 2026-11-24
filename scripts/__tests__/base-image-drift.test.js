@@ -1,13 +1,55 @@
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const { mkdtempSync, rmSync, writeFileSync } = require('node:fs');
+const { tmpdir } = require('node:os');
+const { join } = require('node:path');
 const { test } = require('node:test');
 const { checkDrift, compareVersions, githubTracker, inspectPins, parsePins, readPinSources, validatePins } = require('../check-base-image-drift.cjs');
+const { officialImagePin } = require('../docker-image-pins.cjs');
 
 const digest = (digit) => `sha256:${digit.repeat(64)}`;
 const nginx = 'nginx:1.30.9-alpine3.24-slim';
 const pins = [{ repository: 'nginx', tag: nginx.split(':')[1], sources: ['frontend/Dockerfile'] }];
 
+function recordingTracker() {
+  let issue;
+  const operations = [];
+  const tracker = githubTracker('owner/repo', (args, payload) => {
+    if (args[0] === '--paginate') return issue ? [[issue]] : [[]];
+    operations.push(args[1]);
+    if (args[1] === 'POST') {
+      issue = { number: 7, state: 'open', body: payload.body };
+    } else {
+      assert.deepEqual(args, ['--method', 'PATCH', 'repos/owner/repo/issues/7', '--input', '-']);
+      Object.assign(issue, payload);
+    }
+  });
+  return { tracker, operations, get issue() { return issue; } };
+}
+
 test('every official image pinned in the repository uses an approved version series', () => {
   validatePins(readPinSources());
+});
+
+test('discovers newly added Dockerfiles and Compose files', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'base-image-pins-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  execFileSync('git', ['init', '--quiet'], { cwd: root });
+  const sources = {
+    'Dockerfile.worker': 'FROM node:27.0.0-alpine3.24',
+    'compose.worker.yaml': 'services:\n  cache:\n    image: redis:8.7.0-alpine3.23',
+  };
+  for (const [name, content] of Object.entries(sources)) writeFileSync(join(root, name), content);
+  execFileSync('git', ['add', '--', 'Dockerfile.worker'], { cwd: root });
+  writeFileSync(join(root, '.gitignore'), 'docker-compose.private.yml\n');
+  writeFileSync(join(root, 'docker-compose.private.yml'), 'local file');
+  const discovered = readPinSources(root);
+  assert.deepEqual(discovered, sources);
+  assert.throws(() => validatePins(discovered), ({ message }) => {
+    assert.match(message, /node:27.*outside configured version series 26/);
+    assert.match(message, /redis:8\.7.*outside configured version series 8\.6/);
+    return true;
+  });
 });
 
 test('rejects a Dockerfile pin outside its approved series', () => {
@@ -57,6 +99,17 @@ test('collects external pins and combines repeated references', () => {
   ]);
 });
 
+test('skips Compose build outputs inherited from the base file and handles empty services', () => {
+  const sources = {
+    'docker-compose.yml': 'services:\n  app:\n    build: ./backend\n  cache:\n  search:\n',
+    'docker-compose.override.yml': 'services:\n  app:\n    image: erp-backend:1.0\n  cache:\n    image: redis:8.6.2-alpine3.23\n  search:\n',
+  };
+  assert.deepEqual(parsePins(sources), [
+    { repository: 'redis', tag: '8.6.2-alpine3.23', pinnedDigest: undefined, sources: ['docker-compose.override.yml (cache)'] },
+  ]);
+  assert.equal(officialImagePin('erp-backend:latest'), undefined);
+});
+
 test('preserves pin discovery when an unterminated heredoc prevents stage parsing', () => {
   const redis = 'redis:8.6.2-alpine3.23';
   assert.deepEqual(parsePins({
@@ -97,24 +150,41 @@ test('reports an absent Alpine variant with no allowed replacement once per pin'
     },
     digest: async () => digest('1'),
   };
-  let issue;
-  const tracker = {
-    find: async () => issue,
-    create: async (body) => { issue = { number: 7, state: 'open', body }; },
-    update: async () => assert.fail('Already reported this missing variant'),
-  };
+  const recording = recordingTracker();
+  const { tracker, operations } = recording;
   const first = await checkDrift(sources, registry, tracker);
   const missingVariant = /Pinned Alpine variant is absent from the supported tag catalog.*no replacement fits the policy/;
   assert.match(first.report, missingVariant);
-  assert.match(issue?.body ?? '', missingVariant);
+  assert.match(recording.issue?.body ?? '', missingVariant);
 
-  issue.state = 'closed';
+  recording.issue.state = 'closed';
   const repeated = await checkDrift(sources, registry, tracker, JSON.parse(JSON.stringify(first.state)));
   tags = undefined;
   const outage = await checkDrift(sources, registry, tracker, repeated.state);
+  tags = [nginx.split(':')[1]];
+  const restored = await checkDrift(sources, registry, tracker, outage.state);
+  assert.doesNotMatch(restored.report, missingVariant);
   tags = ['1.31.1-alpine3.25-slim'];
-  await checkDrift(sources, registry, tracker, outage.state);
-  assert.equal(issue.state, 'closed');
+  const missingAgain = await checkDrift(sources, registry, tracker, restored.state);
+  assert.match(missingAgain.report, missingVariant);
+  assert.equal(recording.issue.state, 'closed');
+  assert.deepEqual(operations, ['POST']);
+});
+
+test('reopens a closed tracking issue for a first missing Alpine variant', async () => {
+  const sources = { 'frontend/Dockerfile': `FROM ${nginx}` };
+  const { tracker, operations } = recordingTracker();
+  await tracker.create('<!-- erp2-base-image-drift:start -->\n\nPrior report\n\n<!-- erp2-base-image-drift:end -->');
+  const closedIssue = await tracker.find();
+  closedIssue.state = 'closed';
+
+  await checkDrift(sources, {
+    tags: async () => ['1.31.1-alpine3.25-slim'],
+    digest: async () => digest('1'),
+  }, tracker);
+  assert.deepEqual(operations, ['POST', 'PATCH']);
+  assert.equal(closedIssue.state, 'open');
+  assert.match(closedIssue.body, /Pinned Alpine variant is absent/);
 });
 
 test('does not report an absent variant when a replacement tag has an unavailable digest', async () => {
@@ -139,13 +209,10 @@ test('does not repeat a missing Alpine variant when a different pin has new drif
     tags: async (repository) => repository === 'nginx' ? ['1.31.1-alpine3.25-slim'] : nodeTags,
     digest: async () => digest('1'),
   };
-  let issue;
-  const tracker = {
-    find: async () => issue,
-    create: async (body) => { issue = { number: 7, state: 'open', body }; },
-    update: async (_number, changes) => { Object.assign(issue, changes); },
-  };
+  const recording = recordingTracker();
+  const { tracker } = recording;
   const first = await checkDrift(sources, registry, tracker);
+  const { issue } = recording;
   assert.match(issue.body, /Pinned Alpine variant is absent/);
 
   nodeTags = ['26.1.1-alpine3.24'];
@@ -157,13 +224,8 @@ test('does not repeat a missing Alpine variant when a different pin has new drif
 test('preserves successful observations through an outage and reports each digest transition once', async () => {
   const sources = { 'frontend/Dockerfile': `FROM ${nginx}` };
   let current = digest('1');
-  let issue;
-  const operations = [];
-  const tracker = {
-    find: async () => issue,
-    create: async (body) => { operations.push('create'); issue = { number: 7, body }; },
-    update: async (number, changes) => { operations.push(number); Object.assign(issue, changes); },
-  };
+  const recording = recordingTracker();
+  const { tracker, operations } = recording;
   const registry = {
     tags: async () => [nginx.split(':')[1]],
     digest: async () => {
@@ -184,38 +246,30 @@ test('preserves successful observations through an outage and reports each diges
   current = digest('2');
   const second = await checkDrift(sources, registry, tracker, outage.state);
   assert.ok(second.report.includes(`Changed digest: \`${digest('1')}\` → \`${current}\``));
-  assert.deepEqual(operations, ['create']);
+  assert.deepEqual(operations, ['POST']);
 
+  const { issue } = recording;
+  issue.state = 'closed';
   const unchanged = await checkDrift(sources, registry, tracker, second.state);
   assert.doesNotMatch(unchanged.report, /Changed digest/);
-  assert.deepEqual(operations, ['create']);
+  assert.deepEqual(operations, ['POST']);
+  assert.equal(issue.state, 'closed');
 
-  issue.state = 'closed';
   current = undefined;
   const closedOutage = await checkDrift(sources, registry, tracker, unchanged.state);
-  assert.deepEqual(operations, ['create']);
+  assert.deepEqual(operations, ['POST']);
   assert.equal(issue.state, 'closed');
 
   current = digest('3');
   const third = await checkDrift(sources, registry, tracker, closedOutage.state);
   assert.ok(third.report.includes(`Changed digest: \`${digest('2')}\` → \`${current}\``));
-  assert.deepEqual(operations, ['create', 7]);
+  assert.deepEqual(operations, ['POST', 'PATCH']);
   assert.equal(issue.state, 'open');
 });
 
 test('reopens a closed tracking issue for a new candidate and preserves maintainer notes', async () => {
-  let issue;
-  const operations = [];
-  const tracker = githubTracker('owner/repo', (args, payload) => {
-    if (args[0] === '--paginate') return issue ? [[issue]] : [[]];
-    operations.push(args[1]);
-    if (args[1] === 'POST') {
-      issue = { number: 7, state: 'open', body: `Leading note.\n\n${payload.body}\n\nTrailing note.` };
-    } else {
-      assert.deepEqual(args, ['--method', 'PATCH', 'repos/owner/repo/issues/7', '--input', '-']);
-      Object.assign(issue, payload);
-    }
-  });
+  const recording = recordingTracker();
+  const { tracker, operations } = recording;
   const sources = { 'frontend/Dockerfile': `FROM ${nginx}` };
   let candidate = '1.30.10-alpine3.24-slim';
   const registry = {
@@ -226,6 +280,8 @@ test('reopens a closed tracking issue for a new candidate and preserves maintain
     digest: async () => digest('1'),
   };
   const first = await checkDrift(sources, registry, tracker);
+  const { issue } = recording;
+  issue.body = `Leading note.\n\n${issue.body}\n\nTrailing note.`;
   issue.state = 'closed';
   candidate = undefined;
   const outage = await checkDrift(sources, registry, tracker, first.state);

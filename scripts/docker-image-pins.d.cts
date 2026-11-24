@@ -5,5 +5,6 @@ export function officialImagePin(image: string | undefined):
   | undefined;
 
 export function officialImageReference(image: string | undefined):
-  | { repository: string; tag: string | undefined; pinnedDigest: string | undefined }
+  | { repository: string; tag: string; pinnedDigest: string | undefined }
+  | { repository: string; tag: undefined; pinnedDigest: string }
   | undefined;
