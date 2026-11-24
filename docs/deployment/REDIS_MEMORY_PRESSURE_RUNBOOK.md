@@ -59,7 +59,8 @@ timestamp. Recheck the Redis policy and eviction counter, then use the
 docker compose up -d --wait redis &&
   redis_cli CONFIG GET maxmemory-policy | grep -Fx noeviction &&
   redis_cli INFO stats | grep -Ex 'evicted_keys:0[[:space:]]*' &&
-  docker compose restart backend
+  docker compose stop backend &&
+  docker compose start --wait backend
 ```
 
 Re-evaluate the cap against captured production values before rollout; the local measurement below does not discharge this gate.
@@ -77,9 +78,8 @@ process that writes to the queue. Keep the live startup checks in the rollout.
 
 ### BullMQ probe
 
-Save this as `scheduler-probe.cjs` in an evidence directory outside the
-deployment's Redis data mount. The commands below run it with the deployed
-backend image's BullMQ version and Compose's Redis connection settings.
+Save this as `scheduler-probe.cjs` in a fresh evidence directory outside the
+deployment's Redis data mount. Set `evidence_dir` to that directory.
 The normal probe reads one scheduler through `getJobScheduler` without
 booting Nest or starting a worker. Seeding is reserved for the isolated
 Redis service.
@@ -142,6 +142,34 @@ main().catch((error) => {
 });
 ```
 
+Define these Bash helpers in the shell where you will run either procedure:
+
+```bash
+record_redis() {
+  local phase="$1" container="$2"
+  test -n "$container" || return 1
+  printf '%s\n' "$container" > "$evidence_dir/redis-$phase.id"
+  docker inspect --format '{{.Config.Image}} {{.Image}}' \
+    "$container" > "$evidence_dir/image-$phase.txt"
+  docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Type}} {{.Source}}{{end}}{{end}}' \
+    "$container" > "$evidence_dir/data-$phase.txt"
+  test -n "$(cat "$evidence_dir/data-$phase.txt")"
+}
+
+verify_redis_recreation() {
+  local after expected_image
+  after=$(cat "$evidence_dir/redis-after.id")
+  expected_image=$(docker image inspect --format '{{.Id}}' "$candidate_redis_image") || return 1
+  test "$after" != "$(cat "$evidence_dir/redis-before.id")" &&
+    test "$(docker inspect --format '{{.Image}}' "$after")" = "$expected_image" &&
+    diff -u "$evidence_dir/data-before.txt" "$evidence_dir/data-after.txt"
+}
+
+compare_schedulers() {
+  diff -u "$evidence_dir/scheduler-before.json" "$evidence_dir/scheduler-after.json"
+}
+```
+
 ### Deployment with an existing schedule
 
 1. Select an existing enabled backup schedule. Its BullMQ ID is
@@ -151,26 +179,36 @@ main().catch((error) => {
 2. In the deployment directory, use the same Compose files, project and
    environment throughout. Define `redis_cli` as shown in
    [Prerequisites and access](#prerequisites-and-access) while the backend is
-   still running. Then define this helper. It checks that the probe reads from
-   the Compose Redis container being upgraded.
+   still running. Capture the running backend image ID before stopping it.
+   The helper checks the local Compose image against that ID and disables
+   pulls for the probe. It also checks that BullMQ reads from the Redis
+   container being upgraded.
 
    ```bash
+   backend_image_id=$(docker inspect --format '{{.Image}}' "$(docker compose ps -q backend)")
    probe_deployed_scheduler() {
-     local run_id
+     local image run_id
+     image=$(docker compose config --images backend) || return 1
+     if ! test -n "$backend_image_id" ||
+        ! test "$(docker image inspect --format '{{.Id}}' "$image")" = "$backend_image_id"; then
+       printf '%s\n' 'Compose backend image differs from the running image recorded before maintenance.' >&2
+       return 1
+     fi
      run_id=$(redis_cli INFO server | awk -F '[:\r]' '$1 == "run_id" {print $2}')
      test -n "$run_id" || return 1
-     docker compose run --rm --no-deps -T --entrypoint node \
+     docker compose run --rm --no-deps --pull never -T --entrypoint node \
        -e EXPECTED_REDIS_RUN_ID="$run_id" backend - "$scheduler_id" \
        < "$evidence_dir/scheduler-probe.cjs"
    }
    ```
 
-   During the maintenance window stop the backend
-   and any other workers, producers or reconciliation processes for the
-   queue. Keep them stopped until the comparison finishes. Set
-   `evidence_dir` to the directory containing the probe and set
-   `scheduler_id` to the selected ID. Capture the baseline before editing the
-   Compose image:
+   During the maintenance window stop the backend and all other workers,
+   producers and reconciliation processes for the queue. Record each
+   external process and its stopped status from its process manager before
+   each read. Keep them stopped until the comparison finishes. Use the
+   disposable procedure if you cannot enumerate and verify all queue writers.
+   Set `scheduler_id` to the selected ID and capture the baseline before
+   editing the Compose image:
 
    ```bash
    (
@@ -178,13 +216,7 @@ main().catch((error) => {
      docker compose stop backend
      docker compose ps -q backend > "$evidence_dir/backend-running-before.txt"
      test ! -s "$evidence_dir/backend-running-before.txt"
-     before=$(docker compose ps -q redis)
-     test -n "$before"
-     printf '%s\n' "$before" > "$evidence_dir/redis-before.id"
-     docker inspect --format '{{.Config.Image}} {{.Image}}' "$before" > "$evidence_dir/image-before.txt"
-     docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Type}} {{.Source}}{{end}}{{end}}' \
-       "$before" > "$evidence_dir/data-before.txt"
-     test -n "$(cat "$evidence_dir/data-before.txt")"
+     record_redis before "$(docker compose ps -q redis)"
      probe_deployed_scheduler > "$evidence_dir/scheduler-before.json"
    )
    ```
@@ -200,20 +232,12 @@ main().catch((error) => {
      set -eu
      docker compose pull redis
      docker compose up -d --wait --no-deps --force-recreate redis
-     after=$(docker compose ps -q redis)
-     test -n "$after"
-     printf '%s\n' "$after" > "$evidence_dir/redis-after.id"
-     test "$after" != "$(cat "$evidence_dir/redis-before.id")"
-     docker inspect --format '{{.Config.Image}} {{.Image}}' "$after" > "$evidence_dir/image-after.txt"
-     test "$(docker inspect --format '{{.Image}}' "$after")" = \
-       "$(docker image inspect --format '{{.Id}}' "$candidate_redis_image")"
-     docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Type}} {{.Source}}{{end}}{{end}}' \
-       "$after" > "$evidence_dir/data-after.txt"
-     diff -u "$evidence_dir/data-before.txt" "$evidence_dir/data-after.txt"
+     record_redis after "$(docker compose ps -q redis)"
+     verify_redis_recreation
      docker compose ps -q backend > "$evidence_dir/backend-running-after.txt"
      test ! -s "$evidence_dir/backend-running-after.txt"
      probe_deployed_scheduler > "$evidence_dir/scheduler-after.json"
-     diff -u "$evidence_dir/scheduler-before.json" "$evidence_dir/scheduler-after.json"
+     compare_schedulers
    )
    ```
 
@@ -223,17 +247,28 @@ main().catch((error) => {
 
 ### Disposable Redis procedure
 
-Use the isolated AOF-volume upgrade in [PR #2055](https://github.com/blur88/erp2/pull/2055)
-as the model. Create a fresh evidence directory with the probe and save this
-as `compose.yml` there. Match the target deployment's persistence settings.
-The example uses the repository's AOF and RDB settings. Its internal network,
-dedicated volume and lack of workers keep the test scheduler isolated.
+Save the Compose example as `compose.yml` in the evidence directory. From
+the target deployment, run `redis_cli CONFIG GET appendonly appendfsync save`
+and export the effective values as `proof_appendonly`, `proof_appendfsync`
+and `proof_save`. Preserve `save` as one quoted value, including an empty
+string if snapshots are disabled. If the deployment customizes other
+persistence settings, mirror them in the disposable service as well. Its
+internal network, dedicated volume and lack of workers isolate the scheduler.
 
 ```yaml
 services:
   scheduler-proof-redis:
     image: ${proof_redis_image:?Set the Redis image}
-    command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --save 900 1 --save 300 10 --save 60 10000 --appendonly yes
+    command:
+      - redis-server
+      - --maxmemory-policy
+      - noeviction
+      - --save
+      - "${proof_save?Set the target save setting}"
+      - --appendonly
+      - "${proof_appendonly:?Set the target appendonly setting}"
+      - --appendfsync
+      - "${proof_appendfsync:?Set the target appendfsync setting}"
     volumes:
       - proof-data:/data
     healthcheck:
@@ -255,44 +290,42 @@ networks:
 
 Set `old_redis_image`, `candidate_redis_image` and `proof_backend_image` to
 the exact images for the upgrade. Run with a new, unused Compose project name
-in `proof_project`. This example removes the disposable containers, network
-and volume on exit, leaving the evidence files available for review.
+in `proof_project`. The command trace, output and cleanup result go to
+`disposable-run.log` in the evidence directory. Use only disposable
+resources and keep credentials out of this traced procedure.
 
 ```bash
 (
   set -eu
+  exec > "$evidence_dir/disposable-run.log" 2>&1
+  set -x
   export proof_redis_image="$old_redis_image" proof_backend_image
   proof_compose() {
     docker compose -p "$proof_project" -f "$evidence_dir/compose.yml" "$@"
   }
-  trap 'proof_compose down -v || exit 1' EXIT
+  cleanup_proof() {
+    local run_status="$?" cleanup_status=0
+    proof_compose down -v || cleanup_status=$?
+    printf 'Verification exit: %s; cleanup exit: %s\n' "$run_status" "$cleanup_status"
+    if test "$run_status" -ne 0; then
+      exit "$run_status"
+    fi
+    exit "$cleanup_status"
+  }
+  trap cleanup_proof EXIT
 
   proof_compose up -d --wait scheduler-proof-redis
-  before=$(proof_compose ps -q scheduler-proof-redis)
-  test -n "$before"
-  printf '%s\n' "$before" > "$evidence_dir/redis-before.id"
-  docker inspect --format '{{.Config.Image}} {{.Image}}' "$before" > "$evidence_dir/image-before.txt"
-  docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' \
-    "$before" > "$evidence_dir/data-before.txt"
-  test -n "$(cat "$evidence_dir/data-before.txt")"
+  record_redis before "$(proof_compose ps -q scheduler-proof-redis)"
   proof_compose run --rm --no-deps -T probe - persistence-probe seed \
     < "$evidence_dir/scheduler-probe.cjs" > "$evidence_dir/scheduler-before.json"
 
   export proof_redis_image="$candidate_redis_image"
   proof_compose up -d --wait --force-recreate scheduler-proof-redis
-  after=$(proof_compose ps -q scheduler-proof-redis)
-  test -n "$after"
-  printf '%s\n' "$after" > "$evidence_dir/redis-after.id"
-  test "$after" != "$before"
-  docker inspect --format '{{.Config.Image}} {{.Image}}' "$after" > "$evidence_dir/image-after.txt"
-  test "$(docker inspect --format '{{.Image}}' "$after")" = \
-    "$(docker image inspect --format '{{.Id}}' "$candidate_redis_image")"
-  docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' \
-    "$after" > "$evidence_dir/data-after.txt"
-  diff -u "$evidence_dir/data-before.txt" "$evidence_dir/data-after.txt"
+  record_redis after "$(proof_compose ps -q scheduler-proof-redis)"
+  verify_redis_recreation
   proof_compose run --rm --no-deps -T probe - persistence-probe \
     < "$evidence_dir/scheduler-probe.cjs" > "$evidence_dir/scheduler-after.json"
-  diff -u "$evidence_dir/scheduler-before.json" "$evidence_dir/scheduler-after.json"
+  compare_schedulers
 )
 ```
 
@@ -325,7 +358,8 @@ from the current backend process.
   restart_since=$(cat "$evidence_dir/backend-started-at.txt")
   docker compose logs --since "$restart_since" --timestamps backend \
     > "$evidence_dir/backend-restart.log" 2>&1
-  grep -E 'Initialized ([0-9]+) of \1 backup schedules' "$evidence_dir/backend-restart.log"
+  grep -Eo 'Initialized [0-9]+ of [0-9]+ backup schedules' "$evidence_dir/backend-restart.log" |
+    awk '$2 == $4 { print; found = 1 } END { exit !found }'
   if grep -i 'eviction policy' "$evidence_dir/backend-restart.log"; then
     exit 1
   fi
