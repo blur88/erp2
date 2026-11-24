@@ -2,6 +2,30 @@
 
 Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
+## Before writing or publishing issues and agent briefs
+
+Describe acceptance criteria in terms of observable behavior. When a command
+helps demonstrate that behavior, use the canonical check from the
+[Change-Scoped Verification table](../../AGENTS.md#change-scoped-verification-required-before-pr).
+For release tests, use `npm run test:release` from the repository root.
+Passing the test directory directly to `node --test` depends on the Node
+version. During triage, confirm an existing canonical command from the table
+and its script definition. Save full-suite runs for change verification.
+
+Run each newly proposed command from a clean, current baseline in an isolated
+checkout using the repository's supported runtime (see [`.nvmrc`](../../.nvmrc)
+for Node). Keep the maintainer's live checkout and running stack untouched.
+Check that searches and scanners cover the intended files and exclude unrelated
+fixtures. For example, scope a PostgreSQL and Redis tag search to the deployment
+and workflow files in scope and exclude test fixtures containing old tags.
+
+Record the command, working directory, relevant prerequisites, expected
+outcome, and actual exit status and result in the issue or brief. If the
+implementation is pending, report an expected baseline failure only when the
+output shows the intended behavior is absent. Record setup, syntax, or scope
+errors as command problems and correct and rerun the command. Mark any unrun
+proposal **unverified** and give the reason.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
@@ -32,7 +56,8 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue.
+Follow the [issue and brief guidance](#before-writing-or-publishing-issues-and-agent-briefs),
+then create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
