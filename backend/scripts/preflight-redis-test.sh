@@ -51,7 +51,7 @@ if [ "${REDIS_TEST_ALLOW_WRITES:-}" != "1" ]; then
   echo "Start a disposable Redis for it:" >&2
   echo "" >&2
   echo "  docker run -d --name erp-redis-test-6399 -p 6399:6379 \\" >&2
-  echo "    redis:8.6-alpine redis-server --maxmemory-policy noeviction" >&2
+  echo "    redis:8.6.8-alpine3.23 redis-server --maxmemory-policy noeviction" >&2
   echo "" >&2
   echo "Remove it when you are done:" >&2
   echo "" >&2
@@ -103,7 +103,7 @@ echo "" >&2
 echo "Start a disposable Redis for it:" >&2
 echo "" >&2
 echo "  docker run -d --name erp-redis-test-6399 -p 6399:6379 \\" >&2
-echo "    redis:8.6-alpine redis-server --maxmemory-policy noeviction" >&2
+echo "    redis:8.6.8-alpine3.23 redis-server --maxmemory-policy noeviction" >&2
 echo "" >&2
 echo "Remove it when you are done:" >&2
 echo "" >&2

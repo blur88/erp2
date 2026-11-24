@@ -9,7 +9,7 @@ valid_id=19230000-0000-4000-8000-000000000002
 # DTO deliberately: a saved expression from an older parser must survive boot.
 psql_ci() {
   docker run --rm -i --network host -e PGPASSWORD=erp_ci_password \
-    postgres:18.3-alpine psql -X -v ON_ERROR_STOP=1 \
+    postgres:18.7-alpine3.23 psql -X -v ON_ERROR_STOP=1 \
     -h localhost -U erp_ci -d erp_fresh "$@"
 }
 
