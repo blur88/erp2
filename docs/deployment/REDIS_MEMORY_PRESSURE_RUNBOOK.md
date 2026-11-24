@@ -350,7 +350,7 @@ from the current backend process.
   set -eu
   curl -fsS "$health_url" > "$evidence_dir/backend-health.json"
   jq -e '.services | .backend.status == "healthy" and .database.status == "healthy"
-    and (.redis.status == "healthy" or .redis.status == "degraded")' \
+    and (.redis.status == "healthy" or .redis.pressure.state == "insufficient-samples")' \
     "$evidence_dir/backend-health.json"
   backend_container=$(docker compose ps -q backend)
   docker inspect --format '{{.State.StartedAt}}' "$backend_container" \
