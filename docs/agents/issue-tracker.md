@@ -7,17 +7,18 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 Describe acceptance criteria in terms of observable behavior. When a command
 helps demonstrate that behavior, use the canonical check from the
 [Change-Scoped Verification table](../../AGENTS.md#change-scoped-verification-required-before-pr).
-For release tests, use `npm run test:release` from the repository root.
-Passing the test directory directly to `node --test` depends on the Node
-version. During triage, confirm an existing canonical command from the table
-and its script definition. Save full-suite runs for change verification.
+Use the release test script listed there to avoid the runtime-dependent
+behavior of passing a test directory to `node --test`. During triage, confirm
+an existing canonical command from the table and its script definition. Save
+full-suite runs for change verification.
 
-Run each newly proposed command from a clean, current baseline in an isolated
-checkout using the repository's supported runtime (see [`.nvmrc`](../../.nvmrc)
-for Node). Keep the maintainer's live checkout and running stack untouched.
-Check that searches and scanners cover the intended files and exclude unrelated
-fixtures. For example, scope a PostgreSQL and Redis tag search to the deployment
-and workflow files in scope and exclude test fixtures containing old tags.
+Run each newly proposed command against a clean, current baseline using the
+repository's supported runtime (see [`.nvmrc`](../../.nvmrc) for Node). Keep
+the maintainer's live checkout and running stack untouched when validating a
+brief. Use a disposable checkout or stack if the check needs to change files
+or services. Scope searches and scanners to the intended files. For deployed
+image tag checks, include the relevant deployment and workflow files and
+exclude fixtures that deliberately use older tags.
 
 Record the command, working directory, relevant prerequisites, expected
 outcome, and actual exit status and result in the issue or brief. If the
@@ -34,7 +35,7 @@ proposal **unverified** and give the reason.
 - **Make an issue a sub-issue of a parent**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>` (database id, as in **Blocking** below). Without sub-issues, put `Part of #<parent>` at the top of the child body.
 - **Blocking**: GitHub's **native issue dependencies**, the canonical, UI-visible representation. Add an edge with `gh issue create --blocked-by <n>,<n> ...` or `gh issue edit <child> --add-blocked-by <blocker>` (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
 - **Count open blockers**: `gh api repos/<owner>/<repo>/issues/<n> --jq .issue_dependencies_summary.blocked_by` (open blockers only; 0 means startable). `gh issue view <n> --json blockedBy` also lists closed blockers, so filter it: `--jq '[.blockedBy.nodes[] | select(.state == "OPEN")] | length'`.
-- **Comment on an issue**: `gh issue comment <number> --body "..."`
+- **Comment on an issue**: `gh issue comment <number> --body "..."`. For an agent brief comment, follow the [issue and brief guidance](#before-writing-or-publishing-issues-and-agent-briefs) before verifying its acceptance criteria.
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: post the explanation with `gh issue comment <number> --body "..."`, then `gh issue close <number>`. On an already-closed issue, `gh issue close --comment` drops the comment and still exits 0.
 
