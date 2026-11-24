@@ -64,16 +64,72 @@ describe("Postgres and Redis image alignment", () => {
     ).toBeUndefined();
   });
 
-  it("ignores connection URLs and plain diagnostic text", () => {
+  it.each([
+    'chown "postgres:postgres" /data',
+    "chown 'redis:redis' /data",
+    'PASSWORD_PAIR="postgres:s3cret"',
+  ])("ignores quoted owner specs and credentials (%s)", (source) => {
+    expect(check({ "setup.sh": source })).toBeUndefined();
+  });
+
+  it("ignores connection URLs and port references", () => {
     expect(
       check({
         "setup.sh":
-          'REDIS_URL=redis://localhost:6379\nDATABASE_URL="postgres://localhost/db"\necho "connect redis:6379"',
+          'REDIS_URL="redis://localhost:6379"\nDATABASE_URL="postgres://postgres:secret@localhost:5432/db"\necho "connect redis:6379 or postgres:5432"',
+        ".github/workflows/probe.yml":
+          'env: { CACHE: "redis:6379", DATABASE: "postgres://postgres:secret@localhost:5432/db" }',
       }),
     ).toBeUndefined();
   });
 
+  it.each(["8.6.1-alpine3.23", "alpine", "latest", "bookworm", "8"])(
+    "reports the full stale tag in a quoted shell default (%s)",
+    (tag) => {
+      expect(
+        check({
+          "setup.sh": 'IMG="${REDIS_IMAGE:-redis:' + tag + '}"',
+        }),
+      ).toBe(`setup.sh: expected redis:8.6.7-alpine3.23, found redis:${tag}`);
+    },
+  );
+
   it.each([
+    [
+      'env: { IMG: "redis:8.6.1-alpine3.23" }',
+      "redis:8.6.7-alpine3.23",
+      "redis:8.6.1-alpine3.23",
+    ],
+    ['env: { IMG: "redis:alpine" }', "redis:8.6.7-alpine3.23", "redis:alpine"],
+    ['env: { IMG: "redis:latest" }', "redis:8.6.7-alpine3.23", "redis:latest"],
+    [
+      'env: { POSTGRES_IMAGE: "postgres:bookworm" }',
+      "postgres:18.6-alpine3.23",
+      "postgres:bookworm",
+    ],
+    [
+      "jobs:\n  check:\n    container: postgres:18.3-alpine",
+      "postgres:18.6-alpine3.23",
+      "postgres:18.3-alpine",
+    ],
+    [
+      "jobs:\n  check:\n    steps:\n      - uses: docker://redis:8.6-alpine",
+      "redis:8.6.7-alpine3.23",
+      "redis:8.6-alpine",
+    ],
+  ])(
+    "reports a stale image in workflow field %s",
+    (source, expected, stale) => {
+      const file = ".github/workflows/probe.yml";
+      expect(check({ [file]: source })).toBe(
+        `${file}: expected ${expected}, found ${stale}`,
+      );
+    },
+  );
+
+  it.each([
+    ['echo "Run docker pull redis:latest first"', "redis:latest"],
+    ['echo "Run docker pull postgres:bookworm first"', "postgres:bookworm"],
     ['echo "  docker run -d redis:8.6.1-alpine3.23"', "redis:8.6.1-alpine3.23"],
     [
       "echo '  docker run -d postgres:18.3-alpine3.23'",

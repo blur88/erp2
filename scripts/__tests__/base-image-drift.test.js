@@ -10,6 +10,7 @@ const { officialImagePin, officialImageRepository } = require('../docker-image-p
 const digest = (digit) => `sha256:${digit.repeat(64)}`;
 const nginx = 'nginx:1.30.9-alpine3.24-slim';
 const pins = [{ repository: 'nginx', tag: nginx.split(':')[1], sources: ['frontend/Dockerfile'] }];
+const alignmentPointer = 'PostgreSQL and Redis pins must remain aligned across Compose files, CI workflows and repository scripts. Run the database image alignment test to identify remaining mismatches.';
 
 function recordingTracker() {
   let issue;
@@ -279,6 +280,49 @@ test('preserves successful observations through an outage and reports each diges
   assert.ok(third.report.includes(`Changed digest: \`${digest('2')}\` → \`${current}\``));
   assert.deepEqual(operations, ['POST', 'PATCH']);
   assert.equal(issue.state, 'open');
+});
+
+test('updates the database alignment pointer in the managed section as drift changes', async () => {
+  const sources = {
+    'compose.yml': 'services:\n  db:\n    image: postgres:18.6-alpine3.23\n  cache:\n    image: redis:8.6.7-alpine3.23',
+    'frontend/Dockerfile': `FROM ${nginx}`,
+  };
+  const tags = {
+    postgres: '18.7-alpine3.23',
+    redis: '8.6.7-alpine3.23',
+    nginx: '1.30.9-alpine3.24-slim',
+  };
+  const recording = recordingTracker();
+  const { tracker, operations } = recording;
+  const registry = {
+    tags: async (repository) => [tags[repository]],
+    digest: async () => digest('1'),
+  };
+  const first = await checkDrift(sources, registry, tracker);
+  const { issue } = recording;
+  assert.ok(issue.body.includes(alignmentPointer));
+
+  issue.body = `Maintainer note.\n\n${issue.body}`;
+  issue.state = 'closed';
+  const repeated = await checkDrift(sources, registry, tracker, first.state);
+  assert.deepEqual(operations, ['POST']);
+  assert.equal(issue.state, 'closed');
+
+  tags.postgres = '18.6-alpine3.23';
+  tags.redis = '8.6.8-alpine3.23';
+  const redisDrift = await checkDrift(sources, registry, tracker, repeated.state);
+  assert.deepEqual(operations, ['POST', 'PATCH']);
+  assert.equal(issue.state, 'open');
+  assert.match(issue.body, /Newer compatible version: .*redis:8\.6\.8-alpine3\.23/);
+  assert.ok(issue.body.includes(alignmentPointer));
+
+  tags.redis = '8.6.7-alpine3.23';
+  tags.nginx = '1.30.10-alpine3.24-slim';
+  await checkDrift(sources, registry, tracker, redisDrift.state);
+  assert.deepEqual(operations, ['POST', 'PATCH', 'PATCH']);
+  assert.match(issue.body, /^Maintainer note\./);
+  assert.match(issue.body, /Newer compatible version: .*nginx:1\.30\.10-alpine3\.24-slim/);
+  assert.ok(!issue.body.includes(alignmentPointer));
 });
 
 test('reopens a closed tracking issue for a new candidate and preserves maintainer notes', async () => {

@@ -195,12 +195,14 @@ function renderResult(result, {
 async function updateTrackingIssue(tracker, results, previous) {
   const findings = [];
   let hasNewFinding = false;
+  let hasDatabaseDrift = false;
   for (const result of results) {
     const prior = previous[pinReference(result)];
     const newMissingAlpineVariant = result.missingAlpineVariant && !prior?.missingAlpineVariantReported;
     const changedDigest = digestChanged(result);
     if (!result.candidate && !changedDigest && !newMissingAlpineVariant) continue;
     findings.push(renderResult(result, { includeMissingAlpineVariant: Boolean(newMissingAlpineVariant) }));
+    hasDatabaseDrift ||= result.repository === 'postgres' || result.repository === 'redis';
     const newCandidate = result.candidate && result.candidate !== prior?.candidate;
     hasNewFinding ||= changedDigest || newMissingAlpineVariant || newCandidate;
   }
@@ -213,6 +215,10 @@ async function updateTrackingIssue(tracker, results, previous) {
     '### Most recent reported Docker base-image drift',
     'Keep maintainer notes outside this generated section.',
     ...findings,
+    ...(hasDatabaseDrift ? [
+      'PostgreSQL and Redis pins must remain aligned across Compose files, CI workflows and repository scripts. Run the database image alignment test to identify remaining mismatches.',
+      'From `backend/`, run `npm test -- database-image-alignment.spec.ts`.',
+    ] : []),
     managedEnd,
   ].join('\n\n');
   if (!issue) {

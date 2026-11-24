@@ -12,6 +12,8 @@ const exactTags = new Map([
   ["redis", /^\d+\.\d+\.\d+-alpine\d+\.\d+$/],
 ]);
 const workflowPath = /^\.github\/workflows\/.*\.ya?ml$/;
+const imageVariable = /(?:^|_)(?:image|img)$/i;
+const shellDefault = /^\$\{([A-Za-z_]\w*):?-(.*?)\}$/;
 
 export function isDatabaseImageSource(file: string): boolean {
   return (
@@ -33,6 +35,7 @@ function record(value: unknown): Record<string, unknown> {
 // both Compose and Actions mappings, including nested service containers.
 function* yamlImages(
   node: unknown,
+  scanText = false,
   seen = new WeakSet<object>(),
 ): Generator<string> {
   if (!node || typeof node !== "object" || seen.has(node)) return;
@@ -40,11 +43,30 @@ function* yamlImages(
   for (const [key, value] of Object.entries(node)) {
     if (typeof value === "string") {
       if (key === "image") yield value;
-      if (key === "run") yield* shellImages(value);
+      else if (key === "run") yield* shellImages(value);
+      else if (scanText) {
+        if (imageVariable.test(key)) yield value;
+        yield* imagePinsInText(value);
+      }
     } else {
-      yield* yamlImages(value, seen);
+      yield* yamlImages(value, scanText, seen);
     }
   }
+}
+
+function* workflowImages(node: unknown): Generator<string> {
+  for (const job of Object.values(record(record(node).jobs))) {
+    const { container, steps } = record(job);
+    if (typeof container === "string") yield container;
+    if (!Array.isArray(steps)) continue;
+    for (const step of steps) {
+      const { uses } = record(step);
+      if (typeof uses === "string" && uses.startsWith("docker://")) {
+        yield uses.slice("docker://".length);
+      }
+    }
+  }
+  yield* yamlImages(node, true);
 }
 
 const separator = /^[\n;&|()]$/;
@@ -105,17 +127,31 @@ function dockerImage(args: string[]): string | undefined {
   return args[positional(args, index + 1, shortValueFlags)];
 }
 
-function* quotedImagePins(token: string): Generator<string> {
-  for (const [, doubleQuoted, singleQuoted] of token.matchAll(
-    /"([^"]+)"|'([^']+)'/g,
-  )) {
-    const words = (doubleQuoted ?? singleQuoted).split(/[\s"'<>()[\],;&|]+/);
-    for (const word of words) {
-      const image = word.replace(/\.+$/, "");
-      const pin = officialImagePin(image);
-      // In prose, a numeric suffix alone can be a port, as in redis:6379.
-      if (pin && !/^\d+$/.test(pin.tag)) yield image;
+function resolveImageDefault(reference: string): string {
+  return reference.trim().replace(shellDefault, "$2");
+}
+
+function* imagePinsInText(text: string): Generator<string> {
+  // Printed Docker commands carry the same image argument as executable ones.
+  const tokens = text.match(shellToken) ?? [];
+  for (const [index, token] of tokens.entries()) {
+    if (token !== "docker") continue;
+    const image = dockerImage(tokens.slice(index + 1));
+    if (image) yield image.replace(/[.,]+$/, "").replace(/^["']|["']$/g, "");
+  }
+
+  for (const word of text.split(/[\s"'<>()[\],;&|]+/)) {
+    const reference = word.replace(/\.+$/, "");
+    const [, variable, fallback] = shellDefault.exec(reference) ?? [];
+    if (variable && imageVariable.test(variable)) {
+      yield fallback;
+      continue;
     }
+    const image = fallback ?? reference;
+    const pin = officialImagePin(image);
+    // Version tags and common aliases help distinguish image pins from
+    // ports, owner specs, and credentials in free text.
+    if (pin && /^(?:\d+[.-]\w|alpine$|latest$)/.test(pin.tag)) yield image;
   }
 }
 
@@ -134,7 +170,11 @@ function* shellImages(source: string): Generator<string> {
       command = [];
     } else {
       command.push(token);
-      yield* quotedImagePins(token);
+      for (const [, doubleQuoted, singleQuoted] of token.matchAll(
+        /"([^"]+)"|'([^']+)'/g,
+      )) {
+        yield* imagePinsInText(doubleQuoted ?? singleQuoted);
+      }
     }
   }
 }
@@ -161,14 +201,13 @@ export function findDatabaseImageMisalignment(
   }
 
   for (const [file, content] of Object.entries(sources)) {
-    const references =
-      isComposeFile(file) || workflowPath.test(file)
+    const references = workflowPath.test(file)
+      ? workflowImages(load(content))
+      : isComposeFile(file)
         ? yamlImages(file === canonicalCompose ? compose : load(content))
         : shellImages(content);
     for (const reference of references) {
-      const image = reference
-        .trim()
-        .replace(/^\$\{[A-Za-z_]\w*:?-(.*?)\}$/, "$1");
+      const image = resolveImageDefault(reference);
       const repository = officialImageRepository(
         image.replace(/\$\{\{[\s\S]*?\}\}|\$\{[^}]*\}/g, "variable"),
       );
