@@ -74,6 +74,29 @@ describe("Postgres and Redis image alignment", () => {
   });
 
   it.each([
+    ['echo "  docker run -d redis:8.6.1-alpine3.23"', "redis:8.6.1-alpine3.23"],
+    [
+      "echo '  docker run -d postgres:18.3-alpine3.23'",
+      "postgres:18.3-alpine3.23",
+    ],
+    ['printf "%s\\n" "Pull redis:8.6-alpine first"', "redis:8.6-alpine"],
+  ])(
+    "rejects stale image pins in printed instructions (%s)",
+    (source, image) => {
+      expect(check({ "setup.sh": source })).toContain(`found ${image}`);
+    },
+  );
+
+  it("accepts aligned pins and private images in quoted instructions", () => {
+    expect(
+      check({
+        "setup.sh":
+          'echo "  docker run redis:8.6.7-alpine3.23"\necho "  docker run registry.example/redis:custom"',
+      }),
+    ).toBeUndefined();
+  });
+
+  it.each([
     [
       "compose.test.yml",
       "services:\n  db:\n    image: ${PG_IMAGE:-postgres:18.3-alpine}",

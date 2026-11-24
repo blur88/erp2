@@ -105,6 +105,20 @@ function dockerImage(args: string[]): string | undefined {
   return args[positional(args, index + 1, shortValueFlags)];
 }
 
+function* quotedImagePins(token: string): Generator<string> {
+  for (const [, doubleQuoted, singleQuoted] of token.matchAll(
+    /"([^"]+)"|'([^']+)'/g,
+  )) {
+    const words = (doubleQuoted ?? singleQuoted).split(/[\s"'<>()[\],;&|]+/);
+    for (const word of words) {
+      const image = word.replace(/\.+$/, "");
+      const pin = officialImagePin(image);
+      // In prose, a numeric suffix alone can be a port, as in redis:6379.
+      if (pin && !/^\d+$/.test(pin.tag)) yield image;
+    }
+  }
+}
+
 // Scan literal Docker commands without evaluating shell or Actions expressions.
 function* shellImages(source: string): Generator<string> {
   const tokens = source.replace(/\\\r?\n/g, "").match(shellToken) ?? [];
@@ -120,6 +134,7 @@ function* shellImages(source: string): Generator<string> {
       command = [];
     } else {
       command.push(token);
+      yield* quotedImagePins(token);
     }
   }
 }
