@@ -1,3 +1,6 @@
+'use strict';
+
+// Verify the running Node major matches .nvmrc before release tests (#2053).
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
 

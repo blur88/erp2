@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const nodeMajor = Number(process.versions.node.split('.')[0]);
+const runningMajor = Number(process.versions.node.split('.')[0]);
 
 function createReleaseFixture(t, nvmrc) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'release-tests-'));
@@ -44,32 +44,32 @@ function addPassingTest(directory) {
   );
 }
 
-test('test:release rejects an older Node major before running tests', (t) => {
-  const directory = createReleaseFixture(t, `${nodeMajor + 1}\n`);
+function verifyGuardRejection(t, nvmrc) {
+  const directory = createReleaseFixture(t, nvmrc);
   addPassingTest(directory);
 
   const { status, output } = runReleaseTests(directory);
 
   assert.equal(status, 1, output);
   assert.doesNotMatch(output, /release fixture executed/);
-  assert.ok(output.includes(`expected Node.js ${nodeMajor + 1}`), output);
-  assert.ok(output.includes(`running Node.js ${process.version}`), output);
-  assert.match(output, /nvm use/);
-});
+  return output;
+}
 
-test('test:release rejects a newer Node major before running tests', (t) => {
-  const directory = createReleaseFixture(t, `${nodeMajor - 1}\n`);
-  addPassingTest(directory);
+for (const { runtime, configuredMajor } of [
+  { runtime: 'older', configuredMajor: runningMajor + 1 },
+  { runtime: 'newer', configuredMajor: runningMajor - 1 },
+]) {
+  test(`test:release rejects a runtime ${runtime} than the configured Node major`, (t) => {
+    const output = verifyGuardRejection(t, `${configuredMajor}\n`);
 
-  const { status, output } = runReleaseTests(directory);
-
-  assert.equal(status, 1, output);
-  assert.doesNotMatch(output, /release fixture executed/);
-  assert.ok(output.includes(`expected Node.js ${nodeMajor - 1}`), output);
-});
+    assert.ok(output.includes(`expected Node.js ${configuredMajor}`), output);
+    assert.ok(output.includes(`running Node.js ${process.version}`), output);
+    assert.match(output, /nvm use/);
+  });
+}
 
 test('test:release reports the actual version and runs tests when the major matches', (t) => {
-  const directory = createReleaseFixture(t, `${nodeMajor}\n`);
+  const directory = createReleaseFixture(t, `${runningMajor}\n`);
   addPassingTest(directory);
 
   const { status, output } = runReleaseTests(directory);
@@ -80,29 +80,21 @@ test('test:release reports the actual version and runs tests when the major matc
 });
 
 test('test:release fails before running tests when .nvmrc is missing', (t) => {
-  const directory = createReleaseFixture(t);
-  addPassingTest(directory);
-
-  const { status, output } = runReleaseTests(directory);
-
-  assert.equal(status, 1, output);
+  const output = verifyGuardRejection(t);
   assert.match(output, /Cannot read \.nvmrc/);
-  assert.doesNotMatch(output, /release fixture executed/);
 });
 
-test('test:release fails before running tests when .nvmrc is malformed', (t) => {
-  const directory = createReleaseFixture(t, `${nodeMajor}.invalid\n`);
-  addPassingTest(directory);
+for (const value of [`${runningMajor}.invalid`, `v${runningMajor}`, process.versions.node, 'lts/*']) {
+  test(`test:release rejects unsupported .nvmrc value ${JSON.stringify(value)}`, (t) => {
+    const output = verifyGuardRejection(t, `${value}\n`);
 
-  const { status, output } = runReleaseTests(directory);
-
-  assert.equal(status, 1, output);
-  assert.match(output, /Unsupported \.nvmrc value/);
-  assert.doesNotMatch(output, /release fixture executed/);
-});
+    assert.ok(output.includes(`Unsupported .nvmrc value ${JSON.stringify(value)}`), output);
+    assert.match(output, /Use a positive integer Node major/);
+  });
+}
 
 test('test:release fails when no release test files are found', (t) => {
-  const directory = createReleaseFixture(t, `${nodeMajor}\n`);
+  const directory = createReleaseFixture(t, `${runningMajor}\n`);
 
   const { status, output } = runReleaseTests(directory);
 
@@ -111,7 +103,7 @@ test('test:release fails when no release test files are found', (t) => {
 });
 
 test('test:release propagates release test failures', (t) => {
-  const directory = createReleaseFixture(t, `${nodeMajor}\n`);
+  const directory = createReleaseFixture(t, `${runningMajor}\n`);
   fs.writeFileSync(
     path.join(directory, 'scripts', '__tests__', 'failure.test.js'),
     "require('node:test').test('release fixture failed', () => { throw new Error('fixture failure'); });\n",
