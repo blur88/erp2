@@ -17,7 +17,8 @@ const taggedImage = new RegExp(
 const databaseImagePrefix = new RegExp(
   "^" + officialDatabaseImage.source + "(?=[:@]|$)",
 );
-const imageField = /(?:^|[\s,{])image:\s*["']?([^\s"',}\]]+)/;
+const imageField =
+  /(?:^|[\s,{])(?:image|"image"|'image'):\s*(?:[>|][+-]?\r?\n\s*)?["']?([^\s"',}\]]+)/g;
 const quotedValue = /"(?:\\.|[^"\\])*"|'[^']*'/;
 const comment = new RegExp(quotedValue.source + "|(^|\\s)#.*$", "g");
 const shellWord = new RegExp(
@@ -64,7 +65,7 @@ export function findDatabaseImageMisalignment(
   sources: Record<string, string>,
 ): string | undefined {
   for (const [file, content] of Object.entries(sources)) {
-    const lines = content
+    const source = content
       .split("\n")
       .map((line) =>
         line.replace(comment, (text, prefix) =>
@@ -72,31 +73,31 @@ export function findDatabaseImageMisalignment(
         ),
       )
       .join("\n")
-      .replace(/\\\r?\n/g, "")
-      .split("\n");
+      .replace(/\\\r?\n/g, "");
 
-    for (const line of lines) {
-      const references = Array.from(
-        line.matchAll(taggedImage),
-        ([, image]) => image,
-      );
-      const configuredImage = imageField.exec(line)?.[1];
-      if (configuredImage) references.push(configuredImage);
+    const references = Array.from(
+      source.matchAll(imageField),
+      ([, image]) => image,
+    );
+    for (const line of source.split("\n")) {
+      for (const [, image] of line.matchAll(taggedImage)) {
+        references.push(image);
+      }
       for (const [, command] of line.matchAll(
-        /\bdocker\s+(?:container\s+)?run[ \t]+(.+)/g,
+        /\bdocker\s+(?:(?:--context|-c)(?:=|\s+)\S+\s+)?(?:container\s+)?run[ \t]+(.+)/g,
       )) {
         const image = dockerRunImage(command);
         if (image) references.push(image);
       }
+    }
 
-      for (const image of references) {
-        const repository =
-          officialImagePin(image)?.repository ??
-          databaseImagePrefix.exec(image)?.[1];
-        const expected = repository && expectedImages.get(repository);
-        if (expected && image !== expected) {
-          return `${file}: expected ${expected}, found ${image}`;
-        }
+    for (const image of references) {
+      const repository =
+        officialImagePin(image)?.repository ??
+        databaseImagePrefix.exec(image)?.[1];
+      const expected = repository && expectedImages.get(repository);
+      if (expected && image !== expected) {
+        return `${file}: expected ${expected}, found ${image}`;
       }
     }
   }

@@ -22,6 +22,25 @@ describe("Postgres and Redis image alignment", () => {
     );
   });
 
+  it.each(['"image": "redis"', "image: >-\n  redis"])(
+    "rejects an untagged image in YAML using %s",
+    (content) => {
+      expect(
+        findDatabaseImageMisalignment({ "compose.yml": content }),
+      ).toContain("compose.yml: expected redis:8.6.8-alpine3.23, found redis");
+    },
+  );
+
+  it("rejects an untagged image when Docker uses an explicit context", () => {
+    expect(
+      findDatabaseImageMisalignment({
+        "scripts/start-cache.sh": "docker --context local run --rm redis",
+      }),
+    ).toContain(
+      "scripts/start-cache.sh: expected redis:8.6.8-alpine3.23, found redis",
+    );
+  });
+
   it("ignores image references in comments and private image names", () => {
     expect(
       findDatabaseImageMisalignment({
