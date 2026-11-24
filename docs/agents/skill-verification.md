@@ -11,7 +11,7 @@
 Use this convention for `/code-review <issue-number>` and equivalent requests. An explicit starting commit or comparison range from the maintainer takes precedence.
 
 1. Read the issue and its acceptance criteria.
-2. Prefer the current branch if its name matches `<type>/<issue>-<slug>`. Otherwise, look for a unique matching local or remote branch. Report the ambiguity if no branch matches or several remain plausible. Resolve refs in place and preserve the current checkout and uncommitted work.
+2. Prefer the current branch if its name follows the [issue-linked branch convention](../../AGENTS.md#commit--pull-request-guidelines) for this issue. Otherwise, look for a unique matching local or remote branch. Report the ambiguity if no branch matches or several remain plausible. Resolve refs in place and preserve the current checkout and uncommitted work.
 3. Refresh `origin/main` and resolve it and the selected branch head to SHAs. Compute their merge base and record it as the fixed base SHA, together with the reviewed head SHA, in the [shared review handoff](#hand-off-review-evidence).
 
 ## Hand off review evidence
