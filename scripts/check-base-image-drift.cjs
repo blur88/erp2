@@ -3,15 +3,16 @@
 // Report Docker base-image drift without modifying pins (#2039).
 const { execFileSync } = require('node:child_process');
 const { appendFileSync, readFileSync, writeFileSync } = require('node:fs');
-const { dirname } = require('node:path');
+const { dirname, resolve } = require('node:path');
 const { parse } = require('yaml');
-const { dockerStageImages, officialImagePin } = require('./docker-image-pins.cjs');
+const { dockerStageImages, officialImageReference } = require('./docker-image-pins.cjs');
 
 const pinnedImageFiles = [
   'backend/Dockerfile',
   'frontend/Dockerfile',
   'nginx/Dockerfile',
   'docker-compose.yml',
+  'docker-compose.override.yml',
   'docker-compose.prod.yml',
 ];
 
@@ -32,12 +33,13 @@ function parsePins(sources) {
   for (const [file, content] of Object.entries(sources)) {
     const images = file.endsWith('Dockerfile')
       ? dockerStageImages(content).map((image) => [file, image])
-      : Object.entries(parse(content).services).map(([service, config]) => [
-        `${file} (${service})`, config.image,
-      ]);
+      : Object.entries(parse(content).services)
+        // Build services use image as the output name; their bases come from Dockerfiles.
+        .filter(([, config]) => !config.build)
+        .map(([service, config]) => [`${file} (${service})`, config.image]);
     for (const [source, image] of images) {
-      const pin = officialImagePin(image);
-      if (!pin || !Object.hasOwn(approvedSeries, pin.repository)) continue;
+      const pin = officialImageReference(image);
+      if (!pin) continue;
       const key = pinReference(pin);
       if (!pins.has(key)) pins.set(key, { ...pin, sources: [] });
       const { sources: locations } = pins.get(key);
@@ -45,6 +47,28 @@ function parsePins(sources) {
     }
   }
   return [...pins.values()];
+}
+
+function readPinSources() {
+  return Object.fromEntries(pinnedImageFiles.map((file) => [
+    file, readFileSync(resolve(__dirname, '..', file), 'utf8'),
+  ]));
+}
+
+function pinSeriesProblem({ repository, tag }, pinned) {
+  if (!Object.hasOwn(approvedSeries, repository)) return 'pin has no configured version series';
+  const series = approvedSeries[repository];
+  if (!tag) return `pin has no version tag for configured series ${series}`;
+  if (!pinned?.[1].startsWith(`${series}.`)) return `pin is outside configured version series ${series}`;
+}
+
+function validatePins(sources) {
+  const problems = [];
+  for (const pin of parsePins(sources)) {
+    const problem = pinSeriesProblem(pin, tagPattern.exec(pin.tag));
+    if (problem) problems.push(`${pin.sources.join(', ')}: ${pinReference(pin)}: ${problem}`);
+  }
+  if (problems.length) throw new Error(problems.join('\n'));
 }
 
 function compareVersions(left, right) {
@@ -58,7 +82,7 @@ function compareVersions(left, right) {
 }
 
 function pinReference({ repository, tag, pinnedDigest }) {
-  return `${repository}:${tag}${pinnedDigest ? `@${pinnedDigest}` : ''}`;
+  return `${repository}${tag ? `:${tag}` : ''}${pinnedDigest ? `@${pinnedDigest}` : ''}`;
 }
 
 function selectCandidate(tags, series, pinned) {
@@ -70,8 +94,8 @@ function selectCandidate(tags, series, pinned) {
   if (newer.length) return { tag: latest(newer)[0], variantReview: false };
   if (exactVariant.length) return;
 
-  // The pinned variant has left this series. Surface a manual review only
-  // when the catalog has moved to a newer Alpine release with the same flavor.
+  // The pinned variant has left this series. Look for a newer Alpine
+  // release with the same flavor before reporting an absent variant.
   const alpineVariant = /^-alpine(\d+\.\d+)(.*)$/;
   const alpine = alpineVariant.exec(pinned[2] ?? '');
   if (!alpine) return;
@@ -94,9 +118,9 @@ async function inspectPins(pins, registry, previous = {}) {
     const { repository, tag } = pin;
     const result = { ...pin, unavailable: [] };
     const pinned = tagPattern.exec(tag);
-    const series = `${approvedSeries[repository]}.`;
-    if (!pinned || !pinned[1].startsWith(series)) {
-      result.unavailable.push(`pin is outside configured version series ${approvedSeries[repository]}`);
+    const problem = pinSeriesProblem(pin, pinned);
+    if (problem) {
+      result.unavailable.push(problem);
       return result;
     }
     const [tags, digest] = await Promise.allSettled([
@@ -114,10 +138,11 @@ async function inspectPins(pins, registry, previous = {}) {
       result.unavailable.push(`supported tags: ${tags.reason.message}`);
       return result;
     }
-    const candidate = selectCandidate(tags.value, series, pinned);
+    const candidate = selectCandidate(tags.value, `${approvedSeries[repository]}.`, pinned);
     result.variantReview = candidate?.variantReview ?? false;
     if (!candidate?.tag) {
       result.candidate = null;
+      result.missingAlpineVariant = result.variantReview;
       return result;
     }
     try {
@@ -143,25 +168,38 @@ function renderResult(result, includeAvailability) {
     const label = result.variantReview ? 'Alpine variant retired, review newer variant' : 'Newer compatible version';
     statuses.push(`${label}: [\`${repository}:${candidate}\`](${hubTag(repository, candidate)}) (\`${candidateDigest}\`)`);
   }
-  if (!candidate && result.variantReview) statuses.push('Pinned Alpine variant is absent from the supported tag catalog for this series');
+  if (result.missingAlpineVariant) {
+    statuses.push('Pinned Alpine variant is absent from the supported tag catalog for this series and no replacement fits the policy');
+  }
   if (digestChanged(result)) statuses.push(`Changed digest: \`${baseline}\` → \`${observedDigest}\``);
   if (includeAvailability && unavailable.length) {
     statuses.push(`Lookup unavailable or inconclusive: ${unavailable.join('; ')}`);
   }
   if (!statuses.length) statuses.push('No compatible update found');
+  const evidence = [`[Supported tags](${officialImagesCatalogUrl}/${repository})`];
+  if (tag) evidence.push(`[Docker Hub tag evidence](${hubTag(repository, tag)})`);
+  if (observedDigest) evidence.push(`Current digest \`${observedDigest}\``);
   return [
     `- \`${pinReference(result)}\` in ${sources.map((source) => `\`${source}\``).join(', ')}`,
     ...statuses.map((status) => `  - ${status}`),
-    `  - [Supported tags](${officialImagesCatalogUrl}/${repository}) · [Docker Hub tag evidence](${hubTag(repository, tag)})${observedDigest ? ` · Current digest \`${observedDigest}\`` : ''}`,
+    `  - ${evidence.join(' · ')}`,
   ].join('\n');
 }
 
 async function updateTrackingIssue(tracker, results, previous) {
-  const findings = results.filter((result) => result.candidate || digestChanged(result));
+  const findings = [];
+  let hasNewFinding = false;
+  for (const result of results) {
+    const prior = previous[pinReference(result)];
+    const missingAlpineVariant = result.missingAlpineVariant && !prior?.missingAlpineVariantReported;
+    const changedDigest = digestChanged(result);
+    if (!result.candidate && !changedDigest && !missingAlpineVariant) continue;
+    findings.push({ ...result, missingAlpineVariant });
+    const newCandidate = result.candidate && result.candidate !== prior?.candidate;
+    hasNewFinding ||= changedDigest || missingAlpineVariant || newCandidate;
+  }
   if (!findings.length) return;
   const issue = await tracker.find();
-  const hasNewFinding = findings.some((result) => digestChanged(result)
-    || (result.candidate && result.candidate !== previous[pinReference(result)]?.candidate));
   if (issue && !hasNewFinding) return;
 
   const section = [
@@ -176,7 +214,11 @@ async function updateTrackingIssue(tracker, results, previous) {
     return;
   }
   const body = issue.body.replace(managedSection, () => section);
-  if (body !== issue.body) await tracker.update(issue.number, body);
+  if (issue.state === 'closed') {
+    await tracker.update(issue.number, { body, state: 'open' });
+  } else if (body !== issue.body) {
+    await tracker.update(issue.number, { body });
+  }
 }
 
 function hubTag(repository, tag) {
@@ -225,9 +267,9 @@ function githubTracker(repository, api = githubApi) {
       .flat()
       .find((issue) => !issue.pull_request && managedSection.test(issue.body ?? '')),
     create: async (body) => api(['--method', 'POST', endpoint, '--input', '-'], { title: issueTitle, body }),
-    update: async (number, body) => api(
+    update: async (number, changes) => api(
       ['--method', 'PATCH', `${endpoint}/${number}`, '--input', '-'],
-      { body },
+      changes,
     ),
   };
 }
@@ -240,6 +282,7 @@ async function checkDrift(sources, registry, tracker, previous = {}) {
     return [reference, {
       digest: result.observedDigest ?? previous[reference]?.digest,
       candidate: result.candidate === undefined ? previous[reference]?.candidate : result.candidate,
+      missingAlpineVariantReported: result.missingAlpineVariant || previous[reference]?.missingAlpineVariantReported,
     }];
   }));
   const report = results.map((result) => renderResult(result, true)).join('\n\n');
@@ -260,7 +303,7 @@ function restoreState(repository, stateFile) {
 }
 
 async function main() {
-  const sources = Object.fromEntries(pinnedImageFiles.map((file) => [file, readFileSync(file, 'utf8')]));
+  const sources = readPinSources();
   const repository = process.env.GITHUB_REPOSITORY;
   const stateFile = process.env.DRIFT_STATE_FILE;
   const previous = restoreState(repository, stateFile);
@@ -270,7 +313,9 @@ async function main() {
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${report}\n`);
 }
 
-module.exports = { checkDrift, compareVersions, dockerRegistry, githubTracker, inspectPins, parsePins };
+module.exports = {
+  checkDrift, compareVersions, dockerRegistry, githubTracker, inspectPins, parsePins, readPinSources, validatePins,
+};
 
 if (require.main === module) {
   main().catch((error) => {

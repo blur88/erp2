@@ -1,10 +1,37 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { checkDrift, compareVersions, githubTracker, inspectPins, parsePins } = require('../check-base-image-drift.cjs');
+const { checkDrift, compareVersions, githubTracker, inspectPins, parsePins, readPinSources, validatePins } = require('../check-base-image-drift.cjs');
 
 const digest = (digit) => `sha256:${digit.repeat(64)}`;
 const nginx = 'nginx:1.30.9-alpine3.24-slim';
 const pins = [{ repository: 'nginx', tag: nginx.split(':')[1], sources: ['frontend/Dockerfile'] }];
+
+test('every official image pinned in the repository uses an approved version series', () => {
+  validatePins(readPinSources());
+});
+
+test('rejects a Dockerfile pin outside its approved series', () => {
+  assert.throws(() => validatePins({
+    'backend/Dockerfile': 'FROM node:27.0.0-alpine3.24',
+  }), {
+    message: 'backend/Dockerfile: node:27.0.0-alpine3.24: pin is outside configured version series 26',
+  });
+});
+
+test('rejects a Compose pin without an approved series', () => {
+  assert.throws(() => validatePins({
+    'docker-compose.override.yml': 'services:\n  base:\n    image: docker.io/library/buildpack-deps:24.04',
+  }), {
+    message: 'docker-compose.override.yml (base): buildpack-deps:24.04: pin has no configured version series',
+  });
+});
+
+test('rejects a digest-only pin whose version series cannot be verified', () => {
+  const reference = `node@${digest('1')}`;
+  assert.throws(() => validatePins({ 'backend/Dockerfile': `FROM ${reference}` }), {
+    message: `backend/Dockerfile: ${reference}: pin has no version tag for configured series 26`,
+  });
+});
 
 test('selects numerically newer supported patches in the configured variant', async () => {
   const registry = {
@@ -22,7 +49,7 @@ test('collects external pins and combines repeated references', () => {
   assert.deepEqual(parsePins({
     'frontend/Dockerfile': `FROM --platform=linux/amd64 docker.io/library/${nginx} AS build\nFROM build\nFROM scratch`,
     'nginx/Dockerfile': `FROM ${nginx}@${digest('1')}`,
-    'docker-compose.yml': 'services:\n  cache:\n    image: "redis:8.6.2-alpine3.23"\n  app:\n    image: erp-backend:latest',
+    'docker-compose.yml': 'services:\n  cache:\n    image: "redis:8.6.2-alpine3.23"\n  app:\n    build: ./backend\n    image: erp-backend:latest',
   }), [
     { ...pins[0], pinnedDigest: undefined },
     { ...pins[0], sources: ['nginx/Dockerfile'], pinnedDigest: digest('1') },
@@ -60,15 +87,71 @@ test('flags a retired Alpine variant for manual review without changing family o
   assert.equal(result.variantReview, true);
 });
 
-test('reports an absent Alpine variant when no replacement fits the policy', async () => {
+test('reports an absent Alpine variant with no allowed replacement once per pin', async () => {
+  const sources = { 'frontend/Dockerfile': `FROM ${nginx}` };
+  let tags = ['1.31.1-alpine3.25-slim', '1.30.11-alpine3.25'];
   const registry = {
-    tags: async () => ['1.31.1-alpine3.25-slim', '1.30.11-alpine3.25'],
+    tags: async () => {
+      if (!tags) throw new Error('HTTP 429');
+      return tags;
+    },
     digest: async () => digest('1'),
   };
+  let issue;
+  const tracker = {
+    find: async () => issue,
+    create: async (body) => { issue = { number: 7, state: 'open', body }; },
+    update: async () => assert.fail('Already reported this missing variant'),
+  };
+  const first = await checkDrift(sources, registry, tracker);
+  const missingVariant = /Pinned Alpine variant is absent from the supported tag catalog.*no replacement fits the policy/;
+  assert.match(first.report, missingVariant);
+  assert.match(issue?.body ?? '', missingVariant);
+
+  issue.state = 'closed';
+  const repeated = await checkDrift(sources, registry, tracker, JSON.parse(JSON.stringify(first.state)));
+  tags = undefined;
+  const outage = await checkDrift(sources, registry, tracker, repeated.state);
+  tags = ['1.31.1-alpine3.25-slim'];
+  await checkDrift(sources, registry, tracker, outage.state);
+  assert.equal(issue.state, 'closed');
+});
+
+test('does not report an absent variant when a replacement tag has an unavailable digest', async () => {
+  const sources = { 'frontend/Dockerfile': `FROM ${nginx}` };
+  const registry = {
+    tags: async () => ['1.30.10-alpine3.25-slim'],
+    digest: async (_repository, tag) => {
+      if (tag === '1.30.10-alpine3.25-slim') throw new Error('HTTP 429');
+      return digest('1');
+    },
+  };
   const tracker = { find: async () => assert.fail('No confirmed drift to publish') };
-  const { report } = await checkDrift({ 'frontend/Dockerfile': `FROM ${nginx}` }, registry, tracker);
-  assert.match(report, /Pinned Alpine variant is absent from the supported tag catalog/);
-  assert.doesNotMatch(report, /No compatible update found/);
+  const { report } = await checkDrift(sources, registry, tracker);
+  assert.match(report, /candidate 1\.30\.10-alpine3\.25-slim: HTTP 429/);
+  assert.doesNotMatch(report, /Pinned Alpine variant is absent/);
+});
+
+test('does not repeat a missing Alpine variant when a different pin has new drift', async () => {
+  const sources = { 'frontend/Dockerfile': `FROM ${nginx}\nFROM node:26.1.0-alpine3.24` };
+  let nodeTags = ['26.1.0-alpine3.24'];
+  const registry = {
+    tags: async (repository) => repository === 'nginx' ? ['1.31.1-alpine3.25-slim'] : nodeTags,
+    digest: async () => digest('1'),
+  };
+  let issue;
+  const tracker = {
+    find: async () => issue,
+    create: async (body) => { issue = { number: 7, state: 'open', body }; },
+    update: async (_number, changes) => { Object.assign(issue, changes); },
+  };
+  const first = await checkDrift(sources, registry, tracker);
+  assert.match(issue.body, /Pinned Alpine variant is absent/);
+
+  nodeTags = ['26.1.1-alpine3.24'];
+  await checkDrift(sources, registry, tracker, first.state);
+  assert.match(issue.body, /Newer compatible version: .*node:26\.1\.1-alpine3\.24/);
+  assert.doesNotMatch(issue.body, /Pinned Alpine variant is absent/);
 });
 
 test('preserves successful observations through an outage and reports each digest transition once', async () => {
@@ -79,7 +162,7 @@ test('preserves successful observations through an outage and reports each diges
   const tracker = {
     find: async () => issue,
     create: async (body) => { operations.push('create'); issue = { number: 7, body }; },
-    update: async (number, body) => { operations.push(number); issue.body = body; },
+    update: async (number, changes) => { operations.push(number); Object.assign(issue, changes); },
   };
   const registry = {
     tags: async () => [nginx.split(':')[1]],
@@ -111,25 +194,28 @@ test('preserves successful observations through an outage and reports each diges
   current = undefined;
   const closedOutage = await checkDrift(sources, registry, tracker, unchanged.state);
   assert.deepEqual(operations, ['create']);
+  assert.equal(issue.state, 'closed');
 
   current = digest('3');
   const third = await checkDrift(sources, registry, tracker, closedOutage.state);
   assert.ok(third.report.includes(`Changed digest: \`${digest('2')}\` → \`${current}\``));
   assert.deepEqual(operations, ['create', 7]);
-  assert.equal(issue.state, 'closed');
+  assert.equal(issue.state, 'open');
 });
 
-test('deduplicates candidates and preserves maintainer notes when updating the tracking issue', async () => {
+test('reopens a closed tracking issue for a new candidate and preserves maintainer notes', async () => {
   let issue;
   const operations = [];
-  const tracker = {
-    find: async () => issue,
-    create: async (body) => {
-      operations.push('create');
-      issue = { number: 7, body: `Leading note.\n\n${body}\n\nTrailing note.` };
-    },
-    update: async (number, body) => { operations.push(number); issue.body = body; },
-  };
+  const tracker = githubTracker('owner/repo', (args, payload) => {
+    if (args[0] === '--paginate') return issue ? [[issue]] : [[]];
+    operations.push(args[1]);
+    if (args[1] === 'POST') {
+      issue = { number: 7, state: 'open', body: `Leading note.\n\n${payload.body}\n\nTrailing note.` };
+    } else {
+      assert.deepEqual(args, ['--method', 'PATCH', 'repos/owner/repo/issues/7', '--input', '-']);
+      Object.assign(issue, payload);
+    }
+  });
   const sources = { 'frontend/Dockerfile': `FROM ${nginx}` };
   let candidate = '1.30.10-alpine3.24-slim';
   const registry = {
@@ -140,17 +226,21 @@ test('deduplicates candidates and preserves maintainer notes when updating the t
     digest: async () => digest('1'),
   };
   const first = await checkDrift(sources, registry, tracker);
+  issue.state = 'closed';
   candidate = undefined;
   const outage = await checkDrift(sources, registry, tracker, first.state);
   assert.match(outage.report, /HTTP 429/);
+  assert.equal(issue.state, 'closed');
   candidate = '1.30.10-alpine3.24-slim';
   const recovered = await checkDrift(sources, registry, tracker, outage.state);
-  assert.deepEqual(operations, ['create']);
+  assert.deepEqual(operations, ['POST']);
+  assert.equal(issue.state, 'closed');
 
   candidate = '1.30.11-alpine3.24-slim';
   const second = await checkDrift(sources, registry, tracker, recovered.state);
   assert.match(second.report, /Newer compatible version: .*1\.30\.11/);
-  assert.deepEqual(operations, ['create', 7]);
+  assert.deepEqual(operations, ['POST', 'PATCH']);
+  assert.equal(issue.state, 'open');
   assert.match(issue.body, /^Leading note\./);
   assert.match(issue.body, /Trailing note\.$/);
 });
