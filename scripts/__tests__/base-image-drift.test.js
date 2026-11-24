@@ -5,7 +5,7 @@ const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const { test } = require('node:test');
 const { checkDrift, compareVersions, githubTracker, inspectPins, parsePins, readPinSources, validatePins } = require('../check-base-image-drift.cjs');
-const { officialImagePin } = require('../docker-image-pins.cjs');
+const { officialImagePin, officialImageRepository } = require('../docker-image-pins.cjs');
 
 const digest = (digit) => `sha256:${digit.repeat(64)}`;
 const nginx = 'nginx:1.30.9-alpine3.24-slim';
@@ -326,4 +326,11 @@ test('finds the tracking issue on a later API page after a note is appended', as
     return [[{ number: 9, body: marker, pull_request: {} }], [issue]];
   });
   assert.deepEqual(await tracker.find(), issue);
+});
+
+test('identifies bare official images without accepting connection strings', () => {
+  assert.equal(officialImageRepository('docker.io/library/postgres'), 'postgres');
+  assert.equal(officialImageRepository('redis:8.6.8-alpine3.23'), 'redis');
+  assert.equal(officialImageRepository('postgres://localhost/db'), undefined);
+  assert.equal(officialImageRepository('registry.example/redis'), undefined);
 });

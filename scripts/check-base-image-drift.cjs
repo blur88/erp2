@@ -5,10 +5,9 @@ const { execFileSync } = require('node:child_process');
 const { appendFileSync, readFileSync, writeFileSync } = require('node:fs');
 const { basename, dirname, resolve } = require('node:path');
 const { parse } = require('yaml');
-const { dockerStageImages, officialImageReference } = require('./docker-image-pins.cjs');
+const { dockerStageImages, isComposeFile, officialImageReference, readRepositorySources } = require('./docker-image-pins.cjs');
 
 const dockerfileName = /^(?:Dockerfile(?:\..+)?|.+\.Dockerfile)$/;
-const composeName = /^(?:docker-)?compose(?:[.-].+)?\.ya?ml$/;
 
 // Each series is an approved prefix of the numeric version. Keep the exact
 // distribution version and image flavor from the pin when proposing updates.
@@ -25,7 +24,7 @@ const tagPattern = /^(\d+\.\d+(?:\.\d+)?)(-[\w.-]+)?$/;
 function parsePins(sources) {
   const pins = new Map();
   const composeServices = new Map(Object.entries(sources)
-    .filter(([file]) => composeName.test(basename(file)))
+    .filter(([file]) => isComposeFile(file))
     .map(([file, content]) => [file, parse(content)?.services ?? {}]));
   for (const [file, content] of Object.entries(sources)) {
     const images = dockerfileName.test(basename(file))
@@ -55,21 +54,7 @@ function composeImages(file, composeServices) {
 }
 
 function readPinSources(root = resolve(__dirname, '..')) {
-  const repositoryFiles = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
-    cwd: root, encoding: 'utf8',
-  }).split('\0');
-  const sources = {};
-  for (const file of repositoryFiles) {
-    const name = basename(file);
-    if (!dockerfileName.test(name) && !composeName.test(name)) continue;
-    try {
-      sources[file] = readFileSync(resolve(root, file), 'utf8');
-    } catch (error) {
-      // The Git index can still list files deleted from the working tree.
-      if (error.code !== 'ENOENT') throw error;
-    }
-  }
-  return sources;
+  return readRepositorySources(root, (file) => dockerfileName.test(basename(file)) || isComposeFile(file));
 }
 
 function checkPinSeries({ repository, tag }) {
