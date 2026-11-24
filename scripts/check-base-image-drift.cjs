@@ -58,9 +58,18 @@ function readPinSources(root = resolve(__dirname, '..')) {
   const repositoryFiles = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
     cwd: root, encoding: 'utf8',
   }).split('\0');
-  return Object.fromEntries(repositoryFiles
-    .filter((file) => dockerfileName.test(basename(file)) || composeName.test(basename(file)))
-    .map((file) => [file, readFileSync(resolve(root, file), 'utf8')]));
+  const sources = {};
+  for (const file of repositoryFiles) {
+    const name = basename(file);
+    if (!dockerfileName.test(name) && !composeName.test(name)) continue;
+    try {
+      sources[file] = readFileSync(resolve(root, file), 'utf8');
+    } catch (error) {
+      // The Git index can still list files deleted from the working tree.
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+  return sources;
 }
 
 function checkPinSeries({ repository, tag }) {

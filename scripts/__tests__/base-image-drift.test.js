@@ -52,6 +52,20 @@ test('discovers newly added Dockerfiles and Compose files', (t) => {
   });
 });
 
+test('skips a tracked Dockerfile deleted from the working tree', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'base-image-pins-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  execFileSync('git', ['init', '--quiet'], { cwd: root });
+  const dockerfile = join(root, 'Dockerfile');
+  writeFileSync(dockerfile, 'FROM node:27.0.0-alpine3.24');
+  execFileSync('git', ['add', '--', 'Dockerfile'], { cwd: root });
+  rmSync(dockerfile);
+  const compose = 'services:\n  cache:\n    image: redis:8.6.2-alpine3.23';
+  writeFileSync(join(root, 'compose.yml'), compose);
+
+  assert.deepEqual(readPinSources(root), { 'compose.yml': compose });
+});
+
 test('rejects a Dockerfile pin outside its approved series', () => {
   assert.throws(() => validatePins({
     'backend/Dockerfile': 'FROM node:27.0.0-alpine3.24',
