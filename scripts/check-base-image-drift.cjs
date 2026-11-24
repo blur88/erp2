@@ -3,17 +3,12 @@
 // Report Docker base-image drift without modifying pins (#2039).
 const { execFileSync } = require('node:child_process');
 const { appendFileSync, readFileSync, writeFileSync } = require('node:fs');
-const { dirname } = require('node:path');
+const { basename, dirname, resolve } = require('node:path');
 const { parse } = require('yaml');
-const { dockerStageImages, officialImagePin } = require('./docker-image-pins.cjs');
+const { dockerStageImages, officialImageReference } = require('./docker-image-pins.cjs');
 
-const pinnedImageFiles = [
-  'backend/Dockerfile',
-  'frontend/Dockerfile',
-  'nginx/Dockerfile',
-  'docker-compose.yml',
-  'docker-compose.prod.yml',
-];
+const dockerfileName = /^(?:Dockerfile(?:\..+)?|.+\.Dockerfile)$/;
+const composeName = /^(?:docker-)?compose(?:[.-].+)?\.ya?ml$/;
 
 // Each series is an approved prefix of the numeric version. Keep the exact
 // distribution version and image flavor from the pin when proposing updates.
@@ -29,15 +24,16 @@ const tagPattern = /^(\d+\.\d+(?:\.\d+)?)(-[\w.-]+)?$/;
 
 function parsePins(sources) {
   const pins = new Map();
+  const composeServices = new Map(Object.entries(sources)
+    .filter(([file]) => composeName.test(basename(file)))
+    .map(([file, content]) => [file, parse(content)?.services ?? {}]));
   for (const [file, content] of Object.entries(sources)) {
-    const images = file.endsWith('Dockerfile')
+    const images = dockerfileName.test(basename(file))
       ? dockerStageImages(content).map((image) => [file, image])
-      : Object.entries(parse(content).services).map(([service, config]) => [
-        `${file} (${service})`, config.image,
-      ]);
+      : composeImages(file, composeServices);
     for (const [source, image] of images) {
-      const pin = officialImagePin(image);
-      if (!pin || !Object.hasOwn(approvedSeries, pin.repository)) continue;
+      const pin = officialImageReference(image);
+      if (!pin) continue;
       const key = pinReference(pin);
       if (!pins.has(key)) pins.set(key, { ...pin, sources: [] });
       const { sources: locations } = pins.get(key);
@@ -45,6 +41,54 @@ function parsePins(sources) {
     }
   }
   return [...pins.values()];
+}
+
+function composeImages(file, composeServices) {
+  const base = file.replace(/\.override\.ya?ml$/, '');
+  const baseServices = base === file ? {} : (
+    composeServices.get(`${base}.yaml`) ?? composeServices.get(`${base}.yml`) ?? {}
+  );
+  return Object.entries(composeServices.get(file) ?? {})
+    // Build services use image as the output name, including builds inherited from the base file.
+    .filter(([service, config]) => !(config?.build ?? baseServices[service]?.build))
+    .map(([service, config]) => [`${file} (${service})`, config?.image]);
+}
+
+function readPinSources(root = resolve(__dirname, '..')) {
+  const repositoryFiles = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+    cwd: root, encoding: 'utf8',
+  }).split('\0');
+  const sources = {};
+  for (const file of repositoryFiles) {
+    const name = basename(file);
+    if (!dockerfileName.test(name) && !composeName.test(name)) continue;
+    try {
+      sources[file] = readFileSync(resolve(root, file), 'utf8');
+    } catch (error) {
+      // The Git index can still list files deleted from the working tree.
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+  return sources;
+}
+
+function checkPinSeries({ repository, tag }) {
+  if (!Object.hasOwn(approvedSeries, repository)) return { problem: 'pin has no configured version series' };
+  const series = approvedSeries[repository];
+  if (!tag) return { problem: `pin has no version tag for configured series ${series}` };
+  const pinned = tagPattern.exec(tag);
+  const seriesPrefix = `${series}.`;
+  if (!pinned?.[1].startsWith(seriesPrefix)) return { problem: `pin is outside configured version series ${series}` };
+  return { pinned, seriesPrefix };
+}
+
+function validatePins(sources) {
+  const problems = [];
+  for (const pin of parsePins(sources)) {
+    const { problem } = checkPinSeries(pin);
+    if (problem) problems.push(`${pin.sources.join(', ')}: ${pinReference(pin)}: ${problem}`);
+  }
+  if (problems.length) throw new Error(problems.join('\n'));
 }
 
 function compareVersions(left, right) {
@@ -58,7 +102,7 @@ function compareVersions(left, right) {
 }
 
 function pinReference({ repository, tag, pinnedDigest }) {
-  return `${repository}:${tag}${pinnedDigest ? `@${pinnedDigest}` : ''}`;
+  return `${repository}${tag ? `:${tag}` : ''}${pinnedDigest ? `@${pinnedDigest}` : ''}`;
 }
 
 function selectCandidate(tags, series, pinned) {
@@ -70,8 +114,8 @@ function selectCandidate(tags, series, pinned) {
   if (newer.length) return { tag: latest(newer)[0], variantReview: false };
   if (exactVariant.length) return;
 
-  // The pinned variant has left this series. Surface a manual review only
-  // when the catalog has moved to a newer Alpine release with the same flavor.
+  // The pinned variant has left this series. Look for a newer Alpine
+  // release with the same flavor before reporting an absent variant.
   const alpineVariant = /^-alpine(\d+\.\d+)(.*)$/;
   const alpine = alpineVariant.exec(pinned[2] ?? '');
   if (!alpine) return;
@@ -86,17 +130,16 @@ function selectCandidate(tags, series, pinned) {
       || compareVersions(alpineVariant.exec(b[2])[1], alpineVariant.exec(a[2])[1]));
     return { tag: alternatives[0][0], variantReview: true };
   }
-  return { variantReview: true };
+  return { variantReview: true, missingAlpineVariant: true };
 }
 
 async function inspectPins(pins, registry, previous = {}) {
   return Promise.all(pins.map(async (pin) => {
     const { repository, tag } = pin;
     const result = { ...pin, unavailable: [] };
-    const pinned = tagPattern.exec(tag);
-    const series = `${approvedSeries[repository]}.`;
-    if (!pinned || !pinned[1].startsWith(series)) {
-      result.unavailable.push(`pin is outside configured version series ${approvedSeries[repository]}`);
+    const { problem, pinned, seriesPrefix } = checkPinSeries(pin);
+    if (problem) {
+      result.unavailable.push(problem);
       return result;
     }
     const [tags, digest] = await Promise.allSettled([
@@ -114,10 +157,11 @@ async function inspectPins(pins, registry, previous = {}) {
       result.unavailable.push(`supported tags: ${tags.reason.message}`);
       return result;
     }
-    const candidate = selectCandidate(tags.value, series, pinned);
+    const candidate = selectCandidate(tags.value, seriesPrefix, pinned);
     result.variantReview = candidate?.variantReview ?? false;
     if (!candidate?.tag) {
       result.candidate = null;
+      result.missingAlpineVariant = candidate?.missingAlpineVariant;
       return result;
     }
     try {
@@ -136,39 +180,54 @@ function digestChanged(result) {
   return result.observedDigest && result.baseline && result.observedDigest !== result.baseline;
 }
 
-function renderResult(result, includeAvailability) {
+function renderResult(result, {
+  includeAvailability = false, includeMissingAlpineVariant = result.missingAlpineVariant,
+} = {}) {
   const { repository, tag, sources, candidate, candidateDigest, observedDigest, baseline, unavailable } = result;
   const statuses = [];
   if (candidate) {
     const label = result.variantReview ? 'Alpine variant retired, review newer variant' : 'Newer compatible version';
     statuses.push(`${label}: [\`${repository}:${candidate}\`](${hubTag(repository, candidate)}) (\`${candidateDigest}\`)`);
   }
-  if (!candidate && result.variantReview) statuses.push('Pinned Alpine variant is absent from the supported tag catalog for this series');
+  if (includeMissingAlpineVariant) {
+    statuses.push('Pinned Alpine variant is absent from the supported tag catalog for this series and no replacement fits the policy');
+  }
   if (digestChanged(result)) statuses.push(`Changed digest: \`${baseline}\` → \`${observedDigest}\``);
   if (includeAvailability && unavailable.length) {
     statuses.push(`Lookup unavailable or inconclusive: ${unavailable.join('; ')}`);
   }
   if (!statuses.length) statuses.push('No compatible update found');
+  const evidence = [`[Supported tags](${officialImagesCatalogUrl}/${repository})`];
+  if (tag) evidence.push(`[Docker Hub tag evidence](${hubTag(repository, tag)})`);
+  if (observedDigest) evidence.push(`Current digest \`${observedDigest}\``);
   return [
     `- \`${pinReference(result)}\` in ${sources.map((source) => `\`${source}\``).join(', ')}`,
     ...statuses.map((status) => `  - ${status}`),
-    `  - [Supported tags](${officialImagesCatalogUrl}/${repository}) · [Docker Hub tag evidence](${hubTag(repository, tag)})${observedDigest ? ` · Current digest \`${observedDigest}\`` : ''}`,
+    `  - ${evidence.join(' · ')}`,
   ].join('\n');
 }
 
 async function updateTrackingIssue(tracker, results, previous) {
-  const findings = results.filter((result) => result.candidate || digestChanged(result));
+  const findings = [];
+  let hasNewFinding = false;
+  for (const result of results) {
+    const prior = previous[pinReference(result)];
+    const newMissingAlpineVariant = result.missingAlpineVariant && !prior?.missingAlpineVariantReported;
+    const changedDigest = digestChanged(result);
+    if (!result.candidate && !changedDigest && !newMissingAlpineVariant) continue;
+    findings.push(renderResult(result, { includeMissingAlpineVariant: Boolean(newMissingAlpineVariant) }));
+    const newCandidate = result.candidate && result.candidate !== prior?.candidate;
+    hasNewFinding ||= changedDigest || newMissingAlpineVariant || newCandidate;
+  }
   if (!findings.length) return;
   const issue = await tracker.find();
-  const hasNewFinding = findings.some((result) => digestChanged(result)
-    || (result.candidate && result.candidate !== previous[pinReference(result)]?.candidate));
   if (issue && !hasNewFinding) return;
 
   const section = [
     managedStart,
     '### Most recent reported Docker base-image drift',
     'Keep maintainer notes outside this generated section.',
-    ...findings.map((result) => renderResult(result, false)),
+    ...findings,
     managedEnd,
   ].join('\n\n');
   if (!issue) {
@@ -176,7 +235,11 @@ async function updateTrackingIssue(tracker, results, previous) {
     return;
   }
   const body = issue.body.replace(managedSection, () => section);
-  if (body !== issue.body) await tracker.update(issue.number, body);
+  if (issue.state === 'closed') {
+    await tracker.update(issue.number, { body, state: 'open' });
+  } else if (body !== issue.body) {
+    await tracker.update(issue.number, { body });
+  }
 }
 
 function hubTag(repository, tag) {
@@ -225,9 +288,9 @@ function githubTracker(repository, api = githubApi) {
       .flat()
       .find((issue) => !issue.pull_request && managedSection.test(issue.body ?? '')),
     create: async (body) => api(['--method', 'POST', endpoint, '--input', '-'], { title: issueTitle, body }),
-    update: async (number, body) => api(
+    update: async (number, changes) => api(
       ['--method', 'PATCH', `${endpoint}/${number}`, '--input', '-'],
-      { body },
+      changes,
     ),
   };
 }
@@ -240,9 +303,10 @@ async function checkDrift(sources, registry, tracker, previous = {}) {
     return [reference, {
       digest: result.observedDigest ?? previous[reference]?.digest,
       candidate: result.candidate === undefined ? previous[reference]?.candidate : result.candidate,
+      missingAlpineVariantReported: result.missingAlpineVariant || previous[reference]?.missingAlpineVariantReported,
     }];
   }));
-  const report = results.map((result) => renderResult(result, true)).join('\n\n');
+  const report = results.map((result) => renderResult(result, { includeAvailability: true })).join('\n\n');
   return { report, state };
 }
 
@@ -260,7 +324,7 @@ function restoreState(repository, stateFile) {
 }
 
 async function main() {
-  const sources = Object.fromEntries(pinnedImageFiles.map((file) => [file, readFileSync(file, 'utf8')]));
+  const sources = readPinSources();
   const repository = process.env.GITHUB_REPOSITORY;
   const stateFile = process.env.DRIFT_STATE_FILE;
   const previous = restoreState(repository, stateFile);
@@ -270,7 +334,9 @@ async function main() {
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${report}\n`);
 }
 
-module.exports = { checkDrift, compareVersions, dockerRegistry, githubTracker, inspectPins, parsePins };
+module.exports = {
+  checkDrift, compareVersions, dockerRegistry, githubTracker, inspectPins, parsePins, readPinSources, validatePins,
+};
 
 if (require.main === module) {
   main().catch((error) => {

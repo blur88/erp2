@@ -17,12 +17,18 @@ function dockerStageImages(dockerfile) {
   });
 }
 
-function officialImagePin(image) {
-  const pattern = /^(?:(?:docker\.io\/)?library\/|docker\.io\/)?(\w+):([\w.-]+)(?:@(sha256:[a-f0-9]{64}))?$/;
+function officialImageReference(image) {
+  const pattern = /^(?:(?:docker\.io\/)?library\/|docker\.io\/)?([\w.-]+)(?::([\w.-]+))?(?:@(sha256:[a-f0-9]{64}))?$/;
   const match = pattern.exec(image ?? '');
   if (!match) return;
   const [, repository, tag, pinnedDigest] = match;
-  return { repository, tag, pinnedDigest };
+  if (tag || pinnedDigest) return { repository, tag, pinnedDigest };
 }
 
-module.exports = { dockerStageImages, officialImagePin };
+function officialImagePin(image) {
+  const pin = officialImageReference(image);
+  // Keep the tagged lookup used by the alignment tests compatible with its original names.
+  if (pin?.tag && /^\w+$/.test(pin.repository)) return pin;
+}
+
+module.exports = { dockerStageImages, officialImagePin, officialImageReference };
