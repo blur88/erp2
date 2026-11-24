@@ -5,31 +5,94 @@ const expectedImages = new Map([
   ["redis", "redis:8.6.8-alpine3.23"],
 ]);
 
-// Match reference tokens in YAML and shell, including continued docker run
-// commands and image variables. Keep private registries and namespaces out.
-const taggedImage =
-  /(?:^|[\s"'=,{\[])((?:(?:docker\.io\/)?library\/|docker\.io\/)?(?:postgres|redis)[:@][^\s"'\x60,}\];)]+)/g;
-const untaggedImage =
-  /(?:\bimage:\s*|\bdocker\s+(?:container\s+)?run\s+)["']?((?:(?:docker\.io\/)?library\/|docker\.io\/)?(?:postgres|redis))(?=$|[\s"',}\];)])/;
+const officialDatabaseImage =
+  /(?:(?:docker\.io\/)?library\/|docker\.io\/)?(postgres|redis)/;
+const taggedImage = new RegExp(
+  "(?:^|[\\s\"'=,{\\[])(" +
+    officialDatabaseImage.source +
+    "[:@][^\\s\"'\\x60,}\\];)]+)",
+  "g",
+);
+
+const databaseImagePrefix = new RegExp(
+  "^" + officialDatabaseImage.source + "(?=[:@]|$)",
+);
+const imageField = /(?:^|[\s,{])image:\s*["']?([^\s"',}\]]+)/;
+const quotedValue = /"(?:\\.|[^"\\])*"|'[^']*'/;
+const comment = new RegExp(quotedValue.source + "|(^|\\s)#.*$", "g");
+const shellWord = new RegExp(
+  "(?:" + quotedValue.source + "|[^\\s\"'\\x60;&|()])+",
+  "g",
+);
+const booleanDockerOptions = new Set([
+  "--detach",
+  "--help",
+  "--init",
+  "--interactive",
+  "--no-healthcheck",
+  "--oom-kill-disable",
+  "--privileged",
+  "--publish-all",
+  "--quiet",
+  "--read-only",
+  "--rm",
+  "--sig-proxy",
+  "--tty",
+  "--use-api-socket",
+]);
+
+function dockerRunImage(command: string): string | undefined {
+  const args = command.match(shellWord) ?? [];
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === "--") return args[index + 1]?.replace(/^["']|["']$/g, "");
+    if (!arg.startsWith("-")) return arg.replace(/^["']|["']$/g, "");
+    // Long options take a separate value unless boolean or written as --key=value.
+    // Short options can group boolean flags before an option that takes a value.
+    if (
+      (arg.startsWith("--") &&
+        !arg.includes("=") &&
+        !booleanDockerOptions.has(arg)) ||
+      /^-[diPqt]*[acehlmpuvw]$/.test(arg)
+    ) {
+      index++;
+    }
+  }
+}
 
 export function findDatabaseImageMisalignment(
   sources: Record<string, string>,
 ): string | undefined {
   for (const [file, content] of Object.entries(sources)) {
-    for (const line of content.split("\n")) {
-      if (line.trimStart().startsWith("#")) continue;
+    const lines = content
+      .split("\n")
+      .map((line) =>
+        line.replace(comment, (text, prefix) =>
+          prefix === undefined ? text : "",
+        ),
+      )
+      .join("\n")
+      .replace(/\\\r?\n/g, "")
+      .split("\n");
 
+    for (const line of lines) {
       const references = Array.from(
         line.matchAll(taggedImage),
         ([, image]) => image,
       );
-      const untagged = untaggedImage.exec(line)?.[1];
-      if (untagged) references.push(untagged);
+      const configuredImage = imageField.exec(line)?.[1];
+      if (configuredImage) references.push(configuredImage);
+      for (const [, command] of line.matchAll(
+        /\bdocker\s+(?:container\s+)?run[ \t]+(.+)/g,
+      )) {
+        const image = dockerRunImage(command);
+        if (image) references.push(image);
+      }
 
       for (const image of references) {
         const repository =
           officialImagePin(image)?.repository ??
-          image.split("/").at(-1)?.split(/[:@]/)[0];
+          databaseImagePrefix.exec(image)?.[1];
         const expected = repository && expectedImages.get(repository);
         if (expected && image !== expected) {
           return `${file}: expected ${expected}, found ${image}`;

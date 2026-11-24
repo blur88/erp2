@@ -11,6 +11,29 @@ const scriptPath =
   /^(?:backend\/)?scripts\/(?!__tests__\/).+\.(?:sh|bash|[cm]?js|ts)$/;
 
 describe("Postgres and Redis image alignment", () => {
+  it("rejects an untagged image after Docker run options", () => {
+    expect(
+      findDatabaseImageMisalignment({
+        "scripts/start-cache.sh":
+          'docker run --rm -e "MODE=local test" \\\n  docker.io/library/redis redis-server',
+      }),
+    ).toContain(
+      "scripts/start-cache.sh: expected redis:8.6.8-alpine3.23, found docker.io/library/redis",
+    );
+  });
+
+  it("ignores image references in comments and private image names", () => {
+    expect(
+      findDatabaseImageMisalignment({
+        "compose.test.yml":
+          "image: postgres:18.7-alpine3.23 # replaces postgres:18.3-alpine",
+        "scripts/start-cache.sh":
+          "docker run --rm registry.example/redis:custom # replaced redis:latest\n" +
+          "docker run --rm erp-backend psql -h postgres",
+      }),
+    ).toBeUndefined();
+  });
+
   it("holds for repository compose files, workflows, and scripts", () => {
     const files = execFileSync(
       "git",
