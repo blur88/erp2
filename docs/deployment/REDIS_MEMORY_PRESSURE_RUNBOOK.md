@@ -51,16 +51,327 @@ redis_cli INFO stats | grep -E "^evicted_keys:"   # MUST be 0
 redis_cli INFO keyspace
 ```
 
-*Verification after rollout* needs a restart-bounded window plus a positive marker — `docker compose logs` retains pre-change history, so a naive grep still finds the old warning, and a backend that fails to start produces an empty window that reads as success:
+*Verification after rollout* uses the restarted backend container's start
+timestamp. Recheck the Redis policy and eviction counter, then use the
+[backend startup checks](#backend-startup-checks) below:
 
 ```bash
-docker compose up -d redis && docker compose restart backend
-docker compose logs backend --since 90s 2>&1 | grep -E "Initialized [0-9]+ backup schedules|Eviction policy"
+docker compose up -d --wait redis &&
+  redis_cli CONFIG GET maxmemory-policy | grep -Fx noeviction &&
+  redis_cli INFO stats | grep -Ex 'evicted_keys:0[[:space:]]*' &&
+  docker compose stop backend &&
+  docker compose start --wait backend
 ```
 
-Pass requires **both**: `Initialized N backup schedules` present (it cannot print unless BullMQ initialized against Redis) and `Eviction policy` absent.
-
 Re-evaluate the cap against captured production values before rollout; the local measurement below does not discharge this gate.
+
+## Scheduler persistence during a Redis image upgrade
+
+Capture a nonempty BullMQ scheduler record on the old image and read it again
+on the candidate image while the backend is stopped. The scheduler ID, job
+name and cron pattern must match. A startup marker such as
+`Initialized 0 of 0 backup schedules` counts only toward the backend startup
+checks. When the deployment has no enabled backup schedules, use the
+[disposable Redis procedure](#disposable-redis-procedure) for persistence evidence.
+Use the disposable procedure also when the deployment cannot pause every
+process that writes to the queue. Keep the live startup checks in the rollout.
+
+### BullMQ probe
+
+Save this as `scheduler-probe.cjs` in a fresh evidence directory outside the
+deployment's Redis data mount. Set `evidence_dir` to that directory.
+The normal probe reads one scheduler through `getJobScheduler` without
+booting Nest or starting a worker. Seeding is reserved for the isolated
+Redis service.
+
+```javascript
+const { Queue } = require('bullmq');
+
+async function main() {
+  const [id, action] = process.argv.slice(2);
+  const host = process.env.REDIS_HOST || 'redis';
+  if (!id || (action && (action !== 'seed' || host !== 'scheduler-proof-redis'))) {
+    throw new Error('Supply a scheduler ID. Seeding requires scheduler-proof-redis.');
+  }
+
+  const queue = new Queue('backup-queue', {
+    skipMetasUpdate: true,
+    connection: {
+      host,
+      port: Number(process.env.REDIS_PORT || 6379),
+      password: process.env.REDIS_PASSWORD,
+      protocol: 2,
+      connectTimeout: 5000,
+      retryStrategy: () => null,
+    },
+  });
+  try {
+    const expectedRunId = process.env.EXPECTED_REDIS_RUN_ID;
+    if (expectedRunId) {
+      const client = await queue.getBackend().client;
+      const serverInfo = await client.info('server');
+      const runId = serverInfo.match(/^run_id:([0-9a-f]+)/m)?.[1];
+      if (runId !== expectedRunId) {
+        throw new Error('BullMQ is connected to a different Redis instance.');
+      }
+    }
+    if (action === 'seed') {
+      await queue.upsertJobScheduler(id, { pattern: '0 3 * * *' }, {
+        name: 'scheduler-persistence-probe',
+      });
+    }
+    const scheduler = await queue.getJobScheduler(id);
+    if (
+      scheduler?.key !== id ||
+      !scheduler.name ||
+      !scheduler.pattern ||
+      !Number.isFinite(scheduler.next)
+    ) {
+      throw new Error(`Missing or incomplete cron scheduler: ${id}`);
+    }
+    const { key, name, pattern } = scheduler;
+    console.log(JSON.stringify({ id: key, name, pattern }));
+  } finally {
+    await queue.close();
+  }
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});
+```
+
+Define these Bash helpers in the shell where you will run either procedure:
+
+```bash
+record_redis() {
+  local phase="$1" container="$2"
+  test -n "$container" || return 1
+  printf '%s\n' "$container" > "$evidence_dir/redis-$phase.id"
+  docker inspect --format '{{.Config.Image}} {{.Image}}' \
+    "$container" > "$evidence_dir/image-$phase.txt"
+  docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Type}} {{.Source}}{{end}}{{end}}' \
+    "$container" > "$evidence_dir/data-$phase.txt"
+  test -n "$(cat "$evidence_dir/data-$phase.txt")"
+}
+
+verify_redis_recreation() {
+  local after expected_image
+  after=$(cat "$evidence_dir/redis-after.id")
+  expected_image=$(docker image inspect --format '{{.Id}}' "$candidate_redis_image") || return 1
+  test "$after" != "$(cat "$evidence_dir/redis-before.id")" &&
+    test "$(docker inspect --format '{{.Image}}' "$after")" = "$expected_image" &&
+    diff -u "$evidence_dir/data-before.txt" "$evidence_dir/data-after.txt"
+}
+
+compare_schedulers() {
+  diff -u "$evidence_dir/scheduler-before.json" "$evidence_dir/scheduler-after.json"
+}
+```
+
+### Deployment with an existing schedule
+
+1. Select an existing enabled backup schedule. Its BullMQ ID is
+   `schedule-<backup_schedules.id>`. If an enabled schedule is missing in
+   BullMQ before the upgrade, investigate that discrepancy before proceeding.
+   Leave production schedules as configured.
+2. In the deployment directory, use the same Compose files, project and
+   environment throughout. Define `redis_cli` as shown in
+   [Prerequisites and access](#prerequisites-and-access) while the backend is
+   still running. Capture the running backend image ID before stopping it.
+   The helper checks the local Compose image against that ID and disables
+   pulls for the probe. It also checks that BullMQ reads from the Redis
+   container being upgraded.
+
+   ```bash
+   backend_image_id=$(docker inspect --format '{{.Image}}' "$(docker compose ps -q backend)")
+   probe_deployed_scheduler() {
+     local image run_id
+     image=$(docker compose config --images backend) || return 1
+     if ! test -n "$backend_image_id" ||
+        ! test "$(docker image inspect --format '{{.Id}}' "$image")" = "$backend_image_id"; then
+       printf '%s\n' 'Compose backend image differs from the running image recorded before maintenance.' >&2
+       return 1
+     fi
+     run_id=$(redis_cli INFO server | awk -F '[:\r]' '$1 == "run_id" {print $2}')
+     test -n "$run_id" || return 1
+     docker compose run --rm --no-deps --pull never -T --entrypoint node \
+       -e EXPECTED_REDIS_RUN_ID="$run_id" backend - "$scheduler_id" \
+       < "$evidence_dir/scheduler-probe.cjs"
+   }
+   ```
+
+   During the maintenance window stop the backend and all other workers,
+   producers and reconciliation processes for the queue. Record each
+   external process and its stopped status from its process manager before
+   each read. Keep them stopped until the comparison finishes. Use the
+   disposable procedure if you cannot enumerate and verify all queue writers.
+   Set `scheduler_id` to the selected ID and capture the baseline before
+   editing the Compose image:
+
+   ```bash
+   (
+     set -eu
+     docker compose stop backend
+     docker compose ps -q backend > "$evidence_dir/backend-running-before.txt"
+     test ! -s "$evidence_dir/backend-running-before.txt"
+     record_redis before "$(docker compose ps -q redis)"
+     probe_deployed_scheduler > "$evidence_dir/scheduler-before.json"
+   )
+   ```
+
+3. Pin the candidate Redis image in the deployment's Compose configuration.
+   Keep the persistence settings and the existing `/data` mount. Set
+   `candidate_redis_image` to that same image reference. Recreate Redis and
+   run the comparison before starting the backend. Stop on any failed command
+   and investigate or follow the upgrade rollback procedure.
+
+   ```bash
+   (
+     set -eu
+     docker compose pull redis
+     docker compose up -d --wait --no-deps --force-recreate redis
+     record_redis after "$(docker compose ps -q redis)"
+     verify_redis_recreation
+     docker compose ps -q backend > "$evidence_dir/backend-running-after.txt"
+     test ! -s "$evidence_dir/backend-running-after.txt"
+     probe_deployed_scheduler > "$evidence_dir/scheduler-after.json"
+     compare_schedulers
+   )
+   ```
+
+4. After the comparison passes, check `noeviction` and `evicted_keys:0`, and
+   bring the stopped services back. For the Compose backend, run
+   `docker compose start --wait backend`. Then run the backend startup checks.
+
+### Disposable Redis procedure
+
+Save the Compose example as `compose.yml` in the evidence directory. From
+the target deployment, run `redis_cli CONFIG GET appendonly appendfsync save`
+and export the effective values as `proof_appendonly`, `proof_appendfsync`
+and `proof_save`. Preserve `save` as one quoted value, including an empty
+string if snapshots are disabled. If the deployment customizes other
+persistence settings, mirror them in the disposable service as well. Its
+internal network, dedicated volume and lack of workers isolate the scheduler.
+
+```yaml
+services:
+  scheduler-proof-redis:
+    image: ${proof_redis_image:?Set the Redis image}
+    command:
+      - redis-server
+      - --maxmemory-policy
+      - noeviction
+      - --save
+      - "${proof_save?Set the target save setting}"
+      - --appendonly
+      - "${proof_appendonly:?Set the target appendonly setting}"
+      - --appendfsync
+      - "${proof_appendfsync:?Set the target appendfsync setting}"
+    volumes:
+      - proof-data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+  probe:
+    image: ${proof_backend_image:?Set the backend image}
+    entrypoint: [node]
+    environment:
+      REDIS_HOST: scheduler-proof-redis
+volumes:
+  proof-data:
+networks:
+  default:
+    internal: true
+```
+
+Set `old_redis_image`, `candidate_redis_image` and `proof_backend_image` to
+the exact images for the upgrade. Run with a new, unused Compose project name
+in `proof_project`. The command trace, output and cleanup result go to
+`disposable-run.log` in the evidence directory. Use only disposable
+resources and keep credentials out of this traced procedure.
+
+```bash
+(
+  set -eu
+  exec > "$evidence_dir/disposable-run.log" 2>&1
+  set -x
+  export proof_redis_image="$old_redis_image" proof_backend_image
+  proof_compose() {
+    docker compose -p "$proof_project" -f "$evidence_dir/compose.yml" "$@"
+  }
+  cleanup_proof() {
+    local run_status="$?" cleanup_status=0
+    proof_compose down -v || cleanup_status=$?
+    printf 'Verification exit: %s; cleanup exit: %s\n' "$run_status" "$cleanup_status"
+    if test "$run_status" -ne 0; then
+      exit "$run_status"
+    fi
+    exit "$cleanup_status"
+  }
+  trap cleanup_proof EXIT
+
+  proof_compose up -d --wait scheduler-proof-redis
+  record_redis before "$(proof_compose ps -q scheduler-proof-redis)"
+  proof_compose run --rm --no-deps -T probe - persistence-probe seed \
+    < "$evidence_dir/scheduler-probe.cjs" > "$evidence_dir/scheduler-before.json"
+
+  export proof_redis_image="$candidate_redis_image"
+  proof_compose up -d --wait --force-recreate scheduler-proof-redis
+  record_redis after "$(proof_compose ps -q scheduler-proof-redis)"
+  verify_redis_recreation
+  proof_compose run --rm --no-deps -T probe - persistence-probe \
+    < "$evidence_dir/scheduler-probe.cjs" > "$evidence_dir/scheduler-after.json"
+  compare_schedulers
+)
+```
+
+Record the exact commands and results in the rollout record, including image
+and container IDs, the retained mount, both scheduler records, the comparison
+exit status, and the disposable cleanup result. A failed read or difference
+fails the persistence check. If the disposable procedure was used, identify
+that environment in the evidence. Once it passes, pin the candidate image in
+the deployment's Compose configuration, pull it with `docker compose pull redis`,
+and run the [memory-policy rollout checks](#queue-policy-and-rollout-verification)
+on the deployment.
+
+### Backend startup checks
+
+Set `health_url` to the deployment's `/api/health` URL and `evidence_dir`
+to a directory where you can retain the health response and logs. After the
+endpoint responds, use Docker's exact start timestamp to capture only logs
+from the current backend process.
+
+```bash
+(
+  set -eu
+  curl -fsS "$health_url" > "$evidence_dir/backend-health.json"
+  jq -e '.services | .backend.status == "healthy" and .database.status == "healthy"
+    and (.redis.status == "healthy" or .redis.pressure.state == "insufficient-samples")' \
+    "$evidence_dir/backend-health.json"
+  backend_container=$(docker compose ps -q backend)
+  docker inspect --format '{{.State.StartedAt}}' "$backend_container" \
+    > "$evidence_dir/backend-started-at.txt"
+  restart_since=$(cat "$evidence_dir/backend-started-at.txt")
+  docker compose logs --since "$restart_since" --timestamps backend \
+    > "$evidence_dir/backend-restart.log" 2>&1
+  grep -Eo 'Initialized [0-9]+ of [0-9]+ backup schedules' "$evidence_dir/backend-restart.log" |
+    awk '$2 == $4 { print; found = 1 } END { exit !found }'
+  if grep -i 'eviction policy' "$evidence_dir/backend-restart.log"; then
+    exit 1
+  fi
+)
+```
+
+The backend and database must be healthy, and Redis must respond. Redis
+monitoring can report `degraded` while it rebuilds the pressure streak.
+The [startup message](../../backend/src/modules/backup/backup-scheduler.service.ts)
+must show all configured schedules initialized, including `0 of 0` on an
+empty deployment. Record the restart timestamp, log collection time, health
+response, matching initialization line and warning check result.
 
 ## Monitoring implementation
 
