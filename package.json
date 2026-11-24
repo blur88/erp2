@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test:release": "set -- scripts/__tests__/*.test.js; test -f \"$1\" && node --test \"$@\""
+    "test:release": "node scripts/check-release-node.cjs && set -- scripts/__tests__/*.test.js && test -f \"$1\" && node --test \"$@\""
   },
   "devDependencies": {
     "conventional-changelog-angular": "9.4.0",
