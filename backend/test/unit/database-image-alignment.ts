@@ -14,6 +14,8 @@ const exactTags = new Map([
 const workflowPath = /^\.github\/workflows\/.*\.ya?ml$/;
 const imageVariable = /(?:^|_)(?:image|img)$/i;
 const shellDefault = /^\$\{([A-Za-z_]\w*):?-(.*?)\}$/;
+const imageTagInText =
+  /^(?:\d+[.-]\w|latest$|alpine$|(?:bookworm|bullseye|trixie)(?:-slim)?$)/;
 
 export function isDatabaseImageSource(file: string): boolean {
   return (
@@ -116,7 +118,9 @@ function positional(
   return index;
 }
 
-function dockerImage(args: string[]): string | undefined {
+function dockerImage(tokens: string[], start: number): string | undefined {
+  if (tokens[start] !== "docker") return;
+  const args = tokens.slice(start + 1);
   let index = positional(args, 0, /^-[D]*[cHl]$/);
   if (args[index] === "container" || args[index] === "image") index++;
   const operation = args[index];
@@ -124,34 +128,35 @@ function dockerImage(args: string[]): string | undefined {
     return;
   const shortValueFlags =
     operation === "pull" ? undefined : /^-[diPqt]*[acehlmpuvw]$/;
-  return args[positional(args, index + 1, shortValueFlags)];
+  return args[positional(args, index + 1, shortValueFlags)]?.replace(
+    /^["']|["']$/g,
+    "",
+  );
 }
 
-function resolveImageDefault(reference: string): string {
-  return reference.trim().replace(shellDefault, "$2");
+function resolveImageDefault(reference: string) {
+  const [, variable, image = reference] = shellDefault.exec(reference) ?? [];
+  return { image, variable };
 }
 
 function* imagePinsInText(text: string): Generator<string> {
   // Printed Docker commands carry the same image argument as executable ones.
   const tokens = text.match(shellToken) ?? [];
-  for (const [index, token] of tokens.entries()) {
-    if (token !== "docker") continue;
-    const image = dockerImage(tokens.slice(index + 1));
-    if (image) yield image.replace(/[.,]+$/, "").replace(/^["']|["']$/g, "");
+  for (const index of tokens.keys()) {
+    const image = dockerImage(tokens, index);
+    if (image) yield image.replace(/[.,]+$/, "");
   }
 
   for (const word of text.split(/[\s"'<>()[\],;&|]+/)) {
-    const reference = word.replace(/\.+$/, "");
-    const [, variable, fallback] = shellDefault.exec(reference) ?? [];
+    const { image, variable } = resolveImageDefault(word.replace(/\.+$/, ""));
     if (variable && imageVariable.test(variable)) {
-      yield fallback;
+      yield image;
       continue;
     }
-    const image = fallback ?? reference;
     const pin = officialImagePin(image);
     // Version tags and common aliases help distinguish image pins from
     // ports, owner specs, and credentials in free text.
-    if (pin && /^(?:\d+[.-]\w|alpine$|latest$)/.test(pin.tag)) yield image;
+    if (pin && imageTagInText.test(pin.tag)) yield image;
   }
 }
 
@@ -163,18 +168,21 @@ function* shellImages(source: string): Generator<string> {
     if (token.startsWith("#")) continue;
     if (separator.test(token)) {
       const start = command.findIndex((word) => !commandPrefix.test(word));
-      if (start >= 0 && command[start] === "docker") {
-        const image = dockerImage(command.slice(start + 1));
-        if (image) yield image.replace(/^["']|["']$/g, "");
+      const isChown = /(?:^|\/)chown$/.test(command[start] ?? "");
+      // chown operands are ownership specs and paths, even when they look like pins.
+      const textTokens = isChown ? command.slice(0, start) : command;
+      for (const word of textTokens) {
+        for (const [, doubleQuoted, singleQuoted] of word.matchAll(
+          /"([^"]+)"|'([^']+)'/g,
+        )) {
+          yield* imagePinsInText(doubleQuoted ?? singleQuoted);
+        }
       }
+      const image = dockerImage(command, start);
+      if (image) yield image;
       command = [];
     } else {
       command.push(token);
-      for (const [, doubleQuoted, singleQuoted] of token.matchAll(
-        /"([^"]+)"|'([^']+)'/g,
-      )) {
-        yield* imagePinsInText(doubleQuoted ?? singleQuoted);
-      }
     }
   }
 }
@@ -207,7 +215,7 @@ export function findDatabaseImageMisalignment(
         ? yamlImages(file === canonicalCompose ? compose : load(content))
         : shellImages(content);
     for (const reference of references) {
-      const image = resolveImageDefault(reference);
+      const { image } = resolveImageDefault(reference.trim());
       const repository = officialImageRepository(
         image.replace(/\$\{\{[\s\S]*?\}\}|\$\{[^}]*\}/g, "variable"),
       );

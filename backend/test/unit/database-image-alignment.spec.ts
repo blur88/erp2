@@ -67,6 +67,8 @@ describe("Postgres and Redis image alignment", () => {
   it.each([
     'chown "postgres:postgres" /data',
     "chown 'redis:redis' /data",
+    'chown "redis:alpine" x',
+    'sudo chown "postgres:bookworm" /data',
     'PASSWORD_PAIR="postgres:s3cret"',
   ])("ignores quoted owner specs and credentials (%s)", (source) => {
     expect(check({ "setup.sh": source })).toBeUndefined();
@@ -93,6 +95,15 @@ describe("Postgres and Redis image alignment", () => {
       ).toBe(`setup.sh: expected redis:8.6.7-alpine3.23, found redis:${tag}`);
     },
   );
+
+  it.each([
+    'echo "use postgres:bookworm"',
+    'chown "redis:alpine" x; echo "use postgres:bookworm"',
+  ])("reports a named tag in quoted instructions (%s)", (source) => {
+    expect(check({ "setup.sh": source })).toBe(
+      "setup.sh: expected postgres:18.6-alpine3.23, found postgres:bookworm",
+    );
+  });
 
   it.each([
     [
