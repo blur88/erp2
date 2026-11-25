@@ -84,6 +84,8 @@ For post-merge validation on the default branch, follow the manual dispatch guid
 
 At the start of implementation, determine the current Git branch and the repository’s default branch. If starting on the default branch, create and switch to a topic branch before making implementation commits. For issue-linked changes, use `<type>/<issue>-<slug>` (e.g. `docs/1899-verification-waits`). Continue on an existing valid topic branch. Do not silently switch branches when the working tree contains existing uncommitted changes. Work directly on the default branch only when explicitly requested by the user.
 
+A change that must reach `main` as one unit but is delivered as several ticket PRs, such as a PostgreSQL Major upgrade, uses an integration branch named `upgrade/<slug>` (e.g. `upgrade/postgres-19`). Ticket PRs target it, CI runs on them as on PRs to `main`, and only the final integration PR targets `main`; releases are published from `main` alone. No ruleset covers `upgrade/**`, so never force-push or delete an integration branch before its final PR has merged and the release is verified.
+
 A valid topic branch is a non-default branch for the current work that follows the issue-linked naming convention when applicable.
 
 Git history follows Conventional Commit style:

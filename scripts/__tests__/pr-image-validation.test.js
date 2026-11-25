@@ -6,9 +6,9 @@ const { parse } = require('yaml');
 
 const workflow = parse(readFileSync(resolve(__dirname, '../../.github/workflows/ci.yml'), 'utf8'));
 
-test('every pull request to main runs both production image builds and their NGINX checks', () => {
+test('every pull request to main or an upgrade/** integration branch runs both production image builds and their NGINX checks', () => {
   const pullRequest = workflow.on.pull_request;
-  assert.deepEqual(pullRequest.branches, ['main']);
+  assert.deepEqual(pullRequest.branches, ['main', 'upgrade/**']);
   assert.equal(pullRequest.paths, undefined);
   assert.equal(pullRequest['paths-ignore'], undefined);
 

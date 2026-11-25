@@ -2,7 +2,10 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    # `upgrade/**` integration branches (e.g. a PostgreSQL Major upgrade) gather
+    # ticket PRs that must not reach `main` one by one; they get the same full
+    # suite as PRs to `main` (#2063). Releases stay `main`-only (release.yml).
+    branches: [main, 'upgrade/**']
   # Deliberate one-off validation of `main` only — NOT routine coverage.
   #
   # There is intentionally no `push: branches: [main]` trigger. A push trigger
