@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Before starting work, follow the [workflow entry points in AGENTS.md](AGENTS.md#workflow-entry-points).
+@AGENTS.md
 
 ## Project Overview
 
@@ -16,15 +16,6 @@ ERP system — NestJS 11 backend + React 19 / TypeScript 6 / Material-UI v9 fron
 ## Key Commands
 
 ```bash
-# Start everything (recommended)
-docker compose up -d
-
-# Backend dev server (hot reload, no Docker)
-cd backend && npm run start:dev
-
-# Frontend dev server (no Docker)
-cd frontend && npm run dev
-
 # Run all backend tests
 cd backend && npm run test
 
@@ -42,9 +33,6 @@ cd frontend && npm run test
 # Run a single frontend test file (path relative to frontend/)
 cd frontend && npx vitest run src/path/to/file.test.tsx
 
-# TypeScript check (frontend, no build)
-cd frontend && npm run type-check
-
 # Generate a DB migration (after changing entities)
 cd backend && npm run migration:generate --name=DescriptiveName
 
@@ -54,19 +42,8 @@ cd backend && npm run migration:run
 # Revert last migration
 cd backend && npm run migration:revert
 
-# Lint & format
-cd backend && npm run lint && npm run format
-
-cd frontend && npm run lint
-
 # Maintenance menu (outdated deps, audit, knip, jscpd, docker rebuild)
 ./maintain.sh
-
-# Development deployment (builds from local source)
-./deploy.sh          # start
-./deploy.sh restart  # restart
-./deploy.sh logs     # view logs
-./deploy.sh status   # check status
 
 # Production deployment (prebuilt images, docker-compose.prod.yml)
 ./setup.sh
@@ -90,10 +67,6 @@ Sales/Purchasing/Inventory "reports" are routes and methods **inside** the respe
 - All API responses go through `ApiService` which wraps them as `{ data: T, meta?: {...} }` — see Gotchas for access patterns
 - Frontend API calls use RTK Query (`frontend/src/store/api/`); `ApiService` (Axios) is the underlying transport layer
 
-## Pre-PR verification gates
-
-Follow [AGENTS.md — Change-Scoped Verification](AGENTS.md#change-scoped-verification-required-before-pr) for applicable checks and acceptable CI evidence, and use the [PR template](.github/pull_request_template.md) to record results.
-
 ## Gotchas
 
 **NestJS route order**: Specific routes (`/products/deleted`) MUST be declared before parameterized routes (`/products/:id`) in controllers, or NestJS will try to treat `"deleted"` as a UUID and fail.
@@ -103,8 +76,6 @@ Follow [AGENTS.md — Change-Scoped Verification](AGENTS.md#change-scoped-verifi
 **API response structure**: `ApiService` strips the Axios wrapper and returns the backend body directly. For paginated list endpoints the body is `{ data: T[], meta: {...} }` — access items as `response.data` and pagination as `response.meta`. For tree/hierarchy endpoints (categories, chart of accounts) the body is a plain array — access as `response` directly (no `.data`). Getting this wrong causes empty lists with no errors.
 
 **Account lockout clock:** Lockout expiry (`User.isLocked`, the login check in `auth.service.ts`, and the `isLocked` filter/count in `users.service.ts`) is evaluated against the **Node container clock** (`new Date()`), never SQL `NOW()`. This keeps login and the user list using one clock so a skewed Postgres container clock can't disagree (issue #710). Docker container clocks can drift after host sleep/resume or container start; if a lockout seems wrong, run `docker compose restart backend` (or resync the host clock). Do not change these comparisons to SQL `NOW()`.
-
-**Docker from worktrees**: Before running Docker from a Git worktree, read [Docker verification from Git worktrees](docs/agents/docker-from-worktrees.md).
 
 **Frontend Docker**: Changes to frontend source require a rebuild — `docker compose build frontend && docker compose up -d frontend`. The Vite dev server (`npm run dev`) is for local-only development.
 
@@ -140,8 +111,6 @@ Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative i
 **Migration baseline**: the chain starts from a single `InitialSchema` genesis migration (#950). `npm run migration:run` works against an empty database, so a new migration can be validated end-to-end locally. Migration failure is fatal — there is no `schema:sync` fallback in the entrypoint or E2E setup. Verify a schema change with `backend/scripts/verify-baseline.sh` and `backend/scripts/verify-seeds.sh`.
 
 **Redis operations**: Before adding Redis-backed caching or sessions, changing queue Redis policy, memory sizing or monitoring, or deploying Redis changes, read [the Redis operator runbook](docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md) for rollout gates and evidence limits.
-
-**Backend type-checking**: See [AGENTS.md](AGENTS.md#change-scoped-verification-required-before-pr) for build/test configuration coverage and applicable checks.
 
 **Jest ESM**: Before changing backend Jest configuration or troubleshooting module loading in Jest, read [Backend Jest ESM](docs/testing/backend-jest-esm.md).
 

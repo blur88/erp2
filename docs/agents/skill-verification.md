@@ -10,9 +10,10 @@
 
 Use this convention for `/code-review <issue-number>` and equivalent requests. An explicit starting commit or comparison range from the maintainer takes precedence.
 
-1. Read the issue and its acceptance criteria.
-2. Prefer the current branch if its name follows the [issue-linked branch convention](../../AGENTS.md#commit--pull-request-guidelines) for this issue. Otherwise, look for a unique matching local or remote branch. Report the ambiguity if no branch matches or several remain plausible. Resolve refs in place and preserve the current checkout and uncommitted work.
-3. Refresh `origin/main` and resolve it and the selected branch head to SHAs. Compute their merge base and record it as the fixed base SHA, together with the reviewed head SHA, in the [shared review handoff](#hand-off-review-evidence).
+1. Read the issue and its acceptance criteria. For a parent spec, resolve each relevant child ticket (sub-issue) in its place.
+2. Find the ticket's PR. Confirm each candidate by a head branch starting with the [issue-linked](../../AGENTS.md#commit--pull-request-guidelines) `<type>/<issue>-` prefix or a PR body reference that claims the work, such as `Closes #<issue>` or `Tracks #<issue>`. A number search or a passing mention alone also matches unrelated PRs. Without a PR, check the current branch, matching local and remote branches, `git worktree list`, and the target branch the ticket documents. Resolve refs in place and preserve the current checkout and uncommitted work.
+3. Take the target from the PR's `baseRefName`, or without a PR from the ticket's documented target, such as an [integration branch](../../AGENTS.md#commit--pull-request-guidelines). Use `main` only when it is the intended target. Review the PR's `headRefOid` (or the branch head) and, after refreshing `origin/<target>`, record its merge base with that head as the fixed base SHA. For a merged PR, compute the merge base against the merge commit's first parent instead. Record both SHAs in the [shared review handoff](#hand-off-review-evidence).
+4. Report any ambiguity that remains, such as no match, several plausible matches or an unclear target, instead of guessing.
 
 ## Hand off review evidence
 
@@ -22,4 +23,4 @@ Use this convention for `/code-review <issue-number>` and equivalent requests. A
 
 ## Matt Pocock skill entry points
 
-The installed plugin's `implement`, `implement-spec`, and `code-review` skills rely on the agent's repository instructions to reach this handoff. [AGENTS.md](../../AGENTS.md#workflow-entry-points) provides the entry points, and [CLAUDE.md](../../CLAUDE.md) points Claude Code to them. The local copies of these skills under `.agents/skills/` are untracked and Git-ignored, and an agent can still load them. Apply the repository instructions with whichever copy loads. Maintain the handoff here and leave shared plugin and upstream installations untouched.
+The installed plugin's `implement`, `implement-spec`, and `code-review` skills rely on the agent's repository instructions to reach this handoff. [AGENTS.md](../../AGENTS.md#workflow-entry-points) provides the entry points, and [CLAUDE.md](../../CLAUDE.md) imports AGENTS.md so Claude Code loads them. The local copies of these skills under `.agents/skills/` are untracked and Git-ignored, and an agent can still load them. Apply the repository instructions with whichever copy loads. Maintain the handoff here and leave shared plugin and upstream installations untouched.

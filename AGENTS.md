@@ -22,8 +22,8 @@ Keep domain logic inside module folders (for example `backend/src/modules/auth`,
 
 ## Build, Test, and Development Commands
 Use Docker for full-stack development runs, or run each app locally.
-- `docker-compose up -d`: start full stack.
-- `./deploy.sh restart|logs|status`: development stack operations.
+- `docker compose up -d`: start full stack.
+- `./deploy.sh [restart|logs|status]`: development stack operations (builds from local source; no argument starts it).
 - `cd backend && npm run start:dev`: run API in watch mode.
 - `cd frontend && npm run dev`: run Vite dev server.
 - `cd backend && npm run build`: compile backend.
