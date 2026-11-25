@@ -27,7 +27,7 @@ const parseConfig = (configPath: string) => {
  */
 describe("backend TypeScript configuration roles", () => {
   it("root tsconfig.json is the type-check:build program", () => {
-    // ts-node (admin:create, backup:reconcile-schedulers) loads the root config
+    // ts-node (admin:create) loads the root config
     // at runtime. While its files and checking options match
     // tsconfig.build.json's, the build gate already proves the program
     // type-checks. Widening the root's `include`, or overriding a checking

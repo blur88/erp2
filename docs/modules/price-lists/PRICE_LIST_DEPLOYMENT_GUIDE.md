@@ -87,15 +87,7 @@ This deployment introduces a comprehensive price list management system that mig
 
 ### Database Backup
 
-#### Option 1: Using Built-in Backup Module
-
-```bash
-# Via API (if backup module is active)
-curl -X POST http://localhost:3000/api/backup/create \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
-```
-
-#### Option 2: PostgreSQL Direct Backup
+#### Option 1: PostgreSQL Direct Backup
 
 ```bash
 # Create backup directory
@@ -109,7 +101,7 @@ docker compose exec -T postgres pg_dump -U erp_user erp_db \
 ls -lh /backup/erp/$(date +%Y%m%d_%H%M%S)/erp_db_backup.sql
 ```
 
-#### Option 3: Docker Volume Backup
+#### Option 2: Docker Volume Backup
 
 ```bash
 # Stop the database

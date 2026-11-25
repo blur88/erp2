@@ -8,8 +8,7 @@ Before starting work, follow the [workflow entry points in AGENTS.md](AGENTS.md#
 
 ERP system — NestJS 11 backend + React 19 / TypeScript 6 / Material-UI v9 frontend, served via NGINX in Docker.
 
-- **Databases**: PostgreSQL 18 (TypeORM, primary), Redis 8.6 (BullMQ queue backing store). See [development Compose](docker-compose.yml) for exact image tags.
-- **Queue**: BullMQ via `@nestjs/bullmq` (background jobs)
+- **Databases**: PostgreSQL 18 (TypeORM, primary), Redis 8.6 (health checks and memory monitoring). See [development Compose](docker-compose.yml) for exact image tags.
 - **Testing**: Jest (backend) + Vitest (frontend)
 - **Default admin**: `admin / Admin@123!` — change on first login
 
@@ -118,8 +117,6 @@ The accounting reports (Profit & Loss, Balance Sheet, Form B) have **no print or
 
 TypeScript CLI scripts that directly or transitively import configured path aliases such as `@database/*` must preload `tsconfig-paths/register` in their npm script (for example, `ts-node -r tsconfig-paths/register ...`). TypeScript type-checking resolves these aliases, but Node runtime loading does not.
 
-`backup:reconcile-schedulers` needs this; `admin:create` does not, only because it uses relative imports throughout. The failure is runtime-only — it passes `npm run type-check` and surfaces as an unresolvable module when the script actually runs — and it arrives transitively, so a script whose own imports are all relative can still need the flag via what it pulls in.
-
 **The same trap reaches the application bundle, and there it is fatal.** The Docker build runs two compilers in sequence:
 
 ```
@@ -127,7 +124,7 @@ npm run build                  # nest build — DOES rewrite path aliases
 npx tsc -p tsconfig.cli.json   # plain tsc — does NOT rewrite them
 ```
 
-Both write to `dist/`. `tsconfig.cli.json` includes `src/database/cli/**/*`, so **any `src/` file reachable from a CLI entrypoint gets recompiled by the second pass and overwrites `nest build`'s correct output**. If that file imports via `@database/*`, the alias survives verbatim into `dist/` and Node throws `MODULE_NOT_FOUND`. When the file is also in `app.module`'s require chain, the *entire backend crash-loops* — this took production down on 2026-08-15 via `orphaned-scheduler-reconciler.service.ts`, which `reconcile-schedulers.ts` imports transitively.
+Both write to `dist/`. `tsconfig.cli.json` includes `src/database/cli/**/*`, so **any `src/` file reachable from a CLI entrypoint gets recompiled by the second pass and overwrites `nest build`'s correct output**. If that file imports via `@database/*`, the alias survives verbatim into `dist/` and Node throws `MODULE_NOT_FOUND`. When the file is also in `app.module`'s require chain, the *entire backend crash-loops*.
 
 Nothing in the normal gate catches it: the source is valid TypeScript, `npm run type-check` passes, and `npm run test` transpiles from `src/` with alias resolution. Only the built artifact is wrong. `backend/scripts/verify-dist-runtime.sh` (`npm run verify:dist`) is the gate — it scans `dist/` for surviving aliases and then loads `dist/main.js` to prove the require graph resolves. It runs inside the Dockerfile after the CLI compile, so a corrupt image fails the build instead of shipping.
 
@@ -139,15 +136,13 @@ Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative i
 
 **Migration baseline**: the chain starts from a single `InitialSchema` genesis migration (#950). `npm run migration:run` works against an empty database, so a new migration can be validated end-to-end locally. Migration failure is fatal — there is no `schema:sync` fallback in the entrypoint or E2E setup. Verify a schema change with `backend/scripts/verify-baseline.sh` and `backend/scripts/verify-seeds.sh`.
 
-**Redis operations**: Before adding Redis-backed caching or sessions, changing queue Redis policy, memory sizing or monitoring, or deploying Redis changes, read [the Redis operator runbook](docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md) for rollout gates and evidence limits.
+**Redis operations**: Before adding Redis-backed caching or sessions, changing Redis policy, memory sizing or monitoring, or deploying Redis changes, read [the Redis operator runbook](docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md) for rollout gates and evidence limits.
 
 **Backend type-checking**: See [AGENTS.md](AGENTS.md#change-scoped-verification-required-before-pr) for build/test configuration coverage and applicable checks.
 
 **Jest ESM**: Before changing backend Jest configuration or troubleshooting module loading in Jest, read [Backend Jest ESM](docs/testing/backend-jest-esm.md).
 
 **E2E fixture leak check**: Before changing an E2E suite, its cleanup, or the nightly leak check, read [E2E fixture leak check](docs/testing/e2e-leak-check.md).
-
-**BullMQ and backup schedulers**: Before upgrading Redis clients or BullMQ, investigating scheduler warnings or reconciling orphaned entries, read [the scheduler runbook](docs/deployment/BULLMQ_SCHEDULER_RUNBOOK.md) for protocol pins, migration history and remediation safeguards.
 
 **Bank Reconciliation**: Before changing reconciliation persistence, locking, conflicts or form drafts, read [the implementation invariants](docs/modules/accounting/BANK_RECONCILIATION_REFERENCE.md).
 

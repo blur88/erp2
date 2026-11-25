@@ -20,7 +20,6 @@ export const TABLE_STYLES = {
 
 // Pagination — single source of truth for every TablePagination.
 // One option set for all views; do not reintroduce per-page variants.
-// Exception: components/backup/BackupList.tsx intentionally uses [5,10,25,50]/10.
 export const PAGINATION = {
   options: [10, 25, 50, 100],
   defaultPageSize: 25,

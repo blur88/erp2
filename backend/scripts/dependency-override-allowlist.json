@@ -99,15 +99,6 @@
     "spec": "test/unit/dependency-glob.spec.ts"
   },
   {
-    "parent": "readdir-glob",
-    "parentVersion": "3.0.0",
-    "dependency": "minimatch",
-    "declared": "^10.2.2",
-    "resolved": "11.0.9",
-    "reason": "Uses the named Minimatch constructor and match(path) to filter directory entries. With minimatch 11, Archiver can append a source directory and can filter files when given a glob pattern.",
-    "spec": "test/unit/dependency-minimatch.spec.ts"
-  },
-  {
     "parent": "socket.io-adapter",
     "parentVersion": "2.5.8",
     "dependency": "ws",
@@ -132,7 +123,7 @@
     "declared": "^10.2.2",
     "resolved": "11.0.9",
     "reason": "Uses the named minimatch(path, pattern, { dot: true }) export for inclusion, exclusion and negated exclusion. That call works with minimatch 11.",
-    "spec": "test/unit/dependency-minimatch.spec.ts"
+    "spec": "test/unit/dependency-test-exclude.spec.ts"
   },
   {
     "parent": "typeorm",

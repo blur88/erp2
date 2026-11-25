@@ -19,7 +19,7 @@ if [ "$BASELINE_STATE" = "NEEDS_FAKE" ]; then
   echo "[entrypoint] Running migrations now would re-apply InitialSchema over your data." >&2
   echo "[entrypoint] Record the baseline first, then restart:" >&2
   echo "[entrypoint]   npm run typeorm -- -d dist/config/database.config.js migration:run --fake" >&2
-  echo "[entrypoint] Take a backup before doing so. See issue #950." >&2
+  echo "[entrypoint] Take a backup before doing so. See docs/deployment/POSTGRES_19_MAJOR_UPGRADE_RUNBOOK.md." >&2
   exit 1
 fi
 

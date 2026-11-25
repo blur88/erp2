@@ -211,12 +211,6 @@ const STATIC_PAGES: Array<{
     roles: ADMIN_ONLY,
   },
   {
-    label: 'Backup & Restore',
-    keywords: ['backup', 'restore', 'settings'],
-    route: '/settings/backup',
-    roles: ADMIN_ONLY,
-  },
-  {
     label: 'Audit Logs',
     keywords: ['audit', 'activity', 'history'],
     route: '/audit-logs',

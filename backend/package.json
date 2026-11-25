@@ -28,7 +28,6 @@
     "test:cov": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "test:debug": "NODE_OPTIONS=--experimental-vm-modules node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "NODE_ENV=test NODE_OPTIONS=\"--max-old-space-size=4096 --experimental-vm-modules\" jest --config ./test/jest-e2e.json",
-    "test:redis": "./scripts/preflight-redis-test.sh && NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-redis.json",
     "test:scripts": "bats scripts/__tests__",
     "check:overrides": "node scripts/check-dependency-overrides.mjs . ../docs/agents/dependency-overrides.md scripts/dependency-override-allowlist.json",
     "typeorm": "typeorm-ts-node-commonjs",
@@ -37,11 +36,9 @@
     "migration:revert": "npm run typeorm -- -d ./src/config/database.config.ts migration:revert",
     "schema:drop": "npm run typeorm -- -d ./src/config/database.config.ts schema:drop",
     "admin:create": "ts-node ./src/database/cli/create-admin.ts",
-    "backup:reconcile-schedulers": "ts-node -r tsconfig-paths/register ./src/database/cli/reconcile-schedulers.ts",
     "test:e2e:leakcheck": "./scripts/verify-e2e-cleanup.sh"
   },
   "dependencies": {
-    "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "12.6.0",
     "@nestjs/config": "12.1.1",
     "@nestjs/core": "12.6.0",
@@ -54,11 +51,8 @@
     "@nestjs/swagger": "12.1.2",
     "@nestjs/typeorm": "12.0.3",
     "@nestjs/websockets": "12.6.0",
-    "@types/archiver": "^8.0.0",
     "@types/bcrypt": "^6.0.0",
-    "archiver": "8.0.0",
     "bcrypt": "^6.0.0",
-    "bullmq": "6.7.8",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "compression": "^1.7.4",
@@ -104,7 +98,6 @@
     "jest-progress-bar-reporter": "^1.0.25",
     "prettier": "^3.0.0",
     "supertest": "^7.2.2",
-    "tar-stream": "^3.0.0",
     "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
@@ -128,9 +121,6 @@
     },
     "typeorm": {
       "ioredis": "$ioredis"
-    },
-    "readdir-glob@3": {
-      "minimatch": "^11.0.9"
     },
     "test-exclude@7": {
       "minimatch": "^11.0.9"

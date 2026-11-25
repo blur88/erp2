@@ -22,9 +22,6 @@ import { BankReconciliationSetupMark } from '../modules/bank-reconciliations/ent
 import { BankReconciliationVersion } from '../modules/bank-reconciliations/entities/bank-reconciliation-version.entity';
 import { BankReconciliationVersionLine } from '../modules/bank-reconciliations/entities/bank-reconciliation-version-line.entity';
 import { AuditLog } from '../database/entities/audit-log.entity';
-import { BackupLog } from '../database/entities/backup-log.entity';
-import { BackupSchedule } from '../database/entities/backup-schedule.entity';
-import { BackupRetentionSettings } from '../database/entities/backup-settings.entity';
 import { Category } from '../database/entities/category.entity';
 import { CompanySettings } from '../database/entities/company-settings.entity';
 import { Customer } from '../database/entities/customer.entity';
@@ -128,11 +125,8 @@ export function createDatabaseConfig(
     database,
     entities: [
       AuditLog,
-      BackupLog,
       RedisMemorySampleEntity,
       RedisAlertStateEntity,
-      BackupSchedule,
-      BackupRetentionSettings,
       Category,
       CompanySettings,
       Customer,

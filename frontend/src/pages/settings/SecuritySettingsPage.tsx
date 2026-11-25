@@ -355,7 +355,6 @@ const SecuritySettingsPage: React.FC = () => {
               <br />
               • Keep system up to date
               <br />
-              • Regular backup schedules
               <br />• Review security logs weekly
             </Typography>
           </Box>

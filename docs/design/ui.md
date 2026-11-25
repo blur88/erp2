@@ -98,7 +98,6 @@ Do not use `PageHeader` if the page requires more than one header region or cust
 | Multi-tab + sidebar filter | AuditLogsPage | Custom layout with multiple header regions |
 | Detail pages | CustomerProfilePage, JournalEntryDetailsPage, PriceListDetailsPage | Breadcrumb-led, read-only or tab-based layouts |
 | Multi-section overview | PurchasingPage | Multiple sub-headers, not a single page title |
-| Embedded section-header pattern | BackupManagement | Section headers are structural, not page-level |
 | Auth / error | LoginPage, MandatoryPasswordChangePage, NotFoundPage | No page header expected |
 
 ### Decision Checklist

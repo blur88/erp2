@@ -33,8 +33,6 @@ jobs:
 
       redis:
         image: redis:8.6.8-alpine3.23
-        # noeviction is a correctness requirement for BullMQ, not tuning:
-        # evicted job hashes vanish with no error. See CLAUDE.md.
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s

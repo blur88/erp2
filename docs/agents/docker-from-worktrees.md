@@ -33,7 +33,7 @@ replaced during verification for #2035.
   recreates a container.
 - **Volumes and bind mounts** can share data across projects. Check explicit
   volume names and external volumes, as well as resolved host paths for
-  PostgreSQL, Redis, uploads, logs, and backups. Pointing Compose at the main
+  PostgreSQL, Redis, uploads, and logs. Pointing Compose at the main
   checkout can select its data directories.
 
 To list the configured resources without starting services or printing the
