@@ -14,6 +14,7 @@
 - A PR-body probe can demonstrate observed behavior, but required regression coverage stays **Unverified** until a committed spec passes on the reviewed head.
 - A rejected dependency fixture demonstrates the intended failure when it exits with the expected status and names the incompatible dependency. A setup error or a run that executes zero tests leaves the intended failure unverified.
 - Claims that motivate a behavioral change must cite the installed library implementation, directly relevant test evidence, or a focused reproducer. Mark unsupported claims as **Unverified**.
+- For a removed HTTP route, name its original method and path, such as `GET /api/backup/list` for #2064. Establish that the route exists on the baseline and is absent on the candidate. An HTTP request against each demonstrates this; describe source inspection as a route diff.
 - Synthetic process waits do not demonstrate real CI behavior. A documentation link alone does not prove that an agent encounters an instruction at the correct workflow stage.
 - For agent-facing documentation, verify when and how the intended reader encounters the instruction.
 - Before reporting, refresh pending checks and confirm that the evidence still applies to the reviewed SHA. If the PR head moved, identify the reviewed SHA and flag which conclusions need reassessment.

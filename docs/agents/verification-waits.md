@@ -16,6 +16,13 @@
    [Docker verification from Git worktrees](docker-from-worktrees.md).
    When CI covers the full suite on the current head, use targeted local checks
    as needed and follow the single-watcher guidance under [Wait for a result](#wait-for-a-result).
+   For example, while implementing or fixing review findings, run the affected
+   test files and any mutation probe (a temporary code break that a test must
+   catch) locally. Once a PR is authorized, take the applicable full suites
+   from CI on the reviewed candidate. If full suites must run locally and
+   would overload the host together, such as backend E2E and frontend
+   coverage, run them one after the other. Reuse each completed qualifying run
+   instead of repeating it, and keep every required check.
 4. Choose a wait for the remaining work and state any useful expectation once.
 
 ## Wait for a result
