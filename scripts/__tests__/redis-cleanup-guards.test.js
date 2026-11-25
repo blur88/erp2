@@ -16,10 +16,18 @@ const queuePrefix = cleanup.match(/^const prefix = '([^']+)';$/m)[1];
 const namespace = `${queuePrefix}:${queueName}:`;
 const confirmation = `delete ${queuePrefix}:${queueName} in DB 0`;
 
-async function applyWith(fixture) {
-  const jobKey = `${namespace}job`;
-  const data = new Map([[jobKey, Buffer.from([1, 0, 255])], ['unrelated', Buffer.from([99])]]);
-  const before = [...data.entries()];
+const jobKey = `${namespace}job`;
+
+function seedData() {
+  return new Map([
+    [jobKey, Buffer.from([1, 0, 255])],
+    [`${queuePrefix}:${queueName}-neighbor:job`, Buffer.from([0, 255])],
+    ['unrelated', Buffer.from([99])],
+  ]);
+}
+
+async function runCleanup(data, fixture = {}) {
+  const obliterateCalls = [];
   const errors = [];
   const env = { REDIS_HOST: 'redis', REDIS_PORT: '6379' };
   if (fixture.missingHost) delete env.REDIS_HOST;
@@ -48,7 +56,10 @@ async function applyWith(fixture) {
     async getJobs() { return []; }
     async getActiveCount() { return fixture.activeJobs ?? 0; }
     async getWaitingChildrenCount() { return fixture.waitingChildren ?? 0; }
-    async obliterate() { data.delete(jobKey); }
+    async obliterate(...args) {
+      obliterateCalls.push(args);
+      data.delete(jobKey);
+    }
     async close() {}
   }
 
@@ -63,9 +74,7 @@ async function applyWith(fixture) {
     },
   });
 
-  assert.equal(process.exitCode, 1);
-  assert.deepEqual([...data.entries()], before);
-  return errors.join('\n');
+  return { exitCode: process.exitCode, errors, obliterateCalls };
 }
 
 for (const [name, fixture, expected] of [
@@ -84,6 +93,24 @@ for (const [name, fixture, expected] of [
   ['unrelated key disappears after DUMP', { expiredKey: true }, /A key disappeared during inventory/],
 ]) {
   test(`Redis cleanup preserves keys when it rejects ${name}`, async () => {
-    assert.match(await applyWith(fixture), expected);
+    const data = seedData();
+    const before = [...data.entries()];
+    const result = await runCleanup(data, fixture);
+
+    assert.equal(result.exitCode, 1);
+    assert.match(result.errors.join('\n'), expected);
+    assert.deepEqual(result.obliterateCalls, []);
+    assert.deepEqual([...data.entries()], before);
   });
 }
+
+test('Redis cleanup removes only the targeted queue and does no work on a repeat apply', async () => {
+  const data = seedData();
+  const unrelated = [...data.entries()].filter(([key]) => key !== jobKey);
+
+  assert.deepEqual(await runCleanup(data), { exitCode: 0, errors: [], obliterateCalls: [[]] });
+  assert.deepEqual([...data.entries()], unrelated);
+
+  assert.deepEqual(await runCleanup(data), { exitCode: 0, errors: [], obliterateCalls: [] });
+  assert.deepEqual([...data.entries()], unrelated);
+});

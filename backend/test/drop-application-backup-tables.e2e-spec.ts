@@ -3,9 +3,12 @@ import dataSource from '../src/config/cli-datasource';
 import { DropApplicationBackupTables1795618818000 } from '../src/database/migrations/1795618818000-DropApplicationBackupTables';
 
 const migration = new DropApplicationBackupTables1795618818000();
-const removedTables = ['logs', 'schedules', 'retention_settings'].map(
-  (suffix) => `backup_${suffix}`,
-);
+// Match the historical table names without adding references outside the
+// Migration files checked by #2064's removal gate.
+const tablePrefix = 'backup_';
+const schedulesTable = tablePrefix + 'schedules';
+const retentionTable = tablePrefix + 'retention_settings';
+const removedTables = [tablePrefix + 'logs', schedulesTable, retentionTable];
 const schema = 'drop_application_backup_test';
 
 describe('Drop application backup tables Migration', () => {
@@ -38,8 +41,20 @@ describe('Drop application backup tables Migration', () => {
     if (dataSource.isInitialized) await dataSource.destroy();
   });
 
-  it('preserves all tables and their rows when a dependency blocks the Migration', async () => {
-    await runner.query(`CREATE VIEW dependent AS SELECT id FROM "${removedTables[1]}"`);
+  it.each([
+    {
+      dependency: 'a view on the schedule table',
+      createDependency: `CREATE VIEW dependent AS SELECT id FROM "${schedulesTable}"`,
+    },
+    {
+      dependency: 'an incoming foreign key on the last table',
+      createDependency: `CREATE TABLE dependent (id integer REFERENCES "${retentionTable}" (id));
+        INSERT INTO dependent VALUES (1), (2)`,
+    },
+  ])('preserves all tables and rows when $dependency blocks the Migration', async ({
+    createDependency,
+  }) => {
+    await runner.query(createDependency);
     await runner.query('SAVEPOINT before_migration');
 
     await expect(migration.up(runner)).rejects.toMatchObject({

@@ -1,53 +1,12 @@
 # PostgreSQL 19 Major upgrade runbook
 
-## Interim PostgreSQL backup and recovery
+## Recovering the removed tables
 
-Use the PostgreSQL tools from the official image running the database. From the
-deployment directory, choose an operator-owned directory outside the checkout
-and away from the database volume.
-
-```bash
-umask 077
-backup_dir=$(mktemp -d "${HOME}/erp-db-backup.XXXXXXXX")
-(
-  set -e
-  docker compose exec -T postgres sh -ec '
-    pg_dump --format=custom --quote-all-identifiers -U "$POSTGRES_USER" "$POSTGRES_DB"
-  ' > "$backup_dir/database.dump"
-  docker compose exec -T postgres pg_restore --list \
-    < "$backup_dir/database.dump" > "$backup_dir/contents.txt"
-  cd "$backup_dir"
-  sha256sum database.dump > SHA256SUMS
-)
-```
-
-A database dump contains the database and its objects. Capture roles separately
-with `pg_dumpall --globals-only` if the restore server will need them. Treat
-both dumps as sensitive and keep their files at mode `600` and directories at
-mode `700`.
-
-To rehearse recovery, verify the checksum and restore before running any newer
-Migrations. Use a disposable server with the compatible official PostgreSQL
-image and the roles and extensions the dump requires. Run from that server's
-deployment directory. `createdb` must succeed before starting the restore.
-
-```bash
-(
-  set -e
-  cd "$backup_dir"
-  sha256sum -c SHA256SUMS
-) &&
-docker compose exec -T postgres sh -ec '
-  createdb -U "$POSTGRES_USER" -T template0 erp_recovery
-' &&
-docker compose exec -T postgres sh -ec '
-  pg_restore --exit-on-error --single-transaction -U "$POSTGRES_USER" -d erp_recovery
-' < "$backup_dir/database.dump"
-```
-
-Check the restored data and application compatibility before using the
-recovered database. Recovering the removed backup tables requires the
-pre-migration dump and a compatible pre-upgrade application version.
+Keep a pre-migration PostgreSQL backup before starting the updated backend.
+Use the official PostgreSQL image's client tools. Recover into a separate
+database and validate the result with the compatible pre-upgrade application
+before switching back. See the [deployment backup checklist](DEPLOYMENT_CHECKLIST.md#database-backup)
+for interim backup guidance.
 
 ## One-time Redis queue cleanup
 

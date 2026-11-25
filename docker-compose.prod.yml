@@ -37,7 +37,9 @@ services:
         max-file: "3"
 
   # Redis serves health checks and memory monitoring. The application stores no keys.
-  # Keep the existing noeviction and persistence settings for this deployment.
+  # Keep noeviction and persistence as conservative defaults. They preserve
+  # existing keys across memory pressure and restarts during the Major upgrade.
+  # Revisit these settings with the Backup & Restore redesign (#2067).
   redis:
     image: redis:8.6.8-alpine3.23
     container_name: erp_redis

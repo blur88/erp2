@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
+const minimumPatchedVersion = "11.0.1";
 const requireDependency = createRequire(import.meta.url);
 const TestExclude = requireDependency("test-exclude") as new (options: {
   cwd: string;
@@ -18,8 +19,14 @@ describe("test-exclude minimatch compatibility", () => {
       version: string;
     };
     const [major, minor, patch] = version.split(".").map(Number);
+    const [minimumMajor, minimumMinor, minimumPatch] = minimumPatchedVersion.split(".").map(Number);
+    const firstDifference = [
+      major - minimumMajor,
+      minor - minimumMinor,
+      patch - minimumPatch,
+    ].find((difference) => difference !== 0);
 
-    expect(major > 11 || (major === 11 && (minor > 0 || patch >= 1))).toBe(true);
+    expect(firstDifference ?? 0).toBeGreaterThanOrEqual(0);
   });
 
   it("selects coverage files using include, exclude and negated patterns", () => {
