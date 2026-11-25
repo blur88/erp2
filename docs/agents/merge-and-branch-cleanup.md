@@ -17,10 +17,10 @@ Before creating or repurposing a worktree, state its path, branch and purpose. R
    If the PR is queued, wait until GitHub reports it as merged and then run `bash scripts/cleanup-merged-pr.sh "$pr"` on its own. Use the cleanup command on its own for a PR that has already merged.
 3. Cleanup confirms the merge is on `origin/main`, switches to local `main` and fast-forwards it, then removes the PR's topic branch locally and on `origin`. If the checkout has no local `main`, cleanup creates it from `origin/main`. A branch GitHub already removed from `origin` counts as cleaned up.
 
-After merge and cleanup, report the worktree-to-branch mapping from `git worktree list`.
-
 If cleanup reports a blocker, preserve the work and report the Git error or the branch state that prevented cleanup. Once resolved, rerun the cleanup command for the same PR. If it already switched to `main`, retry from there.
+
+Once cleanup completes, report the worktree-to-branch mapping from `git worktree list`.
 
 ## Ticket PRs into an integration branch
 
-`scripts/cleanup-merged-pr.sh` accepts only PRs merged into `main`. For a ticket PR into an [integration branch](../../AGENTS.md#commit--pull-request-guidelines), follow the cleanup procedure approved in its initiative or ticket, such as the manual topic-branch cleanup in [#2064](https://github.com/blur88/erp2/issues/2064). Keep each of its safety checks, and preserve dirty worktrees and uncommitted changes. Then report the worktree-to-branch mapping as above.
+`scripts/cleanup-merged-pr.sh` accepts only PRs merged into `main`. For a ticket PR into an [integration branch](../../AGENTS.md#commit--pull-request-guidelines), follow the cleanup procedure approved in its initiative or ticket, such as the manual topic-branch cleanup in [#2064](https://github.com/blur88/erp2/issues/2064). Keep each of its safety checks, and preserve dirty worktrees and uncommitted changes. Once cleanup completes, report the worktree-to-branch mapping.
