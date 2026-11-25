@@ -22,7 +22,7 @@ FROM node:26.13.1-alpine3.24 AS production
 
 # Install security updates and runtime dependencies
 RUN apk upgrade --no-cache && \
-    apk add --no-cache curl postgresql18-client dumb-init && \
+    apk add --no-cache curl dumb-init && \
     rm -rf /usr/local/lib/node_modules/npm && \
     rm -f /usr/local/bin/npm /usr/local/bin/npx
 
@@ -42,8 +42,8 @@ COPY --chown=nestjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 
 # Create necessary directories with proper permissions
-RUN mkdir -p uploads logs backups/{postgresql,redis,settings,archives,temp,uploads} && \
-    chown -R nestjs:nodejs uploads logs backups
+RUN mkdir -p uploads logs && \
+    chown -R nestjs:nodejs uploads logs
 
 # Switch to non-root user
 USER nestjs

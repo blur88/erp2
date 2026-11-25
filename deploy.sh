@@ -65,9 +65,9 @@ check_prerequisites() {
 create_directories() {
     print_status "Creating necessary directories..."
     
-    mkdir -p uploads logs backups
+    mkdir -p uploads logs
     mkdir -p database/init
-    chmod 755 uploads logs backups
+    chmod 755 uploads logs
     
     print_success "Directories created"
 }

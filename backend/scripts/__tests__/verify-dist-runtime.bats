@@ -11,7 +11,7 @@ SCRIPT="$BATS_TEST_DIRNAME/../verify-dist-runtime.sh"
 
 setup() {
   TEST_DIST="$BATS_TEST_TMPDIR/dist"
-  mkdir -p "$TEST_DIST/modules/backup" "$TEST_DIST/database/entities" \
+  mkdir -p "$TEST_DIST/modules/example" "$TEST_DIST/database/entities" \
            "$TEST_DIST/config" "$TEST_DIST/database/migrations"
 }
 
@@ -31,15 +31,15 @@ EOF
 
 # A dist/ tree whose require graph resolves cleanly.
 write_good_dist() {
-  cat > "$TEST_DIST/database/entities/backup-schedule.entity.js" <<'EOF'
-exports.BackupSchedule = class BackupSchedule {};
+  cat > "$TEST_DIST/database/entities/example.entity.js" <<'EOF'
+exports.Example = class Example {};
 EOF
-  cat > "$TEST_DIST/modules/backup/orphaned-scheduler-reconciler.service.js" <<'EOF'
-const backup_schedule_entity_1 = require("../../database/entities/backup-schedule.entity");
-exports.svc = backup_schedule_entity_1.BackupSchedule;
+  cat > "$TEST_DIST/modules/example/example.service.js" <<'EOF'
+const example_entity_1 = require("../../database/entities/example.entity");
+exports.svc = example_entity_1.Example;
 EOF
   cat > "$TEST_DIST/main.js" <<'EOF'
-require("./modules/backup/orphaned-scheduler-reconciler.service");
+require("./modules/example/example.service");
 EOF
   write_good_migrations_config
 }
@@ -55,8 +55,8 @@ EOF
 @test "fails when a path alias survives into compiled output" {
   write_good_dist
   # Exactly the regression: the alias, verbatim, as plain tsc emits it.
-  cat > "$TEST_DIST/modules/backup/orphaned-scheduler-reconciler.service.js" <<'EOF'
-const backup_schedule_entity_1 = require("@database/entities/backup-schedule.entity");
+  cat > "$TEST_DIST/modules/example/example.service.js" <<'EOF'
+const example_entity_1 = require("@database/entities/example.entity");
 EOF
 
   run bash "$SCRIPT" "$TEST_DIST"
@@ -64,7 +64,7 @@ EOF
   [ "$status" -eq 1 ]
   [[ "$output" == *"unresolved TypeScript path aliases"* ]]
   # Must name the offending file, or the message is not actionable.
-  [[ "$output" == *"orphaned-scheduler-reconciler.service.js"* ]]
+  [[ "$output" == *"example.service.js"* ]]
   # Must explain the cause, since the source file looks correct.
   [[ "$output" == *"tsconfig.cli.json"* ]]
 }
@@ -72,7 +72,7 @@ EOF
 @test "catches an unresolvable require even when it is not a known alias" {
   write_good_dist
   # The static scan cannot know this one; only loading main.js finds it.
-  cat > "$TEST_DIST/modules/backup/orphaned-scheduler-reconciler.service.js" <<'EOF'
+  cat > "$TEST_DIST/modules/example/example.service.js" <<'EOF'
 require("./definitely-not-here");
 EOF
 
@@ -101,7 +101,7 @@ EOF
   # gate tests resolvability, not bootability, or it would be unusable in CI.
   write_good_dist
   cat > "$TEST_DIST/main.js" <<'EOF'
-require("./modules/backup/orphaned-scheduler-reconciler.service");
+require("./modules/example/example.service");
 throw new Error("cannot connect to postgres");
 EOF
 

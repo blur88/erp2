@@ -12,7 +12,7 @@ describe('createScheduleOptions', () => {
 
   // Only the exact value both e2e entry points export (package.json test:e2e,
   // scripts/verify-e2e-cleanup.sh) disables cron. Widening this condition
-  // would silently stop backup cleanup, token cleanup and the sampler in a
+  // would silently stop token cleanup and the sampler in a
   // real deployment.
   it("disables cron jobs only when NODE_ENV is exactly 'test'", () => {
     expect(createScheduleOptions({ NODE_ENV: 'test' })).toEqual({

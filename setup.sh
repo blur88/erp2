@@ -142,7 +142,7 @@ EOF
 # Create required directories
 create_directories() {
     print_status "Creating required directories..."
-    mkdir -p data/postgres data/redis uploads logs backups
+    mkdir -p data/postgres data/redis uploads logs
     print_success "Directories created"
 }
 

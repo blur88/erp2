@@ -7,7 +7,7 @@ and role-based access control.
 ## Tech Stack
 
 - **Frontend**: React 19 + TypeScript 6 + Material-UI v9 + Redux Toolkit + Vite
-- **Backend**: NestJS 11 + TypeORM + PostgreSQL + Redis 8 + Bull Queue
+- **Backend**: NestJS 11 + TypeORM + PostgreSQL + Redis 8
 - **Infrastructure**: Docker + NGINX + Node.js 24
 
 ## Features
@@ -84,7 +84,6 @@ npm install
 npm run start:dev       # hot reload
 npm run test            # unit tests
 npm run test:e2e        # end-to-end tests
-npm run test:redis      # Redis integration suite (see below)
 npm run test:cov        # coverage report
 
 # Frontend
@@ -104,36 +103,7 @@ npm run migration:revert
 > **Note**: Backend source changes in Docker require a rebuild:
 > `docker compose build backend && docker compose up -d backend`
 
-### Running the Redis integration suite
-
-`npm run test:redis` exercises the BullMQ scheduler-reconciliation logic against
-a **real** Redis. It is the only gate that catches errors the unit tests cannot,
-because those mock the Redis client.
-
-The suite connects to `REDIS_TEST_HOST:REDIS_TEST_PORT`, defaulting to
-`127.0.0.1:6399`. Start a disposable Redis there first:
-
-```bash
-docker run -d --name erp-redis-test-6399 -p 6399:6379 \
-  redis:8.6.8-alpine3.23 redis-server --maxmemory-policy noeviction
-
-npm run test:redis      # expects: 1 suite, 11 tests
-
-docker rm -f erp-redis-test-6399
-```
-
-> **Warning**: Never point this suite at the application's Redis (the compose
-> `redis` service on 6379), a shared instance, or anything production-like. It
-> writes and flushes real BullMQ queue state and would destroy live schedulers.
-> The separate port is the safeguard.
-
-`npm run test:redis` runs a preflight probe first, so a missing Redis fails in
-about a second with setup instructions. Without it, ioredis retries the
-connection rather than failing, and the run hangs until Jest times out
-(~10 minutes) — which looks like a broken suite instead of absent setup.
-
-`Tests: 0 total` from this suite is a **failure**, not a pass: a suite that
-fails to load reports zero. Check the exit code, not the summary line.
+The backend E2E suite boots the application with Redis and exercises memory monitoring. See the [Redis operator runbook](docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md).
 
 ## API Reference
 

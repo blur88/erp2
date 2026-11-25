@@ -1,377 +1,41 @@
-# Redis Memory-Pressure Detection — Operator Runbook
+# Redis memory pressure runbook
 
-This runbook covers detecting, diagnosing, and remediating Redis memory
-pressure on the ERP's queue-only Redis instance. It describes the signal
-produced by the `MonitoringModule` sampler (one `INFO` sample per minute,
-retained in Postgres for 90 days), how to read it, and what to do when
-it says something is wrong.
+ERP2 uses Redis for health checks and memory monitoring. The backend sends
+`PING` and reads `INFO`. It stores monitoring history and alert state in
+PostgreSQL. ERP2 creates no Redis keys.
 
-## Prerequisites and access
+## Verify a rollout
 
-The health endpoint is public; the detail endpoint requires an
-administrator account:
-
-| Endpoint | Auth | Purpose |
-|---|---|---|
-| `GET /api/health` | public | Live ping plus the sampler's latest pressure summary |
-| `GET /api/health/redis-memory` | `@Auth(UserRole.ADMIN)` | Up to 90 days of samples, counters, and configuration |
+Check the running settings against the applicable Compose file. The deployed
+`noeviction` policy and snapshot and append-only persistence settings remain
+the current defaults. Run the Redis checks from the deployment directory with
+the deployment password already exported as `REDISCLI_AUTH`.
 
 ```bash
-# From the deployment directory, with an admin token:
-curl -s http://<host>/api/health
-curl -s -H "Authorization: Bearer <admin-token>" \
-  http://<host>/api/health/redis-memory | jq '.pressure, .history, .counters'
-```
+redis_cli() { docker compose exec -T -e REDISCLI_AUTH redis redis-cli --raw "$@"; }
 
-Define this `redis_cli` helper in the deployment directory for the commands in this runbook:
-
-```bash
-redis_password="$(docker compose exec -T backend printenv REDIS_PASSWORD)"
-redis_cli() { docker compose exec -T -e REDISCLI_AUTH="$redis_password" redis redis-cli --raw "$@"; }
-```
-
-Extract the password from the container as shown — `$REDIS_PASSWORD` is
-generally *not* exported in the host shell, and an unset var makes
-`REDISCLI_AUTH=""` fail with `NOAUTH`. `REDISCLI_AUTH` also keeps the password out of the process argument list, unlike `-a`.
-
-## Queue policy and rollout verification
-
-**Redis is `noeviction`, and BullMQ requires it**: The Redis instance is the BullMQ queue backing store *only* — no cache, no sessions, despite what older comments claimed. `--maxmemory-policy noeviction` (issue #1036) is a correctness requirement, not a tuning preference: BullMQ has no recovery path for evicted keys, so under an eviction policy Redis can silently drop job hashes, queue state, or scheduler metadata and jobs vanish with no error.
-
-Never add cache or session keys to this instance. Cache workloads want eviction, queue workloads must never be evicted, and the two are irreconcilable on one instance — introducing a cache requires a *separate* Redis service, never a policy revert. `users.module.ts` carries a dormant `CacheModule.register()` that is the concrete way this gets violated.
-
-`--maxmemory-policy` is a start-time flag on the `redis-server` command, so the container must be **recreated** (`docker compose up -d redis`), not merely restarted; a runtime `CONFIG SET` is reverted on the next recreate. The compose files are the source of truth.
-
-*Mandatory pre-rollout baseline capture* — run per environment from the deployment directory (wherever that environment's compose files live), **before** switching the policy. A non-zero `evicted_keys` means eviction has already damaged queue state and must be investigated before any change:
-
-```bash
-redis_cli CONFIG GET maxmemory-policy
-redis_cli INFO memory | grep -E "^used_memory_peak_human:|^maxmemory_human:"
-redis_cli INFO stats | grep -E "^evicted_keys:"   # MUST be 0
+redis_cli PING
+redis_cli CONFIG GET maxmemory maxmemory-policy save appendonly
+redis_cli INFO memory
+redis_cli INFO stats
+redis_cli INFO persistence
 redis_cli INFO keyspace
 ```
 
-*Verification after rollout* uses the restarted backend container's start
-timestamp. Recheck the Redis policy and eviction counter, then use the
-[backend startup checks](#backend-startup-checks) below:
+Check backend startup with the public health endpoint. Compare the latest
+sample time with the start time of the backend you just deployed. While the
+sampler is rebuilding its pressure window, successful Redis connectivity can
+appear as `degraded` with `pressure.state=insufficient-samples`.
 
 ```bash
-docker compose up -d --wait redis &&
-  redis_cli CONFIG GET maxmemory-policy | grep -Fx noeviction &&
-  redis_cli INFO stats | grep -Ex 'evicted_keys:0[[:space:]]*' &&
-  docker compose stop backend &&
-  docker compose start --wait backend
+curl -fsS "$ERP_URL/api/health" | jq '.services.redis'
+curl -fsS -H "Authorization: Bearer $ADMIN_TOKEN"   "$ERP_URL/api/health/redis-memory" | jq '.pressure, .history, .counters'
 ```
 
-Re-evaluate the cap against captured production values before rollout; the local measurement below does not discharge this gate.
-
-## Scheduler persistence during a Redis image upgrade
-
-Capture a nonempty BullMQ scheduler record on the old image and read it again
-on the candidate image while the backend is stopped. The scheduler ID, job
-name and cron pattern must match. A startup marker such as
-`Initialized 0 of 0 backup schedules` counts only toward the backend startup
-checks. When the deployment has no enabled backup schedules, use the
-[disposable Redis procedure](#disposable-redis-procedure) for persistence evidence.
-Use the disposable procedure also when the deployment cannot pause every
-process that writes to the queue. Keep the live startup checks in the rollout.
-
-### BullMQ probe
-
-Save this as `scheduler-probe.cjs` in a fresh evidence directory outside the
-deployment's Redis data mount. Set `evidence_dir` to that directory.
-The normal probe reads one scheduler through `getJobScheduler` without
-booting Nest or starting a worker. Seeding is reserved for the isolated
-Redis service.
-
-```javascript
-const { Queue } = require('bullmq');
-
-async function main() {
-  const [id, action] = process.argv.slice(2);
-  const host = process.env.REDIS_HOST || 'redis';
-  if (!id || (action && (action !== 'seed' || host !== 'scheduler-proof-redis'))) {
-    throw new Error('Supply a scheduler ID. Seeding requires scheduler-proof-redis.');
-  }
-
-  const queue = new Queue('backup-queue', {
-    skipMetasUpdate: true,
-    connection: {
-      host,
-      port: Number(process.env.REDIS_PORT || 6379),
-      password: process.env.REDIS_PASSWORD,
-      protocol: 2,
-      connectTimeout: 5000,
-      retryStrategy: () => null,
-    },
-  });
-  try {
-    const expectedRunId = process.env.EXPECTED_REDIS_RUN_ID;
-    if (expectedRunId) {
-      const client = await queue.getBackend().client;
-      const serverInfo = await client.info('server');
-      const runId = serverInfo.match(/^run_id:([0-9a-f]+)/m)?.[1];
-      if (runId !== expectedRunId) {
-        throw new Error('BullMQ is connected to a different Redis instance.');
-      }
-    }
-    if (action === 'seed') {
-      await queue.upsertJobScheduler(id, { pattern: '0 3 * * *' }, {
-        name: 'scheduler-persistence-probe',
-      });
-    }
-    const scheduler = await queue.getJobScheduler(id);
-    if (
-      scheduler?.key !== id ||
-      !scheduler.name ||
-      !scheduler.pattern ||
-      !Number.isFinite(scheduler.next)
-    ) {
-      throw new Error(`Missing or incomplete cron scheduler: ${id}`);
-    }
-    const { key, name, pattern } = scheduler;
-    console.log(JSON.stringify({ id: key, name, pattern }));
-  } finally {
-    await queue.close();
-  }
-}
-
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
-```
-
-Define these Bash helpers in the shell where you will run either procedure:
-
-```bash
-record_redis() {
-  local phase="$1" container="$2"
-  test -n "$container" || return 1
-  printf '%s\n' "$container" > "$evidence_dir/redis-$phase.id"
-  docker inspect --format '{{.Config.Image}} {{.Image}}' \
-    "$container" > "$evidence_dir/image-$phase.txt"
-  docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Type}} {{.Source}}{{end}}{{end}}' \
-    "$container" > "$evidence_dir/data-$phase.txt"
-  test -n "$(cat "$evidence_dir/data-$phase.txt")"
-}
-
-verify_redis_recreation() {
-  local after expected_image
-  after=$(cat "$evidence_dir/redis-after.id")
-  expected_image=$(docker image inspect --format '{{.Id}}' "$candidate_redis_image") || return 1
-  test "$after" != "$(cat "$evidence_dir/redis-before.id")" &&
-    test "$(docker inspect --format '{{.Image}}' "$after")" = "$expected_image" &&
-    diff -u "$evidence_dir/data-before.txt" "$evidence_dir/data-after.txt"
-}
-
-compare_schedulers() {
-  diff -u "$evidence_dir/scheduler-before.json" "$evidence_dir/scheduler-after.json"
-}
-```
-
-### Deployment with an existing schedule
-
-1. Select an existing enabled backup schedule. Its BullMQ ID is
-   `schedule-<backup_schedules.id>`. If an enabled schedule is missing in
-   BullMQ before the upgrade, investigate that discrepancy before proceeding.
-   Leave production schedules as configured.
-2. In the deployment directory, use the same Compose files, project and
-   environment throughout. Define `redis_cli` as shown in
-   [Prerequisites and access](#prerequisites-and-access) while the backend is
-   still running. Capture the running backend image ID before stopping it.
-   The helper checks the local Compose image against that ID and disables
-   pulls for the probe. It also checks that BullMQ reads from the Redis
-   container being upgraded.
-
-   ```bash
-   backend_image_id=$(docker inspect --format '{{.Image}}' "$(docker compose ps -q backend)")
-   probe_deployed_scheduler() {
-     local image run_id
-     image=$(docker compose config --images backend) || return 1
-     if ! test -n "$backend_image_id" ||
-        ! test "$(docker image inspect --format '{{.Id}}' "$image")" = "$backend_image_id"; then
-       printf '%s\n' 'Compose backend image differs from the running image recorded before maintenance.' >&2
-       return 1
-     fi
-     run_id=$(redis_cli INFO server | awk -F '[:\r]' '$1 == "run_id" {print $2}')
-     test -n "$run_id" || return 1
-     docker compose run --rm --no-deps --pull never -T --entrypoint node \
-       -e EXPECTED_REDIS_RUN_ID="$run_id" backend - "$scheduler_id" \
-       < "$evidence_dir/scheduler-probe.cjs"
-   }
-   ```
-
-   During the maintenance window stop the backend and all other workers,
-   producers and reconciliation processes for the queue. Record each
-   external process and its stopped status from its process manager before
-   each read. Keep them stopped until the comparison finishes. Use the
-   disposable procedure if you cannot enumerate and verify all queue writers.
-   Set `scheduler_id` to the selected ID and capture the baseline before
-   editing the Compose image:
-
-   ```bash
-   (
-     set -eu
-     docker compose stop backend
-     docker compose ps -q backend > "$evidence_dir/backend-running-before.txt"
-     test ! -s "$evidence_dir/backend-running-before.txt"
-     record_redis before "$(docker compose ps -q redis)"
-     probe_deployed_scheduler > "$evidence_dir/scheduler-before.json"
-   )
-   ```
-
-3. Pin the candidate Redis image in the deployment's Compose configuration.
-   Keep the persistence settings and the existing `/data` mount. Set
-   `candidate_redis_image` to that same image reference. Recreate Redis and
-   run the comparison before starting the backend. Stop on any failed command
-   and investigate or follow the upgrade rollback procedure.
-
-   ```bash
-   (
-     set -eu
-     docker compose pull redis
-     docker compose up -d --wait --no-deps --force-recreate redis
-     record_redis after "$(docker compose ps -q redis)"
-     verify_redis_recreation
-     docker compose ps -q backend > "$evidence_dir/backend-running-after.txt"
-     test ! -s "$evidence_dir/backend-running-after.txt"
-     probe_deployed_scheduler > "$evidence_dir/scheduler-after.json"
-     compare_schedulers
-   )
-   ```
-
-4. After the comparison passes, check `noeviction` and `evicted_keys:0`, and
-   bring the stopped services back. For the Compose backend, run
-   `docker compose start --wait backend`. Then run the backend startup checks.
-
-### Disposable Redis procedure
-
-Save the Compose example as `compose.yml` in the evidence directory. From
-the target deployment, run `redis_cli CONFIG GET appendonly appendfsync save`
-and export the effective values as `proof_appendonly`, `proof_appendfsync`
-and `proof_save`. Preserve `save` as one quoted value, including an empty
-string if snapshots are disabled. If the deployment customizes other
-persistence settings, mirror them in the disposable service as well. Its
-internal network, dedicated volume and lack of workers isolate the scheduler.
-
-```yaml
-services:
-  scheduler-proof-redis:
-    image: ${proof_redis_image:?Set the Redis image}
-    command:
-      - redis-server
-      - --maxmemory-policy
-      - noeviction
-      - --save
-      - "${proof_save?Set the target save setting}"
-      - --appendonly
-      - "${proof_appendonly:?Set the target appendonly setting}"
-      - --appendfsync
-      - "${proof_appendfsync:?Set the target appendfsync setting}"
-    volumes:
-      - proof-data:/data
-    healthcheck:
-      test: [CMD, redis-cli, ping]
-      interval: 1s
-      timeout: 2s
-      retries: 30
-  probe:
-    image: ${proof_backend_image:?Set the backend image}
-    entrypoint: [node]
-    environment:
-      REDIS_HOST: scheduler-proof-redis
-volumes:
-  proof-data:
-networks:
-  default:
-    internal: true
-```
-
-Set `old_redis_image`, `candidate_redis_image` and `proof_backend_image` to
-the exact images for the upgrade. Run with a new, unused Compose project name
-in `proof_project`. The command trace, output and cleanup result go to
-`disposable-run.log` in the evidence directory. Use only disposable
-resources and keep credentials out of this traced procedure.
-
-```bash
-(
-  set -eu
-  exec > "$evidence_dir/disposable-run.log" 2>&1
-  set -x
-  export proof_redis_image="$old_redis_image" proof_backend_image
-  proof_compose() {
-    docker compose -p "$proof_project" -f "$evidence_dir/compose.yml" "$@"
-  }
-  cleanup_proof() {
-    local run_status="$?" cleanup_status=0
-    proof_compose down -v || cleanup_status=$?
-    printf 'Verification exit: %s; cleanup exit: %s\n' "$run_status" "$cleanup_status"
-    if test "$run_status" -ne 0; then
-      exit "$run_status"
-    fi
-    exit "$cleanup_status"
-  }
-  trap cleanup_proof EXIT
-
-  proof_compose up -d --wait scheduler-proof-redis
-  record_redis before "$(proof_compose ps -q scheduler-proof-redis)"
-  proof_compose run --rm --no-deps -T probe - persistence-probe seed \
-    < "$evidence_dir/scheduler-probe.cjs" > "$evidence_dir/scheduler-before.json"
-
-  export proof_redis_image="$candidate_redis_image"
-  proof_compose up -d --wait --force-recreate scheduler-proof-redis
-  record_redis after "$(proof_compose ps -q scheduler-proof-redis)"
-  verify_redis_recreation
-  proof_compose run --rm --no-deps -T probe - persistence-probe \
-    < "$evidence_dir/scheduler-probe.cjs" > "$evidence_dir/scheduler-after.json"
-  compare_schedulers
-)
-```
-
-Record the exact commands and results in the rollout record, including image
-and container IDs, the retained mount, both scheduler records, the comparison
-exit status, and the disposable cleanup result. A failed read or difference
-fails the persistence check. If the disposable procedure was used, identify
-that environment in the evidence. Once it passes, pin the candidate image in
-the deployment's Compose configuration, pull it with `docker compose pull redis`,
-and run the [memory-policy rollout checks](#queue-policy-and-rollout-verification)
-on the deployment.
-
-### Backend startup checks
-
-Set `health_url` to the deployment's `/api/health` URL and `evidence_dir`
-to a directory where you can retain the health response and logs. After the
-endpoint responds, use Docker's exact start timestamp to capture only logs
-from the current backend process.
-
-```bash
-(
-  set -eu
-  curl -fsS "$health_url" > "$evidence_dir/backend-health.json"
-  jq -e '.services | .backend.status == "healthy" and .database.status == "healthy"
-    and (.redis.status == "healthy" or .redis.pressure.state == "insufficient-samples")' \
-    "$evidence_dir/backend-health.json"
-  backend_container=$(docker compose ps -q backend)
-  docker inspect --format '{{.State.StartedAt}}' "$backend_container" \
-    > "$evidence_dir/backend-started-at.txt"
-  restart_since=$(cat "$evidence_dir/backend-started-at.txt")
-  docker compose logs --since "$restart_since" --timestamps backend \
-    > "$evidence_dir/backend-restart.log" 2>&1
-  grep -Eo 'Initialized [0-9]+ of [0-9]+ backup schedules' "$evidence_dir/backend-restart.log" |
-    awk '$2 == $4 { print; found = 1 } END { exit !found }'
-  if grep -i 'eviction policy' "$evidence_dir/backend-restart.log"; then
-    exit 1
-  fi
-)
-```
-
-The backend and database must be healthy, and Redis must respond. Redis
-monitoring can report `degraded` while it rebuilds the pressure streak.
-The [startup message](../../backend/src/modules/backup/backup-scheduler.service.ts)
-must show all configured schedules initialized, including `0 of 0` on an
-empty deployment. Record the restart timestamp, log collection time, health
-response, matching initialization line and warning check result.
+`GET /api/health/redis-memory` requires an administrator and backs the
+**Settings → Redis Monitoring** view. Capture new observations after a rollout.
+The [Major upgrade runbook](POSTGRES_19_MAJOR_UPGRADE_RUNBOOK.md#one-time-redis-queue-cleanup)
+covers removing the legacy Redis data once.
 
 ## Monitoring implementation
 
@@ -390,9 +54,11 @@ renders this.
 
 ## Interpreting the pressure state
 
-`/api/health` reports `redis.status` as `healthy` or `degraded` (always
-HTTP 200 — degraded must never restart the backend) and
-`redis.pressure.state` as one of four states:
+`/api/health` returns HTTP 200. `services.redis.status` is `unhealthy` if
+the live Redis check fails, `degraded` if monitoring is unavailable or the
+pressure state is anything other than `healthy`, and `healthy` when the Redis check and
+pressure evaluation both pass. When monitoring is available,
+`services.redis.pressure.state` has four possible values:
 
 | State | Meaning | Action |
 |---|---|---|
@@ -407,9 +73,7 @@ do not flap the state.
 
 ## What survives a restart — and what does not
 
-Samples and alert state are stored in **Postgres**, never in Redis. Redis
-itself remains the BullMQ queue backing store only; the monitoring module
-only ever *reads* it.
+Samples and alert state are stored in **Postgres**, never in Redis. The monitoring module reads Redis metrics.
 
 | State | Survives a backend restart? |
 |---|---|
@@ -494,345 +158,23 @@ entries in `knownInstances` (one per boot), and the startup fallback
 warning in the backend logs. The alert state is unaffected — it is keyed
 by the Redis `run_id`, not the instance id.
 
-## Distinguishing a genuine backlog from a leak
-
-`degraded` with `sustained-pressure` means Redis is using ≥80% of its
-256 MiB cap. Determine whether the growth is legitimate queue load or a
-leak before touching anything:
-
-```bash
-# Utilization and peak
-redis_cli INFO memory | grep -E "^used_memory_human:|^used_memory_peak_human:|^maxmemory_human:"
-
-# What is in the instance — queue keys only
-redis_cli INFO keyspace
-
-# Queue depth
-redis_cli ZCARD bull:backup-queue:delayed
-redis_cli ZRANGE bull:backup-queue:delayed 0 -1
-redis_cli ZRANGE bull:backup-queue:repeat 0 -1 WITHSCORES
-```
-
-Interpretation:
-
-- **Backlog**: the `bull:backup-queue:delayed` set is large and growing with
-  legitimate scheduled work, and no unexpected key types appear in
-  `INFO keyspace`. Growth tracks scheduled jobs.
-- **Leak**: keys are growing when the queue depth is flat, unexpected keys
-  appear, or a producer enqueues far more than the consumers drain.
-
-Never add cache or session keys to this instance (see Prohibitions below) —
-`users.module.ts` carries a dormant `CacheModule.register()` that is the
-concrete way this gets violated.
-
-### History view is the first stop
-
-For peak and trend, start at `/settings/redis-monitoring` (admin). It renders
-`/api/health/redis-memory`'s `windowStats`, which are computed in SQL over the
-full filtered window and are exact even when the sample list is truncated. The
-chart beside them plots only the newest `REDIS_DETAIL_MAX_ROWS` samples, so at
-the 60s interval it may cover a recent slice (roughly the newest 3.5 days on a
-7-day request) while the statistics describe the whole window — do not
-interpret the chart's visible range as the statistics' coverage. The SQL in
-#1057 remains valid for offline analysis.
-
-## OOM occurrences
-
-A positive `oomErrors` delta means Redis rejected at least one command with
-`OOM command not allowed when used memory > 'maxmemory'`. It proves a write
-failed; it does **not** prove that jobs were lost — depending on the BullMQ
-operation, a job may not have been enqueued, or a state transition may have
-failed. Work **may** be affected.
-
-`/api/health/redis-memory` reports the counter status:
-
-- `counters.oomErrors.value` — cumulative count since the counter's last
-  reset; `lastDelta` is the most recent positive delta and `lastChangedAt`
-  when it happened.
-- `available: false` means the `errorstats` section is missing or disabled
-  — the counter is *unavailable*, not zero.
-
-On an OOM occurrence, and only then, investigate producers, failed
-operations, and queue state:
-
-```bash
-redis_cli INFO errorstats | grep errorstat_OOM
-docker compose logs backend --since 10m | grep -i "OOM command not allowed"
-docker compose exec -T backend node -e '
-const { Queue } = require("bullmq");
-const q = new Queue("backup-queue", { connection: {
-  host: process.env.REDIS_HOST, port: +process.env.REDIS_PORT,
-  password: process.env.REDIS_PASSWORD } });
-q.getFailed(0, 50).then((j) => j.forEach((x) => console.log(x.id, x.failedReason)))
- .finally(() => q.close());
-'
-```
-
-A counter **decrease** (Redis restart or `CONFIG RESETSTAT`) re-baselines
-silently — it is not an occurrence.
-
-## Eviction — this must never happen
-
-A non-zero `evicted_keys` delta proves eviction occurred during that
-interval, which should be impossible under `noeviction`. The first step is
-to inspect the policy actually in effect:
-
-```bash
-redis_cli CONFIG GET maxmemory-policy
-```
-
-Then distinguish which drift it reveals:
-
-- **Runtime-only drift** — the compose definition still declares
-  `noeviction` but the running instance reports something else (a
-  hand-applied `CONFIG SET`). Restart Redis so its original start-time
-  command is reapplied, then verify:
-
-  ```bash
-  docker compose restart redis
-  redis_cli CONFIG GET maxmemory-policy   # must print noeviction
-  ```
-
-- **Compose-definition drift** — the compose file itself no longer
-  specifies `--maxmemory-policy noeviction`. Fix the compose file, then
-  recreate the container (`--maxmemory-policy` is a start-time flag, so a
-  plain `docker compose up -d redis` is a no-op when the service definition
-  already matches the running container):
-
-  ```bash
-  docker compose up -d --force-recreate redis
-  redis_cli CONFIG GET maxmemory-policy   # must print noeviction
-  ```
-
-After restoring the policy, watch `evicted_keys` and `INFO keyspace` for
-post-eviction damage: BullMQ has no recovery path for evicted keys, so
-eviction can silently drop job hashes or queue state.
-
-## Sizing the cap — the 2026-09-05 measurement
-
-**Decision: retain 256 MiB.** Local history demonstrates persistence across
-Redis restarts; **production sizing and survival across a confirmed deploy
-remain unverified.** The mandatory production measurement in the [rollout procedure above](#queue-policy-and-rollout-verification) is
-**not** discharged by this section and remains required unconditionally.
-
-Evidence is one frozen window from the **local development stack only**, upper
-bound `sampledAt < 2026-09-05 00:00:00-07`:
-
-| Metric | Value |
-|---|---|
-| Window | 2026-08-14 13:21:40 -07 → 2026-09-04 23:59:00 -07 (21d 10:37:19) |
-| Samples | 30,667 (0 failed) |
-| Peak `usedBytes` | 3,008,424 @ 2026-08-29 10:15:00 -07 |
-| p50 / p95 / p99 `usedBytes` | 2,820,464 / 2,961,160.8 / 2,976,896 |
-| `maxBytes` | 268,435,456 |
-| Peak utilization | **1.121%** exact |
-| `evictedKeys` / `oomErrors` | 0 / 0 |
-
-Peak utilization is 1.121% computed from bytes. The stored
-`utilizationPercent` reads `1.00` because the parser rounds to whole
-percentages (`backend/src/modules/monitoring/redis-info.parser.ts:50`) — read
-the byte columns when you need precision, not the stored percentage.
-
-Reproduce with:
-
-```bash
-docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
-  SELECT count(*) AS samples,
-         count(*) FILTER (WHERE NOT ok) AS failed,
-         min(\"sampledAt\") AS first_sample,
-         max(\"sampledAt\") AS last_sample,
-         max(\"sampledAt\") - min(\"sampledAt\") AS span,
-         max(\"usedBytes\") AS peak_used_bytes,
-         max(\"maxBytes\") AS max_bytes,
-         percentile_cont(0.50) WITHIN GROUP (ORDER BY \"usedBytes\") AS p50,
-         percentile_cont(0.95) WITHIN GROUP (ORDER BY \"usedBytes\") AS p95,
-         percentile_cont(0.99) WITHIN GROUP (ORDER BY \"usedBytes\") AS p99,
-         max(\"evictedKeys\") AS evicted_keys,
-         max(\"oomErrors\") AS oom_errors,
-         round(max(\"usedBytes\")::numeric / max(\"maxBytes\")::numeric * 100, 3) AS peak_util_exact
-  FROM redis_memory_samples
-  WHERE \"instanceId\" = '"'"'erp_backend'"'"'
-    AND \"sampledAt\" >= '"'"'2026-08-14 13:21:40.63-07'"'"'
-    AND \"sampledAt\" <  '"'"'2026-09-05 00:00:00-07'"'"';"'
-```
-
-Substitute your own instance id and window bound to re-run it later.
-
-Output, preserved as the historical record (run 2026-09-06):
-
-```
- samples | failed |       first_sample        |        last_sample         |         span         | peak_used_bytes | max_bytes |   p50   |    p95    |   p99   | evicted_keys | oom_errors | peak_util_exact
----------+--------+---------------------------+----------------------------+----------------------+-----------------+-----------+---------+-----------+---------+--------------+------------+-----------------
-   30667 |      0 | 2026-08-14 13:21:40.63-07 | 2026-09-04 23:59:00.003-07 | 21 days 10:37:19.373 |         3008424 | 268435456 | 2820464 | 2961160.8 | 2976896 |            0 |          0 |           1.121
-```
-
-**The output above is the evidence, not the query.** Re-running this will not
-reproduce it indefinitely: retention is 90 days with a nightly 3AM prune, so the
-window's lower end expires and the same bounded query returns fewer rows over
-time. Treat the recorded table as the historical record; the query is provided
-to show how it was derived and to run the equivalent against a fresh window.
-
-Two practices make a window usable while it lasts:
-
-- **Specify both bounds.** An open lower bound drifts as retention prunes; an
-  upper bound inside the current day keeps admitting rows, since sampling is
-  continuous. Any fixed past timestamp works as the upper bound — midnight is
-  a convention here, not a requirement.
-- **Two consecutive identical runs** are a useful check that the upper bound is
-  behind live sampling. They do **not** prove closure: retention can still move
-  the result later, and identical values only mean nothing changed between the
-  two runs.
-
-Separately timestamped observations of the *unbounded* series, for contrast:
-32,020 rows at 2026-09-06 13:35 +08 and 32,024 at 13:36 +08.
-
-### What the counters can and cannot tell you
-
-`evictedKeys = 0` and `oomErrors = 0` mean **none observed**. Neither can
-exclude a container-level failure:
-
-- `evicted_keys` is inert under `noeviction` by construction.
-- `oomErrors` is a counter inside the Redis process. A container OOM kill or a
-  Redis restart **can occur without incrementing either counter**: the
-  replacement Redis process starts with fresh counters. Observations already
-  persisted to `redis_memory_samples` and `redis_alert_state` remain available
-  — it is the live counter that resets, not the recorded history.
-
-### Restart correlation
-
-Sampling gaps identify **sampling interruptions**. Nothing more: a gap alone
-does not say whether Redis restarted, the sampler stalled, or the host slept.
-The **restart correlation comes from the retained `redis_alert_state` run_id
-rows**, not from the gaps. The third gap below is the demonstration — same
-duration class as the first two, but no run_id change, so it is a sampler-side
-interruption only. In the frozen window:
-
-| Gap start | Gap end | Duration | `usedBytes` after | Reading |
-|---|---|---|---|---|
-| 2026-08-15 22:48:00 -07 | 2026-08-15 23:00:15 -07 | 12m 15s | 2,241,888 | run_id change → Redis restart |
-| 2026-08-23 07:03:00 -07 | 2026-08-23 10:40:54 -07 | 3h 37m 54s | 2,248,392 | run_id change → Redis restart |
-| 2026-08-28 08:44:00 -07 | 2026-08-28 08:59:13 -07 | 15m 13s | 2,835,392 | no run_id change → sampling interruption only |
-
-The first two align with the last-write `updatedAt` of a distinct
-`redis_alert_state.redisRunId` row and show a cold-start drop in `usedBytes`;
-the third has no run_id change and stays warm.
-
-Three caveats on this method:
-
-1. `redis_alert_state` retains one row per `run_id`, which is what makes a
-   process change visible at all. That retention is incidental to the table's
-   purpose — do not assume it survives a schema change.
-2. `updatedAt` is a **last-write timestamp, not a restart timestamp.** It
-   bounds when the old process stopped being sampled; it does not date the
-   restart.
-3. **Deployment attribution needs independent deployment evidence.** None was
-   available here, so this window evidences **zero verified deploys**. A
-   backend `StartedAt` of 2026-09-04T15:31:08Z corresponds to no gap at all,
-   which is the direct demonstration that gaps and deploys are different
-   events.
-
-```sql
-WITH g AS (
-  SELECT "sampledAt", "usedBytes",
-         "sampledAt" - lag("sampledAt") OVER (ORDER BY "sampledAt") AS gap,
-         lag("sampledAt") OVER (ORDER BY "sampledAt") AS prev
-  FROM redis_memory_samples
-  WHERE "instanceId" = 'erp_backend' AND "sampledAt" < '2026-09-05 00:00:00-07'
-)
-SELECT prev AS gap_start, "sampledAt" AS gap_end, gap, "usedBytes" AS used_after
-FROM g WHERE gap > interval '3 minutes' ORDER BY "sampledAt";
-```
-
-That query only finds the gaps. The correlation needs the run_id rows as well —
-a gap whose end aligns with the last `updatedAt` of a superseded `redisRunId`
-is a Redis restart; a gap with no such row is a sampling interruption:
-
-```sql
-SELECT "redisRunId", "pressureState", "oomObservedValue", "updatedAt"
-FROM redis_alert_state ORDER BY "updatedAt";
-```
-
-Recorded for the frozen window (the third row post-dates it and is the process
-running at the time of writing):
-
-```
-                redisRunId                | pressureState | oomObservedValue |           updatedAt
-------------------------------------------+---------------+------------------+-------------------------------
- ef529b85f5bf4414e60495fbc342a50b72490b78 | healthy       |                0 | 2026-08-15 22:48:00.024655-07
- 50be9cd67236f8bd6c5003261002b0c527eee9ed | healthy       |                0 | 2026-08-23 07:03:00.014122-07
- 87c03159f673a9d6014e80defdef828ba3b8c780 | healthy       |                0 | 2026-09-06 00:56:00.018418-07
-```
-
-This method depends on `redis_alert_state` retaining one row per `run_id`,
-which is incidental to that table's purpose rather than guaranteed by it. A
-schema change that collapsed those rows would remove the only signal
-distinguishing a Redis restart from a sampling interruption. Documented
-limitation, not a defect to fix here.
-
-### Container memory margin
-
-`docker-compose.prod.yml` gives the Redis container `limits.memory: 512M`
-against `--maxmemory 256mb`, with `reservations.memory: 256M`. This is
-recorded as an **unmeasured configuration fact**, not a defect. Redis needs
-memory beyond `used_memory` during RDB saves and AOF rewrites (see
-[Redis administration](https://redis.io/docs/latest/operate/oss_and_stack/management/admin/)),
-and this stack runs both (`--save`, `--appendonly yes`). Whether the 256 MiB
-margin covers a fork-time copy-on-write peak at production queue depth is
-unmeasured.
-
-At the time of writing, `docker inspect` reported `OOMKilled=false` and
-`RestartCount=0` for `erp_redis` and `erp_backend`. These are **current
-observations of the running containers**, not a historical audit: the restart
-count tracks restart attempts and is not an OOM audit trail, and both fields
-describe only the present container lifetime. Historical claims need retained
-Docker events or host logs.
-
-### Investigation triggers
-
-Investigate the cap when any of these appear in a production environment.
-None of them, and no combination, discharges the production measurement gate.
-
-- Sustained utilization **> 50%** of the cap.
-- Non-zero `oomErrors`.
-- A **container OOM kill** (`docker inspect --format '{{.State.OOMKilled}}'`,
-  Docker events, host `dmesg`).
-- An **unexpected Redis restart** — a new `redisRunId` with no corresponding
-  deployment evidence.
-
-The last two can occur with `oomErrors` and `evicted_keys` both at zero.
-
-## Raising the cap — when it is correct, when it masks a leak
-
-The durable 90-day history is the dataset a cap decision needs: sample
-utilization at peak queue load over weeks, then decide. The detail route
-serves it with `from`, `to`, `limit`, and `allInstances` parameters (see the
-deep-history query above).
-
-- Raising the cap is a defensible response to a **measured, legitimate
-  backlog** at the cap — more queue capacity is the point of the instance.
-- Raising the cap to keep a **leak** from failing is masking: the leak
-  grows until it hits the new cap, and the diagnosis is deferred.
-- Correct the policy/leak first, then decide on the cap with real data.
-
-## Prohibitions
-
-- **Never revert to `allkeys-lru`** or any eviction policy. Under an
-  eviction policy Redis can silently drop job hashes, queue state, or
-  scheduler metadata and jobs vanish with no error. `noeviction` is a
-  correctness requirement for BullMQ, not a tuning preference.
-- **Never add cache or session keys to this instance.** Cache workloads
-  want eviction; queue state must never be evicted. A cache workload
-  requires a **separate** Redis service, never a policy revert.
-
-## Escalation
-
-Transition logging is the sampler's most operator-visible output: one
-`logger.warn` per state transition and per positive OOM/eviction delta —
-never per sample. A `sustained-pressure` transition with a flat queue, an
-OOM occurrence, or any `evicted_keys` delta is a finding that should reach
-the operator. Notification routing is explicitly out of scope for this
-increment; until it exists, treat the transition warnings in `docker
-compose logs backend` as the signal to investigate.
+## Investigate pressure, OOM, or eviction
+
+Start with the monitoring window covering the alert. Review utilization and
+peak memory alongside counter deltas and the reported Redis identity. Compare
+`used_memory` and `used_memory_rss` with the Redis cap and container memory
+limit. Check Redis logs and `INFO persistence` for background save or rewrite
+activity. A changed `run_id` indicates a Redis restart.
+
+Unexpected keys or growing key counts warrant checking which clients use the
+instance. Inspect `INFO keyspace` and use incremental `SCAN` to identify owners
+before changing data. `noeviction` rejects writes when Redis reaches its cap.
+A rising OOM counter signals rejected commands. A rising eviction counter
+warrants checking the active policy and identifying affected clients.
+
+Capture the pressure state, sample window, counter deltas, Redis configuration,
+container memory and backend transition logs before changing the cap. Evaluate
+sustained utilization and leave room for RSS and persistence overhead.
 
 ## In-app alerting
 

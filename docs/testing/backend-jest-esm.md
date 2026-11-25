@@ -1,6 +1,6 @@
 # Backend Jest ESM
 
-**Jest runs in ESM mode; `transformIgnorePatterns` no longer exists**: the backend test suite runs under `NODE_OPTIONS=--experimental-vm-modules` with `extensionsToTreatAsEsm: [".ts"]` and ts-jest `useESM: true` (transform config: `tsconfig.spec.json`, which is test-only and isolated from the build configs). All three configs (unit in `package.json`, `test/jest-e2e.json`, `test/jest-redis.json`) share this shape. The old `transformIgnorePatterns` allowlist — thirteen packages led by the `sanitize-html` ESM cluster — was deleted: it is obsolete in ESM mode. The CJS workaround could not have been extended to NestJS 12 anyway, which uses `import.meta`, invalid in CommonJS — allowlisting fails one level deeper with `SyntaxError: Cannot use 'import.meta' outside a module`.
+**Jest runs in ESM mode; `transformIgnorePatterns` no longer exists**: the backend test suite runs under `NODE_OPTIONS=--experimental-vm-modules` with `extensionsToTreatAsEsm: [".ts"]` and ts-jest `useESM: true` (transform config: `tsconfig.spec.json`, which is test-only and isolated from the build configs). The unit config in `package.json` and the E2E configs share this shape. The old `transformIgnorePatterns` allowlist — thirteen packages led by the `sanitize-html` ESM cluster — was deleted: it is obsolete in ESM mode. The CJS workaround could not have been extended to NestJS 12 anyway, which uses `import.meta`, invalid in CommonJS — allowlisting fails one level deeper with `SyntaxError: Cannot use 'import.meta' outside a module`.
 
 Invariants that replaced it:
 

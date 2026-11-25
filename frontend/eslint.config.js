@@ -113,7 +113,6 @@ export default tseslint.config(
       'src/pages/sales/SalesOrderSummary.tsx',
       // Deferred pages — awaiting pattern validation
       'src/pages/purchasing/PurchasingPage.tsx',
-      'src/pages/settings/BackupManagement.tsx',
       'src/pages/settings/PriceListDetailsPage.tsx',
       // Components using TYPOGRAPHY_STYLES.pageHeader for its type scale (not as a page header)
       'src/pages/dashboard/components/DashboardStats.tsx',
@@ -136,18 +135,11 @@ export default tseslint.config(
               name: '@mui/material',
               importNames: ['TablePagination'],
               message:
-                'Use <PagePagination> (components/common/PagePagination.tsx) for a consistent pagination UI. BackupList is the only sanctioned exception.',
+                'Use <PagePagination> (components/common/PagePagination.tsx) for a consistent pagination UI.',
             },
           ],
         },
       ],
-    },
-  },
-  // Known exception — BackupList intentionally keeps raw TablePagination (see tableStyles.ts opt-out).
-  {
-    files: ['src/components/backup/BackupList.tsx'],
-    rules: {
-      'no-restricted-imports': 'off',
     },
   },
 );

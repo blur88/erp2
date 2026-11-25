@@ -5,7 +5,7 @@ import { ScheduleModuleOptions } from '@nestjs/schedule';
  *
  * Cron jobs are not registered when NODE_ENV is exactly 'test' (#1311). Every
  * e2e suite boots the full AppModule against a shared database, so a wall-clock
- * handler (hourly backup cleanup, 02:00 token/search cleanup, 03:00 sample
+ * handler (02:00 token/search cleanup, 03:00 sample
  * prune, the every-minute sampler) would otherwise write or delete rows
  * mid-run, and the leak check's verdict would depend on what time it was.
  * A test that needs a handler's behaviour must call the handler directly.

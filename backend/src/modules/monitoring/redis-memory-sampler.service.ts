@@ -49,8 +49,7 @@ interface CounterTracker {
  * Samples `INFO memory` / `INFO stats` / `INFO errorstats` once per minute,
  * records each tick into the bounded history store, feeds the pressure
  * evaluator, tracks cumulative OOM/eviction counter deltas, and logs state
- * transitions. It never writes Redis keys — Redis remains the BullMQ queue
- * backing store only.
+ * transitions. It reads Redis metrics and stores the samples in PostgreSQL.
  *
  * Failed and skipped ticks are recorded as failed samples with bounded
  * `failureReason` enums; raw Redis error messages never reach samples or API

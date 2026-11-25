@@ -134,7 +134,7 @@ DB_DATABASE=$CAND_DB npm run migration:run >/dev/null
 # fragments behind, producing a false diff.
 #
 # Verified against the deployed schema: removes all 5 migrations-related
-# statements with 0 residue, preserving 36 CREATE TABLE statements (37
+# statements with 0 residue, preserving 46 CREATE TABLE statements (47
 # public tables minus `migrations` itself).
 # PostgreSQL 18 wraps dumps in `\restrict <random-token>` / `\unrestrict
 # <random-token>` psql meta-commands. The token differs per dump, so these
