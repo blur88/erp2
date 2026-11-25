@@ -10,7 +10,7 @@
 
 Use this convention for `/code-review <issue-number>` and equivalent requests. An explicit starting commit or comparison range from the maintainer takes precedence.
 
-1. Read the issue and its acceptance criteria. For a parent spec, resolve each relevant child ticket (sub-issue) in its place.
+1. Read the issue and its acceptance criteria. For a parent spec, resolve the child tickets (sub-issues) whose work is under review, usually the open ones with a PR, in its place.
 2. Find the ticket's PR. Confirm each candidate by a head branch starting with the [issue-linked](../../AGENTS.md#commit--pull-request-guidelines) `<type>/<issue>-` prefix or a PR body reference that claims the work, such as `Closes #<issue>` or `Tracks #<issue>`. A number search or a passing mention alone also matches unrelated PRs. Without a PR, check the current branch, matching local and remote branches, `git worktree list`, and the target branch the ticket documents. Resolve refs in place and preserve the current checkout and uncommitted work.
 3. Take the target from the PR's `baseRefName`, or without a PR from the ticket's documented target, such as an [integration branch](../../AGENTS.md#commit--pull-request-guidelines). Use `main` only when it is the intended target. Review the PR's `headRefOid` (or the branch head) and, after refreshing `origin/<target>`, record its merge base with that head as the fixed base SHA. For a merged PR, compute the merge base against the merge commit's first parent instead. Record both SHAs in the [shared review handoff](#hand-off-review-evidence).
 4. Report any ambiguity that remains, such as no match, several plausible matches or an unclear target, instead of guessing.

@@ -10,7 +10,6 @@ ERP system — NestJS 11 backend + React 19 / TypeScript 6 / Material-UI v9 fron
 
 - **Databases**: PostgreSQL 18 (TypeORM, primary), Redis 8.6 (BullMQ queue backing store). See [development Compose](docker-compose.yml) for exact image tags.
 - **Queue**: BullMQ via `@nestjs/bullmq` (background jobs)
-- **Testing**: Jest (backend) + Vitest (frontend)
 - **Default admin**: `admin / Admin@123!` — change on first login
 
 ## Key Commands
