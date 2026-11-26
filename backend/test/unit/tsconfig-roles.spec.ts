@@ -1,10 +1,13 @@
-import * as path from "path";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
 import ts from "typescript";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(__dirname, "..", "..");
+const require = createRequire(import.meta.url);
 
 const parseConfig = (configPath: string) => {
   const file = path.resolve(backendRoot, configPath);
@@ -27,11 +30,9 @@ const parseConfig = (configPath: string) => {
  */
 describe("backend TypeScript configuration roles", () => {
   it("root tsconfig.json is the type-check:build program", () => {
-    // ts-node (admin:create, backup:reconcile-schedulers) loads the root config
-    // at runtime. While its files and checking options match
-    // tsconfig.build.json's, the build gate already proves the program
-    // type-checks. Widening the root's `include`, or overriding a checking
-    // option in the build config, needs a gate of its own.
+    // The build gate covers the root config while both programs have the
+    // same files and checking options. Widening the root's `include` or
+    // overriding a checking option in the build config needs its own gate.
     const root = parseConfig("tsconfig.json");
     const build = parseConfig("tsconfig.build.json");
     expect(root.files).toEqual(build.files);
@@ -41,8 +42,42 @@ describe("backend TypeScript configuration roles", () => {
     expect(rootChecking).toEqual(buildChecking);
   });
 
-  it("root tsconfig.json stays CommonJS, the format ts-node CLIs load", () => {
+  it("root tsconfig.json stays CommonJS for scripts that select it", () => {
     expect(parseConfig("tsconfig.json").options.module).toBe(ts.ModuleKind.CommonJS);
+  });
+
+  it("direct ts-node scripts explicitly select the backend root config", () => {
+    const { scripts }: { scripts: Record<string, string> } = JSON.parse(
+      readFileSync(path.join(backendRoot, "package.json"), "utf8"),
+    );
+    // Match standalone ts-node tokens, including prefixed invocations.
+    const tsNodeScripts = Object.entries(scripts).filter(([, command]) =>
+      /(?:^|\s)ts-node(?:\s|$)/.test(command),
+    );
+
+    expect(tsNodeScripts.length).toBeGreaterThan(0);
+    for (const [name, command] of tsNodeScripts) {
+      expect({ name, command }).toEqual({
+        name,
+        command: expect.stringMatching(/^ts-node -P tsconfig\.json /),
+      });
+
+      // These scripts use plain arguments. Diagnostic mode exits before
+      // running the entry point, including the seed under test/tsconfig.json.
+      const [, ...args] = command.split(/\s+/);
+      const output = execFileSync(
+        process.execPath,
+        [require.resolve("ts-node/dist/bin.js"), "--showConfig", ...args],
+        { cwd: backendRoot, encoding: "utf8" },
+      );
+      expect({ name, config: JSON.parse(output) }).toMatchObject({
+        name,
+        config: {
+          "ts-node": { project: path.join(backendRoot, "tsconfig.json") },
+          compilerOptions: { module: "commonjs" },
+        },
+      });
+    }
   });
 
   it("test/tsconfig.json gives editors the type-check:spec program", () => {
