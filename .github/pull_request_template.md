@@ -4,7 +4,11 @@
 
 ## Related issue
 
-Closes #
+Refs #
+
+<!-- Use Closes # only when merging this PR completes every required acceptance criterion.
+If a maintainer explicitly approves deferring a check, keep Refs # and leave the issue open
+until the check is demonstrated. Follow AGENTS.md's Change-Scoped Verification requirements. -->
 
 ## Verification
 
@@ -30,6 +34,9 @@ PR head SHA (when citing CI):
 
 ## Known limitations or outstanding risks
 
-<!-- Include migration or environment changes when applicable, or state none. -->
+<!-- List each deferred check here with the maintainer's approval or a link to it.
+Include migration or environment changes when applicable, or state none. -->
+
+Follow the mandatory [Change-Scoped Verification requirements](https://github.com/blur88/erp2/blob/main/AGENTS.md#change-scoped-verification-required-before-pr) before merging.
 
 A PR with required checks still running stays in draft until results are in. A PR marked ready for review must not describe required verification as "in progress".
