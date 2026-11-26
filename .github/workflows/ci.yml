@@ -24,6 +24,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The attribution workflow handles its own PR events, including edits.
+  attribution-dispatch:
+    name: AI attribution dispatch
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/ai-attribution.yml
+
   test-backend:
     name: Backend - Lint, Type Check, Unit Tests, E2E Tests
     runs-on: ubuntu-latest
