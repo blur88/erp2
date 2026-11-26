@@ -35,7 +35,7 @@ it over the committed snapshot and submitting a PR. Never accept a baseline
 solely to turn a failing run green.
 
 The backend CI job runs `bash scripts/lint-workflows.sh`. The script installs
-checksum-verified actionlint v1.7.12 to check workflow syntax and expressions
-and uses the runner's ShellCheck for inline workflow commands and tracked
-`.sh` files under `scripts/` and `backend/scripts/`. Release logic has a
-separate test suite.
+checksum-verified releases of actionlint and ShellCheck on Linux x86_64.
+Actionlint checks workflow syntax and expressions. The pinned ShellCheck
+checks inline workflow commands and tracked `.sh` files under `scripts/` and
+`backend/scripts/`. Release logic has a separate test suite.
