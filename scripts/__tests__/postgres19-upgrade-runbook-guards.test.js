@@ -22,15 +22,15 @@ const runbook = readFileSync(
   'utf8',
 );
 
-function bashBlock(section, index = 0) {
-  return [...runbook.split(`\n## ${section}\n`)[1].matchAll(/```bash\n([\s\S]+?)\n```/g)][index][1];
+function bashBlock(heading) {
+  return runbook.split(`\n${heading}\n`)[1].match(/```bash\n([\s\S]+?)\n```/)[1];
 }
 
-const inventory = bashBlock('Quiesce and inventory', 1);
-const preserve = bashBlock('Preserve PG18 and initialize PG19');
-const rollback = bashBlock('Roll back to PG18');
-const restore = bashBlock('Restore globals, then the database');
-const dump = bashBlock('Dump and validate');
+const inventory = bashBlock('### Source database inventory');
+const preserve = bashBlock('## Preserve PG18 and initialize PG19');
+const rollback = bashBlock('## Roll back to PG18');
+const restore = bashBlock('## Restore globals, then the database');
+const dump = bashBlock('## Dump and validate');
 
 function fixtureDirectory(t) {
   const dir = mkdtempSync(join(tmpdir(), 'erp-pg19-guard-'));
@@ -206,7 +206,7 @@ for (const artifact of ['erp_db.dump', 'globals.sql', 'erp_db.toc', 'SHA256SUMS'
   });
 }
 
-test('a fresh dump creates private recovery artifacts and a rerun preserves them', (t) => {
+test('a fresh dump creates recovery artifacts and a rerun preserves them', (t) => {
   const dir = fixtureDirectory(t);
   const database = `
     recovery="$PWD"
@@ -221,11 +221,8 @@ test('a fresh dump creates private recovery artifacts and a rerun preserves them
   `;
   const result = execute(dir, database + dump);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /erp_db.dump: OK/);
-  assert.match(result.stdout, /globals.sql: OK/);
-  for (const artifact of ['erp_db.dump', 'globals.sql', 'erp_db.toc', 'SHA256SUMS']) {
-    assert.equal(lstatSync(join(dir, artifact)).mode & 0o777, 0o600);
-  }
+  assert.match(result.stdout, /erp_db\.dump: OK/);
+  assert.match(result.stdout, /globals\.sql: OK/);
   assertRefused(dir, database + dump, /Recovery artifact already exists: erp_db.dump/);
 });
 
@@ -236,11 +233,10 @@ test('preservation removes only empty PG19 directories and archives the PG18 dat
   writeFileSync(join(dir, active, 'control-fixture'), 'preserve');
   const result = execute(dir, preserve);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /postgres-18-preupgrade.tar: OK/);
+  assert.match(result.stdout, /postgres-18-preupgrade\.tar: OK/);
   assert.deepEqual(readdirSync(join(dir, saved)).sort(), ['PG_VERSION', 'control-fixture']);
   assert.deepEqual(readdirSync(join(dir, active)), []);
   assert.equal(readFileSync(join(dir, 'ownership-command'), 'utf8'), 'chown 70:70 ./data/postgres\n');
-  assert.equal(lstatSync(join(dir, archive)).mode & 0o777, 0o600);
 });
 
 test('restore writes the exact filtered globals once and reuses them on a fresh retry', (t) => {

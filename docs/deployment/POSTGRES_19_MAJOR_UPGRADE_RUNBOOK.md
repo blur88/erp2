@@ -81,6 +81,8 @@ Stop if writers cannot be quiesced.
   the dumps, test restore, pristine archive and new cluster alongside retained
   PG18 data. Keep `backups/` in place.
 
+### Source database inventory
+
 **Checkpoint.** Require zero unexpected writers, a verified PG18 data path,
 and this exact database inventory. Stop on any mismatch.
 
@@ -399,9 +401,13 @@ the cause is fixed.
 **Checkpoint.** Require a clean globals and database restore and a matching
 PG18 baseline before starting the backend.
 Return to the normal PG19 Compose configuration for `erp_db` and run
-`new up -d --wait postgres`, then `new up -d backend`. Keep ingress and
-scheduled external jobs blocked. Check the startup logs for the successful Migration that drops
-`backup_logs`, `backup_schedules`, and `backup_retention_settings`.
+`new up -d --wait postgres`.
+
+**Destructive step and confirmation.** Confirm the matching baseline and
+verified PG18 recovery artifacts before running `new up -d backend`. Startup
+runs the irreversible Migration that drops `backup_logs`, `backup_schedules`,
+and `backup_retention_settings`. Keep ingress and scheduled external jobs
+blocked. Stop if startup logs show a Migration failure.
 
 ## Compare and reopen
 
@@ -505,13 +511,20 @@ already renamed, identify any partial PG19 files from the failed startup and
 set them aside, then move the verified saved PG18 directory back. If PG18 was
 never renamed, verify its path and version and leave it in place.
 
-**Checkpoint.** Require a matching archive checksum, healthy PG18 and the
-pre-upgrade app, and the expected Redis schedulers before reopening ingress.
-Use the pinned pre-upgrade application and old Compose environment, including
-the old image, bind mount and `PGDATA`. Check PG18's version and application
-health before reopening ingress. PG18 startup writes into the restored
-directory. Its pristine archive and both globals files, the database dump
-and all checksums stay intact.
+**Checkpoint.** Require a matching archive checksum, a healthy backend,
+PostgreSQL and Redis, and the expected Redis schedulers before reopening
+ingress. Use the pinned pre-upgrade application and old Compose environment,
+including the old image, bind mount and `PGDATA`. Verify the PG18 version.
+
+Query the old backend's `/api/health` and inspect the service statuses in
+the response body. Retry a transient Redis connection-state error with one
+request at a time, about 30 seconds apart. If Redis is connected and reports
+`insufficient-samples`, allow about ten minutes from application startup for
+the pressure monitor to fill its window. Keep ingress blocked until all three
+services report `healthy`. Stop and investigate a persistent error or warmup
+that extends beyond that window. PG18 startup writes into the restored directory. Retain
+the pristine archive, both globals files, the database dump and their
+checksums.
 
 The old backend recreates Redis schedulers only for enabled
 `backup_schedules` rows with valid cron expressions and disables rows with
