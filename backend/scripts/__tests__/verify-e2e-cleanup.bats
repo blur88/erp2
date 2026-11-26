@@ -86,10 +86,11 @@ setup() {
 #     execute and every assertion below would pass vacuously. We install a
 #     `node` wrapper that delegates to the real binary captured in $REAL_NODE.
 #
-#  2. The orchestrator also shells out to `npm run migration:run` and
-#     `npx ts-node ...`. Those must SUCCEED for a test that targets a later
-#     phase (FAKE_INIT=2 stops at init only if migrations and the seed boot
-#     got that far), so they are stubbed as no-ops that log their calls.
+#  2. The orchestrator also shells out to `npm run migration:run`,
+#     `npm run test:e2e:leakcheck:seed-boot` and `npx jest`. Those must
+#     SUCCEED for a test that targets a later phase (FAKE_INIT=2 stops at init
+#     only if migrations and the seed boot got that far), so they are stubbed
+#     as no-ops that log their calls.
 #
 # Every stub appends to $CALL_LOG, so tests assert which phases actually ran
 # rather than only the final exit code.
@@ -114,20 +115,23 @@ printf 'node %s\n' "\$*" >> "$CALL_LOG"
 exec "$REAL_NODE" "\$@"
 EOF
 
-  # npm: only `run migration:run` is expected; succeed and log it.
+  # npm: `run migration:run` and the seed boot script come through here; each
+  # has its own exit code so a test can fail one without the other.
   cat > "$FAKE_BIN/npm" <<EOF
 #!/usr/bin/env bash
 printf 'npm %s\n' "\$*" >> "$CALL_LOG"
+case "\$*" in
+  *test:e2e:leakcheck:seed-boot*) exit \${FAKE_SEED_BOOT:-0} ;;
+esac
 exit \${FAKE_NPM:-0}
 EOF
 
-  # npx: the seed boot (ts-node) and the jest passes both come through here.
+  # npx: the jest passes come through here.
   cat > "$FAKE_BIN/npx" <<EOF
 #!/usr/bin/env bash
 printf 'npx %s\n' "\$*" >> "$CALL_LOG"
 case "\$*" in
-  *e2e-leakcheck-boot*) exit \${FAKE_SEED_BOOT:-0} ;;
-  *jest*)               exit \${FAKE_JEST:-0} ;;
+  *jest*) exit \${FAKE_JEST:-0} ;;
 esac
 exit 0
 EOF
@@ -187,7 +191,7 @@ assert_helper_ran() {
   [[ "$output" == *"No pass was run"* ]]
   # The earlier phases DID run...
   grep -q "migration:run" "$CALL_LOG"
-  grep -q "e2e-leakcheck-boot" "$CALL_LOG"
+  grep -q "test:e2e:leakcheck:seed-boot" "$CALL_LOG"
   assert_helper_ran "init"
   # ...and no pass followed.
   ! grep -q "jest" "$CALL_LOG"
@@ -209,7 +213,7 @@ assert_helper_ran() {
   run env FAKE_DB_EXISTS=1 FAKE_NPM=1 bash "$FAKE_DIR/verify-e2e-cleanup.sh"
   [ "$status" -eq 2 ]
   [[ "$output" == *"migrations failed"* ]]
-  ! grep -q "e2e-leakcheck-boot" "$CALL_LOG"
+  ! grep -q "test:e2e:leakcheck:seed-boot" "$CALL_LOG"
   ! grep -q "e2e-leakcheck.mjs init" "$CALL_LOG"
 }
 
