@@ -1,7 +1,8 @@
 # Dependency updates
 
-1. Use a dedicated Git worktree for dependency updates. Inspect manifests and lockfiles in the affected directories, including the
-   repository root. The root `package.json` owns release-tooling dependencies;
+1. Use a dedicated Git worktree for dependency updates, following
+   [Worktrees](merge-and-branch-cleanup.md#worktrees). Inspect manifests and
+   lockfiles in the affected directories, including the repository root. The root `package.json` owns release-tooling dependencies;
    inspect `release.config.cjs` and its helpers when updating them.
 2. Choose targets within each installed major explicitly. For an exact pin,
    `npm outdated` reports `Wanted` equal to `Current`; `Latest` may cross majors.

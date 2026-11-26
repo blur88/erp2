@@ -20,6 +20,14 @@
  * Lives in test/ deliberately: tsconfig.cli.json includes everything under
  * src/database/cli/, and an entry there would drag AppModule into the
  * plain-tsc pass that overwrites nest build's dist/ output (see CLAUDE.md).
+ *
+ * Run it only through `npm run test:e2e:leakcheck:seed-boot`, which passes
+ * `-P tsconfig.json` (#2077). Given a script path, ts-node 10 looks for the
+ * tsconfig nearest the SCRIPT, not the cwd, and that is test/tsconfig.json:
+ * the ESM spec config for editors and Jest. Under it this file compiles as an
+ * ES module, and Node's ESM resolver rejects the extensionless
+ * `../src/app.module` with ERR_MODULE_NOT_FOUND. The root config is CommonJS,
+ * which resolves the import.
  */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';

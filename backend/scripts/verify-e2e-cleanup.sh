@@ -127,8 +127,11 @@ if [ "$FRESH" -eq 1 ] || [ "$DB_PRESENT" -eq 1 ]; then
   # Materializes admin and RETAIL, which are OnModuleInit seeds, NOT migration
   # rows. Without this the baseline is captured with users and price_lists
   # empty and both are reported as leaks on pass 1.
+  #
+  # The npm script pins ts-node to the CommonJS root tsconfig. The CI backend
+  # job runs the same script, so the two cannot drift apart (#2077).
   say "==> seed boot"
-  npx ts-node -r tsconfig-paths/register ./test/e2e-leakcheck-boot.ts \
+  npm run --silent test:e2e:leakcheck:seed-boot \
     > "$REPORT_DIR/seed-boot.log" 2>&1 \
     || die 2 "seed boot failed — see $REPORT_DIR/seed-boot.log"
 
