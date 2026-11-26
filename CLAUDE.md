@@ -86,7 +86,7 @@ The accounting reports (Profit & Loss, Balance Sheet, Form B) have **no print or
 
 **Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*`, `@modules/*` → `src/modules/*`, `@common/*` → `src/common/*`, `@config/*` → `src/config/*`, and `@database/*` → `src/database/*`.
 
-TypeScript CLI scripts that directly or transitively import configured path aliases such as `@database/*` must preload `tsconfig-paths/register` in their npm script (for example, `ts-node -r tsconfig-paths/register ...`). TypeScript type-checking resolves these aliases, but Node runtime loading does not.
+TypeScript CLI scripts that directly or transitively import configured path aliases such as `@database/*` must preload `tsconfig-paths/register` in their npm script (for example, `ts-node -P tsconfig.json -r tsconfig-paths/register ...`). TypeScript type-checking resolves these aliases, but Node runtime loading does not.
 
 `backup:reconcile-schedulers` needs this; `admin:create` does not, only because it uses relative imports throughout. The failure is runtime-only — it passes `npm run type-check` and surfaces as an unresolvable module when the script actually runs — and it arrives transitively, so a script whose own imports are all relative can still need the flag via what it pulls in.
 
@@ -113,7 +113,7 @@ Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative i
 
 **Jest ESM**: Before changing backend Jest configuration or troubleshooting module loading in Jest, read [Backend Jest ESM](docs/testing/backend-jest-esm.md).
 
-**E2E fixture leak check**: Before changing an E2E suite, its cleanup, or the nightly leak check (`verify-e2e-cleanup.sh`, `e2e-leakcheck-boot.ts`, `e2e-leakcheck.yml`, or `verify-e2e-cleanup.bats`), read [E2E fixture leak check](docs/testing/e2e-leak-check.md).
+**E2E fixture leak check**: Before changing an E2E suite, its cleanup, or the leak-check files (`verify-e2e-cleanup.sh`, `e2e-leakcheck-boot.ts`, `e2e-leakcheck.yml`, or `verify-e2e-cleanup.bats`), read [E2E fixture leak check](docs/testing/e2e-leak-check.md).
 
 **BullMQ and backup schedulers**: Before upgrading Redis clients or BullMQ, investigating scheduler warnings or reconciling orphaned entries, read [the scheduler runbook](docs/deployment/BULLMQ_SCHEDULER_RUNBOOK.md) for protocol pins, migration history and remediation safeguards.
 
