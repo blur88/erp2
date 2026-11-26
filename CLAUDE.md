@@ -113,7 +113,7 @@ Rule: **files reachable from `tsconfig.cli.json`'s `include` must use relative i
 
 **Jest ESM**: Before changing backend Jest configuration or troubleshooting module loading in Jest, read [Backend Jest ESM](docs/testing/backend-jest-esm.md).
 
-**E2E fixture leak check**: Before changing an E2E suite, its cleanup, or the nightly leak check, read [E2E fixture leak check](docs/testing/e2e-leak-check.md).
+**E2E fixture leak check**: Before changing an E2E suite, its cleanup, or the nightly leak check (`verify-e2e-cleanup.sh`, `e2e-leakcheck-boot.ts`, `e2e-leakcheck.yml`, or `verify-e2e-cleanup.bats`), read [E2E fixture leak check](docs/testing/e2e-leak-check.md).
 
 **BullMQ and backup schedulers**: Before upgrading Redis clients or BullMQ, investigating scheduler warnings or reconciling orphaned entries, read [the scheduler runbook](docs/deployment/BULLMQ_SCHEDULER_RUNBOOK.md) for protocol pins, migration history and remediation safeguards.
 

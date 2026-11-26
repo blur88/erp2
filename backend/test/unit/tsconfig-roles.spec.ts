@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import * as path from "path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
@@ -27,8 +28,8 @@ const parseConfig = (configPath: string) => {
  */
 describe("backend TypeScript configuration roles", () => {
   it("root tsconfig.json is the type-check:build program", () => {
-    // ts-node (admin:create, backup:reconcile-schedulers) loads the root config
-    // at runtime. While its files and checking options match
+    // Direct ts-node scripts explicitly select the root config. While its
+    // files and checking options match
     // tsconfig.build.json's, the build gate already proves the program
     // type-checks. Widening the root's `include`, or overriding a checking
     // option in the build config, needs a gate of its own.
@@ -41,8 +42,25 @@ describe("backend TypeScript configuration roles", () => {
     expect(rootChecking).toEqual(buildChecking);
   });
 
-  it("root tsconfig.json stays CommonJS, the format ts-node CLIs load", () => {
+  it("root tsconfig.json stays CommonJS for scripts that select it", () => {
     expect(parseConfig("tsconfig.json").options.module).toBe(ts.ModuleKind.CommonJS);
+  });
+
+  it("direct ts-node scripts explicitly select the backend root config", () => {
+    const { scripts }: { scripts: Record<string, string> } = JSON.parse(
+      readFileSync(path.join(backendRoot, "package.json"), "utf8"),
+    );
+    const tsNodeScripts = Object.entries(scripts).filter(([, command]) =>
+      command.startsWith("ts-node "),
+    );
+
+    expect(tsNodeScripts.length).toBeGreaterThan(0);
+    for (const [name, command] of tsNodeScripts) {
+      expect({ name, command }).toEqual({
+        name,
+        command: expect.stringMatching(/^ts-node -P tsconfig\.json /),
+      });
+    }
   });
 
   it("test/tsconfig.json gives editors the type-check:spec program", () => {

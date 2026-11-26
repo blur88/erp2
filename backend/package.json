@@ -36,8 +36,8 @@
     "migration:run": "npm run typeorm -- -d ./src/config/database.config.ts migration:run",
     "migration:revert": "npm run typeorm -- -d ./src/config/database.config.ts migration:revert",
     "schema:drop": "npm run typeorm -- -d ./src/config/database.config.ts schema:drop",
-    "admin:create": "ts-node ./src/database/cli/create-admin.ts",
-    "backup:reconcile-schedulers": "ts-node -r tsconfig-paths/register ./src/database/cli/reconcile-schedulers.ts",
+    "admin:create": "ts-node -P tsconfig.json ./src/database/cli/create-admin.ts",
+    "backup:reconcile-schedulers": "ts-node -P tsconfig.json -r tsconfig-paths/register ./src/database/cli/reconcile-schedulers.ts",
     "test:e2e:leakcheck": "./scripts/verify-e2e-cleanup.sh",
     "test:e2e:leakcheck:seed-boot": "ts-node -P tsconfig.json -r tsconfig-paths/register ./test/e2e-leakcheck-boot.ts"
   },
