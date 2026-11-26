@@ -1,12 +1,127 @@
 # PostgreSQL 19 Major upgrade runbook
 
-## Recovering the removed tables
+Use this procedure for the ERP2 PostgreSQL 18 → 19 Major upgrade. TypeORM
+Migrations run only after the restored database is ready. The Migration that
+drops the three backup tables cannot be reversed through TypeORM. Keep the PG18
+recovery artifacts until the maintainer explicitly approves their removal.
 
-Keep a pre-migration PostgreSQL backup before starting the updated backend.
-Use the official PostgreSQL image's client tools. Recover into a separate
-database and validate the result with the compatible pre-upgrade application
-before switching back. See the [deployment backup checklist](DEPLOYMENT_CHECKLIST.md#database-backup)
-for interim backup guidance.
+Rehearse with the last pre-upgrade release (for example, `v3.17.27`) and the
+exact candidate backend on a disposable Compose project. Use a separate network,
+private data paths, test credentials, and no published ports. Seed representative
+records, an enabled and a disabled backup schedule, backup job history, and
+unrelated Redis keys. Rehearse rollback on that same stack. The maintainer's
+development cutover requires the final merge and separate explicit approval.
+
+## Quiesce and inventory
+
+Use Bash with tracing disabled. From the deployment directory, set `project`
+to the existing Compose project name and set `old_file` and `new_file` to
+the complete, pinned Compose configurations for that same directory and
+environment. If the deployment uses several Compose files, include the complete
+file list in each function. Preserve the old environment and image IDs. Verify
+the resolved service names, repository paths, mounts and network privately
+before running any command. Verify the old backend's Redis host and port before
+stopping it. Set `compose_network` to the shared network from the inspected
+containers. Use the existing database and Redis credentials.
+
+```bash
+set -euo pipefail
+umask 077
+old() { docker compose -p "${project:?}" -f "${old_file:?}" "$@"; }
+new() { docker compose -p "${project:?}" -f "${new_file:?}" "$@"; }
+pg19_image=postgres:19.0-alpine3.24
+old_image=$(docker inspect -f '{{.Image}}' "$(old ps -q backend)")
+docker inspect -f '{{json .Mounts}} {{json .NetworkSettings.Networks}}' \
+  "$(old ps -q postgres)" "$(old ps -q redis)"
+REDIS_HOST=$(old exec -T backend sh -c 'printf "%s" "${REDIS_HOST:-redis}"')
+REDIS_PORT=$(old exec -T backend sh -c 'printf "%s" "${REDIS_PORT:-6379}"')
+export REDIS_HOST REDIS_PORT
+read -rsp 'Redis password: ' REDIS_PASSWORD
+printf '\n'
+export REDIS_PASSWORD
+read -rsp 'Database password: ' PGPASSWORD
+printf '\n'
+export PGPASSWORD
+recovery=$(mktemp -d "${RECOVERY_ROOT:?Set an operator-owned directory outside Git}/erp-pg19.XXXXXX")
+pg19() {
+  docker run --rm -i --network "${compose_network:?}" -e PGPASSWORD \
+    --entrypoint "$1" "$pg19_image" "${@:2}"
+}
+pg_sql() { pg19 psql -X -v ON_ERROR_STOP=1 -h postgres -U erp_user "$@"; }
+```
+
+Block ingress and other database writers, including scripts and maintenance
+jobs. Let backup jobs finish, then run `old stop backend`. Stop any other
+application workers and Redis writers. Check `pg_stat_activity` and Redis
+clients for unexpected connections. Leave PostgreSQL and Redis up for inventory.
+Stop if writers cannot be quiesced.
+
+- Confirm PG18 and its active data directory with `SHOW server_version` and
+  `SHOW data_directory`. The old bind mount ends at
+  `/var/lib/postgresql/data/pgdata`. Inspect the anonymous parent volume
+  read-only and record its ID and contents. Keep it through the cutover and
+  rollback. Avoid volume removal and pruning.
+- Require the database list to be exactly `erp_db`, `erp_gate_candidate`,
+  `erp_gate_reference`, `postgres`, `template0`, and `template1`. Confirm the
+  gate databases are disposable and inspect the maintenance database and
+  templates for custom objects. Check template0 through catalog metadata and
+  the deployment's initialization history, since it normally disallows
+  connections. Stop for any custom objects in those three databases or if
+  their contents cannot be verified. Only `erp_db` is restored. Excluded
+  databases stay in PG18.
+- Inventory roles, databases, ownership, extensions, user tablespaces,
+  non-default settings, init scripts and PG18 data size. Stop for external
+  tablespaces, customized init scripts, missing extensions or unexpected
+  roles/settings until the restore plan has accounted for them. Confirm that
+  the bootstrap superuser is `erp_user`.
+- Confirm `./data/postgres-18-preupgrade`, `./data/postgres-18-preupgrade.tar`
+  and its checksum path are absent, including dangling symlinks. Confirm
+  the operator can create files in `./data` and has root access for PG18
+  directory operations. Confirm sufficient free space on each filesystem for
+  the dumps, test restore, pristine archive and new cluster alongside retained
+  PG18 data. Keep `backups/` in place.
+
+Record and check the database names before taking the dumps.
+
+```bash
+pg_sql -d postgres -Atc 'SELECT datname FROM pg_database ORDER BY datname COLLATE "C"' > "$recovery/databases.before"
+diff -u - "$recovery/databases.before" <<'DATABASES'
+erp_db
+erp_gate_candidate
+erp_gate_reference
+postgres
+template0
+template1
+DATABASES
+```
+
+Capture the verification queries in [Compare and reopen](#compare-and-reopen)
+now, while writers are stopped. Save the pre-upgrade output under `$recovery`.
+
+## Dump and validate
+
+```bash
+(
+  set -o noclobber
+  cd "$recovery"
+  for artifact in erp_db.dump globals.sql erp_db.toc SHA256SUMS; do
+    test ! -e "$artifact" && test ! -L "$artifact" || exit 1
+  done
+  pg19 pg_dump -h postgres -U erp_user -Fc --quote-all-identifiers erp_db > erp_db.dump
+  pg19 pg_dumpall -h postgres -U erp_user --globals-only --quote-all-identifiers > globals.sql
+  pg19 pg_restore --list < erp_db.dump > erp_db.toc
+  sha256sum erp_db.dump globals.sql > SHA256SUMS
+  sha256sum -c SHA256SUMS
+)
+```
+
+Check the dump exits, review the TOC, and test the globals and database restore
+using the commands below against a fresh disposable PG19 cluster with the same
+bootstrap role, password, and locale. Initialize it with `POSTGRES_DB=postgres`. Point the test commands at that cluster's network.
+Require a clean restore and compare with the baseline before proceeding to
+Redis cleanup. Recheck checksums before each restore. Keep the original globals
+file private. It contains password hashes. Recovery files are operator-owned
+with mode `600`, and recovery directories use mode `700`.
 
 ## One-time Redis queue cleanup
 
@@ -16,29 +131,12 @@ before stopping the workers. Keep the pre-upgrade backend image and the existing
 host `backups/` files. Use the exact Compose project and network for the
 deployment throughout.
 
-Before stopping the backend, record the image it runs and its Redis connection
-settings. Confirm the Redis container attached to that Compose network is the
-one used by the old backend. Compare the dry run's `runId` with `INFO server`
-on that container. Enter the current Redis password in a private shell with
-tracing disabled, or use the shell that already holds the deployment
-credentials.
-
-```bash
-old_image=$(docker inspect --format '{{.Image}}' "$(docker compose ps -q backend)")
-docker inspect --format '{{range $name, $config := .NetworkSettings.Networks}}{{println $name}}{{end}}' \
-  "$(docker compose ps -q redis)"
-# Set compose_network to the network shared by the old backend and Redis.
-REDIS_HOST=$(docker compose exec -T backend sh -c 'printf "%s" "${REDIS_HOST:-redis}"')
-REDIS_PORT=$(docker compose exec -T backend sh -c 'printf "%s" "${REDIS_PORT:-6379}"')
-export REDIS_HOST REDIS_PORT
-read -rsp 'Redis password: ' REDIS_PASSWORD
-printf '\n'
-export REDIS_PASSWORD
-docker compose stop backend
-```
+Confirm the Redis container on the deployment network matches the endpoint
+recorded before stopping the backend. Compare the dry run's `runId` with
+`INFO server` on that Redis container. Keep the Redis credentials out of logs.
 
 Use the pre-upgrade image's Node runtime and its installed BullMQ. Save the
-following block as `cleanup-backup-queue.cjs` in a private working directory.
+following block as `cleanup-backup-queue.cjs` under `$recovery`.
 It selects DB 0 explicitly because the old backend connection ignores
 `REDIS_DB`. It inventories the exact queue, checks for external parent jobs,
 and compares unrelated DB 0 keys using their serialized bytes and absolute
@@ -151,7 +249,7 @@ cleanup_queue() {
   docker run --rm -i --network "${compose_network:?Set the Compose network}" \
     -e REDIS_HOST -e REDIS_PORT -e REDIS_PASSWORD \
     --entrypoint node "${old_image:?Set the old backend image ID}" - "$@" \
-    < cleanup-backup-queue.cjs
+    < "$recovery/cleanup-backup-queue.cjs"
 }
 
 cleanup_queue dry-run
@@ -168,3 +266,235 @@ leftover keys are reported, stop and investigate the listed state.
 A PostgreSQL rollback alone cannot restore the deleted Redis jobs. On startup
 the compatible old app recreates schedulers for enabled rows with valid cron
 settings. One-off and completed jobs remain removed.
+
+## Preserve PG18 and initialize PG19
+
+Run `old stop postgres` and confirm clean shutdown in the PostgreSQL logs.
+Confirm the container is stopped before touching the bind mount. In the approved
+cutover, inspect the source and destination paths before confirming the rename.
+The following commands assume the repository's local Alpine layout and use
+`sudo` to read PG18's mode-`700` data directory as root.
+
+If PG19 previously refused to start against the unrenamed directory, stop that
+container first. Verify the root `PG_VERSION` still reports 18. If both
+`19/docker/` and `19/` were left behind, confirm `19/docker/` has no entries
+and `19/` contains only that empty directory. Stop if either is a symlink
+or contains unexpected data. Remove the directories with `rmdir`, starting
+with the child, so a nonempty directory is refused even if state changes.
+
+```bash
+test "$(sudo cat ./data/postgres/PG_VERSION)" = 18
+test ! -e ./data/postgres-18-preupgrade && test ! -L ./data/postgres-18-preupgrade || exit 1
+test ! -e ./data/postgres-18-preupgrade.tar && test ! -L ./data/postgres-18-preupgrade.tar || exit 1
+test ! -e ./data/postgres-18-preupgrade.tar.sha256 && test ! -L ./data/postgres-18-preupgrade.tar.sha256 || exit 1
+if sudo test -e ./data/postgres/19 || sudo test -L ./data/postgres/19; then
+  sudo test ! -L ./data/postgres/19
+  sudo test ! -L ./data/postgres/19/docker
+  parent_entries=$(sudo find ./data/postgres/19 -mindepth 1 -maxdepth 1 -print)
+  child_entries=$(sudo find ./data/postgres/19/docker -mindepth 1 -maxdepth 1 -print)
+  test "$parent_entries" = ./data/postgres/19/docker
+  test -z "$child_entries"
+  sudo rmdir ./data/postgres/19/docker ./data/postgres/19
+fi
+
+sudo mv -T ./data/postgres ./data/postgres-18-preupgrade
+(
+  set -o noclobber
+  sudo tar --numeric-owner -cpf - -C ./data postgres-18-preupgrade > ./data/postgres-18-preupgrade.tar
+  sha256sum ./data/postgres-18-preupgrade.tar > ./data/postgres-18-preupgrade.tar.sha256
+)
+sha256sum -c ./data/postgres-18-preupgrade.tar.sha256
+mkdir -m 700 ./data/postgres
+sudo chown 70:70 ./data/postgres
+```
+
+If archive creation fails after the rename, keep both clusters stopped.
+Confirm the saved PG18 directory is intact and finish the archive and checksum
+before starting PG19. Preserve any partial files under separate private names.
+
+Inspect the archive with `tar --numeric-owner -tvf`. Require numeric ownership,
+original modes, and a PG18 control directory in the archive. Treat the archive
+and its checksum as private operator-owned files outside version control.
+Leave the renamed directory offline.
+
+Verify the new Compose configuration mounts
+`./data/postgres:/var/lib/postgresql` without a `PGDATA` override. Set the
+same bootstrap username and database credentials and retain
+`--encoding=UTF8 --locale=C`. For the first start, initialize only the maintenance
+database so `pg_restore --create` can create `erp_db` with its original
+properties. In the repository Compose files, run
+`DATABASE_NAME=postgres new up -d --wait postgres`. If the deployment's pinned
+Compose config sets the database literally, use a temporary postgres-only
+override that sets `POSTGRES_DB=postgres` and adjusts its health check to use
+`postgres`. Inspect the bind mount and permissions with
+`docker inspect` and `new exec -T postgres stat -c '%u %a %n' /var/lib/postgresql/19/docker`.
+Expect owner UID 70 and mode 700 for the pinned Alpine image. Verify
+`SHOW server_version` reports 19 and `SHOW data_directory` reports
+`/var/lib/postgresql/19/docker`. Stop if the cluster is not fresh or any
+check differs.
+
+## Restore globals, then the database
+
+Confirm `postgres` on `$compose_network` now points to the intended fresh PG19
+cluster. For a test restore, change `compose_network` only inside a subshell
+so the main session retains the deployment network.
+
+```bash
+target_version=$(pg_sql -d postgres -Atc 'SHOW server_version_num')
+test "$((target_version / 10000))" -eq 19
+target_data=$(pg_sql -d postgres -Atc 'SHOW data_directory')
+test "$target_data" = /var/lib/postgresql/19/docker
+target_databases=$(pg_sql -d postgres -Atc 'SELECT datname FROM pg_database ORDER BY datname COLLATE "C"')
+test "$target_databases" = $'postgres\ntemplate0\ntemplate1'
+(cd "$recovery" && sha256sum -c SHA256SUMS)
+test "$(pg_sql -d postgres -Atc "SELECT rolname FROM pg_roles WHERE rolname = 'erp_user' AND rolsuper")" = erp_user
+bootstrap_create=$(grep -Ei '^[[:space:]]*create[[:space:]]+role[[:space:]]+("erp_user"|erp_user)([[:space:];]|$)' "$recovery/globals.sql")
+test "$bootstrap_create" = 'CREATE ROLE "erp_user";'
+(
+  set -o noclobber
+  cd "$recovery"
+  if [[ ! -e globals.filtered.sql && ! -L globals.filtered.sql ]]; then
+    awk '$0 != "CREATE ROLE \"erp_user\";"' globals.sql > globals.filtered.sql
+    sha256sum globals.filtered.sql > globals.filtered.sha256
+  fi
+  sha256sum -c globals.filtered.sha256
+  awk '$0 != "CREATE ROLE \"erp_user\";"' globals.sql | cmp - globals.filtered.sql
+)
+pg_sql -d postgres --single-transaction -f - < "$recovery/globals.filtered.sql"
+pg19 pg_restore --exit-on-error --create -h postgres -U erp_user -d postgres < "$recovery/erp_db.dump"
+```
+
+The filter omits only the already bootstrapped role's exact quoted CREATE
+statement. A missing, repeated, or differently formatted bootstrap statement
+stops the procedure. The filtered file retains the original role alterations
+and password hash. The restore creates `erp_db` with the original ownership,
+privileges and database settings. Require zero errors. Stop and investigate
+any restore failure before starting the backend. Retry on a fresh target once
+the cause is fixed.
+
+Before starting the backend, compare the restored database with the baseline.
+Return to the normal PG19 Compose configuration for `erp_db` and run
+`new up -d --wait postgres`, then `new up -d backend`. Keep ingress and
+scheduled external jobs blocked. Check the startup logs for the successful Migration that drops
+`backup_logs`, `backup_schedules`, and `backup_retention_settings`.
+
+## Compare and reopen
+
+Capture these checks in PG18, on restored PG19 before starting the backend,
+and again after the Migration. Save the outputs privately and compare them.
+Use the PG19 clients for both versions.
+
+- Capture exact row counts, and sequence values plus `is_called`. For example,
+  run the following through `psql -X -v ON_ERROR_STOP=1 -At -d erp_db` on each
+  target. Expect one extra `migrations` row and the removal of the three backup
+  tables and their rows after the Migration. The `migrations_id_seq` advances
+  with that row. The running backend also appends a Redis memory sample on boot
+  and periodically thereafter. Record those rows separately from the Migration
+  changes, and collect counts before login or other smoke tests write data.
+  To confirm the Migration-only delta, run the candidate TypeORM
+  `migration:run` against the disposable test restore, leaving its backend
+  process stopped, and compare that result to PG18.
+
+  ```sql
+  SELECT format('SELECT %L, count(*) FROM %I.%I;', schemaname || '.' || tablename,
+                schemaname, tablename)
+  FROM pg_tables WHERE schemaname !~ '^pg_' AND schemaname <> 'information_schema'
+  ORDER BY schemaname, tablename
+  \gexec
+  SELECT format('SELECT %L, last_value, is_called FROM %I.%I;',
+                schemaname || '.' || sequencename, schemaname, sequencename)
+  FROM pg_sequences WHERE schemaname !~ '^pg_' AND schemaname <> 'information_schema'
+  ORDER BY schemaname, sequencename
+  \gexec
+  SELECT extname, extversion FROM pg_extension ORDER BY extname;
+  ```
+
+- Compare schema-only dumps from `pg_dump --schema-only --quote-all-identifiers`.
+  Include `--create` to compare database-level attributes and privileges.
+  Normalize away dump version headers and the generated `\restrict` and
+  `\unrestrict` lines. Review the diff including ownership and ACLs. Before
+  the Migration expect no application schema differences. Afterward expect
+  only the three dropped tables and their associated objects.
+- Compare custom-role attributes and role settings, using
+  `pg_roles` by name (omit OIDs and the masked password column) and
+  `pg_db_role_setting` joined to role and database names. Compare memberships
+  from `pg_auth_members` by role, member and grantor names, including admin,
+  inherit and set options. Built-in roles may differ. Compare database, schema,
+  table, sequence and routine privileges using ACLs in the catalogs and the
+  schema dumps. Stop for unexpected differences.
+- Compare the digest of the stored password hash with
+  `SELECT md5(rolpassword) FROM pg_authid WHERE rolname = 'erp_user'` in each
+  cluster. Keep the digest private and never select the raw hash into a log.
+  Connect over TCP with the existing database credentials.
+- Run `new exec -T backend node node_modules/.bin/typeorm migration:show -d dist/config/database.config.js`.
+  Require every Migration to be marked applied. Authenticate through the existing
+  application login and verify an authenticated request such as `GET /api/auth/me`.
+  Use `GET /api/search/global?q=<typo>` with a misspelling that misses the normal
+  substring search and returns a known record through the trigram fallback.
+- Confirm the backend health endpoint reports healthy PostgreSQL and Redis.
+  Redis pressure monitoring may report `insufficient-samples` during warmup.
+  Allow it to collect a full window of ten samples at one-minute intervals
+  and investigate any continued degradation. Verify the prior queue cleanup
+  result. Recreate PostgreSQL
+  with `new up -d --wait --force-recreate postgres` and recheck the data
+  directory, row counts and application connectivity. Reopen ingress and
+  enable external writers only after all checks pass.
+
+## Roll back to PG18
+
+Block ingress and all database and Redis writers again. Record any writes
+accepted on PG19 and arrange their separate recovery before restarting
+writers on PG18. Stop the new backend and then PostgreSQL with
+`new stop backend` followed by `new stop postgres`. Confirm clean shutdown. Verify the
+archive checksum. Confirm the active directory is PG19 and the saved directory
+is PG18, and that `./data/postgres-19-rollback` is absent including dangling
+symlinks. With operator confirmation, run the following from the same directory.
+
+```bash
+test "$(sudo cat ./data/postgres/19/docker/PG_VERSION)" = 19
+test "$(sudo cat ./data/postgres-18-preupgrade/PG_VERSION)" = 18
+sha256sum -c ./data/postgres-18-preupgrade.tar.sha256
+test ! -e ./data/postgres-19-rollback && test ! -L ./data/postgres-19-rollback || exit 1
+sudo mv -T ./data/postgres ./data/postgres-19-rollback
+sudo mv -T ./data/postgres-18-preupgrade ./data/postgres
+old up -d --wait postgres
+old up -d backend
+sha256sum -c ./data/postgres-18-preupgrade.tar.sha256
+```
+
+If cutover failed before a PG19 cluster was initialized, keep all services
+stopped and inspect the paths before using the rollback commands. If PG18 was
+already renamed, identify any partial PG19 files from the failed startup and
+set them aside, then move the verified saved PG18 directory back. If PG18 was
+never renamed, verify its path and version and leave it in place.
+
+Use the pinned pre-upgrade application and old Compose environment, including
+the old image, bind mount and `PGDATA`. Check PG18's version and application
+health before reopening ingress. PG18 startup writes into the restored
+directory. Its pristine archive and both globals files, the database dump
+and all checksums stay intact.
+
+The old backend recreates Redis schedulers only for enabled
+`backup_schedules` rows with valid cron expressions and disables rows with
+invalid cron expressions. Disabled schedules stay disabled. Deleted job
+history and one-off jobs, including delayed manual jobs, remain absent.
+Inventory Redis using the pre-upgrade image and compare with the old database
+schedule rows before returning the stack to service. Retain the PG18
+directory, PG19 rollback directory, dumps, pristine archive, host backup
+archives, and anonymous volume pending explicit approval for disposal.
+
+## Interim manual backup and recovery
+
+Until the replacement backup feature is available, use the official image's
+clients. Quiesce writers and use
+`recovery=$(mktemp -d "${RECOVERY_ROOT:?}/erp-pg19-backup.XXXXXX")` to create a
+new private directory for each backup. Follow [Dump and validate](#dump-and-validate)
+with the running server reachable as `postgres`. Keep a checksummed copy of
+the database dump and original globals on separate storage with the same
+restrictive ownership and modes. Test recovery to a fresh private PG19
+cluster as described in [Restore globals, then the database](#restore-globals-then-the-database).
+Use the compatible application to verify Migrations, login and representative
+records there before a recovery cutover. For a backup taken after the upgrade,
+boot the PG19-compatible app. To recover the removed backup tables, use the
+preserved pre-upgrade materials with the matching pre-upgrade release and
+PG18 from [Roll back to PG18](#roll-back-to-pg18).
