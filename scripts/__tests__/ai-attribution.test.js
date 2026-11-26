@@ -70,6 +70,9 @@ test('rejects model aliases, list-form trailers and Claude Code attribution', (t
     'https://www.claude.ai/code/session-id',
     '🤖 Generated with [Claude Code](https://claude.ai/code)',
     '🤖 Generated with [Claude Code](https://claude.com/claude-code)',
+    'Co-Authored-By: Claude  Opus 5.5',
+    '> Co-Authored-By: Claude',
+    'Co-Authored-By: Alias <noreply@anthropic.com> (via harness)',
   ].join('\n'));
   assert.equal(result.status, 1);
   assert.equal(result.stderr, [
@@ -80,6 +83,9 @@ test('rejects model aliases, list-form trailers and Claude Code attribution', (t
     'PR body:5: Claude session link',
     'PR body:6: Claude Code attribution',
     'PR body:7: Claude Code attribution',
+    'PR body:8: AI co-author trailer',
+    'PR body:9: AI co-author trailer',
+    'PR body:10: AI co-author trailer',
     '',
   ].join('\n'));
 });

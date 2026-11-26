@@ -13,14 +13,17 @@ const claudeModel = new RegExp(
 const vendorAddress = /^noreply@(?:anthropic\.com|google\.com)$/i;
 
 function isAiCoAuthor(line) {
-  const trailer = /^\s*(?:[-*+]\s+)?co-authored-by:\s*([^<>]*?)(?:\s*<([^<>]+)>)?\s*$/i.exec(line);
+  const trailer = /^\s*(?:>\s*)*(?:[-*+]\s+)?co-authored-by:\s*([^<>]*?)(?:\s*<([^<>]+)>(.*))?\s*$/i.exec(line);
   if (!trailer) return false;
 
-  const [, name, address] = trailer;
+  const [, rawName, address, suffix] = trailer;
+  const name = rawName.trim().replace(/\s+/g, ' ');
   return vendorAddress.test(address ?? '') ||
-    claudeModel.test(name) ||
-    /^(?:Gemini|internal-model)$/i.test(name) ||
-    (!address && /^Claude$/i.test(name));
+    (!suffix?.trim() && (
+      claudeModel.test(name) ||
+      /^(?:Gemini|internal-model)$/i.test(name) ||
+      (!address && /^Claude$/i.test(name))
+    ));
 }
 
 const rules = [
