@@ -133,10 +133,10 @@ DB_DATABASE=$CAND_DB npm run migration:run >/dev/null
 # paragraphs. A line-based filter would leave orphaned body lines and `);`
 # fragments behind, producing a false diff.
 #
-# Verified against the deployed schema: removes all 5 migrations-related
+# Verified using the full ERP2 schema on PostgreSQL 19: removes all 5 migrations-related
 # statements with 0 residue, preserving 46 CREATE TABLE statements (47
 # public tables minus `migrations` itself).
-# PostgreSQL 18 wraps dumps in `\restrict <random-token>` / `\unrestrict
+# The PostgreSQL 19 pg_dump output includes `\restrict <random-token>` / `\unrestrict
 # <random-token>` psql meta-commands. The token differs per dump, so these
 # two lines must be stripped or every diff is spuriously non-empty.
 #

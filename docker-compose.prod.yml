@@ -1,7 +1,7 @@
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:18.7-alpine3.23
+    image: postgres:19.0-alpine3.24
     container_name: erp_postgres
     restart: unless-stopped
     environment:
@@ -9,9 +9,8 @@ services:
       POSTGRES_USER: ${DATABASE_USERNAME:-erp_user}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data/pgdata
+      - ./data/postgres:/var/lib/postgresql
     networks:
       - erp_network
     healthcheck:

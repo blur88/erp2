@@ -8,7 +8,7 @@ Before starting work, follow the [workflow entry points in AGENTS.md](AGENTS.md#
 
 ERP system — NestJS 11 backend + React 19 / TypeScript 6 / Material-UI v9 frontend, served via NGINX in Docker.
 
-- **Databases**: PostgreSQL 18 (TypeORM, primary), Redis 8.6 (health checks and memory monitoring). See [development Compose](docker-compose.yml) for exact image tags.
+- **Databases**: PostgreSQL 19 (TypeORM, primary), Redis 8.6 (health checks and memory monitoring). See [development Compose](docker-compose.yml) for exact image tags.
 - **Testing**: Jest (backend) + Vitest (frontend)
 - **Default admin**: `admin / Admin@123!` — change on first login
 

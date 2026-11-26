@@ -33,7 +33,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18.7-alpine3.23
+        image: postgres:19.0-alpine3.24
         env:
           POSTGRES_USER: erp_user
           POSTGRES_PASSWORD: ci_test_password
@@ -176,10 +176,10 @@ jobs:
       # entity declarations. migrations-fresh-db proves migrations APPLY to an
       # empty database; it does not prove the result MATCHES the entities.
       #
-      # pg_dump must match the PostgreSQL service major (18). Ubuntu's default
-      # postgresql-client is older and would refuse the v18 server outright, so
+      # pg_dump must match the PostgreSQL service major (19). Ubuntu's default
+      # postgresql-client is older and would refuse the v19 server outright, so
       # this installs from PGDG. (#1260)
-      - name: Install PostgreSQL 18 client
+      - name: Install PostgreSQL 19 client
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
@@ -187,20 +187,13 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
             | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-18
-          # Put the versioned binaries FIRST on PATH for later steps.
-          #
-          # Installing postgresql-client-18 is not enough on its own: Ubuntu's
-          # /usr/bin/pg_dump is a postgresql-client-common wrapper, and on the
-          # runner it resolved to the preinstalled 16.x client even after 18
-          # was installed. The transport's major-version preflight then aborted
-          # with "pg_dump reports major version '16' ... but the server is
-          # PostgreSQL 18" — correctly, which is why the gate failed loudly
-          # instead of diffing with the wrong client.
-          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+          sudo apt-get install -y postgresql-client-19
+          # Put the versioned binaries first on PATH so the distro wrapper
+          # cannot select the runner's preinstalled client for the schema gate.
+          echo "/usr/lib/postgresql/19/bin" >> "$GITHUB_PATH"
           # Assert against the versioned binary by absolute path: $GITHUB_PATH
           # only takes effect in SUBSEQUENT steps, not this one.
-          /usr/lib/postgresql/18/bin/pg_dump --version
+          /usr/lib/postgresql/19/bin/pg_dump --version
 
       # Runs the ALLOWLIST=migration-indexes mode, which has TWO halves and
       # fails the job on either:
@@ -240,7 +233,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18.7-alpine3.23
+        image: postgres:19.0-alpine3.24
         env:
           POSTGRES_USER: erp_ci
           POSTGRES_PASSWORD: erp_ci_password
@@ -272,7 +265,7 @@ jobs:
       - name: Assert the database is empty before boot
         run: |
           count=$(docker run --rm --network host -e PGPASSWORD=erp_ci_password \
-            postgres:18.7-alpine3.23 psql -h localhost -U erp_ci -d erp_fresh -tAc \
+            postgres:19.0-alpine3.24 psql -h localhost -U erp_ci -d erp_fresh -tAc \
             "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';")
           echo "public tables before boot: $count"
           if [ "$count" -ne 0 ]; then
@@ -323,7 +316,7 @@ jobs:
       - name: Verify migrations were applied and match the compiled set
         run: |
           applied=$(docker run --rm --network host -e PGPASSWORD=erp_ci_password \
-            postgres:18.7-alpine3.23 psql -h localhost -U erp_ci -d erp_fresh -tAc \
+            postgres:19.0-alpine3.24 psql -h localhost -U erp_ci -d erp_fresh -tAc \
             "SELECT count(*) FROM migrations;")
           compiled=$(docker run --rm erp-backend:ci \
             sh -c 'ls /app/dist/database/migrations/*.js 2>/dev/null | wc -l')
@@ -430,7 +423,7 @@ jobs:
             -e POSTGRES_DB=erp_tls \
             -v "$RUNNER_TEMP/certs/server.crt:/var/lib/postgresql/server.crt:ro" \
             -v "$RUNNER_TEMP/certs/server.key:/var/lib/postgresql/server.key:ro" \
-            postgres:18.7-alpine3.23 \
+            postgres:19.0-alpine3.24 \
             -c ssl=on \
             -c ssl_cert_file=/var/lib/postgresql/server.crt \
             -c ssl_key_file=/var/lib/postgresql/server.key

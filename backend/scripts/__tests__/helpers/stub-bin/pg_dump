@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Stub for host `pg_dump`. STUB_PGDUMP_VERSION drives the major-version
-# preflight; default is the supported 18.3.
+# preflight; default is the supported 19.0.
 printf 'pg_dump ARGC=%d\n' "$#" >> "$STUB_LOG"
 _i=0
 for _a in "$@"; do
@@ -10,7 +10,7 @@ done
 
 for arg in "$@"; do
   if [ "$arg" = "--version" ]; then
-    printf 'pg_dump (PostgreSQL) %s\n' "${STUB_PGDUMP_VERSION:-18.3}"
+    printf 'pg_dump (PostgreSQL) %s\n' "${STUB_PGDUMP_VERSION:-19.0}"
     exit 0
   fi
 done

@@ -18,7 +18,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18.7-alpine3.23
+        image: postgres:19.0-alpine3.24
         env:
           POSTGRES_USER: erp_user
           POSTGRES_PASSWORD: DevErpDb2024!Pass
