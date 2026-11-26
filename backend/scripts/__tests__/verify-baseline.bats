@@ -78,13 +78,13 @@ EOF
   [[ "$output" == *"docker compose up -d postgres"* ]]
 }
 
-@test "pg-transport: tcp aborts when pg_dump major version is not 18" {
-  run env PATH="$PATH" PG_TRANSPORT=tcp STUB_PGDUMP_VERSION=16.4 bash -c \
+@test "pg-transport: tcp aborts when pg_dump major version is not 19" {
+  run env PATH="$PATH" PG_TRANSPORT=tcp STUB_PGDUMP_VERSION=18.7 bash -c \
     'set -euo pipefail; DB_HOST=h DB_PORT=1 DB_USERNAME=u DB_PASSWORD=p; . "'"$SCRIPTS_DIR"'/lib/pg-transport.sh"'
 
   [ "$status" -eq 2 ]
   [[ "$output" == *"major version"* ]]
-  [[ "$output" == *"postgresql-client-18"* ]]
+  [[ "$output" == *"postgresql-client-19"* ]]
 }
 
 @test "pg-transport: tcp aborts on a PGHOST that conflicts with DB_HOST" {
