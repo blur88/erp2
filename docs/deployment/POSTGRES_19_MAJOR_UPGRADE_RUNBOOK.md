@@ -81,7 +81,8 @@ Stop if writers cannot be quiesced.
   the dumps, test restore, pristine archive and new cluster alongside retained
   PG18 data. Keep `backups/` in place.
 
-Record and check the database names before taking the dumps.
+**Checkpoint.** Require zero unexpected writers, a verified PG18 data path,
+and this exact database inventory. Stop on any mismatch.
 
 ```bash
 pg_sql -d postgres -Atc 'SELECT datname FROM pg_database ORDER BY datname COLLATE "C"' > "$recovery/databases.before"
@@ -100,12 +101,18 @@ now, while writers are stopped. Save the pre-upgrade output under `$recovery`.
 
 ## Dump and validate
 
+**Checkpoint.** Require both dumps, a readable TOC, matching checksums, and
+a successful test restore. Stop before Redis cleanup if any check fails.
+
 ```bash
 (
   set -o noclobber
   cd "$recovery"
   for artifact in erp_db.dump globals.sql erp_db.toc SHA256SUMS; do
-    test ! -e "$artifact" && test ! -L "$artifact" || exit 1
+    if [[ -e "$artifact" || -L "$artifact" ]]; then
+      printf 'Recovery artifact already exists: %s\n' "$artifact" >&2
+      exit 1
+    fi
   done
   pg19 pg_dump -h postgres -U erp_user -Fc --quote-all-identifiers erp_db > erp_db.dump
   pg19 pg_dumpall -h postgres -U erp_user --globals-only --quote-all-identifiers > globals.sql
@@ -240,9 +247,10 @@ main().catch((error) => {
 }).finally(() => redis.disconnect());
 ```
 
-Run the check from the same private working directory. Review the queue
-name, DB, keys, schedulers and jobs, and verify the reported Redis identity
-before confirming deletion.
+**Destructive step and confirmation.** Apply calls BullMQ's `obliterate()`
+on the targeted queue, permanently removing its jobs and schedulers. Review the
+dry run's queue, DB, keys, schedulers and jobs. Verify the Redis identity, then
+type the exact confirmation only if the inventory matches.
 
 ```bash
 cleanup_queue() {
@@ -258,7 +266,7 @@ read -rp 'Confirm by typing delete bull:backup-queue in DB 0: ' confirmation
 cleanup_queue apply "$confirmation" "${run_id:?Set the verified Redis runId}"
 ```
 
-Proceed when the command reports that the queue is absent and the unrelated
+**Checkpoint.** Proceed when the command reports that the queue is absent and the unrelated
 keys match. Repeat the dry run and apply against the same instance to check
 that subsequent runs report no changes. If active jobs, dependencies, or
 leftover keys are reported, stop and investigate the listed state.
@@ -270,8 +278,9 @@ settings. One-off and completed jobs remain removed.
 ## Preserve PG18 and initialize PG19
 
 Run `old stop postgres` and confirm clean shutdown in the PostgreSQL logs.
-Confirm the container is stopped before touching the bind mount. In the approved
-cutover, inspect the source and destination paths before confirming the rename.
+**Destructive steps and confirmation.** Confirm the stopped container and
+inspect the source and destinations. Approve the removal of the empty PG19
+directories (if present) and the PG18 directory rename before running the block.
 The following commands assume the repository's local Alpine layout and use
 `sudo` to read PG18's mode-`700` data directory as root.
 
@@ -283,17 +292,25 @@ or contains unexpected data. Remove the directories with `rmdir`, starting
 with the child, so a nonempty directory is refused even if state changes.
 
 ```bash
-test "$(sudo cat ./data/postgres/PG_VERSION)" = 18
-test ! -e ./data/postgres-18-preupgrade && test ! -L ./data/postgres-18-preupgrade || exit 1
-test ! -e ./data/postgres-18-preupgrade.tar && test ! -L ./data/postgres-18-preupgrade.tar || exit 1
-test ! -e ./data/postgres-18-preupgrade.tar.sha256 && test ! -L ./data/postgres-18-preupgrade.tar.sha256 || exit 1
+test "$(sudo cat ./data/postgres/PG_VERSION)" = 18 ||
+  { printf 'Active data directory must be PG18\n' >&2; exit 1; }
+for path in ./data/postgres-18-preupgrade{,.tar,.tar.sha256}; do
+  if [[ -e "$path" || -L "$path" ]]; then
+    printf 'Preservation destination already exists: %s\n' "$path" >&2
+    exit 1
+  fi
+done
 if sudo test -e ./data/postgres/19 || sudo test -L ./data/postgres/19; then
-  sudo test ! -L ./data/postgres/19
-  sudo test ! -L ./data/postgres/19/docker
+  sudo test ! -L ./data/postgres/19 ||
+    { printf '19 must not be a symlink\n' >&2; exit 1; }
+  sudo test ! -L ./data/postgres/19/docker ||
+    { printf '19/docker must not be a symlink\n' >&2; exit 1; }
   parent_entries=$(sudo find ./data/postgres/19 -mindepth 1 -maxdepth 1 -print)
   child_entries=$(sudo find ./data/postgres/19/docker -mindepth 1 -maxdepth 1 -print)
-  test "$parent_entries" = ./data/postgres/19/docker
-  test -z "$child_entries"
+  test "$parent_entries" = ./data/postgres/19/docker ||
+    { printf 'Unexpected entries in 19\n' >&2; exit 1; }
+  test -z "$child_entries" ||
+    { printf '19/docker must be empty\n' >&2; exit 1; }
   sudo rmdir ./data/postgres/19/docker ./data/postgres/19
 fi
 
@@ -312,7 +329,7 @@ If archive creation fails after the rename, keep both clusters stopped.
 Confirm the saved PG18 directory is intact and finish the archive and checksum
 before starting PG19. Preserve any partial files under separate private names.
 
-Inspect the archive with `tar --numeric-owner -tvf`. Require numeric ownership,
+**Checkpoint.** Inspect the archive with `tar --numeric-owner -tvf`. Require numeric ownership,
 original modes, and a PG18 control directory in the archive. Treat the archive
 and its checksum as private operator-owned files outside version control.
 Leave the renamed directory offline.
@@ -336,20 +353,26 @@ check differs.
 ## Restore globals, then the database
 
 Confirm `postgres` on `$compose_network` now points to the intended fresh PG19
-cluster. For a test restore, change `compose_network` only inside a subshell
+cluster. Stop if its version, data path, database inventory, role, or
+checksums differ from the guarded expectations below. For a test restore, change `compose_network` only inside a subshell
 so the main session retains the deployment network.
 
 ```bash
 target_version=$(pg_sql -d postgres -Atc 'SHOW server_version_num')
-test "$((target_version / 10000))" -eq 19
+test "$((target_version / 10000))" -eq 19 ||
+  { printf 'Restore target must be PG19\n' >&2; exit 1; }
 target_data=$(pg_sql -d postgres -Atc 'SHOW data_directory')
-test "$target_data" = /var/lib/postgresql/19/docker
+test "$target_data" = /var/lib/postgresql/19/docker ||
+  { printf 'Unexpected PG19 data directory\n' >&2; exit 1; }
 target_databases=$(pg_sql -d postgres -Atc 'SELECT datname FROM pg_database ORDER BY datname COLLATE "C"')
-test "$target_databases" = $'postgres\ntemplate0\ntemplate1'
+test "$target_databases" = $'postgres\ntemplate0\ntemplate1' ||
+  { printf 'Restore target must contain only maintenance and template databases\n' >&2; exit 1; }
 (cd "$recovery" && sha256sum -c SHA256SUMS)
-test "$(pg_sql -d postgres -Atc "SELECT rolname FROM pg_roles WHERE rolname = 'erp_user' AND rolsuper")" = erp_user
-bootstrap_create=$(grep -Ei '^[[:space:]]*create[[:space:]]+role[[:space:]]+("erp_user"|erp_user)([[:space:];]|$)' "$recovery/globals.sql")
-test "$bootstrap_create" = 'CREATE ROLE "erp_user";'
+test "$(pg_sql -d postgres -Atc "SELECT rolname FROM pg_roles WHERE rolname = 'erp_user' AND rolsuper")" = erp_user ||
+  { printf 'erp_user must be a bootstrap superuser\n' >&2; exit 1; }
+bootstrap_create=$(grep -Ei '^[[:space:]]*create[[:space:]]+role[[:space:]]+("erp_user"|erp_user)([[:space:];]|$)' "$recovery/globals.sql" || true)
+test "$bootstrap_create" = 'CREATE ROLE "erp_user";' ||
+  { printf 'Expected exactly one canonical CREATE ROLE for erp_user\n' >&2; exit 1; }
 (
   set -o noclobber
   cd "$recovery"
@@ -358,7 +381,8 @@ test "$bootstrap_create" = 'CREATE ROLE "erp_user";'
     sha256sum globals.filtered.sql > globals.filtered.sha256
   fi
   sha256sum -c globals.filtered.sha256
-  awk '$0 != "CREATE ROLE \"erp_user\";"' globals.sql | cmp - globals.filtered.sql
+  awk '$0 != "CREATE ROLE \"erp_user\";"' globals.sql | cmp -s - globals.filtered.sql ||
+    { printf 'Filtered globals differ from the exact role filter\n' >&2; exit 1; }
 )
 pg_sql -d postgres --single-transaction -f - < "$recovery/globals.filtered.sql"
 pg19 pg_restore --exit-on-error --create -h postgres -U erp_user -d postgres < "$recovery/erp_db.dump"
@@ -372,13 +396,17 @@ privileges and database settings. Require zero errors. Stop and investigate
 any restore failure before starting the backend. Retry on a fresh target once
 the cause is fixed.
 
-Before starting the backend, compare the restored database with the baseline.
+**Checkpoint.** Require a clean globals and database restore and a matching
+PG18 baseline before starting the backend.
 Return to the normal PG19 Compose configuration for `erp_db` and run
 `new up -d --wait postgres`, then `new up -d backend`. Keep ingress and
 scheduled external jobs blocked. Check the startup logs for the successful Migration that drops
 `backup_logs`, `backup_schedules`, and `backup_retention_settings`.
 
 ## Compare and reopen
+
+**Checkpoint.** Stop before reopening ingress if any verification check
+fails or any difference remains unexplained.
 
 Capture these checks in PG18, on restored PG19 before starting the backend,
 and again after the Migration. Save the outputs privately and compare them.
@@ -448,13 +476,22 @@ writers on PG18. Stop the new backend and then PostgreSQL with
 `new stop backend` followed by `new stop postgres`. Confirm clean shutdown. Verify the
 archive checksum. Confirm the active directory is PG19 and the saved directory
 is PG18, and that `./data/postgres-19-rollback` is absent including dangling
-symlinks. With operator confirmation, run the following from the same directory.
+symlinks.
+
+**Destructive steps and confirmation.** Approve moving PG19 aside and
+reactivating the PG18 directory before running the block. Stop if either major,
+the archive checksum, or the rollback destination fails its check.
 
 ```bash
-test "$(sudo cat ./data/postgres/19/docker/PG_VERSION)" = 19
-test "$(sudo cat ./data/postgres-18-preupgrade/PG_VERSION)" = 18
+test "$(sudo cat ./data/postgres/19/docker/PG_VERSION)" = 19 ||
+  { printf 'Active data directory must be PG19\n' >&2; exit 1; }
+test "$(sudo cat ./data/postgres-18-preupgrade/PG_VERSION)" = 18 ||
+  { printf 'Saved data directory must be PG18\n' >&2; exit 1; }
 sha256sum -c ./data/postgres-18-preupgrade.tar.sha256
-test ! -e ./data/postgres-19-rollback && test ! -L ./data/postgres-19-rollback || exit 1
+if [[ -e ./data/postgres-19-rollback || -L ./data/postgres-19-rollback ]]; then
+  printf 'Rollback destination already exists\n' >&2
+  exit 1
+fi
 sudo mv -T ./data/postgres ./data/postgres-19-rollback
 sudo mv -T ./data/postgres-18-preupgrade ./data/postgres
 old up -d --wait postgres
@@ -468,6 +505,8 @@ already renamed, identify any partial PG19 files from the failed startup and
 set them aside, then move the verified saved PG18 directory back. If PG18 was
 never renamed, verify its path and version and leave it in place.
 
+**Checkpoint.** Require a matching archive checksum, healthy PG18 and the
+pre-upgrade app, and the expected Redis schedulers before reopening ingress.
 Use the pinned pre-upgrade application and old Compose environment, including
 the old image, bind mount and `PGDATA`. Check PG18's version and application
 health before reopening ingress. PG18 startup writes into the restored
@@ -493,6 +532,7 @@ with the running server reachable as `postgres`. Keep a checksummed copy of
 the database dump and original globals on separate storage with the same
 restrictive ownership and modes. Test recovery to a fresh private PG19
 cluster as described in [Restore globals, then the database](#restore-globals-then-the-database).
+**Checkpoint.** Stop if the restore, checksums, or application checks fail.
 Use the compatible application to verify Migrations, login and representative
 records there before a recovery cutover. For a backup taken after the upgrade,
 boot the PG19-compatible app. To recover the removed backup tables, use the
