@@ -61,7 +61,7 @@ test('checksum mismatch fails lint before extracting or executing the archive', 
   assert.equal(existsSync(path.join(f.dir, 'tar-called')), false);
 });
 
-test('lint explicitly enables ShellCheck and propagates actionlint failures', t => {
+test('an embedded ShellCheck finding fails workflow lint', t => {
   const f = fixture(t);
   f.command('fake-shellcheck', 'if [[ "$1" == --embedded ]]; then echo "embedded lint finding" >&2; exit 3; fi');
   const result = f.run();
