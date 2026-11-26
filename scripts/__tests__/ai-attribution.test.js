@@ -60,6 +60,30 @@ test('reports each attribution line in the current PR body', (t) => {
   ].join('\n'));
 });
 
+test('rejects model aliases, list-form trailers and Claude Code attribution', (t) => {
+  const { commit, check, pr } = fixture(t);
+  const result = check(pr(commit('Clean change')), [
+    'Co-Authored-By: Claude Opus',
+    'Co-Authored-By: Claude Opus <alias@example.com>',
+    'Co-Authored-By: Claude Code',
+    '- Co-Authored-By: Claude',
+    'https://www.claude.ai/code/session-id',
+    '🤖 Generated with [Claude Code](https://claude.ai/code)',
+    '🤖 Generated with [Claude Code](https://claude.com/claude-code)',
+  ].join('\n'));
+  assert.equal(result.status, 1);
+  assert.equal(result.stderr, [
+    'PR body:1: AI co-author trailer',
+    'PR body:2: AI co-author trailer',
+    'PR body:3: AI co-author trailer',
+    'PR body:4: AI co-author trailer',
+    'PR body:5: Claude session link',
+    'PR body:6: Claude Code attribution',
+    'PR body:7: Claude Code attribution',
+    '',
+  ].join('\n'));
+});
+
 test('checks topic commits and merge commits without scanning base history', (t) => {
   const { git, commit, check, pr } = fixture(t);
   git('branch', 'side');
@@ -106,6 +130,8 @@ test('allows human attribution and technical discussion in commits and the body'
     'Handle Claude API rate limits',
     '',
     'Document Gemini and Claude tools.',
+    'See the [Claude Code documentation](https://claude.ai/code).',
+    'Co-Authored-By: Claude <claude@example.com>',
     'Co-Authored-By: Claude Martin <claude@example.com>',
     'Co-Authored-By: Alex Example <alex@example.com>',
   ].join('\n');

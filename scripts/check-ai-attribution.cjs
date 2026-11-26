@@ -1,25 +1,55 @@
+'use strict';
+
 // Check PR commit messages and the current PR body for AI attribution (#2083).
 const { execFileSync } = require('node:child_process');
 const { readFileSync } = require('node:fs');
 
+const claudeFamilies = 'Fable|Haiku|Opus|Sonnet';
+const modelVersion = '\\d+(?:\\.\\d+)*';
+const claudeModel = new RegExp(
+  `^Claude (?:Code|(?:${claudeFamilies})(?: ${modelVersion})?|${modelVersion} (?:${claudeFamilies}))(?: \\(1M context\\))?$`,
+  'i',
+);
+const vendorAddress = /^noreply@(?:anthropic\.com|google\.com)$/i;
+
+function isAiCoAuthor(line) {
+  const trailer = /^\s*(?:[-*+]\s+)?co-authored-by:\s*([^<>]*?)(?:\s*<([^<>]+)>)?\s*$/i.exec(line);
+  if (!trailer) return false;
+
+  const [, name, address] = trailer;
+  return vendorAddress.test(address ?? '') ||
+    claudeModel.test(name) ||
+    /^(?:Gemini|internal-model)$/i.test(name) ||
+    (!address && /^Claude$/i.test(name));
+}
+
 const rules = [
-  [
-    'AI co-author trailer',
-    /^\s*co-authored-by:\s*(?:(?:Claude(?:\s+(?:(?:Fable|Haiku|Opus|Sonnet)\s+\d|\d+(?:\.\d+)*\s+(?:Fable|Haiku|Opus|Sonnet)\b)[^<]*)?|Gemini|internal-model)\s*(?:<|$)|[^<]*<noreply@(?:anthropic\.com|google\.com)>)/i,
-  ],
-  ['Claude session link', /(?:^|[^\w.-])claude\.ai\/code\/[^\s)>]+/i],
-  ['Claude session trailer', /^\s*claude-session:/i],
+  { label: 'AI co-author trailer', matches: isAiCoAuthor },
+  {
+    label: 'Claude session link',
+    matches: (line) => /(?:^|[^\w.-])(?:www\.)?claude\.ai\/code\/[^\s)>]+/i.test(line),
+  },
+  {
+    label: 'Claude session trailer',
+    matches: (line) => /^\s*claude-session:/i.test(line),
+  },
+  {
+    label: 'Claude Code attribution',
+    matches: (line) => /^\s*(?:🤖\s*)?generated with \[Claude Code\]\(https:\/\/(?:claude\.ai\/code|claude\.com\/claude-code)\/?\)\s*$/i.test(line),
+  },
 ];
 
 function reportAttribution(source, message) {
+  let violations = 0;
   for (const [index, line] of message.split(/\r?\n/).entries()) {
-    for (const [rule, pattern] of rules) {
-      if (pattern.test(line)) {
-        console.error(`${source}:${index + 1}: ${rule}`);
-        process.exitCode = 1;
+    for (const { label, matches } of rules) {
+      if (matches(line)) {
+        console.error(`${source}:${index + 1}: ${label}`);
+        violations += 1;
       }
     }
   }
+  return violations;
 }
 
 function git(...args) {
@@ -42,10 +72,12 @@ function main(eventPath, bodyPath) {
     revisionArgs.push('^refs/remotes/origin/main');
   }
   const commits = git('rev-list', ...revisionArgs, '--').trim().split('\n').filter(Boolean);
+  let violations = 0;
   for (const sha of commits) {
-    reportAttribution(sha, git('show', '--no-show-signature', '-s', '--format=%B', sha, '--'));
+    violations += reportAttribution(sha, git('show', '--no-show-signature', '-s', '--format=%B', sha, '--'));
   }
-  reportAttribution('PR body', readFileSync(bodyPath, 'utf8'));
+  violations += reportAttribution('PR body', readFileSync(bodyPath, 'utf8'));
+  if (violations > 0) process.exitCode = 1;
 }
 
 main(process.argv[2], process.argv[3]);
