@@ -159,6 +159,22 @@ jobs:
       - name: E2E tests
         run: npm run test:e2e
 
+      # Runs the leak check's REAL seed boot, the npm script that
+      # verify-e2e-cleanup.sh calls, against a migrated database (#2077). The
+      # Bats suite stubs this call, and the full leak check runs only nightly,
+      # so without this step a seed boot that cannot load the app (#2077:
+      # ERR_MODULE_NOT_FOUND for src/app.module) reaches main unnoticed.
+      # erp_db is the service's own empty database; the E2E teardown above
+      # has already dropped erp_db_test.
+      - name: E2E leak check seed boot
+        shell: bash
+        env:
+          DB_DATABASE: erp_db
+        run: |
+          npm run migration:run
+          npm run --silent test:e2e:leakcheck:seed-boot | tee seed-boot.log
+          grep -qx 'SEED_BOOT_OK' seed-boot.log
+
       # Shell orchestration tests for the migration-baseline gate scripts
       # (#1061). Bats stubs `docker` and `node` on PATH, so these run the real
       # scripts end-to-end with no live Postgres — covering the preflight

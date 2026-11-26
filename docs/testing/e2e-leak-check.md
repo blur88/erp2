@@ -25,6 +25,14 @@ tables the gate is supposed to protect become its first false positives.
 That boot entry lives in `test/`, never under `src/database/cli/` — see the
 [`tsconfig.cli.json` relative-import rule](../../CLAUDE.md#cli-relative-imports).
 
+**Run the boot only through `npm run test:e2e:leakcheck:seed-boot`** (#2077).
+The script pins ts-node to the CommonJS root `tsconfig.json`. A bare
+`npx ts-node ./test/e2e-leakcheck-boot.ts` picks up `test/tsconfig.json`
+instead, because ts-node looks for the config nearest the script. Under that
+ESM config, `../src/app.module` fails with `ERR_MODULE_NOT_FOUND`. The backend
+CI job's `E2E leak check seed boot` step runs this script on every PR, so the
+boot is checked on PRs even though the full gate is not.
+
 **Reuse is rejected on two migration comparisons, not one.** Stored-vs-applied
 compares the retained database to itself, so a newly pulled migration leaves it
 green; only applied-vs-expected-by-checkout catches that. Both run before any
