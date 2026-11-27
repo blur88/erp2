@@ -20,3 +20,15 @@
 - Before reporting, refresh pending checks and confirm that the evidence still applies to the reviewed SHA. If the PR head moved, identify the reviewed SHA and flag which conclusions need reassessment.
 - Never report complete acceptance-criterion coverage when required evidence is missing.
 - When behavior depends on omitted fields, defaults, or coercion, verify it through `createGlobalValidationPipe()` directly or through an HTTP test that uses it; see [the backup schedule HTTP test](backend/src/modules/backup/backup-schedule.http.spec.ts).
+
+### Runbook rehearsal evidence
+
+**During rehearsal**, extract and execute the applicable blocks directly from the runbook at the candidate commit, in documented order. When phases require continuity, use the same disposable stack for cutover, verification, and rollback. Distinguish mandatory steps from documented alternatives and identify which alternatives were exercised. You may use recorded setup and adapters around the blocks. Execute the documented blocks themselves to preserve their behavior. For heading-based extraction, see [`bashBlock()` in the PostgreSQL 19 runbook guard test](https://github.com/blur88/erp2/blob/895a9674cdcc612231a195092c22f5179d07b4ec/scripts/__tests__/postgres19-upgrade-runbook-guards.test.js#L25) from [PR #2087](https://github.com/blur88/erp2/pull/2087).
+
+Record evidence as you run in one Markdown report in a temporary location both reviewers can access. Use the report as the source for the shared reviewer snapshot and PR evidence. Include the following details.
+
+- For each verification command, record the command, working directory, revision, exit status, sanitized relevant output, and environment identity where applicable. Label follow-up probes separately from original execution results.
+- Record the reviewed revision, the runbook checksum, the exact blocks executed and their checksums, and the disposable environment used for each phase.
+- Record setup and adapters, including seed data, fixture databases, and how confirmations or root commands were supplied.
+
+**During review**, inspect the actual rehearsal driver and execution transcript. Extract and compare the reviewed runbook blocks to establish block identity. Block identity alone is insufficient to demonstrate execution or required stack continuity. Verify documented order from the execution results and same-stack continuity from phase-specific environment evidence. Apply the **Unverified** definition above to gaps in required rehearsal evidence. Mark affected criteria **Unverified** when execution materially differs from the documented procedure, including when substitute scripts change its behavior.
