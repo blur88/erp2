@@ -37,9 +37,11 @@ services:
         max-file: "3"
 
   # Redis serves health checks and memory monitoring. The application stores no keys.
-  # Keep noeviction and persistence as conservative defaults. They preserve
-  # existing keys across memory pressure and restarts during the Major upgrade.
-  # Revisit these settings with the Backup & Restore redesign (#2067).
+  # Redis runs without persistence (#2108): RDB snapshots and AOF are off and
+  # there is no data volume. Redis holds no data that must survive a restart;
+  # monitoring history and alert state live in PostgreSQL. Keys are kept only
+  # in memory and are lost when the container is recreated. Existing
+  # ./data/redis files are never loaded or deleted; remove them by hand.
   redis:
     image: redis:8.6.8-alpine3.23
     container_name: erp_redis
@@ -49,12 +51,8 @@ services:
       --requirepass ${REDIS_PASSWORD}
       --maxmemory 256mb
       --maxmemory-policy noeviction
-      --save 900 1
-      --save 300 10
-      --save 60 10000
-      --appendonly yes
-    volumes:
-      - ./data/redis:/data
+      --save ""
+      --appendonly no
     networks:
       - erp_network
     healthcheck:
