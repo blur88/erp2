@@ -465,14 +465,19 @@ Use the PG19 clients for both versions.
   application login and verify an authenticated request such as `GET /api/auth/me`.
   Use `GET /api/search/global?q=<typo>` with a misspelling that misses the normal
   substring search and returns a known record through the trigram fallback.
-- Confirm the backend health endpoint reports healthy PostgreSQL and Redis.
-  Redis pressure monitoring may report `insufficient-samples` during warmup.
-  Allow it to collect a full window of ten samples at one-minute intervals
-  and investigate any continued degradation. Verify the prior queue cleanup
-  result. Recreate PostgreSQL
-  with `new up -d --wait --force-recreate postgres` and recheck the data
-  directory, row counts and application connectivity. Reopen ingress and
-  enable external writers only after all checks pass.
+- Verify the prior queue cleanup result. Recreate PostgreSQL with
+  `new up -d --wait --force-recreate postgres` and recheck the data directory,
+  row counts and application connectivity.
+- Run the [operational health gate](REDIS_MEMORY_PRESSURE_RUNBOOK.md#interpreting-the-pressure-state)
+  using `setup.sh` from the PG19 release checkout. The probe runs inside the
+  selected Compose project's backend container. Adjust the URL for a custom
+  backend port.
+
+  ```bash
+  bash ./setup.sh check-health http://localhost:3001/api/health "$(new ps -q backend)"
+  ```
+
+  Reopen ingress and enable external writers only after all checks pass.
 
 ## Roll back to PG18
 
@@ -516,15 +521,20 @@ PostgreSQL and Redis, and the expected Redis schedulers before reopening
 ingress. Use the pinned pre-upgrade application and old Compose environment,
 including the old image, bind mount and `PGDATA`. Verify the PG18 version.
 
-Query the old backend's `/api/health` and inspect the service statuses in
-the response body. Retry a transient Redis connection-state error with one
-request at a time, about 30 seconds apart. If Redis is connected and reports
-`insufficient-samples`, allow about ten minutes from application startup for
-the pressure monitor to fill its window. Keep ingress blocked until all three
-services report `healthy`. Stop and investigate a persistent error or warmup
-that extends beyond that window. PG18 startup writes into the restored directory. Retain
-the pristine archive, both globals files, the database dump and their
-checksums.
+Wait for `old ps backend` to show the backend container as healthy. Then run
+the [operational health gate](REDIS_MEMORY_PRESSURE_RUNBOOK.md#interpreting-the-pressure-state)
+using `setup.sh` from the PG19 release checkout. The probe runs inside the
+restored PG18 backend container. Adjust the URL for a custom backend port.
+
+```bash
+bash ./setup.sh check-health http://localhost:3001/api/health "$(old ps -q backend)"
+```
+
+If Redis reports a transient connection-state error, wait about 30 seconds
+before rerunning the gate. Stop and investigate a persistent error or a warm-up
+timeout. Keep ingress blocked until the gate passes. PG18 startup writes into
+the restored directory. Retain the pristine archive, both globals files, the
+database dump and their checksums.
 
 The old backend recreates Redis schedulers only for enabled
 `backup_schedules` rows with valid cron expressions and disables rows with

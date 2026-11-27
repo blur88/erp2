@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ERP System Production Setup Script
-# Requirements: docker-compose.prod.yml + this file only
+# Files required for setup: docker-compose.prod.yml and this script
 
 set -e
 
@@ -29,6 +29,11 @@ check_prerequisites() {
 
     if ! docker compose version &> /dev/null; then
         print_error "Docker Compose is not available. Please install Docker Compose."
+        exit 1
+    fi
+
+    if ! command -v curl >/dev/null || ! command -v jq >/dev/null; then
+        print_error "curl and jq are required for the operational health check."
         exit 1
     fi
 
@@ -156,16 +161,116 @@ deploy_services() {
     print_success "Services started"
 }
 
-# Wait for backend health
-wait_for_services() {
-    print_status "Waiting for services to be ready..."
+# jq replaces invalid UTF-8 on raw input. Check that the response survives
+# a round trip before handing it to the JSON parser.
+validate_health_encoding() {
+    local response utf8
+    if IFS= read -r -d '' response; then
+        print_error "Invalid health JSON: unexpected NUL byte." >&2
+        return 1
+    fi
+    utf8=$(printf '%s' "$response" | jq -Rjs '.') || return 1
+    if [[ $utf8 != "$response" ]]; then
+        print_error "Invalid health JSON: response must use UTF-8." >&2
+        return 1
+    fi
+    printf '%s' "$response"
+}
 
-    print_status "Waiting for backend..."
-    until curl -sf http://localhost:3001/api/health > /dev/null 2>&1; do
+# Operational health semantics:
+# docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md#interpreting-the-pressure-state
+check_backend_health() {
+    local url=${1:-http://localhost:3001/api/health}
+    local deadline=$((SECONDS + 600))
+    local remaining request_timeout result
+    local -a request=(curl)
+
+    if (( $# > 1 )); then
+        if [[ -z $2 ]]; then
+            print_error "An explicit backend container ID is required." >&2
+            return 1
+        fi
+        request=(docker exec "$2" curl)
+    fi
+
+    if ! command -v jq >/dev/null; then
+        print_error "jq is required for the operational health check." >&2
+        return 1
+    fi
+
+    while (( (remaining = deadline - SECONDS) > 0 )); do
+        request_timeout=$((remaining < 5 ? remaining : 5))
+        if ! result=$(
+            set -o pipefail
+            "${request[@]}" -sS --max-time "$request_timeout" --write-out '\n%{http_code}' -- "$url" |
+                validate_health_encoding |
+                jq -Rers '
+                    # fromjson accepts nonstandard numbers such as NaN and 01.
+                    # Exclude quoted strings before checking bare JSON tokens.
+                    def valid_bare_tokens:
+                        gsub("\"([^\"\\\\]|\\\\.)*\""; "\"\"")
+                        | all(scan("[^{}\\[\\]:,\" \t\r\n]+");
+                            test("^(true|false|null|-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?)$"));
+                    rindex("\n") as $boundary
+                    | .[$boundary + 1:] as $http
+                    | if $boundary == null or ($http | test("^2[0-9]{2}$") | not)
+                      then error("Health request failed (HTTP \($http))")
+                      else .[:$boundary]
+                        | if valid_bare_tokens then try fromjson catch error("Invalid health JSON")
+                          else error("Invalid health JSON: invalid token")
+                          end
+                      end
+                    | if type != "object" then error("Invalid health JSON: expected one health object") else . end
+                    | (.services.backend.status == "healthy" and .services.database.status == "healthy") as $core
+                    | if $core and .status == "healthy" and .services.redis.status == "healthy"
+                      then "healthy"
+                      elif $core and .status == "degraded" and .services.redis.status == "degraded"
+                        and (.services.redis.pressure.reason == "insufficient-samples"
+                          or (.services.redis.pressure.reason == null and .services.redis.pressure.state == "insufficient-samples"))
+                      then "warmup"
+                      else [
+                        "status=\(.status // "missing")",
+                        "backend=\(.services.backend.status // "missing")",
+                        "database=\(.services.database.status // "missing")",
+                        "redis=\(.services.redis.status // "missing")"
+                      ] | join(", ")
+                      end
+                '
+        ); then
+            return 1
+        fi
+
+        case "$result" in
+            healthy)
+                print_success "Backend, database and Redis are healthy"
+                return 0
+                ;;
+            warmup)
+                print_status "Waiting for Redis pressure samples (insufficient-samples)..." >&2
+                remaining=$((deadline - SECONDS))
+                if (( remaining <= 0 )); then
+                    break
+                fi
+                sleep "$((remaining < 30 ? remaining : 30))"
+                ;;
+            *)
+                print_error "Operational health check failed ($result)." >&2
+                return 1
+                ;;
+        esac
+    done
+
+    print_error "Redis warm-up timed out before operational health could be confirmed." >&2
+    return 1
+}
+
+wait_for_services() {
+    print_status "Waiting for the backend to answer..."
+    until curl -sf --max-time 5 http://localhost:3001/api/health > /dev/null 2>&1; do
         sleep 5
     done
 
-    print_success "All services are ready"
+    check_backend_health
 }
 
 # Show status
@@ -196,6 +301,11 @@ cleanup_on_error() {
     exit 1
 }
 
+if [ "${1:-}" = check-health ]; then
+    check_backend_health "${@:2}"
+    exit
+fi
+
 trap cleanup_on_error ERR
 
 # Main
@@ -210,7 +320,7 @@ case "${1:-setup}" in
         setup_environment
         create_directories
         deploy_services
-        wait_for_services
+        wait_for_services || exit 1
         show_status
         ;;
     "start")
@@ -235,7 +345,7 @@ case "${1:-setup}" in
         print_success "Update complete"
         ;;
     *)
-        echo "Usage: $0 {setup|start|stop|restart|logs|status|update}"
+        echo "Usage: $0 {setup|start|stop|restart|logs|status|update|check-health [url [container]]}"
         echo ""
         echo "  setup   - First time setup: generate .env and deploy (default)"
         echo "  start   - Start services"
@@ -243,6 +353,7 @@ case "${1:-setup}" in
         echo "  restart - Restart services"
         echo "  logs    - View real-time logs"
         echo "  status  - Show service status"
+        echo "  check-health [url [container]] - Verify backend, database and Redis operational health"
         echo "  update  - Pull latest images and redeploy"
         exit 1
         ;;

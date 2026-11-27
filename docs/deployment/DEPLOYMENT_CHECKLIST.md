@@ -154,16 +154,17 @@ docker compose ps
 ```
 
 ### Backend Verification
-- [ ] Health check passed: `curl http://localhost:3001/api/health`
+- [ ] The backend operational health check below passed
 - [ ] API endpoints registered (check logs)
 - [ ] 13 price list endpoints visible
 - [ ] No TypeScript compilation errors
 - [ ] No module load errors
 
-**Backend Health Check**:
+Run the [operational health check](REDIS_MEMORY_PRESSURE_RUNBOOK.md#interpreting-the-pressure-state)
+from the deployment directory.
+
 ```bash
-curl http://localhost:3001/api/health
-# Expected: {"status":"ok"}
+bash ./setup.sh check-health
 ```
 
 ### Frontend Verification

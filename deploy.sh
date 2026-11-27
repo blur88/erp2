@@ -58,6 +58,11 @@ check_prerequisites() {
         exit 1
     fi
     
+    if ! command -v curl >/dev/null || ! command -v jq >/dev/null; then
+        print_error "curl and jq are required for the operational health check."
+        exit 1
+    fi
+
     print_success "Prerequisites check passed"
 }
 
@@ -123,6 +128,9 @@ wait_for_services() {
         sleep 5
     done
     
+    # See docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md#interpreting-the-pressure-state.
+    bash "$(dirname "${BASH_SOURCE[0]}")/setup.sh" check-health || exit 1
+
     # Wait for frontend
     print_status "Waiting for Frontend..."
     until curl -f http://localhost:3000 > /dev/null 2>&1; do
