@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { mkdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } = require('node:fs');
+const { mkdirSync, mkdtempSync, readdirSync, writeFileSync, rmSync, existsSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
@@ -9,13 +9,24 @@ function fixture(t, { verifyChecksum = false } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'lint-workflows-test-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const command = (name, body) => writeFileSync(path.join(dir, name), `#!/bin/bash\n${body}\n`, { mode: 0o755 });
-  command('shellcheck', 'exit 0');
-  command('curl', 'exit "${CURL_STATUS:-0}"');
+  command('shellcheck', 'echo "unexpected PATH ShellCheck" >&2\nexit 99');
+  command('fake-shellcheck', 'if [[ "$1" == --version ]]; then echo "version: 0.11.0"; fi');
+  command('curl', 'touch "$4"\nif [[ "$2" == */shellcheck-* ]]; then exit "${SHELLCHECK_CURL_STATUS:-0}"; fi\nexit "${CURL_STATUS:-0}"');
   if (!verifyChecksum) {
-    command('sha256sum', 'cat >/dev/null\nexit 0');
+    command('sha256sum', 'read -r digest archive\nif [[ "$archive" == */shellcheck.tar.xz ]]; then exit "${SHELLCHECK_CHECKSUM_STATUS:-0}"; fi');
   }
-  command('tar', 'touch "$TAR_CALLED"\ncp "$FAKE_ACTIONLINT" "$4/actionlint"');
-  command('fake-actionlint', 'test "$1" = -shellcheck && test "$2" = "$EXPECTED_SHELLCHECK" || exit 99\necho "ShellCheck enabled"\nexit "${LINT_STATUS:-0}"');
+  command('tar', [
+    'case "$2" in',
+    '  */actionlint.tar.gz) touch "$TAR_CALLED"; cp "$FAKE_ACTIONLINT" "$4/actionlint" ;;',
+    '  */shellcheck.tar.xz) touch "$SHELLCHECK_TAR_CALLED"; cp "$FAKE_SHELLCHECK" "$4/shellcheck" ;;',
+    '  *) exit 99 ;;',
+    'esac',
+  ].join('\n'));
+  command('fake-actionlint', [
+    'test "$1" = -shellcheck && test "$2" = "${0%/*}/shellcheck" || exit 99',
+    '"$2" --embedded || exit "$?"',
+    'echo "ShellCheck enabled"',
+  ].join('\n'));
   return {
     dir, command,
     run(env = {}, cwd = path.resolve(__dirname, '../..')) {
@@ -23,9 +34,12 @@ function fixture(t, { verifyChecksum = false } = {}) {
         cwd, encoding: 'utf8',
         env: {
           ...process.env, PATH: `${dir}:${process.env.PATH}`,
+          TMPDIR: dir,
+          SHELLCHECK_TAR_CALLED: path.join(dir, 'shellcheck-tar-called'),
+          FAKE_SHELLCHECK: path.join(dir, 'fake-shellcheck'),
           TAR_CALLED: path.join(dir, 'tar-called'),
           FAKE_ACTIONLINT: path.join(dir, 'fake-actionlint'),
-          EXPECTED_SHELLCHECK: path.join(dir, 'shellcheck'), ...env,
+          ...env,
         },
       });
     },
@@ -47,11 +61,12 @@ test('checksum mismatch fails lint before extracting or executing the archive', 
   assert.equal(existsSync(path.join(f.dir, 'tar-called')), false);
 });
 
-test('lint explicitly enables ShellCheck and propagates actionlint failures', t => {
+test('an embedded ShellCheck finding fails workflow lint', t => {
   const f = fixture(t);
-  const result = f.run({ LINT_STATUS: '3' });
+  f.command('fake-shellcheck', 'if [[ "$1" == --embedded ]]; then echo "embedded lint finding" >&2; exit 3; fi');
+  const result = f.run();
   assert.equal(result.status, 3, result.stderr);
-  assert.match(result.stdout, /ShellCheck enabled/);
+  assert.match(result.stderr, /embedded lint finding/);
 });
 
 test('successful lint passes with ShellCheck enabled', t => {
@@ -59,6 +74,8 @@ test('successful lint passes with ShellCheck enabled', t => {
   const result = f.run();
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /ShellCheck enabled/);
+  assert.match(result.stdout, /version: 0\.11\.0/);
+  assert.equal(readdirSync(f.dir).some(name => name.startsWith('tmp.')), false);
 });
 
 test('standalone lint checks tracked shell scripts in both script trees', t => {
@@ -74,7 +91,7 @@ test('standalone lint checks tracked shell scripts in both script trees', t => {
     const result = spawnSync('git', args, { cwd: f.dir, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
   }
-  f.command('shellcheck', 'for arg; do\n  case "$arg" in *.sh) printf "%s\\n" "$arg";; esac\ndone');
+  f.command('fake-shellcheck', '[[ "$1" == -x ]] || exit 0\ntest "$2" = -P && test "$3" = SCRIPTDIR && test "$4" = -- || exit 99\nfor arg; do\n  case "$arg" in *.sh) printf "%s\\n" "$arg";; esac\ndone');
 
   const result = f.run({}, f.dir);
 
@@ -84,7 +101,7 @@ test('standalone lint checks tracked shell scripts in both script trees', t => {
 
 test('a standalone ShellCheck finding fails lint even when actionlint passes', t => {
   const f = fixture(t);
-  f.command('shellcheck', 'echo "standalone lint finding" >&2\nexit 1');
+  f.command('fake-shellcheck', '[[ "$1" == -x ]] || exit 0\necho "standalone lint finding" >&2\nexit 1');
 
   const result = f.run();
 
@@ -93,19 +110,27 @@ test('a standalone ShellCheck finding fails lint even when actionlint passes', t
   assert.ok(Number.isInteger(result.status) && result.status > 0, result.stderr);
 });
 
-test('missing ShellCheck fails lint with an actionable error before downloading actionlint', t => {
-  const f = fixture(t);
-  rmSync(path.join(f.dir, 'shellcheck'));
-  f.command('curl', 'touch "$CURL_CALLED"');
-  const bash = spawnSync('bash', ['-c', 'command -v bash'], { encoding: 'utf8' }).stdout.trim();
+for (const [failure, status, env] of [
+  ['download failure', 22, { SHELLCHECK_CURL_STATUS: '22' }],
+  ['checksum mismatch', 1, { SHELLCHECK_CHECKSUM_STATUS: '1' }],
+]) {
+  test(`ShellCheck ${failure} stops lint before extraction and cleans up downloads`, t => {
+    const f = fixture(t);
+    const result = f.run(env);
 
-  const result = spawnSync(bash, [path.resolve(__dirname, '../lint-workflows.sh')], {
-    cwd: path.resolve(__dirname, '../..'), encoding: 'utf8',
-    env: { ...process.env, PATH: f.dir, CURL_CALLED: path.join(f.dir, 'curl-called') },
+    assert.equal(result.status, status, result.stderr);
+    assert.equal(existsSync(path.join(f.dir, 'shellcheck-tar-called')), false);
+    assert.equal(readdirSync(f.dir).some(name => name.startsWith('tmp.')), false);
   });
+}
 
-  assert.ok(Number.isInteger(result.status) && result.status > 0, `status ${result.status}`);
-  assert.match(result.stderr, /shellcheck.*not found/i);
-  assert.match(result.stderr, /install/i);
-  assert.equal(existsSync(path.join(f.dir, 'curl-called')), false);
+test('an unsupported platform fails before downloading tools', t => {
+  const f = fixture(t);
+  f.command('uname', 'echo "Linux aarch64"');
+  f.command('curl', 'exit 99');
+
+  const result = f.run();
+
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /unsupported platform \(Linux aarch64\).*Linux x86_64/);
 });

@@ -1,0 +1,41 @@
+name: AI attribution
+
+on:
+  pull_request:
+    branches: [main, 'upgrade/**']
+    types: [opened, synchronize, reopened, edited]
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Body edits refresh the same check without entering CI's concurrency group.
+concurrency:
+  group: ai-attribution-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  ai-attribution:
+    name: AI attribution policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Read current PR body
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.body // ""' > "$RUNNER_TEMP/pr-body.txt"
+
+      - name: Check attribution
+        run: node scripts/check-ai-attribution.cjs "$GITHUB_EVENT_PATH" "$RUNNER_TEMP/pr-body.txt"
