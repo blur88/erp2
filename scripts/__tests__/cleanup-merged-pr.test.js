@@ -63,8 +63,8 @@ function fixture(t, mergeMethod = 'merge') {
     bin, checkout, head, main, merge,
     git: (...args) => git(checkout, ...args),
     origin: (...args) => git(origin, ...args),
-    run: (metadata = ['MERGED', 'main', topic, head, 'false', merge]) => spawnSync('bash', [script, '42'], {
-      cwd: checkout,
+    run: (metadata = ['MERGED', 'main', topic, head, 'false', merge], cwd = checkout) => spawnSync('bash', [script, '42'], {
+      cwd,
       encoding: 'utf8',
       timeout: 10000,
       env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PR_METADATA: metadata.join('\t') },
@@ -242,6 +242,19 @@ test('preserves local main when it has a local-only commit', t => {
 
   assertBlocked(f, f.run(), /local main cannot fast-forward/);
   assert.equal(f.git('rev-parse', 'main'), localMain);
+});
+
+test('cleans up from the main worktree once the topic checkout is detached', t => {
+  const f = fixture(t);
+  const mainCheckout = path.join(f.checkout, '..', 'main-checkout');
+  f.git('switch', '--detach');
+  f.git('worktree', 'add', mainCheckout, 'main');
+  const result = f.run(undefined, mainCheckout);
+  assert.equal(result.status, 0, result.stderr);
+  assertCleaned({
+    ...f,
+    git: (...args) => execFileSync('git', args, { cwd: mainCheckout, encoding: 'utf8' }).trim(),
+  });
 });
 
 test('preserves both branches when main is checked out in another worktree', t => {

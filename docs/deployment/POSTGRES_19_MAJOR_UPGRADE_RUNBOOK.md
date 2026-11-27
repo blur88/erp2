@@ -22,7 +22,10 @@ file list in each function. Preserve the old environment and image IDs. Verify
 the resolved service names, repository paths, mounts and network privately
 before running any command. Verify the old backend's Redis host and port before
 stopping it. Set `compose_network` to the shared network from the inspected
-containers. Use the existing database and Redis credentials.
+containers. Use the existing database and Redis credentials. Before the first
+live command, apply the
+[deployment checkout checks](../agents/merge-and-branch-cleanup.md#worktrees)
+to the deployment directory.
 
 ```bash
 set -euo pipefail
@@ -49,6 +52,125 @@ pg19() {
 }
 pg_sql() { pg19 psql -X -v ON_ERROR_STOP=1 -h postgres -U erp_user "$@"; }
 ```
+
+### Operator handoff for root blocks
+
+Three blocks call `sudo`:
+[Preserve PG18 and initialize PG19](#preserve-pg18-and-initialize-pg19),
+[Roll back to PG18](#roll-back-to-pg18) and
+[Verify restored PG18 mounts](#verify-restored-pg18-mounts). Run each as a Bash
+script, whether or not the person running this procedure has root access. Never
+paste them into an interactive shell: an `exit` guard closes the terminal, and
+without `set -e` a failed command does not stop the lines after it. If the
+session has no root access, the maintainer runs the scripts in their own
+terminal. Do not grant the session `sudo` access.
+
+**Before stopping writers**, run the following in the shell that ran the setup
+block, with `runbook` set to this file in a checkout of the approved revision.
+It writes each script as the shell context followed by the exact runbook block,
+and a `preflight` script that requires the same resolved Compose configuration
+and the project's `postgres` container in the operator's terminal. The context
+holds the deployment directory, `project`, `old_file` and `old()`, and no
+passwords. If `old()` refers to other variables, such as additional Compose
+files, add them to the `declare -p` list. The `awk` below is the extractor for
+these scripts. Do not extract or edit their blocks by hand.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  runbook=$(realpath -e "${runbook:?Set the path of this runbook at the approved revision}")
+  handoff=$(realpath -e "${recovery:?}")/handoff
+  deployment=$(pwd -P)
+  cd "$deployment"
+  : "${project:?}" "${old_file:?}"
+  config_digest=$(old config | sha256sum)
+  mkdir "$handoff"
+  {
+    printf 'set -euo pipefail\numask 077\ncd %q\n' "$deployment"
+    declare -p project old_file
+    declare -f old
+  } > "$handoff/context.sh"
+  {
+    cat "$handoff/context.sh"
+    printf 'test "$(old config | sha256sum)" = %q ||\n' "$config_digest"
+    printf '  { echo "Compose resolves differently in this terminal" >&2; exit 1; }\n'
+    printf 'test -n "$(old ps -aq postgres)" ||\n'
+    printf '  { echo "No postgres container for this project" >&2; exit 1; }\n'
+    printf 'sudo -v\n'
+  } > "$handoff/preflight.sh"
+  bash -n "$handoff/preflight.sh"
+  for spec in \
+    'preserve:## Preserve PG18 and initialize PG19' \
+    'rollback:## Roll back to PG18' \
+    'rollback-mounts:### Verify restored PG18 mounts'; do
+    script="$handoff/${spec%%:*}.sh"
+    cp "$handoff/context.sh" "$script"
+    awk -v heading="${spec#*:}" '
+      $0 == heading { found = 1; next }
+      found && !copy && /^#+ / { exit }
+      found && !copy && /^```bash$/ { copy = 1; next }
+      copy && /^```$/ { complete = 1; exit }
+      copy
+      END { if (!complete) { print "No bash block under " heading > "/dev/stderr"; exit 1 } }
+    ' "$runbook" >> "$script"
+    bash -n "$script"
+  done
+  sha256sum "$runbook" "$handoff"/*.sh
+  for name in preflight preserve rollback rollback-mounts; do
+    printf 'bash %q || echo "STOPPED: exit $?"\n' "$handoff/$name.sh"
+  done
+)
+```
+
+If generation fails, hand over nothing. Fix the cause, move any `handoff`
+directory it left aside, and generate again.
+
+Hand over the printed commands, the expected result of each and the approval it
+needs. Support the expected results as
+[Runbook rehearsal evidence](../../CODING_STANDARDS.md#runbook-rehearsal-evidence)
+requires. A successful script prints no `STOPPED` line, and:
+
+| Script | When | Expected result |
+|---|---|---|
+| `preflight` | Before stopping writers, and again before rollback | No output of its own is expected. `sudo` may prompt for a password, depending on host policy. |
+| `preserve` | [Preserve PG18 and initialize PG19](#preserve-pg18-and-initialize-pg19) | `./data/postgres-18-preupgrade.tar: OK` |
+| `rollback` | [Roll back to PG18](#roll-back-to-pg18) | The archive reports `OK` twice. Compose reports PostgreSQL healthy and the backend started. |
+| `rollback-mounts` | [Verify restored PG18 mounts](#verify-restored-pg18-mounts) | `true`. A `STOPPED` line after it is still a failure. |
+
+Run `preflight` now, from the terminal that will run the other scripts. A fresh
+terminal has none of this shell's exports. If Compose resolves differently
+there, put the values in the deployment's own files and generate again.
+
+The person running the scripts must own `$recovery`. Run one script at a time
+with its printed command, and never with `sudo bash`: the blocks elevate only
+the commands that need it, and the archive and checksum must stay owned by the
+operator. Running a script does not replace the approval its section requires.
+A script stops at the first failing command and leaves the terminal open.
+`preflight` and `rollback-mounts` change nothing, so fix the cause and rerun
+them. After a `STOPPED` line from `preserve` or `rollback`, do not rerun that
+script or continue to a later step. Inspect the state and follow the recovery
+instructions in its section.
+
+Run root recovery commands the same way, never by pasting them. Create a new
+file in `handoff` from `context.sh`, append only the commands that the recovery
+instructions still require, copied from the runbook where it has them, and have
+them approved. Run it with `bash <file> || echo "STOPPED: exit $?"`. Do not
+repeat a step that already completed, such as a directory move.
+
+Keep the generator output, `context.sh`, any recovery script, and each script's
+output and exit status with the cutover evidence.
+
+All other blocks run in the shell that ran the setup block. They depend on its
+options, functions, variables and exports. Record `project`, `old_file`,
+`new_file`, `compose_network`, `recovery`, `old_image`, `REDIS_HOST` and
+`REDIS_PORT`. A replacement shell runs the setup block's `set`, `umask`,
+function and `pg19_image` lines, assigns the recorded values, exports the Redis
+endpoint and reads both passwords again. It must not rerun the lines that compute
+`recovery`, `old_image` or the endpoint: they create a new recovery directory or
+need the old backend running.
+
+### Stop writers and inventory
 
 Block ingress and other database writers, including scripts and maintenance
 jobs. Let backup jobs finish, then run `old stop backend`. Stop any other
@@ -284,7 +406,8 @@ Run `old stop postgres` and confirm clean shutdown in the PostgreSQL logs.
 inspect the source and destinations. Approve the removal of the empty PG19
 directories (if present) and the PG18 directory rename before running the block.
 The following commands assume the repository's local Alpine layout and use
-`sudo` to read PG18's mode-`700` data directory as root.
+`sudo` to read PG18's mode-`700` data directory as root. Run the block only as
+its [handoff script](#operator-handoff-for-root-blocks).
 
 If PG19 previously refused to start against the unrenamed directory, stop that
 container first. Verify the root `PG_VERSION` still reports 18. If both
@@ -463,8 +586,44 @@ Use the PG19 clients for both versions.
 - Run `new exec -T backend node node_modules/.bin/typeorm migration:show -d dist/config/database.config.js`.
   Require every Migration to be marked applied. Authenticate through the existing
   application login and verify an authenticated request such as `GET /api/auth/me`.
-  Use `GET /api/search/global?q=<typo>` with a misspelling that misses the normal
-  substring search and returns a known record through the trigram fallback.
+- Check search. `GET /api/search/global` is not strictly read-only: each accepted
+  request saves one `search_queries` row as search analytics (query text, user,
+  result count and duration). Take the row counts first.
+  - **Live API search.** Use `GET /api/search/global?q=<typo>` with a
+    misspelling that misses the normal substring search and returns a known
+    record through the trigram fallback. Record one new `search_queries` row per
+    request as an expected smoke-test write.
+  - **Empty live database.** When live data holds no such record, and the
+    maintainer approves this path, do not insert records or call the search API.
+    Run the following read-only statements on live PG19 through
+    `pg_sql -d erp_db -At`.
+
+    ```sql
+    BEGIN READ ONLY;
+    SELECT extname, extversion FROM pg_extension WHERE extname = 'pg_trgm';
+    SELECT show_limit();
+    SELECT similarity('Widget', 'Widgte'), 'Widget' % 'Widgte';
+    SELECT c.relname, x.indisvalid, x.indisready, pg_get_indexdef(c.oid)
+      FROM pg_index x JOIN pg_class c ON c.oid = x.indexrelid
+      WHERE c.relname LIKE 'idx\_%\_trgm'
+      ORDER BY c.relname COLLATE "C";
+    ROLLBACK;
+    ```
+
+    Between `BEGIN` and `ROLLBACK`, expect `pg_trgm` with the version captured by
+    the verification queries above, then `0.3`, then `0.4|t`, then eight
+    `idx_*_trgm` rows. Each row reports `t|t` and a `USING gin` definition with
+    `gin_trgm_ops`. These live results show that the extension works and that the
+    indexes exist and are valid. They do not show application search results or
+    the planner's choice of index.
+
+    Search behaviour then rests on disposable API evidence. Record it apart from
+    the live results, with its revision and PostgreSQL version.
+    [`fuzzy-search.e2e-spec.ts`](../../backend/test/fuzzy-search.e2e-spec.ts)
+    covers the trigram fallback by calling the search services, and
+    [`search.e2e-spec.ts`](../../backend/test/search.e2e-spec.ts) covers the HTTP
+    route with exact terms. Neither sends a misspelling through the route. To
+    show that, run the typo request against the seeded rehearsal stack.
 - Verify the prior queue cleanup result. Recreate PostgreSQL with
   `new up -d --wait --force-recreate postgres` and recheck the data directory,
   row counts and application connectivity.
@@ -481,6 +640,9 @@ Use the PG19 clients for both versions.
 
 ## Roll back to PG18
 
+First run the handoff `preflight` again, from the terminal that will run the
+rollback scripts. Stop if it reports `STOPPED`.
+
 Block ingress and all database and Redis writers again. Record any writes
 accepted on PG19 and arrange their separate recovery before restarting
 writers on PG18. Stop the new backend and then PostgreSQL with
@@ -491,7 +653,8 @@ symlinks.
 
 **Destructive steps and confirmation.** Approve moving PG19 aside and
 reactivating the PG18 directory before running the block. Stop if either major,
-the archive checksum, or the rollback destination fails its check.
+the archive checksum, or the rollback destination fails its check. Run the
+block only as its [handoff script](#operator-handoff-for-root-blocks).
 
 ```bash
 test "$(sudo cat ./data/postgres/19/docker/PG_VERSION)" = 19 ||
@@ -522,12 +685,15 @@ PostgreSQL and Redis, and the expected Redis schedulers before reopening
 ingress. Use the pinned pre-upgrade application and old Compose environment,
 including the old image and `PGDATA`. Verify the PG18 version.
 
+### Verify restored PG18 mounts
+
 From the deployment directory, verify that the PG18 container has exactly two
 mounts under `/var/lib/postgresql`: an anonymous Docker volume at the parent
 path and the restored host bind at `/var/lib/postgresql/data/pgdata`. Also
 verify that `./data/postgres/data` is absent. Run the host check with root
 permissions so an unreadable data directory cannot hide a leftover mountpoint.
-Stop with ingress blocked if either check fails.
+Stop with ingress blocked if either check fails. Run the block only as its
+[handoff script](#operator-handoff-for-root-blocks).
 
 ```bash
 (
