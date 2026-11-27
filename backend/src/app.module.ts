@@ -1,13 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
 // Configuration
 import { DatabaseConfig } from './config/database.config';
-import { createBullOptions } from './config/bull-options.factory';
 import { createScheduleOptions } from './config/schedule-options.factory';
 
 // Filters & Interceptors
@@ -24,7 +22,6 @@ import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { DashboardModule } from './modules/dashboard/dashboard-module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { PrintSettingsModule } from './modules/print-settings/print-settings.module';
-import { BackupModule } from './modules/backup/backup.module';
 import { PriceListsModule } from './modules/price-lists/price-lists.module';
 import { SearchModule } from './modules/search/search.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
@@ -58,9 +55,6 @@ import { AppService } from './app.service';
       useClass: DatabaseConfig,
     }),
 
-    // Bull Queue for background jobs
-    BullModule.forRootAsync(createBullOptions()),
-
     // Schedule Module for cron jobs. Not registered under NODE_ENV=test, so
     // e2e-booted apps never fire wall-clock handlers against the shared test
     // database (#1311) — see createScheduleOptions().
@@ -78,7 +72,6 @@ import { AppService } from './app.service';
     DashboardModule, // Re-enabled - WebSocket support
     SettingsModule, // Company settings
     PrintSettingsModule, // Print settings and templates
-    BackupModule, // Backup and restore functionality
     PriceListsModule, // Price list management (Phase 3)
     SearchModule,
     MonitoringModule, // Redis memory-pressure sampling and state

@@ -32,7 +32,6 @@ const roles: RoleInfo[] = [
       { description: 'All module access (Inventory, Sales, Purchasing)' },
       { description: 'System settings and configuration' },
       { description: 'Security settings and audit logs' },
-      { description: 'Database backup and restore' },
       { description: 'View and generate all reports' },
     ],
   },

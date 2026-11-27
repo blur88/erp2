@@ -4,7 +4,6 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const filesToKeepFlat = [
-  'src/pages/settings/BackupManagement.tsx',
   'src/pages/inventory/CategoriesPage.tsx',
 ]
 

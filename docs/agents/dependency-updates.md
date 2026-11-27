@@ -47,10 +47,8 @@
    expected affected path and accepts the patched version. Keep consumer
    compatibility tests for a major upgrade.
 
-   For example, [PR #1945](https://github.com/blur88/erp2/pull/1945) checks the
-   minimatch version resolved by each of `readdir-glob` and `test-exclude`. Both
-   assertions fail with `10.2.6` and pass with `11.0.9`. The same spec exercises
-   archive creation, glob filtering, and coverage file selection.
+   For example, the [test-exclude compatibility spec](../../backend/test/unit/dependency-test-exclude.spec.ts)
+   checks the installed minimatch version and exercises coverage file selection.
 
    When adding, changing, or removing an override, identify every direct
    consumer whose resolved dependency changes. Before recording an exception,
@@ -72,12 +70,9 @@
    [Statement computed-style verification](../modules/accounting/STATEMENT_THEME_QA.md#automated-coverage-and-styling-invariants).
    Use the same guide to determine when to run the ST-1 through ST-13 browser
    checks. Record the applicable browser results in the PR.
-5. Before changing BullMQ or ioredis, read the
-   [BullMQ scheduler runbook](../deployment/BULLMQ_SCHEDULER_RUNBOOK.md).
-   The setup instructions printed by
-   [`backend/scripts/preflight-redis-test.sh`](../../backend/scripts/preflight-redis-test.sh)
-   describe a disposable Redis and the explicit write opt-in; consult them before
-   preparing the integration-test environment.
+5. Before changing ioredis, read the
+   [Redis operator runbook](../deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md)
+   and apply the E2E verification requirements in AGENTS.md.
 6. Select verification and collect evidence using
    [AGENTS.md's Change-Scoped Verification](../../AGENTS.md#change-scoped-verification-required-before-pr).
    When batching related bumps, run focused local checks for each bump and use

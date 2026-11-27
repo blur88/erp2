@@ -87,15 +87,7 @@ This deployment introduces a comprehensive price list management system that mig
 
 ### Database Backup
 
-#### Option 1: Using Built-in Backup Module
-
-```bash
-# Via API (if backup module is active)
-curl -X POST http://localhost:3000/api/backup/create \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
-```
-
-#### Option 2: PostgreSQL Direct Backup
+#### Option 1: PostgreSQL Direct Backup
 
 ```bash
 # Create backup directory
@@ -109,7 +101,7 @@ docker compose exec -T postgres pg_dump -U erp_user erp_db \
 ls -lh /backup/erp/$(date +%Y%m%d_%H%M%S)/erp_db_backup.sql
 ```
 
-#### Option 3: Docker Volume Backup
+#### Option 2: Docker Volume Backup
 
 ```bash
 # Stop the database
@@ -322,10 +314,14 @@ docker compose logs frontend --tail=50
 
 ### Step 6: Verify Backend Started
 
-```bash
-# Check backend health
-curl http://localhost:3001/api/health
+Run the [operational health check](../../deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md#interpreting-the-pressure-state)
+from the repository root. Continue to the price list API check only after it passes.
 
+```bash
+bash ./setup.sh check-health
+```
+
+```bash
 # Check price list endpoints are registered
 curl http://localhost:3001/api/price-lists \
   -H "Authorization: Bearer YOUR_TOKEN"
@@ -353,6 +349,9 @@ curl -I http://localhost:3000/settings/price-lists
 
 ### Automated Validation Script
 
+Run this script from the repository root. It starts with the
+[operational health check](../../deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md#interpreting-the-pressure-state).
+
 ```bash
 #!/bin/bash
 # save as validate_deployment.sh
@@ -361,7 +360,7 @@ echo "=== Price List Deployment Validation ==="
 
 # 1. Check backend health
 echo "1. Checking backend health..."
-curl -s http://localhost:3001/api/health | jq '.'
+bash ./setup.sh check-health || exit 1
 
 # 2. Check price list API
 echo "2. Checking price list API..."

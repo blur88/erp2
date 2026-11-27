@@ -284,11 +284,11 @@ test('preserves successful observations through an outage and reports each diges
 
 test('updates the database alignment pointer in the managed section as drift changes', async () => {
   const sources = {
-    'compose.yml': 'services:\n  db:\n    image: postgres:18.6-alpine3.23\n  cache:\n    image: redis:8.6.7-alpine3.23',
+    'compose.yml': 'services:\n  db:\n    image: postgres:19.0-alpine3.24\n  cache:\n    image: redis:8.6.7-alpine3.23',
     'frontend/Dockerfile': `FROM ${nginx}`,
   };
   const tags = {
-    postgres: '18.7-alpine3.23',
+    postgres: '19.1-alpine3.24',
     redis: '8.6.7-alpine3.23',
     nginx: '1.30.9-alpine3.24-slim',
   };
@@ -308,7 +308,7 @@ test('updates the database alignment pointer in the managed section as drift cha
   assert.deepEqual(operations, ['POST']);
   assert.equal(issue.state, 'closed');
 
-  tags.postgres = '18.6-alpine3.23';
+  tags.postgres = '19.0-alpine3.24';
   tags.redis = '8.6.8-alpine3.23';
   const redisDrift = await checkDrift(sources, registry, tracker, repeated.state);
   assert.deepEqual(operations, ['POST', 'PATCH']);

@@ -11,7 +11,7 @@ const dockerfileName = /^(?:Dockerfile(?:\..+)?|.+\.Dockerfile)$/;
 
 // Each series is an approved prefix of the numeric version. Keep the exact
 // distribution version and image flavor from the pin when proposing updates.
-const approvedSeries = { node: '26', nginx: '1.30', postgres: '18', redis: '8.6' };
+const approvedSeries = { node: '26', nginx: '1.30', postgres: '19', redis: '8.6' };
 const officialImagesCatalogUrl = 'https://github.com/docker-library/official-images/blob/master/library';
 const digestPattern = /^sha256:[a-f0-9]{64}$/;
 const issueTitle = 'Docker base-image drift';

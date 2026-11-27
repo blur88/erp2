@@ -6,7 +6,9 @@
 
 Refs #
 
-<!-- Use Closes # only when merging this PR completes every required acceptance criterion.
+<!-- For ticket PRs into upgrade/**, use Refs #. Close the issue by hand after the PR
+merges and every required acceptance criterion is complete.
+Use Closes # only when merging this PR completes every required acceptance criterion.
 If a maintainer explicitly approves deferring a check, keep Refs # and leave the issue open
 until the check is demonstrated. Follow AGENTS.md's Change-Scoped Verification requirements. -->
 

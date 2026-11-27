@@ -57,15 +57,15 @@ _pg_transport_export_pgvars() {
   export PGPASSWORD="$DB_PASSWORD"
 }
 
-_pg_transport_require_client_major_18() {
+_pg_transport_require_client_major() {
   local version_line major
   if ! version_line="$(pg_dump --version 2>/dev/null)"; then
-    _pg_transport_die "PG_TRANSPORT=tcp requires pg_dump on PATH, but running it failed. Install the PostgreSQL 18 client (postgresql-client-18)."
+    _pg_transport_die "PG_TRANSPORT=tcp requires pg_dump on PATH, but running it failed. Install the PostgreSQL 19 client (postgresql-client-19)."
   fi
-  # "pg_dump (PostgreSQL) 18.3" -> 18
+  # "pg_dump (PostgreSQL) 19.0" -> 19
   major="$(printf '%s' "$version_line" | sed -n 's/.*(PostgreSQL) \([0-9]\{1,\}\).*/\1/p')"
-  if [ "$major" != "18" ]; then
-    _pg_transport_die "pg_dump reports major version '${major:-unknown}' ($version_line), but the server is PostgreSQL 18. An older client refuses a v18 server outright. A newer client is not rejected by the server, but verify-baseline.sh's normalize() is written against PostgreSQL 18's dump dialect (it strips 18's \\restrict/\\unrestrict wrappers and filters whole statement paragraphs), so a different dialect is outside the range it was validated for. Both sides of the diff use the same client, so ordinary formatting changes cancel — the pin bounds normalization's input, it does not predict a false diff. Install postgresql-client-18."
+  if [ "$major" != "19" ]; then
+    _pg_transport_die "pg_dump reports major version '${major:-unknown}' ($version_line). The schema gate was verified against the full ERP2 schema with pg_dump 19 and rejects newer clients too, because verify-baseline.sh's normalize() is written for PostgreSQL 19's dump dialect. Install postgresql-client-19 to keep the input to normalize() within that dialect."
   fi
 }
 
@@ -95,10 +95,10 @@ case "$PG_TRANSPORT" in
 
   tcp)
     command -v psql >/dev/null 2>&1 \
-      || _pg_transport_die "PG_TRANSPORT=tcp requires psql on PATH. Install postgresql-client-18."
+      || _pg_transport_die "PG_TRANSPORT=tcp requires psql on PATH. Install postgresql-client-19."
     command -v pg_dump >/dev/null 2>&1 \
-      || _pg_transport_die "PG_TRANSPORT=tcp requires pg_dump on PATH. Install postgresql-client-18."
-    _pg_transport_require_client_major_18
+      || _pg_transport_die "PG_TRANSPORT=tcp requires pg_dump on PATH. Install postgresql-client-19."
+    _pg_transport_require_client_major
     _pg_transport_export_pgvars
 
     # Plain invocation, NOT `exec`. `exec psql` inside a function replaces the

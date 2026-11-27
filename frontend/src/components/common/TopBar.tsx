@@ -63,7 +63,6 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/settings/users': 'Users',
   '/settings/roles': 'Roles & Permissions',
   '/settings/security': 'Security',
-  '/settings/backup': 'Backup & Restore',
   '/settings/redis-monitoring': 'Redis Monitoring',
 }
 
@@ -90,7 +89,6 @@ const NAVIGABLE_PATHS = new Set([
   '/settings/users',
   '/settings/roles',
   '/settings/security',
-  '/settings/backup',
   '/settings/redis-monitoring',
 ])
 

@@ -58,6 +58,11 @@ check_prerequisites() {
         exit 1
     fi
     
+    if ! command -v curl >/dev/null || ! command -v jq >/dev/null; then
+        print_error "curl and jq are required for the operational health check."
+        exit 1
+    fi
+
     print_success "Prerequisites check passed"
 }
 
@@ -65,9 +70,9 @@ check_prerequisites() {
 create_directories() {
     print_status "Creating necessary directories..."
     
-    mkdir -p uploads logs backups
+    mkdir -p uploads logs
     mkdir -p database/init
-    chmod 755 uploads logs backups
+    chmod 755 uploads logs
     
     print_success "Directories created"
 }
@@ -123,6 +128,9 @@ wait_for_services() {
         sleep 5
     done
     
+    # See docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md#interpreting-the-pressure-state.
+    bash "$(dirname "${BASH_SOURCE[0]}")/setup.sh" check-health || exit 1
+
     # Wait for frontend
     print_status "Waiting for Frontend..."
     until curl -f http://localhost:3000 > /dev/null 2>&1; do

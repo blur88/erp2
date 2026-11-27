@@ -63,17 +63,10 @@ is not cron, so turning cron off in test apps (below) does not remove it.
 **Cron does not run in e2e-booted apps** (#1311). `createScheduleOptions()`
 (`config/schedule-options.factory.ts`) passes `cronJobs: false` to
 `ScheduleModule.forRoot()` when `NODE_ENV` is exactly `test`, which both e2e
-entry points export. Before this, every suite app registered all five `@Cron`
-handlers, and the hourly backup cleanup's `getBackupSettings()` lazily INSERTed
-a `backup_retention_settings` row at hh:00 — the gate's verdict depended on the
-wall clock. (That read no longer writes: since #1312, `getBackupSettings()`
-returns unpersisted defaults with `id`/`createdAt`/`updatedAt` null when no row
-exists, and `updateBackupSettings()` is the only writer.) `test/cron-isolation.e2e-spec.ts` asserts a booted test app's
-`SchedulerRegistry` holds no cron jobs. A test that needs a handler's behaviour
-must call the handler method directly; never rely on the schedule firing.
-BullMQ repeatable jobs are **not** covered: they are created from persisted
-`backup_schedules` rows at boot but then execute on a time schedule in any
-booted app's worker, independent of `ScheduleModule`.
+entry points export. Wall-clock cleanup could delete rows during a suite and
+affect the verdict. `test/cron-isolation.e2e-spec.ts` checks that a booted test
+app registers no cron jobs. Tests that need a handler's behaviour call the
+handler directly.
 
 The sampler tables are **counted and reported, never diffed**. Every report ends with an
 `ignored (sampler, not suite-attributable)` section giving each table's

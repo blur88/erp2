@@ -18,7 +18,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18.7-alpine3.23
+        image: postgres:19.0-alpine3.24
         env:
           POSTGRES_USER: erp_user
           POSTGRES_PASSWORD: DevErpDb2024!Pass
@@ -32,9 +32,8 @@ jobs:
           --health-retries 5
 
       redis:
+        # The ephemeral service supports application health and memory monitoring.
         image: redis:8.6.8-alpine3.23
-        # noeviction is a correctness requirement for BullMQ, not tuning:
-        # evicted job hashes vanish with no error. See CLAUDE.md.
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s

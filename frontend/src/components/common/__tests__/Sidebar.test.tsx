@@ -404,7 +404,7 @@ describe('Sidebar', () => {
     expect(within(flyout).getByText('Business')).toBeInTheDocument()
     expect(within(flyout).queryByRole('button', { name: 'Business' })).not.toBeInTheDocument()
     expect(within(flyout).getByRole('button', { name: 'Users' })).toBeInTheDocument()
-    expect(within(flyout).getByRole('button', { name: 'Backup & Restore' })).toBeInTheDocument()
+    expect(within(flyout).getByRole('button', { name: 'Redis Monitoring' })).toBeInTheDocument()
   })
 
   describe('brand header', () => {

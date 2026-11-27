@@ -65,7 +65,7 @@ Before starting or waiting on long-running local verification or PR checks, read
 | Backend dependency manifests or lockfiles (`backend/package.json`, `backend/package-lock.json`), override documentation (`docs/agents/dependency-overrides.md`), or the exception allowlist (`backend/scripts/dependency-override-allowlist.json`) | `cd backend && npm run check:overrides` |
 | Backend dependency changes that can affect the production build or runtime | Also run in order: `cd backend && npm run build && npx tsc -p tsconfig.cli.json && npm run verify:dist`. |
 | Root release-tooling dependency changes | `npm run test:release` |
-| BullMQ or ioredis dependency changes, including changed resolved versions in lockfiles | `cd backend && npm run test:redis` |
+| ioredis dependency changes, including changed resolved versions in the backend lockfile | `cd backend && npm run test:e2e` against disposable Redis, including application startup and Redis memory monitoring |
 | Cross-app contracts (API DTOs/interfaces used by both apps) | `cd backend && npm run type-check && npm run test`; `cd frontend && npm run test:coverage`; also apply source checks for each app touched |
 
 Backend `npm run type-check` compiles both production sources (`type-check:build`, `tsconfig.build.json`) and test sources (`type-check:spec`, `tsconfig.spec.json`). Frontend `npm run type-check` compiles both the app (`tsconfig.json`) and the build-time config sources (`tsconfig.node.json`). Unit-test transpilation does not replace type-checking.
