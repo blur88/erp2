@@ -117,6 +117,24 @@ for (const [name, status, body, diagnostic] of [
   });
 }
 
+test('operational health rejects a refused connection', async () => {
+  const server = createServer();
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const url = `http://127.0.0.1:${server.address().port}/api/health`;
+  await promisify(server.close.bind(server))();
+
+  await assert.rejects(
+    exec('bash', [setup, 'check-health', url], { timeout: 5000 }),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /curl: \(7\)/);
+      assert.match(error.stderr, /Health request failed \(HTTP 000\)/);
+      return true;
+    },
+  );
+});
+
 test('the warm-up reason from the issue retries until healthy', async (t) => {
   const probe = await serve(t, [[200, warming], [200, healthy]]);
   const result = await probe.check();
