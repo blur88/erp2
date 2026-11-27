@@ -54,7 +54,20 @@ renders this.
 
 ## Interpreting the pressure state
 
-`/api/health` returns HTTP 200. `services.redis.status` is `unhealthy` if
+`/api/health` returns HTTP 200 even when a required service is unhealthy.
+An HTTP success check such as `curl -f` establishes backend liveness.
+Operational health also requires valid response JSON with `healthy` for
+the overall status and for the backend, database, and Redis statuses.
+From the deployment directory, run `bash ./setup.sh check-health [url]`
+with `curl` and `jq` available. The default URL is
+`http://localhost:3001/api/health`. For a backend without a published port,
+pass the URL and backend container ID to run `curl` inside that container.
+The gate polls every 30 seconds for up to
+ten minutes when Redis is connected and degraded with `insufficient-samples`
+in the pressure state or reason. It requires a healthy response before
+returning success.
+
+`services.redis.status` is `unhealthy` if
 the live Redis check fails, `degraded` if monitoring is unavailable or the
 pressure state is anything other than `healthy`, and `healthy` when the Redis check and
 pressure evaluation both pass. When monitoring is available,
