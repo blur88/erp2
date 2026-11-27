@@ -2,12 +2,14 @@ const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const {
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   readlinkSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   utimesSync,
@@ -17,10 +19,8 @@ const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { test } = require('node:test');
 
-const runbook = readFileSync(
-  resolve(__dirname, '../../docs/deployment/POSTGRES_19_MAJOR_UPGRADE_RUNBOOK.md'),
-  'utf8',
-);
+const runbookPath = resolve(__dirname, '../../docs/deployment/POSTGRES_19_MAJOR_UPGRADE_RUNBOOK.md');
+const runbook = readFileSync(runbookPath, 'utf8');
 
 function bashBlock(heading) {
   return runbook.split(`\n${heading}\n`)[1].match(/```bash\n([\s\S]+?)\n```/)[1];
@@ -305,3 +305,305 @@ test('the PG18 inventory stops on an unexpected database before cutover', (t) =>
   assert.match(result.stdout, /^\+unexpected_db$/m);
   assert.deepEqual(snapshot(dir).filter(([file]) => file !== 'databases.before'), before);
 });
+
+// Operator handoff: the preparing shell generates scripts from the runbook, and
+// each script runs in a separate process that inherits none of that shell's state.
+const handoffHeading = '### Operator handoff for root blocks';
+const oldDefinition = bashBlock('## Quiesce and inventory').match(/^old\(\) \{.*\}$/m)[0];
+
+const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+
+function shim(f, name, body) {
+  writeFileSync(join(f.bin, name), `#!/usr/bin/env bash\n${body}\n`, { mode: 0o755 });
+}
+
+function calls(f, name) {
+  const path = join(f.dir, name);
+  return existsSync(path) ? readFileSync(path, 'utf8') : '';
+}
+
+function handoffFixture(t) {
+  const dir = fixtureDirectory(t);
+  const f = {
+    dir,
+    deployment: join(dir, 'deployment dir'),
+    recovery: join(dir, 'recovery'),
+    bin: join(dir, 'bin'),
+  };
+  for (const path of [join(f.deployment, active), f.recovery, f.bin]) mkdirSync(path, { recursive: true });
+  writeFileSync(join(f.deployment, active, 'PG_VERSION'), '18\n');
+  writeFileSync(join(f.deployment, active, 'control-fixture'), 'preserve');
+  shim(f, 'sudo', `[[ $1 == -v ]] && exit 0
+if [[ $1 == chown ]]; then printf '%s\\n' "$*" >> ${quote(join(dir, 'chown-calls'))}; exit 0; fi
+exec "$@"`);
+  shim(f, 'docker', `printf '%s\\n' "$*" >> ${quote(join(dir, 'docker-calls'))}
+case "$*" in
+  *' config') printf 'database: %s\\n' "\${DATABASE_NAME:-erp_db}" ;;
+  *' ps -aq postgres') printf 'postgres-container\\n' ;;
+esac`);
+  return f;
+}
+
+function prepareHandoff(f, { session = {}, runbookFile = runbookPath, env = {} } = {}) {
+  const names = {
+    project: 'erp-fixture',
+    old_file: 'compose.old.yml',
+    recovery: f.recovery,
+    runbook: runbookFile,
+    ...session,
+  };
+  const assignments = Object.entries(names)
+    .filter(([, value]) => value !== undefined)
+    .map(([name, value]) => `${name}=${quote(value)}`);
+  const definition = 'old' in session ? '' : oldDefinition;
+  const result = spawnSync(
+    'bash',
+    ['-c', ['set -euo pipefail', ...assignments, definition, bashBlock(handoffHeading)].join('\n')],
+    { cwd: f.deployment, encoding: 'utf8', env: { PATH: `${f.bin}:${process.env.PATH}`, ...env } },
+  );
+  assert.ifError(result.error);
+  return result;
+}
+
+// Runs the command the handoff printed for one script, the way the maintainer
+// would: another directory, a clean environment, and errexit on in their shell.
+function runInOperatorTerminal(f, handoff, name) {
+  const command = handoff.stdout.split('\n')
+    .find((line) => line.startsWith('bash ') && line.includes(`/${name}.sh `));
+  assert.ok(command, `no handoff command for ${name}:\n${handoff.stdout}`);
+  const result = spawnSync(
+    'bash',
+    ['--noprofile', '--norc', '-c', `set -e\numask 022\n${command}\necho terminal-still-open`],
+    { cwd: f.dir, encoding: 'utf8', env: { PATH: `${f.bin}:${process.env.PATH}` } },
+  );
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^terminal-still-open$/m);
+  return result;
+}
+
+// Forgets the generator's own Compose calls, so tests see only the scripts' calls.
+function prepared(f, options) {
+  const result = prepareHandoff(f, options);
+  assert.equal(result.status, 0, result.stderr);
+  rmSync(join(f.dir, 'docker-calls'), { force: true });
+  return result;
+}
+
+test('a failed archive after the PG18 rename stops initialization and keeps the saved cluster', (t) => {
+  const f = handoffFixture(t);
+  shim(f, 'tar', 'printf partial; exit 2');
+  const result = runInOperatorTerminal(f, prepared(f), 'preserve');
+  assert.match(result.stdout, /^STOPPED: exit 2$/m);
+  assert.deepEqual(readdirSync(join(f.deployment, saved)).sort(), ['PG_VERSION', 'control-fixture']);
+  assert.equal(readFileSync(join(f.deployment, saved, 'control-fixture'), 'utf8'), 'preserve');
+  assert.equal(existsSync(join(f.deployment, active)), false);
+  assert.equal(existsSync(join(f.deployment, archiveChecksum)), false);
+  assert.equal(calls(f, 'chown-calls'), '');
+});
+
+const mode = (path) => lstatSync(path).mode & 0o777;
+
+test('the handoff scripts hold the exact runbook blocks after an explicit context', (t) => {
+  const f = handoffFixture(t);
+  prepared(f);
+  const handoff = join(f.recovery, 'handoff');
+  const context = readFileSync(join(handoff, 'context.sh'), 'utf8');
+  assert.ok(context.startsWith('set -euo pipefail\numask 077\ncd '), context);
+  assert.match(context, /^declare -- project="erp-fixture"$/m);
+  assert.match(context, /^declare -- old_file="compose\.old\.yml"$/m);
+  assert.match(context, /^old \(\)/m);
+  for (const [name, block] of [
+    ['preserve', preserve],
+    ['rollback', rollback],
+    ['rollback-mounts', bashBlock('### Verify restored PG18 mounts')],
+  ]) {
+    assert.equal(readFileSync(join(handoff, `${name}.sh`), 'utf8'), `${context}${block}\n`);
+    assert.equal(mode(join(handoff, `${name}.sh`)), 0o600);
+  }
+});
+
+test('the preflight confirms Compose, the project and sudo from a separate terminal', (t) => {
+  const f = handoffFixture(t);
+  const handoff = prepared(f);
+  shim(f, 'sudo', `printf '%s\\n' "$*" >> ${quote(join(f.dir, 'sudo-calls'))}`);
+  const result = runInOperatorTerminal(f, handoff, 'preflight');
+  assert.doesNotMatch(result.stdout, /STOPPED/);
+  assert.equal(
+    calls(f, 'docker-calls'),
+    'compose -p erp-fixture -f compose.old.yml config\n' +
+    'compose -p erp-fixture -f compose.old.yml ps -aq postgres\n',
+  );
+  assert.equal(calls(f, 'sudo-calls'), '-v\n');
+});
+
+for (const [name, diagnostic, options, alter] of [
+  ['an export the operator terminal does not have', /Compose resolves differently in this terminal/,
+    { env: { DATABASE_NAME: 'exported_only_here' } }, () => {}],
+  ['no postgres container', /No postgres container/, {}, (f) => shim(f, 'docker',
+    `case "$*" in *' config') printf 'database: erp_db\\n' ;; esac`)],
+  ['an unreachable Docker daemon', /daemon unreachable/, {}, (f) => shim(f, 'docker',
+    `case "$*" in *' config') printf 'database: erp_db\\n' ;; *) echo 'daemon unreachable' >&2; exit 1 ;; esac`)],
+  ['no sudo access', /not in sudoers/, {}, (f) => shim(f, 'sudo', `echo 'not in sudoers' >&2; exit 1`)],
+]) {
+  test(`the preflight stops on ${name}`, (t) => {
+    const f = handoffFixture(t);
+    const handoff = prepared(f, options);
+    alter(f);
+    const before = snapshot(f.deployment);
+    const result = runInOperatorTerminal(f, handoff, 'preflight');
+    assert.match(result.stdout, /^STOPPED: exit 1$/m);
+    assert.match(result.stderr, diagnostic);
+    assert.deepEqual(snapshot(f.deployment), before);
+  });
+}
+
+test('preservation runs from a separate terminal with its own umask and directory', (t) => {
+  const f = handoffFixture(t);
+  const result = runInOperatorTerminal(f, prepared(f), 'preserve');
+  assert.doesNotMatch(result.stdout, /STOPPED/);
+  assert.match(result.stdout, /postgres-18-preupgrade\.tar: OK/);
+  assert.deepEqual(readdirSync(join(f.deployment, saved)).sort(), ['PG_VERSION', 'control-fixture']);
+  assert.deepEqual(readdirSync(join(f.deployment, active)), []);
+  assert.equal(mode(join(f.deployment, archive)), 0o600);
+  assert.equal(mode(join(f.deployment, archiveChecksum)), 0o600);
+  assert.equal(calls(f, 'chown-calls'), 'chown 70:70 ./data/postgres\n');
+});
+
+function cutOverFixture(t) {
+  const f = handoffFixture(t);
+  const handoff = prepared(f);
+  runInOperatorTerminal(f, handoff, 'preserve');
+  mkdirSync(join(f.deployment, active, '19/docker'), { recursive: true });
+  writeFileSync(join(f.deployment, active, '19/docker/PG_VERSION'), '19\n');
+  return { f, handoff };
+}
+
+test('rollback runs from a separate terminal with the handed-over Compose function', (t) => {
+  const { f, handoff } = cutOverFixture(t);
+  const result = runInOperatorTerminal(f, handoff, 'rollback');
+  assert.doesNotMatch(result.stdout, /STOPPED/);
+  assert.equal(readFileSync(join(f.deployment, active, 'PG_VERSION'), 'utf8'), '18\n');
+  assert.equal(
+    readFileSync(join(f.deployment, 'data/postgres-19-rollback/19/docker/PG_VERSION'), 'utf8'),
+    '19\n',
+  );
+  assert.equal(
+    calls(f, 'docker-calls'),
+    'compose -p erp-fixture -f compose.old.yml up -d --wait --renew-anon-volumes postgres\n' +
+    'compose -p erp-fixture -f compose.old.yml up -d backend\n',
+  );
+});
+
+test('a corrupt archive stops rollback before either cluster moves or Compose runs', (t) => {
+  const { f, handoff } = cutOverFixture(t);
+  writeFileSync(join(f.deployment, archive), 'corrupt');
+  const before = snapshot(f.deployment);
+  const result = runInOperatorTerminal(f, handoff, 'rollback');
+  assert.match(result.stdout, /^STOPPED: exit 1$/m);
+  assert.match(result.stdout, /postgres-18-preupgrade\.tar: FAILED/);
+  assert.deepEqual(snapshot(f.deployment), before);
+  assert.equal(calls(f, 'docker-calls'), '');
+});
+
+test('a failed PG18 start during rollback does not start the backend', (t) => {
+  const { f, handoff } = cutOverFixture(t);
+  shim(f, 'docker', `printf '%s\\n' "$*" >> ${quote(join(f.dir, 'docker-calls'))}; exit 17`);
+  const result = runInOperatorTerminal(f, handoff, 'rollback');
+  assert.match(result.stdout, /^STOPPED: exit 17$/m);
+  assert.equal(
+    calls(f, 'docker-calls'),
+    'compose -p erp-fixture -f compose.old.yml up -d --wait --renew-anon-volumes postgres\n',
+  );
+});
+
+function mountFixture(t, { extraMount = false } = {}) {
+  const f = handoffFixture(t);
+  const mounts = [
+    { Type: 'volume', Name: 'parent-volume', Destination: '/var/lib/postgresql' },
+    {
+      Type: 'bind',
+      Source: realpathSync(join(f.deployment, active)),
+      Destination: '/var/lib/postgresql/data/pgdata',
+    },
+    ...(extraMount ? [{ Type: 'bind', Source: '/other', Destination: '/var/lib/postgresql/data' }] : []),
+  ];
+  writeFileSync(join(f.dir, 'inspect.json'), JSON.stringify([{ Mounts: mounts }]));
+  writeFileSync(
+    join(f.dir, 'volume.json'),
+    JSON.stringify([{ Labels: { 'com.docker.volume.anonymous': '' } }]),
+  );
+  shim(f, 'docker', `case "$1 $2" in
+  'compose -p') printf 'pg18-container\\n' ;;
+  'inspect pg18-container') cat ${quote(join(f.dir, 'inspect.json'))} ;;
+  'volume inspect') cat ${quote(join(f.dir, 'volume.json'))} ;;
+  *) exit 2 ;;
+esac`);
+  return f;
+}
+
+test('the mount check runs from a separate terminal', (t) => {
+  const f = mountFixture(t);
+  const result = runInOperatorTerminal(f, prepared(f), 'rollback-mounts');
+  assert.doesNotMatch(result.stdout, /STOPPED/);
+  assert.match(result.stdout, /^true$/m);
+});
+
+for (const [name, diagnostic, options, alter] of [
+  ['an extra mount', /Unexpected PG18 PostgreSQL mounts/, { extraMount: true }, () => {}],
+  ['a nested mountpoint directory', null, {}, (f) => mkdirSync(join(f.deployment, active, 'data'))],
+]) {
+  test(`the mount check stops on ${name}`, (t) => {
+    const f = mountFixture(t, options);
+    alter(f);
+    const result = runInOperatorTerminal(f, prepared(f), 'rollback-mounts');
+    assert.match(result.stdout, /^STOPPED: exit 1$/m);
+    if (diagnostic) assert.match(result.stderr, diagnostic);
+    else assert.match(result.stdout, /^true$/m);
+  });
+}
+
+function altered(f, from, to) {
+  const path = join(f.dir, 'runbook.md');
+  assert.ok(runbook.includes(from), from);
+  writeFileSync(path, runbook.replace(from, to));
+  return path;
+}
+
+const rollbackFence = `\`\`\`bash\n${rollback}\n\`\`\``;
+
+for (const [name, diagnostic, options] of [
+  ['no runbook path', /Set the path of this runbook/, { session: { runbook: undefined } }],
+  ['a nonexistent runbook', /No such file or directory/, { session: { runbook: '/nonexistent/runbook.md' } }],
+  ['no recovery directory name', /recovery: parameter null or not set/, { session: { recovery: undefined } }],
+  ['a nonexistent recovery directory', /No such file or directory/, { session: { recovery: '/nonexistent' } }],
+  ['no project', /project: parameter null or not set/, { session: { project: undefined } }],
+  ['no old_file', /old_file: parameter null or not set/, { session: { old_file: undefined } }],
+  ['no old() function', /old: command not found/, { session: { old: undefined } }],
+  ['an existing handoff directory', /File exists/, { alter: (f) => {
+    mkdirSync(join(f.recovery, 'handoff'));
+    writeFileSync(join(f.recovery, 'handoff/preserve.sh'), 'earlier');
+  } }],
+  ['a missing section', /No bash block under ## Roll back to PG18/,
+    { replace: ['\n## Roll back to PG18\n', '\n## Renamed\n'] }],
+  ['a section without its block', /No bash block under ## Roll back to PG18/,
+    { replace: [rollbackFence, 'The block is gone.'] }],
+  ['a block that is not valid Bash', /syntax error/,
+    { replace: [rollbackFence, '```bash\nif true; then\n```'] }],
+]) {
+  test(`handoff generation fails with ${name} and prints no command`, (t) => {
+    const f = handoffFixture(t);
+    options.alter?.(f);
+    const runbookFile = options.replace ? altered(f, ...options.replace) : runbookPath;
+    const before = snapshot(f.deployment);
+    const result = prepareHandoff(f, { session: options.session, runbookFile });
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.match(result.stderr, diagnostic);
+    assert.doesNotMatch(result.stdout, /^bash /m);
+    assert.deepEqual(snapshot(f.deployment), before);
+    assert.match(calls(f, 'docker-calls'), /^(compose [^\n]* config\n)?$/);
+    if (options.alter) {
+      assert.equal(readFileSync(join(f.recovery, 'handoff/preserve.sh'), 'utf8'), 'earlier');
+    }
+  });
+}
