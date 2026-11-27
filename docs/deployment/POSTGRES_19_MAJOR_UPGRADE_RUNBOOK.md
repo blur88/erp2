@@ -505,7 +505,8 @@ if [[ -e ./data/postgres-19-rollback || -L ./data/postgres-19-rollback ]]; then
 fi
 sudo mv -T ./data/postgres ./data/postgres-19-rollback
 sudo mv -T ./data/postgres-18-preupgrade ./data/postgres
-old up -d --wait postgres
+# Recreate the image-declared volume without inheriting the PG19 bind.
+old up -d --wait --renew-anon-volumes postgres
 old up -d backend
 sha256sum -c ./data/postgres-18-preupgrade.tar.sha256
 ```

@@ -287,7 +287,7 @@ test('rollback sets PG19 aside, restarts PG18, and preserves the archive', (t) =
   assert.equal(readFileSync(join(dir, 'data/postgres-19-rollback/19/docker/PG_VERSION'), 'utf8'), '19\n');
   assert.equal(readFileSync(join(dir, archive), 'utf8'), 'pristine');
   assert.equal(readFileSync(join(dir, archiveChecksum), 'utf8'), digest);
-  assert.equal(readFileSync(join(dir, 'compose-calls'), 'utf8'), 'up -d --wait postgres\nup -d backend\n');
+  assert.equal(readFileSync(join(dir, 'compose-calls'), 'utf8'), 'up -d --wait --renew-anon-volumes postgres\nup -d backend\n');
 });
 
 test('the PG18 inventory stops on an unexpected database before cutover', (t) => {
