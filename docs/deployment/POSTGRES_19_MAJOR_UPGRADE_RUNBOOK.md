@@ -533,17 +533,23 @@ Stop with ingress blocked if either check fails.
 (
   set -euo pipefail
   pg18_container=$(old ps -q postgres)
-  docker inspect "$pg18_container" |
-    jq -e --arg source "$(realpath ./data/postgres)" '
+  restored_bind=$(realpath -e ./data/postgres)
+  parent_volume=$(
+    docker inspect "$pg18_container" |
+      jq -er --arg source "$restored_bind" '
       .[0].Mounts
       | map(select(.Destination == "/var/lib/postgresql" or
                    (.Destination | startswith("/var/lib/postgresql/"))))
-      | length == 2
-        and any(.[]; .Destination == "/var/lib/postgresql"
-                and .Type == "volume" and (.Name | test("^[0-9a-f]{64}$")))
-        and any(.[]; .Destination == "/var/lib/postgresql/data/pgdata"
-                and .Type == "bind" and .Source == $source)
-    '
+      | select(length == 2 and
+               any(.[]; .Destination == "/var/lib/postgresql/data/pgdata"
+                   and .Type == "bind" and .Source == $source))
+      | .[]
+      | select(.Destination == "/var/lib/postgresql" and .Type == "volume")
+      | .Name
+      '
+  ) || { printf 'Unexpected PG18 PostgreSQL mounts\n' >&2; exit 1; }
+  docker volume inspect "$parent_volume" |
+    jq -e '.[0].Labels | type == "object" and has("com.docker.volume.anonymous")'
   sudo sh -ec 'test -d ./data/postgres && test -x ./data/postgres &&
     test ! -e ./data/postgres/data && test ! -L ./data/postgres/data'
 )
