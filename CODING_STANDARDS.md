@@ -1,6 +1,6 @@
 # Coding standards
 
-The principles guide judgment. They are not mandatory rules, and a departure from them is not a blocking finding by itself. The numbered rules and the evidence requirements below are mandatory.
+The principles guide judgment. They are not mandatory rules, and a departure from them is not a blocking finding by itself. Every other section of this file is a mandatory repository standard.
 
 ## Principles
 
@@ -30,8 +30,8 @@ This applies to retrospectives and to any proposed permanent change to standards
 - The default outcome is no permanent change. "Learned, no change" is a valid result.
 - When an adequate rule existed and was not followed, do not add another rule for the same requirement.
 - Prefer clarifying ambiguous guidance and consolidating or removing redundant, overly specific, or obsolete rules. Keep incident-specific examples in the PR unless general wording would lose an important invariant.
-- Take preventive action only when the root cause, recurrence, or the seriousness of actual or potential consequences justifies it; one serious incident can be enough. Weigh it against the maintenance cost, prefer improving an existing mechanism, and automate only when the benefits justify implementation, execution, and maintenance costs.
-- In this repository, this section overrides conflicting skill defaults. The retro skill's preference for building a check over writing a rule applies only after preventive action is justified.
+- Take preventive action only when the root cause is understood and recurrence or the seriousness of actual or potential consequences justifies it; one serious incident can be enough. Weigh it against the maintenance cost, prefer improving an existing mechanism, and automate only when the benefits justify implementation, execution, and maintenance costs.
+- In this repository, this section overrides conflicting skill defaults. The Matt Pocock `retro` skill's preference for building a check over writing a rule applies only after preventive action is justified.
 - Agent recommendations become mandatory only when approved and merged through the normal PR process.
 
 ## Complexity in reviews
