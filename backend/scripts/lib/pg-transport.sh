@@ -65,7 +65,7 @@ _pg_transport_require_client_major() {
   # "pg_dump (PostgreSQL) 19.0" -> 19
   major="$(printf '%s' "$version_line" | sed -n 's/.*(PostgreSQL) \([0-9]\{1,\}\).*/\1/p')"
   if [ "$major" != "19" ]; then
-    _pg_transport_die "pg_dump reports major version '${major:-unknown}' ($version_line). The schema gate was verified with PostgreSQL 19's pg_dump on the full ERP2 schema. Install postgresql-client-19 to use the verified dump format."
+    _pg_transport_die "pg_dump reports major version '${major:-unknown}' ($version_line). The schema gate was verified against the full ERP2 schema with pg_dump 19 and rejects newer clients too, because verify-baseline.sh's normalize() is written for PostgreSQL 19's dump dialect. Install postgresql-client-19 to keep the input to normalize() within that dialect."
   fi
 }
 
