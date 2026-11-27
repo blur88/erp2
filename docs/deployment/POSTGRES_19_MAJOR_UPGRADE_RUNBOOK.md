@@ -520,7 +520,40 @@ never renamed, verify its path and version and leave it in place.
 **Checkpoint.** Require a matching archive checksum, a healthy backend,
 PostgreSQL and Redis, and the expected Redis schedulers before reopening
 ingress. Use the pinned pre-upgrade application and old Compose environment,
-including the old image, bind mount and `PGDATA`. Verify the PG18 version.
+including the old image and `PGDATA`. Verify the PG18 version.
+
+From the deployment directory, verify that the PG18 container has exactly two
+mounts under `/var/lib/postgresql`: an anonymous Docker volume at the parent
+path and the restored host bind at `/var/lib/postgresql/data/pgdata`. Also
+verify that `./data/postgres/data` is absent. Run the host check with root
+permissions so an unreadable data directory cannot hide a leftover mountpoint.
+Stop with ingress blocked if either check fails.
+
+```bash
+(
+  set -euo pipefail
+  pg18_container=$(old ps -q postgres)
+  restored_bind=$(realpath -e ./data/postgres)
+  parent_volume=$(
+    docker inspect "$pg18_container" |
+      jq -er --arg source "$restored_bind" '
+      .[0].Mounts
+      | map(select(.Destination == "/var/lib/postgresql" or
+                   (.Destination | startswith("/var/lib/postgresql/"))))
+      | select(length == 2 and
+               any(.[]; .Destination == "/var/lib/postgresql/data/pgdata"
+                   and .Type == "bind" and .Source == $source))
+      | .[]
+      | select(.Destination == "/var/lib/postgresql" and .Type == "volume")
+      | .Name
+      '
+  ) || { printf 'Unexpected PG18 PostgreSQL mounts\n' >&2; exit 1; }
+  docker volume inspect "$parent_volume" |
+    jq -e '.[0].Labels | type == "object" and has("com.docker.volume.anonymous")'
+  sudo sh -ec 'test -d ./data/postgres && test -x ./data/postgres &&
+    test ! -e ./data/postgres/data && test ! -L ./data/postgres/data'
+)
+```
 
 Wait for `old ps backend` to show the backend container as healthy. Then run
 the [operational health gate](REDIS_MEMORY_PRESSURE_RUNBOOK.md#interpreting-the-pressure-state)
