@@ -4,6 +4,8 @@
 
 Before creating or repurposing a worktree, state its path, branch and purpose. Reuse a suitable existing checkout from `git worktree list` when one is available. Name a long-lived integration checkout after its branch, such as `erp2-postgres-19` for `upgrade/postgres-19`, and a temporary implementation checkout after its ticket, such as `erp2-2071`.
 
+Reserve the designated primary deployment checkout, the directory the running stack is deployed from, for `main`. Use separate worktrees for topic and integration branches. Before live operator commands, confirm the deployment directory, the intended branch, no tracked changes (`git status --porcelain --untracked-files=no` prints nothing), and that `git rev-parse HEAD` is the approved deployment revision. When the procedure needs the current `main`, run `git fetch origin main` and require `HEAD` to equal `origin/main`. Intentional pinned-release and rollback procedures keep their pinned revision; compare against that instead. Stop on unexpected divergence or local changes. Never reset, force-switch or overwrite deployment work automatically.
+
 ## Merge a PR into `main`
 
 1. From the PR's topic branch, confirm the checkout is clean with `git status --short --branch --untracked-files=normal --ignore-submodules=none`. Confirm the PR targets `main` in the repository on `origin`, and that the local branch and its tip match the PR's head branch and commit. If either check fails, stop and report what needs attention.
@@ -13,6 +15,8 @@ Before creating or repurposing a worktree, state its path, branch and purpose. R
    gh pr merge "$pr" --merge --match-head-commit "$(git rev-parse HEAD)" &&
      bash scripts/cleanup-merged-pr.sh "$pr"
    ```
+
+   When `main` is checked out in another worktree, such as the primary deployment checkout, cleanup cannot switch to it from the topic worktree. Run only the `gh pr merge` command there. Once the PR has merged and the topic worktree is clean, run `git switch --detach` in it, then run the cleanup command from the `main` checkout. Cleanup fast-forwards that checkout, so wait while a live procedure or pinned release is using it.
 
    If the PR is queued, wait until GitHub reports it as merged and then run `bash scripts/cleanup-merged-pr.sh "$pr"` on its own. Use the cleanup command on its own for a PR that has already merged.
 3. Cleanup confirms the merge is on `origin/main`, switches to local `main` and fast-forwards it, then removes the PR's topic branch locally and on `origin`. If the checkout has no local `main`, cleanup creates it from `origin/main`. A branch GitHub already removed from `origin` counts as cleaned up.
