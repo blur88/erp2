@@ -111,3 +111,8 @@ JSON
   run node "$helper" not-a-command
   [ "$status" -eq 64 ]
 }
+
+@test "the storage helper rejects put without a key and a source file" {
+  run node "$helper" put only-a-key
+  [ "$status" -eq 64 ]
+}
