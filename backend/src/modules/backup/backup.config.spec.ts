@@ -1,4 +1,4 @@
-import { buildPostgresToolEnv, loadBackupConfig, loadHeartbeatConfig } from './backup.config';
+import { buildPostgresToolEnv, loadBackupConfig, loadHeartbeatConfig, loadRecoveryHold, RECOVERY_ENV } from './backup.config';
 import { AGE_RECIPIENT } from './backup-test-fixtures';
 
 const complete = {
@@ -84,5 +84,40 @@ describe('loadHeartbeatConfig (#2115)', () => {
     expect(result.invalid).toEqual(['BACKUP_HEARTBEAT_URL_PRIMARY']);
     expect(result.urls.map((u) => u.name)).toEqual(['BACKUP_HEARTBEAT_URL_SECONDARY']);
     expect(JSON.stringify(result)).not.toContain('secret-token-value');
+  });
+});
+
+describe('loadRecoveryHold (recovery environment guard)', () => {
+  const allow = RECOVERY_ENV.allowScheduleAndRetention;
+  const mark = RECOVERY_ENV.recoveryEnvironment;
+
+  it('is not a recovery environment when the marker is unset, empty or false', () => {
+    for (const env of [{}, { [mark]: '' }, { [mark]: '   ' }, { [mark]: 'false' }]) {
+      expect(loadRecoveryHold(env)).toEqual({ recovery: false, held: false, reason: null });
+    }
+  });
+
+  it('holds scheduling and retention in a recovery environment by default', () => {
+    const hold = loadRecoveryHold({ [mark]: 'true' });
+    expect(hold).toMatchObject({ recovery: true, held: true });
+    expect(hold.reason).toContain(allow);
+  });
+
+  it('treats any value other than an explicit false as a recovery environment (fails closed)', () => {
+    for (const value of ['1', 'yes', 'TRUE', 'off']) {
+      expect(loadRecoveryHold({ [mark]: value })).toMatchObject({ recovery: true, held: true });
+    }
+  });
+
+  it('releases the hold only when the operator sets the allow flag to exactly true', () => {
+    expect(loadRecoveryHold({ [mark]: 'true', [allow]: 'true' })).toEqual({ recovery: true, held: false, reason: null });
+    for (const value of ['1', 'yes', 'TRUE', 'false', '']) {
+      expect(loadRecoveryHold({ [mark]: 'true', [allow]: value })).toMatchObject({ recovery: true, held: true });
+    }
+  });
+
+  it('does not leak the values of other variables into its reason', () => {
+    const hold = loadRecoveryHold({ [mark]: 'true', BACKUP_S3_SECRET_ACCESS_KEY: 'secret-value' });
+    expect(JSON.stringify(hold)).not.toContain('secret-value');
   });
 });

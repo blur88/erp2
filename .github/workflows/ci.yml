@@ -638,16 +638,36 @@ jobs:
           HC_HOST: localhost
         run: bash backend/scripts/backup-lifecycle/run.sh
 
+      # Restores the Backup with the runbook's own commands (#2113) into a fresh PostgreSQL 19
+      # cluster and an empty uploads directory, then boots a second backend from it.
+      - name: Run the Restore drill with the runbook's commands
+        env:
+          IMAGE: erp-backend:ci
+          NET: host
+          PG_HOST: localhost
+          PG_PASSWORD: erp_ci_password
+          PG_CLIENT_IMAGE: postgres:19.0-alpine3.24
+          REDIS_HOST: localhost
+          S3_HOST: localhost
+          RESTORE_PG_HOST: localhost
+          RESTORE_PG_PORT: "5433"
+        run: bash backend/scripts/backup-lifecycle/restore-drill.sh
+
       - name: Container logs on failure
         if: failure()
         run: |
           docker logs erp_ci_backend 2>&1 | tail -200 || true
           docker logs erp_ci_s3 2>&1 | tail -100 || true
           docker logs erp_ci_heartbeat 2>&1 | tail -50 || true
+          docker logs erp_ci_drill_source 2>&1 | tail -200 || true
+          docker logs erp_ci_drill_restored 2>&1 | tail -200 || true
+          docker logs erp_ci_drill_restore_pg 2>&1 | tail -50 || true
 
       - name: Tear down
         if: always()
-        run: docker rm -f erp_ci_backend erp_ci_s3 erp_ci_heartbeat || true
+        run: >-
+          docker rm -f erp_ci_backend erp_ci_s3 erp_ci_heartbeat erp_ci_drill_source
+          erp_ci_drill_restored erp_ci_drill_s3 erp_ci_drill_locker erp_ci_drill_restore_pg || true
 
   validate-production-images:
     name: Production Images - Frontend and Reverse Proxy

@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   CircularProgress,
+  Link,
   Paper,
   Stack,
   TextField,
@@ -16,6 +17,9 @@ import {
   Typography,
 } from '@mui/material'
 import PageHeader from '@/components/common/PageHeader'
+
+/** The only restore procedure (#2113). It lives in the repository, so the link goes to the default branch. */
+const BACKUP_RESTORE_RUNBOOK_URL = 'https://github.com/blur88/erp2/blob/main/docs/deployment/BACKUP_RESTORE_RUNBOOK.md'
 import { useAppSelector } from '@/hooks/useRedux'
 import {
   useGetBackupSettingsQuery,
@@ -155,6 +159,14 @@ export default function BackupPage() {
             disabled: starting || polling || (status ? !status.configured : true),
           }}
         />
+
+        <Typography variant="body2" data-testid="backup-runbook">
+          To restore from a Backup, follow the{' '}
+          <Link href={BACKUP_RESTORE_RUNBOOK_URL} target="_blank" rel="noopener noreferrer">
+            Backup & Restore runbook
+          </Link>
+          .
+        </Typography>
 
         <ProtectionSection list={list} />
 
