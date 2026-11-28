@@ -145,3 +145,11 @@ export function parseManifest(text: string, expectedRecoveryPoint: string): Mani
   }
   return { manifest: raw as BackupManifest, reason: null };
 }
+
+/** The instant a valid recovery point names. Callers check the format first with isRecoveryPoint. */
+export function recoveryPointTime(recoveryPoint: string): Date {
+  const r = recoveryPoint;
+  return new Date(
+    `${r.slice(0, 4)}-${r.slice(4, 6)}-${r.slice(6, 8)}T${r.slice(9, 11)}:${r.slice(11, 13)}:${r.slice(13, 15)}.${r.slice(15, 18)}Z`,
+  );
+}
