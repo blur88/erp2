@@ -84,6 +84,7 @@ jobs:
           push: true
           provenance: mode=max,version=v0.2
           sbom: true
+          build-args: APP_VERSION=${{ needs.release.outputs.new_release_version }}
           tags: |
             blur88/erp2:v${{ needs.release.outputs.new_release_version }}-backend
             blur88/erp2:latest-backend
