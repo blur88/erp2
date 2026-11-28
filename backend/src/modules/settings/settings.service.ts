@@ -108,21 +108,24 @@ export class SettingsService {
   }
 
   /**
-   * Update company logo URL
+   * Update company logo URL.
+   *
+   * The previous logo file is left on disk: print settings may share it, and
+   * logo files are never deleted (#2107). The new file must already be fully
+   * written, which Multer guarantees for uploads, before its reference is saved.
    */
   async updateLogoUrl(logoUrl: string, updatedBy = 'system'): Promise<CompanySettingsResponseDto> {
     try {
+      if (!this.logoFileExists(logoUrl)) {
+        throw new InternalServerErrorException('Logo file was not written; reference not saved');
+      }
+
       let settings = await this.companySettingsRepository.findOne({
         where: { isActive: true },
       });
 
       if (!settings) {
         throw new NotFoundException('Company settings not found');
-      }
-
-      // Delete old logo file if it exists
-      if (settings.logoUrl) {
-        this.deleteLogoFile(settings.logoUrl);
       }
 
       settings.logoUrl = logoUrl;
@@ -138,7 +141,10 @@ export class SettingsService {
   }
 
   /**
-   * Delete company logo
+   * Remove the company logo reference.
+   *
+   * Clears the database reference only. The file stays on disk, because print
+   * settings may still reference it (#2107).
    */
   async deleteLogoUrl(updatedBy = 'system'): Promise<CompanySettingsResponseDto> {
     try {
@@ -148,11 +154,6 @@ export class SettingsService {
 
       if (!settings) {
         throw new NotFoundException('Company settings not found');
-      }
-
-      // Delete the logo file if it exists
-      if (settings.logoUrl) {
-        this.deleteLogoFile(settings.logoUrl);
       }
 
       settings.logoUrl = null;
@@ -210,25 +211,17 @@ export class SettingsService {
   }
 
   /**
-   * Delete logo file from filesystem
+   * Whether a logo URL resolves to a file on disk. Read-only: logo files are
+   * never deleted (#2107).
+   * logoUrl format: /uploads/logos/logo-123456789.png
    */
-  private deleteLogoFile(logoUrl: string): void {
-    try {
-      // Extract the file path from the URL
-      // logoUrl format: /uploads/logos/logo-123456789.png
-      const filePath = path.join(process.cwd(), logoUrl.replace(/^\//, ''));
-
-      // Check if file exists before attempting to delete
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        this.logger.log(`Deleted logo file: ${filePath}`);
-      } else {
-        this.logger.warn(`Logo file not found: ${filePath}`);
-      }
-    } catch (error) {
-      this.logger.error(`Failed to delete logo file: ${error.message}`, error.stack);
-      // Don't throw error - continue even if file deletion fails
+  private logoFileExists(logoUrl: string): boolean {
+    const logosRoot = path.resolve(process.cwd(), 'uploads', 'logos');
+    const candidate = path.resolve(process.cwd(), logoUrl.replace(/^\//, ''));
+    if (!candidate.startsWith(logosRoot + path.sep)) {
+      return false;
     }
+    return fs.existsSync(candidate);
   }
 
   /**

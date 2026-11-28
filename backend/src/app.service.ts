@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
 
 import { RedisMemorySamplerService } from './modules/monitoring/redis-memory-sampler.service';
+import { resolveAppRelease } from './config/app-release.factory';
 import { RedisMemoryDetailQueryDto } from './modules/monitoring/dto/redis-memory-detail-query.dto';
 import {
   REDIS_PRESSURE_THRESHOLD_PERCENT,
@@ -201,7 +202,7 @@ export class AppService implements OnModuleDestroy {
   getInfo() {
     return {
       name: 'ERP System API',
-      version: '1.0.0',
+      version: resolveAppRelease().version,
       description: 'A comprehensive ERP system with modular architecture',
       modules: [
         'users',

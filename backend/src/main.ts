@@ -7,11 +7,20 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 import { SecurityApplicationService, SecurityMonitoringMiddleware } from './common/security';
 import { createGlobalValidationPipe } from './common/validation/global-validation-pipe';
+import { resolveAppRelease } from './config/app-release.factory';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
+
+  // A misconfigured release is logged, never fatal: the app keeps serving traffic.
+  const release = resolveAppRelease();
+  if (release.configurationError) {
+    logger.error(release.configurationError);
+  } else if (release.status === 'development') {
+    logger.log('Development build: no release version set, reporting version "unreleased"');
+  }
 
   // Serve static files from uploads directory
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {

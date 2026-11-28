@@ -29,6 +29,8 @@ import { OwnerEquityModule } from './modules/owner-equity/owner-equity.module';
 import { ProviderSettlementsModule } from './modules/provider-settlements/provider-settlements.module';
 import { BankReconciliationsModule } from './modules/bank-reconciliations/bank-reconciliations.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
+import { PostgresClientModule } from './modules/postgres-client/postgres-client.module';
+import { BackupModule } from './modules/backup/backup.module';
 
 // Auth Guards
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -75,6 +77,8 @@ import { AppService } from './app.service';
     PriceListsModule, // Price list management (Phase 3)
     SearchModule,
     MonitoringModule, // Redis memory-pressure sampling and state
+    PostgresClientModule, // pg_dump and server major-version check at startup (#2110)
+    BackupModule, // Backup now, to S3-compatible storage (#2111)
     AccountingModule,
     OwnerEquityModule,
     ProviderSettlementsModule,

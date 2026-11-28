@@ -9,7 +9,7 @@
     │   ├── color-palette.md             # Color palette and theming rules
     │   └── ui.md                        # UI design system reference
     ├── deployment/
-    │   └── DEPLOYMENT_CHECKLIST.md      # Deployment checklist
+    │   └── BACKUP_RESTORE_RUNBOOK.md     # Backup & Restore runbook
     ├── modules/
     │   └── price-lists/
     │       ├── PRICE_LIST_API.md        # API reference
@@ -30,7 +30,8 @@ Frontend design references:
 ## Deployment
 
 - [deployment/ruleset-drift.md](./deployment/ruleset-drift.md) — Ruleset drift detection and reviewed baseline updates
-- [deployment/DEPLOYMENT_CHECKLIST.md](./deployment/DEPLOYMENT_CHECKLIST.md) — Deployment checklist
+- [deployment/BACKUP_RESTORE_RUNBOOK.md](./deployment/BACKUP_RESTORE_RUNBOOK.md) — Backup & Restore runbook, and the first-production Restore drill gate
+- [deployment/LOGO_REFERENCE_CHECK.md](./deployment/LOGO_REFERENCE_CHECK.md) — Read-only check for dangling logo references, run before enabling Backups
 
 ## Price List Module
 

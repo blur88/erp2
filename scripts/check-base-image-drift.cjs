@@ -5,9 +5,9 @@ const { execFileSync } = require('node:child_process');
 const { appendFileSync, readFileSync, writeFileSync } = require('node:fs');
 const { basename, dirname, resolve } = require('node:path');
 const { parse } = require('yaml');
-const { dockerStageImages, isComposeFile, officialImageReference, readRepositorySources } = require('./docker-image-pins.cjs');
-
-const dockerfileName = /^(?:Dockerfile(?:\..+)?|.+\.Dockerfile)$/;
+const {
+  dockerStageImages, isComposeFile, isDockerfile, officialImageReference, readRepositorySources, unresolvedDockerfileImages,
+} = require('./docker-image-pins.cjs');
 
 // Each series is an approved prefix of the numeric version. Keep the exact
 // distribution version and image flavor from the pin when proposing updates.
@@ -27,7 +27,7 @@ function parsePins(sources) {
     .filter(([file]) => isComposeFile(file))
     .map(([file, content]) => [file, parse(content)?.services ?? {}]));
   for (const [file, content] of Object.entries(sources)) {
-    const images = dockerfileName.test(basename(file))
+    const images = isDockerfile(file)
       ? dockerStageImages(content).map((image) => [file, image])
       : composeImages(file, composeServices);
     for (const [source, image] of images) {
@@ -54,7 +54,7 @@ function composeImages(file, composeServices) {
 }
 
 function readPinSources(root = resolve(__dirname, '..')) {
-  return readRepositorySources(root, (file) => dockerfileName.test(basename(file)) || isComposeFile(file));
+  return readRepositorySources(root, (file) => isDockerfile(file) || isComposeFile(file));
 }
 
 function checkPinSeries({ repository, tag }) {
@@ -72,6 +72,13 @@ function validatePins(sources) {
   for (const pin of parsePins(sources)) {
     const { problem } = checkPinSeries(pin);
     if (problem) problems.push(`${pin.sources.join(', ')}: ${pinReference(pin)}: ${problem}`);
+  }
+  // parsePins skips unresolved references, so report them here as a guard failure (#2110).
+  for (const [file, content] of Object.entries(sources)) {
+    if (!isDockerfile(file)) continue;
+    for (const image of unresolvedDockerfileImages(content)) {
+      problems.push(`${file}: ${image}: FROM image reference has an unresolved variable; name the image literally`);
+    }
   }
   if (problems.length) throw new Error(problems.join('\n'));
 }

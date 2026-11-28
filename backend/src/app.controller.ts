@@ -102,7 +102,7 @@ export class AppController {
       type: 'object',
       properties: {
         name: { type: 'string', example: 'ERP System API' },
-        version: { type: 'string', example: '1.0.0' },
+        version: { type: 'string', example: '3.17.1', description: 'Release version from APP_VERSION, or "unreleased"' },
         description: { type: 'string', example: 'A comprehensive ERP system' },
         modules: {
           type: 'array',

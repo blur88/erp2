@@ -63,3 +63,22 @@ test('the private Master repository receives only versioned release tags', () =>
     'blur88/master must get exactly one vX.Y.Z-<image> tag per image and no moving tags (ADR 0001)',
   );
 });
+
+test('the backend image build receives the semantic-release version and carries it at runtime', () => {
+  const workflow = readYaml('.github/workflows/release.yml');
+  const buildSteps = Object.values(workflow.jobs)
+    .flatMap((job) => job.steps ?? [])
+    .filter((step) => step.uses?.startsWith('docker/build-push-action@') && step.with?.context === './backend');
+
+  assert.equal(buildSteps.length, 1, 'release.yml must build the backend image exactly once');
+  assert.equal(
+    buildSteps[0].with['build-args'],
+    'APP_VERSION=${{ needs.release.outputs.new_release_version }}',
+    'the backend image build must receive the semantic-release version as APP_VERSION',
+  );
+
+  const dockerfile = fs.readFileSync(path.resolve(__dirname, '../../backend/Dockerfile'), 'utf8');
+  const finalStage = dockerfile.slice(dockerfile.lastIndexOf('\nFROM ') + 1);
+  assert.match(finalStage, /^ARG APP_VERSION$/m, 'the production stage must declare APP_VERSION');
+  assert.match(finalStage, /^ENV APP_VERSION=\$APP_VERSION$/m, 'the production stage must carry APP_VERSION at runtime');
+});

@@ -203,4 +203,27 @@ describe('AppService', () => {
       expect(health.status).toBe('unhealthy');
     });
   });
+
+  describe('getInfo — release version', () => {
+    const originalAppVersion = process.env.APP_VERSION;
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      if (originalAppVersion === undefined) delete process.env.APP_VERSION;
+      else process.env.APP_VERSION = originalAppVersion;
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    it('reports the release version baked into the image', () => {
+      process.env.APP_VERSION = '4.2.0';
+      expect(service.getInfo().version).toBe('4.2.0');
+    });
+
+    it('reports unreleased when the image carries no valid version', () => {
+      process.env.NODE_ENV = 'development';
+      delete process.env.APP_VERSION;
+      expect(service.getInfo().version).toBe('unreleased');
+    });
+  });
 });

@@ -31,6 +31,7 @@ import { printSettingsApiSlice } from './api/printSettingsApi'
 import { searchApiSlice } from './api/searchApi'
 import { accountingApiSlice } from './api/accountingApi'
 import { redisMonitoringApiSlice } from './api/redisMonitoringApi'
+import { backupApiSlice } from './api/backupApi'
 import { PERSIST_KEY } from './persistKey'
 
 const rootReducer = combineReducers({
@@ -52,6 +53,7 @@ const rootReducer = combineReducers({
   [searchApiSlice.reducerPath]: searchApiSlice.reducer,
   [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
   [redisMonitoringApiSlice.reducerPath]: redisMonitoringApiSlice.reducer,
+  [backupApiSlice.reducerPath]: backupApiSlice.reducer,
 })
 
 // Persist configuration
@@ -106,6 +108,7 @@ export const store = configureStore({
     searchApiSlice.middleware as any,
     accountingApiSlice.middleware as any,
     redisMonitoringApiSlice.middleware as any,
+    backupApiSlice.middleware as any,
   ),
 })
 

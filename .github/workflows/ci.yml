@@ -585,6 +585,90 @@ jobs:
         if: always()
         run: docker rm -f erp_ci_backend_tls erp_ci_postgres_tls || true
 
+  backup-lifecycle:
+    name: Production Image - Backup Lifecycle
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:19.0-alpine3.24
+        env:
+          POSTGRES_USER: erp_ci
+          POSTGRES_PASSWORD: erp_ci_password
+          POSTGRES_DB: erp_backup_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_ci -d erp_backup_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8.6.8-alpine3.23
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # S3-compatible server for the Backup gate (#2111), pinned by digest.
+      # SeaweedFS 4.55 (Apache-2.0) is actively released and was checked for
+      # versioning, a COMPLIANCE default retention and refused version deletes.
+      # Legacy MinIO is excluded: its community repository was archived on 2026-04-25.
+      S3_IMAGE: chrislusf/seaweedfs@sha256:340bc0cbb1eb0da6472bd45a7225dd9a48bae6d72771c98ead52200b5abd4352
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build the production image with a release version
+        run: docker build --build-arg APP_VERSION=1.0.0 -t erp-backend:ci ./backend
+
+      - name: Run the Backup lifecycle gate against the production image
+        env:
+          IMAGE: erp-backend:ci
+          NET: host
+          PG_HOST: localhost
+          PG_PASSWORD: erp_ci_password
+          REDIS_HOST: localhost
+          S3_HOST: localhost
+          HC_HOST: localhost
+        run: bash backend/scripts/backup-lifecycle/run.sh
+
+      # Restores the Backup with the runbook's own commands (#2113) into a fresh PostgreSQL 19
+      # cluster and an empty uploads directory, then boots a second backend from it.
+      - name: Run the Restore drill with the runbook's commands
+        env:
+          IMAGE: erp-backend:ci
+          NET: host
+          PG_HOST: localhost
+          PG_PASSWORD: erp_ci_password
+          PG_CLIENT_IMAGE: postgres:19.0-alpine3.24
+          REDIS_HOST: localhost
+          S3_HOST: localhost
+          RESTORE_PG_HOST: localhost
+          RESTORE_PG_PORT: "5433"
+        run: bash backend/scripts/backup-lifecycle/restore-drill.sh
+
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker logs erp_ci_backend 2>&1 | tail -200 || true
+          docker logs erp_ci_s3 2>&1 | tail -100 || true
+          docker logs erp_ci_heartbeat 2>&1 | tail -50 || true
+          docker logs erp_ci_drill_source 2>&1 | tail -200 || true
+          docker logs erp_ci_drill_restored 2>&1 | tail -200 || true
+          docker logs erp_ci_drill_restore_pg 2>&1 | tail -50 || true
+
+      - name: Tear down
+        if: always()
+        run: >-
+          docker rm -f erp_ci_backend erp_ci_s3 erp_ci_heartbeat erp_ci_drill_source
+          erp_ci_drill_restored erp_ci_drill_s3 erp_ci_drill_locker erp_ci_drill_restore_pg || true
+
   validate-production-images:
     name: Production Images - Frontend and Reverse Proxy
     runs-on: ubuntu-latest

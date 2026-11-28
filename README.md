@@ -130,7 +130,9 @@ Key endpoint groups:
 ./deploy.sh clean    # remove all containers and volumes
 ```
 
-See [`docs/deployment/DEPLOYMENT_CHECKLIST.md`](docs/deployment/DEPLOYMENT_CHECKLIST.md) for production configuration and security hardening.
+### First production deployment
+
+The first production deployment is blocked until a Restore drill from an off-host Backup has passed. Follow [the Backup & Restore runbook](docs/deployment/BACKUP_RESTORE_RUNBOOK.md) for the drill and for every later restore, and record the drill as described in [runbook rehearsal evidence](CODING_STANDARDS.md#runbook-rehearsal-evidence). The runbook and its Restore drill are the only first-production gate.
 
 ## Contributing
 

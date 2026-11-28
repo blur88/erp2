@@ -26,6 +26,7 @@ import { default as AssessmentIcon } from '@mui/icons-material/Assessment';
 import { default as PrintIcon } from '@mui/icons-material/Print';
 import { default as DocumentNumberIcon } from '@mui/icons-material/FormatListNumbered';
 import { default as MemoryIcon } from '@mui/icons-material/Memory';
+import { default as BackupIcon } from '@mui/icons-material/Backup';
 import { default as AuditIcon } from '@mui/icons-material/ManageSearch';
 import { default as PeopleIcon } from '@mui/icons-material/People';
 import { default as SecurityIcon } from '@mui/icons-material/Security';
@@ -393,6 +394,14 @@ export const menuSections: MenuSection[] = [
             icon: <MemoryIcon />,
             group: 'System',
             path: '/settings/redis-monitoring',
+            roles: ADMIN_ONLY,
+          },
+          {
+            id: 'backup',
+            title: 'Backup & Restore',
+            icon: <BackupIcon />,
+            group: 'System',
+            path: '/settings/backup',
             roles: ADMIN_ONLY,
           },
         ],

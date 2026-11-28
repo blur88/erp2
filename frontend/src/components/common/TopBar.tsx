@@ -64,6 +64,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/settings/roles': 'Roles & Permissions',
   '/settings/security': 'Security',
   '/settings/redis-monitoring': 'Redis Monitoring',
+  '/settings/backup': 'Backup & Restore',
 }
 
 const NAVIGABLE_PATHS = new Set([
@@ -90,6 +91,7 @@ const NAVIGABLE_PATHS = new Set([
   '/settings/roles',
   '/settings/security',
   '/settings/redis-monitoring',
+  '/settings/backup',
 ])
 
 type RouteHandle = { title?: string; breadcrumbParam?: string }

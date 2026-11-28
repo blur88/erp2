@@ -6,10 +6,12 @@ PostgreSQL. ERP2 creates no Redis keys.
 
 ## Verify a rollout
 
-Check the running settings against the applicable Compose file. The deployed
-`noeviction` policy and snapshot and append-only persistence settings remain
-the current defaults. Run the Redis checks from the deployment directory with
-the deployment password already exported as `REDISCLI_AUTH`.
+Check the running settings against the applicable Compose file. Redis runs
+without persistence (#2108): `save` is empty and `appendonly` is `no`. It
+keeps the `noeviction` policy and the 256 MB cap. Redis has no data volume, so
+it starts empty after every container recreation, and monitoring history and
+alert state come from PostgreSQL. Run the Redis checks from the deployment
+directory with the deployment password already exported as `REDISCLI_AUTH`.
 
 ```bash
 redis_cli() { docker compose exec -T -e REDISCLI_AUTH redis redis-cli --raw "$@"; }
@@ -21,6 +23,22 @@ redis_cli INFO stats
 redis_cli INFO persistence
 redis_cli INFO keyspace
 ```
+
+Expected from `CONFIG GET`: `maxmemory` is `268435456`, `maxmemory-policy` is
+`noeviction`, `save` is an empty string, and `appendonly` is `no`. A
+`save` or `appendonly` value that is not empty or `no` means the running
+container predates #2108 or was started from another Compose file. Recreate it
+from the current file instead of changing settings in place. `INFO persistence`
+should report no background save or rewrite activity.
+
+### Legacy Redis data files
+
+Before #2108 Redis mounted `./data/redis` at `/data` and wrote `dump.rdb` and
+`appendonlydir/` there. The current Compose files no longer mount that
+directory, so Redis never reads those files and never deletes them. After a
+rollout is verified, an operator may remove `data/redis` by hand. Automated
+steps must not delete it, and nothing in ERP2 needs it. The deployment
+scripts no longer create that directory.
 
 Check backend startup with the public health endpoint. Compare the latest
 sample time with the start time of the backend you just deployed. While the
@@ -101,6 +119,11 @@ and simply no longer consulted. This satisfies "a Redis restart clears the
 watermark" — the alert does not carry across to the new identity — without
 destroying the evidence.
 
+Redis itself keeps nothing across a restart (#2108: no RDB snapshots, no AOF,
+no data volume). Its keys and counters start empty again, which is why the
+`run_id` changes. Everything ERP2 needs to survive that restart is already in
+Postgres.
+
 ## Recognizing partial post-restart history
 
 The pressure *streak* is recomputed from recent samples, so a post-restart
@@ -176,8 +199,9 @@ by the Redis `run_id`, not the instance id.
 Start with the monitoring window covering the alert. Review utilization and
 peak memory alongside counter deltas and the reported Redis identity. Compare
 `used_memory` and `used_memory_rss` with the Redis cap and container memory
-limit. Check Redis logs and `INFO persistence` for background save or rewrite
-activity. A changed `run_id` indicates a Redis restart.
+limit. Persistence is off (#2108), so Redis writes no snapshot or AOF files;
+check Redis logs for OOM or startup messages instead. A changed `run_id`
+indicates a Redis restart, and every key and counter starts empty after it.
 
 Unexpected keys or growing key counts warrant checking which clients use the
 instance. Inspect `INFO keyspace` and use incremental `SCAN` to identify owners
@@ -187,7 +211,8 @@ warrants checking the active policy and identifying affected clients.
 
 Capture the pressure state, sample window, counter deltas, Redis configuration,
 container memory and backend transition logs before changing the cap. Evaluate
-sustained utilization and leave room for RSS and persistence overhead.
+sustained utilization and leave room for RSS overhead. With persistence off
+(#2108), fork and AOF buffers no longer add to RSS.
 
 ## In-app alerting
 

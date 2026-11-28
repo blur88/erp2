@@ -7,9 +7,16 @@ const { basename, resolve } = require('node:path');
 
 const officialImagePattern = /^(?:(?:docker\.io\/)?library\/|docker\.io\/)?([\w.-]+)(?::([\w.-]+))?(?:@(sha256:[a-f0-9]{64}))?$/;
 const composeName = /^(?:docker-)?compose(?:[.-].+)?\.ya?ml$/;
+const dockerfileName = /^(?:Dockerfile(?:\..+)?|.+\.Dockerfile)$/;
+// ${NAME}, ${NAME:-default} or $NAME: a FROM reference no guard can compare (#2110).
+const unresolvedVariable = /\$(?:\{[^}]*\}|[A-Za-z_]\w*)/;
 
 function isComposeFile(file) {
   return composeName.test(basename(file));
+}
+
+function isDockerfile(file) {
+  return dockerfileName.test(basename(file));
 }
 
 function readRepositorySources(root, includesFile) {
@@ -43,6 +50,18 @@ function dockerStageImages(dockerfile) {
   });
 }
 
+// Resolved base image of the stage with this alias, or undefined when the alias is absent
+// or the Dockerfile cannot be parsed.
+function dockerStageImage(dockerfile, alias) {
+  const stages = dockerStages(dockerfile);
+  return stages?.find((stage) => stage.alias?.toLowerCase() === alias.toLowerCase())?.baseImage;
+}
+
+// FROM references that still contain a variable, so no guard can see the image they name.
+function unresolvedDockerfileImages(dockerfile) {
+  return [...new Set(dockerStageImages(dockerfile).filter((image) => unresolvedVariable.test(image)))];
+}
+
 function officialImageReference(image) {
   const match = officialImagePattern.exec(image ?? '');
   if (!match) return;
@@ -61,6 +80,6 @@ function officialImageRepository(image) {
 }
 
 module.exports = {
-  dockerStageImages, isComposeFile, officialImagePin, officialImageReference,
-  officialImageRepository, readRepositorySources,
+  dockerStageImage, dockerStageImages, isComposeFile, isDockerfile, officialImagePin, officialImageReference,
+  officialImageRepository, readRepositorySources, unresolvedDockerfileImages,
 };
