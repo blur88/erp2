@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Box,
+  Button,
   CircularProgress,
   Paper,
   Stack,
+  TextField,
   Table,
   TableBody,
   TableCell,
@@ -16,11 +18,19 @@ import {
 import PageHeader from '@/components/common/PageHeader'
 import { useAppSelector } from '@/hooks/useRedux'
 import {
+  useGetBackupSettingsQuery,
   useGetBackupStatusQuery,
   useListBackupsQuery,
   useStartBackupMutation,
+  useUpdateBackupSettingsMutation,
 } from '@/store/api/backupApi'
-import type { BackupStepName, BackupStatus } from '@/store/api/backupApi'
+import type {
+  BackupSettingsRejection,
+  BackupSettingsValues,
+  BackupStatus,
+  BackupStepName,
+  StoredBackupSettings,
+} from '@/store/api/backupApi'
 
 /** Status is polled only while a Backup runs. The bucket is listed separately, once per finished run. */
 export const BACKUP_POLL_INTERVAL_MS = 2000
@@ -71,6 +81,8 @@ export default function BackupPage() {
   } = useListBackupsQuery(undefined, { skip: !isAdmin })
 
   const [startBackup, { isLoading: starting }] = useStartBackupMutation()
+  const { data: storedSettings } = useGetBackupSettingsQuery(undefined, { skip: !isAdmin })
+  const [saveSettings] = useUpdateBackupSettingsMutation()
 
   // A run is finished when status shows no running attempt and, for an accepted start, its own attempt is recorded.
   useEffect(() => {
@@ -132,6 +144,8 @@ export default function BackupPage() {
 
         <StatusSection status={status} statusError={statusError} />
 
+        <SettingsSection stored={storedSettings} saveSettings={saveSettings} />
+
         {conflict && <Alert severity="info">A Backup is already running.</Alert>}
         {startMessage && <Alert severity="error">{startMessage}</Alert>}
 
@@ -159,6 +173,8 @@ function StatusSection({ status, statusError }: { status: BackupStatus | undefin
 
   return (
     <Stack spacing={2} data-testid="backup-status">
+      <SchedulingLine scheduling={status.scheduling} />
+
       {!status.configured && (
         <Alert severity="warning">
           Backups are not configured. Missing or invalid settings: {status.missingSettings.join(', ')}.
@@ -266,3 +282,220 @@ function BackupListSection({
     </>
   )
 }
+
+function SchedulingLine({ scheduling }: { scheduling: BackupStatus['scheduling'] | undefined }) {
+  if (!scheduling) return null
+  if (scheduling.state === 'unavailable') {
+    return (
+      <Alert severity="warning" data-testid="backup-scheduling">
+        Scheduling unavailable: {scheduling.reason}
+      </Alert>
+    )
+  }
+  return (
+    <Typography data-testid="backup-scheduling">
+      Next scheduled run: {formatDate(scheduling.nextRunAt)}. Runs every {scheduling.intervalMinutes} minutes.
+    </Typography>
+  )
+}
+
+type SettingsField = keyof BackupSettingsValues
+
+/** Field order, labels and the names used in messages. Bounds are enforced by the backend. */
+const SETTINGS_FIELDS: { field: SettingsField; label: string; name: string; help?: string }[] = [
+  { field: 'intervalMinutes', label: 'Interval (minutes)', name: 'Interval', help: 'Either 15 or 30 minutes' },
+  { field: 'retentionWindowHours', label: 'Hours kept in full (24-hour window)', name: '24-hour window', help: 'Hours, 1 to 168' },
+  { field: 'retentionDailyCount', label: 'Daily Backups kept', name: 'Daily count', help: '1 to 365' },
+  { field: 'retentionWeeklyCount', label: 'Weekly Backups kept', name: 'Weekly count', help: '1 to 104' },
+  { field: 'retentionMonthlyCount', label: 'Monthly Backups kept', name: 'Monthly count', help: '1 to 120' },
+]
+
+const DEFAULT_SETTINGS: BackupSettingsValues = {
+  intervalMinutes: 30,
+  retentionWindowHours: 24,
+  retentionDailyCount: 7,
+  retentionWeeklyCount: 4,
+  retentionMonthlyCount: 12,
+}
+
+type FormValues = Record<SettingsField, string>
+
+function toForm(values: object): FormValues {
+  const form = {} as FormValues
+  const raw = values as Record<string, unknown>
+  for (const { field } of SETTINGS_FIELDS) {
+    const value = raw[field]
+    form[field] = value === undefined || value === null ? '' : String(value)
+  }
+  return form
+}
+
+/** Field messages for a stored row that failed validation, so each bad value is named beside its input. */
+function storedFieldErrors(stored: StoredBackupSettings | undefined): Partial<Record<SettingsField, string>> {
+  if (!stored || stored.state !== 'invalid') return {}
+  const mapped: Partial<Record<SettingsField, string>> = {}
+  for (const { field, message } of stored.errors) {
+    if (SETTINGS_FIELDS.some((known) => known.field === field)) mapped[field as SettingsField] = message
+  }
+  return mapped
+}
+
+function settingsBanner(stored: StoredBackupSettings | undefined) {
+  if (!stored) return null
+  if (stored.state === 'missing') {
+    return (
+      <Alert severity="error" data-testid="backup-settings-missing">
+        Backup settings are missing from the database. Scheduling is stopped until you save valid settings. The values
+        below are defaults, and nothing is saved until you save.
+      </Alert>
+    )
+  }
+  if (stored.state === 'invalid') {
+    const fields = stored.errors.map((error) => error.field).join(', ')
+    return (
+      <Alert severity="error" data-testid="backup-settings-invalid">
+        Stored Backup settings are invalid ({fields}). Scheduling is stopped until you save valid settings. Manual
+        Backups still work.
+      </Alert>
+    )
+  }
+  return null
+}
+
+function SettingsSection({
+  stored,
+  saveSettings,
+}: {
+  stored: StoredBackupSettings | undefined
+  saveSettings: ReturnType<typeof useUpdateBackupSettingsMutation>[0]
+}) {
+  const initial = (): FormValues => {
+    if (!stored) return toForm(DEFAULT_SETTINGS)
+    if (stored.state === 'valid') return toForm(stored.settings)
+    if (stored.state === 'invalid') return toForm(stored.values)
+    return toForm(DEFAULT_SETTINGS)
+  }
+  const [form, setForm] = useState<FormValues>(initial)
+  const [clientErrors, setClientErrors] = useState<Partial<Record<SettingsField, string>>>({})
+  const [serverErrors, setServerErrors] = useState<Partial<Record<SettingsField, string>>>(() => storedFieldErrors(stored))
+  const [formError, setFormError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  // Adopt a new server snapshot (after a save or a restore). Edits in progress are not overwritten by an unchanged snapshot.
+  const snapshot = useRef(stored)
+  useEffect(() => {
+    if (snapshot.current === stored) return
+    snapshot.current = stored
+    setForm(initial())
+    setClientErrors({})
+    setServerErrors(storedFieldErrors(stored))
+    setFormError(null)
+    setSaved(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored])
+
+  const update = (field: SettingsField, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }))
+    setSaved(false)
+  }
+
+  const onSave = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setSaved(false)
+    setFormError(null)
+    setServerErrors({})
+
+    const nextClientErrors: Partial<Record<SettingsField, string>> = {}
+    const payload = {} as BackupSettingsValues
+    for (const { field, name } of SETTINGS_FIELDS) {
+      const text = form[field].trim()
+      if (!/^\d+$/.test(text)) {
+        nextClientErrors[field] = `${name} must be a whole number`
+      } else {
+        payload[field] = Number(text)
+      }
+    }
+    setClientErrors(nextClientErrors)
+    if (Object.keys(nextClientErrors).length > 0) return
+
+    setSaving(true)
+    try {
+      await saveSettings(payload).unwrap()
+      setSaved(true)
+    } catch (error: any) {
+      if (error?.status === 400 && Array.isArray(error.data)) {
+        const rejection = error.data as BackupSettingsRejection
+        const mapped: Partial<Record<SettingsField, string>> = {}
+        for (const { field, message } of rejection) {
+          if (SETTINGS_FIELDS.some((known) => known.field === field)) mapped[field as SettingsField] = message
+        }
+        setServerErrors(mapped)
+        setFormError('Fix the highlighted settings. Nothing was saved.')
+      } else {
+        setFormError('The settings could not be saved.')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Paper sx={{ p: 2 }} data-testid="backup-settings">
+      <Typography variant="h6" gutterBottom>
+        Settings
+      </Typography>
+      <Stack spacing={2}>
+        {settingsBanner(stored)}
+        <Box component="form" onSubmit={onSave} noValidate>
+          <Stack spacing={2}>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+              {SETTINGS_FIELDS.map(({ field, label, help }) => {
+                const message = clientErrors[field] ?? serverErrors[field]
+                const isInterval = field === 'intervalMinutes'
+                return isInterval ? (
+                  <TextField
+                    key={field}
+                    select
+                    label={label}
+                    value={form[field]}
+                    onChange={(event) => update(field, event.target.value)}
+                    error={Boolean(message)}
+                    helperText={message ?? help}
+                    slotProps={{ select: { native: true } }}
+                  >
+                    {/* A stored value outside 15 and 30 is shown as it is, so it is never silently replaced by the first option. */}
+                    {!['15', '30'].includes(form[field]) && (
+                      <option value={form[field]}>{form[field] || 'Not set'} (invalid)</option>
+                    )}
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                  </TextField>
+                ) : (
+                  <TextField
+                    key={field}
+                    label={label}
+                    type="number"
+                    value={form[field]}
+                    onChange={(event) => update(field, event.target.value)}
+                    error={Boolean(message)}
+                    helperText={message ?? help}
+                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                  />
+                )
+              })}
+            </Box>
+            {formError && <Alert severity="error">{formError}</Alert>}
+            {saved && <Alert severity="success">Settings saved. Scheduling is updated.</Alert>}
+            <Box>
+              <Button type="submit" variant="contained" disabled={saving}>
+                Save settings
+              </Button>
+            </Box>
+          </Stack>
+        </Box>
+      </Stack>
+    </Paper>
+  )
+}
+

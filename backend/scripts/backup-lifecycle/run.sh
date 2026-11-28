@@ -10,7 +10,11 @@
 #   - an overlapping start returns 409;
 #   - a missing upload leaves no manifest;
 #   - unreachable storage is reported as unavailable and publishes nothing;
-#   - an interrupted publish leaves nothing listed.
+#   - an interrupted publish leaves nothing listed;
+#   - Backup settings (#2112) are admin-only, an invalid update is refused and
+#     leaves the stored row alone, invalid stored settings at startup stop
+#     scheduling while a manual Backup still runs, and a valid save resumes
+#     scheduling without a restart.
 #
 # Required: IMAGE, S3_IMAGE, NET, PG_HOST, PG_PASSWORD, REDIS_HOST, S3_HOST.
 set -euo pipefail
@@ -27,7 +31,7 @@ PG_DATABASE="${PG_DATABASE:-erp_backup_ci}"
 S3_BUCKET="erp-ci-backups"
 S3_REGION="us-east-1"
 S3_PORT=8333
-S3C="erp_ci_s3"
+S3C="${S3C:-erp_ci_s3}"
 S3_ENDPOINT="http://${S3_HOST}:${S3_PORT}"
 S3_ENDPOINT_IN_CONTAINER="$S3_ENDPOINT"
 S3_ACCESS_KEY_ID="ci$(openssl rand -hex 6)"
@@ -248,4 +252,49 @@ s3 list "" >/dev/null || fail "storage did not come back"
 api GET /backups "$ADMIN_TOKEN"; expect_code 200 "final listing"
 [ "$(jq_body '.backups | map(.recoveryPoint) | join(",")')" = "$RP1" ] \
   || fail "final listing does not show exactly ${RP1}: $HTTP_BODY"
+# ---- Settings (#2112): validated, admin-only, and scheduling follows them ------
+# Runs last: the manual Backup below would change the single-Backup listing checks above.
+log "settings are admin-only and an invalid update is refused"
+api GET /backups/settings "$VIEWER_TOKEN"; expect_code 403 "non-admin reads settings"
+VALID_SETTINGS='{"intervalMinutes":15,"retentionWindowHours":24,"retentionDailyCount":7,"retentionWeeklyCount":4,"retentionMonthlyCount":12}'
+api PUT /backups/settings "$VIEWER_TOKEN" "$VALID_SETTINGS"; expect_code 403 "non-admin saves settings"
+
+api GET /backups/settings "$ADMIN_TOKEN"; expect_code 200 "admin reads settings"
+[ "$(jq_body .state)" = "valid" ] || fail "seeded settings are not valid: $HTTP_BODY"
+[ "$(jq_body .settings.intervalMinutes)" = "30" ] || fail "seeded interval is not the 30-minute default: $HTTP_BODY"
+
+api PUT /backups/settings "$ADMIN_TOKEN" '{"intervalMinutes":20,"retentionWindowHours":24,"retentionDailyCount":7,"retentionWeeklyCount":4,"retentionMonthlyCount":12}'
+expect_code 400 "an interval of 20 minutes is refused"
+printf '%s' "$HTTP_BODY" | grep -q intervalMinutes || fail "the refusal does not name intervalMinutes: $HTTP_BODY"
+api GET /backups/settings "$ADMIN_TOKEN"; expect_code 200 "settings after the refusal"
+[ "$(jq_body .settings.intervalMinutes)" = "30" ] || fail "a refused update changed the stored interval: $HTTP_BODY"
+
+api GET /backups/status "$ADMIN_TOKEN"; expect_code 200 "status with valid settings"
+[ "$(jq_body .scheduling.state)" = "scheduled" ] || fail "scheduling is not on with valid settings: $HTTP_BODY"
+[ "$(jq_body .scheduling.intervalMinutes)" = "30" ] || fail "scheduling does not use the stored interval: $HTTP_BODY"
+
+# Invalid stored settings, as after restoring an old database: the row is changed
+# directly, then the backend restarts and must stop scheduling without refusing manual Backups.
+log "invalid stored settings stop scheduling at startup; a manual Backup still runs"
+psql_ci 'UPDATE "backup_settings" SET "intervalMinutes" = 20' >/dev/null
+docker restart "$BACKEND" >/dev/null
+wait_for_backend
+api GET /backups/status "$ADMIN_TOKEN"; expect_code 200 "status after restarting with invalid settings"
+[ "$(jq_body .scheduling.state)" = "unavailable" ] || fail "invalid stored settings did not stop scheduling: $HTTP_BODY"
+printf '%s' "$HTTP_BODY" | grep -q 'invalid' || fail "the scheduling reason does not say the settings are invalid: $HTTP_BODY"
+api GET /backups/settings "$ADMIN_TOKEN"; expect_code 200 "settings with invalid stored values"
+[ "$(jq_body .state)" = "invalid" ] || fail "stored invalid settings were not reported as invalid: $HTTP_BODY"
+[ "$(jq_body .values.intervalMinutes)" = "20" ] || fail "the stored value was not returned for correction: $HTTP_BODY"
+
+wait_until_idle 60
+api POST /backups "$ADMIN_TOKEN"; expect_code 202 "manual Backup while stored settings are invalid"
+wait_until_idle 240
+[ "$(jq_body .lastAttempt.result)" = "succeeded" ] || fail "the manual Backup did not succeed with invalid settings: $HTTP_BODY"
+
+log "saving valid settings resumes scheduling without a restart"
+api PUT /backups/settings "$ADMIN_TOKEN" "$VALID_SETTINGS"; expect_code 200 "save valid settings"
+api GET /backups/status "$ADMIN_TOKEN"; expect_code 200 "status after saving valid settings"
+[ "$(jq_body .scheduling.state)" = "scheduled" ] || fail "saving valid settings did not resume scheduling: $HTTP_BODY"
+[ "$(jq_body .scheduling.intervalMinutes)" = "15" ] || fail "scheduling did not pick up the saved interval: $HTTP_BODY"
+
 log "all Backup lifecycle checks passed"
