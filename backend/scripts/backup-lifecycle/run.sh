@@ -206,14 +206,17 @@ RP3="$(jq_body .recoveryPoint)"
 docker exec -d \
   -e S3_BUCKET="$S3_BUCKET" -e S3_REGION="$S3_REGION" -e S3_ENDPOINT="$S3_ENDPOINT_IN_CONTAINER" \
   -e S3_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" -e S3_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
-  "$BACKEND" sh -c "node /app/ci-s3-helper.cjs watch-kill backups/${RP3}/backup.tar.age backups/${RP3}/manifest.json > /tmp/watch.log 2>&1; echo exit=\$? >> /tmp/watch.log"
+  "$BACKEND" sh -c "node /app/ci-s3-helper.cjs watch-kill backups/${RP3}/backup.tar.age backups/${RP3}/manifest.json > /tmp/watch.log 2>&1"
 for i in $(seq 1 120); do
   if [ "$(docker inspect -f '{{.State.Running}}' "$BACKEND")" != "true" ]; then break; fi
   sleep 1
 done
 [ "$(docker inspect -f '{{.State.Running}}' "$BACKEND")" != "true" ] || fail "the publish was not interrupted within 120s"
 docker cp "$BACKEND:/tmp/watch.log" "$WORK/watch.log" 2>/dev/null || fail "the watcher left no record"
-if ! { grep -q '^killed ' "$WORK/watch.log" && grep -q '^exit=0$' "$WORK/watch.log"; }; then
+# The helper writes "killed <pid>" synchronously before it sends SIGKILL, and it only kills once the archive
+# is visible and the manifest is absent. Its shell cannot write an exit status: the application is the
+# entrypoint's exec'd child under dumb-init, so the container stops and takes the watcher with it.
+if ! grep -q '^killed ' "$WORK/watch.log"; then
   fail "the watcher did not kill the publish at the archive: $(tr '\n' ' ' < "$WORK/watch.log")"
 fi
 log "ok: $(grep '^killed ' "$WORK/watch.log") after the archive was visible and before the manifest"
