@@ -131,6 +131,7 @@ describe('BackupScheduleService (#2112)', () => {
         stored: {
           state: 'invalid',
           errors: [{ field: 'intervalMinutes', message: 'Interval must be 15 or 30 minutes' }],
+          values: { ...BACKUP_SETTINGS_DEFAULTS, intervalMinutes: 5 },
         },
       });
       await h.schedule.onApplicationBootstrap();
