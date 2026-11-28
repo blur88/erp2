@@ -95,6 +95,7 @@ backend/backups/
 *.dump
 *.bak
 backup-*/
+!backend/scripts/backup-lifecycle/
 backup_*/
 
 # Application logs
