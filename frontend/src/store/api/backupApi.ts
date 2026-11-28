@@ -33,6 +33,32 @@ export type PostgresClientView =
   | { state: 'mismatch'; clientMajor: number; serverMajor: number }
   | { state: 'unavailable'; reason: string }
 
+/** Mirrors the backend's scheduling state (#2112). */
+export type BackupSchedulingStatus =
+  | { state: 'scheduled'; intervalMinutes: number; nextRunAt: string }
+  | { state: 'unavailable'; reason: string }
+
+export interface BackupSettingsValues {
+  intervalMinutes: number
+  retentionWindowHours: number
+  retentionDailyCount: number
+  retentionWeeklyCount: number
+  retentionMonthlyCount: number
+}
+
+export interface BackupSettingsFieldError {
+  field: string
+  message: string
+}
+
+/** A rejected save: the backend sends one entry per failing field as the response `message`. */
+export type BackupSettingsRejection = BackupSettingsFieldError[]
+
+export type StoredBackupSettings =
+  | { state: 'valid'; settings: BackupSettingsValues }
+  | { state: 'missing' }
+  | { state: 'invalid'; errors: BackupSettingsFieldError[]; values: Record<string, unknown> }
+
 export interface BackupStatus {
   configured: boolean
   missingSettings: string[]
@@ -43,6 +69,7 @@ export interface BackupStatus {
   release: { version: string; status: 'released' | 'development' | 'misconfigured'; configurationError: string | null }
   startup: 'starting' | 'ready' | 'failed'
   startupError: string | null
+  scheduling: BackupSchedulingStatus
 }
 
 export interface BackupListItem {
@@ -69,7 +96,7 @@ export interface BackupStartAccepted {
 export const backupApiSlice = createApi({
   reducerPath: 'backupApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['BackupStatus', 'BackupList'],
+  tagTypes: ['BackupStatus', 'BackupList', 'BackupSettings'],
   endpoints: (builder) => ({
     /** In-memory status only. Polling this never lists the bucket. */
     getBackupStatus: builder.query<BackupStatus, void>({
@@ -85,6 +112,16 @@ export const backupApiSlice = createApi({
       query: () => ({ url: '/backups', method: 'POST' }),
       invalidatesTags: ['BackupStatus'],
     }),
+    /** Stored settings, or why they are missing or invalid. */
+    getBackupSettings: builder.query<StoredBackupSettings, void>({
+      query: () => ({ url: '/backups/settings' }),
+      providesTags: ['BackupSettings'],
+    }),
+    /** A rejected save leaves the stored row alone; a valid save re-times scheduling. */
+    updateBackupSettings: builder.mutation<BackupSettingsValues, BackupSettingsValues>({
+      query: (body) => ({ url: '/backups/settings', method: 'PUT', body }),
+      invalidatesTags: ['BackupSettings', 'BackupStatus'],
+    }),
   }),
 })
 
@@ -92,4 +129,6 @@ export const {
   useGetBackupStatusQuery,
   useListBackupsQuery,
   useStartBackupMutation,
+  useGetBackupSettingsQuery,
+  useUpdateBackupSettingsMutation,
 } = backupApiSlice

@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import { Module } from '@nestjs/common';
+import { createScheduleOptions } from '../../config/schedule-options.factory';
 import { resolveAppRelease } from '../../config/app-release.factory';
 import { PostgresClientModule } from '../postgres-client/postgres-client.module';
 import { BackupController } from './backup.controller';
@@ -7,6 +8,8 @@ import { buildPostgresToolEnv, loadBackupConfig } from './backup.config';
 import { spawnProcessRunner } from './backup-process-runner';
 import { S3BackupStorage } from './backup-storage';
 import { BACKUP_OPTIONS, BackupService, BackupServiceOptions } from './backup.service';
+import { BackupSettingsService } from './backup-settings.service';
+import { BACKUP_SCHEDULING_ENABLED, BackupScheduleService } from './backup-schedule.service';
 
 /**
  * Reads deployment configuration once. Missing or invalid settings do not stop
@@ -31,6 +34,9 @@ export function buildBackupServiceOptions(env: NodeJS.ProcessEnv = process.env):
   providers: [
     { provide: BACKUP_OPTIONS, useFactory: () => buildBackupServiceOptions(process.env) },
     BackupService,
+    BackupSettingsService,
+    BackupScheduleService,
+    { provide: BACKUP_SCHEDULING_ENABLED, useFactory: () => createScheduleOptions().cronJobs },
   ],
   exports: [BackupService],
 })
