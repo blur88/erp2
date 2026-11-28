@@ -150,3 +150,57 @@ test('the extractor fails loudly for a missing heading or a section with no bash
   assert.throws(() => extractSection(prose, '## Empty section'), /no bash blocks/);
   assert.equal(extractSection(prose, '## Next'), 'echo later');
 });
+
+// The globals block runs alone, with fake psql and pg_restore that only record what they were given.
+function runGlobals(t, globalsText, bootstrapRole = 'erp_ci') {
+  const dir = fixtureDirectory(t);
+  const parts = join(dir, 'parts');
+  require('node:fs').mkdirSync(parts);
+  writeFileSync(join(parts, 'globals.sql'), globalsText);
+  const bin = join(dir, 'bin');
+  require('node:fs').mkdirSync(bin);
+  for (const name of ['psql', 'pg_restore']) {
+    writeFileSync(join(bin, name), `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${dir}/${name}.calls"\nif [ "${name}" = psql ]; then cat "${dir}/psql.stdin" 2>/dev/null >/dev/null; fi\nexit 0\n`, { mode: 0o755 });
+  }
+  const start = restoreSection.lastIndexOf('set -euo pipefail', restoreSection.indexOf('parts="$RESTORE_DIR/parts"'));
+  const end = restoreSection.indexOf('pg_restore --exit-on-error --create', start);
+  const block = restoreSection.slice(start, restoreSection.indexOf('\n', end) + 1);
+  const result = spawnSync('bash', ['-c', block], {
+    env: { PATH: `${bin}:${process.env.PATH}`, RESTORE_DIR: dir, PGUSER: bootstrapRole },
+    encoding: 'utf8',
+  });
+  return { result, filtered: existsSync(join(parts, 'globals.filtered.sql')) ? readFileSync(join(parts, 'globals.filtered.sql'), 'utf8') : null };
+}
+
+const PG19_GLOBALS = [
+  '\\restrict abc123',
+  'CREATE ROLE erp_ci;',
+  'ALTER ROLE erp_ci WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION BYPASSRLS PASSWORD \'SCRAM-SHA-256$4096\';',
+  'CREATE ROLE erp_drill_reader;',
+  'ALTER ROLE erp_drill_reader WITH NOSUPERUSER INHERIT NOCREATEROLE NOCREATEDB NOLOGIN NOREPLICATION NOBYPASSRLS;',
+  '\\unrestrict abc123',
+  '',
+].join('\n');
+
+test('the globals step drops the unquoted bootstrap CREATE ROLE that PostgreSQL 19 writes, and keeps the other roles', (t) => {
+  const { result, filtered } = runGlobals(t, PG19_GLOBALS);
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(filtered, /^CREATE ROLE erp_ci;$/m);
+  assert.match(filtered, /^CREATE ROLE erp_drill_reader;$/m);
+  assert.match(filtered, /^ALTER ROLE erp_ci WITH SUPERUSER/m);
+});
+
+test('the globals step also drops the quoted form of the bootstrap CREATE ROLE', (t) => {
+  const quoted = PG19_GLOBALS.replace('CREATE ROLE erp_ci;', 'CREATE ROLE "erp_ci";');
+  const { result, filtered } = runGlobals(t, quoted);
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(filtered, /CREATE ROLE "?erp_ci"?;/);
+});
+
+test('the globals step stops when the bootstrap CREATE ROLE is repeated', (t) => {
+  const repeated = `${PG19_GLOBALS}CREATE ROLE erp_ci;\n`;
+  const { result, filtered } = runGlobals(t, repeated);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /expected exactly one CREATE ROLE/);
+  assert.equal(filtered, null);
+});

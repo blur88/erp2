@@ -131,10 +131,17 @@ export ADMIN_TOKEN
 api POST /users "$ADMIN_TOKEN" "$(jq -nc --arg u "$VIEWER_USERNAME" --arg e "$VIEWER_EMAIL" --arg p "$VIEWER_PASSWORD" '{username:$u,email:$e,password:$p,role:"sales_staff"}')"
 expect_code 201 "create the drill user"
 
+psql_ci "DROP ROLE IF EXISTS ${RESTORE_ROLE}" >/dev/null
 psql_ci "CREATE ROLE ${RESTORE_ROLE} NOLOGIN" >/dev/null
 docker exec "$SOURCE" sh -c 'mkdir -p /app/uploads/logos && head -c 4096 /dev/urandom > /app/uploads/logos/logo-a.png && head -c 4096 /dev/urandom > /app/uploads/logos/logo-b.png'
-[ -n "$(psql_ci "UPDATE \"company_settings\" SET \"logoUrl\" = '/uploads/logos/logo-a.png' RETURNING id")" ] \
+# The first read creates the default company settings row. psql prints "UPDATE n" for an
+# UPDATE, so the row count is checked directly rather than the command's output.
+api GET /settings/company "$ADMIN_TOKEN"; expect_code 200 "load company settings on the source"
+[ "$(psql_ci 'SELECT count(*) FROM "company_settings"')" -ge 1 ] \
   || fail "no company settings row to hold the logo reference"
+psql_ci "UPDATE \"company_settings\" SET \"logoUrl\" = '/uploads/logos/logo-a.png'" >/dev/null
+[ "$(psql_ci "SELECT \"logoUrl\" FROM \"company_settings\" LIMIT 1")" = "/uploads/logos/logo-a.png" ] \
+  || fail "the logo reference was not set on the source"
 
 api PUT /backups/settings "$ADMIN_TOKEN" '{"intervalMinutes":30,"retentionWindowHours":24,"retentionDailyCount":9,"retentionWeeklyCount":4,"retentionMonthlyCount":12}'
 expect_code 200 "save non-default Backup settings on the source"
@@ -155,9 +162,10 @@ DO \$\$
 DECLARE i int := 0;
 BEGIN
   LOOP
+    -- A reader blocked on company_settings waits for a lock. pg_locks is read live, unlike
+    -- pg_stat_activity, which is cached for the life of this transaction.
     EXIT WHEN EXISTS (
-      SELECT 1 FROM pg_stat_activity
-      WHERE wait_event_type = 'Lock' AND query ILIKE '%company_settings%' AND pid <> pg_backend_pid()
+      SELECT 1 FROM pg_locks WHERE relation = 'company_settings'::regclass AND NOT granted
     );
     i := i + 1;
     IF i > 900 THEN RAISE EXCEPTION 'no Backup reached company_settings'; END IF;
@@ -186,8 +194,14 @@ api POST /backups "$ADMIN_TOKEN"
 RP_DRILL="$(jq_body .recoveryPoint)"
 lock_status=0
 timeout 240 docker wait "$LOCKER" >"$WORK/locker.exit" || lock_status=$?
-[ "$lock_status" = 0 ] && [ "$(cat "$WORK/locker.exit")" = 0 ] \
-  || fail "the locker did not commit the changes during the Backup: $(docker logs "$LOCKER" 2>&1 | tail -n 5)"
+if ! { [ "$lock_status" = 0 ] && [ "$(cat "$WORK/locker.exit")" = 0 ]; }; then
+  log "diagnostics: the Backup status and the database sessions at the point the locker gave up"
+  api GET /backups/status "$ADMIN_TOKEN" || true
+  printf '%s\n' "$HTTP_BODY" >&2
+  psql_ci "SELECT datname, usename, application_name, state, wait_event_type, wait_event, left(regexp_replace(query, '[[:space:]]+', ' ', 'g'), 200) FROM pg_stat_activity ORDER BY backend_start" >&2 || true
+  docker logs --tail 30 "$SOURCE" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -v 'Interceptor' | tail -n 15 >&2 || true
+  fail "the locker did not commit the changes during the Backup: $(docker logs "$LOCKER" 2>&1 | tail -n 5)"
+fi
 docker rm -f "$LOCKER" >/dev/null
 log "ok: the changes were committed while the Backup was blocked on company_settings"
 
@@ -321,7 +335,7 @@ api GET /customers "$ADMIN_TOKEN"; expect_code 200 "representative business read
 api GET /backups/status "$ADMIN_TOKEN"; expect_code 200 "status in the recovery environment"
 [ "$(jq_body .scheduling.state)" = "unavailable" ] || fail "scheduling is not held in the recovery environment: $HTTP_BODY"
 printf '%s' "$HTTP_BODY" | grep -q 'recovery environment' || fail "the hold reason is missing: $HTTP_BODY"
-[ "$(jq_body .running == null)" = "true" ] || fail "a Backup is running in the recovery environment"
+[ "$(jq_body '.running == null')" = "true" ] || fail "a Backup is running in the recovery environment"
 log "ok: scheduling is held, and the reason is shown"
 
 # ---- Allow scheduling and retention, as the runbook describes --------------------

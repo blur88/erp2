@@ -208,16 +208,19 @@ fi
 ### Restore globals, then the database, then uploads
 
 Globals hold the roles. The bootstrap superuser already exists on the new
-server, so its `CREATE ROLE` line is removed. The line must appear exactly once,
+server, so its `CREATE ROLE` line is removed. That line must appear exactly once,
 or the restore stops.
 
 ```bash
 set -euo pipefail
 fail() { printf 'restore: %s\n' "$*" >&2; exit 1; }
 parts="$RESTORE_DIR/parts"
-bootstrap="CREATE ROLE \"$PGUSER\";"
-[ "$(grep -cxF "$bootstrap" "$parts/globals.sql" || true)" -le 1 ] || fail "the globals repeat the bootstrap role"
-awk -v line="$bootstrap" '$0 != line' "$parts/globals.sql" > "$parts/globals.filtered.sql"
+# pg_dumpall writes a role name unquoted when it is a plain identifier, and quoted otherwise.
+quoted="CREATE ROLE \"$PGUSER\";"
+plain="CREATE ROLE $PGUSER;"
+bootstrap_count="$(grep -cxF -e "$quoted" -e "$plain" "$parts/globals.sql" || true)"
+[ "$bootstrap_count" = 1 ] || fail "expected exactly one CREATE ROLE for the bootstrap role, found $bootstrap_count"
+awk -v quoted="$quoted" -v plain="$plain" '$0 != quoted && $0 != plain' "$parts/globals.sql" > "$parts/globals.filtered.sql"
 psql -d postgres -v ON_ERROR_STOP=1 --single-transaction -f "$parts/globals.filtered.sql" >/dev/null
 pg_restore --exit-on-error --create -d postgres "$parts/erp_db.dump"
 printf 'restore: globals and database restored\n'
