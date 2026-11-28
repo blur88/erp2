@@ -12,7 +12,8 @@ import {
 export type StoredBackupSettings =
   | { state: 'valid'; settings: BackupSettingsValues }
   | { state: 'missing' }
-  | { state: 'invalid'; errors: BackupSettingsFieldError[] };
+  /** `values` are the stored raw values, so an administrator can see and correct them. */
+  | { state: 'invalid'; errors: BackupSettingsFieldError[]; values: Record<string, unknown> };
 
 /**
  * Persists the singleton `backup_settings` row (#2112). Validation, the write and
@@ -29,8 +30,9 @@ export class BackupSettingsService {
   async readStored(): Promise<StoredBackupSettings> {
     const row = await this.dataSource.getRepository(BackupSettings).findOne({ where: { id: true } });
     if (!row) return { state: 'missing' };
-    const result = validateBackupSettings(pickSettings(row));
-    if (!result.ok || !result.settings) return { state: 'invalid', errors: result.errors ?? [] };
+    const values = pickSettings(row);
+    const result = validateBackupSettings(values);
+    if (!result.ok || !result.settings) return { state: 'invalid', errors: result.errors ?? [], values };
     return { state: 'valid', settings: result.settings };
   }
 

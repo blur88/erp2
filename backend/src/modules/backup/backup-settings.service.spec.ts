@@ -72,6 +72,12 @@ describe('BackupSettingsService (#2112)', () => {
       expect(result.state).toBe('invalid');
       expect(result.state === 'invalid' && result.errors.map((error) => error.field)).toEqual(['intervalMinutes']);
     });
+
+    it('keeps the stored values of an invalid row, so the page can show what is wrong', async () => {
+      const h = makeHarness({ id: true, ...BACKUP_SETTINGS_DEFAULTS, intervalMinutes: 5 });
+      const result = await h.service.readStored();
+      expect(result).toMatchObject({ state: 'invalid', values: { ...BACKUP_SETTINGS_DEFAULTS, intervalMinutes: 5 } });
+    });
   });
 
   describe('updating', () => {
