@@ -20,6 +20,11 @@ RUN npm run build && \
 # Stage 3: Production image — only compiled output + prod deps
 FROM node:26.13.1-alpine3.24 AS production
 
+# Release version from the release workflow (ADR-0002). Empty when built without
+# it; the app then reports "unreleased" (src/config/app-release.factory.ts).
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
+
 # Install security updates and runtime dependencies
 RUN apk upgrade --no-cache && \
     apk add --no-cache curl dumb-init && \
