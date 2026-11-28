@@ -4,7 +4,7 @@ import { createScheduleOptions } from '../../config/schedule-options.factory';
 import { resolveAppRelease } from '../../config/app-release.factory';
 import { PostgresClientModule } from '../postgres-client/postgres-client.module';
 import { BackupController } from './backup.controller';
-import { buildPostgresToolEnv, loadBackupConfig } from './backup.config';
+import { buildPostgresToolEnv, loadBackupConfig, loadHeartbeatConfig } from './backup.config';
 import { spawnProcessRunner } from './backup-process-runner';
 import { S3BackupStorage } from './backup-storage';
 import { BACKUP_OPTIONS, BackupService, BackupServiceOptions } from './backup.service';
@@ -25,6 +25,7 @@ export function buildBackupServiceOptions(env: NodeJS.ProcessEnv = process.env):
     appRole: env.DB_USERNAME ?? '',
     uploadsDir: path.resolve(process.cwd(), 'uploads'),
     release: resolveAppRelease(env),
+    heartbeat: loadHeartbeatConfig(env),
   };
 }
 

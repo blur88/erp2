@@ -635,6 +635,7 @@ jobs:
           PG_PASSWORD: erp_ci_password
           REDIS_HOST: localhost
           S3_HOST: localhost
+          HC_HOST: localhost
         run: bash backend/scripts/backup-lifecycle/run.sh
 
       - name: Container logs on failure
@@ -642,10 +643,11 @@ jobs:
         run: |
           docker logs erp_ci_backend 2>&1 | tail -200 || true
           docker logs erp_ci_s3 2>&1 | tail -100 || true
+          docker logs erp_ci_heartbeat 2>&1 | tail -50 || true
 
       - name: Tear down
         if: always()
-        run: docker rm -f erp_ci_backend erp_ci_s3 || true
+        run: docker rm -f erp_ci_backend erp_ci_s3 erp_ci_heartbeat || true
 
   validate-production-images:
     name: Production Images - Frontend and Reverse Proxy

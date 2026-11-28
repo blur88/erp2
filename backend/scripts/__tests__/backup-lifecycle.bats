@@ -104,7 +104,7 @@ JSON
 @test "run.sh refuses to start without its required environment" {
   run env -i PATH="$PATH" bash "$run_sh"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"missing required environment: IMAGE S3_IMAGE NET PG_HOST PG_PASSWORD REDIS_HOST S3_HOST"* ]]
+  [[ "$output" == *"missing required environment: IMAGE S3_IMAGE NET PG_HOST PG_PASSWORD REDIS_HOST S3_HOST HC_HOST"* ]]
 }
 
 @test "the storage helper rejects an unknown command with a usage status" {
@@ -115,4 +115,37 @@ JSON
 @test "the storage helper rejects put without a key and a source file" {
   run node "$helper" put only-a-key
   [ "$status" -eq 64 ]
+}
+
+@test "the heartbeat stub refuses to start without a port and a log file" {
+  stub="$BATS_TEST_DIRNAME/../backup-lifecycle/heartbeat-stub.cjs"
+  run node "$stub"
+  [ "$status" -eq 64 ]
+}
+
+@test "the heartbeat stub records only pings to the two checks and answers anything else with a refusal" {
+  stub="$BATS_TEST_DIRNAME/../backup-lifecycle/heartbeat-stub.cjs"
+  port=$(( 20000 + RANDOM % 20000 ))
+  log="$BATS_TEST_TMPDIR/pings.log"
+  node "$stub" "$port" "$log" >/dev/null 2>&1 &
+  pid=$!
+  run node -e "
+    (async () => {
+      for (let i = 0; i < 100; i++) {
+        try { await fetch('http://127.0.0.1:${port}/readiness-probe'); break; }
+        catch { await new Promise((r) => setTimeout(r, 50)); }
+      }
+      const codes = [];
+      for (const path of ['/ping/primary', '/ping/secondary', '/ping/start', '/ping/fail']) {
+        codes.push((await fetch('http://127.0.0.1:${port}' + path)).status);
+      }
+      console.log(codes.join(' '));
+    })();"
+  kill "$pid"
+  wait "$pid" 2>/dev/null || true
+  [ "$status" -eq 0 ]
+  [ "$output" = "200 200 404 404" ]
+  [ "$(wc -l < "$log")" -eq 2 ]
+  [[ "$(cat "$log")" != *"start"* ]]
+  [[ "$(cat "$log")" != *"fail"* ]]
 }

@@ -74,6 +74,21 @@ export type StoredBackupSettings =
   | { state: 'missing' }
   | { state: 'invalid'; errors: BackupSettingsFieldError[]; values: Record<string, unknown> }
 
+/** The last heartbeat round for a Verified Backup (#2115). Never holds a URL. */
+export interface BackupHeartbeatRecord {
+  recoveryPoint: string
+  sentAt: string
+  result: 'sent' | 'failed'
+  message: string | null
+}
+
+export interface BackupHeartbeatStatus {
+  urlCount: number
+  /** Names of heartbeat variables that are missing or invalid. */
+  missingSettings: string[]
+  lastPing: BackupHeartbeatRecord | null
+}
+
 export interface BackupStatus {
   configured: boolean
   missingSettings: string[]
@@ -86,7 +101,23 @@ export interface BackupStatus {
   startup: 'starting' | 'ready' | 'failed'
   startupError: string | null
   scheduling: BackupSchedulingStatus
+  heartbeat: BackupHeartbeatStatus
 }
+
+export type BackupRpoState = 'healthy' | 'warning' | 'breach' | 'unknown'
+
+/** The RPO, measured from the newest Verified Backup's Recovery point on the server clock (#2115). */
+export interface BackupRpoStatus {
+  state: BackupRpoState
+  ageMinutes: number | null
+  recoveryPoint: string | null
+}
+
+export type BackupLocalCopy =
+  | { state: 'unconfigured' }
+  | { state: 'present'; recoveryPoint: string }
+  | { state: 'absent'; recoveryPoint: null }
+  | { state: 'unavailable'; recoveryPoint: null }
 
 export interface BackupListItem {
   recoveryPoint: string
@@ -101,8 +132,15 @@ export interface MalformedBackupItem {
 }
 
 export type BackupListResponse =
-  | { state: 'ok'; backups: BackupListItem[]; malformed: MalformedBackupItem[] }
-  | { state: 'unavailable'; reason: string }
+  | {
+      state: 'ok'
+      backups: BackupListItem[]
+      malformed: MalformedBackupItem[]
+      unreleasedCount: number
+      rpo: BackupRpoStatus
+      localCopy: BackupLocalCopy
+    }
+  | { state: 'unavailable'; reason: string; rpo: BackupRpoStatus; localCopy: BackupLocalCopy }
 
 export interface BackupStartAccepted {
   recoveryPoint: string

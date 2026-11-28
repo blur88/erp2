@@ -1,4 +1,4 @@
-import { buildPostgresToolEnv, loadBackupConfig } from './backup.config';
+import { buildPostgresToolEnv, loadBackupConfig, loadHeartbeatConfig } from './backup.config';
 import { AGE_RECIPIENT } from './backup-test-fixtures';
 
 const complete = {
@@ -50,5 +50,39 @@ describe('buildPostgresToolEnv (#2111)', () => {
     expect(env).toMatchObject({ PGHOST: 'postgres', PGUSER: 'erp_app', PGPASSWORD: 'db-pass', PGSSLMODE: 'disable' });
     expect(JSON.stringify(env)).not.toContain('super-secret-key');
     expect(JSON.stringify(env)).not.toContain('AKIA-SECRET-ID');
+  });
+});
+
+describe('loadHeartbeatConfig (#2115)', () => {
+  const primary = 'https://hc-ping.com/aaaaaaaa-0000-4000-8000-000000000001';
+  const secondary = 'https://hc-ping.com/bbbbbbbb-0000-4000-8000-000000000002';
+
+  it('reads both URLs with their variable names', () => {
+    const result = loadHeartbeatConfig({
+      BACKUP_HEARTBEAT_URL_PRIMARY: primary,
+      BACKUP_HEARTBEAT_URL_SECONDARY: secondary,
+    });
+    expect(result.urls).toEqual([
+      { name: 'BACKUP_HEARTBEAT_URL_PRIMARY', url: primary },
+      { name: 'BACKUP_HEARTBEAT_URL_SECONDARY', url: secondary },
+    ]);
+    expect(result.missing).toEqual([]);
+    expect(result.invalid).toEqual([]);
+  });
+
+  it('names a missing URL and keeps the other one', () => {
+    const result = loadHeartbeatConfig({ BACKUP_HEARTBEAT_URL_PRIMARY: primary });
+    expect(result.urls.map((u) => u.name)).toEqual(['BACKUP_HEARTBEAT_URL_PRIMARY']);
+    expect(result.missing).toEqual(['BACKUP_HEARTBEAT_URL_SECONDARY']);
+  });
+
+  it('names an invalid URL without echoing it', () => {
+    const result = loadHeartbeatConfig({
+      BACKUP_HEARTBEAT_URL_PRIMARY: 'ftp://hc-ping.com/secret-token-value',
+      BACKUP_HEARTBEAT_URL_SECONDARY: secondary,
+    });
+    expect(result.invalid).toEqual(['BACKUP_HEARTBEAT_URL_PRIMARY']);
+    expect(result.urls.map((u) => u.name)).toEqual(['BACKUP_HEARTBEAT_URL_SECONDARY']);
+    expect(JSON.stringify(result)).not.toContain('secret-token-value');
   });
 });

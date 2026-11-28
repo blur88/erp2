@@ -96,6 +96,55 @@ export function loadBackupConfig(env: NodeJS.ProcessEnv = process.env): BackupCo
   };
 }
 
+/** Deployment configuration for the Healthchecks.io heartbeats (#2115). Names are shown; values never are. */
+export const HEARTBEAT_ENV = {
+  primary: 'BACKUP_HEARTBEAT_URL_PRIMARY',
+  secondary: 'BACKUP_HEARTBEAT_URL_SECONDARY',
+} as const;
+
+export interface HeartbeatUrl {
+  /** The variable the URL came from. Only this name is ever shown. */
+  name: string;
+  /** Never logged, returned by the API, or written anywhere. */
+  url: string;
+}
+
+export interface HeartbeatConfigResult {
+  urls: HeartbeatUrl[];
+  /** Variables that are not set. */
+  missing: string[];
+  /** Variables that are set but are not http or https URLs. */
+  invalid: string[];
+}
+
+/**
+ * Reads the two heartbeat URLs. Pure. A missing or invalid URL never stops
+ * Backups; it is reported as a configuration warning instead.
+ */
+export function loadHeartbeatConfig(env: NodeJS.ProcessEnv = process.env): HeartbeatConfigResult {
+  const result: HeartbeatConfigResult = { urls: [], missing: [], invalid: [] };
+  for (const name of [HEARTBEAT_ENV.primary, HEARTBEAT_ENV.secondary]) {
+    const value = (env[name] ?? '').trim();
+    if (!value) {
+      result.missing.push(name);
+    } else if (!isHttpUrl(value)) {
+      result.invalid.push(name);
+    } else {
+      result.urls.push({ name, url: value });
+    }
+  }
+  return result;
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Environment for pg_dump, pg_dumpall and pg_restore. Only the variables the
  * PostgreSQL tools need: the S3 credentials never reach a child process.

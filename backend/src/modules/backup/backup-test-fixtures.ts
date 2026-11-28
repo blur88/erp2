@@ -4,9 +4,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
 import { PrintSettings } from '../../database/entities/print-settings.entity';
-import { BackupConfig } from './backup.config';
+import { BackupConfig, HeartbeatConfigResult } from './backup.config';
 import { S3BackupStorage } from './backup-storage';
-import { BackupService, BackupServiceOptions } from './backup.service';
+import { BackupService, BackupServiceOptions, HeartbeatPinger } from './backup.service';
 import { BACKUP_SETTINGS_DEFAULTS } from './backup-settings';
 import type { StoredBackupSettings } from './backup-settings.service';
 import { InMemoryS3Client } from './in-memory-s3-client';
@@ -33,6 +33,8 @@ export interface Harness {
   settings: { readStored: jest.Mock<AnyFn> };
   service: BackupService;
   options: BackupServiceOptions;
+  /** Records each heartbeat ping as (url, signal). Resolves with the HTTP status; defaults to 200. */
+  pings: jest.Mock<AnyFn>;
   cleanup: () => void;
 }
 
@@ -76,8 +78,25 @@ export function fakeDataSource(
   return { createQueryRunner: () => queryRunner } as any;
 }
 
+/** Both heartbeat URLs configured. The values are fake and only ever appear in tests. */
+export const HEARTBEAT_PRIMARY_URL = 'https://hc.test/primary-check-uuid';
+export const HEARTBEAT_SECONDARY_URL = 'https://hc.test/secondary-check-uuid';
+
+export function completeHeartbeat(): HeartbeatConfigResult {
+  return {
+    urls: [
+      { name: 'BACKUP_HEARTBEAT_URL_PRIMARY', url: HEARTBEAT_PRIMARY_URL },
+      { name: 'BACKUP_HEARTBEAT_URL_SECONDARY', url: HEARTBEAT_SECONDARY_URL },
+    ],
+    missing: [],
+    invalid: [],
+  };
+}
+
 export function makeHarness(
   overrides: Partial<Pick<BackupServiceOptions, 'timeoutMs' | 'now'>> & {
+    heartbeat?: HeartbeatConfigResult;
+    pingHeartbeat?: HeartbeatPinger;
     release?: BackupServiceOptions['release'];
     versionState?: 'compatible' | 'mismatch' | 'unavailable';
     dataSource?: unknown;
@@ -104,8 +123,11 @@ export function makeHarness(
   const auditLog = { log: jest.fn<AnyFn>(async () => undefined) };
   const stored: StoredBackupSettings = overrides.stored ?? { state: 'valid', settings: { ...BACKUP_SETTINGS_DEFAULTS } };
   const settings = { readStored: jest.fn<AnyFn>(async () => stored) };
+  const pings = jest.fn<AnyFn>(async () => 200);
   const options: BackupServiceOptions = {
     config: { configured: true, config: makeConfig(localCopyDir), missing: [], invalid: [] },
+    heartbeat: overrides.heartbeat ?? completeHeartbeat(),
+    pingHeartbeat: overrides.pingHeartbeat ?? (pings as unknown as HeartbeatPinger),
     storage,
     runner,
     toolEnv: { PATH: process.env.PATH },
@@ -135,6 +157,7 @@ export function makeHarness(
     settings,
     service,
     options,
+    pings,
     cleanup: () => fs.rmSync(root, { recursive: true, force: true }),
   };
 }

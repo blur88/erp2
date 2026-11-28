@@ -12,9 +12,10 @@ import { DataSource } from 'typeorm';
 import { AuditLogService } from '../audit-logs/services/audit-log.service';
 import { PostgresClientStatus, PostgresClientStatusService } from '../postgres-client/postgres-client-status.service';
 import { AppRelease } from '../../config/app-release.factory';
-import { BackupConfigResult } from './backup.config';
+import { BackupConfigResult, HeartbeatConfigResult } from './backup.config';
 import { runBackupAttempt, BackupAttemptDeps } from './backup-attempt';
-import { formatRecoveryPoint } from './backup-manifest';
+import { formatRecoveryPoint, UNRELEASED } from './backup-manifest';
+import { computeRpo, LocalCopyStatus, readLocalCopy } from './backup-protection';
 import { ProcessRunner } from './backup-process-runner';
 import { BackupStorage } from './backup-storage';
 import { listStoredBackups } from './backup-listing';
@@ -28,8 +29,20 @@ import {
   BackupTimeoutError,
   BACKUP_RETENTION_TIMEOUT_MS,
   BACKUP_TIMEOUT_MS,
+  HeartbeatRecord,
+  HEARTBEAT_TIMEOUT_MS,
   RetentionRecord,
 } from './backup.types';
+
+/** Sends one heartbeat ping and resolves with the HTTP status. Injected so tests never reach the network. */
+export type HeartbeatPinger = (url: string, signal: AbortSignal) => Promise<number>;
+
+/** The production pinger: a plain GET. No /start or /fail signal is ever sent. */
+export const fetchHeartbeatPinger: HeartbeatPinger = async (url, signal) => {
+  const response = await fetch(url, { method: 'GET', signal, redirect: 'error' });
+  await response.body?.cancel().catch(() => undefined);
+  return response.status;
+};
 
 export const BACKUP_OPTIONS = Symbol('BACKUP_OPTIONS');
 
@@ -42,6 +55,10 @@ export interface BackupServiceOptions {
   appRole: string;
   uploadsDir: string;
   release: AppRelease;
+  /** Healthchecks.io heartbeat URLs from deployment configuration (#2115). */
+  heartbeat: HeartbeatConfigResult;
+  pingHeartbeat?: HeartbeatPinger;
+  heartbeatTimeoutMs?: number;
   timeoutMs?: number;
   retentionTimeoutMs?: number;
   now?: () => Date;
@@ -65,10 +82,19 @@ export interface BackupStatusView {
   noAttemptSinceRestart: boolean;
   /** The last retention pass, shown apart from Backup results (#2114). Null means none since restart. */
   lastRetention: RetentionRecord | null;
+  heartbeat: HeartbeatStatusView;
   postgresClient: PostgresClientView;
   release: { version: string; status: AppRelease['status']; configurationError: string | null };
   startup: 'starting' | 'ready' | 'failed';
   startupError: string | null;
+}
+
+export interface HeartbeatStatusView {
+  /** How many heartbeat URLs are configured, 0 to 2. Their values are never shown. */
+  urlCount: number;
+  /** Names of heartbeat variables that are missing or invalid. */
+  missingSettings: string[];
+  lastPing: HeartbeatRecord | null;
 }
 
 export type PostgresClientView =
@@ -89,6 +115,7 @@ export class BackupService implements OnApplicationBootstrap {
   private running: BackupStartAccepted | null = null;
   private lastAttempt: BackupAttemptRecord | null = null;
   private lastRetention: RetentionRecord | null = null;
+  private lastHeartbeat: HeartbeatRecord | null = null;
   private startup: 'starting' | 'ready' | 'failed' = 'starting';
   private startupError: string | null = null;
 
@@ -160,6 +187,11 @@ export class BackupService implements OnApplicationBootstrap {
       lastAttempt: this.lastAttempt,
       noAttemptSinceRestart: this.lastAttempt === null,
       lastRetention: this.lastRetention,
+      heartbeat: {
+        urlCount: this.options.heartbeat.urls.length,
+        missingSettings: [...this.options.heartbeat.missing, ...this.options.heartbeat.invalid],
+        lastPing: this.lastHeartbeat,
+      },
       postgresClient: toClientView(client),
       release: {
         version: this.options.release.version,
@@ -177,18 +209,44 @@ export class BackupService implements OnApplicationBootstrap {
    * is "unavailable", never an empty list.
    */
   async listBackups(): Promise<BackupListResult> {
+    const localCopy = await this.localCopyStatus();
     if (!this.options.config.configured || !this.options.storage) {
-      return { state: 'unavailable', reason: 'Backup storage is not configured' };
+      return {
+        state: 'unavailable',
+        reason: 'Backup storage is not configured',
+        rpo: computeRpo(null, this.now()),
+        localCopy,
+      };
     }
     try {
       const listing = await listStoredBackups(this.options.storage);
-      return { state: 'ok', backups: listing.backups, malformed: listing.malformed };
+      // Only released Backups are Verified, so only they count towards the RPO (#2115).
+      const verified = listing.backups.find((backup) => backup.release !== UNRELEASED);
+      return {
+        state: 'ok',
+        backups: listing.backups,
+        malformed: listing.malformed,
+        unreleasedCount: listing.backups.filter((backup) => backup.release === UNRELEASED).length,
+        rpo: computeRpo(verified?.recoveryPoint ?? null, this.now()),
+        localCopy,
+      };
     } catch (error) {
       if (error instanceof BackupStorageUnavailableError) {
-        return { state: 'unavailable', reason: 'Backup storage is unavailable' };
+        return {
+          state: 'unavailable',
+          reason: 'Backup storage is unavailable',
+          rpo: computeRpo(null, this.now()),
+          localCopy,
+        };
       }
       throw error;
     }
+  }
+
+  private async localCopyStatus(): Promise<LocalCopyStatus> {
+    const { config } = this.options;
+    if (!config.configured || !config.config) return { state: 'unconfigured' };
+    return readLocalCopy(config.config.localCopyDir);
   }
 
   /**
@@ -233,9 +291,61 @@ export class BackupService implements OnApplicationBootstrap {
             error: null,
           };
       if (failed) this.logger.warn(`Backup ${accepted.recoveryPoint} failed at ${this.lastAttempt.failedStep}`);
-      else this.logger.log(`Backup ${accepted.recoveryPoint} published`);
+      else {
+        this.logger.log(`Backup ${accepted.recoveryPoint} published`);
+        // Only after the manifest is confirmed. A failed ping never changes the Backup result (#2115).
+        await this.sendHeartbeat(accepted.recoveryPoint, endedAt);
+      }
     } finally {
       clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Pings every configured heartbeat once for a newly published Backup (#2115).
+   * Skipped for an unreleased production build, invalid or unreadable stored
+   * settings, and missing URLs. Never throws, and never changes the Backup result.
+   */
+  private async sendHeartbeat(recoveryPoint: string, sentAt: string): Promise<void> {
+    if (this.options.release.status === 'misconfigured') return;
+    const { urls } = this.options.heartbeat;
+    if (urls.length === 0) return;
+    if (!(await this.storedSettingsAreValid())) return;
+
+    const failures = (
+      await Promise.all(urls.map(({ name, url }) => this.pingOne(name, url)))
+    ).filter((failure): failure is string => failure !== null);
+    if (failures.length === 0) {
+      this.lastHeartbeat = { recoveryPoint, sentAt, result: 'sent', message: null };
+      this.logger.log(`Heartbeat sent for Backup ${recoveryPoint}`);
+      return;
+    }
+    const message = failures.join('; ');
+    this.lastHeartbeat = { recoveryPoint, sentAt, result: 'failed', message };
+    this.logger.warn(`Heartbeat for Backup ${recoveryPoint} was not delivered: ${message}`);
+  }
+
+  /** Returns a failure description, or null when the ping got a 2xx answer. Never includes the URL. */
+  private async pingOne(name: string, url: string): Promise<string | null> {
+    const pinger = this.options.pingHeartbeat ?? fetchHeartbeatPinger;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.options.heartbeatTimeoutMs ?? HEARTBEAT_TIMEOUT_MS);
+    try {
+      const status = await pinger(url, controller.signal);
+      if (status >= 200 && status < 300) return null;
+      return `${name} was not delivered (HTTP ${status})`;
+    } catch (error) {
+      return `${name} was not delivered (${(error as Error)?.name ?? 'error'})`;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private async storedSettingsAreValid(): Promise<boolean> {
+    try {
+      return (await this.settings.readStored()).state === 'valid';
+    } catch {
+      return false;
     }
   }
 

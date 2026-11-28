@@ -45,6 +45,7 @@ function status(overrides: Partial<Status> = {}): Status {
     startup: 'ready',
     startupError: null,
     scheduling: { state: 'scheduled', intervalMinutes: 30, nextRunAt: '2026-11-28T10:30:00.000Z' },
+    heartbeat: { urlCount: 2, missingSettings: [], lastPing: null },
     ...overrides,
   }
 }
@@ -68,6 +69,9 @@ const listOk = {
     },
   ],
   malformed: [],
+  unreleasedCount: 0,
+  rpo: { state: 'healthy', ageMinutes: 12, recoveryPoint: '20261128T101500123Z' },
+  localCopy: { state: 'present', recoveryPoint: '20261128T101500123Z' },
 }
 
 function setHooks({
@@ -431,3 +435,195 @@ describe('BackupPage scheduling and settings (#2112)', () => {
   })
 })
 
+
+describe('BackupPage protection (#2115)', () => {
+  const RP = '20261128T101500123Z'
+  const okList = (overrides: Record<string, unknown> = {}) => ({ ...listOk, ...overrides })
+  const rpo = (state: string, ageMinutes: number | null, recoveryPoint: string | null = RP) => ({
+    state,
+    ageMinutes,
+    recoveryPoint,
+  })
+
+  it('shows Healthy with the age and the Recovery point it is measured from', () => {
+    setHooks({ listValue: okList({ rpo: rpo('healthy', 12) }) })
+    render(<BackupPage />)
+    const panel = screen.getByTestId('backup-rpo')
+    expect(panel).toHaveAttribute('data-state', 'healthy')
+    expect(within(panel).getByText('Healthy')).toBeInTheDocument()
+    expect(within(panel).getByText(/12 minutes ago/)).toBeInTheDocument()
+    expect(within(panel).getByText(new RegExp(RP))).toBeInTheDocument()
+    expect(screen.queryByTestId('backup-rpo-warning')).not.toBeInTheDocument()
+  })
+
+  it('shows a warning from 45 minutes, before the RPO breach', () => {
+    setHooks({ listValue: okList({ rpo: rpo('warning', 45) }) })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-rpo')).toHaveAttribute('data-state', 'warning')
+    expect(screen.getByTestId('backup-rpo')).toHaveTextContent('Warning')
+    expect(screen.getByTestId('backup-rpo-warning')).toHaveTextContent('45 minutes')
+  })
+
+  it('shows an RPO breach at 60 minutes or more', () => {
+    setHooks({ listValue: okList({ rpo: rpo('breach', 75) }) })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-rpo')).toHaveAttribute('data-state', 'breach')
+    expect(screen.getByTestId('backup-rpo')).toHaveTextContent('RPO breach')
+    expect(screen.getByTestId('backup-rpo-warning')).toHaveTextContent('75 minutes')
+  })
+
+  it('shows Unknown, with no age, when the age cannot be established', () => {
+    setHooks({ listValue: okList({ rpo: rpo('unknown', null, null) }) })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-rpo')).toHaveAttribute('data-state', 'unknown')
+    expect(screen.getByTestId('backup-rpo')).toHaveTextContent('Unknown')
+    expect(screen.queryByText(/minutes ago/)).not.toBeInTheDocument()
+  })
+
+  it('shows Unknown when storage is unreachable, and the storage warning', () => {
+    setHooks({
+      listValue: { state: 'unavailable', reason: 'Backup storage is unavailable', rpo: rpo('unknown', null, null), localCopy: { state: 'absent', recoveryPoint: null } },
+    })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-rpo')).toHaveAttribute('data-state', 'unknown')
+    expect(screen.getByTestId('backup-unavailable')).toBeInTheDocument()
+  })
+
+  it('shows Unknown without crashing while the list has not loaded', () => {
+    setHooks()
+    hooks.list.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: hooks.refetchList })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-rpo')).toHaveAttribute('data-state', 'unknown')
+  })
+
+  it('warns when no Verified Backup exists', () => {
+    setHooks({
+      listValue: okList({ backups: [], rpo: rpo('unknown', null, null), unreleasedCount: 0 }),
+    })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-no-verified')).toHaveTextContent('No Verified Backup exists yet.')
+  })
+
+  it('lists unreleased Backups as not counting towards the RPO, and still warns that no Verified Backup exists', () => {
+    setHooks({
+      listValue: okList({
+        backups: [{ ...listOk.backups[0], recoveryPoint: '20261128T110000000Z', release: 'unreleased' }],
+        rpo: rpo('unknown', null, null),
+        unreleasedCount: 1,
+      }),
+    })
+    render(<BackupPage />)
+    expect(within(screen.getByRole('table', { name: 'Backups' })).getByText('unreleased')).toBeInTheDocument()
+    expect(screen.getByTestId('backup-unreleased')).toHaveTextContent(
+      '1 unreleased Backup is listed but does not count towards the RPO.',
+    )
+    expect(screen.getByTestId('backup-no-verified')).toBeInTheDocument()
+  })
+
+  it('warns when the production build has no valid Release', () => {
+    setHooks({
+      statusValue: status({
+        release: { version: 'unreleased', status: 'misconfigured', configurationError: 'APP_VERSION must be X.Y.Z in production' },
+      }),
+    })
+    render(<BackupPage />)
+    expect(screen.getByText(/APP_VERSION must be X.Y.Z in production/)).toBeInTheDocument()
+  })
+
+  it('warns when a heartbeat URL is not configured, by variable name only', () => {
+    setHooks({
+      statusValue: status({ heartbeat: { urlCount: 1, missingSettings: ['BACKUP_HEARTBEAT_URL_SECONDARY'], lastPing: null } }),
+    })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-heartbeat-config')).toHaveTextContent(
+      'Heartbeat not configured: BACKUP_HEARTBEAT_URL_SECONDARY',
+    )
+  })
+
+  it('reports a failed heartbeat as a monitoring problem, and says the Backup is still valid', () => {
+    setHooks({
+      statusValue: status({
+        lastAttempt: {
+          recoveryPoint: RP,
+          startedAt: '2026-11-28T10:15:00.000Z',
+          endedAt: '2026-11-28T10:20:00.000Z',
+          result: 'succeeded',
+          failedStep: null,
+          error: null,
+        },
+        noAttemptSinceRestart: false,
+        heartbeat: {
+          urlCount: 2,
+          missingSettings: [],
+          lastPing: {
+            recoveryPoint: RP,
+            sentAt: '2026-11-28T10:20:00.000Z',
+            result: 'failed',
+            message: 'BACKUP_HEARTBEAT_URL_PRIMARY was not delivered (HTTP 503)',
+          },
+        },
+      }),
+    })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-monitoring')).toHaveTextContent(
+      'Monitoring problem: BACKUP_HEARTBEAT_URL_PRIMARY was not delivered (HTTP 503)',
+    )
+    expect(screen.getByTestId('backup-monitoring')).toHaveTextContent('The Backup itself is valid')
+    expect(screen.getByTestId('backup-last-attempt')).toHaveTextContent('Succeeded.')
+  })
+
+  it('shows no monitoring problem after a heartbeat was sent', () => {
+    setHooks({
+      statusValue: status({
+        heartbeat: {
+          urlCount: 2,
+          missingSettings: [],
+          lastPing: { recoveryPoint: RP, sentAt: '2026-11-28T10:20:00.000Z', result: 'sent', message: null },
+        },
+      }),
+    })
+    render(<BackupPage />)
+    expect(screen.queryByTestId('backup-monitoring')).not.toBeInTheDocument()
+  })
+
+  it('shows every configuration warning at once', () => {
+    setHooks({
+      statusValue: status({
+        configured: false,
+        missingSettings: ['BACKUP_S3_BUCKET'],
+        postgresClient: { state: 'mismatch', clientMajor: 18, serverMajor: 19 },
+        release: { version: 'unreleased', status: 'misconfigured', configurationError: 'APP_VERSION missing' },
+        heartbeat: { urlCount: 1, missingSettings: ['BACKUP_HEARTBEAT_URL_SECONDARY'], lastPing: null },
+      }),
+      listValue: { state: 'unavailable', reason: 'Backup storage is unavailable', rpo: rpo('unknown', null, null), localCopy: { state: 'unconfigured' } },
+      settingsValue: { state: 'invalid', errors: [{ field: 'intervalMinutes', message: 'Interval must be 15 or 30 minutes' }], values: { intervalMinutes: 20 } },
+    })
+    render(<BackupPage />)
+    expect(screen.getByText(/Missing or invalid settings: BACKUP_S3_BUCKET/)).toBeInTheDocument()
+    expect(screen.getByText(/does not match the database server major 19/)).toBeInTheDocument()
+    expect(screen.getByText('APP_VERSION missing')).toBeInTheDocument()
+    expect(screen.getByTestId('backup-heartbeat-config')).toBeInTheDocument()
+    expect(screen.getByTestId('backup-unavailable')).toBeInTheDocument()
+    expect(screen.getByTestId('backup-settings-invalid')).toBeInTheDocument()
+  })
+
+  it('shows the Local copy status: present with its Recovery point', () => {
+    setHooks({ listValue: okList() })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-local-copy')).toHaveTextContent(`Local copy: present for ${RP}`)
+  })
+
+  it('shows the Local copy as absent, unavailable or not configured', () => {
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [{ state: 'absent', recoveryPoint: null }, 'Local copy: none kept on this machine.'],
+      [{ state: 'unavailable', recoveryPoint: null }, 'Local copy: the directory could not be read.'],
+      [{ state: 'unconfigured' }, 'Local copy: not configured.'],
+    ]
+    for (const [localCopy, text] of cases) {
+      setHooks({ listValue: okList({ localCopy }) })
+      const { unmount } = render(<BackupPage />)
+      expect(screen.getByTestId('backup-local-copy')).toHaveTextContent(text)
+      unmount()
+    }
+  })
+})

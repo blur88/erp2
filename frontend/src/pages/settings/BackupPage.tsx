@@ -25,6 +25,9 @@ import {
   useUpdateBackupSettingsMutation,
 } from '@/store/api/backupApi'
 import type {
+  BackupListResponse,
+  BackupLocalCopy,
+  BackupRpoStatus,
   BackupSettingsRejection,
   BackupSettingsValues,
   BackupStatus,
@@ -153,6 +156,8 @@ export default function BackupPage() {
           }}
         />
 
+        <ProtectionSection list={list} />
+
         <StatusSection status={status} statusError={statusError} />
 
         <SettingsSection stored={storedSettings} saveSettings={saveSettings} />
@@ -208,6 +213,17 @@ function StatusSection({ status, statusError }: { status: BackupStatus | undefin
       )}
       {client.state === 'unavailable' && (
         <Alert severity="warning">PostgreSQL version check could not run: {client.reason}</Alert>
+      )}
+      {status.heartbeat.missingSettings.length > 0 && (
+        <Alert severity="warning" data-testid="backup-heartbeat-config">
+          Heartbeat not configured: {status.heartbeat.missingSettings.join(', ')}. Off-site alerts are not sent for these.
+        </Alert>
+      )}
+      {status.heartbeat.lastPing?.result === 'failed' && (
+        <Alert severity="warning" data-testid="backup-monitoring">
+          Monitoring problem: {status.heartbeat.lastPing.message ?? 'a heartbeat was not delivered'}. The Backup itself is
+          valid; only the off-site alert ping failed.
+        </Alert>
       )}
 
       <Box>
@@ -267,6 +283,86 @@ function RetentionResult({ retention }: { retention: BackupRetentionRecord | nul
       Local copies pruned: {retention.prunedLocalCopies}.
     </Typography>
   )
+}
+
+const UNKNOWN_RPO: BackupRpoStatus = { state: 'unknown', ageMinutes: null, recoveryPoint: null }
+
+const RPO_LABELS: Record<BackupRpoStatus['state'], string> = {
+  healthy: 'Healthy',
+  warning: 'Warning',
+  breach: 'RPO breach',
+  unknown: 'Unknown',
+}
+
+const RPO_SEVERITY: Record<BackupRpoStatus['state'], 'success' | 'warning' | 'error' | 'info'> = {
+  healthy: 'success',
+  warning: 'warning',
+  breach: 'error',
+  unknown: 'info',
+}
+
+/** The RPO state, the Local copy, and the warnings about whether a Verified Backup exists (#2115). */
+function ProtectionSection({ list }: { list: BackupListResponse | undefined }) {
+  const rpo = list?.rpo ?? UNKNOWN_RPO
+  const localCopy: BackupLocalCopy | null = list?.localCopy ?? null
+  const unreleased = list?.state === 'ok' ? list.unreleasedCount : 0
+  const noVerified = list?.state === 'ok' && rpo.recoveryPoint === null
+
+  return (
+    <Paper sx={{ p: 2 }} data-testid="backup-protection">
+      <Typography variant="h6" gutterBottom>
+        Protection
+      </Typography>
+      <Stack spacing={2}>
+        <Box data-testid="backup-rpo" data-state={rpo.state}>
+          <Alert severity={RPO_SEVERITY[rpo.state]} variant="outlined" icon={false}>
+            <Typography component="span" sx={{ fontWeight: 600 }}>
+              {RPO_LABELS[rpo.state]}
+            </Typography>
+            {rpo.state === 'unknown' ? (
+              <Typography component="span"> The age of the newest Verified Backup cannot be established.</Typography>
+            ) : (
+              <Typography component="span">
+                {' '}
+                Newest Verified Backup: {rpo.recoveryPoint}, {rpo.ageMinutes} minutes ago.
+              </Typography>
+            )}
+          </Alert>
+        </Box>
+        {rpo.state === 'warning' && (
+          <Alert severity="warning" data-testid="backup-rpo-warning">
+            The newest Verified Backup is {rpo.ageMinutes} minutes old. An RPO breach starts at 60 minutes.
+          </Alert>
+        )}
+        {rpo.state === 'breach' && (
+          <Alert severity="error" data-testid="backup-rpo-warning">
+            The newest Verified Backup is {rpo.ageMinutes} minutes old, past the 60-minute RPO.
+          </Alert>
+        )}
+        {noVerified && (
+          <Alert severity="warning" data-testid="backup-no-verified">
+            No Verified Backup exists yet. Run a Backup and wait for it to publish.
+          </Alert>
+        )}
+        {unreleased > 0 && (
+          <Typography data-testid="backup-unreleased">
+            {unreleased} unreleased Backup{unreleased === 1 ? ' is' : 's are'} listed but{' '}
+            {unreleased === 1 ? 'does' : 'do'} not count towards the RPO.
+          </Typography>
+        )}
+        {localCopy && <LocalCopyLine localCopy={localCopy} />}
+      </Stack>
+    </Paper>
+  )
+}
+
+function LocalCopyLine({ localCopy }: { localCopy: BackupLocalCopy }) {
+  let text: string
+  if (localCopy.state === 'present') text = `Local copy: present for ${localCopy.recoveryPoint}.`
+  else if (localCopy.state === 'absent') text = 'Local copy: none kept on this machine.'
+  else if (localCopy.state === 'unavailable') text = 'Local copy: the directory could not be read.'
+  else text = 'Local copy: not configured.'
+  return <Typography data-testid="backup-local-copy">{text}</Typography>
 }
 
 function BackupListSection({
