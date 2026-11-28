@@ -5,6 +5,8 @@ import * as path from 'node:path';
 import { AGE_RECIPIENT, DB_PASSWORD, Harness, makeHarness, makeReadyHarness, S3_SECRET, waitForIdle } from './backup-test-fixtures';
 import { buildManifest, archiveKeyFor, manifestKeyFor } from './backup-manifest';
 import { BACKUP_TIMEOUT_MS } from './backup.types';
+import { AuditLogService } from '../audit-logs/services/audit-log.service';
+import { BackupService } from './backup.service';
 
 const actor = { userId: 'admin-1', username: 'admin' };
 
@@ -57,6 +59,36 @@ describe('BackupService (#2111)', () => {
       );
       release();
       await waitForIdle(h.service);
+    });
+
+    it('writes the accepted start to the audit log with the recovery point in metadata, not in the uuid entityId', async () => {
+      const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const saved: any[] = [];
+      const repository = {
+        create: (dto: object) => ({ ...dto }),
+        save: async (row: any) => {
+          // Mirrors the production column: entityId is uuid.
+          if (row.entityId !== undefined && !UUID.test(row.entityId)) {
+            throw new Error(`invalid input syntax for type uuid: "${row.entityId}"`);
+          }
+          saved.push(row);
+          return row;
+        },
+      };
+      const realAudit = new AuditLogService(repository as any);
+      const service = new BackupService(h.options, h.service['dataSource'], h.postgresClient as any, realAudit);
+      await service.prepareStartup();
+      const accepted = await service.start(actor);
+      await waitForIdle(service);
+
+      expect(saved).toHaveLength(1);
+      expect(saved[0]).toMatchObject({
+        action: 'BACKUP_INITIATED',
+        entityType: 'Backup',
+        userId: 'admin-1',
+        metadata: { recoveryPoint: accepted.recoveryPoint, trigger: 'manual' },
+      });
+      expect(saved[0].entityId).toBeUndefined();
     });
 
     it('does not let an audit failure block an accepted Backup', async () => {
@@ -189,6 +221,27 @@ describe('BackupService (#2111)', () => {
         },
       },
       {
+        name: 'a pg_dumpall failure',
+        step: 'globals',
+        arrange: (x) => x.runner.fail('pg_dumpall', 1),
+      },
+      {
+        name: 'a failed uploads archive',
+        step: 'uploads-archive',
+        arrange: (x) => x.runner.fail('tar-uploads', 2),
+      },
+      {
+        name: 'a manifest that disappears before it is confirmed',
+        step: 'publish',
+        arrange: (x) => {
+          x.client.hook = (operation, key) => {
+            if (operation === 'head' && key.endsWith('manifest.json') && x.client.putOrder.includes(key)) {
+              x.client.objects.delete(key);
+            }
+          };
+        },
+      },
+      {
         name: 'an upload failure',
         step: 'upload',
         arrange: (x) => {
@@ -224,6 +277,27 @@ describe('BackupService (#2111)', () => {
         ? fs.readdirSync(h.localCopyDir).filter((entry) => entry !== '.tmp')
         : [];
       expect(localEntries).toEqual([]);
+    });
+
+    it('a snapshot that cannot be exported fails at snapshot before any dump runs', async () => {
+      const dataSource = {
+        createQueryRunner: () => ({
+          isTransactionActive: false,
+          connect: async () => undefined,
+          startTransaction: async () => undefined,
+          query: async () => [],
+          commitTransaction: async () => undefined,
+          rollbackTransaction: async () => undefined,
+          release: async () => undefined,
+          manager: { find: async () => [] },
+        }),
+      };
+      h = await makeReadyHarness({ dataSource });
+      await h.service.start(actor);
+      await waitForIdle(h.service);
+      expect(h.service.getStatus().lastAttempt).toMatchObject({ result: 'failed', failedStep: 'snapshot' });
+      expect(h.runner.calls.some((call) => call.command === 'pg_dump')).toBe(false);
+      expect(h.client.objects.size).toBe(0);
     });
 
     it('reports the failing step and a fixed, sanitised error without secrets', async () => {

@@ -308,7 +308,7 @@ export class BackupService implements OnApplicationBootstrap {
   private async audit(actor: { userId: string; username?: string }, recoveryPoint: string): Promise<void> {
     try {
       await this.auditLog.log('BACKUP_INITIATED', 'Backup', 'Backup initiated manually', {
-        entityId: recoveryPoint,
+        // entityId is a uuid column; the recovery point is not one, so it lives in metadata.
         userId: actor.userId,
         username: actor.username,
         metadata: { recoveryPoint, trigger: 'manual' },

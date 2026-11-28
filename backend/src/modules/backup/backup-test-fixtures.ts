@@ -76,6 +76,7 @@ export function makeHarness(
   overrides: Partial<Pick<BackupServiceOptions, 'timeoutMs' | 'now'>> & {
     release?: BackupServiceOptions['release'];
     versionState?: 'compatible' | 'mismatch' | 'unavailable';
+    dataSource?: unknown;
   } = {},
 ): Harness {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-test-'));
@@ -106,7 +107,12 @@ export function makeHarness(
     timeoutMs: overrides.timeoutMs,
     now: overrides.now,
   };
-  const service = new BackupService(options, fakeDataSource(), postgresClient as any, auditLog as any);
+  const service = new BackupService(
+    options,
+    (overrides.dataSource ?? fakeDataSource()) as any,
+    postgresClient as any,
+    auditLog as any,
+  );
   return {
     root,
     localCopyDir,
