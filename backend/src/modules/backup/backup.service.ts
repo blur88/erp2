@@ -56,6 +56,9 @@ export interface BackupStartAccepted {
   startedAt: string;
 }
 
+/** Who asked for a Backup. Only a manual start is audited; scheduled runs are not (#2112). */
+export type BackupTrigger = { kind: 'manual'; userId: string; username?: string } | { kind: 'scheduled' };
+
 export interface BackupStatusView {
   configured: boolean;
   /** Names of missing or invalid deployment settings. Never their values. */
@@ -122,10 +125,10 @@ export class BackupService implements OnApplicationBootstrap {
 
   /**
    * Accepts one Backup or throws. The lock is taken synchronously, before any
-   * await, so two requests cannot both be accepted. Only an accepted manual
-   * start is audited.
+   * await, so two requests cannot both be accepted. Manual and scheduled starts
+   * share this path (#2112). Only an accepted manual start is audited.
    */
-  async start(actor: { userId: string; username?: string }): Promise<BackupStartAccepted> {
+  async start(trigger: BackupTrigger): Promise<BackupStartAccepted> {
     if (!this.options.config.configured) {
       throw new ServiceUnavailableException('Backups are not configured');
     }
@@ -143,7 +146,7 @@ export class BackupService implements OnApplicationBootstrap {
     this.running = accepted;
     void this.execute(accepted);
 
-    await this.audit(actor, accepted.recoveryPoint);
+    if (trigger.kind === 'manual') await this.audit(trigger, accepted.recoveryPoint);
     return accepted;
   }
 

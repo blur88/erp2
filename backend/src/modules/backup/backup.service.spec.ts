@@ -8,7 +8,7 @@ import { BACKUP_TIMEOUT_MS } from './backup.types';
 import { AuditLogService } from '../audit-logs/services/audit-log.service';
 import { BackupService } from './backup.service';
 
-const actor = { userId: 'admin-1', username: 'admin' };
+const actor = { kind: 'manual' as const, userId: 'admin-1', username: 'admin' };
 
 describe('BackupService (#2111)', () => {
   let h: Harness;
