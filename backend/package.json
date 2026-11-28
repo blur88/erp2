@@ -40,6 +40,7 @@
     "test:e2e:leakcheck:seed-boot": "ts-node -P tsconfig.json -r tsconfig-paths/register ./test/e2e-leakcheck-boot.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1169.0",
     "@nestjs/common": "12.6.0",
     "@nestjs/config": "12.1.1",
     "@nestjs/core": "12.6.0",

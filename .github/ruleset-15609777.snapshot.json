@@ -45,6 +45,10 @@
           {
             "context": "Production Image - Fresh Database Migrations",
             "integration_id": 15368
+          },
+          {
+            "context": "Production Image - Backup Lifecycle",
+            "integration_id": 15368
           }
         ],
         "strict_required_status_checks_policy": true
