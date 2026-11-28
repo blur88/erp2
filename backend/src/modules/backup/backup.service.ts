@@ -97,7 +97,7 @@ export class BackupService implements OnApplicationBootstrap {
     private readonly dataSource: DataSource,
     private readonly postgresClient: PostgresClientStatusService,
     private readonly auditLog: AuditLogService,
-    private readonly settings: Pick<BackupSettingsService, 'readStored'>,
+    private readonly settings: BackupSettingsService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
