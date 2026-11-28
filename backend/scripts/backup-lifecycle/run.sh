@@ -213,8 +213,9 @@ for i in $(seq 1 120); do
 done
 [ "$(docker inspect -f '{{.State.Running}}' "$BACKEND")" != "true" ] || fail "the publish was not interrupted within 120s"
 docker cp "$BACKEND:/tmp/watch.log" "$WORK/watch.log" 2>/dev/null || fail "the watcher left no record"
-grep -q '^killed ' "$WORK/watch.log" && grep -q '^exit=0$' "$WORK/watch.log" \
-  || fail "the watcher did not kill the publish at the archive: $(tr '\n' ' ' < "$WORK/watch.log")"
+if ! { grep -q '^killed ' "$WORK/watch.log" && grep -q '^exit=0$' "$WORK/watch.log"; }; then
+  fail "the watcher did not kill the publish at the archive: $(tr '\n' ' ' < "$WORK/watch.log")"
+fi
 log "ok: $(grep '^killed ' "$WORK/watch.log") after the archive was visible and before the manifest"
 s3_oneshot head "backups/${RP3}/backup.tar.age" >/dev/null || fail "the interrupted run's archive is not visible in storage"
 manifest_rc=0
