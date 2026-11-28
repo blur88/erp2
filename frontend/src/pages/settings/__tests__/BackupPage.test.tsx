@@ -108,6 +108,18 @@ beforeEach(() => {
 })
 
 describe('BackupPage (#2111)', () => {
+  it('links to the Backup & Restore runbook, which is the only restore procedure', () => {
+    setHooks()
+    render(<BackupPage />)
+    const link = screen.getByRole('link', { name: 'Backup & Restore runbook' })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://github.com/blur88/erp2/blob/main/docs/deployment/BACKUP_RESTORE_RUNBOOK.md',
+    )
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  });
+
   it('lists Backups from storage', () => {
     setHooks()
     render(<BackupPage />)
