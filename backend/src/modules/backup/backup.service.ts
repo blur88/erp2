@@ -14,26 +14,21 @@ import { PostgresClientStatus, PostgresClientStatusService } from '../postgres-c
 import { AppRelease } from '../../config/app-release.factory';
 import { BackupConfigResult } from './backup.config';
 import { runBackupAttempt, BackupAttemptDeps } from './backup-attempt';
-import {
-  archiveKeyFor,
-  BACKUPS_PREFIX,
-  formatRecoveryPoint,
-  isRecoveryPoint,
-  manifestKeyFor,
-  parseManifest,
-  ARCHIVE_NAME,
-} from './backup-manifest';
+import { formatRecoveryPoint } from './backup-manifest';
 import { ProcessRunner } from './backup-process-runner';
-import { BackupStorage, readText } from './backup-storage';
+import { BackupStorage } from './backup-storage';
+import { listStoredBackups } from './backup-listing';
+import { runRetentionPass } from './backup-retention-pass';
+import { BackupSettingsService } from './backup-settings.service';
 import {
   BackupAttemptRecord,
   BackupListResult,
   BackupStepError,
   BackupStorageUnavailableError,
   BackupTimeoutError,
+  BACKUP_RETENTION_TIMEOUT_MS,
   BACKUP_TIMEOUT_MS,
-  MalformedBackupItem,
-  BackupListItem,
+  RetentionRecord,
 } from './backup.types';
 
 export const BACKUP_OPTIONS = Symbol('BACKUP_OPTIONS');
@@ -48,6 +43,7 @@ export interface BackupServiceOptions {
   uploadsDir: string;
   release: AppRelease;
   timeoutMs?: number;
+  retentionTimeoutMs?: number;
   now?: () => Date;
 }
 
@@ -67,6 +63,8 @@ export interface BackupStatusView {
   /** Null means "no attempt since restart". */
   lastAttempt: BackupAttemptRecord | null;
   noAttemptSinceRestart: boolean;
+  /** The last retention pass, shown apart from Backup results (#2114). Null means none since restart. */
+  lastRetention: RetentionRecord | null;
   postgresClient: PostgresClientView;
   release: { version: string; status: AppRelease['status']; configurationError: string | null };
   startup: 'starting' | 'ready' | 'failed';
@@ -90,6 +88,7 @@ export class BackupService implements OnApplicationBootstrap {
   private readonly logger = new Logger(BackupService.name);
   private running: BackupStartAccepted | null = null;
   private lastAttempt: BackupAttemptRecord | null = null;
+  private lastRetention: RetentionRecord | null = null;
   private startup: 'starting' | 'ready' | 'failed' = 'starting';
   private startupError: string | null = null;
 
@@ -98,6 +97,7 @@ export class BackupService implements OnApplicationBootstrap {
     private readonly dataSource: DataSource,
     private readonly postgresClient: PostgresClientStatusService,
     private readonly auditLog: AuditLogService,
+    private readonly settings: BackupSettingsService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -159,6 +159,7 @@ export class BackupService implements OnApplicationBootstrap {
       running: this.running,
       lastAttempt: this.lastAttempt,
       noAttemptSinceRestart: this.lastAttempt === null,
+      lastRetention: this.lastRetention,
       postgresClient: toClientView(client),
       release: {
         version: this.options.release.version,
@@ -179,55 +180,9 @@ export class BackupService implements OnApplicationBootstrap {
     if (!this.options.config.configured || !this.options.storage) {
       return { state: 'unavailable', reason: 'Backup storage is not configured' };
     }
-    const storage = this.options.storage;
     try {
-      const objects = await storage.listAll(BACKUPS_PREFIX);
-      const sizes = new Map<string, number>();
-      const recoveryPoints = new Set<string>();
-      for (const object of objects) {
-        sizes.set(object.key, object.size);
-        const rest = object.key.slice(BACKUPS_PREFIX.length);
-        const [segment] = rest.split('/');
-        if (segment) recoveryPoints.add(segment);
-      }
-
-      const backups: BackupListItem[] = [];
-      const malformed: MalformedBackupItem[] = [];
-      for (const recoveryPoint of [...recoveryPoints].sort().reverse()) {
-        const manifestKey = manifestKeyFor(recoveryPoint);
-        if (!sizes.has(manifestKey)) continue; // incomplete attempt: never listed
-
-        if (!isRecoveryPoint(recoveryPoint)) {
-          malformed.push({ recoveryPoint, reason: 'prefix is not a recovery point' });
-          continue;
-        }
-        const parsed = parseManifest(await readText(storage, manifestKey), recoveryPoint);
-        if (!parsed.manifest) {
-          malformed.push({ recoveryPoint, reason: parsed.reason });
-          continue;
-        }
-        const manifest = parsed.manifest;
-        const archiveKey = archiveKeyFor(recoveryPoint);
-        const archiveSize = sizes.get(archiveKey);
-        if (archiveSize === undefined) {
-          malformed.push({ recoveryPoint, reason: `${ARCHIVE_NAME} is missing` });
-          continue;
-        }
-        if (archiveSize !== manifest.archive.size) {
-          malformed.push({ recoveryPoint, reason: 'archive size does not match the manifest' });
-          continue;
-        }
-        backups.push({
-          recoveryPoint,
-          release: manifest.release,
-          archiveSize,
-          postgres: {
-            serverMajor: manifest.postgres.server_major,
-            clientMajor: manifest.postgres.client_major,
-          },
-        });
-      }
-      return { state: 'ok', backups, malformed };
+      const listing = await listStoredBackups(this.options.storage);
+      return { state: 'ok', backups: listing.backups, malformed: listing.malformed };
     } catch (error) {
       if (error instanceof BackupStorageUnavailableError) {
         return { state: 'unavailable', reason: 'Backup storage is unavailable' };
@@ -242,6 +197,16 @@ export class BackupService implements OnApplicationBootstrap {
    * processes and storage requests have stopped (#2111).
    */
   private async execute(accepted: BackupStartAccepted): Promise<void> {
+    try {
+      await this.runAttempt(accepted);
+      // Retention runs after every attempt, success or failure, still under the same lock (#2114).
+      await this.runRetention();
+    } finally {
+      this.running = null;
+    }
+  }
+
+  private async runAttempt(accepted: BackupStartAccepted): Promise<void> {
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort(new BackupTimeoutError()),
@@ -271,7 +236,49 @@ export class BackupService implements OnApplicationBootstrap {
       else this.logger.log(`Backup ${accepted.recoveryPoint} published`);
     } finally {
       clearTimeout(timer);
-      this.running = null;
+    }
+  }
+
+  /** Never throws: a failed pass is recorded in lastRetention and changes nothing else. */
+  private async runRetention(): Promise<void> {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(new Error('Retention timed out')),
+      this.options.retentionTimeoutMs ?? BACKUP_RETENTION_TIMEOUT_MS,
+    );
+    try {
+      const { config, storage } = this.options;
+      if (!config.configured || !storage) {
+        const now = this.now().toISOString();
+        this.lastRetention = skippedRetention(now, 'Backup storage is not configured, so retention was skipped');
+        return;
+      }
+      this.lastRetention = await runRetentionPass(
+        {
+          storage,
+          localCopyDir: config.config.localCopyDir,
+          readSettings: () => this.settings.readStored(),
+          now: () => this.now(),
+        },
+        controller.signal,
+      );
+      if (this.lastRetention.result === 'failed') {
+        this.logger.warn(`Retention failed at ${this.lastRetention.failedStep}`);
+      }
+    } catch {
+      const now = this.now().toISOString();
+      this.lastRetention = {
+        startedAt: now,
+        endedAt: now,
+        result: 'failed',
+        expiredBackups: 0,
+        orphanArchives: 0,
+        prunedLocalCopies: 0,
+        failedStep: 'unexpected',
+        message: 'Retention could not complete',
+      };
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -324,6 +331,19 @@ export class BackupService implements OnApplicationBootstrap {
   private now(): Date {
     return this.options.now ? this.options.now() : new Date();
   }
+}
+
+function skippedRetention(now: string, message: string): RetentionRecord {
+  return {
+    startedAt: now,
+    endedAt: now,
+    result: 'skipped',
+    expiredBackups: 0,
+    orphanArchives: 0,
+    prunedLocalCopies: 0,
+    failedStep: null,
+    message,
+  };
 }
 
 function missingSettingNames(config: BackupConfigResult): string[] {

@@ -10,6 +10,7 @@
  *   list <prefix>                       JSON array of {key, size}
  *   head <key>                          JSON {size}; exit 3 when the object is missing
  *   get <key> [destFile]                object bytes to stdout, or written to destFile (no pipe)
+ *   put <key> <srcFile>                 uploads a local file (used to seed a controlled expired Backup, #2114)
  *   watch-kill <archiveKey> <manifestKey>
  *                                       SIGKILLs the application once the archive is visible and the
  *                                       manifest is not: an interrupted publish (exit 0), or exit 2 when
@@ -17,7 +18,7 @@
  */
 const fs = require('node:fs');
 const { S3Client, CreateBucketCommand, PutBucketVersioningCommand, PutObjectLockConfigurationCommand,
-  ListObjectsV2Command, HeadObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+  ListObjectsV2Command, HeadObjectCommand, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const bucket = process.env.S3_BUCKET;
 const client = new S3Client({
@@ -102,6 +103,17 @@ async function main(argv) {
       const found = await head(args[0]);
       if (!found) return 3;
       process.stdout.write(JSON.stringify(found));
+      return 0;
+    }
+    case 'put': {
+      if (!args[0] || !args[1]) return 64;
+      const { size } = fs.statSync(args[1]);
+      await client.send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: args[0],
+        Body: fs.createReadStream(args[1]),
+        ContentLength: size,
+      }));
       return 0;
     }
     case 'get': {

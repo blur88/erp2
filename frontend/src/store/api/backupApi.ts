@@ -27,6 +27,21 @@ export interface BackupAttemptRecord {
   error: string | null
 }
 
+/** Mirrors the backend's retention step names (#2114). */
+export type BackupRetentionStep = 'settings' | 'local-copy' | 'list' | 'expire' | 'orphans' | 'unexpected'
+
+/** The last retention pass, reported separately from Backup attempts (#2114). */
+export interface BackupRetentionRecord {
+  startedAt: string
+  endedAt: string
+  result: 'succeeded' | 'failed' | 'skipped'
+  expiredBackups: number
+  orphanArchives: number
+  prunedLocalCopies: number
+  failedStep: BackupRetentionStep | null
+  message: string | null
+}
+
 export type PostgresClientView =
   | { state: 'unchecked' }
   | { state: 'compatible'; clientMajor: number; serverMajor: number }
@@ -65,6 +80,7 @@ export interface BackupStatus {
   running: { recoveryPoint: string; startedAt: string } | null
   lastAttempt: BackupAttemptRecord | null
   noAttemptSinceRestart: boolean
+  lastRetention: BackupRetentionRecord | null
   postgresClient: PostgresClientView
   release: { version: string; status: 'released' | 'development' | 'misconfigured'; configurationError: string | null }
   startup: 'starting' | 'ready' | 'failed'

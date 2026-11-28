@@ -206,14 +206,17 @@ RP3="$(jq_body .recoveryPoint)"
 docker exec -d \
   -e S3_BUCKET="$S3_BUCKET" -e S3_REGION="$S3_REGION" -e S3_ENDPOINT="$S3_ENDPOINT_IN_CONTAINER" \
   -e S3_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" -e S3_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
-  "$BACKEND" sh -c "node /app/ci-s3-helper.cjs watch-kill backups/${RP3}/backup.tar.age backups/${RP3}/manifest.json > /tmp/watch.log 2>&1; echo exit=\$? >> /tmp/watch.log"
+  "$BACKEND" sh -c "node /app/ci-s3-helper.cjs watch-kill backups/${RP3}/backup.tar.age backups/${RP3}/manifest.json > /tmp/watch.log 2>&1"
 for i in $(seq 1 120); do
   if [ "$(docker inspect -f '{{.State.Running}}' "$BACKEND")" != "true" ]; then break; fi
   sleep 1
 done
 [ "$(docker inspect -f '{{.State.Running}}' "$BACKEND")" != "true" ] || fail "the publish was not interrupted within 120s"
 docker cp "$BACKEND:/tmp/watch.log" "$WORK/watch.log" 2>/dev/null || fail "the watcher left no record"
-if ! { grep -q '^killed ' "$WORK/watch.log" && grep -q '^exit=0$' "$WORK/watch.log"; }; then
+# The helper writes "killed <pid>" synchronously before it sends SIGKILL, and it only kills once the archive
+# is visible and the manifest is absent. Its shell cannot write an exit status: the application is the
+# entrypoint's exec'd child under dumb-init, so the container stops and takes the watcher with it.
+if ! grep -q '^killed ' "$WORK/watch.log"; then
   fail "the watcher did not kill the publish at the archive: $(tr '\n' ' ' < "$WORK/watch.log")"
 fi
 log "ok: $(grep '^killed ' "$WORK/watch.log") after the archive was visible and before the manifest"
@@ -242,6 +245,8 @@ api GET /backups "$ADMIN_TOKEN"; expect_code 200 "list while storage is down"
 api POST /backups "$ADMIN_TOKEN"; expect_code 202 "start while storage is down"
 wait_until_idle 240
 [ "$(jq_body .lastAttempt.result)" = "failed" ] || fail "the Backup should fail while storage is down"
+[ "$(jq_body .lastRetention.result)" = "failed" ] || fail "the retention failure was not recorded: $HTTP_BODY"
+[ "$(jq_body .lastRetention.failedStep)" = "list" ] || fail "the retention failure is not at the listing: $HTTP_BODY"
 docker start "$S3C" >/dev/null
 for i in $(seq 1 90); do
   if s3 list "" >/dev/null 2>&1; then break; fi
@@ -291,11 +296,56 @@ wait_until_idle 60
 api POST /backups "$ADMIN_TOKEN"; expect_code 202 "manual Backup while stored settings are invalid"
 wait_until_idle 240
 [ "$(jq_body .lastAttempt.result)" = "succeeded" ] || fail "the manual Backup did not succeed with invalid settings: $HTTP_BODY"
+[ "$(jq_body .lastRetention.result)" = "skipped" ] || fail "retention was not skipped under invalid settings: $HTTP_BODY"
 
 log "saving valid settings resumes scheduling without a restart"
 api PUT /backups/settings "$ADMIN_TOKEN" "$VALID_SETTINGS"; expect_code 200 "save valid settings"
 api GET /backups/status "$ADMIN_TOKEN"; expect_code 200 "status after saving valid settings"
 [ "$(jq_body .scheduling.state)" = "scheduled" ] || fail "saving valid settings did not resume scheduling: $HTTP_BODY"
 [ "$(jq_body .scheduling.intervalMinutes)" = "15" ] || fail "scheduling did not pick up the saved interval: $HTTP_BODY"
+
+# ---- Retention (#2114): an expired Backup is removed; the newest Verified Backup is kept ----
+# Controlled timestamps: a copy of the first Backup is published under an old recovery point, and a
+# one-hour window with single-period tiers makes that copy expired. The bucket is then checked directly.
+log "retention removes a controlled expired Backup and keeps the newest Verified Backup"
+api PUT /backups/settings "$ADMIN_TOKEN" '{"intervalMinutes":15,"retentionWindowHours":1,"retentionDailyCount":1,"retentionWeeklyCount":1,"retentionMonthlyCount":1}'
+expect_code 200 "tighter retention settings"
+
+EXP_RP="20200101T000000000Z"
+s3 get "backups/${RP1}/backup.tar.age" /tmp/ci-expired-archive.bin
+jq --arg rp "$EXP_RP" '.recovery_point = $rp' "$WORK/manifest.json" > "$WORK/expired-manifest.json"
+docker cp "$WORK/expired-manifest.json" "$BACKEND:/tmp/ci-expired-manifest.json"
+s3 put "backups/${EXP_RP}/backup.tar.age" /tmp/ci-expired-archive.bin >/dev/null
+s3 put "backups/${EXP_RP}/manifest.json" /tmp/ci-expired-manifest.json >/dev/null
+api GET /backups "$ADMIN_TOKEN"; expect_code 200 "list with the controlled expired Backup present"
+printf '%s' "$HTTP_BODY" | jq -e --arg rp "$EXP_RP" '[.backups[].recoveryPoint] | index($rp) != null' >/dev/null \
+  || fail "the controlled expired Backup is not a complete, listed Backup: $HTTP_BODY"
+
+# A scheduled run can share the boundary, so a manual start may need to wait for it.
+for i in $(seq 1 30); do
+  api POST /backups "$ADMIN_TOKEN"
+  if [ "$HTTP_CODE" = "202" ]; then break; fi
+  [ "$HTTP_CODE" = "409" ] || fail "start for retention returned HTTP ${HTTP_CODE}: ${HTTP_BODY}"
+  wait_until_idle 60
+done
+expect_code 202 "start a Backup with the expired Backup present"
+RP_NEW="$(jq_body .recoveryPoint)"
+wait_until_idle 240
+[ "$(jq_body .lastAttempt.result)" = "succeeded" ] || fail "the retention Backup did not succeed: $HTTP_BODY"
+[ "$(jq_body .lastRetention.result)" = "succeeded" ] || fail "retention did not succeed: $HTTP_BODY"
+
+[ -z "$(list_keys "backups/${EXP_RP}/")" ] || fail "the expired Backup still has objects: $(list_keys "backups/${EXP_RP}/")"
+api GET /backups "$ADMIN_TOKEN"; expect_code 200 "list after retention"
+[ "$(jq_body '.backups[0].recoveryPoint')" = "$RP_NEW" ] || fail "the newest Backup is not first in the listing: $HTTP_BODY"
+printf '%s' "$HTTP_BODY" | jq -e --arg rp "$EXP_RP" '[.backups[].recoveryPoint] | index($rp) == null' >/dev/null \
+  || fail "the expired Backup is still listed: $HTTP_BODY"
+KEYS_NEW="$(list_keys "backups/${RP_NEW}/" | sort)"
+[ "$KEYS_NEW" = "$(printf 'backups/%s/backup.tar.age\nbackups/%s/manifest.json' "$RP_NEW" "$RP_NEW")" ] \
+  || fail "the newest Verified Backup does not have both objects: ${KEYS_NEW}"
+log "ok: ${EXP_RP} removed; ${RP_NEW} kept as the newest Verified Backup"
+
+# The abandoned archive from the interrupted publish is younger than 24 hours, so it must stay.
+s3_oneshot head "backups/${RP3}/backup.tar.age" >/dev/null || fail "an abandoned archive younger than 24 hours was deleted"
+log "ok: the abandoned archive for ${RP3} is kept until it is 24 hours old"
 
 log "all Backup lifecycle checks passed"

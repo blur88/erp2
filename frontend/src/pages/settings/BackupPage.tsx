@@ -28,6 +28,8 @@ import type {
   BackupSettingsRejection,
   BackupSettingsValues,
   BackupStatus,
+  BackupRetentionRecord,
+  BackupRetentionStep,
   BackupStepName,
   StoredBackupSettings,
 } from '@/store/api/backupApi'
@@ -49,6 +51,15 @@ const STEP_LABELS: Record<BackupStepName, string> = {
   'read-back': 'Read-back check',
   manifest: 'Manifest',
   publish: 'Publishing',
+}
+
+const RETENTION_STEP_LABELS: Record<BackupRetentionStep, string> = {
+  settings: 'Reading settings',
+  'local-copy': 'Pruning local copies',
+  list: 'Listing storage',
+  expire: 'Deleting expired Backups',
+  orphans: 'Deleting abandoned archives',
+  unexpected: 'Retention',
 }
 
 const formatDate = (iso: string | null): string => (iso ? new Date(iso).toLocaleString() : '—')
@@ -219,7 +230,42 @@ function StatusSection({ status, statusError }: { status: BackupStatus | undefin
           </Alert>
         )}
       </Box>
+
+      <Box>
+        <Typography variant="subtitle1" gutterBottom>
+          Last retention pass
+        </Typography>
+        <RetentionResult retention={status.lastRetention} />
+      </Box>
     </Stack>
+  )
+}
+
+/** Shown apart from the last attempt: a retention failure does not change a Backup result (#2114). */
+function RetentionResult({ retention }: { retention: BackupRetentionRecord | null }) {
+  if (!retention) {
+    return <Typography data-testid="backup-retention">No retention pass since restart.</Typography>
+  }
+  if (retention.result === 'skipped') {
+    return (
+      <Typography data-testid="backup-retention">
+        Skipped: {retention.message ?? 'retention was not run.'}
+      </Typography>
+    )
+  }
+  if (retention.result === 'failed') {
+    return (
+      <Alert severity="warning" data-testid="backup-retention">
+        Failed at {retention.failedStep ? RETENTION_STEP_LABELS[retention.failedStep] : 'an unknown step'}
+        {retention.message ? `: ${retention.message}` : '.'} Backup results are unaffected.
+      </Alert>
+    )
+  }
+  return (
+    <Typography data-testid="backup-retention">
+      Expired Backups deleted: {retention.expiredBackups}. Abandoned archives deleted: {retention.orphanArchives}.
+      Local copies pruned: {retention.prunedLocalCopies}.
+    </Typography>
   )
 }
 

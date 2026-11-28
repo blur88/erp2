@@ -168,6 +168,83 @@ describe('BackupPage (#2111)', () => {
     expect(screen.getByTestId('backup-last-attempt')).toHaveTextContent('Failed at Upload: Upload to storage failed')
   })
 
+  it('shows a failed retention pass separately from a successful last attempt', () => {
+    setHooks({
+      statusValue: status({
+        noAttemptSinceRestart: false,
+        lastAttempt: {
+          recoveryPoint: '20261128T101500123Z',
+          startedAt: '2026-11-28T10:15:00.123Z',
+          endedAt: '2026-11-28T10:16:00.000Z',
+          result: 'succeeded',
+          failedStep: null,
+          error: null,
+        },
+        lastRetention: {
+          startedAt: '2026-11-28T10:16:00.000Z',
+          endedAt: '2026-11-28T10:16:02.000Z',
+          result: 'failed',
+          expiredBackups: 0,
+          orphanArchives: 0,
+          prunedLocalCopies: 0,
+          failedStep: 'list',
+          message: 'Backup storage is unavailable',
+        },
+      }),
+    })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-last-attempt')).toHaveTextContent('Succeeded.')
+    expect(screen.getByTestId('backup-retention')).toHaveTextContent(
+      'Failed at Listing storage: Backup storage is unavailable',
+    )
+  })
+
+  it('reports the counts of a succeeded retention pass', () => {
+    setHooks({
+      statusValue: status({
+        lastRetention: {
+          startedAt: '2026-11-28T10:16:00.000Z',
+          endedAt: '2026-11-28T10:16:02.000Z',
+          result: 'succeeded',
+          expiredBackups: 2,
+          orphanArchives: 1,
+          prunedLocalCopies: 3,
+          failedStep: null,
+          message: null,
+        },
+      }),
+    })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-retention')).toHaveTextContent(
+      'Expired Backups deleted: 2. Abandoned archives deleted: 1. Local copies pruned: 3.',
+    )
+  })
+
+  it('explains why a retention pass was skipped', () => {
+    setHooks({
+      statusValue: status({
+        lastRetention: {
+          startedAt: '2026-11-28T10:16:00.000Z',
+          endedAt: '2026-11-28T10:16:00.000Z',
+          result: 'skipped',
+          expiredBackups: 0,
+          orphanArchives: 0,
+          prunedLocalCopies: 0,
+          failedStep: null,
+          message: 'Backup settings are missing or invalid, so retention was skipped',
+        },
+      }),
+    })
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-retention')).toHaveTextContent('Skipped: Backup settings are missing or invalid')
+  })
+
+  it('reads "no retention pass since restart" before the first pass', () => {
+    setHooks()
+    render(<BackupPage />)
+    expect(screen.getByTestId('backup-retention')).toHaveTextContent('No retention pass since restart.')
+  })
+
   it('names missing settings without showing values', () => {
     setHooks({ statusValue: status({ configured: false, missingSettings: ['BACKUP_S3_BUCKET'] }) })
     render(<BackupPage />)

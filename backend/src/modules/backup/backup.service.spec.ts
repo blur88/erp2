@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { AGE_RECIPIENT, DB_PASSWORD, Harness, makeHarness, makeReadyHarness, S3_SECRET, waitForIdle } from './backup-test-fixtures';
+import { AGE_RECIPIENT, DB_PASSWORD, Harness, makeHarness, makeReadyHarness, S3_SECRET, waitFor, waitForIdle } from './backup-test-fixtures';
 import { buildManifest, archiveKeyFor, manifestKeyFor } from './backup-manifest';
 import { BACKUP_TIMEOUT_MS } from './backup.types';
 import { AuditLogService } from '../audit-logs/services/audit-log.service';
@@ -76,7 +76,7 @@ describe('BackupService (#2111)', () => {
         },
       };
       const realAudit = new AuditLogService(repository as any);
-      const service = new BackupService(h.options, h.service['dataSource'], h.postgresClient as any, realAudit);
+      const service = new BackupService(h.options, h.service['dataSource'], h.postgresClient as any, realAudit, h.settings as any);
       await service.prepareStartup();
       const accepted = await service.start(actor);
       await waitForIdle(service);
@@ -452,4 +452,79 @@ describe('BackupService (#2111)', () => {
     });
   });
 
+
+  describe('retention (#2114)', () => {
+    it('runs retention after the Backup, while the lock is still held, and records the result', async () => {
+      let releaseList!: () => void;
+      const listGate = new Promise<void>((resolve) => {
+        releaseList = resolve;
+      });
+      h.client.hook = async (operation) => {
+        if (operation === 'list') await listGate;
+      };
+
+      await h.service.start(actor);
+      await waitFor(() => h.service.getStatus().lastAttempt !== null);
+      // The attempt has finished and retention is waiting on storage: the lock must still be held.
+      expect(h.service.getStatus().running).not.toBeNull();
+      expect(h.service.getStatus().lastRetention).toBeNull();
+      await expect(h.service.start(actor)).rejects.toBeInstanceOf(ConflictException);
+
+      releaseList();
+      await waitForIdle(h.service);
+      expect(h.service.getStatus().lastAttempt?.result).toBe('succeeded');
+      expect(h.service.getStatus().lastRetention).toMatchObject({ result: 'succeeded', expiredBackups: 0 });
+    });
+
+    it('keeps the Backup it just published, which is the newest Verified Backup', async () => {
+      await h.service.start(actor);
+      await waitForIdle(h.service);
+      const listing = await h.service.listBackups();
+      expect(listing.state === 'ok' && listing.backups).toHaveLength(1);
+    });
+
+    it('records a retention failure separately and never changes the Backup result', async () => {
+      h.client.hook = (operation) => {
+        if (operation === 'list') throw new Error('connect ECONNREFUSED 10.0.0.5:9000');
+      };
+
+      await h.service.start(actor);
+      await waitForIdle(h.service);
+
+      const status = h.service.getStatus();
+      expect(status.lastAttempt).toMatchObject({ result: 'succeeded', failedStep: null });
+      expect(status.lastRetention).toMatchObject({ result: 'failed', failedStep: 'list', message: 'Backup storage is unavailable' });
+      expect(JSON.stringify(status)).not.toContain('10.0.0.5');
+    });
+
+    it('still runs retention after a failed Backup, so abandoned archives are cleaned up', async () => {
+      h.runner.fail('pg_dump', 1);
+      await h.service.start(actor);
+      await waitForIdle(h.service);
+      expect(h.service.getStatus().lastAttempt).toMatchObject({ result: 'failed', failedStep: 'dump' });
+      expect(h.service.getStatus().lastRetention).toMatchObject({ result: 'succeeded' });
+    });
+
+    it('skips retention entirely under invalid settings and records the skip', async () => {
+      h = await makeReadyHarness({
+        stored: {
+          state: 'invalid',
+          errors: [{ field: 'retentionDailyCount', message: 'Daily count must be a whole number' }],
+          values: {},
+        } as any,
+      });
+      let listCalls = 0;
+      h.client.hook = (operation) => {
+        if (operation === 'list' || operation === 'delete') listCalls += 1;
+      };
+
+      await h.service.start(actor);
+      await waitForIdle(h.service);
+
+      expect(h.service.getStatus().lastAttempt?.result).toBe('succeeded');
+      expect(h.service.getStatus().lastRetention).toMatchObject({ result: 'skipped' });
+      // The only storage calls are the Backup's own; retention made none.
+      expect(listCalls).toBe(0);
+    });
+  });
 });
