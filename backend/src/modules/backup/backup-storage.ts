@@ -1,5 +1,6 @@
 import { Readable } from 'node:stream';
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
@@ -12,6 +13,8 @@ import { BackupStorageUnavailableError } from './backup.types';
 export interface StoredObject {
   key: string;
   size: number;
+  /** When the object was last written, as reported by storage. Null when storage omits it. */
+  lastModified: Date | null;
 }
 
 /** The only storage operations the Backup module needs. */
@@ -23,6 +26,11 @@ export interface BackupStorage {
   get(key: string, signal?: AbortSignal): Promise<Readable>;
   /** Every object under a prefix, across all pages. */
   listAll(prefix: string, signal?: AbortSignal): Promise<StoredObject[]>;
+  /**
+   * Deletes the current version of one object, with an ordinary delete (no version ID).
+   * Versioning turns this into a delete marker; Object Lock and lifecycle rules do permanent deletion.
+   */
+  delete(key: string, signal?: AbortSignal): Promise<void>;
 }
 
 /** The subset of the SDK client this adapter uses. Tests supply an in-memory one. */
@@ -91,6 +99,14 @@ export class S3BackupStorage implements BackupStorage {
     }
   }
 
+  async delete(key: string, signal?: AbortSignal): Promise<void> {
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }), { abortSignal: signal });
+    } catch (error) {
+      throw this.unavailable(error);
+    }
+  }
+
   async listAll(prefix: string, signal?: AbortSignal): Promise<StoredObject[]> {
     const objects: StoredObject[] = [];
     let token: string | undefined;
@@ -105,7 +121,13 @@ export class S3BackupStorage implements BackupStorage {
         throw this.unavailable(error);
       }
       for (const item of page.Contents ?? []) {
-        if (typeof item.Key === 'string') objects.push({ key: item.Key, size: Number(item.Size ?? 0) });
+        if (typeof item.Key === 'string') {
+          objects.push({
+            key: item.Key,
+            size: Number(item.Size ?? 0),
+            lastModified: item.LastModified instanceof Date ? item.LastModified : null,
+          });
+        }
       }
       token = page.IsTruncated ? page.NextContinuationToken : undefined;
       if (page.IsTruncated && !token) {

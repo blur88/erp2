@@ -76,3 +76,22 @@ export interface MalformedBackupItem {
 export type BackupListResult =
   | { state: 'ok'; backups: BackupListItem[]; malformed: MalformedBackupItem[] }
   | { state: 'unavailable'; reason: string };
+
+/** Hard limit for one retention pass, under the same lock as the Backup that triggered it (#2114). */
+export const BACKUP_RETENTION_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** The part of a retention pass that failed. Each part is independent except the storage steps, which run in order. */
+export type RetentionStep = 'settings' | 'local-copy' | 'list' | 'expire' | 'orphans' | 'unexpected';
+
+/** The last retention pass. Shown separately from Backup results; a failure here never changes an attempt. */
+export interface RetentionRecord {
+  startedAt: string;
+  endedAt: string;
+  result: 'succeeded' | 'failed' | 'skipped';
+  expiredBackups: number;
+  orphanArchives: number;
+  prunedLocalCopies: number;
+  failedStep: RetentionStep | null;
+  /** A fixed, safe phrase: never raw SDK or filesystem text. */
+  message: string | null;
+}
