@@ -271,7 +271,7 @@ describe('BackupService (#2111)', () => {
       expect([...h.client.objects.keys()].some((key) => key.endsWith('manifest.json'))).toBe(false);
 
       const listing = await h.service.listBackups();
-      expect(listing).toEqual({ state: 'ok', backups: [], malformed: [] });
+      expect(listing).toMatchObject({ state: 'ok', backups: [], malformed: [] });
 
       const localEntries = fs.existsSync(h.localCopyDir)
         ? fs.readdirSync(h.localCopyDir).filter((entry) => entry !== '.tmp')
@@ -437,7 +437,7 @@ describe('BackupService (#2111)', () => {
         if (operation === 'list') throw new Error('connect ECONNREFUSED 10.0.0.5:9000');
       };
       const listing = await h.service.listBackups();
-      expect(listing).toEqual({ state: 'unavailable', reason: 'Backup storage is unavailable' });
+      expect(listing).toMatchObject({ state: 'unavailable', reason: 'Backup storage is unavailable' });
       expect(JSON.stringify(listing)).not.toContain('10.0.0.5');
     });
 

@@ -1,3 +1,5 @@
+import type { LocalCopyStatus, RpoStatus } from './backup-protection';
+
 /** Every step of a Backup attempt, in the order it runs (#2111). */
 export const BACKUP_STEPS = [
   'prepare',
@@ -73,9 +75,21 @@ export interface MalformedBackupItem {
   reason: string;
 }
 
+/**
+ * The storage view. `rpo` and `localCopy` are on both variants: when storage is
+ * unreachable the RPO is "unknown", and the Local copy is still reported (#2115).
+ */
 export type BackupListResult =
-  | { state: 'ok'; backups: BackupListItem[]; malformed: MalformedBackupItem[] }
-  | { state: 'unavailable'; reason: string };
+  | {
+      state: 'ok';
+      backups: BackupListItem[];
+      malformed: MalformedBackupItem[];
+      /** Backups listed but not counted as Verified (unreleased). They never count towards the RPO. */
+      unreleasedCount: number;
+      rpo: RpoStatus;
+      localCopy: LocalCopyStatus;
+    }
+  | { state: 'unavailable'; reason: string; rpo: RpoStatus; localCopy: LocalCopyStatus };
 
 /** Hard limit for one retention pass, under the same lock as the Backup that triggered it (#2114). */
 export const BACKUP_RETENTION_TIMEOUT_MS = 10 * 60 * 1000;
@@ -95,3 +109,15 @@ export interface RetentionRecord {
   /** A fixed, safe phrase: never raw SDK or filesystem text. */
   message: string | null;
 }
+
+/** The last heartbeat round, sent after a Verified Backup (#2115). Never holds a URL. */
+export interface HeartbeatRecord {
+  recoveryPoint: string;
+  sentAt: string;
+  result: 'sent' | 'failed';
+  /** A fixed phrase naming the failing variable and HTTP status or error name. Null when sent. */
+  message: string | null;
+}
+
+/** Hard limit for one heartbeat ping. A ping is not part of the Backup result. */
+export const HEARTBEAT_TIMEOUT_MS = 10 * 1000;
