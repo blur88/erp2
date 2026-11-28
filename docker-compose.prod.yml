@@ -119,6 +119,17 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE:-erp-app}
       - JWT_ISSUER=${JWT_ISSUER:-erp-backend}
 
+      # Backups (#2111). All empty by default, so Backups stay unconfigured
+      # until .env sets them. Secrets are passed through, never printed.
+      - BACKUP_LOCAL_COPY_DIR=${BACKUP_LOCAL_COPY_DIR:-}
+      - BACKUP_S3_ENDPOINT=${BACKUP_S3_ENDPOINT:-}
+      - BACKUP_S3_REGION=${BACKUP_S3_REGION:-}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_S3_ACCESS_KEY_ID=${BACKUP_S3_ACCESS_KEY_ID:-}
+      - BACKUP_S3_SECRET_ACCESS_KEY=${BACKUP_S3_SECRET_ACCESS_KEY:-}
+      - BACKUP_S3_FORCE_PATH_STYLE=${BACKUP_S3_FORCE_PATH_STYLE:-false}
+      - BACKUP_AGE_RECIPIENT=${BACKUP_AGE_RECIPIENT:-}
+
       # Security
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
