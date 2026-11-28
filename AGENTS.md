@@ -6,7 +6,7 @@
 - Before implementation, follow [Commit & Pull Request Guidelines](#commit--pull-request-guidelines).
 - Before editing for a ticket or spec, follow [implementation verification planning](docs/agents/skill-verification.md#plan-before-editing).
 - Before drafting or publishing an issue or agent brief, or verifying a claim during triage, read [acceptance-criterion verification guidance](docs/agents/issue-tracker.md#before-writing-or-publishing-issues-and-agent-briefs).
-- Before updating dependencies or reviewing manifest/lockfile changes, read [Dependency updates](docs/agents/dependency-updates.md).
+- Before updating dependencies, container image references (Dockerfile `FROM`, Compose `image`, workflow `services`), or reviewing manifest/lockfile changes, read [Dependency updates](docs/agents/dependency-updates.md).
 - Before editing agent-facing documentation, running a retrospective, or proposing a permanent change to standards, procedures, skills, scripts, documentation, or CI, read [CODING_STANDARDS.md](CODING_STANDARDS.md), including [Retrospectives and process changes](CODING_STANDARDS.md#retrospectives-and-process-changes).
 - Before running Docker from a Git worktree, read [Docker verification from Git worktrees](docs/agents/docker-from-worktrees.md).
 - Before checking private registry tags, follow [Private tag inspection](docs/adr/0001-two-docker-repositories.md#private-tag-inspection).
