@@ -14,16 +14,19 @@
 #   - Backup settings (#2112) are admin-only, an invalid update is refused and
 #     leaves the stored row alone, invalid stored settings at startup stop
 #     scheduling while a manual Backup still runs, and a valid save resumes
-#     scheduling without a restart.
+#     scheduling without a restart;
+#   - each Verified Backup pings both heartbeat checks exactly once, and a
+#     Backup under invalid settings pings nothing (#2115). The two checks are a
+#     local stub, so no ping leaves the job.
 #
-# Required: IMAGE, S3_IMAGE, NET, PG_HOST, PG_PASSWORD, REDIS_HOST, S3_HOST.
+# Required: IMAGE, S3_IMAGE, NET, PG_HOST, PG_PASSWORD, REDIS_HOST, S3_HOST, HC_HOST.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 . "$HERE/lib.sh"
 
-require_env IMAGE S3_IMAGE NET PG_HOST PG_PASSWORD REDIS_HOST S3_HOST
+require_env IMAGE S3_IMAGE NET PG_HOST PG_PASSWORD REDIS_HOST S3_HOST HC_HOST
 
 PG_CLIENT_IMAGE="${PG_CLIENT_IMAGE:-postgres:19.0-alpine3.24}"
 PG_USER="${PG_USER:-erp_ci}"
@@ -32,6 +35,8 @@ S3_BUCKET="erp-ci-backups"
 S3_REGION="us-east-1"
 S3_PORT=8333
 S3C="${S3C:-erp_ci_s3}"
+HC="${HC:-erp_ci_heartbeat}"
+HC_PORT="${HC_PORT:-8098}"
 S3_ENDPOINT="http://${S3_HOST}:${S3_PORT}"
 S3_ENDPOINT_IN_CONTAINER="$S3_ENDPOINT"
 S3_ACCESS_KEY_ID="ci$(openssl rand -hex 6)"
@@ -48,7 +53,7 @@ mkdir -m 0777 "$WORK/local-copy"
 export ADMIN_TOKEN=""
 
 cleanup() {
-  docker rm -f "$BACKEND" "$S3C" >/dev/null 2>&1 || true
+  docker rm -f "$BACKEND" "$S3C" "$HC" >/dev/null 2>&1 || true
   rm -rf "$WORK" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -67,6 +72,19 @@ JSON
 docker run -d --name "$S3C" --network "$NET" -v "$WORK/s3.json:/cfg/s3.json:ro" "$S3_IMAGE" \
   server -dir=/data -s3 -s3.port="$S3_PORT" -s3.config=/cfg/s3.json >/dev/null
 
+# The two Healthchecks.io checks, as a local stub. The backend reaches it at HC_HOST, and the
+# stub writes one line per ping to a host-side log, so the gate counts pings without exec.
+mkdir -m 0777 "$WORK/heartbeat"
+log "starting the local heartbeat stub (both checks, no ping leaves the job)"
+docker run -d --name "$HC" --network "$NET" --user "$(id -u):$(id -g)" --entrypoint node \
+  -v "$HERE/heartbeat-stub.cjs:/stub/heartbeat-stub.cjs:ro" -v "$WORK/heartbeat:/data" \
+  "$IMAGE" /stub/heartbeat-stub.cjs "$HC_PORT" /data/pings.log >/dev/null
+for i in $(seq 1 30); do
+  if docker logs "$HC" 2>&1 | grep -q 'heartbeat stub listening'; then break; fi
+  sleep 1
+done
+docker logs "$HC" 2>&1 | grep -q 'heartbeat stub listening' || fail "the heartbeat stub did not start"
+
 log "starting the production backend image against PostgreSQL 19"
 docker run -d --name "$BACKEND" --network "$NET" \
   -v "$WORK/local-copy:/var/lib/erp-backups" \
@@ -79,6 +97,8 @@ docker run -d --name "$BACKEND" --network "$NET" \
   -e BACKUP_S3_ENDPOINT="$S3_ENDPOINT" -e BACKUP_S3_REGION="$S3_REGION" -e BACKUP_S3_BUCKET="$S3_BUCKET" \
   -e BACKUP_S3_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" -e BACKUP_S3_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
   -e BACKUP_S3_FORCE_PATH_STYLE=true -e BACKUP_AGE_RECIPIENT="$RECIPIENT" \
+  -e BACKUP_HEARTBEAT_URL_PRIMARY="http://${HC_HOST}:${HC_PORT}/ping/primary" \
+  -e BACKUP_HEARTBEAT_URL_SECONDARY="http://${HC_HOST}:${HC_PORT}/ping/secondary" \
   "$IMAGE" >/dev/null
 docker cp "$HERE/s3-helper.cjs" "$BACKEND:/app/ci-s3-helper.cjs"
 wait_for_backend
@@ -92,6 +112,13 @@ done
 [ -n "$created" ] || fail "storage never answered, or the Object Lock bucket could not be created"
 
 # ---- Users and authentication -------------------------------------------------
+# Heartbeat counts come from the stub's host-side log: one line per ping, by check.
+heartbeat_count() {
+  local file="$WORK/heartbeat/pings.log"
+  if [ ! -f "$file" ]; then echo 0; return; fi
+  grep -c "\"path\":\"/ping/$1\"" "$file" || true
+}
+
 api POST /auth/login "" "$(jq -nc --arg u admin --arg p "$ADMIN_PASSWORD" '{username:$u,password:$p}')"
 expect_code 200 "admin login"
 ADMIN_TOKEN="$(jq_body .accessToken)"
@@ -283,6 +310,7 @@ api GET /backups/status "$ADMIN_TOKEN"; expect_code 200 "status with valid setti
 # directly, then the backend restarts and must stop scheduling without refusing manual Backups.
 log "invalid stored settings stop scheduling at startup; a manual Backup still runs"
 psql_ci 'UPDATE "backup_settings" SET "intervalMinutes" = 20' >/dev/null
+wait_until_idle 60
 docker restart "$BACKEND" >/dev/null
 wait_for_backend
 api GET /backups/status "$ADMIN_TOKEN"; expect_code 200 "status after restarting with invalid settings"
@@ -293,10 +321,16 @@ api GET /backups/settings "$ADMIN_TOKEN"; expect_code 200 "settings with invalid
 [ "$(jq_body .values.intervalMinutes)" = "20" ] || fail "the stored value was not returned for correction: $HTTP_BODY"
 
 wait_until_idle 60
+PINGS_BEFORE_INVALID_PRIMARY="$(heartbeat_count primary)"
+PINGS_BEFORE_INVALID_SECONDARY="$(heartbeat_count secondary)"
 api POST /backups "$ADMIN_TOKEN"; expect_code 202 "manual Backup while stored settings are invalid"
 wait_until_idle 240
 [ "$(jq_body .lastAttempt.result)" = "succeeded" ] || fail "the manual Backup did not succeed with invalid settings: $HTTP_BODY"
 [ "$(jq_body .lastRetention.result)" = "skipped" ] || fail "retention was not skipped under invalid settings: $HTTP_BODY"
+[ "$(heartbeat_count primary)" = "$PINGS_BEFORE_INVALID_PRIMARY" ] \
+  && [ "$(heartbeat_count secondary)" = "$PINGS_BEFORE_INVALID_SECONDARY" ] \
+  || fail "a Backup under invalid settings sent a heartbeat"
+log "ok: a manual Backup under invalid settings sent no heartbeat"
 
 log "saving valid settings resumes scheduling without a restart"
 api PUT /backups/settings "$ADMIN_TOKEN" "$VALID_SETTINGS"; expect_code 200 "save valid settings"
@@ -347,5 +381,22 @@ log "ok: ${EXP_RP} removed; ${RP_NEW} kept as the newest Verified Backup"
 # The abandoned archive from the interrupted publish is younger than 24 hours, so it must stay.
 s3_oneshot head "backups/${RP3}/backup.tar.age" >/dev/null || fail "an abandoned archive younger than 24 hours was deleted"
 log "ok: the abandoned archive for ${RP3} is kept until it is 24 hours old"
+
+# ---- Heartbeats (#2115): one ping per Verified Backup, on each check ----------
+# Every published Backup is Verified except none here, so each one pings both checks once, except the
+# manual Backup under invalid settings, which pings nothing. Scheduled Backups are published Backups too.
+log "each Verified Backup pings both heartbeat checks exactly once"
+wait_until_idle 240
+PUBLISHED="$(count_manifests)"
+EXPECTED_PINGS=$(( PUBLISHED - 1 ))
+[ "$EXPECTED_PINGS" -ge 2 ] || fail "too few published Backups to check heartbeats: ${PUBLISHED}"
+[ "$(heartbeat_count primary)" = "$EXPECTED_PINGS" ] \
+  || fail "primary check: expected ${EXPECTED_PINGS} pings for ${PUBLISHED} published Backups, got $(heartbeat_count primary)"
+[ "$(heartbeat_count secondary)" = "$EXPECTED_PINGS" ] \
+  || fail "secondary check: expected ${EXPECTED_PINGS} pings for ${PUBLISHED} published Backups, got $(heartbeat_count secondary)"
+# Every line in the log is one of the two check pings: no other path, and no /start or /fail signal.
+[ "$(grep -c . "$WORK/heartbeat/pings.log")" = "$(( 2 * EXPECTED_PINGS ))" ] \
+  || fail "the heartbeat log holds lines other than the two check pings"
+log "ok: ${EXPECTED_PINGS} pings on each check for ${PUBLISHED} published Backups"
 
 log "all Backup lifecycle checks passed"
