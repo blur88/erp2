@@ -31,6 +31,7 @@ Frontend design references:
 
 - [deployment/ruleset-drift.md](./deployment/ruleset-drift.md) — Ruleset drift detection and reviewed baseline updates
 - [deployment/DEPLOYMENT_CHECKLIST.md](./deployment/DEPLOYMENT_CHECKLIST.md) — Deployment checklist
+- [deployment/LOGO_REFERENCE_CHECK.md](./deployment/LOGO_REFERENCE_CHECK.md) — Read-only check for dangling logo references, run before enabling Backups
 
 ## Price List Module
 
