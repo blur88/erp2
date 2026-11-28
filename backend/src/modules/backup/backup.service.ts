@@ -12,7 +12,7 @@ import { DataSource } from 'typeorm';
 import { AuditLogService } from '../audit-logs/services/audit-log.service';
 import { PostgresClientStatus, PostgresClientStatusService } from '../postgres-client/postgres-client-status.service';
 import { AppRelease } from '../../config/app-release.factory';
-import { BackupConfigResult, HeartbeatConfigResult } from './backup.config';
+import { BackupConfigResult, HeartbeatConfigResult, RecoveryHold } from './backup.config';
 import { runBackupAttempt, BackupAttemptDeps } from './backup-attempt';
 import { formatRecoveryPoint, UNRELEASED } from './backup-manifest';
 import { computeRpo, LocalCopyStatus, readLocalCopy } from './backup-protection';
@@ -57,6 +57,8 @@ export interface BackupServiceOptions {
   release: AppRelease;
   /** Healthchecks.io heartbeat URLs from deployment configuration (#2115). */
   heartbeat: HeartbeatConfigResult;
+  /** Recovery environment hold on scheduling and retention (#2113). */
+  recovery: RecoveryHold;
   pingHeartbeat?: HeartbeatPinger;
   heartbeatTimeoutMs?: number;
   timeoutMs?: number;
@@ -82,6 +84,8 @@ export interface BackupStatusView {
   noAttemptSinceRestart: boolean;
   /** The last retention pass, shown apart from Backup results (#2114). Null means none since restart. */
   lastRetention: RetentionRecord | null;
+  /** Whether this copy is a recovery environment whose scheduling and retention are held (#2113). */
+  recoveryHold: RecoveryHold;
   heartbeat: HeartbeatStatusView;
   postgresClient: PostgresClientView;
   release: { version: string; status: AppRelease['status']; configurationError: string | null };
@@ -187,6 +191,7 @@ export class BackupService implements OnApplicationBootstrap {
       lastAttempt: this.lastAttempt,
       noAttemptSinceRestart: this.lastAttempt === null,
       lastRetention: this.lastRetention,
+      recoveryHold: this.options.recovery,
       heartbeat: {
         urlCount: this.options.heartbeat.urls.length,
         missingSettings: [...this.options.heartbeat.missing, ...this.options.heartbeat.invalid],
@@ -351,6 +356,10 @@ export class BackupService implements OnApplicationBootstrap {
 
   /** Never throws: a failed pass is recorded in lastRetention and changes nothing else. */
   private async runRetention(): Promise<void> {
+    if (this.options.recovery.held) {
+      this.lastRetention = skippedRetention(this.now().toISOString(), this.options.recovery.reason ?? 'Retention is held');
+      return;
+    }
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort(new Error('Retention timed out')),

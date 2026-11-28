@@ -5,6 +5,7 @@ import { BackupScheduleService, BACKUP_SCHEDULE_TIMER } from './backup-schedule.
 import { BACKUP_SETTINGS_DEFAULTS, BackupSettingsValues, validateBackupSettings } from './backup-settings';
 import { BackupSettingsService, StoredBackupSettings } from './backup-settings.service';
 import { makeReadyHarness } from './backup-test-fixtures';
+import { loadRecoveryHold, RecoveryHold } from './backup.config';
 
 /** 2026-11-28 10:07 UTC: the next 30-minute boundary is 10:30. */
 const START = new Date('2026-11-28T10:07:00.000Z');
@@ -23,7 +24,7 @@ interface Harness {
 }
 
 async function makeHarness(
-  options: { stored?: StoredBackupSettings | Error; enabled?: boolean; configured?: boolean } = {},
+  options: { stored?: StoredBackupSettings | Error; enabled?: boolean; configured?: boolean; recovery?: RecoveryHold } = {},
 ): Promise<Harness> {
   const stored = { current: options.stored ?? { state: 'valid' as const, settings: { ...BACKUP_SETTINGS_DEFAULTS } } };
   const configuredStatus = {
@@ -52,7 +53,7 @@ async function makeHarness(
     backupHarness.service.start(args[0] as any),
   );
   const backups = {
-    getStatus: () => ({ ...configuredStatus }),
+    getStatus: () => ({ ...configuredStatus, recoveryHold: options.recovery ?? loadRecoveryHold({}) }),
     start: backupStart,
   };
 
@@ -122,6 +123,42 @@ describe('BackupScheduleService (#2112)', () => {
       await jest.advanceTimersByTimeAsync(1);
       expect(h.backupStart).toHaveBeenCalledTimes(2);
       await h.schedule.onModuleDestroy();
+    });
+  });
+
+  describe('recovery environment (#2113)', () => {
+    it('never arms scheduling, reads no settings, and reports the hold with its reason', async () => {
+      const h = await makeHarness({ recovery: loadRecoveryHold({ BACKUP_RECOVERY_ENVIRONMENT: 'true' }) });
+      jest.setSystemTime(START);
+
+      await h.schedule.reconcile();
+
+      expect(h.schedule.getSchedulingStatus()).toMatchObject({ state: 'unavailable' });
+      expect((h.schedule.getSchedulingStatus() as { reason: string }).reason).toContain('recovery environment');
+      expect(h.registry.doesExist('timeout', BACKUP_SCHEDULE_TIMER)).toBe(false);
+      expect(h.backupStart).not.toHaveBeenCalled();
+    });
+
+    it('does not fire a scheduled Backup in a recovery environment, even at a boundary', async () => {
+      const h = await makeHarness({ recovery: loadRecoveryHold({ BACKUP_RECOVERY_ENVIRONMENT: 'true' }) });
+      jest.setSystemTime(START);
+      await h.schedule.reconcile();
+      jest.advanceTimersByTime(30 * MINUTE);
+      await Promise.resolve();
+
+      expect(h.backupStart).not.toHaveBeenCalled();
+    });
+
+    it('arms scheduling once the operator allows it, and only then', async () => {
+      const h = await makeHarness({
+        recovery: loadRecoveryHold({ BACKUP_RECOVERY_ENVIRONMENT: 'true', BACKUP_RECOVERY_ALLOW_SCHEDULING_AND_RETENTION: 'true' }),
+      });
+      jest.setSystemTime(START);
+
+      await h.schedule.reconcile();
+
+      expect(h.schedule.getSchedulingStatus()).toMatchObject({ state: 'scheduled', intervalMinutes: 30 });
+      expect(h.registry.doesExist('timeout', BACKUP_SCHEDULE_TIMER)).toBe(true);
     });
   });
 

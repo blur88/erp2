@@ -7,6 +7,7 @@ import { buildManifest, archiveKeyFor, manifestKeyFor } from './backup-manifest'
 import { BACKUP_TIMEOUT_MS } from './backup.types';
 import { AuditLogService } from '../audit-logs/services/audit-log.service';
 import { BackupService } from './backup.service';
+import { loadRecoveryHold } from './backup.config';
 
 const actor = { kind: 'manual' as const, userId: 'admin-1', username: 'admin' };
 
@@ -502,6 +503,33 @@ describe('BackupService (#2111)', () => {
       await h.service.start(actor);
       await waitForIdle(h.service);
       expect(h.service.getStatus().lastAttempt).toMatchObject({ result: 'failed', failedStep: 'dump' });
+      expect(h.service.getStatus().lastRetention).toMatchObject({ result: 'succeeded' });
+    });
+
+    it('holds retention in a recovery environment: no storage calls for it, and the hold is recorded', async () => {
+      const hold = loadRecoveryHold({ BACKUP_RECOVERY_ENVIRONMENT: 'true' });
+      h = await makeReadyHarness({ recovery: hold });
+      let retentionCalls = 0;
+      h.client.hook = (operation) => {
+        if (operation === 'list' || operation === 'delete') retentionCalls += 1;
+      };
+
+      await h.service.start(actor);
+      await waitForIdle(h.service);
+
+      expect(h.service.getStatus().lastAttempt?.result).toBe('succeeded');
+      expect(h.service.getStatus().lastRetention).toMatchObject({ result: 'skipped' });
+      expect(h.service.getStatus().lastRetention?.message).toContain('recovery environment');
+      expect(retentionCalls).toBe(0);
+    });
+
+    it('runs retention once the recovery hold is released by the operator', async () => {
+      const hold = loadRecoveryHold({ BACKUP_RECOVERY_ENVIRONMENT: 'true', BACKUP_RECOVERY_ALLOW_SCHEDULING_AND_RETENTION: 'true' });
+      h = await makeReadyHarness({ recovery: hold });
+
+      await h.service.start(actor);
+      await waitForIdle(h.service);
+
       expect(h.service.getStatus().lastRetention).toMatchObject({ result: 'succeeded' });
     });
 

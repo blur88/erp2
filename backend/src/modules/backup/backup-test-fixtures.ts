@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
 import { PrintSettings } from '../../database/entities/print-settings.entity';
-import { BackupConfig, HeartbeatConfigResult } from './backup.config';
+import { BackupConfig, HeartbeatConfigResult, loadRecoveryHold, RecoveryHold } from './backup.config';
 import { S3BackupStorage } from './backup-storage';
 import { BackupService, BackupServiceOptions, HeartbeatPinger } from './backup.service';
 import { BACKUP_SETTINGS_DEFAULTS } from './backup-settings';
@@ -102,6 +102,7 @@ export function makeHarness(
     dataSource?: unknown;
     stored?: StoredBackupSettings;
     retentionTimeoutMs?: number;
+    recovery?: RecoveryHold;
   } = {},
 ): Harness {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-test-'));
@@ -136,6 +137,7 @@ export function makeHarness(
     release: overrides.release ?? { version: '1.2.3', status: 'released', configurationError: null },
     timeoutMs: overrides.timeoutMs,
     retentionTimeoutMs: overrides.retentionTimeoutMs,
+    recovery: overrides.recovery ?? loadRecoveryHold({}),
     now: overrides.now,
   };
   const service = new BackupService(

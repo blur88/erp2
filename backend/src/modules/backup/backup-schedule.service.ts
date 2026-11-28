@@ -92,6 +92,12 @@ export class BackupScheduleService implements OnApplicationBootstrap, OnModuleDe
       return keepOff('warn', 'scheduled Backups are turned off in this environment');
     }
 
+    // Checked before any settings are read: a recovery environment changes nothing on the bucket (#2113).
+    const health = this.backups.getStatus();
+    if (health.recoveryHold.held) {
+      return keepOff('warn', health.recoveryHold.reason ?? 'scheduled Backups are held in this recovery environment');
+    }
+
     let stored;
     try {
       stored = await this.settings.readStored();
@@ -106,7 +112,6 @@ export class BackupScheduleService implements OnApplicationBootstrap, OnModuleDe
       return keepOff('error', `Stored Backup settings are invalid (${fields || 'unknown field'}). Save valid settings to resume scheduling.`);
     }
 
-    const health = this.backups.getStatus();
     if (!health.configured) {
       return keepOff('warn', `Backup deployment configuration is incomplete: ${health.missingSettings.join(', ')}`);
     }

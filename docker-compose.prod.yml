@@ -132,6 +132,9 @@ services:
       # Healthchecks.io heartbeat URLs (#2115). Secrets: passed through, never printed.
       - BACKUP_HEARTBEAT_URL_PRIMARY=${BACKUP_HEARTBEAT_URL_PRIMARY:-}
       - BACKUP_HEARTBEAT_URL_SECONDARY=${BACKUP_HEARTBEAT_URL_SECONDARY:-}
+      # Recovery environment guard (#2113). Set both only in a restored copy; see the Backup & Restore runbook.
+      - BACKUP_RECOVERY_ENVIRONMENT=${BACKUP_RECOVERY_ENVIRONMENT:-}
+      - BACKUP_RECOVERY_ALLOW_SCHEDULING_AND_RETENTION=${BACKUP_RECOVERY_ALLOW_SCHEDULING_AND_RETENTION:-}
 
       # Security
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}

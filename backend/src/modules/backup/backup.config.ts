@@ -165,3 +165,44 @@ export function buildPostgresToolEnv(env: NodeJS.ProcessEnv = process.env): Node
   if (sslEnabled && env.DB_SSL_KEY) toolEnv.PGSSLKEY = env.DB_SSL_KEY;
   return toolEnv;
 }
+
+/**
+ * Recovery environment guard (#2113). A copy of ERP2 booted from a restored
+ * database carries the production Backup settings and, usually, the production
+ * bucket. Until an operator allows it, that copy must not schedule Backups or
+ * run retention against the bucket, because retention deletes.
+ *
+ * The marker is fail-closed: any value except empty or `false` marks a recovery
+ * environment. The allow flag releases the hold only when it is exactly `true`.
+ */
+export const RECOVERY_ENV = {
+  recoveryEnvironment: 'BACKUP_RECOVERY_ENVIRONMENT',
+  allowScheduleAndRetention: 'BACKUP_RECOVERY_ALLOW_SCHEDULING_AND_RETENTION',
+} as const;
+
+export interface RecoveryHold {
+  /** True when the environment is marked as a recovery environment. */
+  recovery: boolean;
+  /** True when scheduling and retention are held. */
+  held: boolean;
+  /** Shown in Backup status. Names variables only, never values. */
+  reason: string | null;
+}
+
+/** Pure: reads the two markers from the environment and reports whether the hold applies. */
+export function loadRecoveryHold(env: NodeJS.ProcessEnv = process.env): RecoveryHold {
+  const marker = (env[RECOVERY_ENV.recoveryEnvironment] ?? '').trim();
+  const recovery = marker !== '' && marker.toLowerCase() !== 'false';
+  if (!recovery) return { recovery: false, held: false, reason: null };
+
+  const allowed = (env[RECOVERY_ENV.allowScheduleAndRetention] ?? '').trim() === 'true';
+  if (allowed) return { recovery: true, held: false, reason: null };
+
+  return {
+    recovery: true,
+    held: true,
+    reason:
+      `This is a recovery environment, so scheduled Backups and retention are held to protect the Backup bucket. ` +
+      `After checking the restored Backup settings, set ${RECOVERY_ENV.allowScheduleAndRetention}=true and restart to allow them.`,
+  };
+}
