@@ -1,5 +1,8 @@
+export function dockerStageImage(dockerfile: string, alias: string): string | undefined;
 export function dockerStageImages(dockerfile: string): string[];
 export function isComposeFile(file: string): boolean;
+export function isDockerfile(file: string): boolean;
+export function unresolvedDockerfileImages(dockerfile: string): string[];
 export function officialImageRepository(image: string): string | undefined;
 export function readRepositorySources(
   root: string,

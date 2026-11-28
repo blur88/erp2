@@ -1,8 +1,8 @@
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
-const { mkdtempSync, rmSync, writeFileSync } = require('node:fs');
+const { mkdtempSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
-const { join } = require('node:path');
+const { join, resolve } = require('node:path');
 const { test } = require('node:test');
 const { checkDrift, compareVersions, githubTracker, inspectPins, parsePins, readPinSources, validatePins } = require('../check-base-image-drift.cjs');
 const { officialImagePin, officialImageRepository } = require('../docker-image-pins.cjs');
@@ -377,4 +377,35 @@ test('identifies bare official images without accepting connection strings', () 
   assert.equal(officialImageRepository('redis:8.6.8-alpine3.23'), 'redis');
   assert.equal(officialImageRepository('postgres://localhost/db'), undefined);
   assert.equal(officialImageRepository('registry.example/redis'), undefined);
+});
+
+test('discovers the backend PostgreSQL client stage as a pinned image', () => {
+  const root = resolve(__dirname, '..', '..');
+  const backendDockerfile = readFileSync(join(root, 'backend', 'Dockerfile'), 'utf8');
+  assert.ok(readPinSources(root)['backend/Dockerfile'], 'backend/Dockerfile must be a pin source');
+  assert.deepEqual(parsePins({ 'backend/Dockerfile': backendDockerfile }).filter(({ repository }) => repository === 'postgres'), [
+    { repository: 'postgres', tag: '19.0-alpine3.24', pinnedDigest: undefined, sources: ['backend/Dockerfile'] },
+  ]);
+});
+
+for (const [description, dockerfile] of [
+  ['a braced variable', 'FROM ${POSTGRES_IMAGE} AS pgclient'],
+  ['a braced variable with a default', 'FROM ${POSTGRES_IMAGE:-postgres:19.0-alpine3.24} AS pgclient'],
+  ['an unbraced variable', 'FROM $POSTGRES_IMAGE AS pgclient'],
+  ['a later stage that reuses an unresolved alias', 'FROM ${BASE} AS base\nFROM base'],
+]) {
+  test(`rejects a FROM reference with ${description} as a guard failure`, () => {
+    assert.throws(() => validatePins({ 'backend/Dockerfile': dockerfile }), /unresolved/);
+  });
+}
+
+test('accepts stage aliases, literal references and variables in FROM options', () => {
+  assert.doesNotThrow(() => validatePins({
+    'backend/Dockerfile': [
+      'FROM --platform=$BUILDPLATFORM node:26.13.1-alpine3.24 AS deps',
+      'FROM deps AS builder',
+      'FROM postgres:19.0-alpine3.24 AS pgclient',
+      'FROM pgclient',
+    ].join('\n'),
+  }));
 });
