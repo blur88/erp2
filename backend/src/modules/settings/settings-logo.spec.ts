@@ -96,6 +96,19 @@ describe('SettingsService company logo lifecycle', () => {
       expect(settings.logoUrl).toBe(OLD);
       expect(exists(OLD)).toBe(true);
     });
+
+    it('refuses a reference that escapes the logos directory, even when the target exists', async () => {
+      write(OLD);
+      const outside = '/uploads/logos/../outside.png';
+      write('/uploads/outside.png');
+      const settings: any = { id: 's1', isActive: true, logoUrl: OLD };
+      const { service, companySettingsRepository } = buildService(settings);
+
+      await expect(service.updateLogoUrl(outside, 'tester')).rejects.toThrow();
+
+      expect(companySettingsRepository.save).not.toHaveBeenCalled();
+      expect(settings.logoUrl).toBe(OLD);
+    });
   });
 
   describe('removing the company logo', () => {
