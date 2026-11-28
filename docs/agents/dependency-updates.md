@@ -82,3 +82,38 @@
    root and use the report to account for the complete set of resolution changes.
    The command defaults to the merge base with local `main` and compares it with
    `HEAD`. Pass the PR base and head refs explicitly when needed.
+
+## Image-pin guards
+
+Container image references are checked by guards that run in the required
+test paths. Change a pin only in its canonical source, then run the listed
+command. Every guard fails on a `FROM` whose image reference contains an
+unresolved variable (`${NAME}`, `${NAME:-default}` or `$NAME`), because no
+guard can compare it. Name the image literally. Stage aliases (`FROM pgclient`)
+and variables in `FROM` options (`--platform=$BUILDPLATFORM`) are allowed.
+
+- **Database image alignment** covers PostgreSQL and Redis in Compose files,
+  workflows, repository scripts and every Dockerfile `FROM`. The backend
+  `pgclient` stage must match the Compose `postgres` reference in full (#2110).
+  Canonical source: the `postgres` and `redis` images in development
+  `docker-compose.yml`. Verify with
+  `cd backend && npm run test` (`test/unit/database-image-alignment.spec.ts`).
+- **Node version alignment** covers the Node runtime in the backend and frontend
+  Dockerfiles, `.nvmrc`, the E2E leak-check workflow and both `package.json`
+  files. Canonical
+  source: the first Node `FROM` in `backend/Dockerfile`. Verify with
+  `cd backend && npm run test` (`test/unit/node-version-alignment.spec.ts`).
+- **NGINX alignment** covers the reverse proxy and the frontend runtime image.
+  Canonical source: the first `FROM` in `nginx/Dockerfile`. Verify with
+  `cd backend && npm run test` (`test/unit/nginx-image-alignment.spec.ts`).
+- **Base-image drift check** reports newer patches and series for every pinned
+  Dockerfile and Compose image. Its weekly workflow is
+  `.github/workflows/base-image-drift.yml`, and it reports only without changing
+  pins. Its script tests, including the unresolved-reference and stage-discovery
+  checks, run in the release path. Canonical source: the pins it reads from each
+  Dockerfile and Compose file. Verify with `npm run test:release` from the
+  repository root.
+- **Docker image package tests** check that the published backend and frontend
+  stages upgrade Alpine packages and reject unresolved base images. Canonical
+  source: the published (last) `FROM` in each Dockerfile. Verify with
+  `npm run test:release` from the repository root.

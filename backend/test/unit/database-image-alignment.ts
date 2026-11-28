@@ -1,12 +1,19 @@
 // Keep Compose, CI, and script image references aligned with development Compose (#2043).
 import { load } from "js-yaml";
 import {
+  dockerStageImage,
+  dockerStageImages,
   isComposeFile,
+  isDockerfile,
   officialImagePin,
   officialImageRepository,
+  unresolvedDockerfileImages,
 } from "../../../scripts/docker-image-pins.cjs";
 
 const canonicalCompose = "docker-compose.yml";
+// The backend image copies the PostgreSQL client tools from this stage (#2110).
+const clientStageDockerfile = "backend/Dockerfile";
+const clientStageAlias = "pgclient";
 const exactTags = new Map([
   ["postgres", /^\d+\.\d+-alpine\d+\.\d+$/],
   ["redis", /^\d+\.\d+\.\d+-alpine\d+\.\d+$/],
@@ -21,6 +28,7 @@ export function isDatabaseImageSource(file: string): boolean {
   return (
     !file.split("/").includes("__tests__") &&
     (isComposeFile(file) ||
+      isDockerfile(file) ||
       workflowPath.test(file) ||
       /\.(?:bash|sh)$/.test(file))
   );
@@ -187,6 +195,30 @@ function* shellImages(source: string): Generator<string> {
   }
 }
 
+// Dockerfile FROM references are compared as complete references. A variable
+// cannot be compared, so it is reported rather than skipped (#2110).
+function dockerfileMisalignment(
+  file: string,
+  content: string,
+  expected: Map<string, string>,
+): string | undefined {
+  const [unresolved] = unresolvedDockerfileImages(content);
+  if (unresolved !== undefined) {
+    return `${file}: unresolved image reference ${unresolved} is not checked; FROM must name the image literally`;
+  }
+  if (
+    file === clientStageDockerfile &&
+    dockerStageImage(content, clientStageAlias) === undefined
+  ) {
+    return `${file}: missing ${clientStageAlias} stage; expected FROM ${expected.get("postgres")} AS ${clientStageAlias}`;
+  }
+  for (const image of dockerStageImages(content)) {
+    const repository = officialImageRepository(image);
+    const pin = repository && expected.get(repository);
+    if (pin && image !== pin) return `${file}: expected ${pin}, found ${image}`;
+  }
+}
+
 export function findDatabaseImageMisalignment(
   sources: Record<string, string>,
 ): string | undefined {
@@ -209,6 +241,11 @@ export function findDatabaseImageMisalignment(
   }
 
   for (const [file, content] of Object.entries(sources)) {
+    if (isDockerfile(file)) {
+      const problem = dockerfileMisalignment(file, content, expected);
+      if (problem) return problem;
+      continue;
+    }
     const references = workflowPath.test(file)
       ? workflowImages(load(content))
       : isComposeFile(file)

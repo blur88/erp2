@@ -219,3 +219,108 @@ describe("Postgres and Redis image alignment", () => {
     expect(findDatabaseImageMisalignment(sources)).toBeUndefined();
   });
 });
+
+describe("PostgreSQL client stage alignment (#2110)", () => {
+  const pgCompose = `
+services:
+  postgres:
+    image: postgres:19.0-alpine3.24
+  redis:
+    image: redis:8.6.7-alpine3.23
+`;
+  const pgclient = "FROM postgres:19.0-alpine3.24 AS pgclient";
+  const backendStages = [
+    "FROM --platform=$BUILDPLATFORM node:26.13.1-alpine3.24 AS deps",
+    "FROM deps AS builder",
+    pgclient,
+    "FROM node:26.13.1-alpine3.24 AS production",
+    "COPY --from=pgclient /usr/local/bin/pg_dump /usr/local/bin/pg_dump",
+  ].join("\n");
+
+  function checkBackend(dockerfile: string): string | undefined {
+    return findDatabaseImageMisalignment({
+      "docker-compose.yml": pgCompose,
+      "backend/Dockerfile": dockerfile,
+    });
+  }
+
+  it("accepts a client stage that matches development Compose", () => {
+    expect(checkBackend(backendStages)).toBeUndefined();
+  });
+
+  it("accepts stage aliases and variables in FROM options", () => {
+    expect(
+      checkBackend(
+        [
+          "FROM node:26.13.1-alpine3.24 AS deps",
+          "FROM --platform=$BUILDPLATFORM deps AS builder",
+          pgclient,
+          "FROM pgclient AS copy",
+        ].join("\n"),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("reports a client stage whose full reference differs from Compose", () => {
+    expect(
+      checkBackend(
+        backendStages.replace(
+          pgclient,
+          "FROM docker.io/library/postgres:19.0-alpine3.24 AS pgclient",
+        ),
+      ),
+    ).toBe(
+      "backend/Dockerfile: expected postgres:19.0-alpine3.24, found docker.io/library/postgres:19.0-alpine3.24",
+    );
+  });
+
+  it("reports a client stage on a different PostgreSQL major", () => {
+    expect(
+      checkBackend(backendStages.replace(pgclient, "FROM postgres:18.6-alpine3.24 AS pgclient")),
+    ).toBe(
+      "backend/Dockerfile: expected postgres:19.0-alpine3.24, found postgres:18.6-alpine3.24",
+    );
+  });
+
+  it("reports a backend image without the pgclient stage", () => {
+    expect(
+      checkBackend("FROM node:26.13.1-alpine3.24 AS production"),
+    ).toBe(
+      "backend/Dockerfile: missing pgclient stage; expected FROM postgres:19.0-alpine3.24 AS pgclient",
+    );
+  });
+
+  it.each([
+    ["a braced variable", "FROM ${POSTGRES_IMAGE} AS pgclient", "${POSTGRES_IMAGE}"],
+    [
+      "a braced variable with a default",
+      "FROM ${POSTGRES_IMAGE:-postgres:19.0-alpine3.24} AS pgclient",
+      "${POSTGRES_IMAGE:-postgres:19.0-alpine3.24}",
+    ],
+    ["an unbraced variable", "FROM $POSTGRES_IMAGE AS pgclient", "$POSTGRES_IMAGE"],
+  ])("reports an unresolved client reference with %s", (_, stage, image) => {
+    expect(
+      checkBackend(backendStages.replace(pgclient, stage)),
+    ).toBe(
+      `backend/Dockerfile: unresolved image reference ${image} is not checked; FROM must name the image literally`,
+    );
+  });
+
+  it.each([
+    ["nginx/Dockerfile", "FROM ${NGINX_IMAGE} AS proxy"],
+    ["frontend/Dockerfile", "FROM $FRONTEND_BASE AS build"],
+  ])("reports an unresolved FROM in %s", (file, stage) => {
+    expect(
+      findDatabaseImageMisalignment({
+        "docker-compose.yml": pgCompose,
+        [file]: stage,
+      }),
+    ).toContain(`${file}: unresolved image reference`);
+  });
+
+  it("treats Dockerfiles as database image sources", () => {
+    expect(isDatabaseImageSource("backend/Dockerfile")).toBe(true);
+    expect(isDatabaseImageSource("nginx/Dockerfile")).toBe(true);
+  });
+});
+
