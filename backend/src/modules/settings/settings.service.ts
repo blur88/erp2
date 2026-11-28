@@ -216,7 +216,12 @@ export class SettingsService {
    * logoUrl format: /uploads/logos/logo-123456789.png
    */
   private logoFileExists(logoUrl: string): boolean {
-    return fs.existsSync(path.join(process.cwd(), logoUrl.replace(/^\//, '')));
+    const logosRoot = path.resolve(process.cwd(), 'uploads', 'logos');
+    const candidate = path.resolve(process.cwd(), logoUrl.replace(/^\//, ''));
+    if (!candidate.startsWith(logosRoot + path.sep)) {
+      return false;
+    }
+    return fs.existsSync(candidate);
   }
 
   /**
